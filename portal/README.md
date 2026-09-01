@@ -22,6 +22,14 @@ and synthesized audio. Assistant text renders a safe Markdown subset including
 headings, emphasis, lists, block quotes, links, and fenced code. Sending a turn
 clears the composer and attachments immediately.
 
+An audio attachment sent without typed text is a conversational turn, not a
+direct-ASR result. The portal briefly shows `Audio clip`, replaces that text in
+the originating user bubble with only the adapter's tagged verbatim
+`input_transcript`, and sends the separated transcript plus non-speech acoustic
+evidence through Qwen3.8. Only Qwen3.8's answer appears in the assistant bubble.
+Clients that need transcription without a language reply can still call the
+adapter explicitly with `omni.task="transcribe"`.
+
 The brain icon controls the real Ollama `think` request field. Gray is the
 default and sends the boolean `think:false`; violet explicitly sends
 `think:true`. No system instruction, prompt suffix, or synthetic `/no_think`
@@ -63,7 +71,7 @@ playback.
 | Composer action | Adapter route |
 |---|---|
 | Text chat | Qwen3.8 language |
-| Audio attachment with no prompt | Qwen3-Omni direct transcription |
+| Audio attachment with no prompt | Qwen3-Omni transcript/acoustic evidence → Qwen3.8 reply |
 | Audio attachment with a prompt | Qwen3-Omni comprehension → Qwen3.8 |
 | Image/video with no prompt | Qwen3-Omni direct description |
 | Image/video with a prompt | Qwen3-Omni comprehension → Qwen3.8 |
@@ -321,9 +329,10 @@ media base64 or the access token.
   `get_portal_capabilities`; unknown names return an error result and cannot
   execute programs, access files, or make network requests.
 - Media observations remain untrusted evidence at the adapter boundary.
-- During calls, only the adapter's tagged `input_transcript` is rendered in the
-  user bubble. Raw perception output is never attributed to the user, and the
-  pending assistant card remains hidden until an assistant delta is available.
+- During audio-only sends and calls, only the adapter's tagged
+  `input_transcript` is rendered in the user bubble. Raw perception output is
+  never attributed to the user, and the pending assistant card remains hidden
+  until an assistant delta is available.
 - Re-recording with the camera replaces the prior unsent camera clip, so only
   the latest captured segment enters a request. The exact submitted clip is
   retained as a muted looping video thumbnail on its user message; separately
@@ -333,11 +342,12 @@ media base64 or the access token.
   newest media turn becomes the context for subsequent text-only follow-ups.
   Visual-call turns likewise use only the current frame; audio-only calls keep
   their conversational history.
-- Audio attached with a text question performs combined ASR and environmental
-  sound analysis. Speech is exposed separately from non-speech events, ambience,
+- Every chat audio attachment performs combined ASR and environmental sound
+  analysis. Speech is exposed separately from non-speech events, ambience,
   music, speaker activity, and temporal changes, so acoustic observations reach
-  the language model without appearing as user-authored transcript text. An
-  audio-only send retains the direct, low-latency ASR behavior.
+  the language model without appearing as user-authored transcript text. For an
+  unprompted clip, the tagged speech transcript replaces the temporary user
+  placeholder and the language-model answer remains a separate assistant turn.
 
 Cloudflare Quick Tunnels are temporary development endpoints, not durable
 production ingress. Stop the portal after the phone test. For a persistent
