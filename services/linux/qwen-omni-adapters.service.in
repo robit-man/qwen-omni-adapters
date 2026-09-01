@@ -1,0 +1,25 @@
+[Unit]
+Description=Qwen Omni Adapters runtime and dashboard
+After=network-online.target ollama.service docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@SERVICE_USER@
+Group=@SERVICE_GROUP@
+WorkingDirectory=@REPO_ROOT@
+Environment=OMNI_REPO_ROOT=@REPO_ROOT@
+EnvironmentFile=-@REPO_ROOT@/.env
+ExecStart=@EXEC_START@
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=0
+TimeoutStopSec=120
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=-@REPO_ROOT@/runtime-data
+
+[Install]
+WantedBy=multi-user.target

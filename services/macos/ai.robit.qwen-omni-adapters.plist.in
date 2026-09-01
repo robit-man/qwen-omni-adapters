@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.robit.qwen-omni-adapters</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>@REPO_ROOT@/.venv/bin/qwen-omni-daemon</string>
+    <string>serve</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>@REPO_ROOT@</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OMNI_REPO_ROOT</key>
+    <string>@REPO_ROOT@</string>
+    <key>PATH</key>
+    <string>@PATH@</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+  <key>StandardOutPath</key>
+  <string>@REPO_ROOT@/runtime-data/logs/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>@REPO_ROOT@/runtime-data/logs/launchd.err.log</string>
+</dict>
+</plist>

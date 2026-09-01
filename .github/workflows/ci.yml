@@ -1,0 +1,49 @@
+name: source-validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install source-only environment
+        run: ./scripts/bootstrap.sh --skip-llama --skip-models
+      - name: Validate Python, schemas, shell, and VAD
+        run: ./scripts/validate.sh
+      - name: Parse PowerShell service scripts
+        shell: pwsh
+        run: |
+          $files = @(
+            "deploy.ps1",
+            "scripts/bootstrap.ps1",
+            "scripts/build_llama_cpp.ps1",
+            "services/windows/install.ps1",
+            "services/windows/uninstall.ps1"
+          )
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $file),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count) {
+              $errors | ForEach-Object { Write-Error $_ }
+              exit 1
+            }
+          }
