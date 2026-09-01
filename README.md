@@ -87,6 +87,8 @@ pretend that their tensors can be spliced into a directly executable graph.
 | Speech transcription | Qwen3-Omni comprehension | Yes |
 | Environmental audio interpretation | Qwen3-Omni tagged observation | Yes |
 | Video understanding | Qwen3-Omni bounded `input_video` | Yes |
+| Silent video and animated GIF | FFmpeg probe/normalization → Qwen3-Omni | Yes |
+| PDF/DOCX/text retrieval | Session-isolated portal extraction/index | Yes |
 | Spoken response | Qwen3-TTS, 24 kHz mono PCM16 | Yes |
 | Voice reference cloning | Qwen3-TTS Base speaker embedding path | Yes |
 | Live-call turns | Adaptive VAD + streamed text/PCM extension | Yes |
@@ -132,7 +134,11 @@ separate so environmental sounds are never misrouted as the user's words.
 - The portal defaults to one active GPU lane and four admitted active/queued
   requests, with request-local media, tools, voice settings, and streams.
 - Browser conversation history is local to that browser session. The server
-  has no shared model conversation state.
+  has no shared model conversation state. The optional bounded document index
+  is in-memory, hashed-cookie partitioned, cleared by trash, and expires after
+  five idle minutes.
+- Long speech is split before the per-generation codec-frame ceiling, streamed
+  with continuous sequence numbers, and assembled into one complete final WAV.
 - Reasoning is off until the client sends native `think:true`. Thinking is
   returned separately and is never synthesized.
 - CUDA media inference has no CPU fallback. Broker allocation and exact UUID

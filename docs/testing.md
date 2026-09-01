@@ -20,13 +20,14 @@ individual graphs, combined routes, registry copies, and cleanup gates pass.
 ./scripts/validate.sh
 ```
 
-The unit suite covers strict audio/video/image decoding, item and size limits,
-all four routes, Ollama field preservation, speech/tool deferral, TTS envelope
-validation, six-view GGUF packing/materialization, and custom Ollama layer
+The unit suite covers strict audio/video/image/GIF decoding, silent-video
+handling, item and size limits, all four routes, Ollama field preservation,
+speech/tool deferral, long-form TTS block assembly, TTS envelope validation,
+six-view GGUF packing/materialization, and custom Ollama layer
 attach/resolve/cache preparation. Portal tests additionally cover native
 reasoning-off routing, adaptive call VAD, smooth message handling, concurrent
-session isolation, content-redacted diagnostic expiry/deletion, and streamed
-PCM relay.
+session and document-index isolation, bounded PDF/text ingestion,
+content-redacted diagnostic expiry/deletion, and streamed PCM relay.
 
 ## Artifact gate
 
@@ -52,8 +53,11 @@ Use compact redistributable fixtures with documented expected assertions:
 | 16 kHz mono PCM16 speech | exact or thresholded transcript |
 | image with color/shape/text | all expected visible facts |
 | silent temporal video | event order preserved |
+| animated GIF | normalized temporal order preserved |
 | video with speech/sound | visual order plus audio assertion |
 | direct TTS sentence | positive-duration 24 kHz mono PCM16 WAV |
+| long TTS paragraph | multiple blocks, one start event, contiguous sequence |
+| PDF/text document | bounded extraction, relevant retrieval, session isolation |
 
 Record fixture digest, size, duration/dimensions, codec, license, and expected
 result. Do not commit large or restricted media.
@@ -82,6 +86,8 @@ result. Do not commit large or restricted media.
 
 - RIFF/WAVE container, PCM16, mono, 24 kHz;
 - positive and bounded duration;
+- long text continues across the per-generation frame limit and yields a complete replay WAV;
+- the first audio event is emitted only with the first real PCM window;
 - at least two repeated requests succeed;
 - empty/excessive text and unsupported options have defined errors;
 - selected languages/voices are only advertised after their own tests.

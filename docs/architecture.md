@@ -57,7 +57,11 @@ the attached sidecar remains the source of truth.
 
 The adapter is stateless between HTTP requests. Each request owns its parsed
 media bytes, stage outputs, tools, voice settings, cancellation, and response
-stream. The portal keeps conversation history only in that browser page.
+stream. The portal keeps conversation history only in that browser page. Its
+optional document index is likewise keyed by a one-way session identifier,
+bounded in memory, cleared by the trash action, and expired after the session
+disconnects. Raw documents and retrieved passages never cross into another
+browser session.
 
 The reference deployment serializes GPU inference with one active lane and
 admits four active/queued requests. This is bounded concurrency, not shared
@@ -73,4 +77,8 @@ The portable adapter v1 response is turn-based. The phone portal adds an NDJSON
 transport that relays language deltas and live Qwen3-TTS PCM windows while
 retaining one authoritative final Ollama-shaped response. Camera-call mode
 sends a current frame with each confirmed speech turn; it does not feed an
-unbounded camera stream into one ever-growing context.
+unbounded camera stream into one ever-growing context. Long speech replies are
+split at sentence boundaries before the Qwen3-TTS per-generation frame limit;
+their PCM windows share one monotonically increasing sequence and are assembled
+into the final replay WAV. Silent video is valid, and animated GIF input is
+normalized into a bounded temporal video before comprehension.

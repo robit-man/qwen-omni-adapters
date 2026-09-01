@@ -16,7 +16,8 @@ content.
 The phone UI is deliberately a single chat surface. Press and hold the
 microphone icon to record; the live waveform disappears on release and the
 resulting 16 kHz WAV appears as a playable attachment before it is sent. The
-paperclip accepts WAV, JPEG, PNG, WebP, MP4, and WebM. The speaker icon is the
+paperclip accepts WAV, JPEG, PNG, WebP, animated GIF, MP4, WebM, PDF, DOCX, and
+bounded UTF-8 text/code files. Multiple files can be attached together. The speaker icon is the
 only output toggle: gray requests text only, while yellow requests both text
 and synthesized audio. Assistant text renders a safe Markdown subset including
 headings, emphasis, lists, block quotes, links, and fenced code. Sending a turn
@@ -75,6 +76,9 @@ playback.
 | Audio attachment with a prompt | Qwen3-Omni comprehension → Qwen3.8 |
 | Image/video with no prompt | Qwen3-Omni direct description |
 | Image/video with a prompt | Qwen3-Omni comprehension → Qwen3.8 |
+| Silent video or animated GIF | bounded visual-only comprehension |
+| PDF/DOCX/text or code | extraction → session-isolated retrieval → Qwen3.8 |
+| Documents plus media | retrieved excerpts + current media observation → Qwen3.8 |
 | Device camera capture | live local preview → MP4/WebM turn → video comprehension |
 | Camera + phone icons | current visual frame + repeated speech turns → spoken replies |
 | Speaker icon enabled | final text → streamed Qwen3-TTS PCM → replayable 24 kHz WAV |
@@ -94,6 +98,19 @@ for a stable app-like mobile layout. Conversation text and decorative content
 also disable touch/mouse selection and iOS callouts; normal editing remains
 enabled in the composer and voice configuration fields.
 
+The TTS stage status means the speech request has started. It changes to
+streaming only after the adapter receives the first actual PCM bytes; an
+`audio_start` event is never emitted merely because a TTS HTTP request was
+opened. This makes the UI and timing journal distinguish model/prefill latency
+from network or browser playback buffering.
+
+The 512-frame voice setting is a per-generation ceiling (roughly 42.7 seconds
+at 12 Hz). Replies that would exceed it are split at natural sentence/word
+boundaries, streamed as one continuous PCM sequence with the same pinned voice
+configuration, and assembled into one complete replay WAV. This prevents the
+former approximately 40-second truncation; the final adapter trace exposes the
+number of generated `tts_blocks`.
+
 New user and assistant messages smoothly scroll the conversation to the newest
 turn. The small number beside **ONLINE** reports distinct browser sessions with
 an active or queued inference request; it is an aggregate only and is never
@@ -107,6 +124,23 @@ available context, the adapter retries only the comprehension stage with
 progressively smaller frame caps (24/16/8/4/1 as applicable). A recorded video
 turn therefore retains temporal comprehension whenever it fits; camera-call
 mode uses one current frame per speech turn for lower latency.
+
+MP4/WebM clips without an audio track are accepted as visual-only media. The
+adapter probes for an audio stream before demux and simply omits the audio part
+when none exists. Animated GIF is shown in a loop in the originating user turn
+and normalized to a maximum 30-second, frame-bounded MP4 for the same temporal
+comprehension path.
+
+PDF, DOCX, and UTF-8 text/code uploads are handled by the portal rather than the
+portable adapter ABI. PDF extraction is capped at 200 pages, DOCX ZIP expansion
+is bounded, binary/unsupported text is rejected, and extracted text is chunked
+into a 384-dimension deterministic hashed lexical index. Retrieval is capped at
+eight chunks/12,000 characters per turn and injected as explicitly untrusted
+document data. Raw files and extracted chunks remain only in memory, are keyed
+by the opaque Secure browser-session cookie, clear with the trash button, and
+expire five minutes after activity stops. This is retrieval over extracted text,
+not a claim that PDF pixels or arbitrary office formats are natively understood
+by the GGUF.
 
 Every comprehension request explicitly sets llama.cpp `cache_prompt:false`.
 Prompt-slot reuse is safe for ordinary token prefixes but the pinned
@@ -305,8 +339,10 @@ media base64 or the access token.
   responses, streaming iterators, voice settings, and tool rounds are
   request-local.
 - Conversation history is browser-page-local. The portal stores no message,
-  media, observation, KV-cache, or generated response as server-side session
-  state, so one user's content cannot become another user's context.
+  media, observation, KV-cache, or generated response as shared server state.
+  Its only content-bearing server session state is the bounded in-memory
+  document chunk index, keyed by a hash of the opaque session cookie and never
+  addressable across sessions.
 - A random, Secure, HttpOnly, SameSite=Strict cookie partitions the aggregate
   activity count and ephemeral diagnostic journal. It is never supplied to a
   model or used to recover conversation context. `/api/activity` exposes only
@@ -319,7 +355,7 @@ media base64 or the access token.
   are purged five minutes after the session heartbeat stops.
 - The trash button aborts the page's active request/call, stops playback,
   clears browser conversation state, and deletes that session's diagnostic
-  journal immediately. A late completion from the aborted request cannot
+  journal and document index immediately. A late completion from the aborted request cannot
   recreate the deleted journal; a genuinely new request starts a new one.
 - Encoded JSON is limited to 96 MiB.
 - The browser caps decoded image, video, and audio sizes below adapter limits.

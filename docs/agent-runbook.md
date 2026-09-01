@@ -67,6 +67,19 @@ Read `runtime-data/logs/supervisor.log` first, then the failed stage log:
 Never add raw prompts, transcripts, thinking, base64, audio, frames, tokens,
 IP addresses, or user agents to default logs.
 
+For portal behavior, keep these routing facts straight:
+
+- MP4/WebM without audio is visual-only, not an extraction error.
+- Animated GIF is normalized to bounded MP4 before comprehension.
+- PDF, DOCX, and UTF-8 text/code are portal-only document inputs. Only bounded
+  retrieved excerpts reach the language model; raw document envelopes never
+  reach adapter v1.
+- Document indexes and diagnostics are separately isolated by the hashed opaque
+  browser session and both clear with trash/expire after five idle minutes.
+- `stage=tts` means preparing. `audio_start` means the first PCM bytes exist.
+- `max_frames` is per synthesis block. Long speech has continuous sequence
+  numbers and one assembled final WAV; verify `adapter.tts_blocks > 1`.
+
 ## 6. Stop and clean
 
 ```bash
