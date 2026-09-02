@@ -46,6 +46,9 @@ Do not restart or stop an existing deployment unless the user asked for it.
 - The Qwen3-TTS resident protocol must reset generation memory and samplers and
   create a fresh audio-generation helper between prompts. Matching profiles may
   reuse one PID and loaded weights; decoded request state may not.
+- The Qwen3-TTS code2wav graph must retain state at the last real codec frame,
+  never after rear padding. Run `runtime/verify_pcm_stream.py` against raw PCM
+  after rebuilding; browser smoothing cannot satisfy this source-level gate.
 - Never synthesize reasoning or an unresolved tool call.
 
 ## CUDA deployment policy

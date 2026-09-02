@@ -74,6 +74,9 @@ def test_portal_index_has_mobile_security_headers_and_no_token() -> None:
     assert b'id="camera-video"' in response.data
     assert b'id="voice-button"' in response.data
     assert b'id="voice-clone-enabled"' in response.data
+    assert b'id="voice-clone-toggle"' in response.data
+    assert b'id="voice-preset-toggle"' in response.data
+    assert b'id="voice-preset-options"' in response.data
     assert b'id="voice-reference-input"' in response.data
     assert b'id="active-user-count"' in response.data
     assert b'class="audio-observation-output"' in response.data
@@ -149,10 +152,10 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert "function audioEvidenceHistory" in javascript
     assert "audioObservation: inputTranscript ? inputAudioObservation" in javascript
     assert "soundOnly: !inputTranscript && Boolean(inputAudioObservation)" in javascript
-    assert 'parts.push(`[Sounds heard: ${sounds}]`)' in javascript
+    assert "parts.push(`[Sounds heard: ${sounds}]`)" in javascript
     assert 'audioObservation: String(record.audioObservation || "")' in javascript
     assert "soundOnly: Boolean(record.soundOnly)" in javascript
-    assert 'content: built.display' in javascript
+    assert "content: built.display" in javascript
     assert "mediaSummary" not in javascript
     assert "use both its speech and non-speech sounds as" in javascript
     assert "assistant.node.hidden = true" in javascript
@@ -201,7 +204,9 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert ".audio-observation-output" in css
     assert ".message.user.sound-only .message-content" in css
     assert "opacity: .5" in css
-    assert 'const documents = state.attachments.filter(item => item.kind === "document")' in javascript
+    assert (
+        'const documents = state.attachments.filter(item => item.kind === "document")' in javascript
+    )
     assert "message.documents" in javascript
     assert 'item.mime === "image/gif"' in javascript
     assert "function restoreBrowserSession" in javascript
@@ -296,9 +301,7 @@ def test_portal_status_probes_all_internal_stages() -> None:
         "environmental_sound_analysis": True,
         "evidence_field": "adapter.audio_observation",
     }
-    assert response.json["documents"]["retrieval"] == (
-        "session-isolated hashed lexical embeddings"
-    )
+    assert response.json["documents"]["retrieval"] == ("session-isolated hashed lexical embeddings")
     assert response.json["voice_profile"]["client_reference_wav"] is True
     assert response.json["requests"] == {
         "users": 0,
@@ -371,9 +374,7 @@ def test_portal_indexes_documents_and_sends_only_retrieved_text() -> None:
         "name": "notes.md",
         "mime_type": "text/markdown",
         "encoding": "base64",
-        "data": base64.b64encode(b"The copper switch enables the archive.").decode(
-            "ascii"
-        ),
+        "data": base64.b64encode(b"The copper switch enables the archive.").decode("ascii"),
     }
 
     response = client.post(
@@ -650,23 +651,31 @@ def test_voice_profile_resolves_relative_speaker_and_validates_language(
         raise AssertionError("unsupported TTS language was accepted")
 
 
-def test_bundled_default_voice_is_metadata_free_pcm() -> None:
+def test_bundled_voice_presets_are_metadata_free_pcm() -> None:
     profile_path = Path("portal/voice-profile.json")
     profile = load_voice_profile(profile_path)
-    voice_path = Path(profile["speaker_file"])
-    raw = voice_path.read_bytes()
+    assert [
+        (preset["id"], preset["label"], preset["default"]) for preset in profile["presets"]
+    ] == [
+        ("female", "Female", True),
+        ("male", "Male", False),
+    ]
+    assert Path(profile["speaker_file"]).name == "female_voice.wav"
 
-    assert voice_path.name == "default_voice.wav"
-    assert raw[:4] == b"RIFF"
-    assert raw[8:12] == b"WAVE"
-    assert raw[12:16] == b"fmt "
-    assert raw[36:40] == b"data"
-    with wave.open(str(voice_path), "rb") as wav:
-        assert wav.getcomptype() == "NONE"
-        assert wav.getframerate() == 16000
-        assert wav.getnchannels() == 1
-        assert wav.getsampwidth() == 2
-        assert 500 <= round(wav.getnframes() * 1000 / wav.getframerate()) <= 30000
+    for preset in profile["presets"]:
+        voice_path = Path(preset["speaker_file"])
+        raw = voice_path.read_bytes()
+        assert raw[:4] == b"RIFF"
+        assert raw[8:12] == b"WAVE"
+        assert raw[12:16] == b"fmt "
+        assert raw[36:40] == b"data"
+        with wave.open(str(voice_path), "rb") as wav:
+            assert wav.getcomptype() == "NONE"
+            assert wav.getframerate() == 16000
+            assert wav.getnchannels() == 1
+            assert wav.getsampwidth() == 2
+            duration_ms = round(wav.getnframes() * 1000 / wav.getframerate())
+            assert 500 <= duration_ms <= 30000
 
 
 def test_portal_enforces_server_voice_profile() -> None:
@@ -750,6 +759,55 @@ def test_portal_accepts_safe_client_voice_clone_and_controls() -> None:
     assert "speaker_file" not in seen[0]["speech"]
     assert seen[0]["speech"]["speaker_audio"]["data"] == reference["data"]
     assert "portal_voice" not in seen[0]
+
+
+def test_portal_resolves_only_allowlisted_voice_presets() -> None:
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": "Hello."}})
+
+    profile = {
+        "name": "presets",
+        "language": "en",
+        "speaker_file": "/srv/voices/female.wav",
+        "presets": [
+            {
+                "id": "female",
+                "label": "Female",
+                "speaker_file": "/srv/voices/female.wav",
+                "default": True,
+            },
+            {
+                "id": "male",
+                "label": "Male",
+                "speaker_file": "/srv/voices/male.wav",
+                "default": False,
+            },
+        ],
+    }
+    app = create_app(
+        _config(voice_profile=profile),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    client = app.test_client()
+    selected = client.post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(portal_voice={"clone_enabled": True, "preset": "male"}),
+    )
+    rejected = client.post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(portal_voice={"clone_enabled": True, "preset": "unknown"}),
+    )
+
+    assert selected.status_code == 200
+    assert seen[0]["speech"]["speaker_file"] == "/srv/voices/male.wav"
+    assert "preset" not in seen[0]["speech"]
+    assert rejected.status_code == 400
+    assert "unknown voice preset" in rejected.json["error"]
 
 
 def test_portal_rejects_invalid_voice_clone_before_proxy() -> None:
@@ -962,9 +1020,7 @@ def test_runtime_environment_snapshot_is_bounded_and_omits_sensitive_network_dat
         stdout="0, NVIDIA Test GPU, 81920, 2048, 37, 52, 120.5, 700.0\n",
         stderr="",
     )
-    monkeypatch.setattr(
-        "portal.environment.subprocess.run", lambda *args, **kwargs: completed
-    )
+    monkeypatch.setattr("portal.environment.subprocess.run", lambda *args, **kwargs: completed)
 
     snapshot = runtime_environment_snapshot()
 
@@ -993,9 +1049,7 @@ def test_runtime_environment_merges_into_existing_leading_system_message() -> No
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(json.loads(request.content))
-        return httpx.Response(
-            200, json={"message": {"role": "assistant", "content": "Done."}}
-        )
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": "Done."}})
 
     app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
     response = app.test_client().post(

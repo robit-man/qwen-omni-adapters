@@ -7,6 +7,7 @@ SOURCE_DIR=${1:-$REPO_ROOT/vendor/llama.cpp}
 PINNED_COMMIT=458681e1d5d4a29a1463c4732e03226cf384b997
 PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-pcm-stream.patch
 PERSISTENT_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-persistent.patch
+STREAM_STATE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-stream-state.patch
 BUILD_DIR=${LLAMA_CPP_BUILD_DIR:-$SOURCE_DIR/build}
 if command -v nproc >/dev/null 2>&1; then
   default_jobs=$(nproc)
@@ -47,6 +48,7 @@ apply_patch_file() {
 
 apply_patch_file "$PATCH_FILE" "Qwen3-TTS PCM stream"
 apply_patch_file "$PERSISTENT_PATCH_FILE" "Qwen3-TTS persistent worker"
+apply_patch_file "$STREAM_STATE_PATCH_FILE" "Qwen3-TTS streaming decoder state"
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in

@@ -120,6 +120,12 @@ voice-profile switch caused a one-time approximately 2.38 second first-PCM
 result. Treat these host-specific values as tuning evidence, not a universal
 benchmark. A voice-profile change intentionally replaces the worker.
 
+The patched code2wav graph consumes and persists exactly the real codec-frame
+count rather than advancing retained state through rear padding to 72 frames.
+Run `python runtime/verify_pcm_stream.py` against raw `/synthesize/stream` PCM
+after every llama.cpp rebuild. Browser crossfade is not a substitute for this
+source-level continuity gate.
+
 The persistent process keeps model, projector, and speaker weights resident,
 but constructs a fresh audio-generation helper for every prompt. Reusing that
 helper carries decoded output into the next request and can make spoken audio

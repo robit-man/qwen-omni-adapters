@@ -10,7 +10,8 @@ robit/qwen3.8-27b-e03-obliterated-omni:q4km
 The repository turns that one Ollama tag into one authenticated, Ollama-shaped
 API for text, tools, optional thinking, images, audio/ASR, environmental sound
 analysis, video understanding, and Qwen3-TTS speech. It also includes the
-phone-first validation portal used to exercise microphone, camera, voice clone,
+phone-first validation portal used to exercise microphone, camera, allowlisted
+Female/Male voice presets, request-local voice clone,
 streamed playback, call mode, and concurrent isolated sessions.
 
 ## Start here
