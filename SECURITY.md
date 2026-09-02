@@ -10,16 +10,19 @@ multi-tenant identity service.
   allowlist: read-only time/capabilities/web/document operations plus temporary
   session-memory read/write. Media, pages, documents, and memory cannot modify
   system or tool policy.
-- Web fetch accepts only public HTTP(S), revalidates DNS and every redirect,
-  blocks local/private/metadata destinations, rejects binary/oversized bodies,
-  runs no JavaScript, and sends no caller credentials. Network-level egress
-  policy remains recommended for production.
+- Web discovery uses an ephemeral local Chromium/Chrome profile and a fixed
+  public search-page template, not a search API or caller credential. Provider
+  challenges fail closed. Page fetch accepts only public HTTP(S), revalidates
+  DNS and every redirect, blocks local/private/metadata destinations, rejects
+  binary/oversized bodies, runs fetched-page JavaScript nowhere, and sends no
+  caller credentials. Network-level egress policy remains recommended.
 - Request/media state is local to one request. Conversation history is browser
   local, never a server-global array.
 - Per-session diagnostics contain timings and modality flags only. They exclude
   content, media, transcript, thinking, IP address, and user agent.
-- Temporary memory, attached-document indexes, and web-fetch caches are hashed
-  by opaque session, clear with Trash, and expire after five idle minutes.
+- Temporary memory, attached-document indexes, fetched-page indexes/caches, and
+  bounded tool receipts are hashed by opaque session, clear with Trash, and
+  expire after five idle minutes.
 - Uploaded voice references are bounded, validated, written into a temporary
   generation directory, and deleted after synthesis.
 - Browser-supplied server paths are rejected.
