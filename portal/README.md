@@ -138,7 +138,10 @@ turn. Manually scrolling upward pauses auto-follow and reveals a floating
 down-arrow above the composer; tapping it returns to the newest turn and resumes
 following. Completed assistant replies have a bottom-right copy control that
 writes the original raw Markdown to the clipboard, including table pipes and
-code fences. The small number beside **ONLINE** reports distinct browser sessions with
+code fences. Measured Ollama generation throughput and the browser-local
+generation time appear immediately to its left. Audio replies use the same
+metrics footer without a redundant replay-status caption. The small number
+beside **ONLINE** reports distinct browser sessions with
 an active or queued inference request; it is an aggregate only and is never
 used as conversation state.
 
