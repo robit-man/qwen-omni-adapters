@@ -64,6 +64,10 @@ it immediately. Cached media is display-only and cannot silently become new
 model input. The optional document index uses the same isolation boundary,
 bounded in memory, cleared by trash, and expired after disconnect. Raw
 documents and retrieved passages never cross into another browser session.
+The demonstration tool harness uses that same boundary for temporary recall and
+its short web-fetch cache. Tool schemas are server-pinned, results are appended
+as ordinary tool-role messages, and no executor state belongs to the model or
+adapter worker.
 
 The reference deployment serializes GPU inference with one active lane and
 admits four active/queued requests. This is bounded concurrency, not shared
@@ -83,7 +87,9 @@ It is operational context, never an authorization source.
 
 The portable adapter v1 response is turn-based. The phone portal adds an NDJSON
 transport that relays language deltas and live Qwen3-TTS PCM windows while
-retaining one authoritative final Ollama-shaped response. Camera-call mode
+retaining one authoritative final Ollama-shaped response. It also relays
+bounded tool-round start/completion events; only a final response with no
+pending calls may enter TTS. Camera-call mode
 sends a current frame with each confirmed speech turn; it does not feed an
 unbounded camera stream into one ever-growing context. Long speech replies are
 split at sentence boundaries before the Qwen3-TTS per-generation frame limit;

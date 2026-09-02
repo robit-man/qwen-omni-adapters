@@ -84,6 +84,7 @@ pretend that their tensors can be spliced into a directly executable graph.
 |---|---|---|
 | Text and Markdown, including responsive GFM tables | Qwen3.8 through Ollama | Yes |
 | Structured tools | Qwen3.8 renderer/parser | Yes |
+| Portal web/document/session-memory tools | Allowlisted portal tool loop | Yes |
 | Thinking | Native Ollama `think` boolean, off by default in portal | Yes |
 | Image understanding | Qwen3.8 or Omni comprehension path | Yes |
 | Speech transcription | Qwen3-Omni comprehension | Yes |
@@ -136,6 +137,10 @@ separate so environmental sounds are never misrouted as the user's words.
   evidence while retaining bounded prior text dialogue for natural continuity.
 - The portal defaults to one active GPU lane and four admitted active/queued
   requests, with request-local media, tools, voice settings, and streams.
+- Chat and call turns expose eight server-pinned structured tools for public-web
+  search/fetch, attached-document retrieval, current time/capabilities, and
+  temporary session recall. Up to four tool rounds complete before optional
+  TTS; compact execution evidence appears in the response and phone UI.
 - Same-origin IndexedDB restores messages, drafts, pending attachments, reply
   audio, and bounded image/video previews after reload. It is keyed by a
   one-way cookie-derived scope, begins a five-minute expiry on page leave, and
@@ -181,6 +186,7 @@ separate so environmental sounds are never misrouted as the user's words.
 - [Phone deployment](docs/phone-portal.md)
 - [Linux, macOS, and Windows services](docs/services.md)
 - [Wire protocol](docs/protocol.md)
+- [Portal tools and tool chaining](docs/tools.md)
 - [GGUF/Ollama sidecar ABI](docs/gguf-abi.md)
 - [Testing](docs/testing.md)
 - [Cleanup and storage safety](docs/cleanup.md)
