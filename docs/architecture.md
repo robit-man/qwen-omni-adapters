@@ -77,11 +77,13 @@ llama.cpp prompt caching is disabled for comprehension because the pinned
 multimodal slot cache can retain decoded media embeddings. This is a correctness
 requirement even when ordinary token-prefix caching would be safe.
 
-Every request receives a newly captured trusted runtime-environment system
-message. Its schema exposes date/time, OS/architecture, CPU/load, RAM, bounded
-interface counters, and NVIDIA utilization while explicitly omitting hostnames,
-addresses, routes, sockets, processes, credentials, and user/session content.
-It is operational context, never an authorization source.
+Ordinary requests receive a compact stable behavioral system policy, not an
+eager telemetry dump. When tools are explicitly enabled, the model may call
+`get_system_snapshot` for a freshly captured host view containing date/time,
+OS/architecture, CPU/load, RAM, bounded interface counters, and NVIDIA
+utilization. The tool omits hostnames, addresses, routes, sockets, processes,
+credentials, and user/session content. It describes the portal host and is
+operational evidence, never an authorization source or a user-device claim.
 
 ## Streaming scope
 
@@ -99,6 +101,10 @@ normalized into a bounded temporal video before comprehension.
 
 Call turns include bounded prior dialogue plus a system instruction to answer
 the user's intent without echoing, transcribing, or paraphrasing by default.
+The browser keeps one call inference active at a time. Confirmed speech that
+arrives before an unanswered request completes is consolidated with that
+request's preserved input in one bounded pending turn, preventing an unbounded
+GPU/HTTP queue while retaining the user's latest combined intent.
 Media chat likewise keeps prior textual conversation, but only the newest
 attachment is labelled as current perceptual evidence. Qwen3-TTS uses a
 persistent framed subprocess protocol so matching-profile requests reuse the

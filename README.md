@@ -94,7 +94,7 @@ pretend that their tensors can be spliced into a directly executable graph.
 | PDF/DOCX/text retrieval | Session-isolated portal extraction/index | Yes |
 | Spoken response | Qwen3-TTS, 24 kHz mono PCM16 | Yes |
 | Voice reference cloning | Qwen3-TTS Base speaker embedding path | Yes |
-| Live-call turns | Adaptive VAD + streamed text/PCM extension | Yes |
+| Live-call turns | Adaptive VAD + bounded single-flight speech consolidation + streamed text/PCM | Yes |
 | Video generation | No component is shipped | No |
 
 ## Request example
@@ -137,9 +137,10 @@ separate so environmental sounds are never misrouted as the user's words.
   evidence while retaining bounded prior text dialogue for natural continuity.
 - The portal defaults to one active GPU lane and four admitted active/queued
   requests, with request-local media, tools, voice settings, and streams.
-- A wrench toggle, off by default, exposes 18 server-pinned structured tools
+- A wrench toggle, off by default, exposes 19 server-pinned structured tools
   for local-browser public-web discovery/fetch, attached-document retrieval,
-  current time/capabilities, and temporary session web/memory recall. Up to four
+  current time/capabilities, on-demand host snapshots, and temporary session
+  web/memory recall. Up to 50
   tool rounds complete before optional TTS; live collapsible execution evidence
   appears in the response and phone UI. No hosted search API is used.
 - Same-origin IndexedDB restores messages, drafts, pending attachments, reply
@@ -153,10 +154,15 @@ separate so environmental sounds are never misrouted as the user's words.
 - Qwen3-TTS keeps a matching voice profile resident on its assigned GPU and
   emits two codec frames (about 160 ms) per stream window by default. A voice
   profile change intentionally replaces the resident worker.
-- Every turn receives a fresh privacy-bounded environment snapshot containing
-  date/time, OS/architecture, CPU/load, RAM, interface counters, and NVIDIA
-  utilization. It excludes hostnames, addresses, routes, sockets, processes,
-  credentials, and session content.
+- Ordinary turns receive only a compact stable behavioral system policy. With
+  tools enabled, `get_system_snapshot` can explicitly sample current date/time,
+  OS/architecture, CPU/load, RAM, interface counters, and NVIDIA utilization.
+  It excludes hostnames, addresses, routes, sockets, processes, credentials,
+  and session content, and describes the portal host—not the user's device.
+- Call cognition is single-flight per browser call. Rapid confirmed segments
+  merge into one bounded latest-turn buffer; continuing speech cancels stale
+  unanswered inference and preserves its input instead of filling the server
+  queue.
 - Reasoning is off until the client sends native `think:true`. Thinking is
   returned separately and is never synthesized.
 - CUDA media inference has no CPU fallback. Broker allocation and exact UUID

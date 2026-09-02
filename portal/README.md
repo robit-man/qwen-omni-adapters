@@ -54,20 +54,25 @@ this provides bounded live visual conversation without presenting an unbounded
 video stream to the model context.
 
 The phone icon at the upper right starts hands-free voice mode. Browser-side
-voice activity detection first calibrates ambient noise for 650 ms, requires
-120 ms of sustained activity above a sensitive adaptive threshold, and closes an
-utterance after 750 ms of silence. It submits a 16 kHz WAV only after that
-confirmed utterance; quiet, transient clicks, and elevated steady room noise do
-not call remote ASR. The waveform border, line, and label remain translucent
+voice activity detection first calibrates ambient noise for 900 ms, requires
+200 ms of sustained activity above an adaptive threshold, requires at least
+420 ms of confirmed activity, and closes an utterance after 700 ms of silence.
+It submits a 16 kHz WAV only after that confirmed utterance; silence, transient
+clicks, and elevated steady room noise do not call remote ASR. Playback-time
+barge-in uses a stricter 480 ms confirmation to reject speaker echo. The
+waveform border, line, and label remain translucent
 while inactive and become opaque only while VAD is active. Confirmed speech is
 sent through Qwen3-Omni and Qwen3.8, response text is relayed as Ollama produces
 it, and Qwen3-TTS speech is streamed back.
-The microphone remains active during inference and playback. Every confirmed
-speech segment is submitted immediately as its own request-local turn, even
-while earlier turns are queued or understanding. Sustained speech during
-playback stops the current audio while capture continues. Echo cancellation and
-a higher playback-time threshold reduce self-triggering. Tap the phone icon
-again to stop capture, abort every outstanding turn, and stop playback.
+The microphone remains active during inference and playback, but the browser
+permits only one cognitive request at a time. Consecutive confirmed segments
+are joined with short silence boundaries into one bounded latest-turn buffer.
+If the user continues before an unanswered inference completes, that stale
+request is aborted, its input is preserved, and the accumulated speech is sent
+once after a short settle interval. The buffer retains at most the newest 45
+seconds, so speech cannot create an unbounded HTTP/GPU queue. Sustained speech
+during playback stops the current audio while capture continues. Tap the phone
+icon again to clear pending audio, abort the active turn, and stop playback.
 
 Call turns answer the speaker's intent directly and do not echo, transcribe, or
 paraphrase unless explicitly asked. They include bounded prior text dialogue.
@@ -154,10 +159,12 @@ Reload restores them without re-sending old media. Page leave starts a
 five-minute expiry, and trash deletes browser cache, documents, and diagnostics
 immediately.
 
-Every turn receives a fresh trusted runtime snapshot with local/UTC date and
-time, OS/architecture, CPU/load, RAM, bounded interface counters, and NVIDIA
-utilization. Hostnames, IP/MAC addresses, routes, sockets, processes,
-credentials, and session content are excluded.
+Ordinary turns receive a compact stable behavioral policy rather than a
+telemetry dump. With tools explicitly enabled, `get_system_snapshot` samples a
+fresh portal-host view with local/UTC date and time, OS/architecture, CPU/load,
+RAM, bounded interface counters, and NVIDIA utilization. Hostnames, IP/MAC
+addresses, routes, sockets, processes, credentials, and session content are
+excluded, and the result never describes the user's phone.
 
 Video is sampled at 24 frames by the phone and clamped to at most 32 frames and
 2 fps by the adapter. The comprehension GGUF declares a 65,536-token context,

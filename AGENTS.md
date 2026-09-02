@@ -43,12 +43,16 @@ Do not restart or stop an existing deployment unless the user asked for it.
 - Portal web/document/memory tools are a server-pinned, explicit-opt-in
   allowlist. Preserve local-browser discovery without a search API,
   public-only fetch validation, untrusted-result labels, challenge fail-closed
-  behavior, four-round/call bounds, per-session memory/web indexes, live bounded
+  behavior, 50-round/call bounds, per-session memory/web indexes, live bounded
   traces, and Trash/TTL cleanup. Direct adapter tools remain client-owned and
   must not be auto-executed by the adapter.
-- Runtime environment context is rebuilt for every turn and must remain
-  privacy-bounded: never add hostnames, addresses, routes, sockets, processes,
-  credentials, or session content.
+- Runtime environment awareness is an explicit `get_system_snapshot` tool, not
+  an eager per-turn system blob. Keep ordinary system policy compact and the
+  tool privacy-bounded: never add hostnames, addresses, routes, sockets,
+  processes, credentials, or session content.
+- Live-call cognition is single-flight per browser call. Preserve strict VAD,
+  cancellation of stale unanswered inference, bounded multi-segment audio
+  consolidation, and the 45-second newest-audio cap.
 - The Qwen3-TTS resident protocol must reset generation memory and samplers and
   create a fresh audio-generation helper between prompts. Matching profiles may
   reuse one PID and loaded weights; decoded request state may not.
@@ -118,6 +122,8 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
 - red → blue → red media produces red → blue → red observations.
 - quiet/click/steady-noise VAD fixtures submit zero calls; sustained speech and
   sustained alarm submit one each.
+- rapid call segments consolidate into one bounded pending turn and do not
+  create parallel requests from the same browser call.
 - two simultaneous sessions receive only their own marker and expose at most
   aggregate active/queued counts.
 - TTS returns valid 24 kHz mono PCM16 WAV; streaming returns ordered PCM chunks,

@@ -82,8 +82,9 @@ For portal behavior, keep these routing facts straight:
 - Call turns should answer intent rather than mirror the transcript. Media
   turns keep prior text context, but only the newest attachment is current
   evidence.
-- A fresh environment snapshot is prepended every turn. It may contain bounded
-  date/time, CPU, RAM, network counters, and NVIDIA utilization, but never
+- Ordinary turns receive a compact stable behavioral policy. Current date/time,
+  CPU, RAM, network-counter, and NVIDIA data is available only through an
+  explicit privacy-bounded `get_system_snapshot` tool call; it may never include
   hostnames, addresses, processes, credentials, or session content.
 - `stage=tts` means preparing. `audio_start` means the first PCM bytes exist.
 - The default TTS stream window is two codec frames. Check `persistent_ready` in
