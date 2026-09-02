@@ -82,7 +82,7 @@ pretend that their tensors can be spliced into a directly executable graph.
 
 | Capability | Runtime owner | Available through this adapter |
 |---|---|---|
-| Text and Markdown | Qwen3.8 through Ollama | Yes |
+| Text and Markdown, including responsive GFM tables | Qwen3.8 through Ollama | Yes |
 | Structured tools | Qwen3.8 renderer/parser | Yes |
 | Thinking | Native Ollama `think` boolean, off by default in portal | Yes |
 | Image understanding | Qwen3.8 or Omni comprehension path | Yes |

@@ -115,6 +115,16 @@ configuration, and assembled into one complete replay WAV. This prevents the
 former approximately 40-second truncation; the final adapter trace exposes the
 number of generated `tts_blocks`.
 
+The portal does not send Ollama `num_predict` overrides for typed chat or live
+calls. Language generation therefore follows the model/server stop conditions
+and available context instead of a frontend token ceiling. TTS retains only its
+required per-invocation codec-frame boundary and chains an unbounded number of
+blocks for the completed reply.
+
+Assistant replies use a safe DOM-based GitHub-Flavored Markdown subset. Pipe
+tables with a header delimiter row render as responsive, horizontally scrollable
+tables on narrow screens, including left, center, and right column alignment.
+
 The patched Qwen3-TTS worker is warmed once and remains CUDA-resident across
 default-profile requests. Prompts use a bounded framed protocol, live decoding
 defaults to two codec frames (about 160 ms) per PCM window, and the browser
