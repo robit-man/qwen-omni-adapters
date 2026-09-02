@@ -139,7 +139,7 @@ audio/pcm;rate=24000;channels=1;format=s16le` plus `X-Audio-Codec`,
 and may override `stream_frames`; `OMNI_TTS_STREAM_FRAMES` sets the server
 default.
 
-The interactive default is one codec frame, about 80 ms for the packaged
+The interactive default is two codec frames, about 160 ms for the packaged
 12 Hz model. Values from 1 through 72 are accepted; larger windows improve
 aggregate decoder throughput, while smaller windows reduce time to first PCM
 at the cost of more decoder invocations. A shorter utterance flushes once at
@@ -151,9 +151,12 @@ This route is experimental. If generation fails after response headers, the
 PCM stream terminates early; the final WAV is still checked server-side when
 generation succeeds. In persistent mode, prompts are base64-framed over stdin
 and PCM/done/error events are length-framed over stdout; model, projector, and
-speaker state remain resident while generation memory and samplers reset for
-every prompt. Inline request-local speaker audio uses the isolated single-shot
-fallback, after which the configured default profile is rewarmed.
+speaker weights remain resident while generation memory and samplers reset and
+a fresh audio-generation helper is constructed for every prompt. The helper
+must not be reused: its decoded-output state otherwise makes audio trail the
+displayed response by one request. Inline request-local speaker audio uses the
+isolated single-shot fallback, after which the configured default profile is
+rewarmed.
 
 ## 4. Start the unified adapter
 

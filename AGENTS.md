@@ -43,8 +43,9 @@ Do not restart or stop an existing deployment unless the user asked for it.
 - Runtime environment context is rebuilt for every turn and must remain
   privacy-bounded: never add hostnames, addresses, routes, sockets, processes,
   credentials, or session content.
-- The Qwen3-TTS resident protocol must reset generation memory and samplers
-  between prompts. Matching profiles may reuse one PID; request state may not.
+- The Qwen3-TTS resident protocol must reset generation memory and samplers and
+  create a fresh audio-generation helper between prompts. Matching profiles may
+  reuse one PID and loaded weights; decoded request state may not.
 - Never synthesize reasoning or an unresolved tool call.
 
 ## CUDA deployment policy
@@ -111,7 +112,8 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
 - two simultaneous sessions receive only their own marker and expose at most
   aggregate active/queued counts.
 - TTS returns valid 24 kHz mono PCM16 WAV; streaming returns ordered PCM chunks,
-  and repeated matching-profile prompts reuse one resident worker PID.
+  repeated matching-profile prompts reuse one resident worker PID, and an
+  A → B → A synthesize/transcribe gate returns A → B → A without one-turn lag.
 - Browser cache restore/expiry/clear and runtime-environment privacy tests pass.
 - CUDA PIDs are resident only on the leased UUID.
 

@@ -50,7 +50,7 @@ class Config:
     timeout_s: float = 900
     max_text_chars: int = 4096
     max_frames: int = 512
-    stream_frames: int = 1
+    stream_frames: int = 2
     gpu_layers: int = -1
     require_gpu: bool = False
     lease_token: str = ""
@@ -110,7 +110,7 @@ class Config:
             timeout_s=float(os.environ.get("OMNI_TTS_TIMEOUT_S", "900")),
             max_text_chars=int(os.environ.get("OMNI_TTS_MAX_TEXT_CHARS", "4096")),
             max_frames=int(os.environ.get("OMNI_TTS_MAX_FRAMES", "512")),
-            stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "1")),
+            stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "2")),
             gpu_layers=int(os.environ.get("OMNI_TTS_GPU_LAYERS", "-1")),
             require_gpu=os.environ.get("OMNI_TTS_REQUIRE_GPU", "0") == "1",
             lease_token=os.environ.get("OLLAMA_UNIFY_GPU_LEASE", "").strip(),

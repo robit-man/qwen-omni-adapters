@@ -144,7 +144,7 @@ separate so environmental sounds are never misrouted as the user's words.
 - Long speech is split before the per-generation codec-frame ceiling, streamed
   with continuous sequence numbers, and assembled into one complete final WAV.
 - Qwen3-TTS keeps a matching voice profile resident on its assigned GPU and
-  emits one codec frame (about 80 ms) per stream window by default. A voice
+  emits two codec frames (about 160 ms) per stream window by default. A voice
   profile change intentionally replaces the resident worker.
 - Every turn receives a fresh privacy-bounded environment snapshot containing
   date/time, OS/architecture, CPU/load, RAM, interface counters, and NVIDIA
