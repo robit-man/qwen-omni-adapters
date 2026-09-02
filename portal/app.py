@@ -50,6 +50,7 @@ try:
     from portal.tools import (
         SAFE_TOOLS,
         PortalToolHarness,
+        ToolInputError,
         tool_result_json,
         tool_use_instructions,
     )
@@ -59,6 +60,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from tools import (
         SAFE_TOOLS,
         PortalToolHarness,
+        ToolInputError,
         tool_result_json,
         tool_use_instructions,
     )
@@ -1096,6 +1098,17 @@ def create_app(
             raise PortalRequestError("portal think must be a boolean")
         payload["think"] = think
 
+    def apply_client_location(
+        payload: dict[str, Any], session_id: str, *, tools_enabled: bool
+    ) -> None:
+        location = payload.pop("portal_client_location", None)
+        if location is None or not tools_enabled:
+            return
+        try:
+            tool_harness.set_client_location(session_id, location)
+        except ToolInputError as exc:
+            raise PortalRequestError(str(exc)) from exc
+
     def apply_system_policy(payload: dict[str, Any], *, tools_enabled: bool) -> None:
         messages = payload.get("messages")
         if not isinstance(messages, list) or not messages:
@@ -1145,7 +1158,7 @@ def create_app(
     def secure_headers(response):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; img-src 'self' data: blob:; "
-            "media-src 'self' data: blob:; connect-src 'self'; "
+            "media-src 'self' data: blob:; connect-src 'self' https://ipwho.is; "
             "script-src 'self'; style-src 'self'; object-src 'none'; "
             "base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
         )
@@ -1220,6 +1233,14 @@ def create_app(
                     "max_rounds": MAX_TOOL_ROUNDS,
                     "max_calls_per_round": MAX_TOOL_CALLS_PER_ROUND,
                     "max_calls_per_turn": MAX_TOOL_CALLS_PER_TURN,
+                },
+                "location": {
+                    "scope": "browser_session",
+                    "delivery": "get_user_location tool",
+                    "source": "browser HTTPS IP geolocation",
+                    "precision": "approximate",
+                    "raw_ip_retained": False,
+                    **tool_harness.location_stats(session_id),
                 },
                 "documents": {
                     "supported": ["pdf", "docx", "utf-8 text/code"],
@@ -1351,6 +1372,7 @@ def create_app(
             diagnostic_fields = _request_diagnostic_fields(payload)
             diagnostic_fields["tools_requested"] = auto_tools
             diagnostic_media_ids = _request_media_digests(payload)
+            apply_client_location(payload, session_id, tools_enabled=auto_tools)
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
             apply_system_policy(payload, tools_enabled=auto_tools)
@@ -1481,6 +1503,7 @@ def create_app(
         diagnostic_fields["tools_requested"] = auto_tools
         diagnostic_media_ids = _request_media_digests(payload)
         try:
+            apply_client_location(payload, session_id, tools_enabled=auto_tools)
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
             apply_system_policy(payload, tools_enabled=auto_tools)

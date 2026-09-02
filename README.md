@@ -137,7 +137,7 @@ separate so environmental sounds are never misrouted as the user's words.
   evidence while retaining bounded prior text dialogue for natural continuity.
 - The portal defaults to one active GPU lane and four admitted active/queued
   requests, with request-local media, tools, voice settings, and streams.
-- A wrench toggle, off by default, exposes 19 server-pinned structured tools
+- A wrench toggle, off by default, exposes 20 server-pinned structured tools
   for local-browser public-web discovery/fetch, attached-document retrieval,
   current time/capabilities, on-demand host snapshots, and temporary session
   web/memory recall. Up to 50
@@ -163,6 +163,12 @@ separate so environmental sounds are never misrouted as the user's words.
   merge into one bounded latest-turn buffer; continuing speech cancels stale
   unanswered inference and preserves its input instead of filling the server
   queue.
+- Sound-only call captures stop after comprehension, render as dim **Audio
+  context**, and retain at most six bounded environmental observations for the
+  next actual spoken turn. They never invoke language or TTS.
+- `get_user_location` uses a browser-side HTTPS lookup and exposes only
+  sanitized, approximate session geography. Raw IP and network metadata never
+  reach the portal or model.
 - Reasoning is off until the client sends native `think:true`. Thinking is
   returned separately and is never synthesized.
 - CUDA media inference has no CPU fallback. Broker allocation and exact UUID

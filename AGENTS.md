@@ -50,9 +50,17 @@ Do not restart or stop an existing deployment unless the user asked for it.
   an eager per-turn system blob. Keep ordinary system policy compact and the
   tool privacy-bounded: never add hostnames, addresses, routes, sockets,
   processes, credentials, or session content.
+- User location is an explicit `get_user_location` tool populated only by a
+  browser-side HTTPS lookup. Preserve field allowlisting, three-decimal
+  coordinates, per-session TTL/Trash cleanup, and the invariant that raw IP and
+  network-provider metadata never reach the portal, logs, or model.
 - Live-call cognition is single-flight per browser call. Preserve strict VAD,
   cancellation of stale unanswered inference, bounded multi-segment audio
   consolidation, and the 45-second newest-audio cap.
+- A live-call request sets `omni.require_speech=true`. If comprehension returns
+  no transcript, the adapter must finalize before language/TTS; the portal keeps
+  at most six dim Audio-context observations and consumes them with the next
+  spoken turn.
 - The Qwen3-TTS resident protocol must reset generation memory and samplers and
   create a fresh audio-generation helper between prompts. Matching profiles may
   reuse one PID and loaded weights; decoded request state may not.
@@ -124,6 +132,10 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
   sustained alarm submit one each.
 - rapid call segments consolidate into one bounded pending turn and do not
   create parallel requests from the same browser call.
+- sound-only `require_speech` fixtures call comprehension only, never language
+  or TTS, and bounded Audio-context fixtures retain at most six entries;
+- location fixtures prove session isolation, Trash cleanup, and removal of raw
+  IP/provider fields before any upstream model request;
 - two simultaneous sessions receive only their own marker and expose at most
   aggregate active/queued counts.
 - TTS returns valid 24 kHz mono PCM16 WAV; streaming returns ordered PCM chunks,
