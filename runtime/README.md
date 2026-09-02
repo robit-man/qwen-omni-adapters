@@ -174,7 +174,9 @@ a fresh audio-generation helper is constructed for every prompt. The helper
 must not be reused: its decoded-output state otherwise makes audio trail the
 displayed response by one request. Inline request-local speaker audio uses the
 isolated single-shot fallback, after which the configured default profile is
-rewarmed.
+rewarmed. Cancelling an active PCM response invalidates the framed worker
+session before its lock is released; the next prompt cannot consume abandoned
+audio.
 
 ## 4. Start the unified adapter
 
