@@ -137,7 +137,7 @@ separate so environmental sounds are never misrouted as the user's words.
   evidence while retaining bounded prior text dialogue for natural continuity.
 - The portal defaults to one active GPU lane and four admitted active/queued
   requests, with request-local media, tools, voice settings, and streams.
-- A wrench toggle, off by default, exposes eight server-pinned structured tools
+- A wrench toggle, off by default, exposes 18 server-pinned structured tools
   for local-browser public-web discovery/fetch, attached-document retrieval,
   current time/capabilities, and temporary session web/memory recall. Up to four
   tool rounds complete before optional TTS; live collapsible execution evidence
