@@ -134,7 +134,11 @@ A changed voice profile replaces the worker; inline uploaded speaker audio uses
 the isolated single-shot fallback before the default profile is rewarmed.
 
 New user and assistant messages smoothly scroll the conversation to the newest
-turn. The small number beside **ONLINE** reports distinct browser sessions with
+turn. Manually scrolling upward pauses auto-follow and reveals a floating
+down-arrow above the composer; tapping it returns to the newest turn and resumes
+following. Completed assistant replies have a bottom-right copy control that
+writes the original raw Markdown to the clipboard, including table pipes and
+code fences. The small number beside **ONLINE** reports distinct browser sessions with
 an active or queued inference request; it is an aggregate only and is never
 used as conversation state.
 
