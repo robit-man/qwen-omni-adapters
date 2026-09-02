@@ -116,9 +116,10 @@ number of generated `tts_blocks`.
 The patched Qwen3-TTS worker is warmed once and remains CUDA-resident across
 default-profile requests. Prompts use a bounded framed protocol, live decoding
 defaults to two codec frames (about 160 ms) per PCM window, and the browser
-schedules the first received window with a 3 ms floor. A changed voice profile
-replaces the worker; inline uploaded speaker audio uses the isolated
-single-shot fallback before the default profile is rewarmed.
+starts with an 80 ms playout lead. A guarded 4 ms crossfade smooths large
+contiguous buffer boundaries; a late buffer instead receives a short fade-in.
+A changed voice profile replaces the worker; inline uploaded speaker audio uses
+the isolated single-shot fallback before the default profile is rewarmed.
 
 New user and assistant messages smoothly scroll the conversation to the newest
 turn. The small number beside **ONLINE** reports distinct browser sessions with
