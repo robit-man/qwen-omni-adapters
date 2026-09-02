@@ -28,6 +28,10 @@ attach/resolve/cache preparation. Portal tests additionally cover native
 reasoning-off routing, adaptive call VAD, smooth message handling, concurrent
 session and document-index isolation, bounded PDF/text ingestion,
 content-redacted diagnostic expiry/deletion, and streamed PCM relay.
+The browser-cache harness covers restore, five-minute logical expiry, media
+preview retention, and explicit clear. Environment tests assert bounded output
+and the omission of IP/MAC data. The persistent-TTS harness proves that two
+prompts reuse one process while returning independent framed PCM sequences.
 
 ## Artifact gate
 
@@ -89,6 +93,8 @@ result. Do not commit large or restricted media.
 - long text continues across the per-generation frame limit and yields a complete replay WAV;
 - the first audio event is emitted only with the first real PCM window;
 - at least two repeated requests succeed;
+- matching-profile repeated requests retain the same resident worker PID;
+- the default stream window is one codec frame and disables proxy buffering;
 - empty/excessive text and unsupported options have defined errors;
 - selected languages/voices are only advertised after their own tests.
 
@@ -125,6 +131,9 @@ result. Do not commit large or restricted media.
 - quiet/click/steady-noise VAD fixtures causing remote ASR requests;
 - two concurrent browser sessions receiving one another's marker or journal;
 - trash followed by a late aborted-request event recreating diagnostic data.
+- cache restoration re-submitting display-only media to inference;
+- live-call prompting that merely echoes or paraphrases the user by default;
+- runtime snapshots exposing hostnames, addresses, processes, or credentials.
 
 Errors must be typed and must not echo raw media, secrets, thinking, or tool
 arguments unnecessarily.
@@ -142,6 +151,8 @@ arguments unnecessarily.
 - [ ] direct and repeated TTS pass;
 - [ ] phone VAD, concurrent-session isolation, and diagnostic TTL/delete
       harnesses pass;
+- [ ] IndexedDB reload/expiry/clear, environment privacy, and persistent-TTS
+      reuse harnesses pass;
 - [ ] adapter output envelope validates;
 - [ ] repository documentation is pushed;
 - [ ] Hugging Face GGUF/model card/report are remotely verified;

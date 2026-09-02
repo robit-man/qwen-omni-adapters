@@ -214,8 +214,9 @@ pages and their license files remain authoritative.
   frames plus, when requested, a separately demuxed audio track.
 - The cascade passes an explicitly delimited semantic observation into the
   Qwen3.8 language model; it does not preserve dense Omni hidden states.
-- The reference TTS worker is serial and starts `llama-tts` per request. It is
-  a validation implementation, not a high-concurrency speech service.
+- The reference TTS worker is serial and keeps one matching profile resident.
+  It is a low-latency validation implementation, not a high-concurrency speech
+  service.
 - Video/audio association is temporal but not sample-accurate.
 - Adapter v1 does not stream input or output audio.
 

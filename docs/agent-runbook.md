@@ -76,7 +76,18 @@ For portal behavior, keep these routing facts straight:
   reach adapter v1.
 - Document indexes and diagnostics are separately isolated by the hashed opaque
   browser session and both clear with trash/expire after five idle minutes.
+- IndexedDB restores the same browser session after reload. Page leave starts a
+  five-minute expiry; trash deletes it immediately. Restored media is
+  display-only and must not be submitted into a later request.
+- Call turns should answer intent rather than mirror the transcript. Media
+  turns keep prior text context, but only the newest attachment is current
+  evidence.
+- A fresh environment snapshot is prepended every turn. It may contain bounded
+  date/time, CPU, RAM, network counters, and NVIDIA utilization, but never
+  hostnames, addresses, processes, credentials, or session content.
 - `stage=tts` means preparing. `audio_start` means the first PCM bytes exist.
+- The default TTS stream window is one codec frame. Check `persistent_ready` in
+  TTS health and reuse of the resident PID before diagnosing browser buffering.
 - `max_frames` is per synthesis block. Long speech has continuous sequence
   numbers and one assembled final WAV; verify `adapter.tts_blocks > 1`.
 

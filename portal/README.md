@@ -52,29 +52,31 @@ this provides bounded live visual conversation without presenting an unbounded
 video stream to the model context.
 
 The phone icon at the upper right starts hands-free voice mode. Browser-side
-voice activity detection first calibrates ambient noise for 900 ms, requires
-220 ms of sustained activity above an adaptive threshold, and closes an
+voice activity detection first calibrates ambient noise for 650 ms, requires
+120 ms of sustained activity above a sensitive adaptive threshold, and closes an
 utterance after 750 ms of silence. It submits a 16 kHz WAV only after that
 confirmed utterance; quiet, transient clicks, and elevated steady room noise do
 not call remote ASR. The waveform border, line, and label remain translucent
 while inactive and become opaque only while VAD is active. Confirmed speech is
 sent through Qwen3-Omni and Qwen3.8, response text is relayed as Ollama produces
 it, and Qwen3-TTS speech is streamed back.
-The microphone remains active during inference and playback. Sustained speech
-stops current playback, records the interruption, and queues the new turn as
-soon as the in-flight generation releases the serial inference lane. Echo
-cancellation and a higher interruption threshold reduce self-triggering. The
-live waveform and status line show whether the portal is listening,
-understanding, preparing speech, speaking, or handling an interruption.
-Tap the phone icon again to stop capture, abort an in-flight request, and stop
-playback.
+The microphone remains active during inference and playback. Every confirmed
+speech segment is submitted immediately as its own request-local turn, even
+while earlier turns are queued or understanding. Sustained speech during
+playback stops the current audio while capture continues. Echo cancellation and
+a higher playback-time threshold reduce self-triggering. Tap the phone icon
+again to stop capture, abort every outstanding turn, and stop playback.
+
+Call turns answer the speaker's intent directly and do not echo, transcribe, or
+paraphrase unless explicitly asked. They include bounded prior text dialogue.
+Camera-call turns send only the newest frame as current visual evidence.
 
 | Composer action | Adapter route |
 |---|---|
 | Text chat | Qwen3.8 language |
 | Audio attachment with no prompt | Qwen3-Omni transcript/acoustic evidence → Qwen3.8 reply |
 | Audio attachment with a prompt | Qwen3-Omni comprehension → Qwen3.8 |
-| Image/video with no prompt | Qwen3-Omni direct description |
+| Image/video with no prompt | Qwen3-Omni evidence → context-aware Qwen3.8 conversation |
 | Image/video with a prompt | Qwen3-Omni comprehension → Qwen3.8 |
 | Silent video or animated GIF | bounded visual-only comprehension |
 | PDF/DOCX/text or code | extraction → session-isolated retrieval → Qwen3.8 |
@@ -111,10 +113,28 @@ configuration, and assembled into one complete replay WAV. This prevents the
 former approximately 40-second truncation; the final adapter trace exposes the
 number of generated `tts_blocks`.
 
+The patched Qwen3-TTS worker is warmed once and remains CUDA-resident across
+default-profile requests. Prompts use a bounded framed protocol, live decoding
+defaults to one codec frame (about 80 ms) per PCM window, and the browser
+schedules the first received window with a 3 ms floor. A changed voice profile
+replaces the worker; inline uploaded speaker audio uses the isolated
+single-shot fallback before the default profile is rewarmed.
+
 New user and assistant messages smoothly scroll the conversation to the newest
 turn. The small number beside **ONLINE** reports distinct browser sessions with
 an active or queued inference request; it is an aggregate only and is never
 used as conversation state.
+
+Conversation history, rendered messages, reply audio, drafts, and bounded media
+previews live in same-origin IndexedDB under a one-way cookie-derived scope.
+Reload restores them without re-sending old media. Page leave starts a
+five-minute expiry, and trash deletes browser cache, documents, and diagnostics
+immediately.
+
+Every turn receives a fresh trusted runtime snapshot with local/UTC date and
+time, OS/architecture, CPU/load, RAM, bounded interface counters, and NVIDIA
+utilization. Hostnames, IP/MAC addresses, routes, sockets, processes,
+credentials, and session content are excluded.
 
 Video is sampled at 24 frames by the phone and clamped to at most 32 frames and
 2 fps by the adapter. The comprehension GGUF declares a 65,536-token context,
@@ -271,10 +291,10 @@ views for a near-term restart.
 
 The phone deployment has no CPU inference fallback. Persistent comprehension
 uses `-ngl 99` on the exact GPU UUID assigned by a manual scoped broker lease.
-TTS uses `--gpu-layers -1` on the same UUID. Because the current `llama-tts`
-binary is single-shot, the wrapper calls broker `prepare` before every load,
-waits until the TTS PID is visible as resident on that UUID, and then calls
-`ready`. A failed reservation or residency check aborts deployment or the
+TTS uses `--gpu-layers -1` on the same UUID. The wrapper calls broker `prepare`,
+loads the persistent worker, waits for CUDA residency and its ready frame, and
+then calls `ready`. Default-profile requests reuse that process. A failed
+reservation or residency check aborts deployment or the
 request instead of silently running inference on CPU. Ollama language requests
 continue through broker-owned GPU lanes.
 
@@ -290,7 +310,9 @@ continue through broker-owned GPU lanes.
 | `OMNI_COMPREHENSION_CONTEXT_TOKENS` | `65536` | Native comprehension worker context; propagated to the adapter |
 | `OMNI_PORTAL_TOKEN` | generated | At least 24 characters |
 | `OMNI_VOICE_PROFILE` | `portal/voice-profile.json` | Validated server-side Qwen3-TTS profile |
-| `OMNI_TTS_STREAM_FRAMES` | `4` | Codec frames per live PCM decode window; four is about 320 ms and lowers first-audio latency |
+| `OMNI_TTS_STREAM_FRAMES` | `1` | Codec frames per live PCM decode window; one is about 80 ms and minimizes first-audio latency |
+| `OMNI_TTS_PERSISTENT` | `1` | Keep a matching Qwen3-TTS profile resident between turns |
+| `OMNI_TTS_WARM_SPEAKER_FILE` | bundled default voice | Profile warmed at service startup |
 | `OMNI_TTS_BROKER_TRANSITION_TIMEOUT_S` | `330` | Maximum wait for scoped prepare/ready transitions |
 | `OMNI_KEEP_CACHE` | `0` | Keep materialized views after stop |
 | `OMNI_PORTAL_MAX_BODY_BYTES` | 96 MiB | Same-origin JSON request cap |
@@ -338,8 +360,9 @@ media base64 or the access token.
   through one GPU inference lane. Queue tickets, request payloads, upstream
   responses, streaming iterators, voice settings, and tool rounds are
   request-local.
-- Conversation history is browser-page-local. The portal stores no message,
-  media, observation, KV-cache, or generated response as shared server state.
+- Conversation history is browser-session-local. IndexedDB restores it after
+  reload and expires it five minutes after page leave. Cached media is
+  display-only and never replayed into inference; nothing is shared server state.
   Its only content-bearing server session state is the bounded in-memory
   document chunk index, keyed by a hash of the opaque session cookie and never
   addressable across sessions.
@@ -354,7 +377,7 @@ media base64 or the access token.
   stored under hashed filenames, are inaccessible across browser sessions, and
   are purged five minutes after the session heartbeat stops.
 - The trash button aborts the page's active request/call, stops playback,
-  clears browser conversation state, and deletes that session's diagnostic
+  deletes the IndexedDB browser session, and deletes that session's diagnostic
   journal and document index immediately. A late completion from the aborted request cannot
   recreate the deleted journal; a genuinely new request starts a new one.
 - Encoded JSON is limited to 96 MiB.

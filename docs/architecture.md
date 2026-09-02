@@ -57,11 +57,13 @@ the attached sidecar remains the source of truth.
 
 The adapter is stateless between HTTP requests. Each request owns its parsed
 media bytes, stage outputs, tools, voice settings, cancellation, and response
-stream. The portal keeps conversation history only in that browser page. Its
-optional document index is likewise keyed by a one-way session identifier,
-bounded in memory, cleared by the trash action, and expired after the session
-disconnects. Raw documents and retrieved passages never cross into another
-browser session.
+stream. The portal keeps each browser's text history and rendered state in a
+same-origin IndexedDB record keyed by a one-way cookie-derived scope. Reloads
+restore that record, page leave starts a five-minute expiry, and trash deletes
+it immediately. Cached media is display-only and cannot silently become new
+model input. The optional document index uses the same isolation boundary,
+bounded in memory, cleared by trash, and expired after disconnect. Raw
+documents and retrieved passages never cross into another browser session.
 
 The reference deployment serializes GPU inference with one active lane and
 admits four active/queued requests. This is bounded concurrency, not shared
@@ -70,6 +72,12 @@ context. The count shown in the UI is aggregate only.
 llama.cpp prompt caching is disabled for comprehension because the pinned
 multimodal slot cache can retain decoded media embeddings. This is a correctness
 requirement even when ordinary token-prefix caching would be safe.
+
+Every request receives a newly captured trusted runtime-environment system
+message. Its schema exposes date/time, OS/architecture, CPU/load, RAM, bounded
+interface counters, and NVIDIA utilization while explicitly omitting hostnames,
+addresses, routes, sockets, processes, credentials, and user/session content.
+It is operational context, never an authorization source.
 
 ## Streaming scope
 
@@ -82,3 +90,11 @@ split at sentence boundaries before the Qwen3-TTS per-generation frame limit;
 their PCM windows share one monotonically increasing sequence and are assembled
 into the final replay WAV. Silent video is valid, and animated GIF input is
 normalized into a bounded temporal video before comprehension.
+
+Call turns include bounded prior dialogue plus a system instruction to answer
+the user's intent without echoing, transcribing, or paraphrasing by default.
+Media chat likewise keeps prior textual conversation, but only the newest
+attachment is labelled as current perceptual evidence. Qwen3-TTS uses a
+persistent framed subprocess protocol so matching-profile requests reuse the
+resident model and the browser can schedule the first one-frame PCM window as
+soon as it arrives.

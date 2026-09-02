@@ -6,6 +6,7 @@ REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 SOURCE_DIR=${1:-$REPO_ROOT/vendor/llama.cpp}
 PINNED_COMMIT=458681e1d5d4a29a1463c4732e03226cf384b997
 PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-pcm-stream.patch
+PERSISTENT_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-persistent.patch
 BUILD_DIR=${LLAMA_CPP_BUILD_DIR:-$SOURCE_DIR/build}
 if command -v nproc >/dev/null 2>&1; then
   default_jobs=$(nproc)
@@ -30,15 +31,22 @@ if [[ "$current_commit" != "$PINNED_COMMIT" ]]; then
   exit 1
 fi
 
-if git -C "$SOURCE_DIR" apply --reverse --check "$PATCH_FILE" >/dev/null 2>&1; then
-  printf 'Qwen3-TTS PCM stream patch is already applied\n'
-elif git -C "$SOURCE_DIR" apply --check "$PATCH_FILE"; then
-  git -C "$SOURCE_DIR" apply "$PATCH_FILE"
-  printf 'Applied Qwen3-TTS PCM stream patch\n'
-else
-  printf 'Qwen3-TTS PCM stream patch does not apply cleanly\n' >&2
-  exit 1
-fi
+apply_patch_file() {
+  local patch_file=$1
+  local label=$2
+  if git -C "$SOURCE_DIR" apply --reverse --check "$patch_file" >/dev/null 2>&1; then
+    printf '%s patch is already applied\n' "$label"
+  elif git -C "$SOURCE_DIR" apply --check "$patch_file"; then
+    git -C "$SOURCE_DIR" apply "$patch_file"
+    printf 'Applied %s patch\n' "$label"
+  else
+    printf '%s patch does not apply cleanly\n' "$label" >&2
+    exit 1
+  fi
+}
+
+apply_patch_file "$PATCH_FILE" "Qwen3-TTS PCM stream"
+apply_patch_file "$PERSISTENT_PATCH_FILE" "Qwen3-TTS persistent worker"
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in
@@ -53,4 +61,5 @@ cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" "${cmake_options[@]}"
 cmake --build "$BUILD_DIR" --target llama-server llama-tts --parallel "$BUILD_JOBS"
 
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-stream-frames'
+"$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-persistent'
 printf 'Built patched llama-server and llama-tts in %s\n' "$BUILD_DIR/bin"

@@ -9,7 +9,9 @@ libmtmd worker while preserving these HTTP contracts.
 
 from __future__ import annotations
 
+import atexit
 import base64
+import io
 import os
 import queue
 import select
@@ -19,6 +21,7 @@ import sys
 import tempfile
 import threading
 import time
+import wave
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,7 +50,7 @@ class Config:
     timeout_s: float = 900
     max_text_chars: int = 4096
     max_frames: int = 512
-    stream_frames: int = 4
+    stream_frames: int = 1
     gpu_layers: int = -1
     require_gpu: bool = False
     lease_token: str = ""
@@ -55,6 +58,8 @@ class Config:
     active_pid_file: Path | None = None
     residency_timeout_s: float = 120
     broker_transition_timeout_s: float = 330
+    persistent: bool = True
+    warm_speaker_file: str = ""
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -105,7 +110,7 @@ class Config:
             timeout_s=float(os.environ.get("OMNI_TTS_TIMEOUT_S", "900")),
             max_text_chars=int(os.environ.get("OMNI_TTS_MAX_TEXT_CHARS", "4096")),
             max_frames=int(os.environ.get("OMNI_TTS_MAX_FRAMES", "512")),
-            stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "4")),
+            stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "1")),
             gpu_layers=int(os.environ.get("OMNI_TTS_GPU_LAYERS", "-1")),
             require_gpu=os.environ.get("OMNI_TTS_REQUIRE_GPU", "0") == "1",
             lease_token=os.environ.get("OLLAMA_UNIFY_GPU_LEASE", "").strip(),
@@ -115,10 +120,17 @@ class Config:
                 if os.environ.get("OMNI_TTS_ACTIVE_PID_FILE")
                 else None
             ),
-            residency_timeout_s=float(os.environ.get("OMNI_TTS_RESIDENCY_TIMEOUT_S", "120")),
+            residency_timeout_s=float(
+                os.environ.get("OMNI_TTS_RESIDENCY_TIMEOUT_S", "120")
+            ),
             broker_transition_timeout_s=float(
                 os.environ.get("OMNI_TTS_BROKER_TRANSITION_TIMEOUT_S", "330")
             ),
+            persistent=os.environ.get("OMNI_TTS_PERSISTENT", "1").strip().lower()
+            not in {"0", "false", "no"},
+            warm_speaker_file=os.environ.get(
+                "OMNI_TTS_WARM_SPEAKER_FILE", ""
+            ).strip(),
         )
 
 
@@ -194,10 +206,13 @@ def _wait_for_cuda_residency(
             if isinstance(diagnostic_value, bytes):
                 diagnostic_value = diagnostic_value.decode("utf-8", errors="replace")
             diagnostic = diagnostic_value[-2000:]
-            raise TTSError("llama-tts exited before CUDA residency was verified: " + diagnostic)
+            raise TTSError(
+                "llama-tts exited before CUDA residency was verified: " + diagnostic
+            )
         time.sleep(0.25)
     raise TTSError(
-        f"llama-tts did not become resident on reserved GPU {gpu_uuid} within {timeout_s:g}s"
+        f"llama-tts did not become resident on reserved GPU {gpu_uuid} "
+        f"within {timeout_s:g}s"
     )
 
 
@@ -231,7 +246,9 @@ def _synthesis_spec(config: Config, body: dict[str, Any]) -> SynthesisSpec:
         if speaker:
             raise TTSError("speaker_file and speaker_audio are mutually exclusive")
         try:
-            decoded_speaker = decode_wav_payload(body["speaker_audio"], max_bytes=10 * 1024 * 1024)
+            decoded_speaker = decode_wav_payload(
+                body["speaker_audio"], max_bytes=10 * 1024 * 1024
+            )
         except AudioContractError as exc:
             raise TTSError(f"invalid speaker_audio: {exc}") from exc
         if decoded_speaker.duration_ms < 500:
@@ -278,6 +295,7 @@ def _command(
     output: Path,
     *,
     stream: bool = False,
+    persistent: bool = False,
     speaker_file: str | None = None,
 ) -> list[str]:
     command = [
@@ -310,6 +328,8 @@ def _command(
         command.extend(["--tts-speaker-file", selected_speaker])
     if stream:
         command.extend(["--tts-stream", "--tts-stream-frames", str(spec.stream_frames)])
+    if persistent:
+        command.append("--tts-persistent")
     return command
 
 
@@ -334,7 +354,21 @@ def _validate_wav(wav: bytes) -> None:
         or decoded.channels != expected.channels
         or decoded.sample_width_bits != expected.sample_width_bits
     ):
-        raise TTSError("llama-tts output does not satisfy the 24 kHz mono PCM16 adapter contract")
+        raise TTSError(
+            "llama-tts output does not satisfy the 24 kHz mono PCM16 adapter contract"
+        )
+
+
+def _pcm_wav(pcm: bytes) -> bytes:
+    if not pcm or len(pcm) % 2:
+        raise TTSError("TTS PCM must contain complete 16-bit samples")
+    output = io.BytesIO()
+    with wave.open(output, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(24000)
+        wav.writeframes(pcm)
+    return output.getvalue()
 
 
 def synthesize(config: Config, body: dict[str, Any]) -> bytes:
@@ -342,7 +376,9 @@ def synthesize(config: Config, body: dict[str, Any]) -> bytes:
 
     with tempfile.TemporaryDirectory(prefix="robit-omni-tts-") as temp_dir:
         output = Path(temp_dir) / "speech.wav"
-        command = _command(config, spec, output, speaker_file=_speaker_path(spec, temp_dir))
+        command = _command(
+            config, spec, output, speaker_file=_speaker_path(spec, temp_dir)
+        )
         if config.lease_token and not config.gpu_uuid:
             raise TTSError("OMNI_TTS_GPU_UUID is required with a scoped GPU lease")
         if config.lease_token:
@@ -374,7 +410,9 @@ def synthesize(config: Config, body: dict[str, Any]) -> bytes:
         broker_ready = False
         try:
             if config.lease_token or config.require_gpu:
-                _wait_for_cuda_residency(process, config.gpu_uuid, config.residency_timeout_s)
+                _wait_for_cuda_residency(
+                    process, config.gpu_uuid, config.residency_timeout_s
+                )
             if config.lease_token:
                 _broker_transition(
                     "ready",
@@ -450,7 +488,9 @@ def _stream_synthesize(config: Config, spec: SynthesisSpec) -> Iterator[bytes]:
             broker_ready = False
             try:
                 if config.lease_token or config.require_gpu:
-                    _wait_for_cuda_residency(process, config.gpu_uuid, config.residency_timeout_s)
+                    _wait_for_cuda_residency(
+                        process, config.gpu_uuid, config.residency_timeout_s
+                    )
                 if config.lease_token:
                     _broker_transition(
                         "ready",
@@ -505,7 +545,9 @@ def _stream_synthesize(config: Config, spec: SynthesisSpec) -> Iterator[bytes]:
                 stderr_log.seek(0)
                 diagnostic = stderr_log.read()[-2000:]
                 if process.returncode != 0:
-                    raise TTSError(f"llama-tts exited {process.returncode}: {diagnostic}")
+                    raise TTSError(
+                        f"llama-tts exited {process.returncode}: {diagnostic}"
+                    )
                 if not output.is_file():
                     raise TTSError("llama-tts returned success without a WAV file")
                 _validate_wav(output.read_bytes())
@@ -528,10 +570,270 @@ def stream_synthesize(
     return spec, _stream_synthesize(config, spec)
 
 
+class PersistentTTSWorker:
+    """Keep one llama.cpp TTS graph resident and exchange framed PCM over pipes."""
+
+    def __init__(self, config: Config):
+        self.config = config
+        self.process: subprocess.Popen[bytes] | None = None
+        self.profile: tuple[Any, ...] | None = None
+        self.stderr_log: Any = None
+        self.stdout_queue: queue.Queue[bytes | None] | None = None
+        self.stdout_buffer = bytearray()
+
+    @staticmethod
+    def _profile(spec: SynthesisSpec) -> tuple[Any, ...]:
+        return (
+            spec.language,
+            spec.speaker,
+            spec.frames,
+            spec.temperature,
+            spec.top_k,
+            spec.top_p,
+            spec.seed,
+            spec.stream_frames,
+        )
+
+    @property
+    def ready(self) -> bool:
+        return self.process is not None and self.process.poll() is None
+
+    def _diagnostic(self) -> str:
+        if self.stderr_log is None:
+            return ""
+        self.stderr_log.flush()
+        self.stderr_log.seek(0)
+        value = self.stderr_log.read()[-2000:]
+        self.stderr_log.seek(0, os.SEEK_END)
+        return value
+
+    def _read_exact(
+        self, process: subprocess.Popen[bytes], size: int, deadline: float
+    ) -> bytes:
+        if process.stdout is None:
+            raise TTSError("persistent TTS stdout is unavailable")
+        if os.name == "nt":
+            if self.stdout_queue is None:
+                raise TTSError("persistent TTS reader is unavailable")
+            while len(self.stdout_buffer) < size:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired("persistent llama-tts", 0)
+                try:
+                    chunk = self.stdout_queue.get(timeout=min(1.0, remaining))
+                except queue.Empty:
+                    if process.poll() is not None:
+                        raise TTSError(
+                            "persistent llama-tts exited unexpectedly"
+                        ) from None
+                    continue
+                if chunk is None:
+                    raise TTSError("persistent llama-tts closed its output")
+                self.stdout_buffer.extend(chunk)
+            result = bytes(self.stdout_buffer[:size])
+            del self.stdout_buffer[:size]
+            return result
+        result = bytearray()
+        while len(result) < size:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired("persistent llama-tts", 0)
+            readable, _, _ = select.select(
+                [process.stdout], [], [], min(1.0, remaining)
+            )
+            if not readable:
+                if process.poll() is not None:
+                    raise TTSError("persistent llama-tts exited unexpectedly")
+                continue
+            chunk = os.read(process.stdout.fileno(), size - len(result))
+            if not chunk:
+                raise TTSError("persistent llama-tts closed its output")
+            result.extend(chunk)
+        return bytes(result)
+
+    def _read_frame(
+        self, process: subprocess.Popen[bytes], deadline: float
+    ) -> tuple[str, bytes]:
+        header = self._read_exact(process, 9, deadline)
+        size = int.from_bytes(header[1:], "little")
+        if size > 128 * 1024 * 1024:
+            raise TTSError("persistent TTS emitted an oversized frame")
+        payload = self._read_exact(process, size, deadline) if size else b""
+        return chr(header[0]), payload
+
+    def close(self) -> None:
+        process = self.process
+        self.process = None
+        self.profile = None
+        self.stdout_queue = None
+        self.stdout_buffer.clear()
+        if process is not None:
+            _stop_process_group(process)
+        if self.stderr_log is not None:
+            self.stderr_log.close()
+            self.stderr_log = None
+        if self.config.active_pid_file:
+            self.config.active_pid_file.unlink(missing_ok=True)
+
+    def ensure(self, spec: SynthesisSpec) -> None:
+        wanted = self._profile(spec)
+        if self.ready and self.profile == wanted:
+            return
+        self.close()
+        if spec.speaker_audio is not None:
+            raise TTSError("inline speaker audio requires the single-shot TTS path")
+        if self.config.lease_token and not self.config.gpu_uuid:
+            raise TTSError("OMNI_TTS_GPU_UUID is required with a scoped GPU lease")
+        if self.config.lease_token:
+            _broker_transition(
+                "prepare",
+                self.config.lease_token,
+                self.config.broker_transition_timeout_s,
+            )
+        command = _command(
+            self.config,
+            spec,
+            Path(os.devnull),
+            stream=True,
+            persistent=True,
+        )
+        self.stderr_log = tempfile.TemporaryFile(  # noqa: SIM115 - worker lifetime owns it
+            mode="w+t", encoding="utf-8"
+        )
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=self.stderr_log,
+            start_new_session=True,
+        )
+        self.process = process
+        if os.name == "nt":
+            self.stdout_queue = queue.Queue()
+            stdout_queue = self.stdout_queue
+
+            def read_stdout() -> None:
+                if process.stdout is None:
+                    stdout_queue.put(None)
+                    return
+                try:
+                    while chunk := os.read(process.stdout.fileno(), 64 * 1024):
+                        stdout_queue.put(chunk)
+                finally:
+                    stdout_queue.put(None)
+
+            threading.Thread(target=read_stdout, daemon=True).start()
+        if self.config.active_pid_file:
+            self.config.active_pid_file.parent.mkdir(parents=True, exist_ok=True)
+            self.config.active_pid_file.write_text(f"{process.pid}\n")
+        broker_ready = False
+        try:
+            if self.config.lease_token or self.config.require_gpu:
+                _wait_for_cuda_residency(
+                    process, self.config.gpu_uuid, self.config.residency_timeout_s
+                )
+            frame_type, payload = self._read_frame(
+                process, time.monotonic() + self.config.timeout_s
+            )
+            if frame_type != "R" or payload:
+                raise TTSError("persistent llama-tts returned an invalid ready frame")
+            if self.config.lease_token:
+                _broker_transition(
+                    "ready",
+                    self.config.lease_token,
+                    self.config.broker_transition_timeout_s,
+                )
+                broker_ready = True
+            self.profile = wanted
+        except Exception:
+            diagnostic = self._diagnostic()
+            self.close()
+            if self.config.lease_token and not broker_ready:
+                try:
+                    _broker_transition("ready", self.config.lease_token, 60)
+                except (TTSError, subprocess.TimeoutExpired) as exc:
+                    print(f"warning: GPU broker ready rollback failed: {exc}", file=sys.stderr)
+            if diagnostic:
+                print(diagnostic, file=sys.stderr)
+            raise
+
+    def stream(self, spec: SynthesisSpec) -> Iterator[bytes]:
+        self.ensure(spec)
+        process = self.process
+        if process is None or process.stdin is None:
+            raise TTSError("persistent llama-tts is unavailable")
+        encoded = base64.b64encode(spec.text.encode("utf-8")) + b"\n"
+        try:
+            process.stdin.write(encoded)
+            process.stdin.flush()
+            deadline = time.monotonic() + self.config.timeout_s
+            while True:
+                frame_type, payload = self._read_frame(process, deadline)
+                if frame_type == "A":
+                    if payload:
+                        yield payload
+                elif frame_type == "D":
+                    if payload:
+                        raise TTSError("persistent TTS done frame contained data")
+                    return
+                elif frame_type == "E":
+                    raise TTSError(
+                        payload.decode("utf-8", errors="replace")
+                        or "persistent TTS generation failed"
+                    )
+                else:
+                    raise TTSError(
+                        f"persistent TTS emitted unknown frame {frame_type!r}"
+                    )
+        except Exception:
+            self.close()
+            raise
+
+
+def _warm_spec(config: Config) -> SynthesisSpec | None:
+    if not config.warm_speaker_file:
+        return None
+    speaker = str(Path(config.warm_speaker_file).expanduser().resolve())
+    if not Path(speaker).is_file():
+        return None
+    return SynthesisSpec(
+        text="warmup",
+        language="en",
+        speaker=speaker,
+        speaker_audio=None,
+        frames=config.max_frames,
+        temperature=0.7,
+        top_k=40,
+        top_p=0.9,
+        seed=42,
+        stream_frames=config.stream_frames,
+    )
+
+
 def create_app(config: Config | None = None) -> Flask:
     app = Flask(__name__)
     runtime = config or Config.from_environment()
     lock = threading.Lock()
+    persistent = PersistentTTSWorker(runtime) if runtime.persistent else None
+    warm_spec = _warm_spec(runtime)
+
+    def warm_persistent_worker() -> None:
+        if persistent is None or warm_spec is None:
+            return
+        try:
+            with lock:
+                persistent.ensure(warm_spec)
+        except (TTSError, subprocess.TimeoutExpired, OSError) as exc:
+            print(f"warning: persistent TTS warmup failed: {exc}", file=sys.stderr)
+
+    if persistent is not None:
+        atexit.register(persistent.close)
+    if persistent is not None and warm_spec is not None:
+        threading.Thread(
+            target=warm_persistent_worker,
+            name="qwen3-tts-warmup",
+            daemon=True,
+        ).start()
 
     @app.get("/healthz")
     def healthz():
@@ -540,7 +842,14 @@ def create_app(config: Config | None = None) -> Flask:
             for path in (runtime.binary, runtime.model, runtime.projector)
             if not path.is_file()
         ]
-        return jsonify({"ok": not missing, "missing": missing}), 200 if not missing else 503
+        return jsonify(
+            {
+                "ok": not missing,
+                "missing": missing,
+                "persistent": bool(persistent),
+                "persistent_ready": bool(persistent and persistent.ready),
+            }
+        ), 200 if not missing else 503
 
     @app.post("/synthesize")
     def synthesize_route():
@@ -549,7 +858,20 @@ def create_app(config: Config | None = None) -> Flask:
             if not isinstance(body, dict):
                 raise TTSError("request body must be a JSON object")
             with lock:
-                wav = synthesize(runtime, body)
+                spec = _synthesis_spec(runtime, body)
+                if persistent is not None and spec.speaker_audio is None:
+                    wav = _pcm_wav(b"".join(persistent.stream(spec)))
+                    _validate_wav(wav)
+                else:
+                    if persistent is not None:
+                        persistent.close()
+                    wav = synthesize(runtime, body)
+                    if persistent is not None and warm_spec is not None:
+                        threading.Thread(
+                            target=warm_persistent_worker,
+                            name="qwen3-tts-rewarm",
+                            daemon=True,
+                        ).start()
             return Response(wav, content_type="audio/wav")
         except (TTSError, ValueError, subprocess.TimeoutExpired) as exc:
             return jsonify({"error": str(exc)}), 422
@@ -560,11 +882,22 @@ def create_app(config: Config | None = None) -> Flask:
             body = request.get_json(force=True)
             if not isinstance(body, dict):
                 raise TTSError("request body must be a JSON object")
-            spec, chunks = stream_synthesize(runtime, body)
+            spec = _synthesis_spec(runtime, body)
 
             def generate() -> Iterator[bytes]:
                 with lock:
-                    yield from chunks
+                    if persistent is not None and spec.speaker_audio is None:
+                        yield from persistent.stream(spec)
+                    else:
+                        if persistent is not None:
+                            persistent.close()
+                        yield from _stream_synthesize(runtime, spec)
+                        if persistent is not None and warm_spec is not None:
+                            threading.Thread(
+                                target=warm_persistent_worker,
+                                name="qwen3-tts-rewarm",
+                                daemon=True,
+                            ).start()
 
             response = Response(
                 stream_with_context(generate()),
@@ -576,6 +909,7 @@ def create_app(config: Config | None = None) -> Flask:
             response.headers["X-Audio-Channels"] = "1"
             response.headers["X-Audio-Stream-Version"] = "1"
             response.headers["X-Audio-Stream-Frames"] = str(spec.stream_frames)
+            response.headers["X-Accel-Buffering"] = "no"
             return response
         except (TTSError, ValueError, subprocess.TimeoutExpired) as exc:
             return jsonify({"error": str(exc)}), 422

@@ -71,11 +71,12 @@ export OMNI_TTS_PORT=8892
 python runtime/tts_server.py
 ```
 
-The wrapper is serial and reloads the model on each request. In a manually
+The wrapper is serial but keeps one matching voice profile resident. In a manually
 scoped CUDA deployment, pass `OLLAMA_UNIFY_GPU_LEASE`, `OMNI_TTS_GPU_UUID`, and
 `CUDA_VISIBLE_DEVICES` with the exact reserved UUID. The wrapper then calls
-broker `prepare`, verifies that `llama-tts` is resident on that GPU, and calls
-`ready` for each generation. `OMNI_TTS_GPU_LAYERS=-1` enables full offload;
+broker `prepare`, verifies that `llama-tts` is resident on that GPU and has
+emitted its explicit ready frame, then calls `ready`. Repeated matching-profile
+generations reuse that process. `OMNI_TTS_GPU_LAYERS=-1` enables full offload;
 the packaged deployment rejects CPU fallback.
 `OMNI_TTS_BROKER_TRANSITION_TIMEOUT_S` defaults to 330 seconds so an unrelated
 in-flight Ollama request delays synthesis rather than forcing an anonymous CUDA
@@ -121,8 +122,9 @@ code2wav decoder window before generation ends:
   --tts-stream --tts-stream-frames 72 > speech.s16le
 ```
 
-The tracked bootstrap checks out the verified llama.cpp commit, applies
-`patches/llama.cpp-qwen3tts-pcm-stream.patch` idempotently, and
+The tracked bootstrap checks out the verified llama.cpp commit and applies
+`patches/llama.cpp-qwen3tts-pcm-stream.patch` plus
+`patches/llama.cpp-qwen3tts-persistent.patch` idempotently, then
 builds CUDA-enabled `llama-server` and `llama-tts`. Set
 `LLAMA_CPP_BUILD_JOBS` or `LLAMA_CPP_BUILD_DIR` when needed; an existing source
 checkout must already be at the pinned commit.
@@ -137,7 +139,7 @@ audio/pcm;rate=24000;channels=1;format=s16le` plus `X-Audio-Codec`,
 and may override `stream_frames`; `OMNI_TTS_STREAM_FRAMES` sets the server
 default.
 
-The interactive default is four codec frames, about 320 ms for the packaged
+The interactive default is one codec frame, about 80 ms for the packaged
 12 Hz model. Values from 1 through 72 are accepted; larger windows improve
 aggregate decoder throughput, while smaller windows reduce time to first PCM
 at the cost of more decoder invocations. A shorter utterance flushes once at
@@ -147,9 +149,11 @@ boundaries, so clients must buffer incomplete 16-bit samples.
 
 This route is experimental. If generation fails after response headers, the
 PCM stream terminates early; the final WAV is still checked server-side when
-generation succeeds. The reference worker also reloads the model per request,
-so its startup latency remains unsuitable for hard realtime or full duplex.
-A resident libmtmd worker can retain the same PCM contract.
+generation succeeds. In persistent mode, prompts are base64-framed over stdin
+and PCM/done/error events are length-framed over stdout; model, projector, and
+speaker state remain resident while generation memory and samplers reset for
+every prompt. Inline request-local speaker audio uses the isolated single-shot
+fallback, after which the configured default profile is rewarmed.
 
 ## 4. Start the unified adapter
 

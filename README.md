@@ -24,7 +24,8 @@ cd qwen-omni-adapters
 ```
 
 The first run creates `.venv`, installs the Python package, clones a pinned
-llama.cpp revision, applies the Qwen3-TTS PCM streaming patch, builds the two
+llama.cpp revision, applies the Qwen3-TTS PCM streaming and resident-worker
+patches, builds the two
 CUDA binaries, pulls missing Ollama tags, validates the attached sidecar,
 materializes its disposable runtime views, starts the services, runs local
 smoke gates, and prints an authenticated Cloudflare Quick Tunnel URL.
@@ -130,15 +131,25 @@ separate so environmental sounds are never misrouted as the user's words.
 
 - Every comprehension request sets `cache_prompt:false`; a prior audio/video
   embedding cannot be reused for a new clip.
-- Media turns send only the current attachment and start a fresh media context.
+- Media turns send only the current attachment as present-tense perceptual
+  evidence while retaining bounded prior text dialogue for natural continuity.
 - The portal defaults to one active GPU lane and four admitted active/queued
   requests, with request-local media, tools, voice settings, and streams.
-- Browser conversation history is local to that browser session. The server
-  has no shared model conversation state. The optional bounded document index
-  is in-memory, hashed-cookie partitioned, cleared by trash, and expires after
-  five idle minutes.
+- Same-origin IndexedDB restores messages, drafts, pending attachments, reply
+  audio, and bounded image/video previews after reload. It is keyed by a
+  one-way cookie-derived scope, begins a five-minute expiry on page leave, and
+  is deleted immediately by trash. Restored media is display-only and is never
+  submitted automatically. The server has no shared model conversation state.
+  The document index follows the same session partition and expiry policy.
 - Long speech is split before the per-generation codec-frame ceiling, streamed
   with continuous sequence numbers, and assembled into one complete final WAV.
+- Qwen3-TTS keeps a matching voice profile resident on its assigned GPU and
+  emits one codec frame (about 80 ms) per stream window by default. A voice
+  profile change intentionally replaces the resident worker.
+- Every turn receives a fresh privacy-bounded environment snapshot containing
+  date/time, OS/architecture, CPU/load, RAM, interface counters, and NVIDIA
+  utilization. It excludes hostnames, addresses, routes, sockets, processes,
+  credentials, and session content.
 - Reasoning is off until the client sends native `think:true`. Thinking is
   returned separately and is never synthesized.
 - CUDA media inference has no CPU fallback. Broker allocation and exact UUID
@@ -157,7 +168,7 @@ separate so environmental sounds are never misrouted as the user's words.
 | `portal/` | Authenticated phone UI, proxy, supervisor, smoke tests, VAD harness |
 | `clients/` | Minimal Python and JavaScript request examples |
 | `docs/` | Protocol, architecture, runtime, deployment, ABI, testing, release evidence |
-| `patches/` | Pinned llama.cpp Qwen3-TTS streaming patch |
+| `patches/` | Pinned llama.cpp Qwen3-TTS streaming and persistent-worker patches |
 | `scripts/` | Bootstrap, build, validation, and scoped cleanup |
 | `tests/` | Contract, routing, isolation, diagnostics, GGUF, and portal regression tests |
 

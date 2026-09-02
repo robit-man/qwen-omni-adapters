@@ -89,7 +89,7 @@ The installer requests the Windows account that owns/can access Ollama. A
 LocalSystem service commonly cannot see a user's Ollama model directory, which
 is why the identity must be explicit. Both modes use the CUDA-enabled pinned
 llama.cpp build and require `nvidia-smi` proof for comprehension residency and
-every single-shot TTS process.
+the persistent TTS worker.
 
 Uninstall with the matching mode:
 

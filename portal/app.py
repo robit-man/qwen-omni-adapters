@@ -44,8 +44,10 @@ from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
 
 try:
     from portal.documents import DocumentError, SessionDocumentStore
+    from portal.environment import runtime_environment_system_message
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from documents import DocumentError, SessionDocumentStore
+    from environment import runtime_environment_system_message
 
 ADAPTER_SCHEMA = "robit.ollama.omni-adapter.v1"
 DEFAULT_MODEL = "robit/qwen3.8-27b-e03-obliterated-omni:q4km"
@@ -797,6 +799,12 @@ def create_app(
             raise PortalRequestError("portal think must be a boolean")
         payload["think"] = think
 
+    def apply_runtime_environment(payload: dict[str, Any]) -> None:
+        messages = payload.get("messages")
+        if not isinstance(messages, list) or not messages:
+            raise PortalRequestError("messages must be a non-empty array")
+        messages.insert(0, runtime_environment_system_message())
+
     def apply_document_context(
         payload: dict[str, Any], session_id: str
     ) -> list[dict[str, Any]]:
@@ -862,6 +870,9 @@ def create_app(
                 "index.html",
                 model=runtime.model,
                 max_upload_mib=runtime.max_body_bytes // (1024 * 1024),
+                session_scope=hashlib.sha256(
+                    f"robit-omni-browser-cache:{browser_session}".encode()
+                ).hexdigest(),
             )
         )
         response.set_cookie(
@@ -926,6 +937,23 @@ def create_app(
                     "environmental_sound_analysis": True,
                     "evidence_field": "adapter.audio_observation",
                 },
+                "runtime_environment": {
+                    "refreshed_each_turn": True,
+                    "includes": [
+                        "date/time",
+                        "CPU/load",
+                        "RAM",
+                        "NVIDIA GPUs",
+                        "network counters",
+                    ],
+                    "excludes": [
+                        "hostnames",
+                        "addresses",
+                        "processes",
+                        "credentials",
+                        "session content",
+                    ],
+                },
                 "requests": inference_queue.snapshot(),
             }
         )
@@ -985,6 +1013,7 @@ def create_app(
             diagnostic_fields = _request_diagnostic_fields(payload)
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
+            apply_runtime_environment(payload)
             accepted_documents = apply_document_context(payload, session_id)
             diagnostics.begin_request(
                 session_id,
@@ -1075,6 +1104,7 @@ def create_app(
         try:
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
+            apply_runtime_environment(payload)
             apply_document_context(payload, session_id)
         except PortalRequestError as exc:
             return jsonify({"error": str(exc)}), 400

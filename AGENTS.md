@@ -34,6 +34,17 @@ Do not restart or stop an existing deployment unless the user asked for it.
   it reintroduces stale audio/video embeddings across otherwise fresh turns.
 - Speech transcript, non-speech audio observation, and visual observation are
   separate tagged evidence. Only the transcript can be attributed to the user.
+- Only the newest attached media is current perceptual evidence. Bounded prior
+  text dialogue remains available for conversational continuity; cached media
+  previews and prior descriptions must never be replayed as new attachments.
+- Browser session state is isolated in cookie-scoped IndexedDB, expires five
+  minutes after page leave, and is deleted by trash. Restored media is
+  display-only.
+- Runtime environment context is rebuilt for every turn and must remain
+  privacy-bounded: never add hostnames, addresses, routes, sockets, processes,
+  credentials, or session content.
+- The Qwen3-TTS resident protocol must reset generation memory and samplers
+  between prompts. Matching profiles may reuse one PID; request state may not.
 - Never synthesize reasoning or an unresolved tool call.
 
 ## CUDA deployment policy
@@ -99,7 +110,9 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
   sustained alarm submit one each.
 - two simultaneous sessions receive only their own marker and expose at most
   aggregate active/queued counts.
-- TTS returns valid 24 kHz mono PCM16 WAV; streaming returns ordered PCM chunks.
+- TTS returns valid 24 kHz mono PCM16 WAV; streaming returns ordered PCM chunks,
+  and repeated matching-profile prompts reuse one resident worker PID.
+- Browser cache restore/expiry/clear and runtime-environment privacy tests pass.
 - CUDA PIDs are resident only on the leased UUID.
 
 ## Storage and cleanup

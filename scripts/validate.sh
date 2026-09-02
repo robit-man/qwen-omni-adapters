@@ -14,6 +14,7 @@ cd "$REPO_ROOT"
 "$PYTHON" -m ruff check src runtime portal clients tests
 "$PYTHON" -m pytest
 node portal/vad_harness.mjs >/dev/null
+node portal/session_cache_harness.mjs >/dev/null
 bash -n deploy.sh deploy-macos.sh portal/start.sh scripts/bootstrap.sh scripts/build_llama_cpp.sh scripts/cleanup_runtime.sh scripts/validate.sh services/linux/install.sh services/linux/uninstall.sh services/macos/install.sh services/macos/uninstall.sh
 "$PYTHON" -m qwen_omni_adapters contract >/dev/null
-printf 'All source, contract, VAD, and unit validation gates passed.\n'
+printf 'All source, contract, VAD, browser-cache, and unit validation gates passed.\n'
