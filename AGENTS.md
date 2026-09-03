@@ -34,6 +34,9 @@ Do not restart or stop an existing deployment unless the user asked for it.
   it reintroduces stale audio/video embeddings across otherwise fresh turns.
 - Speech transcript, non-speech audio observation, and visual observation are
   separate tagged evidence. Only the transcript can be attributed to the user.
+- Preserve adapter `evidence_provenance`: only current image/video input may set
+  `current_visual_input=true`. Audio, tool results, and prior dialogue must
+  never be recast as something currently seen.
 - Only the newest attached media is current perceptual evidence. Bounded prior
   text dialogue remains available for conversational continuity; cached media
   previews and prior descriptions must never be replayed as new attachments.
@@ -51,7 +54,7 @@ Do not restart or stop an existing deployment unless the user asked for it.
   tool privacy-bounded: never add hostnames, addresses, routes, sockets,
   processes, credentials, or session content.
 - User location is an explicit `get_user_location` tool populated only by a
-  browser-side HTTPS lookup. Preserve field allowlisting, three-decimal
+  browser-side HTTPS lookup. Preserve field allowlisting, two-decimal
   coordinates, per-session TTL/Trash cleanup, and the invariant that raw IP and
   network-provider metadata never reach the portal, logs, or model.
 - Live-call cognition is single-flight per browser call. Preserve strict VAD,
@@ -136,6 +139,8 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
   or TTS, and bounded Audio-context fixtures retain at most six entries;
 - location fixtures prove session isolation, Trash cleanup, and removal of raw
   IP/provider fields before any upstream model request;
+- audio-only adapter fixtures mark `current_visual_input=false`; location and
+  web fixtures preserve producing-tool authority, source URL, and claim limits;
 - two simultaneous sessions receive only their own marker and expose at most
   aggregate active/queued counts.
 - TTS returns valid 24 kHz mono PCM16 WAV; streaming returns ordered PCM chunks,

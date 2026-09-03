@@ -169,6 +169,9 @@ separate so environmental sounds are never misrouted as the user's words.
 - `get_user_location` uses a browser-side HTTPS lookup and exposes only
   sanitized, approximate session geography. Raw IP and network metadata never
   reach the portal or model.
+- Adapter responses state current media modalities and whether current visual
+  input exists. Location/search/fetch results carry tool/source authority and
+  claim limits, so tool evidence cannot legitimately be presented as vision.
 - Reasoning is off until the client sends native `think:true`. Thinking is
   returned separately and is never synthesized.
 - CUDA media inference has no CPU fallback. Broker allocation and exact UUID
