@@ -137,11 +137,12 @@ separate so environmental sounds are never misrouted as the user's words.
   evidence while retaining bounded prior text dialogue for natural continuity.
 - The portal defaults to one active GPU lane and four admitted active/queued
   requests, with request-local media, tools, voice settings, and streams.
-- A wrench toggle, off by default, exposes 20 server-pinned structured tools
+- A wrench toggle, off by default, exposes 24 server-pinned structured tools
   for local-browser public-web discovery/fetch, attached-document retrieval,
   current time/capabilities, on-demand host snapshots, and temporary session
-  web/memory recall. Up to 50
-  tool rounds complete before optional TTS; live collapsible execution evidence
+  web/memory recall and isolated text-only sub-agent delegation. Tool chains have
+  no numeric call or round ceiling and continue until a final answer, with exact
+  duplicate no-progress detection; live collapsible execution evidence
   appears in the response and phone UI. No hosted search API is used.
 - Same-origin IndexedDB restores messages, drafts, pending attachments, reply
   audio, and bounded image/video previews after reload. It is keyed by a
