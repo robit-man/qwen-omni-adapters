@@ -1,10 +1,12 @@
 # Qwen Omni Adapters
 
-Standalone runtime, protocol, and deployment tooling for the logical Ollama
-model:
+Standalone runtime, protocol, and deployment tooling for logical Ollama Omni
+models. Verified profiles are:
 
 ```text
 robit/qwen3.8-27b-e03-obliterated-omni:q4km
+robit/ornith-1.5-omni:q4km
+robit/ornith-1.5-obliterated-omni:q4km
 ```
 
 The repository turns that one Ollama tag into one authenticated, Ollama-shaped
@@ -22,6 +24,12 @@ On the broker-managed GPU host:
 git clone https://github.com/robit-man/qwen-omni-adapters.git
 cd qwen-omni-adapters
 ./deploy.sh
+
+# Stock Ornith 1.5 9B base
+./deploy.sh ornith15
+
+# OBLITERATUS Ornith 1.5 9B base
+./deploy.sh ornith15-obliterated
 ```
 
 The first run creates `.venv`, installs the Python package, clones a pinned
@@ -63,7 +71,7 @@ execute end to end:
 ```text
 logical Ollama tag
 ├── standard model/projector/template layers
-│   └── Qwen3.8 text, native image vision, tools, optional thinking
+│   └── selected Qwen-family base: text, image vision, tools, optional thinking
 └── application/vnd.robit.ollama.omni.bundle.v1+gguf
     ├── Qwen3-Omni comprehension model + projector
     └── Qwen3-TTS model + codec/projector
@@ -77,6 +85,9 @@ public request remains Ollama-shaped and names the one logical tag.
 This is intentionally a semantic router. Qwen3.8, Qwen3-Omni, and Qwen3-TTS do
 not share compatible hidden-state interfaces, so the implementation does not
 pretend that their tensors can be spliced into a directly executable graph.
+For Ornith, the generic profile is stock-backed and the explicitly named
+`ornith15-obliterated` profile is OBLITERATUS-backed; their base tensors and
+Ollama tags are never interchangeable.
 
 ## Capability map
 
@@ -200,6 +211,7 @@ separate so environmental sounds are never misrouted as the user's words.
 - [Architecture and ownership](docs/architecture.md)
 - [Agent runbook](docs/agent-runbook.md)
 - [Runtime guide](docs/runtime.md)
+- [Verified model profiles](docs/model-profiles.md)
 - [Phone deployment](docs/phone-portal.md)
 - [Linux, macOS, and Windows services](docs/services.md)
 - [Wire protocol](docs/protocol.md)

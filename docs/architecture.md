@@ -13,12 +13,12 @@ authenticated portal (optional) ---> isolated queue + diagnostics
     |
     v
 unified adapter
-    |-- text ------------------------> Ollama / Qwen3.8
+    |-- text ------------------------> Ollama / selected base
     |-- audio, image, video ---------> Qwen3-Omni comprehension
     |                                   |
     |                            tagged evidence
     |                                   v
-    +--------------------------------> Ollama / Qwen3.8
+    +--------------------------------> Ollama / selected base
                                         |
                               final speech requested?
                                         v
@@ -98,6 +98,11 @@ split at sentence boundaries before the Qwen3-TTS per-generation frame limit;
 their PCM windows share one monotonically increasing sequence and are assembled
 into the final replay WAV. Silent video is valid, and animated GIF input is
 normalized into a bounded temporal video before comprehension.
+
+The verified base profiles are Qwen3.8 E03 Obliterated, stock Ornith 1.5 9B,
+and Ornith 1.5 9B Obliterated. Each logical tag is paired with its exact
+standard model/projector layers; only the shared semantic media boundary is
+base-independent.
 
 Call turns include bounded prior dialogue plus a system instruction to answer
 the user's intent without echoing, transcribing, or paraphrasing by default.

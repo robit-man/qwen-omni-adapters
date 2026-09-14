@@ -6,7 +6,7 @@ three independently executable graphs from one logical model tag.
 ```text
 client POST /api/chat
         │
-        ├── text only ───────────────────────▶ stock Ollama Qwen3.8
+        ├── text only ───────────────────────▶ stock Ollama selected base
         │                                      content/thinking/tool_calls
         │
         └── audio/image/video
@@ -15,7 +15,7 @@ client POST /api/chat
           Qwen3-Omni comprehension ──▶ untrusted semantic observation
                                               │
                                               ▼
-                                      stock Ollama Qwen3.8
+                                      stock Ollama selected base
                                               │
                           speech requested and no unresolved tool calls?
                                               │
@@ -29,6 +29,21 @@ client POST /api/chat
 Direct `transcribe`, `describe`, and `synthesize` tasks bypass stages they do
 not need. `chat` preserves normal Ollama `tools`, `think`, `format`, `options`,
 `keep_alive`, and log-probability fields.
+
+## Select a verified model profile
+
+The one-command launcher accepts a verified profile name:
+
+```bash
+./deploy.sh qwen38
+./deploy.sh ornith15
+./deploy.sh ornith15-obliterated
+```
+
+The profile sets both the logical sidecar tag and its byte-matching language
+backend. See `model-profiles.md` for the exact pairings. Explicit
+`OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` environment values remain supported for
+advanced use and are checked against one another before any CUDA worker starts.
 
 ## Runtime prerequisites
 
