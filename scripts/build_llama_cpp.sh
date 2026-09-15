@@ -44,8 +44,14 @@ tegra_cuda_architecture() {
 TEGRA_SOC=$(tegra_soc)
 if [[ -n "$TEGRA_SOC" ]] && command -v free >/dev/null 2>&1; then
   # nvcc peaks around 2 GiB per translation unit on the ggml CUDA kernels.
-  memory_gib=$(free -g | awk '$1 == "Mem:" {print $2}')
-  if [[ "$memory_gib" =~ ^[0-9]+$ ]] && (( memory_gib > 0 )); then
+  # Budget against memory that is actually *available*, not installed: on a
+  # module already serving models, the GPU has carved its allocations out of
+  # this same pool, and sizing from total RAM would fan out into an OOM.
+  memory_gib=$(free -g | awk '$1 == "Mem:" {print $7}')
+  if ! [[ "$memory_gib" =~ ^[0-9]+$ ]]; then
+    memory_gib=$(free -g | awk '$1 == "Mem:" {print $2}')
+  fi
+  if [[ "$memory_gib" =~ ^[0-9]+$ ]]; then
     memory_jobs=$(( memory_gib / 2 ))
     (( memory_jobs < 1 )) && memory_jobs=1
     (( memory_jobs < default_jobs )) && default_jobs=$memory_jobs
