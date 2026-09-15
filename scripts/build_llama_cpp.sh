@@ -80,7 +80,7 @@ apply_patch_file() {
   local label=$2
   if git -C "$SOURCE_DIR" apply --reverse --check "$patch_file" >/dev/null 2>&1; then
     printf '%s patch is already applied\n' "$label"
-  elif git -C "$SOURCE_DIR" apply --check "$patch_file"; then
+  elif git -C "$SOURCE_DIR" apply --check "$patch_file" >/dev/null 2>&1; then
     git -C "$SOURCE_DIR" apply "$patch_file"
     printf 'Applied %s patch\n' "$label"
   else
@@ -89,9 +89,38 @@ apply_patch_file() {
   fi
 }
 
-apply_patch_file "$PATCH_FILE" "Qwen3-TTS PCM stream"
-apply_patch_file "$PERSISTENT_PATCH_FILE" "Qwen3-TTS persistent worker"
-apply_patch_file "$STREAM_STATE_PATCH_FILE" "Qwen3-TTS streaming decoder state"
+# These three patches overlap in common/common.h and tools/tts/tts.cpp, so once
+# all of them are applied no single one reverse-applies on its own any more:
+# its context lines carry the others' edits. Checking each patch individually
+# made every rebuild fail with "does not apply cleanly" on a correctly patched
+# tree, and `git apply` given several files applies them as one combined set
+# rather than sequentially, so reversing them together does not help either.
+#
+# Detect the applied state from content each patch uniquely introduces.
+patch_marker_present() {
+  local file=$1
+  local marker=$2
+  [[ -f "$SOURCE_DIR/$file" ]] && grep -qF -- "$marker" "$SOURCE_DIR/$file"
+}
+
+patch_set_applied() {
+  patch_marker_present common/arg.cpp '"--tts-stream-frames"' \
+    && patch_marker_present common/arg.cpp '"--tts-persistent"' \
+    && patch_marker_present tools/mtmd/clip.cpp \
+      'state_out describes this exact output boundary'
+}
+
+if patch_set_applied; then
+  printf 'Qwen3-TTS patch set is already applied\n'
+else
+  apply_patch_file "$PATCH_FILE" "Qwen3-TTS PCM stream"
+  apply_patch_file "$PERSISTENT_PATCH_FILE" "Qwen3-TTS persistent worker"
+  apply_patch_file "$STREAM_STATE_PATCH_FILE" "Qwen3-TTS streaming decoder state"
+  patch_set_applied || {
+    printf 'Qwen3-TTS patch set did not produce the expected sources\n' >&2
+    exit 1
+  }
+fi
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in
