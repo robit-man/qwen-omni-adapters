@@ -171,3 +171,58 @@ def test_accelerator_profile_describes_the_host(monkeypatch) -> None:
     assert profile["cuda_architectures"] == "87"
     assert profile["gpu_memory_model"] == "unified"
     assert profile["residency_backend"] == "tegra-device-handles"
+
+
+def test_tegra_runs_the_language_stage_on_the_logical_tag(monkeypatch) -> None:
+    """The logical tag carries the language model; a second name = a second copy."""
+
+    from qwen_omni_adapters import daemon
+
+    monkeypatch.setattr(daemon, "is_tegra", lambda: True)
+    monkeypatch.setenv("OMNI_MODEL", "robit/ornith-1.5-omni:q4km")
+    monkeypatch.delenv("OMNI_LANGUAGE_MODEL", raising=False)
+    monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
+
+    config = daemon.DaemonConfig.from_environment(cloudflare=False)
+
+    assert config.language_model == "robit/ornith-1.5-omni:q4km"
+    assert config.model == config.language_model
+
+
+def test_discrete_hosts_keep_the_separate_core_language_tag(monkeypatch) -> None:
+    from qwen_omni_adapters import daemon
+
+    monkeypatch.setattr(daemon, "is_tegra", lambda: False)
+    monkeypatch.setenv("OMNI_MODEL", "robit/ornith-1.5-omni:q4km")
+    monkeypatch.delenv("OMNI_LANGUAGE_MODEL", raising=False)
+    monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
+
+    config = daemon.DaemonConfig.from_environment(cloudflare=False)
+
+    assert config.language_model == "robit/qwen3.8-27b-obliterated-e03:27b"
+
+
+def test_an_explicit_language_model_always_wins(monkeypatch) -> None:
+    from qwen_omni_adapters import daemon
+
+    monkeypatch.setattr(daemon, "is_tegra", lambda: True)
+    monkeypatch.setenv("OMNI_MODEL", "robit/ornith-1.5-omni:q4km")
+    monkeypatch.setenv("OMNI_LANGUAGE_MODEL", "robit/ornith-1.5:9b")
+    monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
+
+    config = daemon.DaemonConfig.from_environment(cloudflare=False)
+
+    assert config.language_model == "robit/ornith-1.5:9b"
+
+
+def test_tegra_comprehension_window_is_bounded_for_unified_memory(monkeypatch) -> None:
+    from qwen_omni_adapters import daemon
+
+    monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
+    monkeypatch.delenv("OMNI_COMPREHENSION_CONTEXT_TOKENS", raising=False)
+
+    monkeypatch.setattr(daemon, "is_tegra", lambda: True)
+    assert daemon.DaemonConfig.from_environment(cloudflare=False).context_tokens == 16384
+
+    monkeypatch.setattr(daemon, "is_tegra", lambda: False)
+    assert daemon.DaemonConfig.from_environment(cloudflare=False).context_tokens == 65536

@@ -80,9 +80,9 @@ workstation — it runs the portable direct supervisor in the foreground, which
 prints the authenticated URL when the stack is ready. `cloudflared` is optional
 there; without it the portal stays on loopback.
 
-`ornith15` (9B) is the profile that fits a Jetson. The 27B `qwen38` profile
-needs more unified memory than an Orin has once the language backend, TTS
-worker, and OS are also resident.
+`ornith15` is the profile that fits a Jetson -- see [Memory](#memory) for the
+actual budget. The `qwen38` profile's 27B base needs roughly 12 GiB more
+unified memory on top of the same comprehension and TTS components.
 
 As a service:
 
@@ -92,19 +92,50 @@ As a service:
 .venv/bin/qwen-omni-daemon status
 ```
 
+## One Ollama slot
+
+The logical tag carries the language model in its standard layers: `ollama
+show --modelfile` gives `robit/ornith-1.5-omni:q4km` and `robit/ornith-1.5:9b`
+byte-identical base and projector blobs. Ollama keys a loaded runner by tag
+*name*, though, so naming the core tag for the language stage loads a second
+resident copy of the same weights.
+
+On Tegra the language stage therefore defaults to the logical tag itself --
+one name, one runner, one copy. `OMNI_LANGUAGE_MODEL` still overrides it, and
+discrete hosts keep the explicit core tag they have always used.
+
 ## Memory
 
-The comprehension window defaults to 32768 tokens on Tegra rather than 65536,
-because the integrated GPU shares the module's system RAM with the Ollama
-language backend, the TTS worker, and the OS.
-`OMNI_COMPREHENSION_CONTEXT_TOKENS` still overrides it.
+Unified memory means the "VRAM" figures below come out of the same pool as the
+OS and every other process. Measured from the `ornith15` bundle manifest
+(`qwen-omni resolve robit/ornith-1.5-omni:q4km`):
+
+| Component | Runtime | Weights |
+|---|---|---|
+| Ornith 1.5 9B Q4_K_M + CLIP projector | Ollama (language, vision, tools) | 6.1 GiB |
+| Qwen3-Omni-30B-A3B Q4_K_M + projector | `llama-server` comprehension | 18.5 GiB |
+| Qwen3-TTS-12Hz-1.7B + codec projector | `llama-tts` | 1.4 GiB |
+
+That is about 26 GiB of weights before any KV cache. A 64 GB AGX Orin has
+ample headroom. A **32 GB module is tight**: it fits the three workers, but
+not with much else resident, so budget carefully if the host is also running
+vision or other CUDA workloads.
+
+The comprehension window therefore defaults to 16384 tokens on Tegra rather
+than 65536 -- the KV cache is the part of that budget still worth spending
+carefully. `OMNI_COMPREHENSION_CONTEXT_TOKENS` overrides it, and a 64 GB
+module can comfortably raise it.
+
+Note that `-ngl 99` does not increase the footprint here the way it does on a
+discrete card: there is one pool, so offloading layers changes which engine
+computes them, not how much memory they occupy.
 
 `qwen-omni doctor` reports the accelerator, and omits the broker tooling
 (`docker`, `jq`, `ss`) that does not apply:
 
 ```bash
 .venv/bin/qwen-omni doctor --model robit/ornith-1.5-omni:q4km \
-  --language-model robit/ornith-1.5:9b
+  --language-model robit/ornith-1.5-omni:q4km
 ```
 
 ```json

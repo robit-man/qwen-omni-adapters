@@ -127,17 +127,36 @@ class DaemonConfig:
                 "OMNI_MODEL", "robit/qwen3.8-27b-e03-obliterated-omni:q4km"
             ).strip(),
             language_model=os.environ.get(
-                "OMNI_LANGUAGE_MODEL", "robit/qwen3.8-27b-obliterated-e03:27b"
+                "OMNI_LANGUAGE_MODEL",
+                # The logical tag's standard layers are the language model:
+                # the combined tag and its core tag resolve to byte-identical
+                # base/projector blobs. Ollama still keys a loaded runner by
+                # tag *name*, so naming the core tag separately loads a second
+                # resident copy of the same weights. A discrete host with room
+                # for both keeps the explicit core tag; a Tegra module shares
+                # one GPU-visible pool with the OS and the TTS worker, so it
+                # defaults to running the language stage on the tag it is
+                # already serving.
+                (
+                    os.environ.get("OMNI_MODEL", "").strip()
+                    or "robit/qwen3.8-27b-e03-obliterated-omni:q4km"
+                )
+                if is_tegra()
+                else "robit/qwen3.8-27b-obliterated-e03:27b",
             ).strip(),
             context_tokens=int(
                 os.environ.get(
                     "OMNI_COMPREHENSION_CONTEXT_TOKENS",
                     # Tegra's GPU shares the module's system RAM with the
-                    # language backend, TTS worker, and the OS. A 64K
-                    # comprehension window sized for a discrete 48 GB card
-                    # evicts all of them on a Jetson, so halve the default
-                    # there; OMNI_COMPREHENSION_CONTEXT_TOKENS still wins.
-                    "32768" if is_tegra() else "65536",
+                    # language backend, the TTS worker, and the OS. The
+                    # comprehension component alone is 17.3 GiB of Q4_K_M
+                    # Qwen3-Omni-30B-A3B weights, so on a 32 GB module the KV
+                    # cache is the only part of that budget still worth
+                    # spending carefully: a 64K window sized for a discrete
+                    # 48 GB card does not fit beside the rest.
+                    # OMNI_COMPREHENSION_CONTEXT_TOKENS still wins, and a
+                    # 64 GB module can comfortably raise it.
+                    "16384" if is_tegra() else "65536",
                 )
             ),
             tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "4")),
