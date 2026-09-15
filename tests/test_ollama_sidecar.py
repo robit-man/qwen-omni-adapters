@@ -10,6 +10,7 @@ from qwen_omni_adapters.ollama_sidecar import (
     attach_ollama_sidecar,
     manifest_path,
     prepare_ollama_sidecar,
+    resolve_models_dir,
     resolve_ollama_sidecar,
 )
 from qwen_omni_adapters.single_gguf import pack_monolithic_gguf
@@ -90,3 +91,40 @@ def test_attach_and_resolve_omni_sidecar_layer(tmp_path: Path) -> None:
     assert prepared["disposable_cache"] is True
     assert set(prepared["views"]) == {"comprehension_model", "tts_model"}
     assert Path(prepared["views"]["tts_model"]["output"]).is_file()
+
+
+def test_a_populated_store_is_preferred_over_one_that_merely_exists(monkeypatch, tmp_path):
+    """An empty ~/.ollama/models must not shadow the real service store.
+
+    Any `ollama` client invocation creates that directory, so taking the first
+    candidate that exists produced "manifest not found" for a tag that was
+    plainly installed.
+    """
+
+    populated = tmp_path / "service"
+    (populated / "manifests").mkdir(parents=True)
+    empty = tmp_path / "home" / ".ollama" / "models"
+    empty.mkdir(parents=True)
+
+    monkeypatch.setenv("OLLAMA_MODELS", str(empty))
+
+    assert resolve_models_dir(populated) == populated.resolve()
+
+
+def test_an_env_override_still_wins_when_it_holds_manifests(monkeypatch, tmp_path):
+    override = tmp_path / "override"
+    (override / "manifests").mkdir(parents=True)
+    other = tmp_path / "other"
+    (other / "manifests").mkdir(parents=True)
+
+    monkeypatch.setenv("OLLAMA_MODELS", str(override))
+
+    assert resolve_models_dir() == override.resolve()
+
+
+def test_the_linux_service_store_is_a_known_candidate():
+    """The official installer runs ollama as its own user with this home."""
+
+    source = Path(resolve_models_dir.__globals__["__file__"]).read_text()
+
+    assert "/usr/share/ollama/.ollama/models" in source

@@ -39,11 +39,32 @@ def resolve_models_dir(explicit: Path | None = None) -> Path:
         explicit,
         Path(os.environ["OLLAMA_MODELS"]) if os.environ.get("OLLAMA_MODELS") else None,
         Path("/srv/ollama/models"),
+        # The official Linux install script runs ollama as its own `ollama`
+        # system user with this home, so this -- not ~/.ollama -- is where a
+        # standard service-managed host keeps manifests and blobs.
+        Path("/usr/share/ollama/.ollama/models"),
+        Path("/var/lib/ollama/.ollama/models"),
         Path.home() / ".ollama" / "models",
     ]
+    # Prefer a store that actually holds manifests. An empty ~/.ollama/models
+    # is created by any `ollama` client invocation, and taking the first
+    # directory that merely exists let it shadow the real service store --
+    # producing a "manifest not found" for a tag that is plainly installed.
+    populated: list[Path] = []
+    existing: list[Path] = []
     for candidate in candidates:
-        if candidate is not None and candidate.expanduser().is_dir():
-            return candidate.expanduser().resolve()
+        if candidate is None:
+            continue
+        resolved = candidate.expanduser()
+        if not resolved.is_dir():
+            continue
+        resolved = resolved.resolve()
+        existing.append(resolved)
+        if (resolved / "manifests").is_dir():
+            populated.append(resolved)
+    for choice in (populated, existing):
+        if choice:
+            return choice[0]
     raise OllamaSidecarError("could not locate the Ollama models directory")
 
 
