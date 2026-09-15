@@ -19,6 +19,13 @@ from typing import IO, Any
 
 import httpx
 
+from qwen_omni_adapters.accelerator import (
+    accelerator_profile,
+    compute_apps_supported,
+    is_tegra,
+    process_is_gpu_resident,
+    residency_backend,
+)
 from qwen_omni_adapters.ollama_sidecar import (
     prepare_ollama_sidecar,
     resolve_ollama_sidecar,
@@ -122,7 +129,17 @@ class DaemonConfig:
             language_model=os.environ.get(
                 "OMNI_LANGUAGE_MODEL", "robit/qwen3.8-27b-obliterated-e03:27b"
             ).strip(),
-            context_tokens=int(os.environ.get("OMNI_COMPREHENSION_CONTEXT_TOKENS", "65536")),
+            context_tokens=int(
+                os.environ.get(
+                    "OMNI_COMPREHENSION_CONTEXT_TOKENS",
+                    # Tegra's GPU shares the module's system RAM with the
+                    # language backend, TTS worker, and the OS. A 64K
+                    # comprehension window sized for a discrete 48 GB card
+                    # evicts all of them on a Jetson, so halve the default
+                    # there; OMNI_COMPREHENSION_CONTEXT_TOKENS still wins.
+                    "32768" if is_tegra() else "65536",
+                )
+            ),
             tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "4")),
             portal_token=os.environ.get("OMNI_PORTAL_TOKEN", "").strip(),
             cloudflare=(
@@ -163,6 +180,7 @@ class OmniDaemon:
             "schema": "robit.qwen-omni-daemon.status.v1",
             "pid": os.getpid(),
             "platform": platform.system(),
+            "accelerator": accelerator_profile(),
             "model": self.config.model,
             "updated_at": time.time(),
             **fields,
@@ -333,31 +351,23 @@ class OmniDaemon:
     def _verify_direct_gpu(self, pid: int) -> None:
         if platform.system() == "Darwin":
             return  # bootstrap enforces a Metal-enabled llama.cpp build
-        if not shutil.which("nvidia-smi"):
+        if is_tegra():
+            # Tegra's integrated GPU has no compute-app accounting; residency is
+            # proven by the worker's own handles on the nvgpu/nvmap nodes, which
+            # only an initialized CUDA context opens.
+            if not Path("/proc/self/fd").is_dir():
+                raise DaemonError("procfs is required to prove Tegra CUDA residency")
+        elif not (shutil.which("nvidia-smi") and compute_apps_supported()):
             raise DaemonError("nvidia-smi is required to prove direct CUDA residency")
         deadline = time.monotonic() + 120
         while time.monotonic() < deadline:
-            result = subprocess.run(
-                [
-                    "nvidia-smi",
-                    "--query-compute-apps=pid,used_memory",
-                    "--format=csv,noheader,nounits",
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            for line in result.stdout.splitlines():
-                fields = [value.strip() for value in line.split(",")]
-                if (
-                    len(fields) == 2
-                    and fields[0] == str(pid)
-                    and fields[1].isdigit()
-                    and int(fields[1]) > 0
-                ):
-                    return
+            if process_is_gpu_resident(pid):
+                return
             time.sleep(1)
-        raise DaemonError(f"comprehension pid {pid} did not become CUDA-resident")
+        raise DaemonError(
+            f"comprehension pid {pid} did not become CUDA-resident "
+            f"(evidence: {residency_backend()})"
+        )
 
     def start_children(self) -> str:
         python = sys.executable

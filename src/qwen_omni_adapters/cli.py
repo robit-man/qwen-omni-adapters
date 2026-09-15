@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from qwen_omni_adapters.accelerator import accelerator_profile, is_tegra
 from qwen_omni_adapters.contract import adapter_contract
 from qwen_omni_adapters.ollama_sidecar import (
     OllamaSidecarError,
@@ -45,15 +46,22 @@ def _run(command: list[str], timeout: int = 30) -> tuple[bool, str]:
 
 def _doctor(args: argparse.Namespace) -> int:
     system = platform.system()
+    tegra = is_tegra()
     commands = ["cmake", "curl", "ffmpeg", "git", "ollama", "openssl"]
-    if system == "Linux":
+    if system == "Linux" and not tegra:
         commands.extend(["docker", "jq", "nvidia-smi", "ss"])
+    elif system == "Linux":
+        # Jetson hosts run the direct supervisor: the ollama-unify broker and
+        # its docker/jq/ss tooling do not exist for an integrated GPU.
+        commands.append("nvidia-smi")
     elif system == "Windows":
         commands.append("nvidia-smi")
     if not args.no_tunnel:
         commands.append("cloudflared")
     checks: dict[str, Any] = {
         "commands": {name: shutil.which(name) for name in commands},
+        "accelerator": accelerator_profile(),
+        "deployment_mode": "direct" if tegra else "broker",
         "python": {
             "executable": sys.executable,
             "version": sys.version.split()[0],
@@ -77,7 +85,7 @@ def _doctor(args: argparse.Namespace) -> int:
         for model in (args.model, args.language_model):
             ok, detail = _run(["ollama", "show", model])
             checks["models"][model] = {"installed": ok, "detail": detail if not ok else ""}
-    if args.deployment and system == "Linux" and shutil.which("docker"):
+    if args.deployment and system == "Linux" and not tegra and shutil.which("docker"):
         ok, detail = _run(["docker", "gpu", "discover"])
         checks["gpu_broker"] = {"available": ok, "detail": detail}
 
@@ -91,6 +99,7 @@ def _doctor(args: argparse.Namespace) -> int:
     broker_failed = (
         args.deployment
         and system == "Linux"
+        and not tegra
         and not checks.get("gpu_broker", {}).get("available", False)
     )
     checks["ok"] = not (missing_commands or missing_binaries or missing_models or broker_failed)
@@ -99,6 +108,11 @@ def _doctor(args: argparse.Namespace) -> int:
         "missing_llama_cpp_binaries": missing_binaries,
         "missing_models": missing_models,
         "bootstrap": "./scripts/bootstrap.sh",
+        "start": (
+            ".venv/bin/qwen-omni-daemon serve --allow-direct-gpu"
+            if tegra
+            else "./portal/start.sh --daemon"
+        ),
     }
     _print_json(checks)
     return 0 if checks["ok"] else 1

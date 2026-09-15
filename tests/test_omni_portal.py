@@ -1825,6 +1825,7 @@ def test_runtime_environment_snapshot_is_bounded_and_omits_sensitive_network_dat
         stderr="",
     )
     monkeypatch.setattr("portal.environment.subprocess.run", lambda *args, **kwargs: completed)
+    monkeypatch.setattr("portal.environment.is_tegra", lambda: False)
 
     snapshot = PortalToolHarness(SessionDocumentStore(ttl_s=300)).execute(
         "one", "get_system_snapshot", {}
@@ -1848,6 +1849,41 @@ def test_runtime_environment_snapshot_is_bounded_and_omits_sensitive_network_dat
     assert "address" in snapshot["privacy"].lower()
     assert '"ip"' not in serialized.lower()
     assert '"mac"' not in serialized.lower()
+
+
+def test_runtime_environment_snapshot_reports_the_tegra_integrated_gpu(monkeypatch) -> None:
+    """nvidia-smi answers [N/A] on Tegra, so sysfs is the only real evidence."""
+
+    def refuse(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise AssertionError("nvidia-smi must not be queried for GPU facts on Tegra")
+
+    monkeypatch.setattr("portal.environment.subprocess.run", refuse)
+    monkeypatch.setattr("portal.environment.is_tegra", lambda: True)
+    monkeypatch.setattr(
+        "portal.environment.tegra_gpu_facts",
+        lambda: [
+            {
+                "index": 0,
+                "name": "NVIDIA Tegra integrated GPU (tegra234)",
+                "vram_total_mib": 30698.0,
+                "vram_used_mib": 9001.0,
+                "utilization_percent": 42.0,
+                "temperature_c": 51.0,
+                "power_w": None,
+                "power_limit_w": None,
+                "memory_model": "unified",
+                "frequency_mhz": 1300.5,
+            }
+        ],
+    )
+
+    snapshot = PortalToolHarness(SessionDocumentStore(ttl_s=300)).execute(
+        "one", "get_system_snapshot", {}
+    )
+
+    assert snapshot["gpus"][0]["name"] == "NVIDIA Tegra integrated GPU (tegra234)"
+    assert snapshot["gpus"][0]["memory_model"] == "unified"
+    assert snapshot["accelerator"]["tegra"] is True
 
 
 def test_compact_system_policy_merges_without_eager_host_snapshot() -> None:

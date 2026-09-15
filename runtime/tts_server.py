@@ -33,6 +33,11 @@ from waitress import serve
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from qwen_omni_adapters.accelerator import (
+    is_tegra,
+    process_is_gpu_resident,
+    residency_backend,
+)
 from qwen_omni_adapters.audio import (
     DEFAULT_AUDIO_CONTRACT,
     AudioContractError,
@@ -166,31 +171,16 @@ def _broker_transition(action: str, token: str, timeout_s: float = 330) -> None:
 
 
 def _cuda_process_is_resident(pid: int, gpu_uuid: str = "") -> bool:
-    completed = subprocess.run(
-        [
-            "nvidia-smi",
-            "--query-compute-apps=pid,gpu_uuid,used_memory",
-            "--format=csv,noheader,nounits",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-    if completed.returncode != 0:
-        return False
-    for line in completed.stdout.splitlines():
-        fields = [field.strip() for field in line.split(",")]
-        if len(fields) < 3:
-            continue
-        try:
-            process_id = int(fields[0])
-            used_mib = int(fields[2])
-        except ValueError:
-            continue
-        if process_id == pid and (not gpu_uuid or fields[1] == gpu_uuid) and used_mib > 0:
-            return True
-    return False
+    """Prove the llama-tts worker holds the GPU.
+
+    Discrete NVIDIA hosts answer from per-process compute-app accounting and
+    can pin the answer to one reserved device uuid. Tegra's integrated GPU
+    publishes no compute apps at all, so residency there is proven from the
+    worker's own nvgpu/nvmap device handles instead (see
+    ``qwen_omni_adapters.accelerator``). Neither path admits a CPU fallback.
+    """
+
+    return process_is_gpu_resident(pid, gpu_uuid)
 
 
 def _wait_for_cuda_residency(
@@ -210,9 +200,10 @@ def _wait_for_cuda_residency(
                 "llama-tts exited before CUDA residency was verified: " + diagnostic
             )
         time.sleep(0.25)
+    target = gpu_uuid or ("the integrated Tegra GPU" if is_tegra() else "the CUDA device")
     raise TTSError(
-        f"llama-tts did not become resident on reserved GPU {gpu_uuid} "
-        f"within {timeout_s:g}s"
+        f"llama-tts did not become resident on {target} within {timeout_s:g}s "
+        f"(evidence: {residency_backend()})"
     )
 
 

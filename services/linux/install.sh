@@ -3,21 +3,35 @@ set -Eeuo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../.." && pwd)
-MODE=broker
+MODE=auto
 ENABLE=1
 
 while (($#)); do
   case $1 in
+    --auto) MODE=auto ;;
+    --broker) MODE=broker ;;
     --direct) MODE=direct ;;
     --no-enable) ENABLE=0 ;;
     --help|-h)
-      printf 'Usage: services/linux/install.sh [--direct] [--no-enable]\n'
+      printf 'Usage: services/linux/install.sh [--auto|--broker|--direct] [--no-enable]\n'
       exit 0
       ;;
     *) printf 'Unknown option: %s\n' "$1" >&2; exit 2 ;;
   esac
   shift
 done
+
+# NVIDIA Tegra modules have an integrated GPU and no ollama-unify broker, so
+# the previous broker default could only ever fail there. Auto resolves to
+# whichever mode the host can actually honour; --broker/--direct still pin it.
+if [[ $MODE == auto ]]; then
+  if command -v docker >/dev/null 2>&1 && docker gpu discover >/dev/null 2>&1; then
+    MODE=broker
+  else
+    MODE=direct
+  fi
+  printf 'Auto-selected %s mode for this host.\n' "$MODE"
+fi
 
 SERVICE_USER=${SUDO_USER:-$USER}
 SERVICE_GROUP=$(id -gn "$SERVICE_USER")
@@ -54,4 +68,8 @@ if ((ENABLE)); then
 fi
 printf 'Installed qwen-omni-adapters.service (%s mode).\n' "$MODE"
 printf 'Status: sudo systemctl status qwen-omni-adapters.service\n'
-printf 'Portal: %s/portal/start.sh --status\n' "$REPO_ROOT"
+if [[ $MODE == broker ]]; then
+  printf 'Portal: %s/portal/start.sh --status\n' "$REPO_ROOT"
+else
+  printf 'Portal: %s/.venv/bin/qwen-omni-daemon status\n' "$REPO_ROOT"
+fi

@@ -49,6 +49,16 @@ For a staged installation:
 ./portal/start.sh --stop
 ```
 
+On an arm64 NVIDIA Jetson, the same command works and picks the direct
+supervisor, because a Tegra module has an integrated GPU and no GPU broker:
+
+```bash
+./deploy.sh ornith15
+```
+
+See [arm64 and NVIDIA Jetson](docs/arm-jetson.md) for the build architecture
+pinning, residency evidence, and memory defaults that differ there.
+
 Platform service installs are also one command after cloning:
 
 ```bash
@@ -188,7 +198,9 @@ separate so environmental sounds are never misrouted as the user's words.
   returned separately and is never synthesized.
 - CUDA media inference has no CPU fallback. Broker allocation and exact UUID
   residency are deployment gates on the managed host; direct NVIDIA mode also
-  verifies comprehension and every TTS PID with `nvidia-smi`.
+  verifies comprehension and every TTS PID with `nvidia-smi`. On an NVIDIA
+  Tegra module, whose driver publishes no compute-app accounting at all, the
+  same gate is proven from each worker's own integrated-GPU device handles.
 - Session diagnostics are content-redacted, partitioned by an opaque cookie,
   deleted by the trash control, and expire five minutes after a client leaves.
 
@@ -196,7 +208,7 @@ separate so environmental sounds are never misrouted as the user's words.
 
 | Path | Purpose |
 |---|---|
-| `src/qwen_omni_adapters/` | Wire contract, audio validation, GGUF views, Ollama sidecar resolver, CLI |
+| `src/qwen_omni_adapters/` | Wire contract, audio validation, GGUF views, Ollama sidecar resolver, accelerator/residency probes, CLI |
 | `runtime/adapter_server.py` | Unified comprehension → language → optional TTS router |
 | `runtime/tts_server.py` | CUDA-only Qwen3-TTS wrapper and PCM stream endpoint |
 | `portal/` | Authenticated phone UI, proxy, supervisor, smoke tests, VAD harness |
@@ -214,6 +226,7 @@ separate so environmental sounds are never misrouted as the user's words.
 - [Verified model profiles](docs/model-profiles.md)
 - [Phone deployment](docs/phone-portal.md)
 - [Linux, macOS, and Windows services](docs/services.md)
+- [arm64 and NVIDIA Jetson](docs/arm-jetson.md)
 - [Wire protocol](docs/protocol.md)
 - [Portal tools and tool chaining](docs/tools.md)
 - [GGUF/Ollama sidecar ABI](docs/gguf-abi.md)

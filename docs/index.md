@@ -156,6 +156,7 @@ session can reconstruct it from the tag's sidecar layer.
 - [Authenticated phone portal](phone-portal.md)
 - [Phone portal source and one-command bootstrap](../portal/README.md)
 - [Cross-platform services](services.md)
+- [arm64 and NVIDIA Jetson](arm-jetson.md)
 - [Request schema](schema/request-v1.schema.json) and
   [response schema](schema/response-v1.schema.json)
 

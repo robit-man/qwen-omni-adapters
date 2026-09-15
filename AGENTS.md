@@ -95,6 +95,13 @@ The portable `qwen-omni-daemon` refuses direct Linux mode when it detects the
 broker. macOS and Windows use the direct supervisor with platform-native GPU
 builds and service managers; see `docs/services.md`.
 
+NVIDIA Tegra modules (Jetson) have an integrated GPU, no broker, and no
+`nvidia-smi` compute-app accounting. Residency there is proven from each
+worker's own `nvgpu`/`nvmap` device handles through
+`qwen_omni_adapters.accelerator`; see `docs/arm-jetson.md`. Route every
+residency question through that module rather than calling `nvidia-smi`
+directly, and do not relax it into a CPU fallback on any host.
+
 ## Safe workflow
 
 ```bash
@@ -151,7 +158,8 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
   result redirects decode, challenges fail closed, session-index recall avoids
   another network search, web fetch blocks private/local destinations, and
   another session retrieves no web, memory, or document excerpts.
-- CUDA PIDs are resident only on the leased UUID.
+- CUDA PIDs are resident only on the leased UUID; on Tegra, every CUDA worker
+  holds an integrated-GPU device handle and the `nvmap` allocator.
 
 ## Storage and cleanup
 

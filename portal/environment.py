@@ -6,8 +6,18 @@ import datetime as dt
 import os
 import platform
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from qwen_omni_adapters.accelerator import (
+    accelerator_profile,
+    is_tegra,
+    tegra_gpu_facts,
+)
 
 MAX_INTERFACES = 8
 MAX_GPUS = 16
@@ -27,6 +37,10 @@ def _cpu_facts() -> dict[str, Any]:
         if line.lower().startswith("model name") and ":" in line:
             model = line.split(":", 1)[1].strip()[:160]
             break
+    if not model and is_tegra():
+        # arm64 /proc/cpuinfo carries no "model name"; the device tree names
+        # the module itself, which is what identifies the CPU complex here.
+        model = _read_text(Path("/proc/device-tree/model"), 160).rstrip("\x00")
     try:
         load_1m, load_5m, load_15m = os.getloadavg()
     except OSError:
@@ -94,6 +108,10 @@ def _network_facts(root: Path = Path("/sys/class/net")) -> list[dict[str, Any]]:
 
 
 def _gpu_facts() -> list[dict[str, Any]]:
+    if is_tegra():
+        # nvidia-smi answers "[N/A]" for every queried column on Tegra, so the
+        # integrated GPU would otherwise be reported as no GPU at all.
+        return tegra_gpu_facts()
     fields = (
         "index,name,memory.total,memory.used,utilization.gpu,"
         "temperature.gpu,power.draw,power.limit"
@@ -152,6 +170,7 @@ def runtime_environment_snapshot() -> dict[str, Any]:
             "release": platform.release()[:160],
             "architecture": platform.machine()[:64],
         },
+        "accelerator": accelerator_profile(),
         "cpu": _cpu_facts(),
         "memory": _memory_facts(),
         "gpus": _gpu_facts(),

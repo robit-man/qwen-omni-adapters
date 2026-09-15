@@ -9,7 +9,9 @@ to be owned by the native service manager. On every start it:
 3. resolves and validates the custom sidecar layer;
 4. materializes missing comprehension and TTS views;
 5. starts and health-checks comprehension, TTS, adapter, and portal workers;
-6. proves direct CUDA residency on NVIDIA systems or relies on the
+6. proves direct GPU residency on NVIDIA systems -- per-process compute-app
+   accounting on discrete cards, integrated-GPU device handles on Tegra (see
+   [arm64 and NVIDIA Jetson](arm-jetson.md)) -- or relies on the
    Metal-enabled pinned build on macOS;
 7. runs text, TTS, and streaming smoke gates;
 8. starts Cloudflared last and records the authenticated dashboard URL.
@@ -34,15 +36,20 @@ The launcher runs `docker gpu discover`, acquires an exact UUID, verifies CUDA
 residency, and releases the lease only after workers stop. Direct mode is
 refused when the broker is present.
 
-For unmanaged NVIDIA Linux only:
+For unmanaged NVIDIA Linux and every NVIDIA Tegra module:
 
 ```bash
-./services/linux/install.sh --direct
+./services/linux/install.sh            # auto-selects broker or direct
+./services/linux/install.sh --direct   # pin direct mode
+./services/linux/install.sh --broker   # pin broker mode
 .venv/bin/qwen-omni-daemon status
 ```
 
-Direct mode requires explicit opt-in and verifies the comprehension PID in
-`nvidia-smi`. It has no CPU fallback.
+The installer now resolves the mode from the host: broker where `docker gpu
+discover` succeeds, direct otherwise. Direct mode verifies the comprehension
+PID with `nvidia-smi` compute-app accounting on a discrete card, or with the
+integrated-GPU device handles on Tegra, where that accounting does not exist.
+It has no CPU fallback, and it is still refused when the broker is present.
 
 Remove the unit without removing models or runtime evidence:
 

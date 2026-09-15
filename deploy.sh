@@ -30,4 +30,19 @@ if [[ ! -x "$REPO_ROOT/.venv/bin/qwen-omni" ]] \
   "$REPO_ROOT/scripts/bootstrap.sh"
 fi
 
-exec "$REPO_ROOT/portal/start.sh" --daemon
+# The ollama-unify GPU broker owns discrete-GPU allocation wherever it is
+# installed, and the portal supervisor must not bypass its leases. Hosts
+# without it -- every NVIDIA Tegra module, and any unmanaged workstation --
+# run the portable direct supervisor instead, which proves residency with
+# whatever per-process evidence the platform actually publishes.
+if command -v docker >/dev/null 2>&1 && docker gpu discover >/dev/null 2>&1; then
+  exec "$REPO_ROOT/portal/start.sh" --daemon
+fi
+
+direct=("$REPO_ROOT/.venv/bin/qwen-omni-daemon" serve --allow-direct-gpu)
+if ! command -v cloudflared >/dev/null 2>&1; then
+  direct+=(--no-tunnel)
+  printf 'cloudflared is not installed; serving the portal on loopback only.\n' >&2
+fi
+printf 'No GPU broker on this host; starting the direct supervisor in the foreground.\n' >&2
+exec "${direct[@]}"
