@@ -127,6 +127,17 @@ case $(uname -s) in
   Darwin) cmake_options+=(-DGGML_METAL=ON) ;;
   Linux)
     cmake_options+=(-DGGML_CUDA=ON)
+    if [[ -n "$TEGRA_SOC" ]]; then
+      # ggml's CUDA allocator reserves a 32 GiB virtual address pool
+      # (CUDA_POOL_VMM_MAX_SIZE = 1<<35) per device. A discrete card has the
+      # address space for that; a Tegra module addresses one unified pool that
+      # is itself smaller than the reservation, so cuMemAddressReserve fails
+      # with "out of memory" and aborts the worker -- observed on an AGX Orin
+      # as llama-tts exiting -6 whenever a new worker had to build a pool.
+      # Plain cudaMalloc has no such reservation.
+      cmake_options+=(-DGGML_CUDA_NO_VMM=ON)
+      printf 'Disabling the CUDA VMM pool: its 32 GiB reservation cannot fit Tegra unified memory\n'
+    fi
     cuda_architectures=${OMNI_CUDA_ARCHITECTURES:-$(tegra_cuda_architecture)}
     if [[ -n "$cuda_architectures" ]]; then
       # Pin the exact integrated-GPU capability. Left unset, ggml builds its

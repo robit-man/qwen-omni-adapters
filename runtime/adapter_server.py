@@ -342,16 +342,54 @@ def _video_audio(media: MediaItem) -> str | None:
         return base64.b64encode(output.read_bytes()).decode("ascii")
 
 
+def _video_is_pipe_readable(data: bytes) -> bool:
+    """Return True when ffprobe can read this buffer from a pipe.
+
+    The comprehension backend decodes video by piping the buffer to
+    ffprobe/ffmpeg, which cannot seek backwards. An MP4 whose ``moov`` atom
+    sits at the end of the file -- the default for most encoders, OpenCV's
+    VideoWriter included -- fails there with "partial file" even though the
+    same file plays perfectly from disk. Probing the way the backend will is
+    the only reliable way to know, so do exactly that.
+    """
+
+    try:
+        completed = subprocess.run(
+            [
+                os.environ.get("FFPROBE_BIN", "ffprobe"),
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=codec_name",
+                "-of",
+                "csv=p=0",
+                "-",
+            ],
+            input=data,
+            check=False,
+            capture_output=True,
+            timeout=float(os.environ.get("OMNI_FFMPEG_TIMEOUT_S", "120")),
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    # ffprobe can report a codec *and* an error for a truncated read, so a
+    # clean exit with no stderr is the only signal that the pipe was enough.
+    return completed.returncode == 0 and not completed.stderr.strip()
+
+
 def _normalized_video_data(
     media: MediaItem,
     *,
     fps: float,
     max_frames: int,
 ) -> bytes:
-    if media.mime_type != "image/gif":
+    if media.mime_type != "image/gif" and _video_is_pipe_readable(media.data):
         return media.data
-    with tempfile.TemporaryDirectory(prefix="robit-omni-gif-") as temp_dir:
-        source = Path(temp_dir) / "input.gif"
+    suffix = "gif" if media.mime_type == "image/gif" else "bin"
+    with tempfile.TemporaryDirectory(prefix="robit-omni-video-") as temp_dir:
+        source = Path(temp_dir) / f"input.{suffix}"
         output = Path(temp_dir) / "output.mp4"
         source.write_bytes(media.data)
         completed = subprocess.run(
@@ -363,8 +401,11 @@ def _normalized_video_data(
                 "-y",
                 "-i",
                 str(source),
-                "-t",
-                str(MAX_GIF_SECONDS),
+                *(
+                    ["-t", str(MAX_GIF_SECONDS)]
+                    if media.mime_type == "image/gif"
+                    else []
+                ),
                 "-vf",
                 f"fps={fps:g},scale='min(1280,iw)':-2:flags=lanczos",
                 "-frames:v",
@@ -384,9 +425,9 @@ def _normalized_video_data(
         )
         if completed.returncode != 0:
             diagnostic = completed.stderr.decode("utf-8", errors="replace")[-1000:]
-            raise AdapterStageError(f"GIF normalization failed: {diagnostic}")
+            raise AdapterStageError(f"video normalization failed: {diagnostic}")
         if not output.is_file() or output.stat().st_size == 0:
-            raise AdapterStageError("GIF normalization returned no video")
+            raise AdapterStageError("video normalization returned no video")
         return output.read_bytes()
 
 

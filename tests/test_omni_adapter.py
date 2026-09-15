@@ -4,6 +4,7 @@ import base64
 import io
 import json
 import os
+import subprocess
 import wave
 from pathlib import Path
 
@@ -656,7 +657,13 @@ def test_language_backend_override_preserves_logical_model_identity() -> None:
     assert result["adapter"]["language_backend_model"] == core_model
 
 
-def test_comprehension_payload_tags_video_for_qwen_style_server() -> None:
+def test_comprehension_payload_tags_video_for_qwen_style_server(monkeypatch) -> None:
+    # These fixtures stand in for a streamable clip; the pipe-probe is exercised
+    # by its own tests rather than by shelling out to ffmpeg here.
+    from runtime import adapter_server
+
+    monkeypatch.setattr(adapter_server, "_video_is_pipe_readable", lambda _data: True)
+
     parsed = parse_adapter_request(
         _base_request(
             messages=[
@@ -932,7 +939,13 @@ def test_require_speech_stops_after_sound_only_comprehension() -> None:
     assert "audio" not in final["message"]
 
 
-def test_video_context_overflow_retries_with_lower_frame_cap() -> None:
+def test_video_context_overflow_retries_with_lower_frame_cap(monkeypatch) -> None:
+    # These fixtures stand in for a streamable clip; the pipe-probe is exercised
+    # by its own tests rather than by shelling out to ffmpeg here.
+    from runtime import adapter_server
+
+    monkeypatch.setattr(adapter_server, "_video_is_pipe_readable", lambda _data: True)
+
     seen_caps = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -1213,3 +1226,84 @@ def test_long_tts_stream_uses_multiple_blocks_and_one_complete_wav(
     decoded = decode_wav_payload(final["message"]["audio"])
     assert decoded.frames == 6
     assert final["adapter"]["tts_blocks"] == 3
+
+
+def test_video_that_a_pipe_cannot_read_is_normalized(monkeypatch) -> None:
+    """The backend pipes video to ffprobe, which cannot seek to a trailing moov."""
+
+    from runtime import adapter_server
+
+    item = MediaItem(
+        kind="video", mime_type="video/mp4", data=b"trailing-moov", message_index=0, media_index=0
+    )
+    monkeypatch.setattr(adapter_server, "_video_is_pipe_readable", lambda _data: False)
+    calls: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        Path(command[-1]).write_bytes(b"normalized")
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(adapter_server.subprocess, "run", fake_run)
+
+    assert adapter_server._normalized_video_data(item, fps=2.0, max_frames=8) == b"normalized"
+    assert "+faststart" in calls[0]
+    # The GIF-only duration cap must not truncate ordinary video.
+    assert "-t" not in calls[0]
+
+
+def test_pipe_readable_video_is_passed_through_untouched(monkeypatch) -> None:
+    from runtime import adapter_server
+
+    payload = b"already-streamable"
+    item = MediaItem(
+        kind="video", mime_type="video/mp4", data=payload, message_index=0, media_index=0
+    )
+    monkeypatch.setattr(adapter_server, "_video_is_pipe_readable", lambda _data: True)
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("a pipe-readable clip must not be re-encoded")
+
+    monkeypatch.setattr(adapter_server.subprocess, "run", refuse)
+
+    assert adapter_server._normalized_video_data(item, fps=2.0, max_frames=8) is payload
+
+
+def test_a_gif_is_still_normalized_and_duration_capped(monkeypatch) -> None:
+    from runtime import adapter_server
+
+    item = MediaItem(
+        kind="video", mime_type="image/gif", data=b"gif-bytes", message_index=0, media_index=0
+    )
+
+    def pipe_readable(_data):
+        raise AssertionError("a GIF is normalized without probing")
+
+    monkeypatch.setattr(adapter_server, "_video_is_pipe_readable", pipe_readable)
+    calls: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        Path(command[-1]).write_bytes(b"mp4")
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(adapter_server.subprocess, "run", fake_run)
+
+    assert adapter_server._normalized_video_data(item, fps=2.0, max_frames=8) == b"mp4"
+    assert "-t" in calls[0]
+
+
+def test_a_truncated_probe_counts_as_not_pipe_readable(monkeypatch) -> None:
+    """ffprobe can print a codec and an error at once for a partial read."""
+
+    from runtime import adapter_server
+
+    monkeypatch.setattr(
+        adapter_server.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=["ffprobe"], returncode=0, stdout=b"mpeg4\n", stderr=b"partial file\n"
+        ),
+    )
+
+    assert adapter_server._video_is_pipe_readable(b"anything") is False
