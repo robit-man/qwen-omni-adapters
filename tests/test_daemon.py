@@ -136,8 +136,16 @@ def test_an_openai_language_backend_is_not_pulled_from_ollama(monkeypatch, tmp_p
     monkeypatch.setattr(
         daemon_module, "resolve_ollama_sidecar", lambda model: {"layer": {"digest": "x"}}
     )
+
+    def refuse_materialize(**_kwargs) -> None:
+        raise AssertionError("component views are already present")
+
+    monkeypatch.setattr(daemon_module, "prepare_ollama_sidecar", refuse_materialize)
     supervisor.cache_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("tts-model.gguf", "tts-projector.gguf"):
+    for name in (
+        "comprehension-model.gguf", "comprehension-projector.gguf",
+        "tts-model.gguf", "tts-projector.gguf",
+    ):
         (supervisor.cache_dir / name).write_bytes(b"x")
 
     supervisor.prepare()
@@ -165,6 +173,11 @@ def test_an_ollama_language_backend_is_still_pulled_and_verified(monkeypatch, tm
     monkeypatch.setattr(
         daemon_module, "resolve_ollama_sidecar", lambda model: {"layer": {"digest": "x"}}
     )
+
+    def refuse_materialize(**_kwargs) -> None:
+        raise AssertionError("component views are already present")
+
+    monkeypatch.setattr(daemon_module, "prepare_ollama_sidecar", refuse_materialize)
     supervisor.cache_dir.mkdir(parents=True, exist_ok=True)
     for name in (
         "comprehension-model.gguf", "comprehension-projector.gguf",
