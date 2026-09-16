@@ -104,3 +104,75 @@ def test_stop_command_uses_cross_platform_control_file(
 
     assert daemon.main(["stop"]) == 0
     assert (state_dir / "stop.request").is_file()
+
+
+def test_an_openai_language_backend_is_not_pulled_from_ollama(monkeypatch, tmp_path):
+    """Its model name belongs to that server; Ollama has never heard of it.
+
+    Pulling it hangs the supervisor on a tag that cannot exist, which is
+    exactly what happened the first time the OpenAI backend was deployed.
+    """
+
+    from qwen_omni_adapters import daemon as daemon_module
+
+    monkeypatch.setenv("OMNI_LANGUAGE_API", "openai")
+    monkeypatch.setenv("OMNI_MODEL", "robit/ornith-1.5-omni:q4km")
+    monkeypatch.setenv("OMNI_LANGUAGE_MODEL", "local-qwen3-omni")
+    monkeypatch.setenv("OMNI_PORTAL_RUNTIME_ROOT", str(tmp_path))
+    monkeypatch.setattr(daemon_module, "_load_env_file", lambda _root: None)
+
+    config = daemon_module.DaemonConfig.from_environment(cloudflare=False)
+    assert config.language_api == "openai"
+
+    supervisor = daemon_module.OmniDaemon(config)
+    pulled: list[str] = []
+    monkeypatch.setattr(supervisor, "_ensure_model", lambda model: pulled.append(model))
+
+    def refuse() -> None:
+        raise AssertionError("must not verify Ollama blobs for another backend")
+
+    monkeypatch.setattr(supervisor, "_verify_shared_base", refuse)
+    monkeypatch.setattr(supervisor, "_preflight", lambda: None)
+    monkeypatch.setattr(
+        daemon_module, "resolve_ollama_sidecar", lambda model: {"layer": {"digest": "x"}}
+    )
+    supervisor.cache_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("tts-model.gguf", "tts-projector.gguf"):
+        (supervisor.cache_dir / name).write_bytes(b"x")
+
+    supervisor.prepare()
+
+    # Only the logical tag is an Ollama concern.
+    assert pulled == ["robit/ornith-1.5-omni:q4km"]
+
+
+def test_an_ollama_language_backend_is_still_pulled_and_verified(monkeypatch, tmp_path):
+    from qwen_omni_adapters import daemon as daemon_module
+
+    monkeypatch.delenv("OMNI_LANGUAGE_API", raising=False)
+    monkeypatch.setenv("OMNI_MODEL", "robit/ornith-1.5-omni:q4km")
+    monkeypatch.setenv("OMNI_LANGUAGE_MODEL", "robit/ornith-1.5:9b")
+    monkeypatch.setenv("OMNI_PORTAL_RUNTIME_ROOT", str(tmp_path))
+    monkeypatch.setattr(daemon_module, "_load_env_file", lambda _root: None)
+
+    config = daemon_module.DaemonConfig.from_environment(cloudflare=False)
+    supervisor = daemon_module.OmniDaemon(config)
+    pulled: list[str] = []
+    verified: list[bool] = []
+    monkeypatch.setattr(supervisor, "_ensure_model", lambda model: pulled.append(model))
+    monkeypatch.setattr(supervisor, "_verify_shared_base", lambda: verified.append(True))
+    monkeypatch.setattr(supervisor, "_preflight", lambda: None)
+    monkeypatch.setattr(
+        daemon_module, "resolve_ollama_sidecar", lambda model: {"layer": {"digest": "x"}}
+    )
+    supervisor.cache_dir.mkdir(parents=True, exist_ok=True)
+    for name in (
+        "comprehension-model.gguf", "comprehension-projector.gguf",
+        "tts-model.gguf", "tts-projector.gguf",
+    ):
+        (supervisor.cache_dir / name).write_bytes(b"x")
+
+    supervisor.prepare()
+
+    assert pulled == ["robit/ornith-1.5-omni:q4km", "robit/ornith-1.5:9b"]
+    assert verified == [True]

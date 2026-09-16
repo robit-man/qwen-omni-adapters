@@ -111,6 +111,10 @@ class DaemonConfig:
     # spare that, can run the adapter without it: audio, video, and image
     # comprehension then report unavailable and every other route still works.
     enable_comprehension: bool = True
+    # When the language stage targets an OpenAI-compatible endpoint, the model
+    # name belongs to that server, not to Ollama. Pulling or blob-verifying it
+    # against Ollama is meaningless and hangs on a tag that cannot exist.
+    language_api: str = "ollama"
 
     @classmethod
     def from_environment(
@@ -178,6 +182,7 @@ class DaemonConfig:
                 "OMNI_ENABLE_COMPREHENSION", "1"
             ).strip().lower()
             not in {"0", "false", "no"},
+            language_api=os.environ.get("OMNI_LANGUAGE_API", "ollama").strip().lower(),
         )
 
 
@@ -327,8 +332,16 @@ class OmniDaemon:
         self._write_status(state="preflight")
         self._preflight()
         self._ensure_model(self.config.model)
-        self._ensure_model(self.config.language_model)
-        self._verify_shared_base()
+        if self.config.language_api == "ollama":
+            self._ensure_model(self.config.language_model)
+            self._verify_shared_base()
+        else:
+            # The language model lives on another server; Ollama has never
+            # heard of it and there are no shared blobs to verify.
+            self._write_status(
+                state="preflight",
+                detail=f"language stage on the {self.config.language_api} backend",
+            )
         resolved = resolve_ollama_sidecar(model=self.config.model)
         self._write_status(state="materializing", sidecar_digest=resolved["layer"]["digest"])
         required = [
