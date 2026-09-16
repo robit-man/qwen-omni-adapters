@@ -2053,3 +2053,51 @@ def test_portal_stream_tool_chain_has_no_legacy_fifty_call_cap() -> None:
     assert len(requests) == 56
     assert events[-1]["type"] == "final"
     assert len(events[-1]["response"]["portal"]["safe_tools_executed"]) == 55
+
+
+def test_portal_exposes_its_tool_suite_for_external_loops() -> None:
+    """A caller driving its own tool loop needs to run one tool at a time.
+
+    The portal executes these inside its own agentic loop, which suits a
+    browser session. An embodied runtime mixes them with tools of its own --
+    cameras, memory -- so it has to keep control of the conversation and
+    execute a single tool. Without this it would have to keep a second
+    service alive purely to run tools, which is the cost the single weights
+    package exists to remove.
+    """
+
+    app = create_app(
+        _config(), httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    )
+    client = app.test_client()
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    listed = client.get("/api/tools", headers=headers)
+    assert listed.status_code == 200
+    names = {item["function"]["name"] for item in listed.get_json()["tools"]}
+    assert {"web_search", "web_fetch", "memory_write", "safe_math_eval"} <= names
+
+    # A tool with no network dependence proves the execution path end to end.
+    executed = client.post(
+        "/api/tools/safe_math_eval/call",
+        json={"arguments": {"expression": "6 * 7"}},
+        headers=headers,
+    )
+    assert executed.status_code == 200
+    body = executed.get_json()
+    assert body["tool"] == "safe_math_eval"
+    assert "42" in json.dumps(body["result"])
+
+
+def test_portal_tool_endpoint_is_guarded() -> None:
+    app = create_app(
+        _config(), httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    )
+    client = app.test_client()
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    assert client.get("/api/tools").status_code == 401
+    assert client.post("/api/tools/web_search/call", json={}).status_code == 401
+    # Only the published suite may be invoked.
+    unknown = client.post("/api/tools/rm_rf/call", json={}, headers=headers)
+    assert unknown.status_code == 404

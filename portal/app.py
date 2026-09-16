@@ -1433,6 +1433,51 @@ def create_app(
         )
         return jsonify({"accepted": accepted})
 
+    @app.get("/api/tools")
+    def list_tools():
+        """Advertise the tools this adapter can execute itself."""
+
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        return jsonify({"schema": ADAPTER_SCHEMA, "tools": copy.deepcopy(SAFE_TOOLS)})
+
+    @app.post("/api/tools/<name>/call")
+    def call_tool(name: str):
+        """Run one tool and return its result.
+
+        The portal already executes these inside its own agentic loop, but a
+        caller that drives its own loop -- an embodied runtime mixing these
+        with tools of its own, say -- needs to run a single one and keep
+        control of the conversation. Without this, such a caller has to keep
+        a second service alive purely to execute tools, which is the whole
+        cost the single weights package is meant to remove.
+        """
+
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        known = {item["function"]["name"] for item in SAFE_TOOLS}
+        if name not in known:
+            return jsonify({"error": f"unknown tool: {name}"}), 404
+        payload = request.get_json(silent=True)
+        if payload is None:
+            payload = {}
+        if not isinstance(payload, Mapping):
+            return jsonify({"error": "request body must be a JSON object"}), 400
+        arguments = payload.get("arguments", payload)
+        if not isinstance(arguments, Mapping):
+            return jsonify({"error": "arguments must be an object"}), 400
+        session_id = request_session_id()
+        started = time.monotonic()
+        result = tool_harness.execute(session_id, name, arguments)
+        return jsonify(
+            {
+                "schema": ADAPTER_SCHEMA,
+                "tool": name,
+                "result": result,
+                "elapsed_ms": (time.monotonic() - started) * 1000,
+            }
+        )
+
     @app.post("/api/chat")
     def chat():
         if not authorized():
