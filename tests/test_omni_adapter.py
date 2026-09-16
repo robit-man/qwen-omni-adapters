@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import dataclasses
 import io
 import json
 import os
@@ -1307,3 +1308,132 @@ def test_a_truncated_probe_counts_as_not_pipe_readable(monkeypatch) -> None:
     )
 
     assert adapter_server._video_is_pipe_readable(b"anything") is False
+
+
+
+def _adapter_config(**overrides):
+    values = {
+        "comprehension_url": "http://comprehension/v1/chat/completions",
+        "comprehension_model": "qwen3-omni",
+        "language_url": "http://language",
+        "tts_url": "http://tts/synthesize",
+        "timeout_s": 30,
+    }
+    values.update(overrides)
+    return Config(**values)
+
+
+# -- optional comprehension worker ---------------------------------------
+
+
+def test_media_routes_fail_clearly_when_comprehension_is_not_configured() -> None:
+    """A deployment can run language and speech without the largest component."""
+
+    from runtime import adapter_server
+
+    config = dataclasses.replace(_adapter_config(), comprehension_url="")
+
+    with pytest.raises(adapter_server.AdapterStageError, match="not configured"):
+        adapter_server._require_comprehension(config)
+
+
+def test_a_configured_comprehension_url_is_accepted() -> None:
+    from runtime import adapter_server
+
+    adapter_server._require_comprehension(_adapter_config())
+
+
+# -- OpenAI-compatible language backend ----------------------------------
+
+
+def test_the_openai_backend_posts_to_the_url_as_given() -> None:
+    from runtime import adapter_server
+
+    ollama = _adapter_config()
+    assert adapter_server.language_request_url(ollama).endswith("/api/chat")
+
+    openai = dataclasses.replace(
+        ollama,
+        language_api="openai",
+        language_url="http://127.0.0.1:8901/v1/chat/completions",
+    )
+    assert (
+        adapter_server.language_request_url(openai)
+        == "http://127.0.0.1:8901/v1/chat/completions"
+    )
+
+
+def test_ollama_only_fields_are_dropped_for_an_openai_backend() -> None:
+    """An OpenAI-compatible server rejects unknown top-level keys."""
+
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[{"role": "user", "content": "Hello."}],
+            keep_alive="30m",
+            think=False,
+            options={"temperature": 0.2, "num_predict": 64},
+        )
+    )
+
+    payload = adapter_server.build_language_payload(
+        parsed, None, "local-qwen3-omni", "openai"
+    )
+
+    assert "keep_alive" not in payload
+    assert "think" not in payload
+    assert "options" not in payload
+    # The sampling controls the OpenAI schema does define are carried across.
+    assert payload["temperature"] == 0.2
+    assert payload["max_tokens"] == 64
+    assert payload["model"] == "local-qwen3-omni"
+
+
+def test_the_ollama_backend_keeps_its_native_fields() -> None:
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[{"role": "user", "content": "Hello."}],
+            keep_alive="30m",
+            options={"temperature": 0.2},
+        )
+    )
+
+    payload = adapter_server.build_language_payload(parsed, None, "ornith", "ollama")
+
+    assert payload["keep_alive"] == "30m"
+    assert payload["options"] == {"temperature": 0.2}
+    assert "max_tokens" not in payload
+
+
+def test_an_openai_response_is_normalized_into_the_ollama_shape() -> None:
+    from runtime import adapter_server
+
+    normalized = adapter_server._language_result(
+        {
+            "model": "local-qwen3-omni",
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "Hello there.",
+                        "reasoning_content": "thinking out loud",
+                    }
+                }
+            ],
+        },
+        "openai",
+    )
+
+    assert normalized["message"]["content"] == "Hello there."
+    assert normalized["message"]["thinking"] == "thinking out loud"
+    assert normalized["done"] is True
+
+
+def test_an_openai_response_without_a_message_is_rejected() -> None:
+    from runtime import adapter_server
+
+    with pytest.raises(adapter_server.AdapterStageError, match="no assistant message"):
+        adapter_server._language_result({"choices": []}, "openai")

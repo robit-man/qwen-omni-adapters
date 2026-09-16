@@ -276,6 +276,7 @@ class PortalConfig:
                 "OMNI_ADAPTER_HEALTH_URL", "http://127.0.0.1:8910/healthz"
             ).strip(),
             comprehension_health_url=os.environ.get(
+                # Empty means this deployment runs no comprehension worker.
                 "OMNI_COMPREHENSION_HEALTH_URL", "http://127.0.0.1:8901/health"
             ).strip(),
             tts_health_url=os.environ.get(
@@ -1277,10 +1278,18 @@ def create_app(
         diagnostics.touch(session_id)
         stages = {
             "adapter": _probe(session, runtime.adapter_health_url),
-            "comprehension": _probe(session, runtime.comprehension_health_url),
             "tts": _probe(session, runtime.tts_health_url),
             "ollama": _probe(session, runtime.ollama_health_url),
         }
+        if runtime.comprehension_health_url:
+            stages["comprehension"] = _probe(session, runtime.comprehension_health_url)
+        else:
+            # A deployment can intentionally run without the comprehension
+            # worker -- it is by far the largest component, and a host that
+            # only needs language and speech should not be reported unhealthy
+            # for declining to load it. Media routes still fail loudly when
+            # asked for; see _require_comprehension in the adapter.
+            stages["comprehension"] = {"ok": True, "status": None, "enabled": False}
         return jsonify(
             {
                 "ok": all(item["ok"] for item in stages.values()),

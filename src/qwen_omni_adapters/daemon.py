@@ -105,6 +105,12 @@ class DaemonConfig:
     cloudflare: bool = True
     keep_cache: bool = False
     allow_direct_gpu: bool = False
+    # Qwen3-Omni comprehension is by far the largest component (about 16.8 GiB
+    # resident for the 30B-A3B Q4_K_M weights plus KV). A host that wants the
+    # tag's language/vision through Ollama and Qwen3-TTS speech, but cannot
+    # spare that, can run the adapter without it: audio, video, and image
+    # comprehension then report unavailable and every other route still works.
+    enable_comprehension: bool = True
 
     @classmethod
     def from_environment(
@@ -168,6 +174,10 @@ class DaemonConfig:
             ),
             keep_cache=os.environ.get("OMNI_KEEP_CACHE", "0") == "1",
             allow_direct_gpu=allow_direct_gpu,
+            enable_comprehension=os.environ.get(
+                "OMNI_ENABLE_COMPREHENSION", "1"
+            ).strip().lower()
+            not in {"0", "false", "no"},
         )
 
 
@@ -322,11 +332,14 @@ class OmniDaemon:
         resolved = resolve_ollama_sidecar(model=self.config.model)
         self._write_status(state="materializing", sidecar_digest=resolved["layer"]["digest"])
         required = [
-            self.cache_dir / "comprehension-model.gguf",
-            self.cache_dir / "comprehension-projector.gguf",
             self.cache_dir / "tts-model.gguf",
             self.cache_dir / "tts-projector.gguf",
         ]
+        if self.config.enable_comprehension:
+            required[:0] = [
+                self.cache_dir / "comprehension-model.gguf",
+                self.cache_dir / "comprehension-projector.gguf",
+            ]
         if not all(path.is_file() for path in required):
             prepare_ollama_sidecar(
                 model=self.config.model,
@@ -392,32 +405,35 @@ class OmniDaemon:
         python = sys.executable
         common = os.environ.copy()
         common["PYTHONUNBUFFERED"] = "1"
-        comprehension = self._spawn(
-            "comprehension",
-            [
-                str(_binary(self.config.repo_root, "llama-server")),
-                "-m",
-                str(self.cache_dir / "comprehension-model.gguf"),
-                "--mmproj",
-                str(self.cache_dir / "comprehension-projector.gguf"),
-                "--host",
-                "127.0.0.1",
-                "--port",
-                str(self.config.comprehension_port),
-                "--jinja",
-                "-ngl",
-                "99",
-                "-c",
-                str(self.config.context_tokens),
-            ],
-            common,
-        )
-        self._wait_http(
-            comprehension,
-            f"http://127.0.0.1:{self.config.comprehension_port}/health",
-            1200,
-        )
-        self._verify_direct_gpu(comprehension.process.pid)
+        if self.config.enable_comprehension:
+            comprehension = self._spawn(
+                "comprehension",
+                [
+                    str(_binary(self.config.repo_root, "llama-server")),
+                    "-m",
+                    str(self.cache_dir / "comprehension-model.gguf"),
+                    "--mmproj",
+                    str(self.cache_dir / "comprehension-projector.gguf"),
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    str(self.config.comprehension_port),
+                    "--jinja",
+                    "-ngl",
+                    "99",
+                    "-c",
+                    str(self.config.context_tokens),
+                ],
+                common,
+            )
+            self._wait_http(
+                comprehension,
+                f"http://127.0.0.1:{self.config.comprehension_port}/health",
+                1200,
+            )
+            self._verify_direct_gpu(comprehension.process.pid)
+        else:
+            self._write_status(state="starting", detail="comprehension disabled")
 
         tts_env = {
             **common,
@@ -438,7 +454,13 @@ class OmniDaemon:
 
         adapter_env = {
             **common,
-            "OMNI_COMPREHENSION_URL": f"http://127.0.0.1:{self.config.comprehension_port}/v1/chat/completions",
+            # An empty URL is how the adapter reports comprehension as
+            # unconfigured rather than pretending a dead port is a worker.
+            "OMNI_COMPREHENSION_URL": (
+                f"http://127.0.0.1:{self.config.comprehension_port}/v1/chat/completions"
+                if self.config.enable_comprehension
+                else ""
+            ),
             "OMNI_COMPREHENSION_MODEL": "local-qwen3-omni",
             "OMNI_COMPREHENSION_CONTEXT_TOKENS": str(self.config.context_tokens),
             "OMNI_LANGUAGE_URL": "http://127.0.0.1:11434",
@@ -468,7 +490,11 @@ class OmniDaemon:
             "OMNI_PORTAL_TOKEN": token,
             "OMNI_ADAPTER_URL": f"http://127.0.0.1:{self.config.adapter_port}/api/chat",
             "OMNI_ADAPTER_HEALTH_URL": f"http://127.0.0.1:{self.config.adapter_port}/healthz",
-            "OMNI_COMPREHENSION_HEALTH_URL": f"http://127.0.0.1:{self.config.comprehension_port}/health",
+            "OMNI_COMPREHENSION_HEALTH_URL": (
+                f"http://127.0.0.1:{self.config.comprehension_port}/health"
+                if self.config.enable_comprehension
+                else ""
+            ),
             "OMNI_TTS_HEALTH_URL": f"http://127.0.0.1:{self.config.tts_port}/healthz",
             "OMNI_PORTAL_SESSION_LOG_DIR": str(self.session_log_dir),
             "OMNI_PORTAL_HOST": "127.0.0.1",
@@ -494,6 +520,10 @@ class OmniDaemon:
                 "--stream",
             ],
             timeout=1200,
+        )
+        self._write_status(
+            state="smoke-passed",
+            comprehension=self.config.enable_comprehension,
         )
 
         public = f"http://127.0.0.1:{self.config.portal_port}"

@@ -153,6 +153,48 @@ computes them, not how much memory they occupy.
 }
 ```
 
+## Running without the comprehension worker
+
+Qwen3-Omni comprehension is by far the largest component. Measured on a 32 GB
+AGX Orin (29.98 GiB usable):
+
+| Component | Resident |
+|---|---|
+| baseline (OS + desktop) | 6.1 GiB |
+| Qwen3-Omni comprehension @8K context | 16.8 GiB |
+| Qwen3-TTS worker, voice cloning | 6.7 GiB |
+| Ollama language on the logical tag | 5.6 GiB |
+
+All of it at once is about 35 GiB, and the kernel OOM-killer settles that
+argument -- on this host it took the desktop down with it. `OMNI_ENABLE_COMPREHENSION=0`
+runs the adapter for language and speech alone: the logical tag still serves
+text, vision and tools through Ollama, and Qwen3-TTS still provides the voice,
+for roughly 12 GiB total. Audio, video and image comprehension then report
+unavailable rather than failing obscurely, and the health gate treats the
+absent worker as intended rather than unhealthy.
+
+`OMNI_TTS_PERSISTENT=0` additionally lets the TTS worker exit between
+utterances, so its memory is only held while actually speaking.
+
+Where the host manages the comprehension worker itself -- starting and
+stopping it around demand -- set `OMNI_COMPREHENSION_URL` explicitly alongside
+`OMNI_ENABLE_COMPREHENSION=0`: the adapter will use the worker whenever it is
+up, and the supervisor will not try to own its lifetime.
+
+## Language on the comprehension model
+
+`OMNI_LANGUAGE_API=openai` points the language stage at any OpenAI-compatible
+endpoint instead of Ollama, including the comprehension server's own
+`/v1/chat/completions`. Qwen3-Omni is an Instruct model, so a host that cannot
+afford both sets of weights can run language on the one it has already loaded
+rather than adding a second. Ollama-only request fields (`keep_alive`,
+`think`, `options`, `format`) are dropped, and the sampling controls the
+OpenAI schema does define are carried across.
+
+Set a systemd `MemoryMax=` on the unit regardless. Unified memory means an
+unbounded component does not merely get itself killed -- it can take the
+machine with it.
+
 ## Host facts
 
 `get_system_snapshot` reports the integrated GPU from sysfs — per-mille load,

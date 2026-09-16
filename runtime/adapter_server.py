@@ -53,6 +53,14 @@ class Config:
     tts_url: str
     timeout_s: float
     language_model: str | None = None
+    # "ollama" posts Ollama-shaped requests to <language_url>/api/chat.
+    # "openai" posts OpenAI-shaped requests to <language_url> as given, which
+    # lets the language stage run on the already-resident comprehension server
+    # instead of a second model. On a memory-constrained host that is the
+    # difference between the stack fitting and not: the comprehension model is
+    # itself an Instruct model, so pointing language at it removes a whole
+    # second set of weights rather than merely shrinking them.
+    language_api: str = "ollama"
     comprehension_context_tokens: int = 65_536
     comprehension_max_output_tokens: int = 2_048
 
@@ -77,6 +85,7 @@ class Config:
             ).strip(),
             timeout_s=float(os.environ.get("OMNI_TIMEOUT_S", "900")),
             language_model=(os.environ.get("OMNI_LANGUAGE_MODEL", "").strip() or None),
+            language_api=os.environ.get("OMNI_LANGUAGE_API", "ollama").strip().lower(),
             comprehension_context_tokens=int(
                 os.environ.get("OMNI_COMPREHENSION_CONTEXT_TOKENS", "65536")
             ),
@@ -598,6 +607,22 @@ def _context_overflow(response: httpx.Response) -> bool:
     )
 
 
+def _require_comprehension(config: Config) -> None:
+    """Fail clearly when this deployment runs without a comprehension worker.
+
+    A host that cannot spare the comprehension model's memory runs the adapter
+    for language and speech alone. Saying so plainly is better than letting a
+    request time out against a port nothing is listening on.
+    """
+
+    if not config.comprehension_url:
+        raise AdapterStageError(
+            "comprehension is not configured on this deployment; audio, video, "
+            "and image understanding are unavailable (set "
+            "OMNI_ENABLE_COMPREHENSION=1 to run the comprehension worker)"
+        )
+
+
 def _comprehend(
     parsed: ParsedAdapterRequest,
     config: Config,
@@ -677,14 +702,47 @@ def _language_messages(
     return result
 
 
+# Ollama-only request fields. An OpenAI-compatible server rejects unknown
+# top-level keys, so they are dropped rather than forwarded blindly.
+_OLLAMA_ONLY_FIELDS = frozenset({"keep_alive", "think", "options", "format"})
+
+
+def language_request_url(config: Config) -> str:
+    """Return the endpoint the language stage posts to for this backend."""
+
+    if config.language_api == "openai":
+        # Already a full endpoint (…/v1/chat/completions) when pointed at a
+        # llama.cpp or vLLM server.
+        return config.language_url
+    return config.language_url + "/api/chat"
+
+
 def build_language_payload(
     parsed: ParsedAdapterRequest,
     observation: str | None,
     language_model: str | None = None,
+    language_api: str = "ollama",
 ) -> dict[str, Any]:
     # The parsed passthrough carries normal Ollama fields such as tools, think,
     # format, options, keep_alive, and logprobs.
     payload = dict(parsed.passthrough)
+    if language_api == "openai":
+        payload = {
+            key: value
+            for key, value in payload.items()
+            if key not in _OLLAMA_ONLY_FIELDS
+        }
+        options = parsed.passthrough.get("options")
+        if isinstance(options, Mapping):
+            # Carry the sampling controls the OpenAI schema does define.
+            for source, target in (
+                ("temperature", "temperature"),
+                ("top_p", "top_p"),
+                ("seed", "seed"),
+                ("num_predict", "max_tokens"),
+            ):
+                if options.get(source) is not None:
+                    payload[target] = options[source]
     payload.update(
         {
             "model": language_model or parsed.model,
@@ -693,6 +751,31 @@ def build_language_payload(
         }
     )
     return payload
+
+
+def _language_result(data: Mapping[str, Any], language_api: str) -> dict[str, Any]:
+    """Normalize a language response into the Ollama shape the adapter returns."""
+
+    if language_api != "openai":
+        return dict(data)
+    choices = data.get("choices")
+    choice = choices[0] if isinstance(choices, list) and choices else {}
+    message = choice.get("message") if isinstance(choice, Mapping) else None
+    if not isinstance(message, Mapping):
+        raise AdapterStageError("language returned no assistant message")
+    normalized: dict[str, Any] = {
+        "model": str(data.get("model") or ""),
+        "message": {
+            "role": "assistant",
+            "content": str(message.get("content") or ""),
+        },
+        "done": True,
+    }
+    if message.get("tool_calls"):
+        normalized["message"]["tool_calls"] = message["tool_calls"]
+    if message.get("reasoning_content"):
+        normalized["message"]["thinking"] = str(message["reasoning_content"])
+    return normalized
 
 
 def _direct_response(model: str, content: str) -> dict[str, Any]:
@@ -882,6 +965,7 @@ def execute(
     executed: list[str] = []
 
     if "comprehension" in parsed.route:
+        _require_comprehension(config)
         observation = _comprehend(parsed, config, client)
         executed.append("comprehension")
 
@@ -904,10 +988,12 @@ def execute(
         result = _direct_response(parsed.model, last_user.content.strip())
     else:
         response = client.post(
-            config.language_url + "/api/chat",
-            json=build_language_payload(parsed, observation, config.language_model),
+            language_request_url(config),
+            json=build_language_payload(
+                parsed, observation, config.language_model, config.language_api
+            ),
         )
-        result = _json_response(response, "language")
+        result = _language_result(_json_response(response, "language"), config.language_api)
         # Keep the external response pinned to the logical combined tag even
         # when the language graph is loaded through its equivalent core tag.
         result["model"] = parsed.model
@@ -957,6 +1043,7 @@ def execute_stream(
     executed: list[str] = []
 
     if "comprehension" in parsed.route:
+        _require_comprehension(config)
         yield _stream_event("stage", stage="comprehension")
         observation = _comprehend(parsed, config, client)
         executed.append("comprehension")
@@ -998,7 +1085,9 @@ def execute_stream(
         )
     else:
         yield _stream_event("stage", stage="language")
-        payload = build_language_payload(parsed, observation, config.language_model)
+        payload = build_language_payload(
+            parsed, observation, config.language_model, config.language_api
+        )
         payload["stream"] = True
         content = ""
         deferred_content = ""
@@ -1007,7 +1096,7 @@ def execute_stream(
         tag_stream = _ThinkingTagStream(enabled=thinking_enabled)
         tool_calls: Any = None
         result: dict[str, Any] = {}
-        with client.stream("POST", config.language_url + "/api/chat", json=payload) as response:
+        with client.stream("POST", language_request_url(config), json=payload) as response:
             if response.status_code >= 400:
                 response.read()
                 raise AdapterStageError(
@@ -1016,14 +1105,38 @@ def execute_stream(
             for line in response.iter_lines():
                 if not line.strip():
                     continue
+                if config.language_api == "openai":
+                    # OpenAI-compatible servers stream Server-Sent Events.
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    line = data
                 try:
                     chunk = json.loads(line)
                 except ValueError as exc:
                     raise AdapterStageError("language returned an invalid JSON stream") from exc
                 if not isinstance(chunk, dict):
                     raise AdapterStageError("language returned a non-object stream chunk")
-                result.update(chunk)
-                message = chunk.get("message")
+                if config.language_api == "openai":
+                    choices = chunk.get("choices")
+                    choice = choices[0] if isinstance(choices, list) and choices else {}
+                    delta = choice.get("delta") if isinstance(choice, Mapping) else None
+                    # Re-shape the SSE delta into the Ollama message the rest of
+                    # this loop already knows how to accumulate.
+                    message = {}
+                    if isinstance(delta, Mapping):
+                        if delta.get("content"):
+                            message["content"] = delta["content"]
+                        if delta.get("reasoning_content"):
+                            message["thinking"] = delta["reasoning_content"]
+                        if delta.get("tool_calls"):
+                            message["tool_calls"] = delta["tool_calls"]
+                    result.setdefault("model", chunk.get("model") or parsed.model)
+                else:
+                    result.update(chunk)
+                    message = chunk.get("message")
                 if not isinstance(message, Mapping):
                     continue
                 delta: dict[str, Any] = {"role": "assistant"}
