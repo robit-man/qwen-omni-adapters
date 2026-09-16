@@ -456,10 +456,13 @@ class OmniDaemon:
             **common,
             # An empty URL is how the adapter reports comprehension as
             # unconfigured rather than pretending a dead port is a worker.
+            # An explicitly set URL wins even when this supervisor does not
+            # spawn the worker: that is the externally-managed case, where the
+            # host starts and stops comprehension around demand itself.
             "OMNI_COMPREHENSION_URL": (
                 f"http://127.0.0.1:{self.config.comprehension_port}/v1/chat/completions"
                 if self.config.enable_comprehension
-                else ""
+                else os.environ.get("OMNI_COMPREHENSION_URL", "")
             ),
             "OMNI_COMPREHENSION_MODEL": "local-qwen3-omni",
             "OMNI_COMPREHENSION_CONTEXT_TOKENS": str(self.config.context_tokens),
@@ -468,6 +471,15 @@ class OmniDaemon:
             "OMNI_TTS_URL": f"http://127.0.0.1:{self.config.tts_port}/synthesize",
             "OMNI_ADAPTER_HOST": "127.0.0.1",
             "OMNI_ADAPTER_PORT": str(self.config.adapter_port),
+            # Last, so it wins: which language backend to use is the operator's
+            # choice, not the supervisor's. A constrained host points it at the
+            # comprehension server it has already loaded rather than a second
+            # set of weights.
+            **{
+                key: os.environ[key]
+                for key in ("OMNI_LANGUAGE_API", "OMNI_LANGUAGE_URL")
+                if os.environ.get(key)
+            },
         }
         adapter = self._spawn(
             "adapter",
@@ -493,7 +505,7 @@ class OmniDaemon:
             "OMNI_COMPREHENSION_HEALTH_URL": (
                 f"http://127.0.0.1:{self.config.comprehension_port}/health"
                 if self.config.enable_comprehension
-                else ""
+                else os.environ.get("OMNI_COMPREHENSION_HEALTH_URL", "")
             ),
             "OMNI_TTS_HEALTH_URL": f"http://127.0.0.1:{self.config.tts_port}/healthz",
             "OMNI_PORTAL_SESSION_LOG_DIR": str(self.session_log_dir),

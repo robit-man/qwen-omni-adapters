@@ -1437,3 +1437,65 @@ def test_an_openai_response_without_a_message_is_rejected() -> None:
 
     with pytest.raises(adapter_server.AdapterStageError, match="no assistant message"):
         adapter_server._language_result({"choices": []}, "openai")
+
+
+def test_think_false_disables_reasoning_on_the_openai_language_path() -> None:
+    """Chain of thought before the first spoken word is pure added latency.
+
+    `think` is an Ollama field and is dropped for an OpenAI-shaped backend, so
+    the intent has to be restated in terms that backend understands.
+    """
+
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(messages=[{"role": "user", "content": "Hello."}], think=False)
+    )
+
+    payload = adapter_server.build_language_payload(parsed, None, "m", "openai")
+
+    assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+    # reasoning_format="none" would leave the template's empty <think> prefill
+    # inline and swallow the real answer.
+    assert "reasoning_format" not in payload
+
+
+def test_native_think_true_still_enables_reasoning_on_the_openai_path() -> None:
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(messages=[{"role": "user", "content": "Hello."}], think=True)
+    )
+
+    payload = adapter_server.build_language_payload(parsed, None, "m", "openai")
+
+    assert payload["chat_template_kwargs"] == {"enable_thinking": True}
+    assert "reasoning_format" not in payload
+
+
+def test_comprehension_does_not_set_the_thinking_flag() -> None:
+    """Qwen3-Omni's template degenerates on a multimodal prompt when thinking
+    is explicitly disabled: measured on an AGX Orin, the identical request
+    returns only newlines with the flag and a correct tagged transcript
+    without it. Perception emits no reasoning for extraction prompts anyway.
+    """
+
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(
+            omni={"schema": ADAPTER_SCHEMA, "task": "transcribe"},
+            messages=[
+                {
+                    "role": "user",
+                    "content": "",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+        )
+    )
+
+    payload = adapter_server.build_comprehension_payload(parsed, _adapter_config())
+
+    assert "chat_template_kwargs" not in payload
+    assert "reasoning_format" not in payload

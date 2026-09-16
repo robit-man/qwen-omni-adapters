@@ -577,6 +577,14 @@ def build_comprehension_payload(
         "model": config.comprehension_model,
         "messages": messages,
         "stream": False,
+        # Deliberately NO chat_template_kwargs here. Qwen3-Omni's template
+        # degenerates on a multimodal prompt when thinking is explicitly
+        # disabled -- measured on an AGX Orin, the identical request returns
+        # only newlines with the flag and a correct tagged transcript without
+        # it. Perception does not emit reasoning for these extraction prompts
+        # anyway, so the flag buys nothing and costs the whole observation.
+        # The language stage is unaffected and still sets it; see
+        # build_language_payload.
         # llama.cpp enables prompt-slot caching by default. Its multimodal slot
         # cache can retain decoded frames across otherwise independent video
         # requests, causing a new clip to be answered from the prior clip.
@@ -727,11 +735,23 @@ def build_language_payload(
     # format, options, keep_alive, and logprobs.
     payload = dict(parsed.passthrough)
     if language_api == "openai":
+        thinking_requested = _thinking_requested(parsed)
         payload = {
             key: value
             for key, value in payload.items()
             if key not in _OLLAMA_ONLY_FIELDS
         }
+        # `think` is an Ollama field and was just dropped, so the OpenAI-shaped
+        # backend has to be told separately. Without this a reasoning-capable
+        # model emits its whole chain of thought before the first spoken word,
+        # which on a realtime voice path is pure added latency.
+        # `enable_thinking` is the Qwen3 template's own switch and is the only
+        # control needed. Do NOT also set reasoning_format="none": that tells
+        # the server to leave raw <think> tags inline in the content, and with
+        # thinking disabled the template pre-fills an empty block -- so the
+        # whole completion comes back as "<think>\n\n</think>" and the real
+        # answer is lost.
+        payload["chat_template_kwargs"] = {"enable_thinking": thinking_requested}
         options = parsed.passthrough.get("options")
         if isinstance(options, Mapping):
             # Carry the sampling controls the OpenAI schema does define.
