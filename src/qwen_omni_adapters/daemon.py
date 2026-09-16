@@ -294,12 +294,18 @@ class OmniDaemon:
                 raise DaemonError(
                     f"missing {binary_name}; run the platform bootstrap first: {binary}"
                 )
-        for port in (
-            self.config.comprehension_port,
+        ports = [
             self.config.tts_port,
             self.config.adapter_port,
             self.config.portal_port,
-        ):
+        ]
+        if self.config.enable_comprehension:
+            # Only required when this supervisor spawns the worker. An
+            # externally managed comprehension worker legitimately occupies
+            # the port already, and refusing to start because of it means the
+            # adapter can never run alongside one.
+            ports.insert(0, self.config.comprehension_port)
+        for port in ports:
             if not _port_available("127.0.0.1", port):
                 raise DaemonError(f"required loopback port is already in use: {port}")
 

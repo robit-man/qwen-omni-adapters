@@ -176,3 +176,50 @@ def test_an_ollama_language_backend_is_still_pulled_and_verified(monkeypatch, tm
 
     assert pulled == ["robit/ornith-1.5-omni:q4km", "robit/ornith-1.5:9b"]
     assert verified == [True]
+
+
+def test_an_externally_managed_comprehension_port_does_not_block_start(monkeypatch):
+    """A worker this supervisor does not own may already hold that port."""
+
+    from qwen_omni_adapters import daemon as daemon_module
+
+    monkeypatch.setenv("OMNI_ENABLE_COMPREHENSION", "0")
+    monkeypatch.setattr(daemon_module, "_load_env_file", lambda _root: None)
+    config = daemon_module.DaemonConfig.from_environment(
+        cloudflare=False, allow_direct_gpu=True
+    )
+    supervisor = daemon_module.OmniDaemon(config)
+
+    checked: list[int] = []
+    monkeypatch.setattr(
+        daemon_module, "_port_available", lambda host, port: checked.append(port) or True
+    )
+    monkeypatch.setattr(daemon_module.shutil, "which", lambda name: "/usr/bin/" + name)
+    monkeypatch.setattr(supervisor, "_broker_present", lambda: False)
+    monkeypatch.setattr(daemon_module, "_binary", lambda root, name: Path("/bin/sh"))
+    supervisor._preflight()
+
+    assert config.comprehension_port not in checked
+    assert config.tts_port in checked
+
+
+def test_an_owned_comprehension_port_is_still_required(monkeypatch):
+    from qwen_omni_adapters import daemon as daemon_module
+
+    monkeypatch.delenv("OMNI_ENABLE_COMPREHENSION", raising=False)
+    monkeypatch.setattr(daemon_module, "_load_env_file", lambda _root: None)
+    config = daemon_module.DaemonConfig.from_environment(
+        cloudflare=False, allow_direct_gpu=True
+    )
+    supervisor = daemon_module.OmniDaemon(config)
+
+    checked: list[int] = []
+    monkeypatch.setattr(
+        daemon_module, "_port_available", lambda host, port: checked.append(port) or True
+    )
+    monkeypatch.setattr(daemon_module.shutil, "which", lambda name: "/usr/bin/" + name)
+    monkeypatch.setattr(supervisor, "_broker_present", lambda: False)
+    monkeypatch.setattr(daemon_module, "_binary", lambda root, name: Path("/bin/sh"))
+    supervisor._preflight()
+
+    assert config.comprehension_port in checked
