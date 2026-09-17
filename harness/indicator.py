@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 # Glyph per state. Text rather than themed icons: these render identically on
 # every theme, need no icon cache, and read at a glance.
 LABELS: dict[str, str] = {
-    "starting": "◌ Omni",
-    "listening": "● Omni",
-    "hearing": "◉ Hearing",
-    "thinking": "◍ Thinking",
-    "speaking": "▶ Speaking",
-    "muted": "○ Muted",
-    "offline": "✕ Offline",
+    "starting": "Omni …",
+    "listening": "Omni ●",
+    "hearing": "Omni ◉",
+    "thinking": "Omni ◍",
+    "speaking": "Omni ▶",
+    "muted": "Omni ○",
+    "offline": "Omni ✕",
 }
 
 TOOLTIPS: dict[str, str] = {
@@ -55,7 +55,16 @@ class NullIndicator:
 
 
 def build_indicator(
-    *, on_mute: Callable[[bool], None], on_quit: Callable[[], None]
+    *,
+    on_mute: Callable[[bool], None],
+    on_quit: Callable[[], None],
+    on_tools: Callable[[bool], None] | None = None,
+    on_reasoning: Callable[[bool], None] | None = None,
+    on_camera: Callable[[bool], None] | None = None,
+    tools_enabled: bool = True,
+    reasoning_enabled: bool = False,
+    camera_enabled: bool = True,
+    endpoint: Callable[[], str] | None = None,
 ):
     """Return a top-bar indicator, or a no-op one if the desktop cannot host it."""
 
@@ -76,9 +85,12 @@ def build_indicator(
 
     class GtkIndicator:
         def __init__(self) -> None:
+            # No icon: the label carries the state, and a microphone glyph
+            # sitting permanently in the top bar reads as a warning rather
+            # than a status.
             self._indicator = AppIndicator.Indicator.new(
                 "omni-call-harness",
-                "audio-input-microphone",
+                "",
                 AppIndicator.IndicatorCategory.APPLICATION_STATUS,
             )
             self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
@@ -94,6 +106,44 @@ def build_indicator(
             self._mute_item.connect("toggled", self._toggled)
             menu.append(self._mute_item)
 
+            self._tools_item = Gtk.CheckMenuItem(label="Use tools")
+            self._tools_item.set_active(tools_enabled)
+            if on_tools is not None:
+                self._tools_item.connect(
+                    "toggled", lambda item: on_tools(bool(item.get_active()))
+                )
+            else:
+                self._tools_item.set_sensitive(False)
+            menu.append(self._tools_item)
+
+            self._reasoning_item = Gtk.CheckMenuItem(label="Show reasoning (slower)")
+            self._reasoning_item.set_active(reasoning_enabled)
+            if on_reasoning is not None:
+                self._reasoning_item.connect(
+                    "toggled", lambda item: on_reasoning(bool(item.get_active()))
+                )
+            else:
+                self._reasoning_item.set_sensitive(False)
+            menu.append(self._reasoning_item)
+
+            self._camera_item = Gtk.CheckMenuItem(label="Use cameras")
+            self._camera_item.set_active(camera_enabled)
+            if on_camera is not None:
+                self._camera_item.connect(
+                    "toggled", lambda item: on_camera(bool(item.get_active()))
+                )
+            else:
+                self._camera_item.set_sensitive(False)
+            menu.append(self._camera_item)
+
+            menu.append(Gtk.SeparatorMenuItem())
+            self._endpoint_item = Gtk.MenuItem(label="Copy public link")
+            self._endpoint_item.connect("activate", lambda *_: self._copy_endpoint())
+            self._endpoint_item.set_sensitive(endpoint is not None)
+            menu.append(self._endpoint_item)
+            self._endpoint = endpoint
+
+            menu.append(Gtk.SeparatorMenuItem())
             quit_item = Gtk.MenuItem(label="Quit")
             quit_item.connect("activate", lambda *_: self._quit())
             menu.append(quit_item)
@@ -107,6 +157,25 @@ def build_indicator(
             self._muted = bool(item.get_active())
             on_mute(self._muted)
             self.set_state("muted" if self._muted else "listening")
+
+        def _copy_endpoint(self) -> None:
+            """Put the tunnel's URL, key included, on the clipboard."""
+
+            if self._endpoint is None:
+                return
+            url = self._endpoint()
+            if not url:
+                self._status_item.set_label("No public link yet")
+                return
+            try:
+                from gi.repository import Gdk
+
+                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                clipboard.set_text(url, -1)
+                clipboard.store()
+                self._status_item.set_label("Public link copied")
+            except Exception as error:  # noqa: BLE001 - clipboard is a nicety
+                logger.info("public link: %s (clipboard unavailable: %s)", url, error)
 
         def _quit(self) -> None:
             on_quit()

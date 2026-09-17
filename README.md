@@ -16,6 +16,10 @@ phone-first validation portal used to exercise microphone, camera, allowlisted
 Female/Male voice presets, request-local voice clone,
 streamed playback, call mode, and concurrent isolated sessions.
 
+For a host that should simply listen, `harness/` runs that same call mode
+locally: microphone in, speakers out, state in the desktop's top bar, no
+browser involved. See [Always-listening call harness](#always-listening-call-harness).
+
 ## Start here
 
 On the broker-managed GPU host:
@@ -116,7 +120,74 @@ Ollama tags are never interchangeable.
 | Spoken response | Qwen3-TTS, 24 kHz mono PCM16 | Yes |
 | Voice reference cloning | Qwen3-TTS Base speaker embedding path | Yes |
 | Live-call turns | Adaptive VAD + bounded single-flight speech consolidation + streamed text/PCM | Yes |
+| Headless always-listening call mode | `harness/`: local mic/speakers, GNOME top-bar state, systemd unit | Yes |
+| Every camera at once | `harness/camera.py` snaps all V4L2 devices together, stitches and downscales to one image or clip | Yes |
+| ReSpeaker ring and direction | Used when the array is attached, ignored when it is not | Yes |
+| Tool execution by an external loop | `GET /api/tools`, `POST /api/tools/<name>/call` | Yes |
 | Video generation | No component is shipped | No |
+
+## Always-listening call harness
+
+`harness/` turns a host that has the model into a host you can talk to. It
+drives the same endpoint and the same request shape as the portal's browser
+call mode, through the machine's own microphone and speakers.
+
+```bash
+# The adapter must be running; the harness waits for it either way.
+PYTHONPATH=. .venv/bin/python -m harness
+```
+
+It listens continuously, answers out loud, and shows what it is doing in the
+GNOME top bar (`Omni ●` listening, `◉` hearing, `◍` thinking, `▶` speaking).
+The indicator's menu mutes the microphone, toggles tools, reasoning and
+cameras, and copies the public link when the portal is published through a
+tunnel. Without a desktop it runs headless and logs instead.
+
+Defaults are chosen for a spoken conversation:
+
+- **Reasoning off.** A hidden chain of thought is silence the other person has
+  to sit through.
+- **Tools on**, and chained: the first answer comes back with no tool loop at
+  all, so it arrives at conversational speed, and a second pass runs with the
+  full tool suite and only speaks again if it actually looked something up.
+- **Every camera, together.** All V4L2 devices are snapped at the same moment,
+  stitched into one grid and scaled down, so "what am I holding" needs no
+  special mode and costs one vision pass rather than one per camera. Clips
+  work the same way for questions about what just happened.
+- **ReSpeaker when present.** Its ring follows the conversation and the
+  direction a voice came from is attached to the turn as evidence. With no
+  array attached the default microphone is used and nothing else changes.
+
+The speech detector is a port of `portal/static/call_vad.js` with its constants
+intact, so the same room behaves the same way in the browser and here.
+
+### Running it as a service
+
+```bash
+services/linux/install.sh --with-harness
+```
+
+That installs the adapter as a system service and the harness as a **user**
+service. The distinction matters: the harness needs the desktop session it
+speaks into -- its audio devices, its top bar, and the USB permissions the
+logged-in user already has -- so installing it system-wide would leave it
+listening on behalf of nobody.
+
+The unit template is `services/linux/omni-call-harness.service.in`. It `Wants`
+the adapter rather than requiring it, so a restart of the adapter does not take
+the listener down with it, and it caps its own memory: the adapter holds the
+weights, this process only moves audio.
+
+Two environment variables are worth knowing:
+
+| Variable | Effect |
+|---|---|
+| `OMNI_PORTAL_URL` | Where the portal is (default `http://127.0.0.1:8920`) |
+| `OMNI_CALL_CAMERA` | A single camera to use instead of every one found |
+
+Keep `OMNI_TTS_PERSISTENT=1` on any host used for conversation. Spawning the
+speech worker per utterance costs about 25 seconds of every turn; keeping it
+loaded takes that to roughly 2.
 
 ## Request example
 
@@ -212,6 +283,7 @@ separate so environmental sounds are never misrouted as the user's words.
 | `runtime/adapter_server.py` | Unified comprehension → language → optional TTS router |
 | `runtime/tts_server.py` | CUDA-only Qwen3-TTS wrapper and PCM stream endpoint |
 | `portal/` | Authenticated phone UI, proxy, supervisor, smoke tests, VAD harness |
+| `harness/` | Always-listening local call mode: VAD, audio I/O, cameras, ReSpeaker, top-bar indicator |
 | `clients/` | Minimal Python and JavaScript request examples |
 | `docs/` | Protocol, architecture, runtime, deployment, ABI, testing, release evidence |
 | `patches/` | Pinned llama.cpp Qwen3-TTS streaming and persistent-worker patches |

@@ -809,6 +809,32 @@ def language_request_url(config: Config) -> str:
     return config.language_url + "/api/chat"
 
 
+def _suppress_reasoning(
+    messages: list[dict[str, Any]],
+    thinking_requested: bool,
+    *,
+    needed: bool = True,
+) -> list[dict[str, Any]]:
+    """Turn reasoning off with the model's own switch, not the template's.
+
+    enable_thinking=False pre-fills an empty think block in the Qwen3 template
+    and the entire completion comes back as that block -- a reply of nothing
+    but newlines. The in-prompt switch costs nothing: with it the model
+    answers in three tokens and a couple of hundred milliseconds.
+    """
+
+    if thinking_requested or not needed:
+        return messages
+    for message in reversed(messages):
+        if message.get("role") != "user":
+            continue
+        content = str(message.get("content") or "")
+        if "/no_think" not in content:
+            message["content"] = f"{content} /no_think".strip()
+        break
+    return messages
+
+
 def build_language_payload(
     parsed: ParsedAdapterRequest,
     observation: str | None,
@@ -818,24 +844,35 @@ def build_language_payload(
     # The parsed passthrough carries normal Ollama fields such as tools, think,
     # format, options, keep_alive, and logprobs.
     payload = dict(parsed.passthrough)
+    thinking_requested = _thinking_requested(parsed)
     if language_api == "openai":
-        thinking_requested = _thinking_requested(parsed)
         payload = {
             key: value
             for key, value in payload.items()
             if key not in _OLLAMA_ONLY_FIELDS
         }
         # `think` is an Ollama field and was just dropped, so the OpenAI-shaped
-        # backend has to be told separately. Without this a reasoning-capable
-        # model emits its whole chain of thought before the first spoken word,
-        # which on a realtime voice path is pure added latency.
-        # `enable_thinking` is the Qwen3 template's own switch and is the only
-        # control needed. Do NOT also set reasoning_format="none": that tells
-        # the server to leave raw <think> tags inline in the content, and with
-        # thinking disabled the template pre-fills an empty block -- so the
-        # whole completion comes back as "<think>\n\n</think>" and the real
-        # answer is lost.
-        payload["chat_template_kwargs"] = {"enable_thinking": thinking_requested}
+        # backend has to be told separately -- but NOT with
+        # enable_thinking=False. That pre-fills an empty think block in the
+        # Qwen3 template and the whole completion comes back as that block:
+        # a reply of nothing but newlines, measured here as broken on every
+        # attempt while the same prompt with thinking left alone answered
+        # correctly every time.
+        #
+        # Reasoning is suppressed with the model's own in-prompt switch
+        # instead, which costs nothing: with it the model answers in three
+        # tokens and a couple of hundred milliseconds.
+        if thinking_requested:
+            payload["chat_template_kwargs"] = {"enable_thinking": True}
+        # Stop at the turn boundary. Without this the model occasionally runs
+        # past its own end-of-turn and begins writing the next one, and the
+        # reply arrives as the bare role header -- "user", or "user\nHello".
+        # It is intermittent, which makes it worse: the same question answers
+        # correctly most times and nonsensically the rest.
+        payload.setdefault(
+            "stop",
+            ["<|im_start|>", "<|im_end|>", "\nuser\n", "\nassistant\n"],
+        )
         options = parsed.passthrough.get("options")
         if isinstance(options, Mapping):
             # Carry the sampling controls the OpenAI schema does define.
@@ -850,7 +887,14 @@ def build_language_payload(
     payload.update(
         {
             "model": language_model or parsed.model,
-            "messages": _language_messages(parsed, observation),
+            "messages": _suppress_reasoning(
+                _language_messages(parsed, observation),
+                thinking_requested,
+                # Ollama has a native `think` field that works; only the
+                # OpenAI-shaped path needs the in-prompt switch, because the
+                # template kwarg it would otherwise use is broken.
+                needed=language_api == "openai",
+            ),
             "stream": False,
         }
     )

@@ -10,6 +10,7 @@ import argparse
 import base64
 import logging
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -22,6 +23,8 @@ import httpx
 from harness.audio import require_tools
 from harness.call import CallConfig, TurnResult, run_call_loop
 from harness.indicator import ThreadedIndicator, build_indicator
+from harness.camera import CameraSet
+from harness.respeaker import find_source
 
 logger = logging.getLogger("omni.harness")
 
@@ -70,7 +73,7 @@ def _wait_for_portal(url: str, token: str, timeout_s: float) -> dict[str, Any]:
     raise SystemExit(f"the omni adapter never became ready at {url} ({last})")
 
 
-def _frame_grabber(device: str) -> Any:
+def _unused_frame_grabber(device: str) -> Any:
     """Capture one JPEG from the camera, or nothing if it cannot be read.
 
     A frame is attached to every spoken turn so "what am I holding" needs no
@@ -120,6 +123,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input-channel", type=int, default=int(os.environ.get("OMNI_CALL_INPUT_CHANNEL", "0")))
     parser.add_argument("--camera-device", default=os.environ.get("OMNI_CALL_CAMERA", "/dev/video0"))
     parser.add_argument("--no-camera", action="store_true")
+    parser.add_argument(
+        "--camera-device-only",
+        action="store_true",
+        help="use only --camera-device instead of every camera found",
+    )
     parser.add_argument("--no-tools", action="store_true")
     parser.add_argument("--reasoning", action="store_true", help="leave reasoning on (slower to first word)")
     parser.add_argument("--no-indicator", action="store_true")
@@ -137,15 +145,27 @@ def main(argv: list[str] | None = None) -> int:
     if not model:
         raise SystemExit("the adapter did not report a model tag")
 
+    # Pick the microphone rather than assuming one. Asking a two-channel
+    # laptop microphone for the array's six channels is how a harness that
+    # hard-codes the ReSpeaker fails on every other machine.
+    device, channels, channel = args.input_device, args.input_channels, args.input_channel
+    if device is None:
+        detected, detected_channels, detected_channel = find_source()
+        if detected is not None:
+            device, channels, channel = detected, detected_channels, detected_channel
+        else:
+            channels, channel = 1, 0
+    logger.info("microphone: %s (%d channel(s), using %d)", device or "default", channels, channel)
+
     camera_on = bool(args.camera_device) and not args.no_camera
     config = CallConfig(
         portal_url=args.portal,
         token=token,
         model=model,
-        input_device=args.input_device,
+        input_device=device,
         output_device=args.output_device,
-        input_channels=max(1, args.input_channels),
-        input_channel=max(0, args.input_channel),
+        input_channels=max(1, channels),
+        input_channel=max(0, channel),
         tools_enabled=not args.no_tools,
         reasoning_enabled=bool(args.reasoning),
         camera_enabled=camera_on,
@@ -161,12 +181,49 @@ def main(argv: list[str] | None = None) -> int:
 
     stop = threading.Event()
     muted = threading.Event()
-    grabber = _frame_grabber(args.camera_device) if camera_on else None
+    cameras = CameraSet.discover(args.camera_device if args.camera_device_only else None)
+
+    def set_tools(value: bool) -> None:
+        config.tools_enabled = value
+        logger.info("tools %s", "enabled" if value else "disabled")
+
+    def set_reasoning(value: bool) -> None:
+        config.reasoning_enabled = value
+        logger.info("reasoning %s", "enabled" if value else "disabled")
+
+    def set_camera(value: bool) -> None:
+        config.camera_enabled = value
+        logger.info("cameras %s", "enabled" if value else "disabled")
+
+    def public_link() -> str:
+        """The tunnel's URL with its key, as the daemon published it."""
+
+        for candidate in (
+            _repo_root().parent.parent / "logs/adapters.log",
+            Path("/tmp/omni-daemon.log"),
+        ):
+            try:
+                text = candidate.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            matches = re.findall(
+                r"https://[-a-z0-9]+\.trycloudflare\.com/#access=[A-Za-z0-9_-]+", text
+            )
+            if matches:
+                return matches[-1]
+        return ""
 
     indicator = (
         build_indicator(
             on_mute=lambda value: muted.set() if value else muted.clear(),
             on_quit=stop.set,
+            on_tools=set_tools,
+            on_reasoning=set_reasoning,
+            on_camera=set_camera,
+            tools_enabled=config.tools_enabled,
+            reasoning_enabled=config.reasoning_enabled,
+            camera_enabled=config.camera_enabled,
+            endpoint=public_link,
         )
         if not args.no_indicator
         else None
@@ -191,7 +248,11 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     def guarded_frame() -> dict[str, Any] | None:
-        return grabber() if grabber and not muted.is_set() else None
+        """Every camera at once, unless the microphone is muted or they are off."""
+
+        if muted.is_set() or not config.camera_enabled or not cameras.available:
+            return None
+        return cameras.snapshot()
 
     def worker() -> None:
         while not stop.is_set():

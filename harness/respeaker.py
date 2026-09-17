@@ -215,3 +215,58 @@ def describe_direction(angle: float | None) -> str:
         abs(angle - point[0]), 360 - abs(angle - point[0])
     ))
     return f"{nearest[1]} ({angle:.0f}°)"
+
+
+# -- choosing the microphone ----------------------------------------------
+
+# How the array's processed capture source names itself to PulseAudio. Channel
+# 0 of that source is the AEC/beamformed/denoised stream, which is the one
+# worth listening to; the rest are the raw capsules.
+SOURCE_HINT = "ReSpeaker"
+PROCESSED_CHANNELS = 6
+PROCESSED_CHANNEL = 0
+
+
+def find_source() -> tuple[str | None, int, int]:
+    """Pick the capture source, and how many channels to ask it for.
+
+    Returns ``(device, channels, channel)``. With the array attached this is
+    its multichannel input; without it, the desktop's own default and a single
+    channel. Asking a two-channel laptop microphone for six channels is how a
+    harness that hard-codes the array fails on every other machine.
+    """
+
+    import shutil
+    import subprocess
+
+    if shutil.which("pactl") is None:
+        return None, 1, 0
+    try:
+        listing = subprocess.run(
+            ["pactl", "list", "short", "sources"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None, 1, 0
+    if listing.returncode != 0:
+        return None, 1, 0
+
+    for line in listing.stdout.splitlines():
+        fields = line.split("\t")
+        if len(fields) < 2:
+            continue
+        name = fields[1]
+        if SOURCE_HINT.lower() not in name.lower() or ".monitor" in name:
+            continue
+        # "s16le 6ch 16000Hz" -> 6
+        channels = PROCESSED_CHANNELS
+        for field_value in fields:
+            for token in field_value.split():
+                if token.endswith("ch") and token[:-2].isdigit():
+                    channels = int(token[:-2])
+        logger.info("using the ReSpeaker capture source (%d channels)", channels)
+        return name, channels, PROCESSED_CHANNEL if channels > 1 else 0
+
+    return None, 1, 0

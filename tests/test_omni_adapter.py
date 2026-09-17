@@ -1443,7 +1443,11 @@ def test_think_false_disables_reasoning_on_the_openai_language_path() -> None:
     """Chain of thought before the first spoken word is pure added latency.
 
     `think` is an Ollama field and is dropped for an OpenAI-shaped backend, so
-    the intent has to be restated in terms that backend understands.
+    the intent has to be restated in terms that backend understands -- but NOT
+    as enable_thinking=False. That pre-fills an empty think block in the Qwen3
+    template and the entire completion comes back as that block: a reply of
+    nothing but newlines, reproducible on every attempt, while the same prompt
+    with thinking left alone answered correctly every time.
     """
 
     from runtime import adapter_server
@@ -1454,7 +1458,10 @@ def test_think_false_disables_reasoning_on_the_openai_language_path() -> None:
 
     payload = adapter_server.build_language_payload(parsed, None, "m", "openai")
 
-    assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+    assert payload.get("chat_template_kwargs", {}).get("enable_thinking") is not False
+    # The model's own in-prompt switch, which suppresses reasoning without
+    # touching the template.
+    assert payload["messages"][-1]["content"].endswith("/no_think")
     # reasoning_format="none" would leave the template's empty <think> prefill
     # inline and swallow the real answer.
     assert "reasoning_format" not in payload

@@ -68,6 +68,11 @@ class CallConfig:
     # a hidden chain of thought is a silence the other person has to sit through.
     tools_enabled: bool = True
     reasoning_enabled: bool = False
+    # Answer first, then look things up. The portal's tool loop runs before it
+    # replies, so a turn that needs a web search stays silent for as long as
+    # the search takes. Splitting it means the first answer arrives at
+    # conversational speed and anything the tools turn up follows.
+    chained_tools: bool = True
     camera_enabled: bool = True
     camera_device: str = "/dev/video0"
     request_timeout_s: float = 300.0
@@ -80,6 +85,7 @@ class TurnResult:
     audio_observation: str = ""
     reply: str = ""
     tools_used: list[str] = field(default_factory=list)
+    followup: str = ""
     spoke_seconds: float = 0.0
     interrupted: bool = False
     error: str = ""
@@ -128,8 +134,15 @@ class CallSession:
     # -- one spoken turn -------------------------------------------------
 
     def _build_payload(
-        self, wav_audio: bytes, segments: int, frame: dict[str, Any] | None
+        self,
+        wav_audio: bytes,
+        segments: int,
+        frame: dict[str, Any] | None,
+        *,
+        with_tools: bool | None = None,
     ) -> dict[str, Any]:
+        if with_tools is None:
+            with_tools = self.config.tools_enabled
         plural = "" if segments == 1 else "s"
         content = (
             f"The attached audio combines {segments} consecutive segment{plural} "
@@ -181,7 +194,7 @@ class CallSession:
             "response_modalities": ["text", "audio"],
             "speech_mode": "always",
             "think": self.config.reasoning_enabled,
-            "portal_auto_tools": self.config.tools_enabled,
+            "portal_auto_tools": with_tools,
             "stream": True,
         }
 
@@ -207,13 +220,48 @@ class CallSession:
                     yield event
 
     def take_turn(self, samples: np.ndarray, segments: int = 1) -> TurnResult:
-        """Send what was heard and speak the reply as it arrives."""
+        """Answer what was heard, and follow up if tools find more.
+
+        With tools enabled the portal runs its whole tool loop before saying
+        anything, so a question that needs a web search is met with silence
+        for as long as the search takes. Chaining answers from what was heard
+        first -- at conversational speed -- and speaks again only if the tools
+        actually turned something up. A follow-up that used no tools has
+        nothing to add, so it is not spoken.
+        """
+
+        audio = to_wav(samples)
+        frame = self._frame_grabber() if self._frame_grabber else None
+        chained = self.config.tools_enabled and self.config.chained_tools
+
+        result = self._run(
+            self._build_payload(audio, segments, frame, with_tools=not chained)
+        )
+        self._remember(result)
+        if not chained or result.error or result.interrupted:
+            return result
+
+        follow = self._run(
+            self._build_payload(audio, segments, frame, with_tools=True),
+            speak_only_if_useful=True,
+        )
+        if follow.tools_used and follow.reply.strip() and not follow.error:
+            result.followup = follow.reply.strip()
+            result.tools_used = follow.tools_used
+            result.spoke_seconds += follow.spoke_seconds
+            self._history.append(
+                {"role": "assistant", "content": follow.reply.strip()}
+            )
+        return result
+
+    def _run(
+        self, payload: dict[str, Any], *, speak_only_if_useful: bool = False
+    ) -> TurnResult:
+        """One request: stream it, and speak the audio as it arrives."""
 
         self._barge.clear()
         result = TurnResult()
         started = time.monotonic()
-        frame = self._frame_grabber() if self._frame_grabber else None
-        payload = self._build_payload(to_wav(samples), segments, frame)
 
         speaker = SpeakerStream(PLAYBACK_RATE_HZ, self.config.output_device)
         speaking = False
@@ -246,6 +294,11 @@ class CallSession:
                     chunk = base64.b64decode(str(audio.get("data") or ""))
                     if not chunk:
                         continue
+                    if speak_only_if_useful and not result.tools_used:
+                        # Nothing was looked up, so this pass has nothing the
+                        # first answer did not already say. Collect the text
+                        # for the record and stay quiet.
+                        continue
                     if not speaking:
                         speaker.start()
                         speaking = True
@@ -277,7 +330,6 @@ class CallSession:
                 speaker.stop()
 
         result.total_ms = (time.monotonic() - started) * 1000
-        self._remember(result)
         return result
 
     def _remember(self, result: TurnResult) -> None:

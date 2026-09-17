@@ -5,6 +5,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../.." && pwd)
 MODE=auto
 ENABLE=1
+HARNESS=0
 
 while (($#)); do
   case $1 in
@@ -12,8 +13,10 @@ while (($#)); do
     --broker) MODE=broker ;;
     --direct) MODE=direct ;;
     --no-enable) ENABLE=0 ;;
+    --with-harness) HARNESS=1 ;;
     --help|-h)
-      printf 'Usage: services/linux/install.sh [--auto|--broker|--direct] [--no-enable]\n'
+      printf 'Usage: services/linux/install.sh [--auto|--broker|--direct] [--no-enable] [--with-harness]\n'
+      printf '  --with-harness  also install the always-listening call harness as a user service\n'
       exit 0
       ;;
     *) printf 'Unknown option: %s\n' "$1" >&2; exit 2 ;;
@@ -72,4 +75,26 @@ if [[ $MODE == broker ]]; then
   printf 'Portal: %s/portal/start.sh --status\n' "$REPO_ROOT"
 else
   printf 'Portal: %s/.venv/bin/qwen-omni-daemon status\n' "$REPO_ROOT"
+fi
+
+if ((HARNESS)); then
+  # A user service, not a system one: the harness needs the desktop session it
+  # speaks into -- its audio devices, its top bar, and the USB permissions the
+  # logged-in user already has. Installing it system-wide would have none of
+  # those and would listen on behalf of nobody.
+  harness_unit="$HOME/.config/systemd/user/omni-call-harness.service"
+  mkdir -p "$(dirname "$harness_unit")"
+  harness_tmp=$(mktemp)
+  sed \
+    -e "s|@REPO_ROOT@|$REPO_ROOT|g" \
+    -e "s|@HARNESS_EXEC_START@|$REPO_ROOT/.venv/bin/python -m harness|g" \
+    "$SCRIPT_DIR/omni-call-harness.service.in" >"$harness_tmp"
+  install -m 0644 "$harness_tmp" "$harness_unit"
+  unlink "$harness_tmp" 2>/dev/null || true
+  systemctl --user daemon-reload
+  if ((ENABLE)); then
+    systemctl --user enable --now omni-call-harness.service
+  fi
+  printf 'Installed omni-call-harness.service (user).\n'
+  printf 'Status: systemctl --user status omni-call-harness.service\n'
 fi
