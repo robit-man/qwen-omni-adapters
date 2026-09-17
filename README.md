@@ -147,9 +147,10 @@ Defaults are chosen for a spoken conversation:
 
 - **Reasoning off.** A hidden chain of thought is silence the other person has
   to sit through.
-- **Tools on**, and chained: the first answer comes back with no tool loop at
-  all, so it arrives at conversational speed, and a second pass runs with the
-  full tool suite and only speaks again if it actually looked something up.
+- **Tools on, in the answering pass.** This is the same server-side chain used
+  by the cloudflared portal: safe schemas ride with the turn, requested calls
+  execute until the model has a grounded final answer, and there is no earlier
+  ungrounded response claiming it cannot look something up.
 - **Every camera, together.** All V4L2 devices are snapped at the same moment,
   stitched into one grid and scaled down, so "what am I holding" needs no
   special mode and costs one vision pass rather than one per camera. Clips

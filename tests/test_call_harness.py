@@ -240,6 +240,42 @@ def test_history_is_bounded() -> None:
     assert call._history[-1]["content"] == "a49"
 
 
+def test_conversation_context_falls_off_with_elapsed_time() -> None:
+    call = session()
+    for index in range(12):
+        role = "user" if index % 2 == 0 else "assistant"
+        call._append_history(role, f"m{index}")
+
+    now = call._history_times[-1]
+    assert len(call._history_for_prompt(now + 60)) == 12
+
+    after_twenty_minutes = call._history_for_prompt(now + 20 * 60)
+    assert len(after_twenty_minutes) == 6
+    assert all("20 minutes ago" in item["content"] for item in after_twenty_minutes)
+
+    assert call._history_for_prompt(now + 2 * 86400) == []
+
+
+def test_interrupted_speech_is_not_recorded_as_fully_heard() -> None:
+    call = session()
+    call._remember(TurnResult(transcript="tell me more", reply="A long answer."))
+
+    call._mark_interrupted("A long answer.", spoke_seconds=0.8)
+
+    assert "interrupted before it finished" in call._history[-1]["content"]
+    assert "may not have heard" in call._history[-1]["content"]
+
+
+def test_unheard_reply_is_removed_from_context() -> None:
+    call = session()
+    call._remember(TurnResult(transcript="hello", reply="Hello there."))
+
+    call._mark_interrupted("Hello there.", spoke_seconds=0.0)
+
+    assert call._history == [{"role": "user", "content": "hello"}]
+    assert len(call._history_times) == 1
+
+
 def test_a_turn_has_no_transcription_gate_before_the_answer() -> None:
     """Memory cannot insert a blocking ASR request ahead of conversation."""
 
@@ -266,6 +302,34 @@ def test_a_turn_has_no_transcription_gate_before_the_answer() -> None:
     assert len(payloads) == 1
     assert payloads[0]["omni"]["task"] == "chat"  # type: ignore[index]
     assert "audios" in payloads[0]["messages"][-1]  # type: ignore[index]
+
+
+def test_tools_ride_the_only_answering_pass_like_the_portal() -> None:
+    call = CallSession(
+        CallConfig(
+            portal_url="http://127.0.0.1:8920",
+            token="t",
+            model="m",
+            tools_enabled=True,
+            camera_enabled=False,
+        )
+    )
+    payloads: list[dict[str, object]] = []
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        payloads.append(payload)
+        return TurnResult(
+            transcript="what is the news",
+            reply="Here is what I found.",
+            tools_used=["web_search"],
+        )
+
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert len(payloads) == 1
+    assert payloads[0]["portal_auto_tools"] is True
+    assert result.tools_used == ["web_search"]
 
 
 def test_an_empty_observation_does_not_start_a_second_pass() -> None:
@@ -508,13 +572,33 @@ def test_talking_over_a_reply_is_refused_without_echo_cancellation() -> None:
     assert "can_barge" in source
 
 
-def test_a_barge_stops_playback_and_marks_the_turn_interrupted() -> None:
+def test_a_barge_ducks_pauses_resumes_or_commits_without_a_hard_cut() -> None:
     call = CallSession(
         CallConfig(portal_url="http://127.0.0.1:8920", token="t", model="m")
     )
+    actions: list[object] = []
+
+    class Speaker:
+        def duck(self) -> None:
+            actions.append("duck")
+
+        def pause(self) -> None:
+            actions.append("pause")
+
+        def resume(self) -> None:
+            actions.append("resume")
+
+        def stop(self, *, fade_s: float = 0.0) -> None:
+            actions.append(("stop", fade_s))
+
+    call._active_speaker = Speaker()  # type: ignore[assignment]
+    call.request_duck()
+    call.request_pause()
+    call.resume_reply()
     call.request_barge()
 
     assert call._barge.is_set()
+    assert actions == ["duck", "pause", "resume", ("stop", 0.12)]
 
 
 def test_speech_during_a_turn_is_kept_rather_than_dropped() -> None:
@@ -529,8 +613,24 @@ def test_speech_during_a_turn_is_kept_rather_than_dropped() -> None:
     # Held until the turn finishes, then answered together.
     assert "waiting.add(" in source
     assert "if busy.is_set():" in source
-    # An interrupted question goes back in front of what was said over it.
-    assert "waiting.prepend(" in source
+    # The interrupting speech is kept, but submitted audio is never duplicated.
+    worker = source.split("def worker(", 1)[1].split("turns =", 1)[0]
+    assert "waiting.prepend(" not in worker
+
+
+def test_the_capture_loop_uses_a_two_stage_interruption() -> None:
+    import inspect
+
+    from harness.call import run_call_loop
+
+    source = inspect.getsource(run_call_loop)
+
+    assert "session.request_duck()" in source
+    assert "session.request_pause()" in source
+    assert "session.resume_reply()" in source
+    assert source.index("session.request_duck()") < source.index(
+        "session.request_barge()"
+    )
 
 
 # -- never waiting when it does not have to --------------------------------

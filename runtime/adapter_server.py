@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import logging
 import os
 import re
 import subprocess
@@ -603,6 +604,9 @@ def build_comprehension_payload(
     }
 
 
+LOGGER = logging.getLogger("omni.adapter")
+
+
 def _context_overflow(response: httpx.Response) -> bool:
     if response.status_code != 400:
         return False
@@ -638,6 +642,27 @@ def _shed_language_context(payload: dict[str, Any]) -> bool:
         if index == len(messages) - 1:
             break
         del messages[index]
+        return True
+
+    # Tool schemas are rendered into the prompt and can outweigh everything
+    # else: two dozen of them run to roughly three thousand tokens, so a
+    # 4096-token window overruns before the conversation has said anything.
+    # Dropping messages cannot reach them, which is how a tool-using turn
+    # failed with "request (4179 tokens) exceeds the available context size"
+    # while the shedding loop reported nothing left to give up.
+    #
+    # They go from the end, because the suite is ordered with the generally
+    # useful ones first: dropping from the back sheds delegation and session
+    # tools before it touches searching the web or telling the time.
+    tools = payload.get("tools")
+    if isinstance(tools, list) and len(tools) > 1:
+        dropped = tools.pop()
+        name = ""
+        if isinstance(dropped, Mapping):
+            function = dropped.get("function")
+            if isinstance(function, Mapping):
+                name = str(function.get("name") or "")
+        LOGGER.debug("dropped tool %s to fit the context window", name or "?")
         return True
 
     # Only a system message and the live turn remain, and together they still
@@ -840,6 +865,7 @@ def build_language_payload(
     observation: str | None,
     language_model: str | None = None,
     language_api: str = "ollama",
+    config: Config | None = None,
 ) -> dict[str, Any]:
     # The parsed passthrough carries normal Ollama fields such as tools, think,
     # format, options, keep_alive, and logprobs.
@@ -898,6 +924,12 @@ def build_language_payload(
             "stream": False,
         }
     )
+    # Sized here rather than at each call site: the non-streaming
+    # route did not do it, and that is the one the portal uses, so a
+    # tool-using turn failed with "request (4179 tokens) exceeds the
+    # available context size" while the streaming route was fine.
+    if config is not None:
+        _fit_language_context(payload, config)
     return payload
 
 
@@ -1138,7 +1170,11 @@ def execute(
         response = client.post(
             language_request_url(config),
             json=build_language_payload(
-                parsed, observation, config.language_model, config.language_api
+                parsed,
+                observation,
+                config.language_model,
+                config.language_api,
+                config,
             ),
         )
         result = _language_result(_json_response(response, "language"), config.language_api)
@@ -1234,7 +1270,7 @@ def execute_stream(
     else:
         yield _stream_event("stage", stage="language")
         payload = build_language_payload(
-            parsed, observation, config.language_model, config.language_api
+            parsed, observation, config.language_model, config.language_api, config
         )
         payload["stream"] = True
         content = ""
@@ -1246,11 +1282,6 @@ def execute_stream(
         result: dict[str, Any] = {}
         # Make the prompt fit before sending it. llama.cpp refuses an
         # over-long prompt rather than truncating it, so a conversation that
-        # outgrows the window stops answering entirely -- and the caller
-        # cannot reliably know what the window is. Shedding here costs no
-        # extra request: the estimate is deliberately pessimistic, and the
-        # 400 path below remains as the backstop for what it underestimates.
-        _fit_language_context(payload, config)
         with client.stream("POST", language_request_url(config), json=payload) as response:
             if response.status_code >= 400:
                 response.read()

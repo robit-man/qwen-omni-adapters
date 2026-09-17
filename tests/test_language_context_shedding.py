@@ -119,3 +119,45 @@ def test_tool_schemas_are_counted_toward_the_window() -> None:
         }
     )
     assert withtools > bare + 500
+
+
+def test_tool_schemas_are_shed_when_messages_cannot_free_enough() -> None:
+    """Two dozen tools are ~3000 tokens of a 4096 window.
+
+    Dropping messages cannot reach them, so a tool-using turn failed with
+    "request (4179 tokens) exceeds the available context size" while the
+    shedding loop reported nothing left to give up.
+    """
+
+    from adapter_server import _shed_language_context
+
+    payload = {
+        "messages": [
+            {"role": "system", "content": "RULES"},
+            {"role": "user", "content": "find me the news"},
+        ],
+        "tools": [
+            {"type": "function", "function": {"name": "web_search"}},
+            {"type": "function", "function": {"name": "subagent_delegate"}},
+        ],
+    }
+
+    assert _shed_language_context(payload) is True
+    # Shed from the back: the generally useful ones come first in the suite.
+    assert [tool["function"]["name"] for tool in payload["tools"]] == ["web_search"]
+
+
+def test_the_last_tool_is_kept_rather_than_leaving_none() -> None:
+    from adapter_server import _shed_language_context
+
+    payload = {
+        "messages": [
+            {"role": "system", "content": "RULES " * 400},
+            {"role": "user", "content": "hello"},
+        ],
+        "tools": [{"type": "function", "function": {"name": "web_search"}}],
+    }
+
+    # Falls through to trimming the system message instead of emptying tools.
+    assert _shed_language_context(payload) is True
+    assert len(payload["tools"]) == 1

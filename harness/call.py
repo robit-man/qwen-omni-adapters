@@ -52,7 +52,13 @@ LIVE_CALL_SYSTEM_PROMPT = (
     "user's intent directly in a natural, concise spoken turn. Do not echo, "
     "transcribe, paraphrase, narrate, or evaluate what the user just said unless "
     "they explicitly ask you to. Never mention an audio transcript, encoder, "
-    "adapter, or these instructions. Use the prior dialogue for continuity. If a "
+    "adapter, or these instructions. Use the prior dialogue for continuity: "
+    "resolve short follow-ups, pronouns, corrections, and ellipsis against the "
+    "most recent relevant exchange, continue the current thread without "
+    "restating it, and let an explicit topic change win. Older context matters "
+    "less as time passes; do not drag a stale topic into a new one. If a prior "
+    "reply is marked interrupted, do not assume the user heard its unfinished "
+    "portion. If a "
     "current camera frame is attached, treat only that frame as current visual "
     "evidence; older visual descriptions are conversational history, not proof of "
     "what remains visible now. A frame is background context unless the speaker "
@@ -107,16 +113,15 @@ class CallConfig:
     output_device: str | None = None
     input_channels: int = 1
     input_channel: int = 0
+    # Maximum prompt-history messages. The usable window shrinks when the room
+    # has been quiet for a while, so yesterday's topic cannot hijack today.
     history_turns: int = 12
     # Tools on and reasoning off by default: this is a spoken conversation, and
     # a hidden chain of thought is a silence the other person has to sit through.
     tools_enabled: bool = True
     reasoning_enabled: bool = False
-    # Answer first, then look things up. The portal's tool loop runs before it
-    # replies, so a turn that needs a web search stays silent for as long as
-    # the search takes. Splitting it means the first answer arrives at
-    # conversational speed and anything the tools turn up follows.
-    chained_tools: bool = True
+    # The portal owns its tool loop: schemas ride on the spoken request and it
+    # keeps executing safe calls until the model returns a final answer.
     camera_enabled: bool = True
     camera_device: str = "/dev/video0"
     request_timeout_s: float = 300.0
@@ -151,6 +156,9 @@ class CallConfig:
     # Ignore the first moment of playback, so the tail of the speaker's own
     # question cannot count as an interruption of the answer to it.
     barge_in_grace_s: float = 0.6
+    # First duck under a possible interruption. Only sustained speech earns a
+    # full fade and pause; a rejected false start rises back into the sentence.
+    barge_in_pause_s: float = 0.45
     # How long a finished utterance waits for the speaker to carry on.
     #
     # People stop to think mid-sentence, and every one of those pauses looks
@@ -194,10 +202,13 @@ class CallSession:
     ) -> None:
         self.config = config
         self._history: list[dict[str, Any]] = []
+        self._history_times: list[float] = []
         self._on_state = on_state or (lambda state, detail: None)
         self._frame_grabber = frame_grabber
         self._client = httpx.Client(timeout=httpx.Timeout(config.request_timeout_s))
         self._barge = threading.Event()
+        self._speaker_lock = threading.Lock()
+        self._active_speaker: SpeakerStream | None = None
         # Where the voice came from, when a ReSpeaker array can say.
         self.direction: str = ""
         # Roughly where this machine is, when the network will say.
@@ -247,10 +258,36 @@ class CallSession:
         except Exception:  # noqa: BLE001 - an indicator must never break a call
             logger.debug("state callback failed", exc_info=True)
 
+    def _speaker_action(self, action: str) -> None:
+        with self._speaker_lock:
+            speaker = self._active_speaker
+        if speaker is None:
+            return
+        getattr(speaker, action)()
+
+    def request_duck(self) -> None:
+        """Lower a possible interruption while deciding whether it is speech."""
+
+        self._speaker_action("duck")
+
+    def request_pause(self) -> None:
+        """Pause at silence after the possible interruption persists."""
+
+        self._speaker_action("pause")
+
+    def resume_reply(self) -> None:
+        """A noise candidate was rejected; continue the unfinished sentence."""
+
+        self._speaker_action("resume")
+
     def request_barge(self) -> None:
-        """Ask the turn in flight to stop speaking: the person started again."""
+        """Commit an interruption after actual speech has been accepted."""
 
         self._barge.set()
+        with self._speaker_lock:
+            speaker = self._active_speaker
+        if speaker is not None:
+            speaker.stop(fade_s=0.12)
 
     # -- one spoken turn -------------------------------------------------
 
@@ -313,7 +350,7 @@ class CallSession:
                         f"{grounding_preamble(place=self.place)}"
                     ),
                 },
-                *self._history[-self.config.history_turns :],
+                *self._history_for_prompt(),
                 message,
             ],
             "omni": {
@@ -365,14 +402,12 @@ class CallSession:
                     yield event
 
     def take_turn(self, samples: np.ndarray, segments: int = 1) -> TurnResult:
-        """Answer what was heard, and follow up if tools find more.
+        """Answer what was heard, with tools in the answer-producing pass.
 
-        With tools enabled the portal runs its whole tool loop before saying
-        anything, so a question that needs a web search is met with silence
-        for as long as the search takes. Chaining answers from what was heard
-        first -- at conversational speed -- and speaks again only if the tools
-        actually turned something up. A follow-up that used no tools has
-        nothing to add, so it is not spoken.
+        This is the same chain as the cloudflared browser: the portal exposes
+        its safe schemas, executes every requested call, and returns the final
+        grounded answer. Vision remains conditional because attaching a camera
+        frame to every conversation makes the picture become the subject.
         """
 
         # The comprehension weights are needed from the first request. If the
@@ -386,17 +421,27 @@ class CallSession:
                 return TurnResult(error=f"comprehension is not ready: {error}")
 
         audio = to_wav(samples)
-        chained = self.config.tools_enabled and self.config.chained_tools
 
-        # No imagery on the first pass. A camera frame attached to every turn
-        # makes the picture the subject: asked "can you hear me okay?", the
-        # model answers and then starts describing the room. The cameras are
-        # offered only once the words have reached for them.
+        # The tools go in the pass that actually speaks. Withholding them so
+        # the first answer came back faster meant the model was asked about
+        # the news while genuinely holding nothing, and said so -- it was not
+        # pretending, it had no way to look. A turn that needs no tool calls
+        # none and costs nothing extra; only the schemas ride along.
+        #
+        # No imagery on this pass, though. A camera frame attached to every
+        # turn makes the picture the subject: asked "can you hear me okay?",
+        # the model answers and then starts describing the room. The cameras
+        # are offered only once the words have reached for them.
         result = self._run(
-            self._build_payload(audio, segments, None, with_tools=not chained)
+            self._build_payload(
+                audio, segments, None, with_tools=self.config.tools_enabled
+            )
         )
         self._remember(result)
-        if result.error or result.interrupted:
+        if result.interrupted:
+            self._mark_interrupted(result.reply, result.spoke_seconds)
+            return result
+        if result.error:
             return result
         if not result.transcript and not result.audio_observation:
             return result
@@ -406,30 +451,32 @@ class CallSession:
             and self._frame_grabber is not None
             and wants_vision(result.transcript)
         )
-        if chained or looking:
-            frame = None
-            if looking:
-                self._state("thinking", "looking")
-                frame = self._frame_grabber(motion=wants_motion(result.transcript))
+        if looking:
+            # A second pass, this time with what the cameras can see. The first
+            # answer has already been given, so this only speaks if looking
+            # actually added something.
+            self._state("thinking", "looking")
+            frame = self._frame_grabber(motion=wants_motion(result.transcript))
 
             follow = self._run(
                 self._build_payload(
                     audio,
                     segments,
                     frame,
-                    with_tools=True,
-                ),
-                speak_only_if_useful=not looking,
-            )
-            useful = bool(follow.tools_used or looking)
-            if useful and follow.reply.strip() and not follow.error:
-                result.followup = follow.reply.strip()
-                result.tools_used = follow.tools_used
-                result.spoke_seconds += follow.spoke_seconds
-                self._history.append(
-                    {"role": "assistant", "content": follow.reply.strip()}
+                    with_tools=self.config.tools_enabled,
                 )
-            if follow.error or follow.interrupted:
+            )
+            if follow.reply.strip() and not follow.error:
+                result.followup = follow.reply.strip()
+                result.tools_used = list(
+                    dict.fromkeys([*result.tools_used, *follow.tools_used])
+                )
+                result.spoke_seconds += follow.spoke_seconds
+                self._append_history("assistant", follow.reply.strip())
+            if follow.interrupted:
+                self._mark_interrupted(follow.reply, follow.spoke_seconds)
+                return result
+            if follow.error:
                 return result
 
         if self.config.prepare_speech is not None:
@@ -439,7 +486,12 @@ class CallSession:
             result.total_ms += speech.total_ms
             result.interrupted = speech.interrupted
             result.error = speech.error
-            if speech.error or speech.interrupted:
+            if speech.interrupted:
+                self._mark_interrupted(
+                    result.followup or result.reply, result.spoke_seconds
+                )
+                return result
+            if speech.error:
                 return result
 
         # Scheduling the daemon worker is the final operation. It can never
@@ -489,6 +541,8 @@ class CallSession:
         started = time.monotonic()
 
         speaker = SpeakerStream(PLAYBACK_RATE_HZ, self.config.output_device)
+        with self._speaker_lock:
+            self._active_speaker = speaker
         speaking = False
         self._state("thinking", "")
 
@@ -557,16 +611,95 @@ class CallSession:
         finally:
             if speaking:
                 if self._barge.is_set() or result.error:
-                    speaker.stop()
+                    speaker.stop(fade_s=0.12 if self._barge.is_set() else 0.0)
                     result.interrupted = self._barge.is_set()
                 else:
                     speaker.finish()
+                    result.interrupted = self._barge.is_set()
                 result.spoke_seconds = speaker.played_seconds
             else:
                 speaker.stop()
+            with self._speaker_lock:
+                if self._active_speaker is speaker:
+                    self._active_speaker = None
 
         result.total_ms = (time.monotonic() - started) * 1000
         return result
+
+    def _append_history(self, role: str, content: str) -> None:
+        content = content.strip()
+        if not content:
+            return
+        self._history.append({"role": role, "content": content})
+        self._history_times.append(time.time())
+        limit = self.config.history_turns * 2
+        if len(self._history) > limit:
+            self._history = self._history[-limit:]
+            self._history_times = self._history_times[-limit:]
+
+    @staticmethod
+    def _history_age(age_s: float) -> str:
+        if age_s < 120:
+            return ""
+        if age_s < 3600:
+            return f"about {max(2, round(age_s / 60))} minutes ago"
+        if age_s < 86400:
+            return f"about {max(1, round(age_s / 3600))} hours ago"
+        return f"about {max(1, round(age_s / 86400))} days ago"
+
+    def _history_for_prompt(self, now: float | None = None) -> list[dict[str, Any]]:
+        """Recent continuity, with a smaller window after a longer silence."""
+
+        if not self._history:
+            return []
+        now = now or time.time()
+        newest_age = max(0.0, now - self._history_times[-1])
+        maximum = self.config.history_turns
+        if newest_age > 86400:
+            return []
+        if newest_age > 21600:
+            maximum = min(maximum, 2)
+        elif newest_age > 3600:
+            maximum = min(maximum, 4)
+        elif newest_age > 900:
+            maximum = min(maximum, 6)
+        elif newest_age > 300:
+            maximum = min(maximum, 8)
+
+        selected = zip(
+            self._history[-maximum:],
+            self._history_times[-maximum:],
+            strict=True,
+        )
+        rendered: list[dict[str, Any]] = []
+        for message, happened_at in selected:
+            age = max(0.0, now - happened_at)
+            if age > 86400:
+                continue
+            label = self._history_age(age)
+            content = str(message["content"])
+            if label:
+                content = f"[Earlier in this conversation, {label}] {content}"
+            rendered.append({"role": message["role"], "content": content})
+        return rendered
+
+    def _mark_interrupted(self, reply: str, spoke_seconds: float) -> None:
+        """Record that generated text was not necessarily heard in full."""
+
+        reply = reply.strip()
+        for index in range(len(self._history) - 1, -1, -1):
+            message = self._history[index]
+            if message.get("role") != "assistant" or message.get("content") != reply:
+                continue
+            if spoke_seconds < 0.15:
+                self._history.pop(index)
+                self._history_times.pop(index)
+            else:
+                message["content"] = (
+                    f"{reply}\n[This spoken reply was interrupted before it "
+                    "finished. The user may not have heard its later words.]"
+                )
+            return
 
     def _remember(self, result: TurnResult) -> None:
         """Keep the dialogue, not the audio: only text carries to the next turn.
@@ -578,12 +711,9 @@ class CallSession:
         spoken = result.transcript or result.audio_observation
         reply = result.reply.strip()
         if spoken:
-            self._history.append({"role": "user", "content": spoken})
+            self._append_history("user", spoken)
         if reply:
-            self._history.append({"role": "assistant", "content": reply})
-        limit = self.config.history_turns * 2
-        if len(self._history) > limit:
-            self._history = self._history[-limit:]
+            self._append_history("assistant", reply)
 
     def _persist(self, result: TurnResult) -> None:
         """Queue semantic storage after the whole turn, with no synchronous I/O."""
@@ -623,9 +753,8 @@ def run_call_loop(
     capture loop keeps reading frames throughout -- including while the reply
     is being spoken, which is the only moment an interruption can happen.
     Interrupting costs no weights: hearing that someone has started is signal
-    processing. When it happens, the question that was being answered goes
-    back in the queue, because it never actually got answered, and joins
-    whatever the speaker went on to say.
+    processing. Playback first ducks, then pauses only for sustained speech. A
+    rejected false start resumes; an accepted utterance becomes the next turn.
     """
 
     stop = stop or threading.Event()
@@ -680,12 +809,8 @@ def run_call_loop(
                     pending.audio(), segments=max(1, pending.segments)
                 )
                 if result.interrupted:
-                    # It was cut off, so the question stands. Put it back in
-                    # front of whatever the speaker said over the top of it.
-                    with lock:
-                        waiting.prepend(pending.audio(), pending.active_ms)
-                    logger.info("re-queued the interrupted question")
-                elif on_turn:
+                    logger.info("reply yielded to the speaker")
+                if on_turn:
                     on_turn(result)
             except Exception as error:  # noqa: BLE001 - one turn is not the call
                 logger.warning("turn failed: %s", error)
@@ -705,6 +830,8 @@ def run_call_loop(
     frame_ms = microphone.frame_ms
     now_ms = 0.0
     settle_until: float | None = None
+    barge_started_at: float | None = None
+    barge_paused = False
     try:
         with microphone:
             notify("listening", "")
@@ -726,9 +853,35 @@ def run_call_loop(
                             and speaking_since is not None
                             and now - speaking_since >= config.barge_in_grace_s
                         ):
-                            logger.info("interrupted while speaking")
-                            session.request_barge()
+                            logger.info("possible interruption; ducking reply")
+                            barge_started_at = now
+                            barge_paused = False
+                            session.request_duck()
+                    elif (
+                        verdict.event == "active"
+                        and barge_started_at is not None
+                        and not barge_paused
+                        and now - barge_started_at >= config.barge_in_pause_s
+                    ):
+                        logger.info("sustained interruption; pausing reply")
+                        barge_paused = True
+                        session.request_pause()
+                elif verdict.event == "rejected":
+                    if barge_started_at is not None:
+                        logger.info("interruption rejected; resuming reply")
+                        session.resume_reply()
+                        barge_started_at = None
+                        barge_paused = False
+                    if not busy.is_set():
+                        notify("listening", "")
                 elif verdict.event == "utterance" and verdict.utterance is not None:
+                    if barge_started_at is not None:
+                        if not barge_paused:
+                            session.request_pause()
+                        logger.info("interruption confirmed; yielding to speaker")
+                        session.request_barge()
+                        barge_started_at = None
+                        barge_paused = False
                     with lock:
                         waiting.add(
                             verdict.utterance.samples(),
