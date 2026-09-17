@@ -20,9 +20,16 @@ from portal.app import (
     load_voice_profile,
 )
 from portal.documents import SessionDocumentStore, extract_document
-from portal.tools import SAFE_TOOLS, PortalToolHarness
+from portal.tools import DISCOVERY_TOOLS, SAFE_TOOLS, PortalToolHarness
 
 TOKEN = "portal-test-token-with-more-than-24-characters"
+
+
+def test_initial_tool_contract_stays_tiny() -> None:
+    serialized = json.dumps(DISCOVERY_TOOLS, separators=(",", ":"))
+
+    assert {item["function"]["name"] for item in DISCOVERY_TOOLS} == {"tool_search"}
+    assert len(serialized) < 600
 
 
 def _config(**overrides) -> PortalConfig:
@@ -692,8 +699,36 @@ def test_tool_search_discovers_allowlisted_tools_only() -> None:
     assert result["task_complete"] is False
     assert result["results"][0]["name"] == "ocr_pdf"
     assert result["suggested_tools"][0] == "ocr_pdf"
-    assert "invoke it now" in result["next_action"]
+    assert "Invoke the smallest relevant one now" in result["next_action"]
     assert {item["name"] for item in result["results"]} <= {item["function"]["name"] for item in SAFE_TOOLS}
+
+
+def test_shell_tool_returns_command_context(tmp_path: Path) -> None:
+    harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    result = harness.execute(
+        "one",
+        "shell",
+        {
+            "command": "printf shell-out; printf shell-err >&2; exit 7",
+            "cwd": str(tmp_path),
+        },
+    )
+
+    assert result["cwd"] == str(tmp_path)
+    assert result["stdout"] == "shell-out"
+    assert result["stderr"] == "shell-err"
+    assert result["exit_code"] == 7
+    assert result["timed_out"] is False
+    assert result["stdout_truncated"] is False
+
+
+def test_shell_is_found_without_putting_its_schema_in_the_first_pass() -> None:
+    harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    result = harness.execute(
+        "one", "tool_search", {"query": "run a raw bash shell command"}
+    )
+
+    assert result["available_tools"][0] == "shell"
 
 
 def test_safe_math_eval_computes_without_code_execution() -> None:
@@ -1368,6 +1403,51 @@ def test_portal_routes_sanitized_browser_location_through_session_tool() -> None
     assert response.json["portal"]["safe_tools_executed"][0]["name"] == "get_user_location"
 
 
+def test_portal_exposes_only_discovered_schemas_for_one_round() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        names = {item["function"]["name"] for item in body.get("tools", [])}
+        if len(requests) == 1:
+            assert names == {"tool_search"}
+            call = {"name": "tool_search", "arguments": {"query": "current time"}}
+        elif len(requests) == 2:
+            assert "get_current_time" in names
+            assert len(names) <= 4  # discovery plus at most three matches
+            call = {"name": "get_current_time", "arguments": {}}
+        else:
+            assert names == {"tool_search"}
+            return httpx.Response(
+                200,
+                json={"message": {"role": "assistant", "content": "It is test time."}},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{"type": "function", "function": call}],
+                }
+            },
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(portal_auto_tools=True),
+    )
+
+    assert response.status_code == 200
+    assert len(requests) == 3
+    assert [
+        item["name"] for item in response.json["portal"]["safe_tools_executed"]
+    ] == ["tool_search", "get_current_time"]
+
+
 def test_portal_executes_only_allowlisted_tool_and_strips_media_on_followup() -> None:
     requests = []
 
@@ -1435,8 +1515,8 @@ def test_portal_executes_only_allowlisted_tool_and_strips_media_on_followup() ->
     assert len(requests) == 2
     assert "portal_auto_tools" not in requests[0]
     assert "<portal_tools>" in requests[0]["messages"][0]["content"]
-    assert "tool_search result never completes an action request" in requests[0]["messages"][0]["content"]
-    assert "web_search(mode=discover)" in requests[0]["messages"][0]["content"]
+    assert "Only tool_search is initially visible" in requests[0]["messages"][0]["content"]
+    assert "discover again for each new dependency" in requests[0]["messages"][0]["content"]
     assert "images" not in requests[1]["messages"][0]
     tool_result = requests[1]["messages"][-1]
     assert tool_result["role"] == "tool"
@@ -1980,7 +2060,7 @@ def test_portal_stream_route_requires_auth_and_chains_session_tools() -> None:
     events = [json.loads(line) for line in response.data.splitlines()]
     assert len(requests) == 3
     assert {item["function"]["name"] for item in requests[0]["tools"]} == {
-        item["function"]["name"] for item in SAFE_TOOLS
+        "tool_search"
     }
     assert requests[1]["messages"][-1]["tool_name"] == "memory_write"
     assert requests[2]["messages"][-1]["tool_name"] == "memory_search"

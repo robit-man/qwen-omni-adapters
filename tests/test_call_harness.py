@@ -358,6 +358,43 @@ def test_an_empty_observation_does_not_start_a_second_pass() -> None:
     assert len(payloads) == 1
 
 
+def test_completed_background_recall_is_bounded_and_added_to_next_turn() -> None:
+    call = CallSession(CallConfig(token="t", model="m", memory_recall=1))
+
+    class Recalled:
+        def context(self) -> str:
+            return "[yesterday] The user's dog is called Biscuit."
+
+    call._recalled = [Recalled()]
+    payload = call._build_payload(b"wav", 1, None, with_tools=False)
+    system = payload["messages"][0]["content"]
+
+    assert "dog is called Biscuit" in system
+    assert "Use it only if it also bears on the current words" in system
+
+
+def test_observation_prefetches_memory_without_waiting_for_it() -> None:
+    call = CallSession(CallConfig(token="t", model="m", memory_recall=3))
+    queued: list[tuple[str, int]] = []
+
+    class RecordingMemory:
+        def recall_later(self, query: str, *, limit: int) -> None:
+            queued.append((query, limit))
+
+    call.memory = RecordingMemory()  # type: ignore[assignment]
+    call._events = lambda _payload: iter(  # type: ignore[method-assign]
+        [
+            {"type": "observation", "transcript": "what is my puppy's name"},
+            {"type": "final", "response": {"message": {"content": "Biscuit."}}},
+        ]
+    )
+
+    result = call._run({"messages": []})
+
+    assert result.reply == "Biscuit."
+    assert queued == [("what is my puppy's name", 3)]
+
+
 def test_constrained_host_finishes_text_before_swapping_to_speech() -> None:
     """Comprehension and TTS must never be resident at the same time."""
 

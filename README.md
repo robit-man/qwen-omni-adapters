@@ -148,9 +148,10 @@ Defaults are chosen for a spoken conversation:
 - **Reasoning off.** A hidden chain of thought is silence the other person has
   to sit through.
 - **Tools on, in the answering pass.** This is the same server-side chain used
-  by the cloudflared portal: safe schemas ride with the turn, requested calls
-  execute until the model has a grounded final answer, and there is no earlier
-  ungrounded response claiming it cannot look something up.
+  by the cloudflared portal: one tiny discovery schema rides with the turn,
+  only the matching concrete contracts appear on the next tool round, and
+  requested calls execute until the model has a grounded final answer. The
+  full catalog no longer displaces conversation or memory context.
 - **Every camera, together.** All V4L2 devices are snapped at the same moment,
   stitched into one grid and scaled down, so "what am I holding" needs no
   special mode and costs one vision pass rather than one per camera. Clips
@@ -159,12 +160,13 @@ Defaults are chosen for a spoken conversation:
   direction a voice came from is attached to the turn as evidence. With no
   array attached the default microphone is used and nothing else changes.
 - **Memory is passive.** Completed exchanges are embedded on a daemon worker
-  only after the answer, tools and speech finish. Recall never gates or alters
-  an active turn, and the auxiliary encoder is unloaded after each write. The
+  only after the answer, tools and speech finish. Semantic recall is prefetched
+  on that same worker as soon as a transcript exists; a completed result can
+  enrich the next related turn, while an unfinished one is skipped immediately.
+  It never gates hearing, answering, reasoning, tools, or speech. The
   Ornith/Omni chat weights have no embedding head and measured poorly when
   forced into that role, so the small dedicated encoder remains the deliberate
-  exception. Memory cannot delay or prevent hearing, answering, reasoning,
-  tool use, or speech.
+  exception and unloads after each job.
 
 The speech detector is a port of `portal/static/call_vad.js` with its constants
 intact, so the same room behaves the same way in the browser and here.

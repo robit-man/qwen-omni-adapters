@@ -48,20 +48,24 @@ try:
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import portal_behavior_system_message
     from portal.tools import (
+        DISCOVERY_TOOLS,
         SAFE_TOOLS,
         PortalToolHarness,
         ToolInputError,
         tool_result_json,
+        tool_schemas,
         tool_use_instructions,
     )
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from documents import DocumentError, SessionDocumentStore
     from environment import portal_behavior_system_message
     from tools import (
+        DISCOVERY_TOOLS,
         SAFE_TOOLS,
         PortalToolHarness,
         ToolInputError,
         tool_result_json,
+        tool_schemas,
         tool_use_instructions,
     )
 
@@ -814,6 +818,11 @@ def _without_media(messages: list[Any]) -> list[Any]:
             message.pop("images", None)
             message.pop("videos", None)
             message.pop("documents", None)
+            if message.get("tool_calls"):
+                # Private reasoning from completed rounds is neither evidence
+                # nor conversation continuity. Carrying it forward only burns
+                # context that recalled memories and actual results need.
+                message.pop("thinking", None)
     return cleaned
 
 
@@ -836,11 +845,12 @@ def _tool_followup(
     assistant = {
         key: copy.deepcopy(value)
         for key, value in message.items()
-        if key in {"role", "content", "thinking", "tool_calls"}
+        if key in {"role", "content", "tool_calls"}
     }
     assistant["role"] = "assistant"
     messages.append(assistant)
     executed: list[dict[str, Any]] = []
+    discovered: list[str] = []
     made_progress = False
     for call in calls:
         if not isinstance(call, Mapping):
@@ -865,6 +875,10 @@ def _tool_followup(
             seen.add(fingerprint)
             made_progress = True
             result = harness.execute(session_id, name, arguments)
+            if name == "tool_search" and isinstance(result, Mapping):
+                available = result.get("available_tools")
+                if isinstance(available, list):
+                    discovered.extend(str(item) for item in available)
         content = tool_result_json(result)
         tool_message: dict[str, Any] = {
             "role": "tool",
@@ -890,6 +904,9 @@ def _tool_followup(
                 "objective",
                 "role",
                 "task_id",
+                "command",
+                "cwd",
+                "timeout_seconds",
             }
         }
         executed.append(
@@ -904,6 +921,13 @@ def _tool_followup(
             }
         )
     followup["messages"] = messages
+    # Contracts are round-local. Discovery exposes at most three concrete
+    # tools for exactly the next inference; after one executes, the contract
+    # collapses back to the tiny discovery schema. Tool results stay in the
+    # message chain as evidence, but unrelated instructions never accumulate.
+    followup["tools"] = copy.deepcopy(
+        [*DISCOVERY_TOOLS, *tool_schemas(discovered)]
+    )
     return followup, executed, made_progress
 
 
@@ -1507,7 +1531,7 @@ def create_app(
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
             if auto_tools:
-                payload["tools"] = copy.deepcopy(SAFE_TOOLS)
+                payload["tools"] = copy.deepcopy(DISCOVERY_TOOLS)
             diagnostics.begin_request(
                 session_id,
                 request_id,
@@ -1636,7 +1660,7 @@ def create_app(
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
             if auto_tools:
-                payload["tools"] = copy.deepcopy(SAFE_TOOLS)
+                payload["tools"] = copy.deepcopy(DISCOVERY_TOOLS)
         except PortalRequestError as exc:
             return jsonify({"error": str(exc)}), 400
         request_id = secrets.token_urlsafe(9)

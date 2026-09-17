@@ -161,3 +161,58 @@ def test_the_last_tool_is_kept_rather_than_leaving_none() -> None:
     # Falls through to trimming the system message instead of emptying tools.
     assert _shed_language_context(payload) is True
     assert len(payload["tools"]) == 1
+
+
+def test_large_shell_result_compacts_without_losing_current_user_intent() -> None:
+    from types import SimpleNamespace
+
+    from adapter_server import _estimated_prompt_tokens, _fit_language_context
+
+    command = "printf x" + "y" * 12_000
+    payload = {
+        "messages": [
+            {"role": "system", "content": "RULES"},
+            {"role": "user", "content": "Run the command and tell me what happened."},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "type": "function",
+                        "function": {"name": "shell", "arguments": {"command": command}},
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_name": "shell",
+                "tool_call_id": "call-1",
+                "content": "stdout-start\n" + "z" * 30_000 + "\nstdout-end",
+            },
+        ],
+        "tools": [{"type": "function", "function": {"name": "tool_search"}}],
+        "max_tokens": 160,
+    }
+
+    _fit_language_context(
+        payload,
+        SimpleNamespace(comprehension_context_tokens=4096),
+    )
+
+    assert _estimated_prompt_tokens(payload) <= 4096 - 160
+    assert any(
+        message.get("role") == "user"
+        and message.get("content") == "Run the command and tell me what happened."
+        for message in payload["messages"]
+    )
+    assistant = next(
+        message for message in payload["messages"] if message.get("role") == "assistant"
+    )
+    assert assistant["tool_calls"][0]["function"]["arguments"] == {
+        "omitted": "arguments compacted after execution"
+    }
+    tool = next(message for message in payload["messages"] if message.get("role") == "tool")
+    assert "Tool result compacted" in tool["content"]
+    assert "stdout-start" in tool["content"]
+    assert "stdout-end" in tool["content"]

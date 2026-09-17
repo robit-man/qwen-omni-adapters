@@ -8,6 +8,7 @@ tag and its custom namespaced GGUF sidecar layer.
 from __future__ import annotations
 
 import base64
+import copy
 import io
 import json
 import logging
@@ -63,6 +64,7 @@ class Config:
     # second set of weights rather than merely shrinking them.
     language_api: str = "ollama"
     comprehension_context_tokens: int = 65_536
+    comprehension_context_file: str | None = None
     comprehension_max_output_tokens: int = 2_048
 
     @classmethod
@@ -90,6 +92,9 @@ class Config:
             comprehension_context_tokens=int(
                 os.environ.get("OMNI_COMPREHENSION_CONTEXT_TOKENS", "65536")
             ),
+            comprehension_context_file=(
+                os.environ.get("OMNI_COMPREHENSION_CONTEXT_FILE", "").strip() or None
+            ),
             comprehension_max_output_tokens=int(
                 os.environ.get("OMNI_COMPREHENSION_MAX_OUTPUT_TOKENS", "2048")
             ),
@@ -116,6 +121,29 @@ AUDIO_OBSERVATION_BLOCK = re.compile(
     r"<audio_observation\b[^>]*>(.*?)</audio_observation\s*>",
     re.IGNORECASE | re.DOTALL,
 )
+
+
+def _active_context_tokens(config: Config) -> int:
+    """Return the window selected by the memory-aware worker launcher.
+
+    The configured value is a ceiling. On unified-memory hosts the launcher
+    may select a smaller window immediately before each model load based on
+    memory that is actually available then. Reading its tiny state file per
+    request keeps prompt fitting in lockstep without another HTTP round trip.
+    """
+
+    configured = max(1024, config.comprehension_context_tokens)
+    state_file = getattr(config, "comprehension_context_file", None)
+    if not state_file:
+        return configured
+    try:
+        selected = int(Path(state_file).read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return configured
+    if selected < 1024:
+        return configured
+    return min(configured, selected)
+
 
 MEDIA_CHAT_SYSTEM_PROMPT = """\
 You are a media perception encoder, not a conversational assistant.
@@ -594,7 +622,7 @@ def build_comprehension_payload(
         "cache_prompt": False,
         "max_tokens": min(
             config.comprehension_max_output_tokens,
-            max(1, config.comprehension_context_tokens // 4),
+            max(1, _active_context_tokens(config) // 4),
         ),
         # Backends that expose this Qwen processor option should honor it. A
         # backend that does not must split video audio into a separate part.
@@ -636,13 +664,22 @@ def _shed_language_context(payload: dict[str, Any]) -> bool:
     messages = payload.get("messages")
     if not isinstance(messages, list) or len(messages) < 2:
         return False
-    for index, message in enumerate(messages):
-        if not isinstance(message, Mapping) or message.get("role") == "system":
-            continue
-        if index == len(messages) - 1:
-            break
-        del messages[index]
-        return True
+    latest_user = max(
+        (
+            index
+            for index, message in enumerate(messages)
+            if isinstance(message, Mapping) and message.get("role") == "user"
+        ),
+        default=len(messages) - 1,
+    )
+    # Only dialogue before the current user turn is expendable history. A tool
+    # chain appends assistant calls and role=tool results after that user; the
+    # former implementation mistook those for a newer "turn" and eventually
+    # deleted the question it was supposed to answer.
+    for index, message in enumerate(messages[:latest_user]):
+        if isinstance(message, Mapping) and message.get("role") != "system":
+            del messages[index]
+            return True
 
     # Tool schemas are rendered into the prompt and can outweigh everything
     # else: two dozen of them run to roughly three thousand tokens, so a
@@ -663,6 +700,76 @@ def _shed_language_context(payload: dict[str, Any]) -> bool:
             if isinstance(function, Mapping):
                 name = str(function.get("name") or "")
         LOGGER.debug("dropped tool %s to fit the context window", name or "?")
+        return True
+
+    # Completed tool-call arguments can repeat a very large command or query.
+    # Once its role=tool result exists, the model needs the call identity and
+    # tool name for continuity, not a second full copy of those arguments.
+    for index in range(latest_user + 1, len(messages)):
+        message = messages[index]
+        if not isinstance(message, Mapping) or message.get("role") != "assistant":
+            continue
+        calls = message.get("tool_calls")
+        if not isinstance(calls, list) or len(json.dumps(calls, default=str)) <= 2048:
+            continue
+        compacted = copy.deepcopy(dict(message))
+        for call in compacted.get("tool_calls", []):
+            if not isinstance(call, dict):
+                continue
+            function = call.get("function")
+            if isinstance(function, dict):
+                function["arguments"] = {"omitted": "arguments compacted after execution"}
+        messages[index] = compacted
+        return True
+
+    # Tool output is evidence, but a command can emit more text than the whole
+    # active window. Progressively retain its head and tail so errors and final
+    # status survive while the hard fitter converges under any selected -c.
+    tool_results = [
+        (index, message)
+        for index, message in enumerate(messages[latest_user + 1 :], latest_user + 1)
+        if isinstance(message, Mapping)
+        and message.get("role") == "tool"
+        and len(str(message.get("content") or "")) > 512
+    ]
+    if tool_results:
+        index, message = max(
+            tool_results,
+            key=lambda item: len(str(item[1].get("content") or "")),
+        )
+        content = str(message.get("content") or "")
+        keep = max(256, int(len(content) * 0.6))
+        head = keep // 2
+        tail = keep - head
+        messages[index] = {
+            **message,
+            "content": (
+                content[:head]
+                + "\n[Tool result compacted to fit the active context window.]\n"
+                + content[-tail:]
+            ),
+        }
+        return True
+
+    # If many already-compact results still overflow, retire the oldest
+    # completed call/result pair. The current user turn and newest evidence
+    # remain, and the portal trace still retains the full execution receipt.
+    tool_indexes = [
+        index
+        for index, message in enumerate(messages[latest_user + 1 :], latest_user + 1)
+        if isinstance(message, Mapping) and message.get("role") == "tool"
+    ]
+    if len(tool_indexes) > 1:
+        index = tool_indexes[0]
+        start = index
+        if (
+            index > latest_user + 1
+            and isinstance(messages[index - 1], Mapping)
+            and messages[index - 1].get("role") == "assistant"
+            and messages[index - 1].get("tool_calls")
+        ):
+            start -= 1
+        del messages[start : index + 1]
         return True
 
     # Only a system message and the live turn remain, and together they still
@@ -695,13 +802,7 @@ def _estimated_prompt_tokens(payload: Mapping[str, Any]) -> int:
     """
 
     messages = payload.get("messages")
-    characters = 0
-    if isinstance(messages, list):
-        characters += sum(
-            len(str(message.get("content") or "")) + 8
-            for message in messages
-            if isinstance(message, Mapping)
-        )
+    characters = len(json.dumps(messages, default=str)) if isinstance(messages, list) else 0
     tools = payload.get("tools")
     if isinstance(tools, list) and tools:
         characters += len(json.dumps(tools))
@@ -711,7 +812,7 @@ def _estimated_prompt_tokens(payload: Mapping[str, Any]) -> int:
 def _fit_language_context(payload: dict[str, Any], config: Config) -> None:
     """Shed history until the prompt plausibly fits the language window."""
 
-    window = max(1024, config.comprehension_context_tokens)
+    window = _active_context_tokens(config)
     reply = payload.get("max_tokens")
     budget = window - (reply if isinstance(reply, int) and reply > 0 else 256)
     # Generous enough to drop a long history and then still cut the system

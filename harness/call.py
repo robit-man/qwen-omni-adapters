@@ -130,6 +130,9 @@ class CallConfig:
     token_reader: Callable[[], str] | None = None
     # Where completed exchanges are journaled outside the conversation path.
     memory_path: str = ""
+    # Bounded speculative memories carried into a later related turn. Recall
+    # runs in the background and is skipped whenever it is not ready.
+    memory_recall: int = 4
     # Unified-memory hosts may need to evict comprehension before loading TTS.
     # When configured, chat stays text-only until every reasoning/tool/vision
     # pass is complete, then these callbacks bracket one direct synthesis pass.
@@ -216,6 +219,7 @@ class CallSession:
         self.memory: PassiveMemory | None = (
             PassiveMemory(Path(config.memory_path)) if config.memory_path else None
         )
+        self._recalled: list[Any] = []
 
     # -- plumbing --------------------------------------------------------
 
@@ -340,15 +344,27 @@ class CallSession:
             message[key] = [frame]
 
         split_speech = self.config.prepare_speech is not None
+        system_content = (
+            f"{LIVE_CALL_SYSTEM_PROMPT}\n\n"
+            f"{grounding_preamble(place=self.place)}"
+        )
+        if self._recalled:
+            lines = "\n".join(
+                f"- {memory.context()[:1600]}"
+                for memory in self._recalled[: self.config.memory_recall]
+            )
+            system_content += (
+                "\n\nEarlier semantic context, prefetched in the background "
+                "because it was relevant to the preceding conversation:\n"
+                f"{lines}\nUse it only if it also bears on the current words. "
+                "Do not list it, announce recall, or treat it as current sensory evidence."
+            )
         return {
             "model": self.config.model,
             "messages": [
                 {
                     "role": "system",
-                    "content": (
-                        f"{LIVE_CALL_SYSTEM_PROMPT}\n\n"
-                        f"{grounding_preamble(place=self.place)}"
-                    ),
+                    "content": system_content,
                 },
                 *self._history_for_prompt(),
                 message,
@@ -410,6 +426,18 @@ class CallSession:
         frame to every conversation makes the picture become the subject.
         """
 
+        self._recalled = []
+        if self.memory is not None:
+            take_recall = getattr(self.memory, "take_recall", None)
+            if callable(take_recall):
+                self._recalled = take_recall()
+        if self._recalled:
+            logger.info(
+                "using %d background-prefetched memor%s",
+                len(self._recalled),
+                "y" if len(self._recalled) == 1 else "ies",
+            )
+
         # The comprehension weights are needed from the first request. If the
         # last reply evicted them, their reload has been running since that
         # reply began playing, so this usually returns at once.
@@ -464,7 +492,8 @@ class CallSession:
                     segments,
                     frame,
                     with_tools=self.config.tools_enabled,
-                )
+                ),
+                queue_recall=False,
             )
             if follow.reply.strip() and not follow.error:
                 result.followup = follow.reply.strip()
@@ -517,7 +546,10 @@ class CallSession:
 
         speech = TurnResult()
         try:
-            speech = self._run(self._build_synthesis_payload(text))
+            speech = self._run(
+                self._build_synthesis_payload(text),
+                queue_recall=False,
+            )
         finally:
             if restore is not None:
                 self._state("thinking", "restoring comprehension")
@@ -533,6 +565,7 @@ class CallSession:
         payload: dict[str, Any],
         *,
         speak_only_if_useful: bool = False,
+        queue_recall: bool = True,
     ) -> TurnResult:
         """One request: stream it, and speak the audio as it arrives."""
 
@@ -567,6 +600,11 @@ class CallSession:
                     result.audio_observation = str(
                         event.get("audio_observation") or ""
                     ).strip()
+                    query = result.transcript or result.audio_observation
+                    if query and queue_recall and self.memory is not None:
+                        recall_later = getattr(self.memory, "recall_later", None)
+                        if callable(recall_later):
+                            recall_later(query, limit=self.config.memory_recall)
                     self._state("thinking", result.transcript)
                 elif kind == "tool":
                     name = str(event.get("name") or event.get("tool") or "").strip()

@@ -38,6 +38,7 @@ owns the schemas and implementations.
 | `video_scan` | Inspect observed video/audio streams and timeline metadata | Current browser-session media only |
 | `working_notes` | Add, list, search, or remove bounded research notes | Current browser session only |
 | `task_list` | Maintain bounded pending/in-progress/completed/blocked tasks | Current browser session only |
+| `shell` | Run a raw `bash -lc` command and return stdout, stderr, exit status, cwd, and timeout state | Unrestricted portal-host shell; 900-second runtime and 64-KiB-per-stream capture bounds |
 | `subagent_delegate` | Run one fresh helper completion for isolated analysis, planning, synthesis, or critique | Synchronous text-only model call; no tools, media, host access, or parent history; result stored in the current browser session |
 | `subagent_list` | List completed helper delegations | Current browser session only |
 | `subagent_result` | Retrieve one completed helper result by task ID | Current browser session only |
@@ -50,7 +51,11 @@ is enabled, while the server replaces them with its authoritative copy whenever
 automatic execution is requested. A client cannot redefine a safe tool's
 implementation by changing its schema. The trusted tool-use contract is also
 injected only for opted-in turns; tools-off turns receive neither that contract
-nor schemas.
+nor schemas. The model-facing first pass contains only the compact `tool_search`
+contract (about 126 pessimistically estimated tokens, instead of about 3,900
+for the full catalog). Its result makes at most three matching concrete schemas
+visible for exactly the next inference; after a concrete call, the contract
+collapses to discovery again.
 
 Host awareness is deliberately tool-only. Ordinary turns receive a short,
 stable behavioral system policy and no hardware/utilization blob. When a user
@@ -83,7 +88,9 @@ come from a fetched `source_url` and be attributed to it.
 ```text
 user/media turn
   -> optional Qwen3-Omni comprehension
-  -> Qwen3.8 emits structured tool_calls
+  -> Qwen3.8 calls tool_search when a capability is needed
+  -> portal exposes only matching concrete schema(s) for the next round
+  -> Qwen3.8 emits the concrete structured tool_call
   -> portal validates and executes allowlisted calls
   -> portal appends assistant tool_calls + role=tool results
   -> Qwen3.8 may call another tool or produce the final answer
@@ -161,12 +168,11 @@ The server injects its schemas, so callers need only opt into execution:
 }
 ```
 
-A typical dependent chain is
-`web_search(mode=discover) -> web_fetch -> memory_write -> final answer`.
-All schemas are already visible to the model, so `tool_search` is not a default
-first step. When it is genuinely needed, its result is explicitly marked
-`task_complete=false` and directs the model to invoke the smallest relevant
-tool sequence rather than answer with a catalog.
+A typical dependent chain is `tool_search(web discovery) -> web_search ->
+tool_search(page retrieval) -> web_fetch -> tool_search(memory) -> memory_write
+-> final answer`. Discovery results are explicitly marked `task_complete=false`;
+they expose a bounded contract for the next isolated round rather than dumping
+the full catalog into every context.
 A later turn in the same browser session can use `memory_read` or
 `memory_search`; `web_search(mode=session)` searches the already indexed result
 and fetched-page text without another discovery request. Independent read-only
@@ -194,12 +200,12 @@ portal retains the pieces appropriate to a small public demonstration:
 - compact, collapsible running/completed tool receipts; and
 - URL, DNS, redirect, media-type, size, session, and TTL boundaries.
 
-The portal deliberately does not expose Omnius's general browser-action
-surface. Its crawl is read-only, same-origin, and bounded to eight pages at
-depth two. Models cannot click arbitrary DOM nodes, submit forms, reuse an
-authenticated profile, download files, access local URLs, run shell commands,
-or turn retrieved text into tool authority. Those capabilities require a
-different trust profile and approval model.
+The portal does not expose Omnius's general browser-action surface. Its crawl
+is read-only, same-origin, and bounded to eight pages at depth two. It cannot
+click arbitrary DOM nodes, submit forms, or reuse an authenticated browser
+profile. This deployment does expose the separately discoverable unrestricted
+`shell` tool at the operator's request; it is raw host authority, not a sandbox,
+and retrieved text remains untrusted data rather than command authority.
 
 ## Web safety and limits
 
@@ -263,8 +269,10 @@ and `video_scan` use `ffprobe` (and `ffmpeg` volume detection for audio) during
 ingestion, retain only bounded technical results, and do not retain a second
 copy of media bytes. `safe_math_eval` walks a limited arithmetic AST; imports,
 attributes, variables, comprehensions, and arbitrary Python are impossible.
-Arbitrary shell, host-filesystem, process-control, messaging, device-control,
-and credentialed-browser tools remain intentionally excluded.
+The `shell` tool deliberately permits arbitrary Bash, host-filesystem, and
+process control. Only transport safety is imposed: a 900-second maximum and
+64 KiB captured from each output stream; timeout kills the command's process
+group. Credentialed browser automation remains excluded.
 
 ## Verification
 
@@ -276,6 +284,7 @@ Unit gates cover:
 - script/style removal, response bounding, and private-address rejection;
 - browser-session memory and document isolation;
 - allowlisted tool discovery and forbidden math-expression rejection;
+- raw shell stdout/stderr/exit-context return and bounded capture;
 - structured JSON/YAML paths and attachment-scoped OCR indexing;
 - bounded same-origin crawling and federated session recall;
 - audio/video observation isolation, working notes, and task state;

@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from harness.memory import MemoryStore, PassiveMemory  # noqa: E402
+from harness.memory import Memory, MemoryStore, PassiveMemory  # noqa: E402
 
 
 class FakeEmbedder:
@@ -233,6 +233,62 @@ def test_passive_memory_embeds_after_the_caller_has_moved_on(tmp_path: Path) -> 
     release.set()
     worker.close()
     assert stored == [("The user said their dog is called Biscuit.", "exchange")]
+
+
+def test_passive_recall_is_taken_only_after_it_finishes(tmp_path: Path) -> None:
+    """A slow encoder may enrich a later turn, but cannot hold this one up."""
+
+    started = threading.Event()
+    release = threading.Event()
+    finished = threading.Event()
+    expected = Memory(
+        id=1,
+        text="The user's dog is called Biscuit.",
+        kind="exchange",
+        created_at=time.time(),
+        last_used_at=time.time(),
+        uses=0,
+        strength=0.5,
+        similarity=0.8,
+    )
+
+    class BlockingStore:
+        def decay(self) -> int:
+            return 0
+
+        def stats(self) -> dict[str, int]:
+            return {"memories": 1}
+
+        def recall(self, _text: str, *, limit: int) -> list[Memory]:
+            assert limit == 4
+            started.set()
+            release.wait(2)
+            finished.set()
+            return [expected]
+
+        def remember(self, _text: str, *, kind: str) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    worker = PassiveMemory(
+        tmp_path / "memory.sqlite3",
+        store_factory=lambda _path: BlockingStore(),
+    )
+    worker.recall_later("what is my puppy's name", limit=4)
+    assert started.wait(1)
+    assert worker.take_recall() == []
+
+    release.set()
+    assert finished.wait(1)
+    for _ in range(20):
+        recalled = worker.take_recall()
+        if recalled:
+            break
+        time.sleep(0.01)
+    assert recalled == [expected]
+    worker.close()
 
 
 # -- a memory knows when it happened ---------------------------------------
