@@ -1,0 +1,27 @@
+[Unit]
+Description=Omni call harness (always-listening voice with a top-bar indicator)
+Documentation=file://@REPO_ROOT@/harness/README.md
+# The harness talks to the adapter's portal. Wants rather than Requires: it
+# waits for the portal to become ready and keeps waiting if it restarts,
+# instead of dying alongside it and leaving the room without a listener.
+Wants=qwen-omni-adapters.service
+After=qwen-omni-adapters.service sound.target pulseaudio.service
+
+[Service]
+Type=simple
+WorkingDirectory=@REPO_ROOT@
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=@REPO_ROOT@
+Environment=OMNI_REPO_ROOT=@REPO_ROOT@
+Environment=OMNI_PORTAL_URL=http://127.0.0.1:8920
+EnvironmentFile=-@REPO_ROOT@/.env
+ExecStart=@HARNESS_EXEC_START@
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+# A conversation is not worth taking the machine down for. The adapter holds
+# the weights; this process only moves audio.
+MemoryMax=4G
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,217 @@
+"""The local harness must behave like the browser's live-call mode.
+
+Its VAD is a port of ``portal/static/call_vad.js``, and the port is only worth
+having if it agrees with the original: the browser's thresholds were tuned in
+real rooms, and a harness that disagreed in the same room would be blamed on
+the model rather than on the listener.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from harness.call import LIVE_CALL_SYSTEM_PROMPT, CallConfig, CallSession  # noqa: E402
+from harness.vad import Vad, VadConfig  # noqa: E402
+
+FRAME_MS = 20.0
+RATE = 16_000
+FRAME = int(RATE * FRAME_MS / 1000)
+
+
+def tone(level: float) -> np.ndarray:
+    """A frame whose RMS is ``level``."""
+
+    return np.full(FRAME, level, dtype=np.float32)
+
+
+def feed(vad: Vad, level: float, ms: float, start: float = 0.0):
+    """Push ``ms`` of audio at one level; return the results and the clock."""
+
+    results = []
+    now = start
+    for _ in range(int(ms / FRAME_MS)):
+        now += FRAME_MS
+        results.append(vad.process(tone(level), now, FRAME_MS))
+    return results, now
+
+
+def calibrated() -> tuple[Vad, float]:
+    vad = Vad(VadConfig())
+    _, now = feed(vad, 0.001, VadConfig().calibration_ms + FRAME_MS)
+    return vad, now
+
+
+# -- the shape of a spoken turn -------------------------------------------
+
+
+def test_quiet_room_is_never_mistaken_for_speech() -> None:
+    vad, now = calibrated()
+    results, _ = feed(vad, 0.001, 2_000, now)
+    assert {result.event for result in results} == {"idle"}
+    assert not vad.speaking
+
+
+def test_speech_is_confirmed_before_it_is_believed() -> None:
+    """A click is not a turn: the level has to hold for startConfirmMs."""
+
+    vad, now = calibrated()
+    results, now = feed(vad, 0.25, VadConfig().start_confirm_ms - FRAME_MS, now)
+    assert [result.event for result in results][-1] == "candidate"
+    assert not vad.speaking
+
+    more, _ = feed(vad, 0.25, FRAME_MS * 3, now)
+    assert any(result.event == "start" for result in more)
+    assert vad.speaking
+
+
+def test_a_full_utterance_survives_a_pause_in_the_middle() -> None:
+    """People pause mid-sentence; that is not the end of the turn."""
+
+    vad, now = calibrated()
+    _, now = feed(vad, 0.25, 600, now)
+    assert vad.speaking
+
+    # Shorter than silence_ms: still the same turn.
+    mid, now = feed(vad, 0.001, VadConfig().silence_ms - 200, now)
+    assert all(result.event == "active" for result in mid)
+    assert vad.speaking
+
+    _, now = feed(vad, 0.25, 400, now)
+    tail, _ = feed(vad, 0.001, VadConfig().silence_ms + 100, now)
+    finished = [result for result in tail if result.event == "utterance"]
+    assert len(finished) == 1
+    assert finished[0].utterance is not None
+    assert finished[0].utterance.samples().size > 0
+
+
+def test_a_brief_noise_is_rejected_rather_than_answered() -> None:
+    """Under minActiveMs of speech is a cough, and must not start a turn."""
+
+    vad, now = calibrated()
+    _, now = feed(vad, 0.25, VadConfig().start_confirm_ms + FRAME_MS, now)
+    results, _ = feed(vad, 0.001, VadConfig().silence_ms + 100, now)
+    events = [result.event for result in results]
+    assert "rejected" in events
+    assert "utterance" not in events
+
+
+def test_the_first_syllable_is_kept() -> None:
+    """Pre-roll exists so the turn does not begin mid-word."""
+
+    vad, now = calibrated()
+    # Quiet frames fill the pre-roll, then speech begins.
+    _, now = feed(vad, 0.001, FRAME_MS * 5, now)
+    _, now = feed(vad, 0.25, 600, now)
+    tail, _ = feed(vad, 0.001, VadConfig().silence_ms + 100, now)
+    utterance = next(r.utterance for r in tail if r.event == "utterance")
+    assert utterance is not None
+    # More audio than the speech alone: the quiet run-up came with it.
+    assert utterance.samples().size > int(RATE * 0.6)
+
+
+def test_loud_speech_escapes_calibration_instead_of_being_swallowed() -> None:
+    """Someone who speaks immediately should not lose their first sentence."""
+
+    vad = Vad(VadConfig())
+    results, _ = feed(vad, 0.4, 300)
+
+    # Loud enough to clear the escape threshold on the first frame, so the
+    # calibration window is abandoned rather than waited out.
+    assert results[0].event != "calibrating"
+    assert any(result.event == "start" for result in results)
+    assert vad.speaking
+
+    # A quiet room still calibrates properly.
+    patient = Vad(VadConfig())
+    quiet, _ = feed(patient, 0.001, 200)
+    assert {result.event for result in quiet} == {"calibrating"}
+
+
+def test_the_noise_floor_rises_with_a_noisy_room() -> None:
+    """Otherwise a fan becomes a permanent speaker."""
+
+    vad, now = calibrated()
+    quiet_floor = vad.noise_floor
+    feed(vad, 0.010, 4_000, now)
+    assert vad.noise_floor > quiet_floor
+
+
+# -- the request the browser makes ----------------------------------------
+
+
+def session() -> CallSession:
+    return CallSession(
+        CallConfig(portal_url="http://127.0.0.1:8920", token="t", model="m")
+    )
+
+
+def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
+    """Reasoning is silence the other person has to sit through."""
+
+    payload = session()._build_payload(b"RIFF", segments=2, frame=None)
+
+    assert payload["speech_mode"] == "always"
+    assert payload["response_modalities"] == ["text", "audio"]
+    assert payload["omni"]["task"] == "chat"
+    # Nothing was said -> stop after comprehension rather than inventing a turn.
+    assert payload["omni"]["require_speech"] is True
+    assert payload["think"] is False
+    assert payload["portal_auto_tools"] is True
+    assert payload["stream"] is True
+    assert payload["messages"][0]["content"] == LIVE_CALL_SYSTEM_PROMPT
+    assert "2 consecutive segments" in payload["messages"][-1]["content"]
+
+
+def test_a_camera_frame_rides_along_when_there_is_one() -> None:
+    frame = {"mime_type": "image/jpeg", "encoding": "base64", "data": "x"}
+    payload = session()._build_payload(b"RIFF", segments=1, frame=frame)
+
+    assert payload["messages"][-1]["images"] == [frame]
+    assert "current camera frame" in payload["messages"][-1]["content"]
+    # Singular when there is one segment.
+    assert "1 consecutive segment " in payload["messages"][-1]["content"]
+
+
+def test_only_the_dialogue_carries_to_the_next_turn() -> None:
+    """History is text. Replaying audio would re-hear an answered question."""
+
+    from harness.call import TurnResult
+
+    call = session()
+    call._remember(TurnResult(transcript="what is that", reply="a kettle"))
+    payload = call._build_payload(b"RIFF", segments=1, frame=None)
+
+    history = payload["messages"][1:-1]
+    assert history == [
+        {"role": "user", "content": "what is that"},
+        {"role": "assistant", "content": "a kettle"},
+    ]
+    assert all("audios" not in message for message in history)
+
+
+def test_sound_with_no_speech_is_remembered_as_context() -> None:
+    from harness.call import TurnResult
+
+    call = session()
+    call._remember(TurnResult(audio_observation="a door closed", reply=""))
+    payload = call._build_payload(b"RIFF", segments=1, frame=None)
+
+    assert payload["messages"][1] == {"role": "user", "content": "a door closed"}
+
+
+def test_history_is_bounded() -> None:
+    """A long call must not grow its own prompt without limit."""
+
+    from harness.call import TurnResult
+
+    call = session()
+    for index in range(50):
+        call._remember(TurnResult(transcript=f"q{index}", reply=f"a{index}"))
+
+    assert len(call._history) <= call.config.history_turns * 2
+    assert call._history[-1]["content"] == "a49"

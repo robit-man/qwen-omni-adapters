@@ -1,0 +1,230 @@
+"""Run the always-listening call harness against a local omni adapter.
+
+Ships with the adapter so a host that has the model has the conversation too:
+microphone in, speakers out, state in the top bar, no browser involved.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import logging
+import os
+import shutil
+import subprocess
+import threading
+import time
+from pathlib import Path
+from typing import Any
+
+import httpx
+
+from harness.audio import require_tools
+from harness.call import CallConfig, TurnResult, run_call_loop
+from harness.indicator import ThreadedIndicator, build_indicator
+
+logger = logging.getLogger("omni.harness")
+
+DEFAULT_PORTAL = "http://127.0.0.1:8920"
+DEFAULT_TOKEN_FILE = "runtime-data/state/access-token.txt"
+
+
+def _repo_root() -> Path:
+    return Path(os.environ.get("OMNI_REPO_ROOT") or Path(__file__).resolve().parents[1])
+
+
+def _read_token(explicit: str | None) -> str:
+    if explicit:
+        return explicit.strip()
+    env = os.environ.get("OMNI_PORTAL_TOKEN", "").strip()
+    if env:
+        return env
+    path = _repo_root() / DEFAULT_TOKEN_FILE
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError as error:
+        raise SystemExit(
+            f"no portal token: pass --token, set OMNI_PORTAL_TOKEN, or start the "
+            f"daemon so it writes {path} ({error})"
+        ) from error
+
+
+def _wait_for_portal(url: str, token: str, timeout_s: float) -> dict[str, Any]:
+    """Block until the adapter answers, so the first utterance is not lost."""
+
+    deadline = time.monotonic() + timeout_s
+    last = ""
+    while time.monotonic() < deadline:
+        try:
+            response = httpx.get(
+                f"{url.rstrip('/')}/api/status",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=5.0,
+            )
+            if response.status_code == 200:
+                return response.json()
+            last = f"HTTP {response.status_code}"
+        except Exception as error:  # noqa: BLE001
+            last = f"{type(error).__name__}: {error}"
+        time.sleep(3)
+    raise SystemExit(f"the omni adapter never became ready at {url} ({last})")
+
+
+def _frame_grabber(device: str) -> Any:
+    """Capture one JPEG from the camera, or nothing if it cannot be read.
+
+    A frame is attached to every spoken turn so "what am I holding" needs no
+    special mode. The live-call prompt tells the model to use it only when it
+    is relevant, so an unused frame costs a little comprehension time and
+    nothing else.
+    """
+
+    if shutil.which("ffmpeg") is None:
+        return None
+
+    def grab() -> dict[str, Any] | None:
+        try:
+            completed = subprocess.run(
+                [
+                    "ffmpeg", "-hide_banner", "-loglevel", "error",
+                    "-f", "v4l2", "-i", device,
+                    "-frames:v", "1", "-vf", "scale=768:-2",
+                    "-f", "image2", "-c:v", "mjpeg", "-",
+                ],
+                capture_output=True,
+                timeout=6,
+            )
+        except (subprocess.TimeoutExpired, OSError) as error:
+            logger.debug("camera frame unavailable: %s", error)
+            return None
+        if completed.returncode != 0 or not completed.stdout:
+            logger.debug("camera frame unavailable: %s", completed.stderr[:120])
+            return None
+        return {
+            "mime_type": "image/jpeg",
+            "encoding": "base64",
+            "data": base64.b64encode(completed.stdout).decode("ascii"),
+        }
+
+    return grab
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="omni-call", description=__doc__)
+    parser.add_argument("--portal", default=os.environ.get("OMNI_PORTAL_URL", DEFAULT_PORTAL))
+    parser.add_argument("--token", default=None)
+    parser.add_argument("--model", default=os.environ.get("OMNI_MODEL", ""))
+    parser.add_argument("--input-device", default=os.environ.get("OMNI_CALL_INPUT") or None)
+    parser.add_argument("--output-device", default=os.environ.get("OMNI_CALL_OUTPUT") or None)
+    parser.add_argument("--input-channels", type=int, default=int(os.environ.get("OMNI_CALL_INPUT_CHANNELS", "1")))
+    parser.add_argument("--input-channel", type=int, default=int(os.environ.get("OMNI_CALL_INPUT_CHANNEL", "0")))
+    parser.add_argument("--camera-device", default=os.environ.get("OMNI_CALL_CAMERA", "/dev/video0"))
+    parser.add_argument("--no-camera", action="store_true")
+    parser.add_argument("--no-tools", action="store_true")
+    parser.add_argument("--reasoning", action="store_true", help="leave reasoning on (slower to first word)")
+    parser.add_argument("--no-indicator", action="store_true")
+    parser.add_argument("--ready-timeout", type=float, default=900.0)
+    args = parser.parse_args(argv)
+
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
+    )
+    require_tools()
+
+    token = _read_token(args.token)
+    status = _wait_for_portal(args.portal, token, args.ready_timeout)
+    model = args.model or str(status.get("model") or "")
+    if not model:
+        raise SystemExit("the adapter did not report a model tag")
+
+    camera_on = bool(args.camera_device) and not args.no_camera
+    config = CallConfig(
+        portal_url=args.portal,
+        token=token,
+        model=model,
+        input_device=args.input_device,
+        output_device=args.output_device,
+        input_channels=max(1, args.input_channels),
+        input_channel=max(0, args.input_channel),
+        tools_enabled=not args.no_tools,
+        reasoning_enabled=bool(args.reasoning),
+        camera_enabled=camera_on,
+        camera_device=args.camera_device,
+    )
+    logger.info(
+        "call harness ready: model=%s tools=%s reasoning=%s camera=%s",
+        model,
+        config.tools_enabled,
+        config.reasoning_enabled,
+        config.camera_device if camera_on else "off",
+    )
+
+    stop = threading.Event()
+    muted = threading.Event()
+    grabber = _frame_grabber(args.camera_device) if camera_on else None
+
+    indicator = (
+        build_indicator(
+            on_mute=lambda value: muted.set() if value else muted.clear(),
+            on_quit=stop.set,
+        )
+        if not args.no_indicator
+        else None
+    )
+
+    def on_state(state: str, detail: str) -> None:
+        if indicator is not None:
+            indicator.set_state(state, detail)
+
+    def on_turn(result: TurnResult) -> None:
+        if result.error:
+            logger.warning("turn failed: %s", result.error)
+            return
+        logger.info(
+            "turn: heard=%r reply=%r first_audio=%s total=%.0fms%s%s",
+            result.transcript[:60],
+            result.reply[:60],
+            f"{result.first_audio_ms:.0f}ms" if result.first_audio_ms else "none",
+            result.total_ms,
+            f" tools={','.join(result.tools_used)}" if result.tools_used else "",
+            " (interrupted)" if result.interrupted else "",
+        )
+
+    def guarded_frame() -> dict[str, Any] | None:
+        return grabber() if grabber and not muted.is_set() else None
+
+    def worker() -> None:
+        while not stop.is_set():
+            try:
+                run_call_loop(
+                    config,
+                    on_state=lambda state, detail: on_state(
+                        "muted" if muted.is_set() else state, detail
+                    ),
+                    on_turn=on_turn,
+                    frame_grabber=guarded_frame,
+                    stop=stop,
+                )
+            except Exception as error:  # noqa: BLE001 - keep listening
+                logger.warning("call loop restarting after: %s", error)
+                on_state("offline", str(error)[:60])
+                if stop.wait(5):
+                    return
+
+    if indicator is None:
+        worker()
+        return 0
+
+    runner = ThreadedIndicator(indicator, worker)
+    try:
+        runner.run()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        stop.set()
+        runner.join()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

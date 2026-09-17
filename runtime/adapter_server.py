@@ -615,6 +615,90 @@ def _context_overflow(response: httpx.Response) -> bool:
     )
 
 
+def _shed_language_context(payload: dict[str, Any]) -> bool:
+    """Drop the oldest exchange so an over-long prompt can be retried.
+
+    llama.cpp refuses a prompt that will not fit rather than truncating it, so
+    a conversation that grows past the worker's window stops answering
+    entirely -- "request (4267 tokens) exceeds the available context size
+    (4096 tokens)". The caller cannot always know the window, and every client
+    would otherwise have to implement this for itself.
+
+    The system message and the newest user turn are never dropped: losing
+    either changes the question rather than how much history it carries.
+    Returns False when nothing further can be shed.
+    """
+
+    messages = payload.get("messages")
+    if not isinstance(messages, list) or len(messages) < 2:
+        return False
+    for index, message in enumerate(messages):
+        if not isinstance(message, Mapping) or message.get("role") == "system":
+            continue
+        if index == len(messages) - 1:
+            break
+        del messages[index]
+        return True
+
+    # Only a system message and the live turn remain, and together they still
+    # overrun. Cut the system message's tail on a line boundary -- it carries
+    # accumulated context, while its head carries the instructions.
+    for index, message in enumerate(messages):
+        if isinstance(message, Mapping) and message.get("role") == "system":
+            content = str(message.get("content") or "")
+            if len(content) <= 512:
+                return False
+            keep = max(256, int(len(content) * 0.6))
+            boundary = content.rfind("\n", 0, keep)
+            if boundary > 256:
+                keep = boundary
+            messages[index] = {
+                **message,
+                "content": content[:keep].rstrip()
+                + "\n\n[Earlier context omitted to fit the context window.]",
+            }
+            return True
+    return False
+
+
+def _estimated_prompt_tokens(payload: Mapping[str, Any]) -> int:
+    """A deliberately pessimistic token count for a chat payload.
+
+    Three characters per token rather than the usual four, and tool schemas
+    included because the chat template renders them into the prompt. Erring
+    high sheds one exchange too many; erring low means a refused turn.
+    """
+
+    messages = payload.get("messages")
+    characters = 0
+    if isinstance(messages, list):
+        characters += sum(
+            len(str(message.get("content") or "")) + 8
+            for message in messages
+            if isinstance(message, Mapping)
+        )
+    tools = payload.get("tools")
+    if isinstance(tools, list) and tools:
+        characters += len(json.dumps(tools))
+    return characters // 3
+
+
+def _fit_language_context(payload: dict[str, Any], config: Config) -> None:
+    """Shed history until the prompt plausibly fits the language window."""
+
+    window = max(1024, config.comprehension_context_tokens)
+    reply = payload.get("max_tokens")
+    budget = window - (reply if isinstance(reply, int) and reply > 0 else 256)
+    # Generous enough to drop a long history and then still cut the system
+    # message back: each pass gives up one exchange, or one bite of the
+    # system tail once the history is gone.
+    for _ in range(64):
+        if _estimated_prompt_tokens(payload) <= budget:
+            return
+        if not _shed_language_context(payload):
+            return
+
+
 def _require_comprehension(config: Config) -> None:
     """Fail clearly when this deployment runs without a comprehension worker.
 
@@ -1116,6 +1200,13 @@ def execute_stream(
         tag_stream = _ThinkingTagStream(enabled=thinking_enabled)
         tool_calls: Any = None
         result: dict[str, Any] = {}
+        # Make the prompt fit before sending it. llama.cpp refuses an
+        # over-long prompt rather than truncating it, so a conversation that
+        # outgrows the window stops answering entirely -- and the caller
+        # cannot reliably know what the window is. Shedding here costs no
+        # extra request: the estimate is deliberately pessimistic, and the
+        # 400 path below remains as the backstop for what it underestimates.
+        _fit_language_context(payload, config)
         with client.stream("POST", language_request_url(config), json=payload) as response:
             if response.status_code >= 400:
                 response.read()
