@@ -517,8 +517,8 @@ def test_a_barge_stops_playback_and_marks_the_turn_interrupted() -> None:
     assert call._barge.is_set()
 
 
-def test_the_newest_thing_said_wins_while_a_turn_is_still_running() -> None:
-    """What someone just said matters more than what they said before it."""
+def test_speech_during_a_turn_is_kept_rather_than_dropped() -> None:
+    """Carrying on while it answers must compound, not replace or vanish."""
 
     import inspect
 
@@ -526,5 +526,8 @@ def test_the_newest_thing_said_wins_while_a_turn_is_still_running() -> None:
 
     source = inspect.getsource(run_call_loop)
 
-    assert "maxsize=1" in source
-    assert "pending.get_nowait()" in source
+    # Held until the turn finishes, then answered together.
+    assert "waiting.add(" in source
+    assert "if busy.is_set():" in source
+    # An interrupted question goes back in front of what was said over it.
+    assert "waiting.prepend(" in source

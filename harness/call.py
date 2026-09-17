@@ -34,6 +34,7 @@ from harness.audio import (
     SpeakerStream,
     to_wav,
 )
+from harness.call_queue import SETTLE_MS, CallQueue, Pending
 from harness.memory import PassiveMemory
 from harness.respeaker import STATE_TO_RING, ReSpeaker, describe_direction
 from harness.vad import Vad, VadConfig
@@ -129,6 +130,13 @@ class CallConfig:
     # Ignore the first moment of playback, so the tail of the speaker's own
     # question cannot count as an interruption of the answer to it.
     barge_in_grace_s: float = 0.6
+    # How long a finished utterance waits for the speaker to carry on.
+    #
+    # People stop to think mid-sentence, and every one of those pauses looks
+    # like the end of a turn to a voice detector. Waiting a moment lets the
+    # rest of the sentence join the first half instead of arriving as a second
+    # question answered separately.
+    utterance_settle_s: float = SETTLE_MS / 1000.0
 
 
 @dataclass
@@ -566,14 +574,22 @@ def run_call_loop(
     frame_grabber: Callable[[], dict[str, Any] | None] | None = None,
     stop: threading.Event | None = None,
 ) -> None:
-    """Listen until told to stop, taking a turn each time someone speaks.
+    """Listen until told to stop, answering when the speaker is actually done.
 
-    The microphone is never closed and never ignored. A turn runs on its own
-    thread so the capture loop keeps reading frames and keeps running the VAD
-    throughout -- including while the reply is being spoken, which is the only
-    moment an interruption can happen and exactly when the old shape stopped
-    listening. Interrupting costs no weights: hearing that someone has started
-    is signal processing, and working out what they said happens afterwards.
+    Two things this gets right that answering per detected utterance does not.
+
+    A finished utterance is not a turn yet: it waits briefly, and anything said
+    in that moment joins it. People stop to think mid-sentence, and every one
+    of those pauses looks like the end of a turn to a voice detector, so
+    without this the two halves arrive as two questions and get two answers.
+
+    And the microphone is never ignored. A turn runs on its own thread so the
+    capture loop keeps reading frames throughout -- including while the reply
+    is being spoken, which is the only moment an interruption can happen.
+    Interrupting costs no weights: hearing that someone has started is signal
+    processing. When it happens, the question that was being answered goes
+    back in the queue, because it never actually got answered, and joins
+    whatever the speaker went on to say.
     """
 
     stop = stop or threading.Event()
@@ -581,9 +597,6 @@ def run_call_loop(
     vad = Vad(config.vad)
     outer_notify = on_state or (lambda state, detail: None)
 
-    # The array is optional. When it is there the room can see what the harness
-    # is doing without looking at a screen, and a turn can say which way the
-    # voice came from; when it is not, every call here is a no-op.
     array = ReSpeaker()
     array.start()
 
@@ -598,7 +611,9 @@ def run_call_loop(
 
     speaking_since: float | None = None
     busy = threading.Event()
-    pending: queue.Queue[Any] = queue.Queue(maxsize=1)
+    waiting = CallQueue(CAPTURE_RATE_HZ)
+    lock = threading.Lock()
+    work: queue.Queue[Pending] = queue.Queue(maxsize=1)
 
     def notify(state: State, detail: str = "") -> None:
         nonlocal speaking_since
@@ -613,14 +628,22 @@ def run_call_loop(
 
         while not stop.is_set():
             try:
-                utterance = pending.get(timeout=0.2)
+                pending = work.get(timeout=0.2)
             except queue.Empty:
                 continue
             busy.set()
             try:
                 session.direction = describe_direction(array.direction)
-                result = session.take_turn(utterance.samples(), segments=1)
-                if on_turn:
+                result = session.take_turn(
+                    pending.audio(), segments=max(1, pending.segments)
+                )
+                if result.interrupted:
+                    # It was cut off, so the question stands. Put it back in
+                    # front of whatever the speaker said over the top of it.
+                    with lock:
+                        waiting.prepend(pending.audio(), pending.active_ms)
+                    logger.info("re-queued the interrupted question")
+                elif on_turn:
                     on_turn(result)
             except Exception as error:  # noqa: BLE001 - one turn is not the call
                 logger.warning("turn failed: %s", error)
@@ -639,6 +662,7 @@ def run_call_loop(
     )
     frame_ms = microphone.frame_ms
     now_ms = 0.0
+    settle_until: float | None = None
     try:
         with microphone:
             notify("listening", "")
@@ -647,37 +671,52 @@ def run_call_loop(
                     return
                 now_ms += frame_ms
                 verdict = vad.process(frame, now_ms, frame_ms)
+                now = time.monotonic()
 
-                if verdict.event == "start":
-                    if not busy.is_set():
-                        notify("hearing", "")
-                    elif (
-                        can_barge
-                        and speaking_since is not None
-                        # Only once the reply has been going long enough that
-                        # this cannot be the tail of the question it answers.
-                        and time.monotonic() - speaking_since
-                        >= config.barge_in_grace_s
-                    ):
-                        logger.info("interrupted while speaking")
-                        session.request_barge()
+                if verdict.event in {"candidate", "start", "active"}:
+                    # Still talking, so nothing is finished being said.
+                    settle_until = None
+                    if verdict.event == "start":
+                        if not busy.is_set():
+                            notify("hearing", "")
+                        elif (
+                            can_barge
+                            and speaking_since is not None
+                            and now - speaking_since >= config.barge_in_grace_s
+                        ):
+                            logger.info("interrupted while speaking")
+                            session.request_barge()
                 elif verdict.event == "utterance" and verdict.utterance is not None:
-                    # Newest wins: if a turn is still running, what was just
-                    # said is what matters, not what was said before it.
-                    try:
-                        pending.put_nowait(verdict.utterance)
-                    except queue.Full:
-                        try:
-                            pending.get_nowait()
-                        except queue.Empty:
-                            pass
-                        try:
-                            pending.put_nowait(verdict.utterance)
-                        except queue.Full:
-                            logger.debug("dropped an utterance while busy")
+                    with lock:
+                        waiting.add(
+                            verdict.utterance.samples(),
+                            verdict.utterance.active_duration_ms,
+                        )
+                        segments = waiting.segments
+                    settle_until = now + config.utterance_settle_s
+                    if segments > 1:
+                        logger.info("carried on speaking; %d segments so far", segments)
                     # The speaker's own voice has been in the microphone and
                     # the room has changed, so the floor is learned again.
                     vad.reset(now_ms, calibrate=True)
+
+                if settle_until is None or now < settle_until:
+                    continue
+                if busy.is_set():
+                    # Hold it: answering the first half while the second is
+                    # still being spoken is what produced two replies.
+                    continue
+                with lock:
+                    if not waiting:
+                        settle_until = None
+                        continue
+                    pending = waiting.take()
+                settle_until = None
+                try:
+                    work.put_nowait(pending)
+                except queue.Full:
+                    with lock:
+                        waiting.prepend(pending.audio(), pending.active_ms)
     finally:
         stop.set()
         turns.join(timeout=5)
