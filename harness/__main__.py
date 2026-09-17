@@ -213,6 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         memory_path="" if args.no_memory else args.memory_path,
         prepare_speech=residency.prepare_speech if residency else None,
         restore_after_speech=residency.restore if residency else None,
+        await_comprehension=residency.await_ready if residency else None,
     )
     logger.info(
         "call harness ready: model=%s tools=%s reasoning=%s camera=%s speech_eviction=%s",

@@ -531,3 +531,72 @@ def test_speech_during_a_turn_is_kept_rather_than_dropped() -> None:
     assert "if busy.is_set():" in source
     # An interrupted question goes back in front of what was said over it.
     assert "waiting.prepend(" in source
+
+
+# -- never waiting when it does not have to --------------------------------
+
+
+def test_the_reload_is_not_waited_for_before_the_turn_can_finish() -> None:
+    """Waiting there stopped anything being answered for half a minute.
+
+    The evicted worker takes about thirty seconds to read its weights back.
+    Blocking on that before the turn completed spent it while the speaker was
+    still listening to the reply, or thinking about what to say next.
+    """
+
+    import inspect
+
+    from harness.residency import SpeechResidency
+
+    restore = inspect.getsource(SpeechResidency.restore)
+
+    assert "await_ready" not in restore
+    assert "while time.monotonic() < deadline" not in restore
+    assert "in the background" in restore
+
+
+def test_a_turn_waits_for_comprehension_only_when_it_needs_it() -> None:
+    order: list[str] = []
+    call = CallSession(
+        CallConfig(
+            portal_url="http://127.0.0.1:8920",
+            token="t",
+            model="m",
+            tools_enabled=False,
+            camera_enabled=False,
+            await_comprehension=lambda: order.append("await"),
+            prepare_speech=lambda: order.append("evict"),
+            restore_after_speech=lambda: order.append("restore"),
+        )
+    )
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        task = payload["omni"]["task"]  # type: ignore[index]
+        order.append("chat" if task == "chat" else "tts")
+        if task == "chat":
+            return TurnResult(transcript="hello", reply="Hello.")
+        return TurnResult(spoke_seconds=1.0)
+
+    call._run = run  # type: ignore[method-assign]
+    call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    # Readiness is checked first, then the turn runs and hands speech the room.
+    assert order == ["await", "chat", "evict", "tts", "restore"]
+
+
+def test_a_worker_that_never_comes_back_fails_one_turn_not_the_call() -> None:
+    def refuse() -> None:
+        raise TimeoutError("did not become ready")
+
+    call = CallSession(
+        CallConfig(
+            portal_url="http://127.0.0.1:8920",
+            token="t",
+            model="m",
+            await_comprehension=refuse,
+        )
+    )
+
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert "comprehension is not ready" in result.error

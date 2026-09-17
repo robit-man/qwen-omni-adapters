@@ -130,6 +130,11 @@ class CallConfig:
     # pass is complete, then these callbacks bracket one direct synthesis pass.
     prepare_speech: Callable[[], None] | None = None
     restore_after_speech: Callable[[], None] | None = None
+    # Block until the evicted worker can hear again. Called at the point a turn
+    # actually needs comprehension rather than when the last reply finished, so
+    # its reload overlaps the reply still playing and the pause before anyone
+    # speaks again.
+    await_comprehension: Callable[[], None] | None = None
     # Whether the speaker may talk over a reply in progress.
     #
     # Detecting that someone has started speaking is the VAD, which runs on
@@ -369,6 +374,16 @@ class CallSession:
         actually turned something up. A follow-up that used no tools has
         nothing to add, so it is not spoken.
         """
+
+        # The comprehension weights are needed from the first request. If the
+        # last reply evicted them, their reload has been running since that
+        # reply began playing, so this usually returns at once.
+        if self.config.await_comprehension is not None:
+            self._state("thinking", "waiting to hear")
+            try:
+                self.config.await_comprehension()
+            except Exception as error:  # noqa: BLE001 - one turn is not the call
+                return TurnResult(error=f"comprehension is not ready: {error}")
 
         audio = to_wav(samples)
         chained = self.config.tools_enabled and self.config.chained_tools
