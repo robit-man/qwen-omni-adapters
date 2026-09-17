@@ -13,11 +13,12 @@ import math
 import sys
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from harness.memory import Memory, MemoryStore, PassiveMemory  # noqa: E402
+from harness.memory import MemoryStore, PassiveMemory  # noqa: E402
 
 
 class FakeEmbedder:
@@ -199,49 +200,106 @@ def test_memory_survives_a_restart(tmp_path: Path) -> None:
     second.close()
 
 
-def test_passive_recall_never_waits_for_the_embedder(tmp_path: Path) -> None:
-    """A slow memory can miss a turn, but it cannot delay that turn."""
+def test_passive_memory_embeds_after_the_caller_has_moved_on(tmp_path: Path) -> None:
+    """A slow semantic write can never hold up the conversation thread."""
 
     started = threading.Event()
     release = threading.Event()
-    finished = threading.Event()
-    recalled = Memory(1, "The dog is called Biscuit.", "turn", 0, 0, 0, 0.5)
+    stored: list[tuple[str, str]] = []
 
     class BlockingStore:
         def decay(self) -> int:
             return 0
 
         def stats(self) -> dict[str, int]:
-            return {"memories": 1}
-
-        def recall(self, query: str, *, limit: int) -> list[Memory]:
-            started.set()
-            release.wait(2)
-            finished.set()
-            return [recalled]
+            return {"memories": 0}
 
         def remember(self, text: str, *, kind: str) -> None:
-            pass
+            started.set()
+            release.wait(2)
+            stored.append((text, kind))
 
         def close(self) -> None:
             pass
 
     worker = PassiveMemory(
-        tmp_path / "memory.sqlite3", store_factory=lambda _path: BlockingStore()
+        tmp_path / "memory.sqlite3",
+        store_factory=lambda _path: BlockingStore(),
     )
-    worker.recall_later("what is my puppy called")
+    worker.remember("The user said their dog is called Biscuit.", kind="exchange")
     assert started.wait(1)
-
-    # This is a cache read, not a wait on the background operation.
-    assert worker.take_recall("what is my puppy called") == []
+    assert stored == []
 
     release.set()
-    assert finished.wait(1)
-    deadline = time.monotonic() + 1
-    found: list[Memory] = []
-    while time.monotonic() < deadline and not found:
-        found = worker.take_recall("what is my puppy called")
-        if not found:
-            time.sleep(0.01)
-    assert found == [recalled]
     worker.close()
+    assert stored == [("The user said their dog is called Biscuit.", "exchange")]
+
+
+# -- a memory knows when it happened ---------------------------------------
+
+
+def test_a_memory_says_when_it_happened_the_way_a_person_would(tmp_path: Path) -> None:
+    """Both forms: "yesterday" places it, the date makes it checkable."""
+
+    from harness.memory import Memory
+
+    now = time.time()
+
+    def at(days_ago: float) -> Memory:
+        return Memory(
+            id=1,
+            text="the dog is called Biscuit",
+            kind="exchange",
+            created_at=now - days_ago * 86400,
+            last_used_at=now,
+            uses=0,
+            strength=0.5,
+        )
+
+    assert at(0).when().startswith("today at ")
+    assert at(1).when().startswith("yesterday at ")
+    assert "days ago" in at(3).when()
+    # Far enough back that a weekday name would be useless.
+    assert "days ago" not in at(40).when()
+    # Older than this year carries the year.
+    assert str(datetime.fromtimestamp(now - 500 * 86400).year) in at(500).when()
+
+
+def test_the_stamp_travels_with_the_text(tmp_path: Path) -> None:
+    from harness.memory import Memory
+
+    memory = Memory(
+        id=1,
+        text="the dog is called Biscuit",
+        kind="exchange",
+        created_at=time.time(),
+        last_used_at=time.time(),
+        uses=0,
+        strength=0.5,
+    )
+
+    stamped = memory.stamped()
+    assert stamped.startswith("[today at ")
+    assert stamped.endswith("the dog is called Biscuit")
+
+
+def test_the_timestamp_is_not_embedded_with_the_text(tmp_path: Path) -> None:
+    """Dating every memory in its text would make them all look alike.
+
+    The date becomes a feature shared by everything stored, competing with
+    what each memory is actually about. It is kept beside the text and
+    attached at the point of use instead.
+    """
+
+    embedder = FakeEmbedder()
+    memory = MemoryStore(tmp_path / "memory.sqlite3", embedder=embedder)
+    memory.remember("The user said their dog is called Biscuit.")
+
+    row = memory._db.execute("SELECT text FROM memories").fetchone()
+    assert row["text"] == "The user said their dog is called Biscuit."
+    assert "[" not in row["text"]
+
+    # And recall is unaffected by how long ago it was stored.
+    found = memory.recall("what is the dog called")
+    assert found and "Biscuit" in found[0].text
+    memory.close()

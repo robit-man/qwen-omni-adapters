@@ -24,6 +24,7 @@ from harness.audio import require_tools
 from harness.call import CallConfig, TurnResult, run_call_loop
 from harness.camera import CameraSet
 from harness.indicator import ThreadedIndicator, build_indicator
+from harness.residency import SpeechResidency
 from harness.respeaker import find_source
 
 logger = logging.getLogger("omni.harness")
@@ -182,6 +183,18 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("microphone: %s (%d channel(s), using %d)", device or "default", channels, channel)
 
     camera_on = bool(args.camera_device) and not args.no_camera
+    eviction_unit = os.environ.get("OMNI_CALL_SPEECH_EVICT_UNIT", "").strip()
+    residency = (
+        SpeechResidency(
+            eviction_unit,
+            os.environ.get(
+                "OMNI_CALL_COMPREHENSION_HEALTH",
+                "http://127.0.0.1:8901/health",
+            ),
+        )
+        if eviction_unit
+        else None
+    )
     config = CallConfig(
         portal_url=args.portal,
         token=token,
@@ -198,13 +211,16 @@ def main(argv: list[str] | None = None) -> int:
         # has to be able to go and look again rather than holding a dead key.
         token_reader=lambda: _read_token(args.token),
         memory_path="" if args.no_memory else args.memory_path,
+        prepare_speech=residency.prepare_speech if residency else None,
+        restore_after_speech=residency.restore if residency else None,
     )
     logger.info(
-        "call harness ready: model=%s tools=%s reasoning=%s camera=%s",
+        "call harness ready: model=%s tools=%s reasoning=%s camera=%s speech_eviction=%s",
         model,
         config.tools_enabled,
         config.reasoning_enabled,
         config.camera_device if camera_on else "off",
+        eviction_unit or "off",
     )
 
     stop = threading.Event()

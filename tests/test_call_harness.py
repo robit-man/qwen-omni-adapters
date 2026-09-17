@@ -168,7 +168,8 @@ def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     assert payload["think"] is False
     assert payload["portal_auto_tools"] is True
     assert payload["stream"] is True
-    assert payload["messages"][0]["content"] == LIVE_CALL_SYSTEM_PROMPT
+    # The live-call instructions, plus the clock appended per turn.
+    assert payload["messages"][0]["content"].startswith(LIVE_CALL_SYSTEM_PROMPT)
     # The normal chat request hears and answers in one pass.
     assert "latest spoken turn" in payload["messages"][-1]["content"]
     assert payload["messages"][-1]["audios"][0]["data"] == "d2F2"
@@ -251,6 +252,7 @@ def test_a_turn_has_no_transcription_gate_before_the_answer() -> None:
             camera_enabled=False,
         )
     )
+
     payloads: list[dict[str, object]] = []
 
     def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
@@ -264,6 +266,110 @@ def test_a_turn_has_no_transcription_gate_before_the_answer() -> None:
     assert len(payloads) == 1
     assert payloads[0]["omni"]["task"] == "chat"  # type: ignore[index]
     assert "audios" in payloads[0]["messages"][-1]  # type: ignore[index]
+
+
+def test_an_empty_observation_does_not_start_a_second_pass() -> None:
+    """Noise must not reach tools, cameras, memory, or another model request."""
+
+    call = CallSession(
+        CallConfig(
+            portal_url="http://127.0.0.1:8920",
+            token="t",
+            model="m",
+            tools_enabled=True,
+            camera_enabled=False,
+        )
+    )
+
+    payloads: list[dict[str, object]] = []
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        payloads.append(payload)
+        return TurnResult()
+
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert result == TurnResult()
+    assert len(payloads) == 1
+
+
+def test_constrained_host_finishes_text_before_swapping_to_speech() -> None:
+    """Comprehension and TTS must never be resident at the same time."""
+
+    order: list[str] = []
+    call = CallSession(
+        CallConfig(
+            portal_url="http://127.0.0.1:8920",
+            token="t",
+            model="m",
+            tools_enabled=False,
+            camera_enabled=False,
+            prepare_speech=lambda: order.append("evict"),
+            restore_after_speech=lambda: order.append("restore"),
+        )
+    )
+
+    class RecordingMemory:
+        def remember(self, _text: str, *, kind: str) -> None:
+            assert kind == "exchange"
+            order.append("memory")
+
+    call.memory = RecordingMemory()  # type: ignore[assignment]
+    payloads: list[dict[str, object]] = []
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        payloads.append(payload)
+        task = payload["omni"]["task"]  # type: ignore[index]
+        if task == "chat":
+            order.append("chat")
+            assert payload["response_modalities"] == ["text"]
+            assert payload["speech_mode"] == "never"
+            return TurnResult(transcript="hello", reply="Yes, I hear you.")
+        order.append("tts")
+        assert payload["messages"] == [
+            {"role": "user", "content": "Yes, I hear you."}
+        ]
+        return TurnResult(spoke_seconds=1.0, first_audio_ms=25.0)
+
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert order == ["chat", "evict", "tts", "restore", "memory"]
+    assert [payload["omni"]["task"] for payload in payloads] == [  # type: ignore[index]
+        "chat",
+        "synthesize",
+    ]
+    assert result.error == ""
+    assert result.spoke_seconds == 1.0
+
+
+def test_comprehension_is_restored_when_synthesis_fails() -> None:
+    order: list[str] = []
+    call = CallSession(
+        CallConfig(
+            portal_url="http://127.0.0.1:8920",
+            token="t",
+            model="m",
+            tools_enabled=False,
+            camera_enabled=False,
+            prepare_speech=lambda: order.append("evict"),
+            restore_after_speech=lambda: order.append("restore"),
+        )
+    )
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        task = payload["omni"]["task"]  # type: ignore[index]
+        if task == "chat":
+            return TurnResult(transcript="hello", reply="Hello.")
+        order.append("tts")
+        return TurnResult(error="TTS failed")
+
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert order == ["evict", "tts", "restore"]
+    assert result.error == "TTS failed"
 
 
 
@@ -305,3 +411,45 @@ def test_a_question_about_time_asks_for_a_clip_not_a_still() -> None:
     assert wants_motion("what just happened") is True
     assert wants_motion("did you see that") is True
     assert wants_motion("what am I holding") is False
+
+
+# -- knowing when it is ----------------------------------------------------
+
+
+def test_the_model_is_told_the_current_date_and_time() -> None:
+    """Without a clock a model answers "what day is it" from its training."""
+
+    from datetime import datetime
+
+    from harness.call import grounding_preamble
+
+    fixed = datetime(2026, 9, 17, 14, 5)
+    preamble = grounding_preamble(fixed)
+
+    assert "Thursday 17 September 2026" in preamble
+    assert "14:05" in preamble
+
+
+def test_the_grounding_rides_on_every_turn() -> None:
+    payload = session()._build_payload(b"RIFF", segments=1, frame=None)
+    system = payload["messages"][0]
+
+    assert system["role"] == "system"
+    assert "The current date and time is" in system["content"]
+    # The live-call instructions are still there, not replaced by it.
+    assert "live two-way spoken conversation" in system["content"]
+
+
+def test_the_clock_is_read_per_turn_not_once_at_import() -> None:
+    """A process listening for a week must not still think it is Monday."""
+
+    import harness.call as call_module
+
+    seen: list[str] = []
+    for _ in range(2):
+        payload = session()._build_payload(b"RIFF", segments=1, frame=None)
+        seen.append(payload["messages"][0]["content"])
+
+    # Same call, freshly rendered each time rather than a module constant.
+    assert "The current date and time is" not in call_module.LIVE_CALL_SYSTEM_PROMPT
+    assert all("The current date and time is" in content for content in seen)

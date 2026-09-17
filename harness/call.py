@@ -19,6 +19,7 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +33,7 @@ from harness.audio import (
     SpeakerStream,
     to_wav,
 )
-from harness.memory import Memory, PassiveMemory
+from harness.memory import PassiveMemory
 from harness.respeaker import STATE_TO_RING, ReSpeaker, describe_direction
 from harness.vad import Vad, VadConfig
 from harness.vision_intent import wants_motion, wants_vision
@@ -55,6 +56,26 @@ LIVE_CALL_SYSTEM_PROMPT = (
     "asked about something visible: answer what was said, and do not describe "
     "the room, the scene, or what you can see unless they asked."
 )
+
+def grounding_preamble(now: datetime | None = None) -> str:
+    """Tell the model when it is, because otherwise it guesses.
+
+    A model has no clock. Asked what day it is, or how long ago something
+    happened, it answers from whenever its training stopped -- confidently and
+    wrongly. This is computed per turn rather than once at import, so a process
+    that has been listening for a week does not still think it is Monday.
+    """
+
+    moment = (now or datetime.now()).astimezone()
+    return (
+        "The current date and time is "
+        f"{moment.strftime('%A %-d %B %Y at %H:%M')} "
+        f"({moment.strftime('%Z')}). Use this for anything that depends on "
+        "when it is -- today, tomorrow, how long ago something was -- rather "
+        "than guessing. Timestamps in square brackets on remembered items are "
+        "when those happened, relative to now."
+    )
+
 
 State = str  # "starting" | "listening" | "hearing" | "thinking" | "speaking" | "offline"
 
@@ -84,9 +105,13 @@ class CallConfig:
     vad: VadConfig = field(default_factory=VadConfig)
     # How to fetch the portal token again when the one in hand is refused.
     token_reader: Callable[[], str] | None = None
-    # Where the rolling memory lives, and how much of it one turn may carry.
+    # Where completed exchanges are journaled outside the conversation path.
     memory_path: str = ""
-    memory_recall: int = 4
+    # Unified-memory hosts may need to evict comprehension before loading TTS.
+    # When configured, chat stays text-only until every reasoning/tool/vision
+    # pass is complete, then these callbacks bracket one direct synthesis pass.
+    prepare_speech: Callable[[], None] | None = None
+    restore_after_speech: Callable[[], None] | None = None
 
 
 @dataclass
@@ -188,7 +213,6 @@ class CallSession:
         frame: dict[str, Any] | None,
         *,
         with_tools: bool | None = None,
-        recalled: list[Memory] | None = None,
     ) -> dict[str, Any]:
         if with_tools is None:
             with_tools = self.config.tools_enabled
@@ -230,27 +254,14 @@ class CallSession:
             )
             message[key] = [frame]
 
-        remembered: list[dict[str, Any]] = []
-        if recalled:
-            lines = "\n".join(f"- {memory.text}" for memory in recalled)
-            remembered = [
-                {
-                    "role": "system",
-                    "content": (
-                        "From earlier, and relevant to what was just said:\n"
-                        f"{lines}\n"
-                        "Use these only if they bear on the question. Do not "
-                        "list them, announce that you remembered, or mention "
-                        "having a memory."
-                    ),
-                }
-            ]
-
+        split_speech = self.config.prepare_speech is not None
         return {
             "model": self.config.model,
             "messages": [
-                {"role": "system", "content": LIVE_CALL_SYSTEM_PROMPT},
-                *remembered,
+                {
+                    "role": "system",
+                    "content": f"{LIVE_CALL_SYSTEM_PROMPT}\n\n{grounding_preamble()}",
+                },
                 *self._history[-self.config.history_turns :],
                 message,
             ],
@@ -262,10 +273,24 @@ class CallSession:
                 # cough does not become a turn.
                 "require_speech": True,
             },
-            "response_modalities": ["text", "audio"],
-            "speech_mode": "always",
+            "response_modalities": ["text"] if split_speech else ["text", "audio"],
+            "speech_mode": "never" if split_speech else "always",
             "think": self.config.reasoning_enabled,
             "portal_auto_tools": with_tools,
+            "stream": True,
+        }
+
+    def _build_synthesis_payload(self, text: str) -> dict[str, Any]:
+        """Speak finished text without loading comprehension or language."""
+
+        return {
+            "model": self.config.model,
+            "messages": [{"role": "user", "content": text}],
+            "omni": {"schema": SCHEMA, "task": "synthesize"},
+            "response_modalities": ["text", "audio"],
+            "speech_mode": "always",
+            "think": False,
+            "portal_auto_tools": False,
             "stream": True,
         }
 
@@ -312,64 +337,89 @@ class CallSession:
         self._remember(result)
         if result.error or result.interrupted:
             return result
-
-        query = result.transcript or result.audio_observation
-        recalled = self.memory.take_recall(query) if self.memory is not None else []
-        if recalled:
-            logger.info(
-                "using %d memor%s that finished in the background",
-                len(recalled),
-                "y" if len(recalled) == 1 else "ies",
-            )
+        if not result.transcript and not result.audio_observation:
+            return result
 
         looking = (
             self.config.camera_enabled
             and self._frame_grabber is not None
             and wants_vision(result.transcript)
         )
-        if not (chained or looking):
-            return result
+        if chained or looking:
+            frame = None
+            if looking:
+                self._state("thinking", "looking")
+                frame = self._frame_grabber(motion=wants_motion(result.transcript))
 
-        frame = None
-        if looking:
-            self._state("thinking", "looking")
-            frame = self._frame_grabber(motion=wants_motion(result.transcript))
-
-        follow = self._run(
-            self._build_payload(
-                audio,
-                segments,
-                frame,
-                with_tools=True,
-                recalled=recalled,
-            ),
-            speak_only_if_useful=not looking and not recalled,
-            recall_memory=False,
-        )
-        useful = bool(follow.tools_used or looking or recalled)
-        if useful and follow.reply.strip() and not follow.error:
-            if self.memory is not None:
-                # What was looked up, kept alongside what prompted it, so a
-                # later question about the same thing finds the answer rather
-                # than the search.
-                self.memory.remember(
-                    f"{result.transcript} — {follow.reply.strip()}",
-                    kind="researched",
-                )
-            result.followup = follow.reply.strip()
-            result.tools_used = follow.tools_used
-            result.spoke_seconds += follow.spoke_seconds
-            self._history.append(
-                {"role": "assistant", "content": follow.reply.strip()}
+            follow = self._run(
+                self._build_payload(
+                    audio,
+                    segments,
+                    frame,
+                    with_tools=True,
+                ),
+                speak_only_if_useful=not looking,
             )
+            useful = bool(follow.tools_used or looking)
+            if useful and follow.reply.strip() and not follow.error:
+                result.followup = follow.reply.strip()
+                result.tools_used = follow.tools_used
+                result.spoke_seconds += follow.spoke_seconds
+                self._history.append(
+                    {"role": "assistant", "content": follow.reply.strip()}
+                )
+            if follow.error or follow.interrupted:
+                return result
+
+        if self.config.prepare_speech is not None:
+            speech = self._speak_finished(result.followup or result.reply)
+            result.spoke_seconds += speech.spoke_seconds
+            result.first_audio_ms = speech.first_audio_ms
+            result.total_ms += speech.total_ms
+            result.interrupted = speech.interrupted
+            result.error = speech.error
+            if speech.error or speech.interrupted:
+                return result
+
+        # Scheduling the daemon worker is the final operation. It can never
+        # overlap comprehension, tool use, TTS, or comprehension restoration.
+        self._persist(result)
         return result
+
+    def _speak_finished(self, text: str) -> TurnResult:
+        """Evict heavyweight listeners, synthesize once, then restore them."""
+
+        if not text.strip():
+            return TurnResult()
+        prepare = self.config.prepare_speech
+        restore = self.config.restore_after_speech
+        if prepare is None:
+            return TurnResult(error="speech residency callback is not configured")
+
+        self._state("thinking", "making room for speech")
+        try:
+            prepare()
+        except Exception as error:  # noqa: BLE001 - report one failed turn
+            return TurnResult(error=f"could not make room for speech: {error}")
+
+        speech = TurnResult()
+        try:
+            speech = self._run(self._build_synthesis_payload(text))
+        finally:
+            if restore is not None:
+                self._state("thinking", "restoring comprehension")
+                try:
+                    restore()
+                except Exception as error:  # noqa: BLE001 - keep the listener alive
+                    detail = f"could not restore comprehension: {error}"
+                    speech.error = f"{speech.error}; {detail}" if speech.error else detail
+        return speech
 
     def _run(
         self,
         payload: dict[str, Any],
         *,
         speak_only_if_useful: bool = False,
-        recall_memory: bool = True,
     ) -> TurnResult:
         """One request: stream it, and speak the audio as it arrives."""
 
@@ -402,11 +452,6 @@ class CallSession:
                     result.audio_observation = str(
                         event.get("audio_observation") or ""
                     ).strip()
-                    if self.memory is not None and recall_memory:
-                        self.memory.recall_later(
-                            result.transcript or result.audio_observation,
-                            limit=self.config.memory_recall,
-                        )
                     self._state("thinking", result.transcript)
                 elif kind == "tool":
                     name = str(event.get("name") or event.get("tool") or "").strip()
@@ -465,14 +510,11 @@ class CallSession:
     def _remember(self, result: TurnResult) -> None:
         """Keep the dialogue, not the audio: only text carries to the next turn.
 
-        The rolling store gets the exchange as one entry rather than two. A
-        question and its answer are one thing to remember -- "what is the dog
-        called" is only useful alongside "Biscuit" -- and storing them apart
-        surfaces half an answer.
+        Persistent journaling happens only after all answer/tool/TTS work has
+        finished, separately from this prompt history update.
         """
 
         spoken = result.transcript or result.audio_observation
-        transcript = result.transcript
         reply = result.reply.strip()
         if spoken:
             self._history.append({"role": "user", "content": spoken})
@@ -482,8 +524,15 @@ class CallSession:
         if len(self._history) > limit:
             self._history = self._history[-limit:]
 
+    def _persist(self, result: TurnResult) -> None:
+        """Queue semantic storage after the whole turn, with no synchronous I/O."""
+
         if self.memory is None:
             return
+        transcript = result.transcript
+        reply = " ".join(
+            part for part in (result.reply.strip(), result.followup.strip()) if part
+        )
         if transcript and reply:
             self.memory.remember(f"{transcript} — {reply}", kind="exchange")
         elif transcript:

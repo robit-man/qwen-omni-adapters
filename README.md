@@ -157,11 +157,13 @@ Defaults are chosen for a spoken conversation:
 - **ReSpeaker when present.** Its ring follows the conversation and the
   direction a voice came from is attached to the turn as evidence. With no
   array attached the default microphone is used and nothing else changes.
-- **Memory is passive.** Completed exchanges are embedded and persisted on a
-  daemon worker. Semantic recall starts from the transcript event already
-  emitted by the normal chat request and is used by the optional second pass
-  only when it has finished in time. Embedding, SQLite, or memory failure can
-  never delay or prevent hearing, answering, reasoning, tool use, or speech.
+- **Memory is passive.** Completed exchanges are embedded on a daemon worker
+  only after the answer, tools and speech finish. Recall never gates or alters
+  an active turn, and the auxiliary encoder is unloaded after each write. The
+  Ornith/Omni chat weights have no embedding head and measured poorly when
+  forced into that role, so the small dedicated encoder remains the deliberate
+  exception. Memory cannot delay or prevent hearing, answering, reasoning,
+  tool use, or speech.
 
 The speech detector is a port of `portal/static/call_vad.js` with its constants
 intact, so the same room behaves the same way in the browser and here.
@@ -190,10 +192,15 @@ Two environment variables are worth knowing:
 | `OMNI_PORTAL_URL` | Where the portal is (default `http://127.0.0.1:8920`) |
 | `OMNI_CALL_CAMERA` | A single camera to use instead of every one found |
 | `OMNI_CALL_MEMORY` | Persistent passive-memory SQLite path |
+| `OMNI_CALL_SPEECH_EVICT_UNIT` | User service to stop before TTS and restore afterward |
+| `OMNI_CALL_COMPREHENSION_HEALTH` | Readiness URL used after restoring that service |
 
-Keep `OMNI_TTS_PERSISTENT=1` on any host used for conversation. Spawning the
-speech worker per utterance costs about 25 seconds of every turn; keeping it
-loaded takes that to roughly 2.
+Keep `OMNI_TTS_PERSISTENT=1` only when speech and comprehension genuinely fit
+together. On constrained unified-memory hosts, use `OMNI_TTS_PERSISTENT=0` and
+set `OMNI_CALL_SPEECH_EVICT_UNIT`: the harness completes hearing, reasoning and
+tools as text, stops comprehension, synthesizes once, lets TTS exit, and restores
+comprehension before listening again. This is slower than resident TTS, but it
+prevents the kernel from overcommitting the machine.
 
 ## Request example
 

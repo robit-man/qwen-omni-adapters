@@ -30,6 +30,7 @@ import threading
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +67,43 @@ class Memory:
 
     def age_days(self, now: float | None = None) -> float:
         return max(0.0, ((now or time.time()) - self.created_at) / 86400.0)
+
+    def when(self, now: float | None = None) -> str:
+        """When this was remembered, phrased the way a person would say it.
+
+        Both the relative and the absolute form: "yesterday" is what makes a
+        memory feel placed in time, and the date is what makes it checkable.
+        A model handed "three weeks ago" with no date cannot reason about it
+        against today, and a model handed only a timestamp has to do the
+        arithmetic itself.
+        """
+
+        moment = datetime.fromtimestamp(self.created_at).astimezone()
+        today = datetime.now().astimezone().date()
+        days = (today - moment.date()).days
+        clock = moment.strftime("%H:%M")
+        if days <= 0:
+            return f"today at {clock}"
+        if days == 1:
+            return f"yesterday at {clock}"
+        if days < 7:
+            return f"{moment.strftime('%A')} at {clock} ({days} days ago)"
+        if moment.year == datetime.now().year:
+            return moment.strftime(f"%-d %B at {clock}")
+        return moment.strftime(f"%-d %B %Y at {clock}")
+
+    def stamped(self, now: float | None = None) -> str:
+        """The memory with its moment attached, for showing to the model.
+
+        The timestamp is kept out of the embedded text on purpose. Retrieval
+        works on what a memory is about, and prefixing every one of them with
+        a date makes them all look slightly alike -- the dates become a shared
+        feature competing with the meaning. Storing the moment beside the text
+        and attaching it at the point of use keeps recall sharp and still
+        leaves nothing undated.
+        """
+
+        return f"[{self.when(now)}] {self.text}"
 
     def score(self, now: float | None = None) -> float:
         """Relevance, tempered by how well this memory has held up.
@@ -110,7 +148,14 @@ class Embedder:
         try:
             response = self._client.post(
                 f"{self.base_url}/api/embeddings",
-                json={"model": self.model, "prompt": text[:4000]},
+                # The live Omni/TTS stack needs the unified-memory headroom.
+                # Never leave the auxiliary encoder resident after this
+                # background write.
+                json={
+                    "model": self.model,
+                    "prompt": text[:4000],
+                    "keep_alive": 0,
+                },
             )
             response.raise_for_status()
             vector = response.json().get("embedding")
@@ -320,13 +365,13 @@ class MemoryStore:
 
 
 class PassiveMemory:
-    """Run every embedding and database operation away from the call path.
+    """Embed completed exchanges only after the active call work has ended.
 
-    Hearing, answering, reasoning, tool use, and speech must never wait for an
-    embedding server or SQLite. Recall is therefore speculative: the call loop
-    asks for it as soon as the normal chat stream exposes a transcript and only
-    consumes it later if it is already ready. A slow or failed memory operation
-    is simply absent from that turn.
+    The worker remains asynchronous, but scheduling matters as much as the
+    thread boundary: loading an encoder while Omni is still answering can kill
+    the adapter on a unified-memory host. CallSession queues writes only after
+    answer, tools, and TTS are complete. Recall never gates or modifies the
+    live turn.
     """
 
     def __init__(
@@ -338,11 +383,7 @@ class PassiveMemory:
     ) -> None:
         self.path = Path(path)
         self._store_factory = store_factory
-        self._jobs: queue.Queue[tuple[str, str, str, int]] = queue.Queue(
-            maxsize=max_pending
-        )
-        self._ready: dict[str, list[Memory]] = {}
-        self._ready_lock = threading.Lock()
+        self._jobs: queue.Queue[tuple[str, str]] = queue.Queue(maxsize=max_pending)
         self._closed = threading.Event()
         self._warned_full = False
         self._thread = threading.Thread(
@@ -356,8 +397,8 @@ class PassiveMemory:
     def _key(text: str) -> str:
         return " ".join((text or "").split())
 
-    def _submit(self, job: tuple[str, str, str, int]) -> None:
-        if self._closed.is_set() or not job[1]:
+    def _submit(self, job: tuple[str, str]) -> None:
+        if self._closed.is_set() or not job[0]:
             return
         try:
             self._jobs.put_nowait(job)
@@ -370,24 +411,13 @@ class PassiveMemory:
     def remember(self, text: str, *, kind: str = "turn") -> None:
         """Queue a write and return immediately."""
 
-        self._submit(("remember", self._key(text), kind, 0))
-
-    def recall_later(self, query: str, *, limit: int = 4) -> None:
-        """Queue semantic recall without making the conversation wait for it."""
-
-        self._submit(("recall", self._key(query), "", max(1, limit)))
-
-    def take_recall(self, query: str) -> list[Memory]:
-        """Return a completed recall, or immediately return no context."""
-
-        key = self._key(query)
-        with self._ready_lock:
-            return self._ready.pop(key, [])
+        self._submit((self._key(text), kind))
 
     def close(self) -> None:
-        """Ask the daemon worker to drain and close; never wait on a call exit."""
+        """Drain the tiny local journal queue during service shutdown."""
 
         self._closed.set()
+        self._thread.join(timeout=1.0)
 
     def _work(self) -> None:
         store: MemoryStore | None = None
@@ -395,28 +425,20 @@ class PassiveMemory:
             store = self._store_factory(self.path)
             faded = store.decay()
             logger.info(
-                "memory ready in background: %s at %s%s",
+                "passive semantic memory ready: %s at %s%s",
                 store.stats(),
                 self.path,
                 f"; {faded} forgotten" if faded else "",
             )
             while not (self._closed.is_set() and self._jobs.empty()):
                 try:
-                    action, text, kind, limit = self._jobs.get(timeout=0.2)
+                    text, kind = self._jobs.get(timeout=0.2)
                 except queue.Empty:
                     continue
                 try:
-                    if action == "remember":
-                        store.remember(text, kind=kind)
-                    elif action == "recall":
-                        found = store.recall(text, limit=limit)
-                        with self._ready_lock:
-                            # A missed turn must not grow an unbounded cache.
-                            if len(self._ready) >= 32:
-                                self._ready.pop(next(iter(self._ready)))
-                            self._ready[text] = found
+                    store.remember(text, kind=kind)
                 except Exception as error:  # noqa: BLE001 - strictly best effort
-                    logger.warning("background memory operation failed: %s", error)
+                    logger.warning("background memory write failed: %s", error)
                 finally:
                     self._jobs.task_done()
         except Exception as error:  # noqa: BLE001 - memory cannot break the call
