@@ -15,6 +15,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from harness.audio import SpeakerStream  # noqa: E402
 from harness.call import (  # noqa: E402
     LIVE_CALL_SYSTEM_PROMPT,
     CallConfig,
@@ -636,6 +637,44 @@ def test_a_barge_ducks_pauses_resumes_or_commits_without_a_hard_cut() -> None:
 
     assert call._barge.is_set()
     assert actions == ["duck", "pause", "resume", ("stop", 0.12)]
+
+
+def test_speaker_uses_the_browser_sized_initial_streaming_cushion(monkeypatch) -> None:
+    """Playback starts on decoder output; it does not collect the whole reply."""
+
+    command: list[str] = []
+
+    class Process:
+        stdin = None
+
+        def poll(self):
+            return None
+
+    def popen(args, **_kwargs):
+        command.extend(args)
+        return Process()
+
+    monkeypatch.setattr("harness.audio.subprocess.Popen", popen)
+    SpeakerStream().start()
+
+    assert "--latency-msec=80" in command
+    assert "--process-time-msec=20" in command
+
+
+def test_streamed_pcm_blocks_are_crossfaded_without_waiting_for_completion() -> None:
+    speaker = SpeakerStream(rate_hz=1_000)
+    first = np.full(10, 1_000, dtype="<i2").tobytes()
+    second = np.full(10, 2_000, dtype="<i2").tobytes()
+
+    first_output = speaker._stitch_pcm(first)
+    second_output = speaker._stitch_pcm(second)
+    joined = np.frombuffer(first_output + second_output + speaker._pcm_tail, dtype="<i2")
+
+    # The first block is emitted immediately except for the 3 ms needed to
+    # join it to the next one. The overlap shortens two 10-sample blocks by 3.
+    assert len(first_output) == 14
+    assert joined.size == 17
+    assert joined[7:10].tolist() == [1_000, 1_500, 2_000]
 
 
 def test_speech_during_a_turn_is_kept_rather_than_dropped() -> None:
