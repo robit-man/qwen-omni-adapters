@@ -11,12 +11,13 @@ from __future__ import annotations
 
 import math
 import sys
+import threading
 import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from harness.memory import MemoryStore  # noqa: E402
+from harness.memory import Memory, MemoryStore, PassiveMemory  # noqa: E402
 
 
 class FakeEmbedder:
@@ -44,7 +45,7 @@ class FakeEmbedder:
         self.calls += 1
         words = set(str(text).lower().replace("'", " ").split())
         vector = []
-        for topic, terms in self.TOPICS.items():
+        for _topic, terms in self.TOPICS.items():
             overlap = sum(1 for term in terms if any(term in word for word in words))
             vector.append(float(overlap))
         # A little mass everywhere, so unrelated things are distinguishable
@@ -196,3 +197,51 @@ def test_memory_survives_a_restart(tmp_path: Path) -> None:
 
     assert found and "Biscuit" in found[0].text
     second.close()
+
+
+def test_passive_recall_never_waits_for_the_embedder(tmp_path: Path) -> None:
+    """A slow memory can miss a turn, but it cannot delay that turn."""
+
+    started = threading.Event()
+    release = threading.Event()
+    finished = threading.Event()
+    recalled = Memory(1, "The dog is called Biscuit.", "turn", 0, 0, 0, 0.5)
+
+    class BlockingStore:
+        def decay(self) -> int:
+            return 0
+
+        def stats(self) -> dict[str, int]:
+            return {"memories": 1}
+
+        def recall(self, query: str, *, limit: int) -> list[Memory]:
+            started.set()
+            release.wait(2)
+            finished.set()
+            return [recalled]
+
+        def remember(self, text: str, *, kind: str) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    worker = PassiveMemory(
+        tmp_path / "memory.sqlite3", store_factory=lambda _path: BlockingStore()
+    )
+    worker.recall_later("what is my puppy called")
+    assert started.wait(1)
+
+    # This is a cache read, not a wait on the background operation.
+    assert worker.take_recall("what is my puppy called") == []
+
+    release.set()
+    assert finished.wait(1)
+    deadline = time.monotonic() + 1
+    found: list[Memory] = []
+    while time.monotonic() < deadline and not found:
+        found = worker.take_recall("what is my puppy called")
+        if not found:
+            time.sleep(0.01)
+    assert found == [recalled]
+    worker.close()

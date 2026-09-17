@@ -22,8 +22,8 @@ import httpx
 
 from harness.audio import require_tools
 from harness.call import CallConfig, TurnResult, run_call_loop
-from harness.indicator import ThreadedIndicator, build_indicator
 from harness.camera import CameraSet
+from harness.indicator import ThreadedIndicator, build_indicator
 from harness.respeaker import find_source
 
 logger = logging.getLogger("omni.harness")
@@ -199,19 +199,6 @@ def main(argv: list[str] | None = None) -> int:
         token_reader=lambda: _read_token(args.token),
         memory_path="" if args.no_memory else args.memory_path,
     )
-    if not args.no_memory:
-        from harness.memory import MemoryStore
-
-        store = MemoryStore(Path(config.memory_path))
-        faded = store.decay()
-        logger.info(
-            "memory: %s at %s%s",
-            store.stats(),
-            config.memory_path,
-            f"; {faded} forgotten" if faded else "",
-        )
-        store.close()
-
     logger.info(
         "call harness ready: model=%s tools=%s reasoning=%s camera=%s",
         model,

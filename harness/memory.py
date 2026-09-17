@@ -24,11 +24,14 @@ from __future__ import annotations
 import json
 import logging
 import math
+import queue
 import sqlite3
+import threading
 import time
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import httpx
 
@@ -127,7 +130,7 @@ def _cosine(left: Iterable[float], right: Iterable[float]) -> float:
     right = list(right)
     if len(left) != len(right):
         return 0.0
-    dot = sum(a * b for a, b in zip(left, right))
+    dot = sum(a * b for a, b in zip(left, right, strict=True))
     magnitude = math.sqrt(sum(a * a for a in left)) * math.sqrt(
         sum(b * b for b in right)
     )
@@ -314,3 +317,113 @@ class MemoryStore:
             if row["oldest"]
             else 0.0,
         }
+
+
+class PassiveMemory:
+    """Run every embedding and database operation away from the call path.
+
+    Hearing, answering, reasoning, tool use, and speech must never wait for an
+    embedding server or SQLite. Recall is therefore speculative: the call loop
+    asks for it as soon as the normal chat stream exposes a transcript and only
+    consumes it later if it is already ready. A slow or failed memory operation
+    is simply absent from that turn.
+    """
+
+    def __init__(
+        self,
+        path: Path,
+        *,
+        store_factory: Callable[[Path], MemoryStore] = MemoryStore,
+        max_pending: int = 64,
+    ) -> None:
+        self.path = Path(path)
+        self._store_factory = store_factory
+        self._jobs: queue.Queue[tuple[str, str, str, int]] = queue.Queue(
+            maxsize=max_pending
+        )
+        self._ready: dict[str, list[Memory]] = {}
+        self._ready_lock = threading.Lock()
+        self._closed = threading.Event()
+        self._warned_full = False
+        self._thread = threading.Thread(
+            target=self._work,
+            name="omni-passive-memory",
+            daemon=True,
+        )
+        self._thread.start()
+
+    @staticmethod
+    def _key(text: str) -> str:
+        return " ".join((text or "").split())
+
+    def _submit(self, job: tuple[str, str, str, int]) -> None:
+        if self._closed.is_set() or not job[1]:
+            return
+        try:
+            self._jobs.put_nowait(job)
+            self._warned_full = False
+        except queue.Full:
+            if not self._warned_full:
+                logger.warning("memory queue is full; dropping background work")
+                self._warned_full = True
+
+    def remember(self, text: str, *, kind: str = "turn") -> None:
+        """Queue a write and return immediately."""
+
+        self._submit(("remember", self._key(text), kind, 0))
+
+    def recall_later(self, query: str, *, limit: int = 4) -> None:
+        """Queue semantic recall without making the conversation wait for it."""
+
+        self._submit(("recall", self._key(query), "", max(1, limit)))
+
+    def take_recall(self, query: str) -> list[Memory]:
+        """Return a completed recall, or immediately return no context."""
+
+        key = self._key(query)
+        with self._ready_lock:
+            return self._ready.pop(key, [])
+
+    def close(self) -> None:
+        """Ask the daemon worker to drain and close; never wait on a call exit."""
+
+        self._closed.set()
+
+    def _work(self) -> None:
+        store: MemoryStore | None = None
+        try:
+            store = self._store_factory(self.path)
+            faded = store.decay()
+            logger.info(
+                "memory ready in background: %s at %s%s",
+                store.stats(),
+                self.path,
+                f"; {faded} forgotten" if faded else "",
+            )
+            while not (self._closed.is_set() and self._jobs.empty()):
+                try:
+                    action, text, kind, limit = self._jobs.get(timeout=0.2)
+                except queue.Empty:
+                    continue
+                try:
+                    if action == "remember":
+                        store.remember(text, kind=kind)
+                    elif action == "recall":
+                        found = store.recall(text, limit=limit)
+                        with self._ready_lock:
+                            # A missed turn must not grow an unbounded cache.
+                            if len(self._ready) >= 32:
+                                self._ready.pop(next(iter(self._ready)))
+                            self._ready[text] = found
+                except Exception as error:  # noqa: BLE001 - strictly best effort
+                    logger.warning("background memory operation failed: %s", error)
+                finally:
+                    self._jobs.task_done()
+        except Exception as error:  # noqa: BLE001 - memory cannot break the call
+            logger.warning("memory is disabled: background startup failed (%s)", error)
+        finally:
+            if store is not None:
+                try:
+                    store.close()
+                except Exception:  # noqa: BLE001 - process teardown is best effort
+                    logger.debug("could not close memory store", exc_info=True)

@@ -15,7 +15,12 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from harness.call import LIVE_CALL_SYSTEM_PROMPT, CallConfig, CallSession  # noqa: E402
+from harness.call import (  # noqa: E402
+    LIVE_CALL_SYSTEM_PROMPT,
+    CallConfig,
+    CallSession,
+    TurnResult,
+)
 from harness.vad import Vad, VadConfig  # noqa: E402
 
 FRAME_MS = 20.0
@@ -153,7 +158,7 @@ def session() -> CallSession:
 def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     """Reasoning is silence the other person has to sit through."""
 
-    payload = session()._build_payload("what is the capital of France", "", None)
+    payload = session()._build_payload(b"wav", 1, None)
 
     assert payload["speech_mode"] == "always"
     assert payload["response_modalities"] == ["text", "audio"]
@@ -164,19 +169,19 @@ def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     assert payload["portal_auto_tools"] is True
     assert payload["stream"] is True
     assert payload["messages"][0]["content"] == LIVE_CALL_SYSTEM_PROMPT
-    # The words themselves, not a description of an attachment.
-    assert payload["messages"][-1]["content"] == "what is the capital of France"
-    assert "audios" not in payload["messages"][-1]
+    # The normal chat request hears and answers in one pass.
+    assert "latest spoken turn" in payload["messages"][-1]["content"]
+    assert payload["messages"][-1]["audios"][0]["data"] == "d2F2"
 
 
 def test_a_still_is_attached_as_an_image_and_a_clip_as_a_video() -> None:
     still = {"mime_type": "image/jpeg", "encoding": "base64", "data": "x"}
-    payload = session()._build_payload("what is this", "", still)
+    payload = session()._build_payload(b"wav", 1, still)
     assert payload["messages"][-1]["images"] == [still]
     assert "images" in payload["messages"][-1]
 
     clip = {"mime_type": "video/mp4", "encoding": "base64", "data": "y"}
-    payload = session()._build_payload("what just happened", "", clip)
+    payload = session()._build_payload(b"wav", 1, clip)
     assert payload["messages"][-1]["videos"] == [clip]
     assert "images" not in payload["messages"][-1]
 
@@ -185,14 +190,14 @@ def test_media_is_framed_as_evidence_rather_than_a_scene_to_narrate() -> None:
     """Asked "can you hear me?", a model handed a picture describes the room."""
 
     frame = {"mime_type": "image/jpeg", "encoding": "base64", "data": "x"}
-    content = session()._build_payload("what is this", "", frame)["messages"][-1]["content"]
+    content = session()._build_payload(b"wav", 1, frame)["messages"][-1]["content"]
 
     assert "the question is about something visible" in content
     assert "do not inventory the scene" in content
 
 
 def test_nothing_visual_is_sent_when_nothing_visual_was_asked() -> None:
-    payload = session()._build_payload("hello there", "", None)
+    payload = session()._build_payload(b"wav", 1, None)
     message = payload["messages"][-1]
 
     assert "images" not in message and "videos" not in message
@@ -202,11 +207,9 @@ def test_nothing_visual_is_sent_when_nothing_visual_was_asked() -> None:
 def test_only_the_dialogue_carries_to_the_next_turn() -> None:
     """History is text. Replaying audio would re-hear an answered question."""
 
-    from harness.call import TurnResult
-
     call = session()
     call._remember(TurnResult(transcript="what is that", reply="a kettle"))
-    payload = call._build_payload("hello there", "", None)
+    payload = call._build_payload(b"wav", 1, None)
 
     history = payload["messages"][1:-1]
     assert history == [
@@ -214,14 +217,13 @@ def test_only_the_dialogue_carries_to_the_next_turn() -> None:
         {"role": "assistant", "content": "a kettle"},
     ]
     assert all("audios" not in message for message in history)
+    assert "audios" in payload["messages"][-1]
 
 
 def test_sound_with_no_speech_is_remembered_as_context() -> None:
-    from harness.call import TurnResult
-
     call = session()
     call._remember(TurnResult(audio_observation="a door closed", reply=""))
-    payload = call._build_payload("hello there", "", None)
+    payload = call._build_payload(b"wav", 1, None)
 
     assert payload["messages"][1] == {"role": "user", "content": "a door closed"}
 
@@ -229,14 +231,39 @@ def test_sound_with_no_speech_is_remembered_as_context() -> None:
 def test_history_is_bounded() -> None:
     """A long call must not grow its own prompt without limit."""
 
-    from harness.call import TurnResult
-
     call = session()
     for index in range(50):
         call._remember(TurnResult(transcript=f"q{index}", reply=f"a{index}"))
 
     assert len(call._history) <= call.config.history_turns * 2
     assert call._history[-1]["content"] == "a49"
+
+
+def test_a_turn_has_no_transcription_gate_before_the_answer() -> None:
+    """Memory cannot insert a blocking ASR request ahead of conversation."""
+
+    call = CallSession(
+        CallConfig(
+            portal_url="http://127.0.0.1:8920",
+            token="t",
+            model="m",
+            tools_enabled=False,
+            camera_enabled=False,
+        )
+    )
+    payloads: list[dict[str, object]] = []
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        payloads.append(payload)
+        return TurnResult(transcript="hello", reply="hello back")
+
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert result.reply == "hello back"
+    assert len(payloads) == 1
+    assert payloads[0]["omni"]["task"] == "chat"  # type: ignore[index]
+    assert "audios" in payloads[0]["messages"][-1]  # type: ignore[index]
 
 
 

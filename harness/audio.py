@@ -54,7 +54,7 @@ class MicrophoneStream:
     def frame_samples(self) -> int:
         return int(self.rate_hz * self.frame_ms / 1000.0)
 
-    def __enter__(self) -> "MicrophoneStream":
+    def __enter__(self) -> MicrophoneStream:
         command = [
             "parecord",
             "--raw",

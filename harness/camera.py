@@ -44,7 +44,7 @@ class CameraSet:
     _explicit: str | None = None
 
     @classmethod
-    def discover(cls, explicit: str | None = None) -> "CameraSet":
+    def discover(cls, explicit: str | None = None) -> CameraSet:
         """Find usable cameras, or take the one that was named."""
 
         if explicit:

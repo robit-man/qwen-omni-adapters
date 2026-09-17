@@ -157,6 +157,11 @@ Defaults are chosen for a spoken conversation:
 - **ReSpeaker when present.** Its ring follows the conversation and the
   direction a voice came from is attached to the turn as evidence. With no
   array attached the default microphone is used and nothing else changes.
+- **Memory is passive.** Completed exchanges are embedded and persisted on a
+  daemon worker. Semantic recall starts from the transcript event already
+  emitted by the normal chat request and is used by the optional second pass
+  only when it has finished in time. Embedding, SQLite, or memory failure can
+  never delay or prevent hearing, answering, reasoning, tool use, or speech.
 
 The speech detector is a port of `portal/static/call_vad.js` with its constants
 intact, so the same room behaves the same way in the browser and here.
@@ -184,6 +189,7 @@ Two environment variables are worth knowing:
 |---|---|
 | `OMNI_PORTAL_URL` | Where the portal is (default `http://127.0.0.1:8920`) |
 | `OMNI_CALL_CAMERA` | A single camera to use instead of every one found |
+| `OMNI_CALL_MEMORY` | Persistent passive-memory SQLite path |
 
 Keep `OMNI_TTS_PERSISTENT=1` on any host used for conversation. Spawning the
 speech worker per utterance costs about 25 seconds of every turn; keeping it

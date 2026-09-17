@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import struct
 import threading
-import time
 from collections import deque
 from dataclasses import dataclass, field
 
