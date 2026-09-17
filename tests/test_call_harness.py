@@ -153,7 +153,7 @@ def session() -> CallSession:
 def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     """Reasoning is silence the other person has to sit through."""
 
-    payload = session()._build_payload(b"RIFF", segments=2, frame=None)
+    payload = session()._build_payload("what is the capital of France", "", None)
 
     assert payload["speech_mode"] == "always"
     assert payload["response_modalities"] == ["text", "audio"]
@@ -164,19 +164,19 @@ def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     assert payload["portal_auto_tools"] is True
     assert payload["stream"] is True
     assert payload["messages"][0]["content"] == LIVE_CALL_SYSTEM_PROMPT
-    assert "2 consecutive segments" in payload["messages"][-1]["content"]
+    # The words themselves, not a description of an attachment.
+    assert payload["messages"][-1]["content"] == "what is the capital of France"
+    assert "audios" not in payload["messages"][-1]
 
 
 def test_a_still_is_attached_as_an_image_and_a_clip_as_a_video() -> None:
     still = {"mime_type": "image/jpeg", "encoding": "base64", "data": "x"}
-    payload = session()._build_payload(b"RIFF", segments=1, frame=still)
+    payload = session()._build_payload("what is this", "", still)
     assert payload["messages"][-1]["images"] == [still]
     assert "images" in payload["messages"][-1]
-    # Singular when there is one segment.
-    assert "1 consecutive segment " in payload["messages"][-1]["content"]
 
     clip = {"mime_type": "video/mp4", "encoding": "base64", "data": "y"}
-    payload = session()._build_payload(b"RIFF", segments=1, frame=clip)
+    payload = session()._build_payload("what just happened", "", clip)
     assert payload["messages"][-1]["videos"] == [clip]
     assert "images" not in payload["messages"][-1]
 
@@ -185,14 +185,14 @@ def test_media_is_framed_as_evidence_rather_than_a_scene_to_narrate() -> None:
     """Asked "can you hear me?", a model handed a picture describes the room."""
 
     frame = {"mime_type": "image/jpeg", "encoding": "base64", "data": "x"}
-    content = session()._build_payload(b"RIFF", segments=1, frame=frame)["messages"][-1]["content"]
+    content = session()._build_payload("what is this", "", frame)["messages"][-1]["content"]
 
-    assert "asked about something visible" in content
+    assert "the question is about something visible" in content
     assert "do not inventory the scene" in content
 
 
 def test_nothing_visual_is_sent_when_nothing_visual_was_asked() -> None:
-    payload = session()._build_payload(b"RIFF", segments=1, frame=None)
+    payload = session()._build_payload("hello there", "", None)
     message = payload["messages"][-1]
 
     assert "images" not in message and "videos" not in message
@@ -206,7 +206,7 @@ def test_only_the_dialogue_carries_to_the_next_turn() -> None:
 
     call = session()
     call._remember(TurnResult(transcript="what is that", reply="a kettle"))
-    payload = call._build_payload(b"RIFF", segments=1, frame=None)
+    payload = call._build_payload("hello there", "", None)
 
     history = payload["messages"][1:-1]
     assert history == [
@@ -221,7 +221,7 @@ def test_sound_with_no_speech_is_remembered_as_context() -> None:
 
     call = session()
     call._remember(TurnResult(audio_observation="a door closed", reply=""))
-    payload = call._build_payload(b"RIFF", segments=1, frame=None)
+    payload = call._build_payload("hello there", "", None)
 
     assert payload["messages"][1] == {"role": "user", "content": "a door closed"}
 

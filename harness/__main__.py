@@ -52,12 +52,28 @@ def _read_token(explicit: str | None) -> str:
         ) from error
 
 
-def _wait_for_portal(url: str, token: str, timeout_s: float) -> dict[str, Any]:
-    """Block until the adapter answers, so the first utterance is not lost."""
+def _wait_for_portal(
+    url: str, token: str, timeout_s: float, reader: Any = None
+) -> tuple[dict[str, Any], str]:
+    """Block until the adapter answers, so the first utterance is not lost.
+
+    The token is read again on every attempt. The daemon mints a fresh one
+    each time it starts, so a harness that waits on the token it had at boot
+    polls forever against a key that died when the adapter restarted -- which
+    looks, from the outside, exactly like a harness that never came up.
+    """
 
     deadline = time.monotonic() + timeout_s
     last = ""
     while time.monotonic() < deadline:
+        if reader is not None:
+            try:
+                fresh = (reader() or "").strip()
+                if fresh and fresh != token:
+                    logger.info("portal token changed while waiting; using the new one")
+                    token = fresh
+            except Exception:  # noqa: BLE001 - keep waiting rather than give up
+                pass
         try:
             response = httpx.get(
                 f"{url.rstrip('/')}/api/status",
@@ -65,7 +81,7 @@ def _wait_for_portal(url: str, token: str, timeout_s: float) -> dict[str, Any]:
                 timeout=5.0,
             )
             if response.status_code == 200:
-                return response.json()
+                return response.json(), token
             last = f"HTTP {response.status_code}"
         except Exception as error:  # noqa: BLE001
             last = f"{type(error).__name__}: {error}"
@@ -131,6 +147,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-tools", action="store_true")
     parser.add_argument("--reasoning", action="store_true", help="leave reasoning on (slower to first word)")
     parser.add_argument("--no-indicator", action="store_true")
+    parser.add_argument("--no-memory", action="store_true")
+    parser.add_argument(
+        "--memory-path",
+        default=os.environ.get("OMNI_CALL_MEMORY")
+        or str(Path(os.environ.get("OMNI_REPO_ROOT") or ".") / "runtime-data/memory.sqlite3"),
+    )
     parser.add_argument("--ready-timeout", type=float, default=900.0)
     args = parser.parse_args(argv)
 
@@ -140,7 +162,9 @@ def main(argv: list[str] | None = None) -> int:
     require_tools()
 
     token = _read_token(args.token)
-    status = _wait_for_portal(args.portal, token, args.ready_timeout)
+    status, token = _wait_for_portal(
+        args.portal, token, args.ready_timeout, lambda: _read_token(args.token)
+    )
     model = args.model or str(status.get("model") or "")
     if not model:
         raise SystemExit("the adapter did not report a model tag")
@@ -173,7 +197,21 @@ def main(argv: list[str] | None = None) -> int:
         # The daemon mints a fresh token every time it starts, so the harness
         # has to be able to go and look again rather than holding a dead key.
         token_reader=lambda: _read_token(args.token),
+        memory_path="" if args.no_memory else args.memory_path,
     )
+    if not args.no_memory:
+        from harness.memory import MemoryStore
+
+        store = MemoryStore(Path(config.memory_path))
+        faded = store.decay()
+        logger.info(
+            "memory: %s at %s%s",
+            store.stats(),
+            config.memory_path,
+            f"; {faded} forgotten" if faded else "",
+        )
+        store.close()
+
     logger.info(
         "call harness ready: model=%s tools=%s reasoning=%s camera=%s",
         model,
