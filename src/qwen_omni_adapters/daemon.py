@@ -293,11 +293,19 @@ class OmniDaemon:
                 "direct Linux GPU mode requires --allow-direct-gpu on a host without ollama-unify"
             )
         required = ["ffmpeg", "ollama"]
-        if self.config.cloudflare:
-            required.append("cloudflared")
         missing = [command for command in required if not shutil.which(command)]
         if missing:
             raise DaemonError(f"missing commands: {', '.join(missing)}")
+        if self.config.cloudflare and not shutil.which("cloudflared"):
+            # Publishing is a convenience; the conversation this daemon exists
+            # to serve happens over loopback. Losing the tunnel must not cost
+            # the microphone.
+            print(
+                "qwen-omni-daemon: cloudflared is not installed; serving locally only",
+                file=sys.stderr,
+                flush=True,
+            )
+            self.config.cloudflare = False
         for binary_name in ("llama-server", "llama-tts"):
             binary = _binary(self.config.repo_root, binary_name)
             if not binary.is_file():
@@ -316,8 +324,63 @@ class OmniDaemon:
             # adapter can never run alongside one.
             ports.insert(0, self.config.comprehension_port)
         for port in ports:
-            if not _port_available("127.0.0.1", port):
-                raise DaemonError(f"required loopback port is already in use: {port}")
+            # A port a previous instance has just given up takes a moment to
+            # come back. Failing on the first look is how a restart turned
+            # into a permanent outage that needed a human.
+            deadline = time.monotonic() + 20
+            while not _port_available("127.0.0.1", port):
+                if time.monotonic() >= deadline:
+                    raise DaemonError(
+                        f"required loopback port is already in use: {port}"
+                    )
+                time.sleep(0.5)
+
+    def _reclaim_from_prior_instance(self) -> None:
+        """Take the ports back from an older daemon instead of refusing to start.
+
+        Refusing was the wrong instinct for something run as a service. A
+        supervisor restarting this daemon while the old one is still shutting
+        down -- or an operator who once started it by hand -- left an instance
+        holding the loopback ports, and every subsequent start died on "port
+        already in use" until someone noticed and killed it manually. The
+        daemon is the single owner of those ports, so the newest instance
+        wins and says so.
+        """
+
+        if not self.pid_file.is_file():
+            return
+        try:
+            prior = int(self.pid_file.read_text().strip())
+        except (ValueError, OSError):
+            self.pid_file.unlink(missing_ok=True)
+            return
+        if not prior or prior == os.getpid() or not _pid_alive(prior):
+            self.pid_file.unlink(missing_ok=True)
+            return
+
+        print(
+            f"qwen-omni-daemon: replacing previous instance (pid {prior})",
+            file=sys.stderr,
+            flush=True,
+        )
+        try:
+            os.kill(prior, signal.SIGTERM)
+        except OSError:
+            self.pid_file.unlink(missing_ok=True)
+            return
+        # Its children hold the ports, and they are torn down as it exits.
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and _pid_alive(prior):
+            time.sleep(0.5)
+        if _pid_alive(prior):
+            try:
+                os.kill(prior, signal.SIGKILL)
+            except OSError:
+                pass
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline and _pid_alive(prior):
+                time.sleep(0.5)
+        self.pid_file.unlink(missing_ok=True)
 
     def prepare(self) -> None:
         os.umask(0o077)
@@ -337,13 +400,7 @@ class OmniDaemon:
                     directory.chmod(0o700)
                 except OSError:
                     pass
-        if self.pid_file.is_file():
-            try:
-                prior = int(self.pid_file.read_text().strip())
-            except ValueError:
-                prior = 0
-            if prior and _pid_alive(prior):
-                raise DaemonError(f"daemon is already running as pid {prior}")
+        self._reclaim_from_prior_instance()
         self.stop_file.unlink(missing_ok=True)
         self._write_status(state="preflight")
         self._preflight()
@@ -587,17 +644,30 @@ class OmniDaemon:
             tunnel_log = self.log_dir / "cloudflared.log"
             deadline = time.monotonic() + 120
             pattern = re.compile(r"https://[-a-z0-9]+\.trycloudflare\.com")
+            published = ""
             while time.monotonic() < deadline:
                 if tunnel.process.poll() is not None:
-                    raise DaemonError("cloudflared exited before publishing a URL")
+                    break
                 text = tunnel_log.read_text(encoding="utf-8", errors="replace")
                 matches = pattern.findall(text)
                 if matches:
-                    public = matches[-1]
+                    published = matches[-1]
                     break
                 time.sleep(1)
+            if published:
+                public = published
             else:
-                raise DaemonError("cloudflared did not publish a URL")
+                # A machine with no internet still has a microphone, a camera
+                # and speakers, and everything that matters here is loopback.
+                # Refusing to start because a tunnel could not be published
+                # would take the local conversation down over a remote
+                # convenience.
+                print(
+                    "qwen-omni-daemon: no public tunnel (offline or cloudflared "
+                    f"unavailable); serving locally at {public}",
+                    file=sys.stderr,
+                    flush=True,
+                )
         return f"{public}/#access={token}"
 
     def request_stop(self) -> None:

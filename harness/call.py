@@ -80,6 +80,8 @@ class CallConfig:
     camera_device: str = "/dev/video0"
     request_timeout_s: float = 300.0
     vad: VadConfig = field(default_factory=VadConfig)
+    # How to fetch the portal token again when the one in hand is refused.
+    token_reader: Callable[[], str] | None = None
 
 
 @dataclass
@@ -94,6 +96,14 @@ class TurnResult:
     error: str = ""
     first_audio_ms: float | None = None
     total_ms: float = 0.0
+
+
+class _PortalError(RuntimeError):
+    """An HTTP failure from the portal, with its status kept for retry logic."""
+
+    def __init__(self, status: int, detail: str) -> None:
+        super().__init__(f"portal returned HTTP {status}: {detail}")
+        self.status = status
 
 
 class CallSession:
@@ -122,6 +132,31 @@ class CallSession:
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.config.token}"}
+
+    def _refresh_token(self) -> bool:
+        """Re-read the portal token, which changes on every daemon start.
+
+        The daemon mints a fresh token each time it comes up, so a harness
+        that read it once at startup is holding a dead key the moment the
+        adapter restarts -- and every turn after that is refused with a 401
+        while the microphone, the model and the speakers are all perfectly
+        fine. Reading it again costs one file read and turns a permanent
+        outage into a hiccup.
+        """
+
+        reader = self.config.token_reader
+        if reader is None:
+            return False
+        try:
+            token = (reader() or "").strip()
+        except Exception as error:  # noqa: BLE001 - a missing file is not fatal
+            logger.debug("could not re-read the portal token: %s", error)
+            return False
+        if not token or token == self.config.token:
+            return False
+        logger.info("portal token changed; picking up the new one")
+        self.config.token = token
+        return True
 
     def _state(self, state: State, detail: str = "") -> None:
         try:
@@ -213,9 +248,7 @@ class CallSession:
         ) as response:
             if response.status_code >= 400:
                 response.read()
-                raise RuntimeError(
-                    f"portal returned HTTP {response.status_code}: {response.text[:300]}"
-                )
+                raise _PortalError(response.status_code, response.text[:300])
             for line in response.iter_lines():
                 line = line.strip()
                 if not line:
@@ -290,8 +323,19 @@ class CallSession:
         speaker = SpeakerStream(PLAYBACK_RATE_HZ, self.config.output_device)
         speaking = False
         self._state("thinking", "")
+
+        def events() -> Iterator[dict[str, Any]]:
+            """Stream the turn, taking a fresh token if this one is refused."""
+
+            try:
+                yield from self._events(payload)
+            except _PortalError as error:
+                if error.status != 401 or not self._refresh_token():
+                    raise
+                yield from self._events(payload)
+
         try:
-            for event in self._events(payload):
+            for event in events():
                 if self._barge.is_set():
                     result.interrupted = True
                     break

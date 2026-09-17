@@ -170,6 +170,9 @@ def main(argv: list[str] | None = None) -> int:
         reasoning_enabled=bool(args.reasoning),
         camera_enabled=camera_on,
         camera_device=args.camera_device,
+        # The daemon mints a fresh token every time it starts, so the harness
+        # has to be able to go and look again rather than holding a dead key.
+        token_reader=lambda: _read_token(args.token),
     )
     logger.info(
         "call harness ready: model=%s tools=%s reasoning=%s camera=%s",
