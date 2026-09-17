@@ -5,7 +5,12 @@ Documentation=file://@REPO_ROOT@/harness/README.md
 # waits for the portal to become ready and keeps waiting if it restarts,
 # instead of dying alongside it and leaving the room without a listener.
 Wants=qwen-omni-adapters.service
-After=qwen-omni-adapters.service sound.target pulseaudio.service
+# The indicator needs the desktop session's bus and display, which GNOME
+# imports into the user manager only once the session is up. Started from
+# default.target it runs before that exists, finds no tray, and falls back
+# to headless for the rest of its life.
+After=qwen-omni-adapters.service sound.target pulseaudio.service graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
@@ -24,4 +29,4 @@ TimeoutStopSec=20
 MemoryMax=4G
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

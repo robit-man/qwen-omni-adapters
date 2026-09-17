@@ -247,12 +247,12 @@ def main(argv: list[str] | None = None) -> int:
             " (interrupted)" if result.interrupted else "",
         )
 
-    def guarded_frame() -> dict[str, Any] | None:
-        """Every camera at once, unless the microphone is muted or they are off."""
+    def guarded_frame(motion: bool = False) -> dict[str, Any] | None:
+        """Every camera at once: a still, or a clip when the question is about time."""
 
         if muted.is_set() or not config.camera_enabled or not cameras.available:
             return None
-        return cameras.snapshot()
+        return cameras.clip() if motion else cameras.snapshot()
 
     def worker() -> None:
         while not stop.is_set():

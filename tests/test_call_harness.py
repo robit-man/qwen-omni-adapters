@@ -167,14 +167,36 @@ def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     assert "2 consecutive segments" in payload["messages"][-1]["content"]
 
 
-def test_a_camera_frame_rides_along_when_there_is_one() -> None:
-    frame = {"mime_type": "image/jpeg", "encoding": "base64", "data": "x"}
-    payload = session()._build_payload(b"RIFF", segments=1, frame=frame)
-
-    assert payload["messages"][-1]["images"] == [frame]
-    assert "current camera frame" in payload["messages"][-1]["content"]
+def test_a_still_is_attached_as_an_image_and_a_clip_as_a_video() -> None:
+    still = {"mime_type": "image/jpeg", "encoding": "base64", "data": "x"}
+    payload = session()._build_payload(b"RIFF", segments=1, frame=still)
+    assert payload["messages"][-1]["images"] == [still]
+    assert "images" in payload["messages"][-1]
     # Singular when there is one segment.
     assert "1 consecutive segment " in payload["messages"][-1]["content"]
+
+    clip = {"mime_type": "video/mp4", "encoding": "base64", "data": "y"}
+    payload = session()._build_payload(b"RIFF", segments=1, frame=clip)
+    assert payload["messages"][-1]["videos"] == [clip]
+    assert "images" not in payload["messages"][-1]
+
+
+def test_media_is_framed_as_evidence_rather_than_a_scene_to_narrate() -> None:
+    """Asked "can you hear me?", a model handed a picture describes the room."""
+
+    frame = {"mime_type": "image/jpeg", "encoding": "base64", "data": "x"}
+    content = session()._build_payload(b"RIFF", segments=1, frame=frame)["messages"][-1]["content"]
+
+    assert "asked about something visible" in content
+    assert "do not inventory the scene" in content
+
+
+def test_nothing_visual_is_sent_when_nothing_visual_was_asked() -> None:
+    payload = session()._build_payload(b"RIFF", segments=1, frame=None)
+    message = payload["messages"][-1]
+
+    assert "images" not in message and "videos" not in message
+    assert "camera" not in message["content"].lower()
 
 
 def test_only_the_dialogue_carries_to_the_next_turn() -> None:
@@ -215,3 +237,44 @@ def test_history_is_bounded() -> None:
 
     assert len(call._history) <= call.config.history_turns * 2
     assert call._history[-1]["content"] == "a49"
+
+
+
+# -- the cameras are offered only when the words reach for them ------------
+
+
+def test_a_conversational_turn_never_reaches_for_the_cameras() -> None:
+    """The bug: "can you hear me okay?" answered, then narrated the room."""
+
+    from harness.vision_intent import wants_vision
+
+    for spoken in (
+        "can you hear me okay hello",
+        "what is the capital of france",
+        "how are you doing today",
+        "tell me a joke",
+        "what time is it",
+    ):
+        assert wants_vision(spoken) is False, spoken
+
+
+def test_a_question_about_something_visible_does() -> None:
+    from harness.vision_intent import wants_vision
+
+    for spoken in (
+        "what am I holding",
+        "can you see this",
+        "look at the screen",
+        "read that label for me",
+        "what is this thing",
+        "how many people are in the room",
+    ):
+        assert wants_vision(spoken) is True, spoken
+
+
+def test_a_question_about_time_asks_for_a_clip_not_a_still() -> None:
+    from harness.vision_intent import wants_motion
+
+    assert wants_motion("what just happened") is True
+    assert wants_motion("did you see that") is True
+    assert wants_motion("what am I holding") is False

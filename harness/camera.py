@@ -40,13 +40,15 @@ class CameraSet:
 
     devices: list[str] = field(default_factory=list)
     stitch_width: int = STITCH_WIDTH
+    # Remembered so a later look can repeat the same search.
+    _explicit: str | None = None
 
     @classmethod
     def discover(cls, explicit: str | None = None) -> "CameraSet":
         """Find usable cameras, or take the one that was named."""
 
         if explicit:
-            return cls(devices=[explicit])
+            return cls(devices=[explicit], _explicit=explicit)
         found: list[str] = []
         for path in sorted(Path("/dev").glob("video*")):
             # v4l2 exposes metadata nodes alongside capture nodes; only the
@@ -60,10 +62,26 @@ class CameraSet:
     def available(self) -> bool:
         return bool(self.devices)
 
+    def ensure_devices(self) -> bool:
+        """Find cameras now if the last look found none.
+
+        Discovery probes each device by taking a frame, so a camera held by
+        something else -- the previous instance of this service during a
+        restart, say -- looks like no camera at all. Doing it once at startup
+        meant one unlucky moment disabled vision until the next restart.
+        Vision is asked for rarely, so it costs nothing to look again.
+        """
+
+        if self.devices:
+            return True
+        found = CameraSet.discover(self._explicit)
+        self.devices = found.devices
+        return bool(self.devices)
+
     def snapshot(self) -> dict[str, Any] | None:
         """One image of everything the machine can see, right now."""
 
-        if not self.devices or shutil.which("ffmpeg") is None:
+        if shutil.which("ffmpeg") is None or not self.ensure_devices():
             return None
         with ThreadPoolExecutor(max_workers=max(1, len(self.devices))) as pool:
             frames = [
@@ -85,7 +103,7 @@ class CameraSet:
     def clip(self, seconds: float = CLIP_SECONDS) -> dict[str, Any] | None:
         """A few seconds from every camera, stitched into one clip."""
 
-        if not self.devices or shutil.which("ffmpeg") is None:
+        if shutil.which("ffmpeg") is None or not self.ensure_devices():
             return None
         with tempfile.TemporaryDirectory(prefix="omni-clip-") as workspace:
             root = Path(workspace)
