@@ -181,6 +181,12 @@ stopping it around demand -- set `OMNI_COMPREHENSION_URL` explicitly alongside
 `OMNI_ENABLE_COMPREHENSION=0`: the adapter will use the worker whenever it is
 up, and the supervisor will not try to own its lifetime.
 
+Set `OMNI_STARTUP_SMOKE=0` when that host also brokers TTS memory. The daemon's
+normal startup gate performs real language and speech generations; disabling
+that gate keeps service startup lightweight so only the host's admitted
+requests can load model weights. Readiness endpoints remain available and the
+host should probe each route after it admits the corresponding component.
+
 ## Language on the comprehension model
 
 `OMNI_LANGUAGE_API=openai` points the language stage at any OpenAI-compatible

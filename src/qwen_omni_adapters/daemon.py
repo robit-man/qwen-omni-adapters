@@ -111,6 +111,12 @@ class DaemonConfig:
     # spare that, can run the adapter without it: audio, video, and image
     # comprehension then report unavailable and every other route still works.
     enable_comprehension: bool = True
+    # The portable daemon normally proves the entire stack with a language
+    # and TTS generation before declaring itself ready. A memory-brokered
+    # deployment must not do that at service start: those generations bypass
+    # the host's admission controller and can overlap weights that already
+    # occupy the device. The host still probes each route on demand.
+    startup_smoke: bool = True
     # When the language stage targets an OpenAI-compatible endpoint, the model
     # name belongs to that server, not to Ollama. Pulling or blob-verifying it
     # against Ollama is meaningless and hangs on a tag that cannot exist.
@@ -180,6 +186,10 @@ class DaemonConfig:
             allow_direct_gpu=allow_direct_gpu,
             enable_comprehension=os.environ.get(
                 "OMNI_ENABLE_COMPREHENSION", "1"
+            ).strip().lower()
+            not in {"0", "false", "no"},
+            startup_smoke=os.environ.get(
+                "OMNI_STARTUP_SMOKE", "1"
             ).strip().lower()
             not in {"0", "false", "no"},
             language_api=os.environ.get("OMNI_LANGUAGE_API", "ollama").strip().lower(),
@@ -536,25 +546,27 @@ class OmniDaemon:
         )
         self._wait_http(portal, f"http://127.0.0.1:{self.config.portal_port}/healthz", 60)
 
-        self._command(
-            [
-                python,
-                str(self.config.repo_root / "portal" / "smoke.py"),
-                "--endpoint",
-                f"http://127.0.0.1:{self.config.portal_port}",
-                "--token-file",
-                str(self.token_file),
-                "--model",
-                self.config.model,
-                "--text",
-                "--tts",
-                "--stream",
-            ],
-            timeout=1200,
-        )
+        if self.config.startup_smoke:
+            self._command(
+                [
+                    python,
+                    str(self.config.repo_root / "portal" / "smoke.py"),
+                    "--endpoint",
+                    f"http://127.0.0.1:{self.config.portal_port}",
+                    "--token-file",
+                    str(self.token_file),
+                    "--model",
+                    self.config.model,
+                    "--text",
+                    "--tts",
+                    "--stream",
+                ],
+                timeout=1200,
+            )
         self._write_status(
-            state="smoke-passed",
+            state="smoke-passed" if self.config.startup_smoke else "ready",
             comprehension=self.config.enable_comprehension,
+            startup_smoke=self.config.startup_smoke,
         )
 
         public = f"http://127.0.0.1:{self.config.portal_port}"
@@ -635,6 +647,7 @@ class OmniDaemon:
             self._write_status(
                 state="ready",
                 access_url=access_url,
+                startup_smoke=self.config.startup_smoke,
                 children=[
                     {"name": child.name, "pid": child.process.pid} for child in self.children
                 ],

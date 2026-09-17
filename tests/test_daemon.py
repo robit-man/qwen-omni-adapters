@@ -38,6 +38,18 @@ def test_env_file_sets_defaults_without_overriding_process_environment(
     assert daemon.os.environ["OMNI_LANGUAGE_MODEL"] == "file-base"
 
 
+def test_startup_smoke_can_be_disabled_for_memory_brokered_hosts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OMNI_REPO_ROOT", str(tmp_path))
+    monkeypatch.setenv("OMNI_STARTUP_SMOKE", "0")
+    monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
+
+    config = daemon.DaemonConfig.from_environment(cloudflare=False)
+
+    assert config.startup_smoke is False
+
+
 def test_binary_finds_windows_release_layout(tmp_path: Path) -> None:
     binary = tmp_path / "vendor/llama.cpp/build/bin/Release/llama-server.exe"
     binary.parent.mkdir(parents=True)
