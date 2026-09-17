@@ -453,3 +453,78 @@ def test_the_clock_is_read_per_turn_not_once_at_import() -> None:
     # Same call, freshly rendered each time rather than a module constant.
     assert "The current date and time is" not in call_module.LIVE_CALL_SYSTEM_PROMPT
     assert all("The current date and time is" in content for content in seen)
+
+
+# -- talking over a reply --------------------------------------------------
+
+
+def test_interrupting_needs_no_model_weights() -> None:
+    """Hearing that someone started is the VAD; it loads nothing.
+
+    This is why a reply can be interrupted on a host that has evicted the
+    comprehension weights to make room for speech: detecting the start of
+    speech is signal processing, and working out what was said happens after
+    playback is already cut off.
+    """
+
+    vad = Vad(VadConfig())
+    _, now = feed(vad, 0.001, VadConfig().calibration_ms + FRAME_MS)
+    results, _ = feed(vad, 0.25, VadConfig().start_confirm_ms + FRAME_MS * 2, now)
+
+    assert any(result.event == "start" for result in results)
+
+
+def test_a_turn_does_not_run_on_the_thread_that_holds_the_microphone() -> None:
+    """Otherwise nothing hears the room for the whole reply.
+
+    take_turn used to be called inline in the capture loop, so for the entire
+    turn -- including playback -- no frame was read and no interruption could
+    be noticed. request_barge existed and nothing could ever call it.
+    """
+
+    import inspect
+
+    from harness.call import run_call_loop
+
+    source = inspect.getsource(run_call_loop)
+
+    # The turn is handed to a worker, and the loop keeps reading frames.
+    assert "threading.Thread(" in source
+    assert "session.take_turn(" not in source.split("def worker(")[0]
+    assert "for frame in microphone.frames():" in source
+    assert "session.request_barge()" in source
+
+
+def test_talking_over_a_reply_is_refused_without_echo_cancellation() -> None:
+    """A bare microphone hears the speakers and would interrupt every answer."""
+
+    import inspect
+
+    from harness.call import run_call_loop
+
+    source = inspect.getsource(run_call_loop)
+
+    assert "array.present" in source
+    assert "can_barge" in source
+
+
+def test_a_barge_stops_playback_and_marks_the_turn_interrupted() -> None:
+    call = CallSession(
+        CallConfig(portal_url="http://127.0.0.1:8920", token="t", model="m")
+    )
+    call.request_barge()
+
+    assert call._barge.is_set()
+
+
+def test_the_newest_thing_said_wins_while_a_turn_is_still_running() -> None:
+    """What someone just said matters more than what they said before it."""
+
+    import inspect
+
+    from harness.call import run_call_loop
+
+    source = inspect.getsource(run_call_loop)
+
+    assert "maxsize=1" in source
+    assert "pending.get_nowait()" in source

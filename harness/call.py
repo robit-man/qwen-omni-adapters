@@ -15,6 +15,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import queue
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -112,6 +113,22 @@ class CallConfig:
     # pass is complete, then these callbacks bracket one direct synthesis pass.
     prepare_speech: Callable[[], None] | None = None
     restore_after_speech: Callable[[], None] | None = None
+    # Whether the speaker may talk over a reply in progress.
+    #
+    # Detecting that someone has started speaking is the VAD, which runs on
+    # raw microphone frames and loads nothing -- so this works even while the
+    # comprehension weights are evicted for speech. What cannot be done
+    # without them is working out *what* was said, and that happens after
+    # playback has already been cut off and comprehension restored.
+    #
+    # It needs echo cancellation to be safe: without it the microphone hears
+    # the reply coming out of the speakers and the harness interrupts itself
+    # on every turn. The ReSpeaker's processed channel is cancelled; a bare
+    # microphone is not, so this stays off unless the array is present.
+    barge_in_enabled: bool = True
+    # Ignore the first moment of playback, so the tail of the speaker's own
+    # question cannot count as an interruption of the answer to it.
+    barge_in_grace_s: float = 0.6
 
 
 @dataclass
@@ -549,7 +566,15 @@ def run_call_loop(
     frame_grabber: Callable[[], dict[str, Any] | None] | None = None,
     stop: threading.Event | None = None,
 ) -> None:
-    """Listen until told to stop, taking a turn each time someone speaks."""
+    """Listen until told to stop, taking a turn each time someone speaks.
+
+    The microphone is never closed and never ignored. A turn runs on its own
+    thread so the capture loop keeps reading frames and keeps running the VAD
+    throughout -- including while the reply is being spoken, which is the only
+    moment an interruption can happen and exactly when the old shape stopped
+    listening. Interrupting costs no weights: hearing that someone has started
+    is signal processing, and working out what they said happens afterwards.
+    """
 
     stop = stop or threading.Event()
     session = CallSession(config, on_state=on_state, frame_grabber=frame_grabber)
@@ -562,9 +587,49 @@ def run_call_loop(
     array = ReSpeaker()
     array.start()
 
+    # Echo cancellation is what makes talking over a reply safe. Without it the
+    # microphone hears the speakers and the harness interrupts itself.
+    can_barge = config.barge_in_enabled and array.present
+    if config.barge_in_enabled and not array.present:
+        logger.info(
+            "talking over replies is disabled: no echo-cancelling array, so the "
+            "microphone would hear the speakers and interrupt every answer"
+        )
+
+    speaking_since: float | None = None
+    busy = threading.Event()
+    pending: queue.Queue[Any] = queue.Queue(maxsize=1)
+
     def notify(state: State, detail: str = "") -> None:
+        nonlocal speaking_since
+        speaking_since = time.monotonic() if state == "speaking" else None
         array.set_state(STATE_TO_RING.get(state, "trace"))
         outer_notify(state, detail)
+
+    session._on_state = notify
+
+    def worker() -> None:
+        """Take turns one at a time, off the thread that holds the microphone."""
+
+        while not stop.is_set():
+            try:
+                utterance = pending.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            busy.set()
+            try:
+                session.direction = describe_direction(array.direction)
+                result = session.take_turn(utterance.samples(), segments=1)
+                if on_turn:
+                    on_turn(result)
+            except Exception as error:  # noqa: BLE001 - one turn is not the call
+                logger.warning("turn failed: %s", error)
+            finally:
+                busy.clear()
+                notify("listening", "")
+
+    turns = threading.Thread(target=worker, name="omni-call-turn", daemon=True)
+    turns.start()
 
     microphone = MicrophoneStream(
         device=config.input_device,
@@ -584,21 +649,37 @@ def run_call_loop(
                 verdict = vad.process(frame, now_ms, frame_ms)
 
                 if verdict.event == "start":
-                    notify("hearing", "")
-                elif verdict.event == "rejected":
-                    notify("listening", "")
+                    if not busy.is_set():
+                        notify("hearing", "")
+                    elif (
+                        can_barge
+                        and speaking_since is not None
+                        # Only once the reply has been going long enough that
+                        # this cannot be the tail of the question it answers.
+                        and time.monotonic() - speaking_since
+                        >= config.barge_in_grace_s
+                    ):
+                        logger.info("interrupted while speaking")
+                        session.request_barge()
                 elif verdict.event == "utterance" and verdict.utterance is not None:
-                    session.direction = describe_direction(array.direction)
-                    result = session.take_turn(
-                        verdict.utterance.samples(), segments=1
-                    )
-                    if on_turn:
-                        on_turn(result)
-                    # The room has changed by the time a reply has played, and
-                    # the speaker's own voice has been in the microphone, so
-                    # the noise floor is recalibrated rather than carried over.
+                    # Newest wins: if a turn is still running, what was just
+                    # said is what matters, not what was said before it.
+                    try:
+                        pending.put_nowait(verdict.utterance)
+                    except queue.Full:
+                        try:
+                            pending.get_nowait()
+                        except queue.Empty:
+                            pass
+                        try:
+                            pending.put_nowait(verdict.utterance)
+                        except queue.Full:
+                            logger.debug("dropped an utterance while busy")
+                    # The speaker's own voice has been in the microphone and
+                    # the room has changed, so the floor is learned again.
                     vad.reset(now_ms, calibrate=True)
-                    notify("listening", "")
     finally:
+        stop.set()
+        turns.join(timeout=5)
         array.stop()
         session.close()
