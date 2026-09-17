@@ -36,6 +36,7 @@ from harness.audio import (
 )
 from harness.call_queue import SETTLE_MS, CallQueue, Pending
 from harness.memory import PassiveMemory
+from harness.place import Place, PlaceLookup
 from harness.respeaker import STATE_TO_RING, ReSpeaker, describe_direction
 from harness.vad import Vad, VadConfig
 from harness.vision_intent import wants_motion, wants_vision
@@ -59,7 +60,9 @@ LIVE_CALL_SYSTEM_PROMPT = (
     "the room, the scene, or what you can see unless they asked."
 )
 
-def grounding_preamble(now: datetime | None = None) -> str:
+def grounding_preamble(
+    now: datetime | None = None, place: Place | None = None
+) -> str:
     """Tell the model when it is, because otherwise it guesses.
 
     A model has no clock. Asked what day it is, or how long ago something
@@ -69,14 +72,27 @@ def grounding_preamble(now: datetime | None = None) -> str:
     """
 
     moment = (now or datetime.now()).astimezone()
-    return (
+    lines = [
         "The current date and time is "
         f"{moment.strftime('%A %-d %B %Y at %H:%M')} "
         f"({moment.strftime('%Z')}). Use this for anything that depends on "
         "when it is -- today, tomorrow, how long ago something was -- rather "
         "than guessing. Timestamps in square brackets on remembered items are "
         "when those happened, relative to now."
-    )
+    ]
+    if place:
+        # Coarse and said to be coarse: it is derived from the network address,
+        # so it places the conversation in a city and nothing finer. A model
+        # told this without the caveat will answer as if it knows the street.
+        lines.append(
+            f"This machine is in {place.describe()}"
+            + (f" ({place.timezone})" if place.timezone else "")
+            + ". That is approximate, from the network connection rather than "
+            "a GPS fix, so treat it as the general area for weather, local "
+            "time elsewhere, and what counts as nearby -- never as the "
+            "speaker's exact position."
+        )
+    return "\n\n".join(lines)
 
 
 State = str  # "starting" | "listening" | "hearing" | "thinking" | "speaking" | "offline"
@@ -179,6 +195,8 @@ class CallSession:
         self._barge = threading.Event()
         # Where the voice came from, when a ReSpeaker array can say.
         self.direction: str = ""
+        # Roughly where this machine is, when the network will say.
+        self.place: Place | None = None
         self.memory: PassiveMemory | None = (
             PassiveMemory(Path(config.memory_path)) if config.memory_path else None
         )
@@ -285,7 +303,10 @@ class CallSession:
             "messages": [
                 {
                     "role": "system",
-                    "content": f"{LIVE_CALL_SYSTEM_PROMPT}\n\n{grounding_preamble()}",
+                    "content": (
+                        f"{LIVE_CALL_SYSTEM_PROMPT}\n\n"
+                        f"{grounding_preamble(place=self.place)}"
+                    ),
                 },
                 *self._history[-self.config.history_turns :],
                 message,
@@ -600,6 +621,11 @@ def run_call_loop(
     array = ReSpeaker()
     array.start()
 
+    # Looked up in the background so the first spoken turn does not pay for it,
+    # and left unknown when there is no network rather than delaying anything.
+    places = PlaceLookup()
+    places.refresh_async()
+
     # Echo cancellation is what makes talking over a reply safe. Without it the
     # microphone hears the speakers and the harness interrupts itself.
     can_barge = config.barge_in_enabled and array.present
@@ -634,6 +660,7 @@ def run_call_loop(
             busy.set()
             try:
                 session.direction = describe_direction(array.direction)
+                session.place = places.place or None
                 result = session.take_turn(
                     pending.audio(), segments=max(1, pending.segments)
                 )
