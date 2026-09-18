@@ -829,6 +829,25 @@ def _without_media(messages: list[Any]) -> list[Any]:
     return cleaned
 
 
+def _latest_user_context(messages: list[Any]) -> str:
+    """Return current user text for an explicit server-side helper handoff."""
+
+    for message in reversed(messages):
+        if not isinstance(message, Mapping) or message.get("role") != "user":
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            parts = [
+                str(item.get("text") or "").strip()
+                for item in content
+                if isinstance(item, Mapping) and item.get("type") == "text"
+            ]
+            return "\n".join(part for part in parts if part)
+    return ""
+
+
 def _tool_followup(
     payload: Mapping[str, Any],
     response: Mapping[str, Any],
@@ -866,7 +885,13 @@ def _tool_followup(
             if isinstance(function, Mapping)
             else ""
         )
-        arguments = _tool_arguments(call)
+        arguments = dict(_tool_arguments(call))
+        if (
+            name == "subagent_delegate"
+            and arguments.get("context_source") == "current_user_message"
+            and not str(arguments.get("context") or "").strip()
+        ):
+            arguments["context"] = _latest_user_context(messages)
         fingerprint = hashlib.sha256(
             f"{name}\0{json.dumps(arguments, sort_keys=True, default=str)}".encode()
         ).hexdigest()
@@ -910,6 +935,7 @@ def _tool_followup(
                 "max_length",
                 "objective",
                 "role",
+                "context_source",
                 "task_id",
                 "command",
                 "cwd",

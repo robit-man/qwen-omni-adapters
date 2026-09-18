@@ -1620,6 +1620,78 @@ def test_portal_subagent_delegation_uses_fresh_tool_free_text_context() -> None:
     assert response.json["portal"]["safe_tools_executed"][0]["name"] == "subagent_delegate"
 
 
+def test_subagent_can_handoff_current_user_context_without_regenerating_it() -> None:
+    requests: list[dict[str, Any]] = []
+    parent_context = "Audit this large evidence block: " + ("receipt-constraint " * 300)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        messages = body.get("messages") or []
+        if messages and "isolated, read-only helper" in str(messages[0].get("content")):
+            return httpx.Response(
+                200,
+                json={
+                    "model": DEFAULT_MODEL,
+                    "message": {"role": "assistant", "content": "Context audited."},
+                },
+            )
+        if len(requests) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "subagent_delegate",
+                                    "arguments": {
+                                        "objective": "Audit all supplied evidence.",
+                                        "role": "critic",
+                                        "context_source": "current_user_message",
+                                    },
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Audit complete."}},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[{"role": "user", "content": parent_context}],
+            portal_auto_tools=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    assert len(requests) == 3
+    delegated_user = requests[1]["messages"][-1]["content"]
+    assert parent_context.strip() in delegated_user
+    parent_followup = requests[2]
+    tool_call_arguments = parent_followup["messages"][-2]["tool_calls"][0][
+        "function"
+    ]["arguments"]
+    assert tool_call_arguments == {
+        "objective": "Audit all supplied evidence.",
+        "role": "critic",
+        "context_source": "current_user_message",
+    }
+    trace = response.json["portal"]["safe_tools_executed"][0]
+    assert trace["arguments"]["context_source"] == "current_user_message"
+    assert "context" not in trace["arguments"]
+
+
 def test_portal_tool_chain_has_no_legacy_fifty_call_cap() -> None:
     requests = []
 

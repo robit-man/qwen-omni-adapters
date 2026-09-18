@@ -139,6 +139,12 @@ hashed Secure browser-session cookie, expires under the same idle TTL as other
 portal state, and is deleted by Trash. A task ID from another browser session
 cannot retrieve a result.
 
+For a large current request, `context_source="current_user_message"` copies the
+latest user message into the helper request server-side. The parent emits only
+that small selector instead of spending its output budget regenerating the
+entire evidence block. The same 24,000-character delegation bound applies, and
+no earlier conversation, tool result, media, or hidden state is copied.
+
 Native `message.tool_calls` remain authoritative. For compatible renderers that
 emit Omnius-style `<tool_call>{...}</tool_call>` text, the portal parses the
 bounded JSON into the same structure and removes the control block from visible
