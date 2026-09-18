@@ -115,6 +115,20 @@ SAFE_TOOLS = [
         {},
     ),
     _function_tool(
+        "request_camera_view",
+        "Ask an embodied client to attach fresh evidence from its physical cameras. "
+        "Use only when answering requires what is visibly present around the client now.",
+        {
+            "mode": {
+                "type": "string",
+                "enum": ["still", "motion"],
+                "description": (
+                    "still for the current scene; motion only when change over time matters."
+                ),
+            }
+        },
+    ),
+    _function_tool(
         "web_search",
         "Discover public pages through a locally launched headless Chromium browser, "
         "or search the current session's local web index. No hosted search API is used. "
@@ -677,6 +691,10 @@ _TOOL_DISCOVERY_HINTS = {
     "get_system_snapshot": "host runtime system cpu gpu ram memory load resources",
     "get_user_location": "where am i location local nearby weather travel timezone",
     "get_portal_capabilities": "portal capabilities features media input output inventory",
+    "request_camera_view": (
+        "camera physical visual scene surroundings holding wearing visible see this "
+        "motion moving happened"
+    ),
     "web_search": "internet web current latest news weather search find public sources",
     "web_fetch": "open read fetch url page article source cite public website",
     "document_search": "search attached document file excerpt pdf docx text",
@@ -2145,6 +2163,18 @@ class PortalToolHarness:
                     "memory_scope": "browser_session",
                     "web_access": "local_chromium_discovery_and_session_index",
                 }
+            elif name == "request_camera_view":
+                mode = str(arguments.get("mode") or "still").strip()
+                if mode not in {"still", "motion"}:
+                    raise ToolInputError("mode must be still or motion")
+                result = {
+                    "camera_capture_requested": True,
+                    "mode": mode,
+                    "next_action": (
+                        "The embodied client will attach fresh camera evidence in a new "
+                        "model pass. Do not invent visual details from this marker."
+                    ),
+                }
             elif name == "tool_search":
                 query = _bounded_text(arguments.get("query"), "query", 500)
                 names = discover_tool_names(query)
@@ -2267,7 +2297,9 @@ def tool_use_instructions() -> str:
         "media, or session evidence is needed, call it with the needed capability. The next "
         "round exposes only the matching concrete schemas. Call the smallest relevant tool, "
         "which remains available for follow-up calls with new arguments. Search again only "
-        "for a genuinely different capability. A discovery result is not the answer, and do "
+        "for a genuinely different capability. Physical camera evidence is available through "
+        "the embodied-client camera tool; internet research and news use web tools instead. "
+        "A discovery result is not the answer, and do "
         "not keep searching after a concrete result resolves the user's request. "
         "Sub-agent delegation is reference-only: select current_user_message, "
         "latest_non_discovery_tool_result, or none as context_source and never copy source "

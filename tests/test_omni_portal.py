@@ -729,6 +729,22 @@ def test_tool_search_discovers_allowlisted_tools_only() -> None:
     assert discover_tool_names("forget a delegated helper") == ["subagent_forget"]
 
 
+def test_tool_discovery_keeps_web_lookup_and_physical_vision_distinct() -> None:
+    news = discover_tool_names("search the web for current breaking news")
+    camera = discover_tool_names("fresh camera view of what I am physically holding")
+
+    assert news[0] == "web_search"
+    assert "request_camera_view" not in news
+    assert camera[0] == "request_camera_view"
+
+    harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    result = harness.execute(
+        "one", "request_camera_view", {"mode": "motion"}
+    )
+    assert result["camera_capture_requested"] is True
+    assert result["mode"] == "motion"
+
+
 def test_shell_tool_returns_command_context(tmp_path: Path) -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
     result = harness.execute(
@@ -1497,6 +1513,31 @@ def test_portal_keeps_only_the_active_discovered_schema() -> None:
     assert [
         item["name"] for item in response.json["portal"]["safe_tools_executed"]
     ] == ["tool_search", "get_current_time"]
+
+
+def test_embodied_client_gets_one_explicit_camera_schema_beside_discovery() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Ready."}},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(portal_auto_tools=True, portal_camera_bridge=True),
+    )
+
+    assert response.status_code == 200
+    assert {
+        item["function"]["name"] for item in requests[0]["tools"]
+    } == {"tool_search", "request_camera_view"}
+    assert "portal_camera_bridge" not in requests[0]
 
 
 def test_portal_executes_only_allowlisted_tool_and_strips_media_on_followup() -> None:

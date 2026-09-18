@@ -1607,6 +1607,7 @@ def create_app(
             if not isinstance(payload, dict):
                 return jsonify({"error": "request body must be a JSON object"}), 400
             auto_tools = payload.pop("portal_auto_tools", False) is True
+            camera_bridge = payload.pop("portal_camera_bridge", False) is True
             if payload.get("model") != runtime.model:
                 return jsonify({"error": "portal model tag is fixed"}), 400
             if payload.get("stream") is not False:
@@ -1621,7 +1622,10 @@ def create_app(
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
             if auto_tools:
-                payload["tools"] = copy.deepcopy(DISCOVERY_TOOLS)
+                initial_tools = [*DISCOVERY_TOOLS]
+                if camera_bridge:
+                    initial_tools.extend(tool_schemas(["request_camera_view"]))
+                payload["tools"] = copy.deepcopy(initial_tools)
             diagnostics.begin_request(
                 session_id,
                 request_id,
@@ -1739,6 +1743,7 @@ def create_app(
         if not isinstance(payload, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
         auto_tools = payload.pop("portal_auto_tools", False) is True
+        camera_bridge = payload.pop("portal_camera_bridge", False) is True
         if payload.get("model") != runtime.model:
             return jsonify({"error": "portal model tag is fixed"}), 400
         if payload.get("stream") is not True:
@@ -1755,7 +1760,10 @@ def create_app(
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
             if auto_tools:
-                payload["tools"] = copy.deepcopy(DISCOVERY_TOOLS)
+                initial_tools = [*DISCOVERY_TOOLS]
+                if camera_bridge:
+                    initial_tools.extend(tool_schemas(["request_camera_view"]))
+                payload["tools"] = copy.deepcopy(initial_tools)
         except PortalRequestError as exc:
             return jsonify({"error": str(exc)}), 400
         request_id = secrets.token_urlsafe(9)

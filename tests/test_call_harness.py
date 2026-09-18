@@ -196,12 +196,31 @@ def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     assert payload["omni"]["require_speech"] is True
     assert payload["think"] is False
     assert payload["portal_auto_tools"] is True
+    assert payload["portal_camera_bridge"] is False
     assert payload["stream"] is True
     # The live-call instructions, plus the clock appended per turn.
     assert payload["messages"][0]["content"].startswith(LIVE_CALL_SYSTEM_PROMPT)
     # The normal chat request hears and answers in one pass.
     assert "latest spoken turn" in payload["messages"][-1]["content"]
     assert payload["messages"][-1]["audios"][0]["data"] == "d2F2"
+
+
+def test_an_embodied_turn_advertises_the_camera_bridge_without_word_matching() -> None:
+    call = CallSession(
+        CallConfig(token="t", model="m", camera_enabled=True),
+        frame_grabber=lambda **_kwargs: None,  # type: ignore[arg-type]
+    )
+
+    payload = call._build_payload(b"wav", 1, None)
+
+    assert payload["portal_camera_bridge"] is True
+
+    payload_with_evidence = call._build_payload(
+        b"wav",
+        1,
+        {"mime_type": "image/jpeg", "encoding": "base64", "data": "eA=="},
+    )
+    assert payload_with_evidence["portal_camera_bridge"] is False
 
 
 def test_a_still_is_attached_as_an_image_and_a_clip_as_a_video() -> None:
@@ -530,44 +549,94 @@ def test_comprehension_is_restored_when_synthesis_fails() -> None:
 
 
 
-# -- the cameras are offered only when the words reach for them ------------
+# -- the model asks for cameras through a tool, never a word filter --------
 
 
-def test_a_conversational_turn_never_reaches_for_the_cameras() -> None:
-    """The bug: "can you hear me okay?" answered, then narrated the room."""
+def test_camera_intent_comes_from_the_structured_tool_event() -> None:
+    call = session()
+    call._events = lambda _payload: iter(  # type: ignore[method-assign]
+        [
+            {"type": "observation", "transcript": "what happened over there"},
+            {
+                "type": "tool",
+                "phase": "start",
+                "tools": [
+                    {
+                        "name": "request_camera_view",
+                        "arguments": {"mode": "motion"},
+                    }
+                ],
+            },
+            {
+                "type": "final",
+                "response": {"message": {"content": "I need a fresh view."}},
+            },
+        ]
+    )
 
-    from harness.vision_intent import wants_vision
+    result = call._run({"messages": []})
 
-    for spoken in (
-        "can you hear me okay hello",
-        "what is the capital of france",
-        "how are you doing today",
-        "tell me a joke",
-        "what time is it",
-    ):
-        assert wants_vision(spoken) is False, spoken
+    assert result.tools_used == ["request_camera_view"]
+    assert result.camera_requested is True
+    assert result.camera_motion is True
 
 
-def test_a_question_about_something_visible_does() -> None:
-    from harness.vision_intent import wants_vision
+def test_look_up_news_does_not_activate_a_camera() -> None:
+    def unexpected_camera(**_kwargs: object) -> dict[str, object]:
+        raise AssertionError("web lookup must not activate a physical camera")
 
-    for spoken in (
-        "what am I holding",
-        "can you see this",
-        "look at the screen",
-        "read that label for me",
-        "what is this thing",
-        "how many people are in the room",
-    ):
-        assert wants_vision(spoken) is True, spoken
+    call = CallSession(
+        CallConfig(token="t", model="m", tools_enabled=True, camera_enabled=True),
+        frame_grabber=unexpected_camera,  # type: ignore[arg-type]
+    )
+    call._run = lambda *_args, **_kwargs: TurnResult(  # type: ignore[method-assign]
+        transcript="look up the latest news",
+        reply="Here is the news.",
+        tools_used=["web_search"],
+    )
+
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert result.reply == "Here is the news."
+    assert result.camera_requested is False
 
 
-def test_a_question_about_time_asks_for_a_clip_not_a_still() -> None:
-    from harness.vision_intent import wants_motion
+def test_explicit_camera_tool_requests_the_right_capture_mode() -> None:
+    captured: list[bool] = []
+    frame = {"mime_type": "video/mp4", "encoding": "base64", "data": "eA=="}
 
-    assert wants_motion("what just happened") is True
-    assert wants_motion("did you see that") is True
-    assert wants_motion("what am I holding") is False
+    def grabber(*, motion: bool) -> dict[str, object]:
+        captured.append(motion)
+        return frame
+
+    call = CallSession(
+        CallConfig(token="t", model="m", tools_enabled=True, camera_enabled=True),
+        frame_grabber=grabber,  # type: ignore[arg-type]
+    )
+    responses = iter(
+        [
+            TurnResult(
+                transcript="what just happened",
+                reply="Let me check.",
+                tools_used=["request_camera_view"],
+                camera_requested=True,
+                camera_motion=True,
+            ),
+            TurnResult(transcript="what just happened", reply="The box fell over."),
+        ]
+    )
+    payloads: list[dict[str, object]] = []
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        payloads.append(payload)
+        return next(responses)
+
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert captured == [True]
+    assert result.followup == "The box fell over."
+    assert payloads[1]["messages"][-1]["videos"] == [frame]  # type: ignore[index]
 
 
 # -- knowing when it is ----------------------------------------------------
@@ -766,45 +835,101 @@ def test_a_barge_ducks_pauses_resumes_or_commits_without_a_hard_cut() -> None:
 
 
 def test_speaker_lets_pulse_keep_one_continuous_adaptive_stream(monkeypatch) -> None:
-    """Tiny forced Pulse buffers underflow between incremental decoder yields."""
+    """Two decoder packets pre-roll one continuous Pulse stream."""
+
+    import io
 
     command: list[str] = []
+    processes: list[Process] = []
+
+    class Sink(io.BytesIO):
+        def close(self) -> None:
+            pass
 
     class Process:
-        stdin = None
+        stdin = Sink()
+        done = False
 
         def poll(self):
-            return None
+            return 0 if self.done else None
+
+        def wait(self, timeout=None):
+            self.done = True
+            return 0
+
+        def terminate(self):
+            self.done = True
+
+        def kill(self):
+            self.done = True
+
+        def send_signal(self, _signal):
+            pass
 
     def popen(args, **_kwargs):
         command.extend(args)
-        return Process()
+        process = Process()
+        processes.append(process)
+        return process
 
     monkeypatch.setattr("harness.audio.subprocess.Popen", popen)
-    SpeakerStream().start()
-
-    assert not any(argument.startswith("--latency-msec=") for argument in command)
-    assert not any(argument.startswith("--process-time-msec=") for argument in command)
-    assert "--stream-name=Omni conversational voice" in command
-
-
-def test_streamed_pcm_blocks_are_written_byte_exactly_to_one_timeline() -> None:
-    import io
-
-    class Process:
-        stdin = io.BytesIO()
-
-        def poll(self):
-            return None
-
     speaker = SpeakerStream(rate_hz=1_000)
-    process = Process()
-    speaker._process = process  # type: ignore[assignment]
+    speaker.start()
     first = np.full(10, 1_000, dtype="<i2").tobytes()
     second = np.full(10, 2_000, dtype="<i2").tobytes()
 
     assert speaker.write(first)
+    assert command == []
     assert speaker.write(second)
+    speaker.finish()
+
+    assert not any(argument.startswith("--latency-msec=") for argument in command)
+    assert not any(argument.startswith("--process-time-msec=") for argument in command)
+    assert "--stream-name=Omni conversational voice" in command
+    assert len(processes) == 1
+    assert processes[0].stdin.getvalue() == first + second
+    assert speaker.timing()["startup_buffer_ms"] == 20.0
+
+
+def test_streamed_pcm_blocks_are_written_byte_exactly_to_one_timeline(monkeypatch) -> None:
+    import io
+
+    class Sink(io.BytesIO):
+        def close(self) -> None:
+            pass
+
+    class Process:
+        stdin = Sink()
+        done = False
+
+        def poll(self):
+            return 0 if self.done else None
+
+        def wait(self, timeout=None):
+            self.done = True
+            return 0
+
+        def terminate(self):
+            self.done = True
+
+        def kill(self):
+            self.done = True
+
+        def send_signal(self, _signal):
+            pass
+
+    speaker = SpeakerStream(rate_hz=1_000)
+    process = Process()
+    monkeypatch.setattr(
+        "harness.audio.subprocess.Popen", lambda *_args, **_kwargs: process
+    )
+    first = np.full(10, 1_000, dtype="<i2").tobytes()
+    second = np.full(10, 2_000, dtype="<i2").tobytes()
+
+    speaker.start()
+    assert speaker.write(first)
+    assert speaker.write(second)
+    speaker.finish()
     assert process.stdin.getvalue() == first + second
     assert speaker.played_seconds == 0.02
 

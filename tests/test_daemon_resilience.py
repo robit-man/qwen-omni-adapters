@@ -55,6 +55,12 @@ def test_the_port_check_waits_for_a_replaced_instance_to_let_go() -> None:
     assert "required loopback port is already in use" in source
 
 
+def test_the_port_probe_does_not_treat_time_wait_as_a_live_owner() -> None:
+    source = inspect.getsource(daemon._port_available)
+
+    assert "SO_REUSEADDR" in source
+
+
 def test_a_model_already_present_is_never_pulled() -> None:
     """Offline, a pull cannot succeed -- and does not need to."""
 

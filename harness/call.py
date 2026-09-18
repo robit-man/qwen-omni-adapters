@@ -41,7 +41,6 @@ from harness.memory import PassiveMemory
 from harness.place import Place, PlaceLookup
 from harness.respeaker import STATE_TO_RING, ReSpeaker, describe_direction
 from harness.vad import Vad, VadConfig
-from harness.vision_intent import wants_motion, wants_vision
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +59,10 @@ LIVE_CALL_SYSTEM_PROMPT = (
     "restating it, and let an explicit topic change win. Older context matters "
     "less as time passes; do not drag a stale topic into a new one. If a prior "
     "reply is marked interrupted, do not assume the user heard its unfinished "
-    "portion. If a "
+    "portion. When an answer genuinely needs a fresh view of the physical scene, "
+    "discover and call the embodied-client camera tool. Internet lookups, news, "
+    "research, and figurative uses of visual words use the appropriate non-camera "
+    "tools. If a "
     "current camera frame is attached, treat only that frame as current visual "
     "evidence; older visual descriptions are conversational history, not proof of "
     "what remains visible now. A frame is background context unless the speaker "
@@ -179,6 +181,8 @@ class TurnResult:
     audio_observation: str = ""
     reply: str = ""
     tools_used: list[str] = field(default_factory=list)
+    camera_requested: bool = False
+    camera_motion: bool = False
     followup: str = ""
     spoke_seconds: float = 0.0
     interrupted: bool = False
@@ -422,6 +426,15 @@ class CallSession:
             "speech_mode": "never" if split_speech else "always",
             "think": self.config.reasoning_enabled,
             "portal_auto_tools": with_tools,
+            # Advertise one tiny physical-camera bridge schema alongside tool
+            # discovery. The language model decides whether to call it; the
+            # harness never guesses from transcript words.
+            "portal_camera_bridge": bool(
+                with_tools
+                and self.config.camera_enabled
+                and self._frame_grabber is not None
+                and frame is None
+            ),
             "stream": True,
         }
 
@@ -464,7 +477,9 @@ class CallSession:
         This is the same chain as the cloudflared browser: the portal exposes
         its safe schemas, executes every requested call, and returns the final
         grounded answer. Vision remains conditional because attaching a camera
-        frame to every conversation makes the picture become the subject.
+        frame to every conversation makes the picture become the subject. The
+        model requests current visual evidence through the camera bridge tool;
+        transcript words never decide that locally.
         """
 
         self._recalled = []
@@ -499,8 +514,9 @@ class CallSession:
         #
         # No imagery on this pass, though. A camera frame attached to every
         # turn makes the picture the subject: asked "can you hear me okay?",
-        # the model answers and then starts describing the room. The cameras
-        # are offered only once the words have reached for them.
+        # the model answers and then starts describing the room. If current
+        # visual evidence is needed, the model explicitly requests it through
+        # the discoverable camera bridge tool.
         result = self._run(
             self._build_payload(
                 audio, segments, None, with_tools=self.config.tools_enabled
@@ -521,14 +537,14 @@ class CallSession:
         looking = (
             self.config.camera_enabled
             and self._frame_grabber is not None
-            and wants_vision(result.transcript)
+            and result.camera_requested
         )
         if looking:
-            # A second pass, this time with what the cameras can see. The first
-            # answer has already been given, so this only speaks if looking
-            # actually added something.
+            # A second pass, this time with the evidence the model requested.
+            # In split-speech mode neither provisional text nor a tool request
+            # is spoken; only this grounded answer reaches TTS.
             self._state("thinking", "looking")
-            frame = self._frame_grabber(motion=wants_motion(result.transcript))
+            frame = self._frame_grabber(motion=result.camera_motion)
 
             follow = self._run(
                 self._build_payload(
@@ -623,6 +639,11 @@ class CallSession:
         with self._speaker_lock:
             self._active_speaker = speaker
         speaking = False
+        first_delta_ms: float | None = None
+        audio_blocks: set[str] = set()
+        last_audio_at: float | None = None
+        last_audio_block: str | None = None
+        max_block_gap_ms = 0.0
         self._state("thinking", "")
 
         def events() -> Iterator[dict[str, Any]]:
@@ -662,10 +683,33 @@ class CallSession:
                             recall_later(query, limit=self.config.memory_recall)
                     self._state("thinking", result.transcript)
                 elif kind == "tool":
-                    name = str(event.get("name") or event.get("tool") or "").strip()
-                    if name:
-                        result.tools_used.append(name)
-                        self._state("thinking", f"using {name}")
+                    items = event.get("tools")
+                    if not isinstance(items, list):
+                        items = [event]
+                    phase = str(event.get("phase") or "").strip()
+                    for item in items:
+                        if not isinstance(item, dict):
+                            continue
+                        name = str(
+                            item.get("name")
+                            or item.get("tool")
+                            or event.get("name")
+                            or event.get("tool")
+                            or ""
+                        ).strip()
+                        if not name:
+                            continue
+                        if name not in result.tools_used:
+                            result.tools_used.append(name)
+                        arguments = item.get("arguments")
+                        if name == "request_camera_view":
+                            result.camera_requested = True
+                            if isinstance(arguments, dict):
+                                result.camera_motion = (
+                                    str(arguments.get("mode") or "still") == "motion"
+                                )
+                        if phase != "complete":
+                            self._state("thinking", f"using {name}")
                 elif kind == "delta":
                     message = event.get("message")
                     if isinstance(message, dict):
@@ -677,6 +721,19 @@ class CallSession:
                     chunk = base64.b64decode(str(audio.get("data") or ""))
                     if not chunk:
                         continue
+                    arrived = time.monotonic()
+                    block = str(audio.get("block") or "0")
+                    audio_blocks.add(block)
+                    if (
+                        last_audio_at is not None
+                        and last_audio_block is not None
+                        and block != last_audio_block
+                    ):
+                        max_block_gap_ms = max(
+                            max_block_gap_ms, (arrived - last_audio_at) * 1000.0
+                        )
+                    last_audio_at = arrived
+                    last_audio_block = block
                     if speak_only_if_useful and not result.tools_used:
                         # Nothing was looked up, so this pass has nothing the
                         # first answer did not already say. Collect the text
@@ -685,7 +742,8 @@ class CallSession:
                     if not speaking:
                         speaker.start()
                         speaking = True
-                        result.first_audio_ms = (time.monotonic() - started) * 1000
+                        first_delta_ms = (arrived - started) * 1000.0
+                        result.first_audio_ms = first_delta_ms
                         self._state("speaking", result.reply[:60])
                     if not speaker.write(chunk):
                         break
@@ -710,6 +768,32 @@ class CallSession:
                     speaker.finish()
                     result.interrupted = self._barge.is_set()
                 result.spoke_seconds = speaker.played_seconds
+                audible_started_at = speaker.audible_started_at
+                if audible_started_at is not None:
+                    result.first_audio_ms = (audible_started_at - started) * 1000.0
+                timing = speaker.timing()
+                logger.info(
+                    "playback timing: chunks=%d blocks=%d pcm=%.3fs "
+                    "first_delta=%.1fms audible=%.1fms startup_wait=%.1fms "
+                    "startup_buffer=%.1fms max_packet_gap=%.1fms "
+                    "max_block_gap=%.1fms predicted_starvation=%.1fms "
+                    "source_wait=%.1fms write_block=%.1fms peak_queue=%.1fms "
+                    "interrupted=%s",
+                    timing["chunks"],
+                    len(audio_blocks),
+                    timing["pcm_seconds"],
+                    first_delta_ms or 0.0,
+                    result.first_audio_ms or 0.0,
+                    timing["startup_wait_ms"],
+                    timing["startup_buffer_ms"],
+                    timing["max_arrival_gap_ms"],
+                    max_block_gap_ms,
+                    timing["max_predicted_starvation_ms"],
+                    timing["max_source_wait_ms"],
+                    timing["max_write_block_ms"],
+                    timing["peak_buffer_ms"],
+                    result.interrupted,
+                )
             else:
                 speaker.stop()
             with self._speaker_lock:

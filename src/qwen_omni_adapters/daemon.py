@@ -74,6 +74,12 @@ def _binary(root: Path, name: str) -> Path:
 def _port_available(host: str, port: int) -> bool:
     family = socket.AF_INET6 if ":" in host else socket.AF_INET
     with socket.socket(family, socket.SOCK_STREAM) as sock:
+        # The child servers use reusable listening sockets. Probe with the
+        # same semantics: after a clean restart, old loopback connections can
+        # remain in TIME_WAIT even though no process owns the port. A plain
+        # bind calls that "in use" and creates a restart loop lasting until
+        # the kernel expires those connections.
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.bind((host, port))
         except OSError:
