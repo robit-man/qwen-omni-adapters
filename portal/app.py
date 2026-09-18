@@ -987,7 +987,12 @@ def _tool_followup(
         and isinstance(item.get("function"), Mapping)
         and str(item.get("function", {}).get("name") or "") != "tool_search"
     ]
-    concrete = list(dict.fromkeys(active or discovered or current))[:3]
+    # A concrete call narrows the candidates to the tool actually chosen. On a
+    # later discovery attempt, preserve that active tool and add alternatives
+    # after it, still capped at three.
+    concrete = list(
+        dict.fromkeys(active if active else [*current, *discovered])
+    )[:3]
     followup["tools"] = copy.deepcopy(
         [*DISCOVERY_TOOLS, *tool_schemas(concrete)]
     )

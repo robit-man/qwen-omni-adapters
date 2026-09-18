@@ -736,6 +736,26 @@ def test_shell_tool_returns_command_context(tmp_path: Path) -> None:
     assert result["stdout_truncated"] is False
 
 
+def test_shell_stdin_writes_generated_content_without_shell_quoting(tmp_path: Path) -> None:
+    harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    content = "# Plan\nquote: 'single' and \"double\"\n$dollar `backtick`\n"
+
+    result = harness.execute(
+        "one",
+        "shell",
+        {
+            "command": "tee plan.md >/dev/null && wc -c < plan.md",
+            "cwd": str(tmp_path),
+            "stdin": content,
+        },
+    )
+
+    assert result["exit_code"] == 0
+    assert result["stdin_bytes"] == len(content.encode())
+    assert int(result["stdout"].strip()) == len(content.encode())
+    assert (tmp_path / "plan.md").read_text(encoding="utf-8") == content
+
+
 def test_shell_is_found_without_putting_its_schema_in_the_first_pass() -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
     result = harness.execute(
@@ -743,6 +763,11 @@ def test_shell_is_found_without_putting_its_schema_in_the_first_pass() -> None:
     )
 
     assert result["available_tools"][0] == "shell"
+
+    file_result = harness.execute(
+        "one", "tool_search", {"query": "write a file and encode it with ffmpeg"}
+    )
+    assert file_result["available_tools"][0] == "shell"
 
 
 def test_safe_math_eval_computes_without_code_execution() -> None:

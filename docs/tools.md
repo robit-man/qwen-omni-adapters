@@ -38,7 +38,7 @@ owns the schemas and implementations.
 | `video_scan` | Inspect observed video/audio streams and timeline metadata | Current browser-session media only |
 | `working_notes` | Add, list, search, or remove bounded research notes | Current browser session only |
 | `task_list` | Maintain bounded pending/in-progress/completed/blocked tasks | Current browser session only |
-| `shell` | Run a raw `bash -lc` command and return stdout, stderr, exit status, cwd, and timeout state | Unrestricted portal-host shell; 900-second runtime and 64-KiB-per-stream capture bounds |
+| `shell` | Run a raw `bash -lc` command and return stdout, stderr, exit status, cwd, and timeout state; optional bounded stdin supports safe generated-file writes | Unrestricted portal-host shell; 900-second runtime, 64-KiB stdin, and 64-KiB-per-stream capture bounds |
 | `subagent_delegate` | Run one fresh helper completion for isolated analysis, planning, synthesis, or critique | Synchronous text-only model call; no tools, media, host access, or parent history; result stored in the current browser session |
 | `subagent_list` | List completed helper delegations | Current browser session only |
 | `subagent_result` | Retrieve one completed helper result by task ID | Current browser session only |

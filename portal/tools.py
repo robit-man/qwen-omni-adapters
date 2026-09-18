@@ -303,7 +303,8 @@ SAFE_TOOLS = [
         "Run an unrestricted Bash command on the portal host and return stdout, stderr, "
         "exit status, working directory, and timeout state. Use only when the user's "
         "request actually calls for host-side command execution; this is not a read-only "
-        "sandbox.",
+        "sandbox. For generated file content, pass it through stdin to a command such as "
+        "tee instead of embedding multiline text in fragile shell quoting.",
         {
             "command": {"type": "string", "description": "Raw command passed to bash -lc."},
             "cwd": {
@@ -315,6 +316,11 @@ SAFE_TOOLS = [
                 "minimum": 1,
                 "maximum": 900,
                 "description": "Wall-clock limit; default 120 seconds.",
+            },
+            "stdin": {
+                "type": "string",
+                "maxLength": 65_536,
+                "description": "Optional exact UTF-8 data supplied to the command's standard input.",
             },
         },
         ["command"],
@@ -435,6 +441,7 @@ def _run_shell(
     command: Any,
     cwd: Any = None,
     timeout_seconds: Any = None,
+    stdin: Any = None,
 ) -> dict[str, Any]:
     """Run the requested shell verbatim, bounding only time and captured output."""
 
@@ -450,11 +457,19 @@ def _run_shell(
         minimum=1,
         maximum=900,
     )
+    if stdin is None:
+        stdin_data: bytes | None = None
+    elif not isinstance(stdin, str):
+        raise ToolInputError("stdin must be a string")
+    else:
+        stdin_data = stdin.encode("utf-8")
+        if len(stdin_data) > 65_536:
+            raise ToolInputError("stdin exceeds 65536 UTF-8 bytes")
     try:
         process = subprocess.Popen(
             ["/bin/bash", "-lc", source],
             cwd=working_directory,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE if stdin_data is not None else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             start_new_session=True,
@@ -481,6 +496,18 @@ def _run_shell(
     ]
     for thread in threads:
         thread.start()
+    writer: threading.Thread | None = None
+    if stdin_data is not None and process.stdin is not None:
+
+        def feed_stdin() -> None:
+            try:
+                process.stdin.write(stdin_data)
+                process.stdin.close()
+            except (BrokenPipeError, ValueError):
+                pass
+
+        writer = threading.Thread(target=feed_stdin, daemon=True)
+        writer.start()
     timed_out = False
     try:
         process.wait(timeout=timeout)
@@ -493,12 +520,15 @@ def _run_shell(
         process.wait()
     for thread in threads:
         thread.join(timeout=2.0)
+    if writer is not None:
+        writer.join(timeout=2.0)
 
     return {
         "command": source,
         "cwd": working_directory,
         "exit_code": process.returncode,
         "timed_out": timed_out,
+        "stdin_bytes": len(stdin_data or b""),
         "stdout": captured["stdout"].decode("utf-8", errors="replace"),
         "stderr": captured["stderr"].decode("utf-8", errors="replace"),
         "stdout_truncated": totals["stdout"] > MAX_SHELL_OUTPUT_BYTES,
@@ -662,7 +692,10 @@ _TOOL_DISCOVERY_HINTS = {
     "video_scan": "inspect analyze attached video timeline stream technical media",
     "working_notes": "notes scratchpad add list search remove session",
     "task_list": "tasks todo plan status track session",
-    "shell": "shell bash terminal command execute run script host filesystem process system",
+    "shell": (
+        "shell bash terminal command execute run script host filesystem process system "
+        "create write edit file folder directory ffmpeg encode media probe"
+    ),
     "subagent_delegate": "delegate isolated helper analyze research plan review critic",
     "subagent_list": "list delegated helper subagent tasks",
     "subagent_result": "retrieve delegated helper subagent result task",
@@ -2155,6 +2188,7 @@ class PortalToolHarness:
                     arguments.get("command"),
                     arguments.get("cwd"),
                     arguments.get("timeout_seconds"),
+                    arguments.get("stdin"),
                 )
             elif name == "audio_analyze":
                 result = self.workspace.media(session_id, "audio", arguments.get("media_id"))
