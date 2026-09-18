@@ -103,7 +103,15 @@ class MicrophoneStream:
         while True:
             block = stream.read(frame_bytes)
             if not block or len(block) < frame_bytes:
-                return
+                return_code = self._process.poll()
+                detail = (
+                    f"exit code {return_code}"
+                    if return_code is not None
+                    else "capture pipe closed"
+                )
+                raise RuntimeError(
+                    f"microphone capture ended unexpectedly ({detail})"
+                )
             interleaved = np.frombuffer(block, dtype="<i2").astype(np.float32) / 32768.0
             if self.channels > 1:
                 interleaved = interleaved.reshape(-1, self.channels)[:, self.channel]

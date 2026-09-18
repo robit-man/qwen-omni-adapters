@@ -12,10 +12,11 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from harness.audio import SpeakerStream  # noqa: E402
+from harness.audio import MicrophoneStream, SpeakerStream  # noqa: E402
 from harness.call import (  # noqa: E402
     LIVE_CALL_SYSTEM_PROMPT,
     CallConfig,
@@ -595,6 +596,35 @@ def test_a_turn_does_not_run_on_the_thread_that_holds_the_microphone() -> None:
     assert "session.take_turn(" not in source.split("def worker(")[0]
     assert "for frame in microphone.frames():" in source
     assert "session.request_barge()" in source
+
+
+def test_a_dead_microphone_pipe_is_an_error_the_supervisor_can_restart() -> None:
+    class ClosedPipe:
+        def read(self, _size: int) -> bytes:
+            return b""
+
+    class DeadRecorder:
+        stdout = ClosedPipe()
+
+        def poll(self) -> int:
+            return 7
+
+    microphone = MicrophoneStream()
+    microphone._process = DeadRecorder()  # type: ignore[assignment]
+
+    with pytest.raises(RuntimeError, match="microphone capture.*exit code 7"):
+        next(microphone.frames())
+
+
+def test_capture_cleanup_does_not_poison_the_supervisors_stop_event() -> None:
+    import inspect
+
+    from harness.call import run_call_loop
+
+    source = inspect.getsource(run_call_loop)
+
+    assert "worker_stop.set()" in source
+    assert "\n        stop.set()\n" not in source
 
 
 def test_talking_over_a_reply_is_refused_without_echo_cancellation() -> None:

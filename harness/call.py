@@ -796,6 +796,11 @@ def run_call_loop(
     """
 
     stop = stop or threading.Event()
+    # A dead parecord pipe ends this invocation, not the whole harness. Keep a
+    # private event for its turn worker so cleanup can join that thread without
+    # poisoning the caller-owned stop event that permits the outer supervisor
+    # to reopen the microphone.
+    worker_stop = threading.Event()
     session = CallSession(config, on_state=on_state, frame_grabber=frame_grabber)
     vad = Vad(config.vad)
     outer_notify = on_state or (lambda state, detail: None)
@@ -834,7 +839,7 @@ def run_call_loop(
     def worker() -> None:
         """Take turns one at a time, off the thread that holds the microphone."""
 
-        while not stop.is_set():
+        while not stop.is_set() and not worker_stop.is_set():
             try:
                 pending = work.get(timeout=0.2)
             except queue.Empty:
@@ -951,7 +956,7 @@ def run_call_loop(
                     with lock:
                         waiting.prepend(pending.audio(), pending.active_ms)
     finally:
-        stop.set()
+        worker_stop.set()
         turns.join(timeout=5)
         array.stop()
         session.close()
