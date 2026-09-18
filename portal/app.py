@@ -1415,7 +1415,6 @@ def create_app(
                     "call_limit": None,
                     "termination": [
                         "model_final",
-                        "exact_duplicate_no_progress",
                         "repeated_nonproductive_rounds",
                         "request_timeout",
                         "client_disconnect",
@@ -1668,7 +1667,7 @@ def create_app(
                         "started",
                         calls,
                     )
-                followup, round_tools, made_progress = _tool_followup(
+                followup, round_tools, _made_progress = _tool_followup(
                     current_payload,
                     data,
                     tool_harness,
@@ -1677,10 +1676,6 @@ def create_app(
                 )
                 if followup is None:
                     break
-                if not made_progress:
-                    raise PortalError(
-                        "safe tool loop stopped because every requested call was an exact duplicate"
-                    )
                 if _tool_round_productive(round_tools):
                     stalled_rounds = 0
                 else:
@@ -1894,7 +1889,7 @@ def create_app(
                     if not auto_tools:
                         followup = None
                         round_tools: list[dict[str, Any]] = []
-                        made_progress = False
+                        _made_progress = False
                     else:
                         calls = _response_tool_calls(final_response)
                         if calls:
@@ -1915,7 +1910,7 @@ def create_app(
                                     "tools": _tool_start_trace(calls),
                                 }
                             )
-                        followup, round_tools, made_progress = _tool_followup(
+                        followup, round_tools, _made_progress = _tool_followup(
                             current_payload,
                             final_response,
                             tool_harness,
@@ -1930,17 +1925,6 @@ def create_app(
                             "media_observed": observed_media,
                         }
                         yield event_bytes({"type": "final", "response": final_response})
-                        return
-                    if not made_progress:
-                        yield event_bytes(
-                            {
-                                "type": "error",
-                                "error": (
-                                    "safe tool loop stopped because every requested call "
-                                    "was an exact duplicate"
-                                ),
-                            }
-                        )
                         return
                     if _tool_round_productive(round_tools):
                         stalled_rounds = 0

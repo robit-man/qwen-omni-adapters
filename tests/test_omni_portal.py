@@ -455,7 +455,6 @@ def test_portal_status_probes_all_internal_stages() -> None:
         "call_limit": None,
         "termination": [
             "model_final",
-            "exact_duplicate_no_progress",
             "repeated_nonproductive_rounds",
             "request_timeout",
             "client_disconnect",
@@ -1798,7 +1797,7 @@ def test_portal_tool_round_has_no_legacy_fifty_call_cap() -> None:
     assert len(response.json["portal"]["safe_tools_executed"]) == 55
 
 
-def test_portal_stops_an_exact_duplicate_no_progress_tool_loop() -> None:
+def test_portal_returns_duplicate_errors_then_stops_if_nothing_changes() -> None:
     requests: list[dict[str, Any]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -1830,8 +1829,49 @@ def test_portal_stops_an_exact_duplicate_no_progress_tool_loop() -> None:
     )
 
     assert response.status_code == 502
-    assert "exact duplicate" in response.json["error"]
-    assert len(requests) == 2
+    assert "without actionable progress" in response.json["error"]
+    assert len(requests) == 8
+
+
+def test_duplicate_failure_is_returned_so_the_model_can_correct_it() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) <= 2:
+            call = {"name": "shell", "arguments": {"command": "exit 7"}}
+        elif len(requests) == 3:
+            duplicate = json.loads(body["messages"][-1]["content"])
+            assert duplicate["error"] == "duplicate_tool_call"
+            call = {"name": "shell", "arguments": {"command": "printf fixed"}}
+        else:
+            return httpx.Response(
+                200,
+                json={"message": {"role": "assistant", "content": "Fixed."}},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{"type": "function", "function": call}],
+                }
+            },
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(portal_auto_tools=True),
+    )
+
+    assert response.status_code == 200
+    assert len(requests) == 4
+    trace = response.json["portal"]["safe_tools_executed"]
+    assert [item["ok"] for item in trace] == [False, False, True]
 
 
 def test_portal_stops_varying_tool_calls_that_never_make_progress() -> None:
