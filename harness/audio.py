@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 CAPTURE_RATE_HZ = 16_000
 PLAYBACK_RATE_HZ = 24_000
 PLAYBACK_INITIAL_BUFFER_MS = 80
-PLAYBACK_CROSSFADE_MS = 3
 
 
 def require_tools() -> None:
@@ -138,10 +137,6 @@ class SpeakerStream:
         self._paused = False
         self._paused_pcm = bytearray()
         self._fade_serial = 0
-        self._crossfade_samples = max(
-            1, round(self.rate_hz * PLAYBACK_CROSSFADE_MS / 1000)
-        )
-        self._pcm_tail = b""
 
     @property
     def playing(self) -> bool:
@@ -176,57 +171,10 @@ class SpeakerStream:
             self._sink_input = None
             self._paused = False
             self._paused_pcm.clear()
-            self._pcm_tail = b""
             self._fade_serial += 1
             self._process = subprocess.Popen(
                 command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL
             )
-
-    def _stitch_pcm(self, pcm: bytes) -> bytes:
-        """Crossfade one streaming boundary and retain only its final 3 ms.
-
-        The web client schedules decoder blocks with the same overlap. Holding
-        this tiny tail is enough to join the next block without delaying the
-        first audible decoder output or collecting the completed sentence.
-        """
-
-        if not pcm:
-            return b""
-        if len(pcm) % 2:
-            raise ValueError("PCM block ended on a partial 16-bit sample")
-
-        fade_bytes = self._crossfade_samples * 2
-        previous = self._pcm_tail
-        if not previous:
-            if len(pcm) <= fade_bytes:
-                self._pcm_tail = pcm
-                return b""
-            self._pcm_tail = pcm[-fade_bytes:]
-            return pcm[:-fade_bytes]
-
-        overlap_samples = min(
-            len(previous) // 2,
-            len(pcm) // 2,
-            self._crossfade_samples,
-        )
-        overlap_bytes = overlap_samples * 2
-        if overlap_samples:
-            old = np.frombuffer(previous[-overlap_bytes:], dtype="<i2").astype(
-                np.float32
-            )
-            new = np.frombuffer(pcm[:overlap_bytes], dtype="<i2").astype(np.float32)
-            ramp = np.linspace(0.0, 1.0, overlap_samples, dtype=np.float32)
-            blend = np.clip(old * (1.0 - ramp) + new * ramp, -32768, 32767)
-            joined = previous[:-overlap_bytes] + blend.astype("<i2").tobytes()
-            joined += pcm[overlap_bytes:]
-        else:
-            joined = previous + pcm
-
-        if len(joined) <= fade_bytes:
-            self._pcm_tail = joined
-            return b""
-        self._pcm_tail = joined[-fade_bytes:]
-        return joined[:-fade_bytes]
 
     @staticmethod
     def _find_sink_input(process: subprocess.Popen[bytes]) -> str | None:
@@ -387,9 +335,10 @@ class SpeakerStream:
                 if len(self._paused_pcm) > limit:
                     del self._paused_pcm[: len(self._paused_pcm) - limit]
                 return True
-            pcm = self._stitch_pcm(pcm)
             if not pcm:
                 return True
+            if len(pcm) % 2:
+                raise ValueError("PCM block ended on a partial 16-bit sample")
             sink_input = self._sink_input
             gain = self._gain
             if sink_input is None and gain < 0.999:
@@ -425,20 +374,6 @@ class SpeakerStream:
                 pass
             if pending:
                 self.write(pending, force=True)
-        with self._lock:
-            tail, self._pcm_tail = self._pcm_tail, b""
-            if (
-                tail
-                and self._process is process
-                and process.stdin is not None
-                and process.poll() is None
-            ):
-                try:
-                    process.stdin.write(tail)
-                    process.stdin.flush()
-                    self._played_bytes += len(tail)
-                except (BrokenPipeError, ValueError):
-                    pass
         try:
             if process.stdin is not None:
                 process.stdin.close()
@@ -463,7 +398,6 @@ class SpeakerStream:
             was_paused = self._paused
             self._paused = False
             self._paused_pcm.clear()
-            self._pcm_tail = b""
         if process is None or process.poll() is not None:
             return
         if was_paused:

@@ -691,20 +691,25 @@ def test_speaker_uses_the_browser_sized_initial_streaming_cushion(monkeypatch) -
     assert "--process-time-msec=20" in command
 
 
-def test_streamed_pcm_blocks_are_crossfaded_without_waiting_for_completion() -> None:
+def test_streamed_pcm_blocks_are_written_byte_exactly_to_one_timeline() -> None:
+    import io
+
+    class Process:
+        stdin = io.BytesIO()
+
+        def poll(self):
+            return None
+
     speaker = SpeakerStream(rate_hz=1_000)
+    process = Process()
+    speaker._process = process  # type: ignore[assignment]
     first = np.full(10, 1_000, dtype="<i2").tobytes()
     second = np.full(10, 2_000, dtype="<i2").tobytes()
 
-    first_output = speaker._stitch_pcm(first)
-    second_output = speaker._stitch_pcm(second)
-    joined = np.frombuffer(first_output + second_output + speaker._pcm_tail, dtype="<i2")
-
-    # The first block is emitted immediately except for the 3 ms needed to
-    # join it to the next one. The overlap shortens two 10-sample blocks by 3.
-    assert len(first_output) == 14
-    assert joined.size == 17
-    assert joined[7:10].tolist() == [1_000, 1_500, 2_000]
+    assert speaker.write(first)
+    assert speaker.write(second)
+    assert process.stdin.getvalue() == first + second
+    assert speaker.played_seconds == 0.02
 
 
 def test_speech_during_a_turn_is_kept_rather_than_dropped() -> None:
