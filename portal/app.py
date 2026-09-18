@@ -105,6 +105,9 @@ VOICE_CLIENT_FIELDS = {
 MAX_SPEAKER_REFERENCE_BYTES = 10 * 1024 * 1024
 SESSION_COOKIE_NAME = "omni_portal_session"
 DIAGNOSTIC_TTL_SECONDS = 5 * 60
+# Productive chains have no numeric round ceiling. This guard only stops a
+# model that keeps changing searches/calls without obtaining actionable data.
+MAX_STALLED_TOOL_ROUNDS = 8
 DIAGNOSTIC_NUMERIC_FIELDS = {
     "queue_wait_ms",
     "upstream_headers_ms",
@@ -851,6 +854,8 @@ def _tool_followup(
     messages.append(assistant)
     executed: list[dict[str, Any]] = []
     discovered: list[str] = []
+    active: list[str] = []
+    known_names = {item["function"]["name"] for item in SAFE_TOOLS}
     made_progress = False
     for call in calls:
         if not isinstance(call, Mapping):
@@ -879,6 +884,8 @@ def _tool_followup(
                 available = result.get("available_tools")
                 if isinstance(available, list):
                     discovered.extend(str(item) for item in available)
+            elif name in known_names:
+                active.append(name)
         content = tool_result_json(result)
         tool_message: dict[str, Any] = {
             "role": "tool",
@@ -909,26 +916,64 @@ def _tool_followup(
                 "timeout_seconds",
             }
         }
+        ok = "error" not in result
+        if name == "shell":
+            ok = (
+                ok
+                and result.get("exit_code") == 0
+                and result.get("timed_out") is not True
+            )
         executed.append(
             {
                 "id": str(call.get("id") or fingerprint[:12]),
                 "name": name or "unknown",
                 "arguments": display_arguments,
-                "ok": "error" not in result,
+                "ok": ok,
                 "result": content,
                 "status": "complete",
                 "duplicate": duplicate,
             }
         )
     followup["messages"] = messages
-    # Contracts are round-local. Discovery exposes at most three concrete
-    # tools for exactly the next inference; after one executes, the contract
-    # collapses back to the tiny discovery schema. Tool results stay in the
-    # message chain as evidence, but unrelated instructions never accumulate.
+    # Keep only the tool actively doing the work, or freshly discovered
+    # candidates. This stays tiny while allowing iterative shell work to fix
+    # or verify a command without paying for another discovery inference.
+    # An empty discovery preserves the current concrete schema: ffmpeg, for
+    # example, is a program inside shell rather than a separate portal tool.
+    current = [
+        str(item.get("function", {}).get("name") or "")
+        for item in followup.get("tools", [])
+        if isinstance(item, Mapping)
+        and isinstance(item.get("function"), Mapping)
+        and str(item.get("function", {}).get("name") or "") != "tool_search"
+    ]
+    concrete = list(dict.fromkeys(active or discovered or current))[:3]
     followup["tools"] = copy.deepcopy(
-        [*DISCOVERY_TOOLS, *tool_schemas(discovered)]
+        [*DISCOVERY_TOOLS, *tool_schemas(concrete)]
     )
     return followup, executed, made_progress
+
+
+def _tool_round_productive(executed: list[dict[str, Any]]) -> bool:
+    """Whether a round returned usable evidence or completed an action."""
+
+    for item in executed:
+        if item.get("duplicate") or item.get("ok") is not True:
+            continue
+        if str(item.get("name") or "") == "tool_search":
+            continue
+        try:
+            result = json.loads(str(item.get("result") or "{}"))
+        except ValueError:
+            return True
+        if not isinstance(result, Mapping):
+            return True
+        if result.get("found") is False:
+            continue
+        if "results" in result and not result.get("results"):
+            continue
+        return True
+    return False
 
 
 def _tool_trace(executed: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1331,6 +1376,7 @@ def create_app(
                     "termination": [
                         "model_final",
                         "exact_duplicate_no_progress",
+                        "repeated_nonproductive_rounds",
                         "request_timeout",
                         "client_disconnect",
                     ],
@@ -1560,6 +1606,7 @@ def create_app(
             seen_tool_calls: set[str] = set()
             current_payload: dict[str, Any] = payload
             round_index = 0
+            stalled_rounds = 0
             while True:
                 upstream = session.post(runtime.adapter_url, json=current_payload)
                 data = _json_object(upstream, "adapter")
@@ -1593,6 +1640,14 @@ def create_app(
                 if not made_progress:
                     raise PortalError(
                         "safe tool loop stopped because every requested call was an exact duplicate"
+                    )
+                if _tool_round_productive(round_tools):
+                    stalled_rounds = 0
+                else:
+                    stalled_rounds += 1
+                if stalled_rounds >= MAX_STALLED_TOOL_ROUNDS:
+                    raise PortalError(
+                        "safe tool loop stopped after repeated rounds without actionable progress"
                     )
                 executed.extend(round_tools)
                 _record_tool_diagnostics(
@@ -1734,6 +1789,7 @@ def create_app(
             executed: list[dict[str, Any]] = []
             seen_tool_calls: set[str] = set()
             final_status = upstream.status_code
+            stalled_rounds = 0
 
             def event_bytes(event: Mapping[str, Any]) -> bytes:
                 return (json.dumps(event, separators=(",", ":")) + "\n").encode()
@@ -1842,6 +1898,22 @@ def create_app(
                                 "error": (
                                     "safe tool loop stopped because every requested call "
                                     "was an exact duplicate"
+                                ),
+                            }
+                        )
+                        return
+                    if _tool_round_productive(round_tools):
+                        stalled_rounds = 0
+                    else:
+                        stalled_rounds += 1
+                    if stalled_rounds >= MAX_STALLED_TOOL_ROUNDS:
+                        final_status = 502
+                        yield event_bytes(
+                            {
+                                "type": "error",
+                                "error": (
+                                    "safe tool loop stopped after repeated rounds "
+                                    "without actionable progress"
                                 ),
                             }
                         )

@@ -170,9 +170,10 @@ The server injects its schemas, so callers need only opt into execution:
 
 A typical dependent chain is `tool_search(web discovery) -> web_search ->
 tool_search(page retrieval) -> web_fetch -> tool_search(memory) -> memory_write
--> final answer`. Discovery results are explicitly marked `task_complete=false`;
-they expose a bounded contract for the next isolated round rather than dumping
-the full catalog into every context.
+-> final answer`. Discovery exposes a bounded contract rather than dumping the
+full catalog into every context. After a concrete call, only that active schema
+stays beside discovery, so iterative shell work can correct or verify a command
+without rediscovering the same capability.
 A later turn in the same browser session can use `memory_read` or
 `memory_search`; `web_search(mode=session)` searches the already indexed result
 and fetched-page text without another discovery request. Independent read-only

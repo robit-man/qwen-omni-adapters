@@ -442,6 +442,7 @@ def test_portal_status_probes_all_internal_stages() -> None:
         "termination": [
             "model_final",
             "exact_duplicate_no_progress",
+            "repeated_nonproductive_rounds",
             "request_timeout",
             "client_disconnect",
         ],
@@ -696,7 +697,7 @@ def test_tool_search_discovers_allowlisted_tools_only() -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
     result = harness.execute("one", "tool_search", {"query": "OCR scanned PDF"})
     assert result["allowlisted_only"] is True
-    assert result["task_complete"] is False
+    assert "task_complete" not in result
     assert result["results"][0]["name"] == "ocr_pdf"
     assert result["suggested_tools"][0] == "ocr_pdf"
     assert "Invoke the smallest relevant one now" in result["next_action"]
@@ -1403,7 +1404,7 @@ def test_portal_routes_sanitized_browser_location_through_session_tool() -> None
     assert response.json["portal"]["safe_tools_executed"][0]["name"] == "get_user_location"
 
 
-def test_portal_exposes_only_discovered_schemas_for_one_round() -> None:
+def test_portal_keeps_only_the_active_discovered_schema() -> None:
     requests: list[dict[str, Any]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -1418,7 +1419,7 @@ def test_portal_exposes_only_discovered_schemas_for_one_round() -> None:
             assert len(names) <= 4  # discovery plus at most three matches
             call = {"name": "get_current_time", "arguments": {}}
         else:
-            assert names == {"tool_search"}
+            assert names == {"tool_search", "get_current_time"}
             return httpx.Response(
                 200,
                 json={"message": {"role": "assistant", "content": "It is test time."}},
@@ -1516,7 +1517,10 @@ def test_portal_executes_only_allowlisted_tool_and_strips_media_on_followup() ->
     assert "portal_auto_tools" not in requests[0]
     assert "<portal_tools>" in requests[0]["messages"][0]["content"]
     assert "Only tool_search is initially visible" in requests[0]["messages"][0]["content"]
-    assert "discover again for each new dependency" in requests[0]["messages"][0]["content"]
+    assert (
+        "Search again only for a genuinely different capability"
+        in requests[0]["messages"][0]["content"]
+    )
     assert "images" not in requests[1]["messages"][0]
     tool_result = requests[1]["messages"][-1]
     assert tool_result["role"] == "tool"
@@ -1742,6 +1746,91 @@ def test_portal_stops_an_exact_duplicate_no_progress_tool_loop() -> None:
     assert response.status_code == 502
     assert "exact duplicate" in response.json["error"]
     assert len(requests) == 2
+
+
+def test_portal_stops_varying_tool_calls_that_never_make_progress() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "tool_search",
+                                "arguments": {
+                                    "query": f"missing capability {len(requests)}"
+                                },
+                            },
+                        }
+                    ],
+                }
+            },
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(portal_auto_tools=True),
+    )
+
+    assert response.status_code == 502
+    assert "without actionable progress" in response.json["error"]
+    assert len(requests) == 8
+
+
+def test_active_tool_can_be_called_again_without_rediscovery() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        names = {item["function"]["name"] for item in body.get("tools", [])}
+        if len(requests) == 1:
+            assert names == {"tool_search"}
+            call = {"name": "tool_search", "arguments": {"query": "arithmetic"}}
+        elif len(requests) == 2:
+            assert "safe_math_eval" in names
+            call = {"name": "safe_math_eval", "arguments": {"expression": "6 * 7"}}
+        elif len(requests) == 3:
+            assert names == {"tool_search", "safe_math_eval"}
+            call = {"name": "safe_math_eval", "arguments": {"expression": "7 * 8"}}
+        else:
+            assert names == {"tool_search", "safe_math_eval"}
+            return httpx.Response(
+                200,
+                json={"message": {"role": "assistant", "content": "42 and 56."}},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{"type": "function", "function": call}],
+                }
+            },
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(portal_auto_tools=True),
+    )
+
+    assert response.status_code == 200
+    assert len(requests) == 4
+    assert [
+        item["name"] for item in response.json["portal"]["safe_tools_executed"]
+    ] == ["tool_search", "safe_math_eval", "safe_math_eval"]
 
 
 def test_portal_parses_omnius_style_text_tool_call_fallback() -> None:
