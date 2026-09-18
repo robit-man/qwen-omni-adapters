@@ -2,6 +2,7 @@
 Description=Qwen Omni Adapters runtime and dashboard
 After=network-online.target ollama.service docker.service
 Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple

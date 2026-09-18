@@ -23,7 +23,10 @@ class SpeechResidency:
     unit: str
     health_url: str
     stop_timeout_s: float = 120.0
-    ready_timeout_s: float = 900.0
+    # A foreground turn must never hold the conversation worker for fifteen
+    # minutes. Systemd and the background restorer keep healing indefinitely;
+    # this bound applies only to one caller waiting for usable weights.
+    ready_timeout_s: float = 120.0
     _restore: bool = field(default=False, init=False)
     _restarted_at: float = field(default=0.0, init=False)
     _start_lock: threading.Lock = field(
@@ -56,8 +59,11 @@ class SpeechResidency:
             ["systemctl", "--user", "is-active", "--quiet", self.unit],
             timeout=10,
         )
-        self._restore = active.returncode == 0
-        if not self._restore:
+        # Comprehension is the desired steady state even if it was already
+        # failed when speech began. The old code remembered False here, then
+        # skipped restoration entirely after TTS and left the system dead.
+        self._restore = True
+        if active.returncode != 0:
             logger.info("speech headroom already available; %s is inactive", self.unit)
             return
         logger.info("stopping %s to make room for speech", self.unit)
@@ -92,16 +98,22 @@ class SpeechResidency:
     def _restore_until_started(self) -> None:
         """Retry transient memory refusals without blocking playback cleanup."""
 
-        deadline = time.monotonic() + self.ready_timeout_s
         # CUDA/unified-memory accounting can lag slightly behind the TTS child
         # exiting. Starting in that instant is the failure this loop repairs.
         time.sleep(1.0)
-        while time.monotonic() < deadline:
+        attempts = 0
+        while True:
             if self._ensure_started():
                 self._restarted_at = time.monotonic()
                 return
-            time.sleep(1.0)
-        logger.error("gave up restoring %s after %.0fs", self.unit, self.ready_timeout_s)
+            attempts += 1
+            if attempts % 30 == 0:
+                logger.warning(
+                    "still restoring %s after %ds; recovery remains active",
+                    self.unit,
+                    attempts * 2,
+                )
+            time.sleep(2.0)
 
     def restore(self) -> None:
         """Start the evicted worker again, and do not wait for it.

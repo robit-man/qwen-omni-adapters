@@ -1059,6 +1059,49 @@ def _language_result(data: Mapping[str, Any], language_api: str) -> dict[str, An
     return normalized
 
 
+def _merge_openai_tool_call_deltas(
+    accumulated: dict[int, dict[str, Any]], deltas: Any
+) -> list[dict[str, Any]]:
+    """Reassemble OpenAI SSE tool-call fragments into request-safe calls.
+
+    llama.cpp sends the id, type, name, and JSON arguments across separate
+    deltas. Keeping only the latest delta loses ``type`` and ``name`` and makes
+    the next chained request invalid.
+    """
+
+    if not isinstance(deltas, list):
+        return [copy.deepcopy(accumulated[index]) for index in sorted(accumulated)]
+    for position, fragment in enumerate(deltas):
+        if not isinstance(fragment, Mapping):
+            continue
+        raw_index = fragment.get("index", position)
+        index = raw_index if isinstance(raw_index, int) and raw_index >= 0 else position
+        call = accumulated.setdefault(
+            index,
+            {"type": "function", "function": {"name": "", "arguments": ""}},
+        )
+        for key in ("id", "type"):
+            value = fragment.get(key)
+            if isinstance(value, str) and value:
+                call[key] = value
+        function = fragment.get("function")
+        if not isinstance(function, Mapping):
+            continue
+        target = call.setdefault("function", {"name": "", "arguments": ""})
+        name = function.get("name")
+        if isinstance(name, str) and name:
+            target["name"] = str(target.get("name") or "") + name
+        arguments = function.get("arguments")
+        if isinstance(arguments, str):
+            target["arguments"] = str(target.get("arguments") or "") + arguments
+        elif isinstance(arguments, Mapping):
+            existing = target.get("arguments")
+            merged = dict(existing) if isinstance(existing, Mapping) else {}
+            merged.update(arguments)
+            target["arguments"] = merged
+    return [copy.deepcopy(accumulated[index]) for index in sorted(accumulated)]
+
+
 def _direct_response(model: str, content: str) -> dict[str, Any]:
     return {
         "model": model,
@@ -1380,6 +1423,7 @@ def execute_stream(
         thinking_enabled = _thinking_requested(parsed)
         tag_stream = _ThinkingTagStream(enabled=thinking_enabled)
         tool_calls: Any = None
+        openai_tool_calls: dict[int, dict[str, Any]] = {}
         result: dict[str, Any] = {}
         # Make the prompt fit before sending it. llama.cpp refuses an
         # over-long prompt rather than truncating it, so a conversation that
@@ -1419,7 +1463,9 @@ def execute_stream(
                         if delta.get("reasoning_content"):
                             message["thinking"] = delta["reasoning_content"]
                         if delta.get("tool_calls"):
-                            message["tool_calls"] = delta["tool_calls"]
+                            message["tool_calls"] = _merge_openai_tool_call_deltas(
+                                openai_tool_calls, delta["tool_calls"]
+                            )
                     result.setdefault("model", chunk.get("model") or parsed.model)
                 else:
                     result.update(chunk)

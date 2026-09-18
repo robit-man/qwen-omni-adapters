@@ -11,6 +11,7 @@ Wants=qwen-omni-adapters.service
 # to headless for the rest of its life.
 After=qwen-omni-adapters.service sound.target pulseaudio.service graphical-session.target
 PartOf=graphical-session.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple

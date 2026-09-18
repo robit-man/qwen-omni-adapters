@@ -6,10 +6,14 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "runtime"))
 
 from adapter_server import _active_context_tokens  # noqa: E402
 from comprehension_launcher import (  # noqa: E402
+    _record_failed_context,
+    _record_live_sample,
     available_memory_gib,
     candidate_windows,
     choose_context_tokens,
@@ -17,29 +21,89 @@ from comprehension_launcher import (  # noqa: E402
 )
 
 
-def test_largest_context_that_leaves_the_reserve_is_selected() -> None:
-    # Measured unified residency is about 19.7 GiB at 4K, 19.9 at
-    # 8K, and 20.3 at 16K. With 23.1 GiB available and 3 GiB held back,
-    # 8K is the largest safe choice.
-    assert choose_context_tokens(23.1, reserve_gib=3.0) == 8192
+def test_largest_context_that_fits_live_capacity_is_selected() -> None:
+    # These values are supplied by live calibration and GGUF metadata; the
+    # selector itself has no machine-specific footprint constants.
+    assert choose_context_tokens(
+        23.1,
+        base_gib=16.2,
+        kv_gib_per_token=0.375 / 4096,
+    ) == 65_536
 
 
 def test_context_falls_back_instead_of_loading_past_available_memory() -> None:
-    assert choose_context_tokens(22.75, reserve_gib=3.0) == 4096
-    assert choose_context_tokens(22.6, reserve_gib=3.0) is None
+    arguments = {
+        "base_gib": 16.2,
+        "kv_gib_per_token": 0.375 / 4096,
+    }
+    assert choose_context_tokens(20.2, **arguments) == 32_768
+    assert choose_context_tokens(19.8, **arguments) == 32_768
+    assert choose_context_tokens(16.8, **arguments) == 4096
+    assert choose_context_tokens(16.5, **arguments) is None
 
 
 def test_configured_non_power_of_two_ceiling_is_considered() -> None:
     assert candidate_windows(4096, 24_000)[-1] == 24_000
-    assert choose_context_tokens(24.0, maximum=24_000, reserve_gib=3.0) == 24_000
+    assert choose_context_tokens(
+        22.0,
+        maximum=24_000,
+        base_gib=16.2,
+        kv_gib_per_token=0.375 / 4096,
+    ) == 24_000
 
 
 def test_each_parallel_slot_is_charged_for_its_own_kv_cache() -> None:
-    one = estimated_resident_gib(8192, parallel_slots=1)
-    four = estimated_resident_gib(8192, parallel_slots=4)
+    one = estimated_resident_gib(
+        8192, base_gib=16.2, kv_gib_per_token=0.375 / 4096, parallel_slots=1
+    )
+    four = estimated_resident_gib(
+        8192, base_gib=16.2, kv_gib_per_token=0.375 / 4096, parallel_slots=4
+    )
 
-    assert one == 19.9
-    assert four == 20.5
+    assert one == 16.95
+    assert four == 19.2
+
+
+def test_successful_load_calibrates_base_from_live_memory(
+    tmp_path: Path,
+) -> None:
+    state = tmp_path / "memory.json"
+    calibration = {
+        "components": [],
+        "kv_gib_per_token": 0.375 / 4096,
+    }
+
+    _record_live_sample(
+        state,
+        calibration,
+        before_gib=20.2,
+        after_gib=3.25,
+        context_tokens=8192,
+        parallel_slots=1,
+    )
+
+    assert calibration["base_gib"] == pytest.approx(16.2)
+    assert calibration["last_sample"]["context_tokens"] == 8192
+    assert state.is_file()
+
+
+def test_abnormal_exit_caps_the_next_load_at_the_next_standard_window(
+    tmp_path: Path,
+) -> None:
+    state = tmp_path / "memory.json"
+    calibration = {"kv_gib_per_token": 0.375 / 4096}
+
+    _record_failed_context(
+        state,
+        calibration,
+        context_tokens=32_768,
+        minimum=4096,
+        maximum=65_536,
+        available_gib=20.0,
+    )
+
+    assert calibration["context_cap"] == 16_384
+    assert calibration["last_failure"]["context_tokens"] == 32_768
 
 
 def test_memavailable_is_read_in_gib(tmp_path: Path) -> None:

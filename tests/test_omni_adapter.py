@@ -1439,6 +1439,42 @@ def test_an_openai_response_without_a_message_is_rejected() -> None:
         adapter_server._language_result({"choices": []}, "openai")
 
 
+def test_openai_stream_tool_call_fragments_are_reassembled() -> None:
+    from runtime import adapter_server
+
+    calls: dict[int, dict] = {}
+    adapter_server._merge_openai_tool_call_deltas(
+        calls,
+        [
+            {
+                "index": 0,
+                "id": "call-1",
+                "type": "function",
+                "function": {"name": "shell", "arguments": ""},
+            }
+        ],
+    )
+    adapter_server._merge_openai_tool_call_deltas(
+        calls,
+        [{"index": 0, "function": {"arguments": '{"command":"printf '} }],
+    )
+    complete = adapter_server._merge_openai_tool_call_deltas(
+        calls,
+        [{"index": 0, "function": {"arguments": 'ok"}'}}],
+    )
+
+    assert complete == [
+        {
+            "id": "call-1",
+            "type": "function",
+            "function": {
+                "name": "shell",
+                "arguments": '{"command":"printf ok"}',
+            },
+        }
+    ]
+
+
 def test_think_false_disables_reasoning_on_the_openai_language_path() -> None:
     """Chain of thought before the first spoken word is pure added latency.
 

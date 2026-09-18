@@ -875,6 +875,18 @@ def test_comprehension_readiness_repairs_a_failed_background_reload() -> None:
     assert "self._ensure_started()" in source
 
 
+def test_background_comprehension_recovery_never_gives_up() -> None:
+    import inspect
+
+    from harness.residency import SpeechResidency
+
+    source = inspect.getsource(SpeechResidency._restore_until_started)
+
+    assert "while True" in source
+    assert "gave up" not in source
+    assert SpeechResidency.ready_timeout_s == 120.0
+
+
 def test_a_turn_waits_for_comprehension_only_when_it_needs_it() -> None:
     order: list[str] = []
     call = CallSession(
