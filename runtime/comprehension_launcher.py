@@ -39,7 +39,7 @@ def available_memory_gib(meminfo: Path = Path("/proc/meminfo")) -> float:
 def estimated_resident_gib(
     context_tokens: int,
     *,
-    base_gib: float = 16.3,
+    base_gib: float = 19.5,
     kv_gib_per_4k_per_slot: float = 0.1,
     work_gib_per_4k: float = 0.1,
     parallel_slots: int = 1,
@@ -80,7 +80,7 @@ def choose_context_tokens(
     minimum: int = 4096,
     maximum: int = 65_536,
     reserve_gib: float = 3.0,
-    base_gib: float = 16.3,
+    base_gib: float = 19.5,
     kv_gib_per_4k_per_slot: float = 0.1,
     work_gib_per_4k: float = 0.1,
     parallel_slots: int = 1,
@@ -152,7 +152,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--base-gib",
         type=_nonnegative_float,
-        default=float(os.environ.get("OMNI_COMPREHENSION_BASE_GIB", "16.3")),
+        default=float(os.environ.get("OMNI_COMPREHENSION_BASE_GIB", "19.5")),
     )
     parser.add_argument(
         "--kv-gib-per-4k-per-slot",
