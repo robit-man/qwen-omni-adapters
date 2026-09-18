@@ -77,6 +77,32 @@ def test_speech_is_confirmed_before_it_is_believed() -> None:
     assert vad.speaking
 
 
+def test_respeaker_native_gate_rejects_far_end_audio_without_losing_preroll() -> None:
+    vad, now = calibrated()
+    blocked, now = feed(vad, 0.25, 500, now)
+    # Re-run those frames through the explicit native gate: loud playback is
+    # not local speech even though an amplitude-only detector would accept it.
+    vad.reset(now)
+    results = []
+    for _ in range(25):
+        now += FRAME_MS
+        results.append(
+            vad.process(tone(0.25), now, FRAME_MS, native_speech=False)
+        )
+    assert {result.event for result in results} == {"idle"}
+    assert not vad.speaking
+
+    # Once the DSP says near-end speech is present, normal confirmation starts.
+    admitted = []
+    for _ in range(12):
+        now += FRAME_MS
+        admitted.append(
+            vad.process(tone(0.25), now, FRAME_MS, native_speech=True)
+        )
+    assert any(result.event == "start" for result in admitted)
+    assert blocked
+
+
 def test_a_full_utterance_survives_a_pause_in_the_middle() -> None:
     """People pause mid-sentence; that is not the end of the turn."""
 
@@ -396,6 +422,33 @@ def test_observation_prefetches_memory_without_waiting_for_it() -> None:
 
     assert result.reply == "Biscuit."
     assert queued == [("what is my puppy's name", 3)]
+
+
+def test_recent_near_verbatim_playback_echo_never_becomes_a_turn() -> None:
+    call = CallSession(CallConfig(token="t", model="m"))
+    call._note_spoken("I'm here, ready to talk. How can I assist you?", 2.0)
+    call._events = lambda _payload: iter(  # type: ignore[method-assign]
+        [
+            {
+                "type": "observation",
+                "transcript": "I'm here ready to talk how can I assist you",
+            },
+            {"type": "audio_delta", "audio": {"data": "AAAA"}},
+        ]
+    )
+
+    result = call._run({"messages": []})
+
+    assert result.echo_suppressed
+    assert result.spoke_seconds == 0.0
+    assert call._history == []
+
+
+def test_a_real_followup_is_not_mistaken_for_playback_echo() -> None:
+    call = CallSession(CallConfig(token="t", model="m"))
+    call._note_spoken("I'm here, ready to talk. How can I assist you?", 2.0)
+
+    assert not call._is_recent_playback_echo("Can you check tomorrow's weather?")
 
 
 def test_constrained_host_finishes_text_before_swapping_to_speech() -> None:

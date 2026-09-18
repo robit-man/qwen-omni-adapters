@@ -104,8 +104,21 @@ class Vad:
             0.0005, self._noise_floor * (1.0 - weight) + level * weight
         )
 
-    def process(self, samples: np.ndarray, now_ms: float, frame_ms: float) -> VadResult:
-        """Feed one frame and learn what it means for the turn in progress."""
+    def process(
+        self,
+        samples: np.ndarray,
+        now_ms: float,
+        frame_ms: float,
+        *,
+        native_speech: bool | None = None,
+    ) -> VadResult:
+        """Feed one frame and learn what it means for the turn in progress.
+
+        ``native_speech`` is the ReSpeaker's post-AEC speech decision. It gates
+        only onset: once a real utterance has begun, ordinary inter-word gaps
+        must not cut it off. Frames still enter pre-roll while the gate is
+        closed, so opening it does not cost the first syllable.
+        """
 
         level = float(np.sqrt(np.mean(np.square(samples)))) if samples.size else 0.0
         if math.isnan(level):
@@ -137,6 +150,15 @@ class Vad:
             self._pre_roll.append(samples)
             if len(self._pre_roll) > config.pre_roll_frames:
                 self._pre_roll.pop(0)
+            if native_speech is False:
+                # Far-end playback can be much louder than room tone. Do not
+                # learn it as the new floor, and do not let it accumulate the
+                # software VAD confirmation needed to interrupt itself.
+                self._candidate_frames = []
+                self._candidate_started_at = None
+                return VadResult(
+                    "idle", False, level=level, threshold=start_threshold
+                )
             if level < start_threshold:
                 self._update_noise_floor(level)
                 self._candidate_frames = []

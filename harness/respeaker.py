@@ -37,6 +37,7 @@ PARAMETERS: dict[str, tuple[int, int, str]] = {
     "doa_angle": (21, 0, "int"),
     "voice_activity": (19, 32, "int"),
     "speech_detected": (19, 22, "int"),
+    "aec_far_end_silence": (18, 31, "int"),
 }
 
 _usb_lock = threading.RLock()
@@ -63,17 +64,18 @@ def available() -> bool:
 def _read_parameter(device, parameter: tuple[int, int, str]) -> float:
     import usb.util
 
-    command, offset, kind = parameter
+    parameter_id, offset, kind = parameter
+    command = 0x80 | offset | (0x40 if kind == "int" else 0)
     response = device.ctrl_transfer(
         usb.util.CTRL_IN | usb.util.CTRL_TYPE_VENDOR | usb.util.CTRL_RECIPIENT_DEVICE,
         0,
-        offset | 0x80,
         command,
+        parameter_id,
         8,
-        8000,
+        100000,
     )
-    value, _ = struct.unpack(b"ii", response.tobytes())
-    return float(value) if kind == "int" else value * (2.0**-27)
+    mantissa, exponent = struct.unpack("ii", bytes(response))
+    return float(mantissa if kind == "int" else mantissa * (2.0**exponent))
 
 
 @dataclass
@@ -88,6 +90,9 @@ class ReSpeaker:
     _stop: threading.Event = field(default_factory=threading.Event)
     _present: bool = False
     _last_state: str = ""
+    _speech_detected: bool | None = None
+    _voice_activity: bool | None = None
+    _aec_far_end_silence: bool | None = None
 
     def __post_init__(self) -> None:
         self._present = _device(self.vendor_id, self.product_id) is not None
@@ -105,6 +110,20 @@ class ReSpeaker:
         """Most recent direction of arrival in degrees, if known."""
 
         return self._angles[-1] if self._angles else None
+
+    @property
+    def speech_detected(self) -> bool | None:
+        """Native post-AEC speech decision, or unknown before the first poll."""
+
+        return self._speech_detected
+
+    @property
+    def voice_activity(self) -> bool | None:
+        return self._voice_activity
+
+    @property
+    def aec_far_end_silence(self) -> bool | None:
+        return self._aec_far_end_silence
 
     def set_state(self, state: str) -> bool:
         """Show a harness state on the ring. Never raises; the ring is cosmetic."""
@@ -176,9 +195,17 @@ class ReSpeaker:
                     return
                 with _usb_lock:
                     angle = _read_parameter(device, PARAMETERS["doa_angle"]) % 360
+                    speech = _read_parameter(device, PARAMETERS["speech_detected"])
+                    activity = _read_parameter(device, PARAMETERS["voice_activity"])
+                    far_end_silence = _read_parameter(
+                        device, PARAMETERS["aec_far_end_silence"]
+                    )
                 self._angles.append(float(angle))
+                self._speech_detected = bool(speech)
+                self._voice_activity = bool(activity)
+                self._aec_far_end_silence = bool(far_end_silence)
             except Exception as error:  # noqa: BLE001
-                logger.debug("ReSpeaker direction read failed: %s", error)
+                logger.debug("ReSpeaker DSP status read failed: %s", error)
             self._stop.wait(0.1)
 
 

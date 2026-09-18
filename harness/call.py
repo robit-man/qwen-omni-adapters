@@ -13,9 +13,11 @@ the answer as it arrives, and stop speaking the moment the person starts again.
 from __future__ import annotations
 
 import base64
+import difflib
 import json
 import logging
 import queue
+import re
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -180,6 +182,7 @@ class TurnResult:
     followup: str = ""
     spoke_seconds: float = 0.0
     interrupted: bool = False
+    echo_suppressed: bool = False
     error: str = ""
     first_audio_ms: float | None = None
     total_ms: float = 0.0
@@ -212,6 +215,8 @@ class CallSession:
         self._barge = threading.Event()
         self._speaker_lock = threading.Lock()
         self._active_speaker: SpeakerStream | None = None
+        self._last_spoken_text = ""
+        self._last_spoken_at = 0.0
         # Where the voice came from, when a ReSpeaker array can say.
         self.direction: str = ""
         # Roughly where this machine is, when the network will say.
@@ -292,6 +297,42 @@ class CallSession:
             speaker = self._active_speaker
         if speaker is not None:
             speaker.stop(fade_s=0.12)
+
+    @staticmethod
+    def _echo_words(text: str) -> list[str]:
+        return re.findall(r"[a-z0-9]+", text.casefold())
+
+    def _is_recent_playback_echo(self, transcript: str) -> bool:
+        """Recognize a near-verbatim copy of the reply that just left speakers.
+
+        Hardware AEC and native DSP VAD are the first line of defense. This is
+        deliberately narrow: it catches only a substantial near-copy within a
+        short acoustic tail, not merely a semantically similar user response.
+        """
+
+        if time.monotonic() - self._last_spoken_at > 90.0:
+            return False
+        heard = self._echo_words(transcript)
+        spoken = self._echo_words(self._last_spoken_text)
+        if len(heard) < 3 or not spoken:
+            return False
+        if heard == spoken:
+            return True
+        shorter, longer = (heard, spoken) if len(heard) <= len(spoken) else (spoken, heard)
+        if len(shorter) >= 6 and len(shorter) / len(longer) >= 0.55:
+            width = len(shorter)
+            if any(longer[index : index + width] == shorter for index in range(len(longer) - width + 1)):
+                return True
+        return (
+            min(len(heard), len(spoken)) >= 6
+            and difflib.SequenceMatcher(a=heard, b=spoken, autojunk=False).ratio()
+            >= 0.88
+        )
+
+    def _note_spoken(self, text: str, seconds: float) -> None:
+        if text.strip() and seconds > 0.0:
+            self._last_spoken_text = text.strip()
+            self._last_spoken_at = time.monotonic()
 
     # -- one spoken turn -------------------------------------------------
 
@@ -465,6 +506,9 @@ class CallSession:
                 audio, segments, None, with_tools=self.config.tools_enabled
             )
         )
+        if result.echo_suppressed:
+            return result
+        self._note_spoken(result.reply, result.spoke_seconds)
         self._remember(result)
         if result.interrupted:
             self._mark_interrupted(result.reply, result.spoke_seconds)
@@ -502,6 +546,7 @@ class CallSession:
                 )
                 result.spoke_seconds += follow.spoke_seconds
                 self._append_history("assistant", follow.reply.strip())
+                self._note_spoken(follow.reply, follow.spoke_seconds)
             if follow.interrupted:
                 self._mark_interrupted(follow.reply, follow.spoke_seconds)
                 return result
@@ -515,6 +560,7 @@ class CallSession:
             result.total_ms += speech.total_ms
             result.interrupted = speech.interrupted
             result.error = speech.error
+            self._note_spoken(result.followup or result.reply, speech.spoke_seconds)
             if speech.interrupted:
                 self._mark_interrupted(
                     result.followup or result.reply, result.spoke_seconds
@@ -600,6 +646,15 @@ class CallSession:
                     result.audio_observation = str(
                         event.get("audio_observation") or ""
                     ).strip()
+                    if result.transcript and self._is_recent_playback_echo(
+                        result.transcript
+                    ):
+                        result.echo_suppressed = True
+                        logger.info(
+                            "suppressed near-verbatim playback echo: %r",
+                            result.transcript[:160],
+                        )
+                        break
                     query = result.transcript or result.audio_observation
                     if query and queue_recall and self.memory is not None:
                         recall_later = getattr(self.memory, "recall_later", None)
@@ -882,7 +937,12 @@ def run_call_loop(
                 if stop.is_set():
                     return
                 now_ms += frame_ms
-                verdict = vad.process(frame, now_ms, frame_ms)
+                verdict = vad.process(
+                    frame,
+                    now_ms,
+                    frame_ms,
+                    native_speech=(array.speech_detected if array.present else None),
+                )
                 now = time.monotonic()
 
                 if verdict.event in {"candidate", "start", "active"}:
