@@ -20,7 +20,12 @@ from portal.app import (
     load_voice_profile,
 )
 from portal.documents import SessionDocumentStore, extract_document
-from portal.tools import DISCOVERY_TOOLS, SAFE_TOOLS, PortalToolHarness
+from portal.tools import (
+    DISCOVERY_TOOLS,
+    SAFE_TOOLS,
+    PortalToolHarness,
+    discover_tool_names,
+)
 
 TOKEN = "portal-test-token-with-more-than-24-characters"
 
@@ -715,6 +720,13 @@ def test_tool_search_discovers_allowlisted_tools_only() -> None:
     assert result["suggested_tools"][0] == "ocr_pdf"
     assert "Invoke the smallest relevant one now" in result["next_action"]
     assert {item["name"] for item in result["results"]} <= {item["function"]["name"] for item in SAFE_TOOLS}
+
+    assert discover_tool_names("delegate a fresh isolated critic subagent") == [
+        "subagent_delegate"
+    ]
+    assert discover_tool_names("list completed subagent tasks") == ["subagent_list"]
+    assert discover_tool_names("retrieve a subagent result") == ["subagent_result"]
+    assert discover_tool_names("forget a delegated helper") == ["subagent_forget"]
 
 
 def test_shell_tool_returns_command_context(tmp_path: Path) -> None:

@@ -706,6 +706,27 @@ _TOOL_DISCOVERY_HINTS = {
 def discover_tool_names(query: str, limit: int = 3) -> list[str]:
     """Rank the catalog without placing that catalog in the model context."""
 
+    terms = set(_ordered_tokens(query))
+
+    def mentions(*prefixes: str) -> bool:
+        return any(
+            term.startswith(prefix)
+            for term in terms
+            for prefix in prefixes
+        )
+
+    # Management verbs for one capability are mutually exclusive. Returning
+    # delegate/list/result together made the chat model pick list for a fresh
+    # critic request, after which no helper could ever be created.
+    if mentions("subagent", "helper", "delegat"):
+        if mentions("forget", "delete", "remove"):
+            return ["subagent_forget"]
+        if mentions("retrieve", "result"):
+            return ["subagent_result"]
+        if mentions("list", "status"):
+            return ["subagent_list"]
+        return ["subagent_delegate"]
+
     ranked: list[tuple[float, str]] = []
     for name, schema in _TOOL_SCHEMAS_BY_NAME.items():
         if name == "tool_search":
