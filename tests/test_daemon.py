@@ -58,6 +58,26 @@ def test_binary_finds_windows_release_layout(tmp_path: Path) -> None:
     assert daemon._binary(tmp_path, "llama-server") == binary
 
 
+def test_tunnel_discovery_ignores_urls_from_prior_processes(tmp_path: Path) -> None:
+    log = tmp_path / "cloudflared.log"
+    log.write_text(
+        "https://stale-link.trycloudflare.com\nRegistered tunnel connection\n",
+        encoding="utf-8",
+    )
+    offset = log.stat().st_size
+
+    with log.open("a", encoding="utf-8") as target:
+        target.write("https://current-link.trycloudflare.com\n")
+    assert daemon._connected_tunnel_url(log, offset) == ""
+
+    with log.open("a", encoding="utf-8") as target:
+        target.write("Registered tunnel connection\n")
+    assert (
+        daemon._connected_tunnel_url(log, offset)
+        == "https://current-link.trycloudflare.com"
+    )
+
+
 def test_linux_direct_supervisor_refuses_to_bypass_detected_broker(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

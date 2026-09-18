@@ -8,6 +8,7 @@ the model rather than on the listener.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -627,6 +628,36 @@ def test_capture_cleanup_does_not_poison_the_supervisors_stop_event() -> None:
     assert "\n        stop.set()\n" not in source
 
 
+def test_public_link_comes_only_from_the_current_live_daemon(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import harness.__main__ as harness_main
+
+    state = tmp_path / "runtime-data" / "state" / "daemon-status.json"
+    state.parent.mkdir(parents=True)
+    state.write_text(
+        json.dumps(
+            {
+                "state": "ready",
+                "pid": 101,
+                "access_url": (
+                    "https://current-link.trycloudflare.com/#access=current_token"
+                ),
+                "children": [{"name": "cloudflared", "pid": 202}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    live = {101, 202}
+    monkeypatch.setattr(harness_main, "_pid_alive", lambda pid: pid in live)
+
+    assert harness_main._published_access_url(tmp_path).startswith(
+        "https://current-link.trycloudflare.com/"
+    )
+    live.remove(202)
+    assert harness_main._published_access_url(tmp_path) == ""
+
+
 def test_talking_over_a_reply_is_refused_without_echo_cancellation() -> None:
     """A bare microphone hears the speakers and would interrupt every answer."""
 
@@ -669,8 +700,8 @@ def test_a_barge_ducks_pauses_resumes_or_commits_without_a_hard_cut() -> None:
     assert actions == ["duck", "pause", "resume", ("stop", 0.12)]
 
 
-def test_speaker_uses_the_browser_sized_initial_streaming_cushion(monkeypatch) -> None:
-    """Playback starts on decoder output; it does not collect the whole reply."""
+def test_speaker_lets_pulse_keep_one_continuous_adaptive_stream(monkeypatch) -> None:
+    """Tiny forced Pulse buffers underflow between incremental decoder yields."""
 
     command: list[str] = []
 
@@ -687,8 +718,9 @@ def test_speaker_uses_the_browser_sized_initial_streaming_cushion(monkeypatch) -
     monkeypatch.setattr("harness.audio.subprocess.Popen", popen)
     SpeakerStream().start()
 
-    assert "--latency-msec=80" in command
-    assert "--process-time-msec=20" in command
+    assert not any(argument.startswith("--latency-msec=") for argument in command)
+    assert not any(argument.startswith("--process-time-msec=") for argument in command)
+    assert "--stream-name=Omni conversational voice" in command
 
 
 def test_streamed_pcm_blocks_are_written_byte_exactly_to_one_timeline() -> None:

@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 
 CAPTURE_RATE_HZ = 16_000
 PLAYBACK_RATE_HZ = 24_000
-PLAYBACK_INITIAL_BUFFER_MS = 80
 
 
 def require_tools() -> None:
@@ -156,11 +155,6 @@ class SpeakerStream:
             "--format=s16le",
             f"--rate={self.rate_hz}",
             "--channels=1",
-            # Match the browser call path: release the first decoder block
-            # immediately, but schedule it just far enough ahead for the next
-            # streamed block to arrive. This is not a collect-then-play buffer.
-            f"--latency-msec={PLAYBACK_INITIAL_BUFFER_MS}",
-            "--process-time-msec=20",
             "--stream-name=Omni conversational voice",
         ]
         if self.device:

@@ -203,6 +203,21 @@ class Child:
     log: IO[bytes]
 
 
+def _connected_tunnel_url(log_path: Path, start_offset: int) -> str:
+    """Return only a URL created and connected by the current tunnel process."""
+
+    try:
+        with log_path.open("rb") as source:
+            source.seek(start_offset)
+            text = source.read().decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+    if "Registered tunnel connection" not in text:
+        return ""
+    matches = re.findall(r"https://[-a-z0-9]+\.trycloudflare\.com", text)
+    return matches[-1] if matches else ""
+
+
 class OmniDaemon:
     """Portable foreground supervisor intended to be owned by an OS service manager."""
 
@@ -628,6 +643,11 @@ class OmniDaemon:
 
         public = f"http://127.0.0.1:{self.config.portal_port}"
         if self.config.cloudflare:
+            tunnel_log = self.log_dir / "cloudflared.log"
+            try:
+                tunnel_log_offset = tunnel_log.stat().st_size
+            except OSError:
+                tunnel_log_offset = 0
             tunnel = self._spawn(
                 "cloudflared",
                 [
@@ -641,17 +661,15 @@ class OmniDaemon:
                 ],
                 common,
             )
-            tunnel_log = self.log_dir / "cloudflared.log"
             deadline = time.monotonic() + 120
-            pattern = re.compile(r"https://[-a-z0-9]+\.trycloudflare\.com")
             published = ""
             while time.monotonic() < deadline:
                 if tunnel.process.poll() is not None:
                     break
-                text = tunnel_log.read_text(encoding="utf-8", errors="replace")
-                matches = pattern.findall(text)
-                if matches:
-                    published = matches[-1]
+                published = _connected_tunnel_url(
+                    tunnel_log, tunnel_log_offset
+                )
+                if published:
                     break
                 time.sleep(1)
             if published:

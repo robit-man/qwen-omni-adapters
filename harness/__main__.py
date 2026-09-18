@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import json
 import logging
 import os
 import re
@@ -31,6 +32,53 @@ logger = logging.getLogger("omni.harness")
 
 DEFAULT_PORTAL = "http://127.0.0.1:8920"
 DEFAULT_TOKEN_FILE = "runtime-data/state/access-token.txt"
+
+
+def _pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _published_access_url(repo_root: Path) -> str:
+    """Read the URL owned by the currently live daemon and tunnel only."""
+
+    status_path = repo_root / "runtime-data" / "state" / "daemon-status.json"
+    try:
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(status, dict) or status.get("state") != "ready":
+        return ""
+    try:
+        daemon_pid = int(status.get("pid") or 0)
+    except (TypeError, ValueError):
+        return ""
+    if not _pid_alive(daemon_pid):
+        return ""
+    children = status.get("children")
+    tunnel_pid = 0
+    if isinstance(children, list):
+        for child in children:
+            if isinstance(child, dict) and child.get("name") == "cloudflared":
+                try:
+                    tunnel_pid = int(child.get("pid") or 0)
+                except (TypeError, ValueError):
+                    tunnel_pid = 0
+                break
+    if not _pid_alive(tunnel_pid):
+        return ""
+    access_url = str(status.get("access_url") or "").strip()
+    if not re.fullmatch(
+        r"https://[-a-z0-9]+\.trycloudflare\.com/#access=[A-Za-z0-9_-]+",
+        access_url,
+    ):
+        return ""
+    return access_url
 
 
 def _repo_root() -> Path:
@@ -243,20 +291,7 @@ def main(argv: list[str] | None = None) -> int:
     def public_link() -> str:
         """The tunnel's URL with its key, as the daemon published it."""
 
-        for candidate in (
-            _repo_root().parent.parent / "logs/adapters.log",
-            Path("/tmp/omni-daemon.log"),
-        ):
-            try:
-                text = candidate.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            matches = re.findall(
-                r"https://[-a-z0-9]+\.trycloudflare\.com/#access=[A-Za-z0-9_-]+", text
-            )
-            if matches:
-                return matches[-1]
-        return ""
+        return _published_access_url(_repo_root())
 
     indicator = (
         build_indicator(
