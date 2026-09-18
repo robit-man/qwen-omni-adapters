@@ -20,6 +20,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -283,6 +284,36 @@ def _record_failed_context(
     _atomic_json(path, calibration)
 
 
+def _effective_context_maximum(
+    calibration: dict[str, Any],
+    *,
+    configured_maximum: int,
+    available_gib: float,
+    kv_gib_per_token: float,
+    parallel_slots: int,
+) -> int:
+    """Honor crash backoff until live capacity can fund retrying that tier."""
+
+    cap = calibration.get("context_cap")
+    failure = calibration.get("last_failure")
+    if not isinstance(cap, int) or not isinstance(failure, Mapping):
+        return configured_maximum
+    failed_context = failure.get("context_tokens")
+    failed_available = failure.get("available_before_gib")
+    if not isinstance(failed_context, int) or not isinstance(
+        failed_available, (int, float)
+    ):
+        return min(configured_maximum, cap)
+    retry_cost = max(0, failed_context - cap) * kv_gib_per_token * max(
+        1, parallel_slots
+    )
+    if available_gib >= float(failed_available) + retry_cost:
+        calibration.pop("context_cap", None)
+        calibration.pop("last_failure", None)
+        return configured_maximum
+    return min(configured_maximum, cap)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -343,11 +374,12 @@ def main(argv: list[str] | None = None) -> int:
     calibration = _load_calibration(args.calibration_file, fingerprint, command)
     base = calibration.get("base_gib")
     kv = float(calibration["kv_gib_per_token"])
-    calibrated_cap = calibration.get("context_cap")
-    effective_maximum = (
-        min(args.max_context, int(calibrated_cap))
-        if isinstance(calibrated_cap, int)
-        else args.max_context
+    effective_maximum = _effective_context_maximum(
+        calibration,
+        configured_maximum=args.max_context,
+        available_gib=available,
+        kv_gib_per_token=kv,
+        parallel_slots=args.parallel_slots,
     )
     if isinstance(base, (int, float)):
         selected = choose_context_tokens(

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "runtime"))
 
 from adapter_server import _active_context_tokens  # noqa: E402
 from comprehension_launcher import (  # noqa: E402
+    _effective_context_maximum,
     _record_failed_context,
     _record_live_sample,
     available_memory_gib,
@@ -104,6 +105,34 @@ def test_abnormal_exit_caps_the_next_load_at_the_next_standard_window(
 
     assert calibration["context_cap"] == 16_384
     assert calibration["last_failure"]["context_tokens"] == 32_768
+
+
+def test_crash_cap_lifts_only_when_live_memory_can_fund_the_failed_tier() -> None:
+    calibration = {
+        "context_cap": 16_384,
+        "last_failure": {
+            "context_tokens": 32_768,
+            "available_before_gib": 20.0,
+        },
+    }
+    kv = 0.375 / 4096
+
+    assert _effective_context_maximum(
+        calibration,
+        configured_maximum=65_536,
+        available_gib=21.49,
+        kv_gib_per_token=kv,
+        parallel_slots=1,
+    ) == 16_384
+    assert _effective_context_maximum(
+        calibration,
+        configured_maximum=65_536,
+        available_gib=21.5,
+        kv_gib_per_token=kv,
+        parallel_slots=1,
+    ) == 65_536
+    assert "context_cap" not in calibration
+    assert "last_failure" not in calibration
 
 
 def test_memavailable_is_read_in_gib(tmp_path: Path) -> None:
