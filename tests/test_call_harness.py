@@ -764,6 +764,18 @@ def test_the_reload_is_not_waited_for_before_the_turn_can_finish() -> None:
     assert "await_ready" not in restore
     assert "while time.monotonic() < deadline" not in restore
     assert "in the background" in restore
+    assert "threading.Thread(" in restore
+
+
+def test_comprehension_readiness_repairs_a_failed_background_reload() -> None:
+    import inspect
+
+    from harness.residency import SpeechResidency
+
+    source = inspect.getsource(SpeechResidency.await_ready)
+
+    assert "not self._is_active()" in source
+    assert "self._ensure_started()" in source
 
 
 def test_a_turn_waits_for_comprehension_only_when_it_needs_it() -> None:

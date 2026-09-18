@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+import threading
 import time
 from dataclasses import dataclass, field
 
@@ -25,6 +26,12 @@ class SpeechResidency:
     ready_timeout_s: float = 900.0
     _restore: bool = field(default=False, init=False)
     _restarted_at: float = field(default=0.0, init=False)
+    _start_lock: threading.Lock = field(
+        default_factory=threading.Lock, init=False, repr=False
+    )
+    _restore_thread: threading.Thread | None = field(
+        default=None, init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         if not _UNIT.fullmatch(self.unit):
@@ -56,6 +63,46 @@ class SpeechResidency:
         logger.info("stopping %s to make room for speech", self.unit)
         self._systemctl("stop", timeout=self.stop_timeout_s)
 
+    def _is_active(self) -> bool:
+        active = subprocess.run(
+            ["systemctl", "--user", "is-active", "--quiet", self.unit],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+        )
+        return active.returncode == 0
+
+    def _ensure_started(self) -> bool:
+        """Make one serialized start attempt and confirm it survived startup."""
+
+        with self._start_lock:
+            if self._is_active():
+                return True
+            try:
+                self._systemctl("start", timeout=self.stop_timeout_s)
+            except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+                logger.debug("could not yet restore %s: %s", self.unit, error)
+                return False
+            # The adaptive launcher can accept systemd's start and then refuse
+            # once it measures memory. Give that short check time to finish so
+            # an active result means the model is actually loading.
+            time.sleep(0.3)
+            return self._is_active()
+
+    def _restore_until_started(self) -> None:
+        """Retry transient memory refusals without blocking playback cleanup."""
+
+        deadline = time.monotonic() + self.ready_timeout_s
+        # CUDA/unified-memory accounting can lag slightly behind the TTS child
+        # exiting. Starting in that instant is the failure this loop repairs.
+        time.sleep(1.0)
+        while time.monotonic() < deadline:
+            if self._ensure_started():
+                self._restarted_at = time.monotonic()
+                return
+            time.sleep(1.0)
+        logger.error("gave up restoring %s after %.0fs", self.unit, self.ready_timeout_s)
+
     def restore(self) -> None:
         """Start the evicted worker again, and do not wait for it.
 
@@ -75,8 +122,14 @@ class SpeechResidency:
             return
         self._restore = False
         logger.info("restoring %s in the background after speech", self.unit)
-        self._systemctl("start", timeout=self.stop_timeout_s)
-        self._restarted_at = time.monotonic()
+        if self._restore_thread is not None and self._restore_thread.is_alive():
+            return
+        self._restore_thread = threading.Thread(
+            target=self._restore_until_started,
+            name="omni-comprehension-restore",
+            daemon=True,
+        )
+        self._restore_thread.start()
 
     def await_ready(self) -> None:
         """Block until the worker can hear again, called before it is needed.
@@ -89,6 +142,7 @@ class SpeechResidency:
         deadline = time.monotonic() + self.ready_timeout_s
         last = "not ready"
         waited_from = time.monotonic()
+        next_start_attempt = waited_from
         while time.monotonic() < deadline:
             try:
                 response = httpx.get(self.health_url, timeout=3.0)
@@ -105,5 +159,9 @@ class SpeechResidency:
                 last = f"HTTP {response.status_code}"
             except Exception as error:  # noqa: BLE001 - readiness retry loop
                 last = f"{type(error).__name__}: {error}"
+            now = time.monotonic()
+            if now >= next_start_attempt and not self._is_active():
+                self._ensure_started()
+                next_start_attempt = now + 2.0
             time.sleep(0.5)
         raise TimeoutError(f"{self.unit} did not become ready ({last})")
