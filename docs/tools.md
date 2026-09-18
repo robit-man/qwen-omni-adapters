@@ -124,8 +124,11 @@ five-minute cache.
 
 `subagent_delegate` is a deliberately narrow orchestration primitive. It sends
 one independently answerable objective, an optional specialization
-(`general`, `researcher`, `planner`, or `critic`), and optional evidence to a
-fresh helper context. The helper request always has a system message first,
+(`general`, `researcher`, `planner`, or `critic`), and explicitly selected
+evidence to a fresh helper context. The model-facing schema is reference-only:
+`context_source` must select `none`, `current_user_message`, or
+`latest_non_discovery_tool_result`, so a large source is copied server-side
+rather than regenerated inside tool-call JSON. The helper request always has a system message first,
 `think=false`, text-only output, no speech, no media, no portal schemas, and no
 tool access. It therefore cannot recursively delegate or perform external
 actions. The parent remains responsible for web/document/tool work and for
@@ -139,11 +142,11 @@ hashed Secure browser-session cookie, expires under the same idle TTL as other
 portal state, and is deleted by Trash. A task ID from another browser session
 cannot retrieve a result.
 
-For a large current request, `context_source="current_user_message"` copies the
-latest user message into the helper request server-side. The parent emits only
-that small selector instead of spending its output budget regenerating the
-entire evidence block. The same 24,000-character delegation bound applies, and
-no earlier conversation, tool result, media, or hidden state is copied.
+The same 24,000-character delegation bound applies. Current-user handoff copies
+no earlier conversation, tool result, media, or hidden state. Tool-result handoff
+skips `tool_search` metadata and copies only the latest concrete result. The
+direct execution endpoint still accepts the legacy bounded `context` argument
+for compatibility, but it is not exposed to model inference.
 
 Native `message.tool_calls` remain authoritative. For compatible renderers that
 emit Omnius-style `<tool_call>{...}</tool_call>` text, the portal parses the

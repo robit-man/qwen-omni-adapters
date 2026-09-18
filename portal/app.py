@@ -848,6 +848,18 @@ def _latest_user_context(messages: list[Any]) -> str:
     return ""
 
 
+def _latest_concrete_tool_context(messages: list[Any]) -> str:
+    """Return the newest concrete result, skipping discovery metadata."""
+
+    for message in reversed(messages):
+        if not isinstance(message, Mapping) or message.get("role") != "tool":
+            continue
+        if message.get("tool_name") == "tool_search":
+            continue
+        return str(message.get("content") or "").strip()
+    return ""
+
+
 def _tool_followup(
     payload: Mapping[str, Any],
     response: Mapping[str, Any],
@@ -886,12 +898,14 @@ def _tool_followup(
             else ""
         )
         arguments = dict(_tool_arguments(call))
-        if (
-            name == "subagent_delegate"
-            and arguments.get("context_source") == "current_user_message"
-            and not str(arguments.get("context") or "").strip()
-        ):
-            arguments["context"] = _latest_user_context(messages)
+        if name == "subagent_delegate" and not str(
+            arguments.get("context") or ""
+        ).strip():
+            source = arguments.get("context_source")
+            if source == "current_user_message":
+                arguments["context"] = _latest_user_context(messages)
+            elif source == "latest_non_discovery_tool_result":
+                arguments["context"] = _latest_concrete_tool_context(messages)
         fingerprint = hashlib.sha256(
             f"{name}\0{json.dumps(arguments, sort_keys=True, default=str)}".encode()
         ).hexdigest()

@@ -32,6 +32,20 @@ def test_initial_tool_contract_stays_tiny() -> None:
     assert len(serialized) < 600
 
 
+def test_model_facing_subagent_handoff_is_reference_only() -> None:
+    schema = next(
+        item for item in SAFE_TOOLS if item["function"]["name"] == "subagent_delegate"
+    )["function"]["parameters"]
+
+    assert "context" not in schema["properties"]
+    assert schema["properties"]["context_source"]["enum"] == [
+        "none",
+        "current_user_message",
+        "latest_non_discovery_tool_result",
+    ]
+    assert set(schema["required"]) == {"objective", "context_source"}
+
+
 def _config(**overrides) -> PortalConfig:
     values = {
         "adapter_url": "http://adapter/api/chat",

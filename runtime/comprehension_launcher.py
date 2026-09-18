@@ -40,18 +40,23 @@ def estimated_resident_gib(
     context_tokens: int,
     *,
     base_gib: float = 16.3,
-    kv_gib_per_4k: float = 0.4,
+    kv_gib_per_4k_per_slot: float = 0.1,
+    work_gib_per_4k: float = 0.1,
+    parallel_slots: int = 1,
 ) -> float:
-    """Conservative measured footprint for this Qwen3-Omni worker.
+    """Conservative resident-plus-active footprint for this Omni worker.
 
-    llama-server allocates the configured window for each of its four default
-    slots. On the target AGX Orin the whole process measured about 16.7 GiB at
-    4K and 22.1 GiB at 64K, making 0.4 GiB per additional 4K a conservative
-    aggregate slope. Both calibration values remain configurable.
+    llama-server allocates KV for every parallel slot. The portal already owns
+    a single GPU inference lane, so this deployment uses one slot rather than
+    llama-server's four-slot default. The per-token work allowance also covers
+    the activation/load peak that appears only once a long prompt fills its
+    window; sizing from idle residency alone let a 6K prompt hit MemoryMax.
     """
 
     quanta = max(1.0, context_tokens / CONTEXT_QUANTUM)
-    return base_gib + quanta * kv_gib_per_4k
+    return base_gib + quanta * (
+        work_gib_per_4k + kv_gib_per_4k_per_slot * max(1, parallel_slots)
+    )
 
 
 def candidate_windows(minimum: int, maximum: int) -> list[int]:
@@ -76,7 +81,9 @@ def choose_context_tokens(
     maximum: int = 65_536,
     reserve_gib: float = 3.0,
     base_gib: float = 16.3,
-    kv_gib_per_4k: float = 0.4,
+    kv_gib_per_4k_per_slot: float = 0.1,
+    work_gib_per_4k: float = 0.1,
+    parallel_slots: int = 1,
 ) -> int | None:
     """Choose the largest window whose model estimate leaves the reserve."""
 
@@ -85,7 +92,9 @@ def choose_context_tokens(
         needed = estimated_resident_gib(
             context_tokens,
             base_gib=base_gib,
-            kv_gib_per_4k=kv_gib_per_4k,
+            kv_gib_per_4k_per_slot=kv_gib_per_4k_per_slot,
+            work_gib_per_4k=work_gib_per_4k,
+            parallel_slots=parallel_slots,
         )
         if needed + reserve_gib <= available_gib:
             chosen = context_tokens
@@ -146,9 +155,21 @@ def _parser() -> argparse.ArgumentParser:
         default=float(os.environ.get("OMNI_COMPREHENSION_BASE_GIB", "16.3")),
     )
     parser.add_argument(
-        "--kv-gib-per-4k",
+        "--kv-gib-per-4k-per-slot",
         type=_nonnegative_float,
-        default=float(os.environ.get("OMNI_COMPREHENSION_KV_GIB_PER_4K", "0.4")),
+        default=float(
+            os.environ.get("OMNI_COMPREHENSION_KV_GIB_PER_4K_PER_SLOT", "0.1")
+        ),
+    )
+    parser.add_argument(
+        "--work-gib-per-4k",
+        type=_nonnegative_float,
+        default=float(os.environ.get("OMNI_COMPREHENSION_WORK_GIB_PER_4K", "0.1")),
+    )
+    parser.add_argument(
+        "--parallel-slots",
+        type=_positive_int,
+        default=int(os.environ.get("OMNI_COMPREHENSION_PARALLEL", "1")),
     )
     parser.add_argument("command", nargs=argparse.REMAINDER)
     return parser
@@ -169,13 +190,17 @@ def main(argv: list[str] | None = None) -> int:
         maximum=args.max_context,
         reserve_gib=args.reserve_gib,
         base_gib=args.base_gib,
-        kv_gib_per_4k=args.kv_gib_per_4k,
+        kv_gib_per_4k_per_slot=args.kv_gib_per_4k_per_slot,
+        work_gib_per_4k=args.work_gib_per_4k,
+        parallel_slots=args.parallel_slots,
     )
     if selected is None:
         minimum_cost = estimated_resident_gib(
             args.min_context,
             base_gib=args.base_gib,
-            kv_gib_per_4k=args.kv_gib_per_4k,
+            kv_gib_per_4k_per_slot=args.kv_gib_per_4k_per_slot,
+            work_gib_per_4k=args.work_gib_per_4k,
+            parallel_slots=args.parallel_slots,
         )
         print(
             "refusing comprehension load: "
@@ -191,15 +216,22 @@ def main(argv: list[str] | None = None) -> int:
     estimated = estimated_resident_gib(
         selected,
         base_gib=args.base_gib,
-        kv_gib_per_4k=args.kv_gib_per_4k,
+        kv_gib_per_4k_per_slot=args.kv_gib_per_4k_per_slot,
+        work_gib_per_4k=args.work_gib_per_4k,
+        parallel_slots=args.parallel_slots,
     )
     print(
         f"selected {selected}-token comprehension context: "
         f"{available:.2f} GiB available, ~{estimated:.2f} GiB model, "
-        f"{args.reserve_gib:.2f} GiB reserve",
+        f"{args.reserve_gib:.2f} GiB reserve, {args.parallel_slots} slot(s)",
         flush=True,
     )
-    rendered = [part.replace("{context}", str(selected)) for part in command]
+    rendered = [
+        part.replace("{context}", str(selected)).replace(
+            "{parallel}", str(args.parallel_slots)
+        )
+        for part in command
+    ]
     os.execvpe(rendered[0], rendered, os.environ.copy())
     return 0
 
