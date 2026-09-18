@@ -941,7 +941,15 @@ def run_call_loop(
                     frame,
                     now_ms,
                     frame_ms,
-                    native_speech=(array.speech_detected if array.present else None),
+                    # The array's native detector is conservative at room
+                    # distance. Use it only to distinguish near-end speech
+                    # from the far-end audio while our own speaker has the
+                    # floor; ordinary listening keeps the proven adaptive VAD.
+                    native_speech=(
+                        array.speech_detected
+                        if array.present and speaking_since is not None
+                        else None
+                    ),
                 )
                 now = time.monotonic()
 

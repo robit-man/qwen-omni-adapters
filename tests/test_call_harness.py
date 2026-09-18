@@ -724,6 +724,18 @@ def test_talking_over_a_reply_is_refused_without_echo_cancellation() -> None:
     assert "can_barge" in source
 
 
+def test_native_respeaker_gate_applies_only_during_playback() -> None:
+    """The DSP detector is too conservative to gate ordinary room speech."""
+
+    import inspect
+
+    from harness.call import run_call_loop
+
+    source = inspect.getsource(run_call_loop)
+
+    assert "array.present and speaking_since is not None" in source
+
+
 def test_a_barge_ducks_pauses_resumes_or_commits_without_a_hard_cut() -> None:
     call = CallSession(
         CallConfig(portal_url="http://127.0.0.1:8920", token="t", model="m")
