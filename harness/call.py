@@ -350,7 +350,7 @@ class CallSession:
         )
         if self._recalled:
             lines = "\n".join(
-                f"- {memory.context()[:1600]}"
+                f"- {memory.stamped()[:1600]}"
                 for memory in self._recalled[: self.config.memory_recall]
             )
             system_content += (

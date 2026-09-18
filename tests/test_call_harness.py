@@ -363,7 +363,7 @@ def test_completed_background_recall_is_bounded_and_added_to_next_turn() -> None
     call = CallSession(CallConfig(token="t", model="m", memory_recall=1))
 
     class Recalled:
-        def context(self) -> str:
+        def stamped(self) -> str:
             return "[yesterday] The user's dog is called Biscuit."
 
     call._recalled = [Recalled()]
