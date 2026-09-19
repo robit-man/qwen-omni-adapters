@@ -105,6 +105,29 @@ def test_a_long_conversation_is_fitted_before_it_is_sent() -> None:
     assert payload["messages"][0]["role"] == "system"
 
 
+def test_context_fitting_has_no_fixed_conversation_length_ceiling() -> None:
+    from types import SimpleNamespace
+
+    from adapter_server import _estimated_prompt_tokens, _fit_language_context
+
+    payload = {
+        "messages": [
+            {"role": "system", "content": "Keep the current objective."},
+            *[
+                {"role": "user", "content": f"old tool round {index} " * 20}
+                for index in range(300)
+            ],
+            {"role": "user", "content": "the live task state"},
+        ],
+        "max_tokens": 256,
+    }
+
+    _fit_language_context(payload, SimpleNamespace(comprehension_context_tokens=4096))
+
+    assert _estimated_prompt_tokens(payload) <= 4096 - 256
+    assert payload["messages"][-1]["content"] == "the live task state"
+
+
 def test_tool_schemas_are_counted_toward_the_window() -> None:
     """The template renders them into the prompt, so they take up room."""
 

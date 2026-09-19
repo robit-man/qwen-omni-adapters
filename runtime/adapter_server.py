@@ -815,14 +815,18 @@ def _fit_language_context(payload: dict[str, Any], config: Config) -> None:
     window = _active_context_tokens(config)
     reply = payload.get("max_tokens")
     budget = window - (reply if isinstance(reply, int) and reply > 0 else 256)
-    # Generous enough to drop a long history and then still cut the system
-    # message back: each pass gives up one exchange, or one bite of the
-    # system tail once the history is gone.
-    for _ in range(64):
-        if _estimated_prompt_tokens(payload) <= budget:
-            return
+    # Each pass gives up one exchange, tool schema, or bite of accumulated
+    # system context. Do not cap this by a guessed conversation length: a
+    # recovered long-horizon task can legitimately contain hundreds of old
+    # tool messages while the live, memory-selected window is only 8K.
+    previous = _estimated_prompt_tokens(payload)
+    while previous > budget:
         if not _shed_language_context(payload):
             return
+        current = _estimated_prompt_tokens(payload)
+        if current >= previous:
+            return
+        previous = current
 
 
 def _require_comprehension(config: Config) -> None:

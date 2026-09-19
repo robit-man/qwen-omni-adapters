@@ -10,7 +10,11 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from harness.background_agent import BackgroundAgent
+from harness.background_agent import (
+    BackgroundAgent,
+    _compact_task_messages,
+    _seen_tool_fingerprints,
+)
 from portal.background_tasks import BackgroundTaskStore
 from portal.documents import SessionDocumentStore
 from portal.tools import PortalToolHarness
@@ -45,6 +49,55 @@ def test_background_task_store_checkpoints_and_recovers_expired_work(
     # A second instance sees the same cross-process checkpoint.
     reopened = BackgroundTaskStore(tmp_path / "tasks.json")
     assert reopened.get(created["task_id"])["round"] == 1  # type: ignore[index]
+
+
+def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> None:
+    objective = {"role": "user", "content": "<objective>Build it.</objective>"}
+    messages: list[dict[str, object]] = [
+        {"role": "system", "content": "rules"},
+        objective,
+    ]
+    for index in range(80):
+        messages.extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": f"call-{index}",
+                            "function": {
+                                "name": "shell",
+                                "arguments": {"command": f"step-{index}"},
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_name": "shell",
+                    "tool_call_id": f"call-{index}",
+                    "content": '{"exit_code": 0}',
+                },
+            ]
+        )
+    task = {
+        "progress": ["Created the workspace.", "Verified the latest artifact."],
+        "guidance": [{"content": "Make the final version blue."}],
+        "tools_used": ["shell"],
+    }
+
+    seen = _seen_tool_fingerprints(messages)  # type: ignore[arg-type]
+    compacted = _compact_task_messages(messages, task)  # type: ignore[arg-type]
+
+    assert len(seen) == 80
+    assert len(compacted) < 20
+    assert compacted[:2] == [{"role": "system", "content": "rules"}, objective]
+    checkpoint = compacted[2]["content"]
+    assert "Verified the latest artifact" in checkpoint
+    assert "Make the final version blue" in checkpoint
+    assert compacted[3]["role"] == "assistant"
+    assert compacted[4]["role"] == "tool"
 
 
 def test_terminal_announcement_survives_restart_until_marked_spoken(

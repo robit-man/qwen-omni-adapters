@@ -71,6 +71,81 @@ def _arguments(call: Mapping[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def _call_fingerprint(name: str, arguments: Mapping[str, Any]) -> str:
+    return hashlib.sha256(
+        f"{name}\0{json.dumps(arguments, sort_keys=True, default=str)}".encode()
+    ).hexdigest()
+
+
+def _seen_tool_fingerprints(messages: list[dict[str, Any]]) -> set[str]:
+    """Rebuild duplicate protection from a task restored after a restart."""
+
+    seen: set[str] = set()
+    for message in messages:
+        calls = message.get("tool_calls")
+        if not isinstance(calls, list):
+            continue
+        for call in calls:
+            if not isinstance(call, Mapping):
+                continue
+            function = call.get("function")
+            name = (
+                str(function.get("name") or "")
+                if isinstance(function, Mapping)
+                else ""
+            )
+            if name:
+                seen.add(_call_fingerprint(name, _arguments(call)))
+    return seen
+
+
+def _compact_task_messages(
+    messages: list[dict[str, Any]], task: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """Turn a long transcript into a fresh chain with its durable state intact."""
+
+    if len(messages) <= 48:
+        return messages
+    head = copy.deepcopy(messages[:2])
+    tail_start = max(2, len(messages) - 12)
+    if (
+        tail_start > 2
+        and messages[tail_start].get("role") == "tool"
+        and messages[tail_start - 1].get("role") == "assistant"
+    ):
+        tail_start -= 1
+    progress = task.get("progress")
+    progress_lines = (
+        [f"- {str(item)[:500]}" for item in progress[-10:]]
+        if isinstance(progress, list)
+        else []
+    )
+    guidance = task.get("guidance")
+    guidance_lines = []
+    if isinstance(guidance, list):
+        guidance_lines = [
+            f"- {str(item.get('content') or '')[:500]}"
+            for item in guidance[-8:]
+            if isinstance(item, Mapping) and str(item.get("content") or "").strip()
+        ]
+    tools = task.get("tools_used")
+    tool_names = ", ".join(str(item) for item in tools) if isinstance(tools, list) else ""
+    sections = [
+        "<retained_checkpoint>",
+        "Older detailed reasoning/tool rounds were compacted. Continue from the objective "
+        "and the retained concrete state below; do not repeat completed or failed calls.",
+    ]
+    if progress_lines:
+        sections.extend(["Recent durable checkpoints:", *progress_lines])
+    if guidance_lines:
+        sections.extend(["Spoken guidance that remains authoritative:", *guidance_lines])
+    if tool_names:
+        sections.append(f"Tools already used: {tool_names}")
+    sections.append("</retained_checkpoint>")
+    checkpoint = {"role": "user", "content": "\n".join(sections)}
+    return [*head, checkpoint, *copy.deepcopy(messages[tail_start:])]
+
+
 def _has_concrete_tool_evidence(messages: list[dict[str, Any]]) -> bool:
     return any(
         message.get("role") == "tool"
@@ -353,6 +428,17 @@ class BackgroundAgent:
                 {"role": "system", "content": AGENT_SYSTEM_PROMPT},
                 {"role": "user", "content": request},
             ]
+        seen = _seen_tool_fingerprints(messages)
+        compacted = _compact_task_messages(messages, task)
+        if len(compacted) < len(messages):
+            logger.info(
+                "background task %s compacted %d retained messages into %d for a fresh "
+                "checkpoint chain",
+                task_id,
+                len(messages),
+                len(compacted),
+            )
+            messages = compacted
         active_tools = [
             name
             for name in task.get("active_tools", ["shell"])
@@ -363,7 +449,7 @@ class BackgroundAgent:
         tools_used = [
             name for name in task.get("tools_used", []) if isinstance(name, str) and name
         ]
-        seen: set[str] = set()
+        suppress_discovery = False
         seen_guidance = {
             str(item) for item in task.get("applied_guidance_ids", []) if str(item)
         }
@@ -396,7 +482,7 @@ class BackgroundAgent:
                 continue
             self.store.update_stage(task_id, self.owner, "Planning the next step")
             schemas = [
-                *copy.deepcopy(DISCOVERY_TOOLS),
+                *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
                 *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
             ]
             payload = {
@@ -639,14 +725,14 @@ class BackgroundAgent:
                     else ""
                 )
                 arguments = _arguments(call)
-                fingerprint = hashlib.sha256(
-                    f"{name}\0{json.dumps(arguments, sort_keys=True, default=str)}".encode()
-                ).hexdigest()
+                fingerprint = _call_fingerprint(name, arguments)
                 if fingerprint in seen:
                     result: Any = {
                         "error": "duplicate_tool_call",
                         "message": "This exact call already ran; assess its result and choose a different next step.",
                     }
+                    if name == "tool_search":
+                        suppress_discovery = True
                 else:
                     seen.add(fingerprint)
                     self.store.update_stage(
@@ -660,6 +746,8 @@ class BackgroundAgent:
                     result = response.get("result", response)
                     if name:
                         tools_used = list(dict.fromkeys([*tools_used, name]))[-16:]
+                    if name != "tool_search":
+                        suppress_discovery = False
                 if name == "tool_search" and isinstance(result, Mapping):
                     available = result.get("available_tools")
                     if isinstance(available, list):
