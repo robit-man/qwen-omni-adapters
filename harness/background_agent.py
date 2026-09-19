@@ -79,6 +79,48 @@ def _has_concrete_tool_evidence(messages: list[dict[str, Any]]) -> bool:
     )
 
 
+def _protocol_report(value: str) -> tuple[str | None, str]:
+    """Extract the last exact control line without ever sending it to speech."""
+
+    markers = {"TASK_PROGRESS", "TASK_COMPLETE", "TASK_BLOCKED"}
+    kind: str | None = None
+    spoken: list[str] = []
+    for line in value.splitlines():
+        stripped = line.strip()
+        if stripped in markers:
+            kind = stripped
+        else:
+            spoken.append(line)
+    return kind, "\n".join(spoken).strip()
+
+
+def _latest_concrete_tool_error(messages: list[dict[str, Any]]) -> str:
+    """Return why the latest action cannot support a success claim, if anything."""
+
+    for message in reversed(messages):
+        if message.get("role") != "tool" or message.get("tool_name") in {
+            None,
+            "",
+            "tool_search",
+        }:
+            continue
+        try:
+            result = json.loads(str(message.get("content") or "{}"))
+        except ValueError:
+            return ""
+        if not isinstance(result, Mapping):
+            return ""
+        if result.get("error"):
+            return str(result["error"])
+        if result.get("timed_out") is True:
+            return "the action timed out"
+        exit_code = result.get("exit_code")
+        if exit_code is not None and exit_code != 0:
+            return f"the action exited with status {exit_code}"
+        return ""
+    return ""
+
+
 def _append_guidance(
     messages: list[dict[str, Any]],
     task: Mapping[str, Any],
@@ -344,9 +386,10 @@ class BackgroundAgent:
             messages.append(assistant)
             calls = _tool_calls(data)
             if not calls:
-                report = str(message.get("content") or "").strip()
-                if not report:
+                raw_report = str(message.get("content") or "").strip()
+                if not raw_report:
                     raise RuntimeError("background agent returned an empty final report")
+                protocol, report = _protocol_report(raw_report)
                 if not _has_concrete_tool_evidence(messages):
                     # A fluent promise or fabricated completion is not work.
                     # Keep it in the checkpoint for audit, explicitly reject
@@ -378,8 +421,37 @@ class BackgroundAgent:
                     if checkpoint is None or checkpoint.get("status") == "cancelled":
                         return
                     continue
-                if report.startswith("TASK_PROGRESS"):
-                    spoken = report.removeprefix("TASK_PROGRESS").lstrip(" :\n")
+                latest_error = _latest_concrete_tool_error(messages)
+                if protocol in {None, "TASK_PROGRESS", "TASK_COMPLETE"} and latest_error:
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "That progress or completion claim cannot be accepted because "
+                                f"the latest concrete action failed: {latest_error}. Do not treat "
+                                "an error or duplicate call as verification. Inspect the returned "
+                                "evidence, choose a materially different next step, and continue; "
+                                "report TASK_BLOCKED only for a precise external blocker."
+                            ),
+                        }
+                    )
+                    checkpoint = self.store.checkpoint(
+                        task_id,
+                        self.owner,
+                        messages=messages,
+                        active_tools=active_tools,
+                        applied_guidance_ids=list(seen_guidance),
+                        progress=(
+                            "Rejected a completion or milestone because the latest concrete "
+                            f"action failed: {latest_error}."
+                        ),
+                        status="running",
+                    )
+                    if checkpoint is None or checkpoint.get("status") == "cancelled":
+                        return
+                    continue
+                if protocol == "TASK_PROGRESS":
+                    spoken = report
                     if not spoken:
                         spoken = "I reached a useful checkpoint and I’m continuing the task."
                     now = time.monotonic()
@@ -446,11 +518,8 @@ class BackgroundAgent:
                         return
                     continue
                 status = "completed"
-                if report.startswith("TASK_BLOCKED"):
+                if protocol == "TASK_BLOCKED":
                     status = "blocked"
-                    report = report.removeprefix("TASK_BLOCKED").lstrip(" :\n")
-                elif report.startswith("TASK_COMPLETE"):
-                    report = report.removeprefix("TASK_COMPLETE").lstrip(" :\n")
                 if not report:
                     report = (
                         "The background task completed."

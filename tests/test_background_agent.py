@@ -147,7 +147,10 @@ def test_background_agent_yields_between_inference_and_tool_steps(
                 json={
                     "message": {
                         "role": "assistant",
-                        "content": "Created marker.txt and verified the write succeeded.",
+                        "content": (
+                            "I created marker.txt and verified the write succeeded.\n"
+                            "TASK_COMPLETE"
+                        ),
                     }
                 },
             )
@@ -184,7 +187,8 @@ def test_background_agent_yields_between_inference_and_tool_steps(
     current = store.get(task["task_id"])
     assert current is not None
     assert current["status"] == "completed"
-    assert current["result"].startswith("Created marker.txt")
+    assert current["result"].startswith("I created marker.txt")
+    assert "TASK_COMPLETE" not in current["result"]
     assert requests == ["/api/chat", "/api/tools/shell/call", "/api/chat"]
     assert completed[0]["task_id"] == task["task_id"]
 
@@ -359,6 +363,105 @@ def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
     assert len(progress_updates) == 1
     assert progress_updates[0]["result"] == (
         "I created the artifact. I’m verifying its contents now."
+    )
+
+
+def test_background_agent_rejects_completion_after_latest_action_failed(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Create and verify an artifact.")
+    chat_round = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        if request.url.path == "/api/tools/shell/call":
+            command = json.loads(request.content)["arguments"]["command"]
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "exit_code": 1 if command == "bad verification" else 0,
+                        "stderr": "failed" if command == "bad verification" else "",
+                    }
+                },
+            )
+        chat_round += 1
+        if chat_round == 1:
+            command = "create artifact"
+        elif chat_round == 2:
+            command = "bad verification"
+        elif chat_round == 3:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "I finished it.\nTASK_COMPLETE",
+                    }
+                },
+            )
+        elif chat_round == 4:
+            payload = json.loads(request.content)
+            assert "latest concrete action failed" in str(payload["messages"][-1])
+            command = "different successful verification"
+        else:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "I finished it and the new check passed.\nTASK_COMPLETE",
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": f"action-{chat_round}",
+                            "function": {
+                                "name": "shell",
+                                "arguments": {"command": command},
+                            },
+                        }
+                    ],
+                }
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.02)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert current["result"] == "I finished it and the new check passed."
+    assert chat_round == 5
+    assert any(
+        "latest concrete action failed" in item.lower()
+        for item in current["progress"]
     )
 
 
