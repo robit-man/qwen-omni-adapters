@@ -319,12 +319,36 @@ def main(argv: list[str] | None = None) -> int:
         if config.background_task_path
         else None
     )
+    task_archive = _repo_root() / "runtime-data" / "state" / "background-task-archive.log"
+
+    def clear_finished_tasks() -> int:
+        if indicator_task_store is None:
+            return 0
+        count = indicator_task_store.archive_terminal(task_archive)
+        logger.info("archived %d finished background task(s) to %s", count, task_archive)
+        return count
+
+    def open_task_archive() -> None:
+        task_archive.parent.mkdir(parents=True, exist_ok=True)
+        task_archive.touch(exist_ok=True)
+        try:
+            subprocess.Popen(  # noqa: S603 - fixed local desktop opener
+                ["xdg-open", str(task_archive)],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except OSError as error:
+            logger.warning("could not open task archive %s: %s", task_archive, error)
 
     indicator = (
         build_indicator(
             on_mute=lambda value: muted.set() if value else muted.clear(),
             on_quit=stop.set,
             on_reload=request_reload,
+            on_clear_tasks=clear_finished_tasks,
+            on_open_archive=open_task_archive,
             on_tools=set_tools,
             on_reasoning=set_reasoning,
             on_camera=set_camera,

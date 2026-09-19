@@ -502,6 +502,15 @@ class BackgroundAgent:
                 "stream": False,
             }
             data = self._post("/api/chat", payload).json()
+            # Browser screenshots are one-pass perception evidence. Once the
+            # model has inspected one, retain the DOM/tool summary but never
+            # checkpoint megabytes of base64 into the long-horizon transcript.
+            for retained in messages:
+                if retained.pop("images", None):
+                    retained["content"] = (
+                        str(retained.get("content") or "")
+                        + "\n[The rendered screenshot was inspected in this reasoning pass.]"
+                    ).strip()
             message = data.get("message")
             if not isinstance(message, Mapping):
                 raise RuntimeError("background inference returned no assistant message")
@@ -768,11 +777,35 @@ class BackgroundAgent:
                 tool_message: dict[str, Any] = {
                     "role": "tool",
                     "tool_name": name or "unknown",
-                    "content": json.dumps(result, ensure_ascii=False, default=str),
+                    "content": "",
                 }
+                screenshot = None
+                if name in {"browser_interact", "gui_interact"} and isinstance(result, Mapping):
+                    screenshot = result.get("screenshot")
+                    result = {
+                        key: value
+                        for key, value in result.items()
+                        if key != "screenshot"
+                    }
+                tool_message["content"] = json.dumps(
+                    result, ensure_ascii=False, default=str
+                )
                 if call.get("id"):
                     tool_message["tool_call_id"] = str(call["id"])
                 messages.append(tool_message)
+                if isinstance(screenshot, Mapping) and screenshot.get("data"):
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "<computer_visual_evidence>Inspect this fresh rendered "
+                                "screenshot together with the preceding computer-use tool "
+                                "result. Choose the next action from actual visual evidence; "
+                                "do not invent screen state.</computer_visual_evidence>"
+                            ),
+                            "images": [dict(screenshot)],
+                        }
+                    )
                 if name == "shell":
                     command = str(arguments.get("command") or "").replace("\n", " ")
                     exit_code = result.get("exit_code") if isinstance(result, Mapping) else None

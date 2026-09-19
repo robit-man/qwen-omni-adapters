@@ -40,6 +40,24 @@ def test_running_tasks_lead_and_expose_stage_steps_and_tools() -> None:
     assert views[1]["result"] == "Verified."
 
 
+def test_old_task_steps_recover_explicit_tool_names_for_display() -> None:
+    views = task_views(
+        [
+            {
+                "task_id": "old",
+                "objective": "Old work",
+                "status": "completed",
+                "progress": [
+                    "Ran shell step (ffmpeg input output); exit=0.",
+                    "Ran web_fetch and retained its result.",
+                ],
+            }
+        ]
+    )
+
+    assert views[0]["tools"] == ["shell", "web_fetch"]
+
+
 def test_task_menu_is_bounded_and_keeps_the_newest_live_work() -> None:
     tasks = [
         {

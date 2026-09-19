@@ -17,6 +17,7 @@ import secrets
 import tempfile
 import time
 from collections.abc import Callable, Mapping
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -145,6 +146,56 @@ class BackgroundTaskStore:
         return self._inspect(
             lambda value: [self._public(item) for item in value.get("tasks", [])]
         )
+
+    def archive_terminal(self, archive_path: Path | str) -> int:
+        """Move finished tasks to a human-readable append-only local log."""
+
+        destination = Path(archive_path).expanduser().resolve()
+
+        def archive(value: dict[str, Any]) -> int:
+            tasks = value.get("tasks", [])
+            finished = [
+                item for item in tasks if item.get("status") in TERMINAL_STATUSES
+            ]
+            if not finished:
+                return 0
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with destination.open("a", encoding="utf-8") as output:
+                for item in finished:
+                    created = datetime.fromtimestamp(
+                        float(item.get("created_at") or 0)
+                    ).astimezone()
+                    updated = datetime.fromtimestamp(
+                        float(item.get("updated_at") or 0)
+                    ).astimezone()
+                    output.write(f"Task {item.get('task_id', 'unknown')}\n")
+                    output.write(f"Status: {item.get('status', 'unknown')}\n")
+                    output.write(f"Created: {created.isoformat(timespec='seconds')}\n")
+                    output.write(f"Updated: {updated.isoformat(timespec='seconds')}\n")
+                    output.write(f"Objective: {item.get('objective', '')}\n")
+                    tools = item.get("tools_used")
+                    if isinstance(tools, list) and tools:
+                        output.write(
+                            f"Tools used: {', '.join(str(tool) for tool in tools)}\n"
+                        )
+                    progress = item.get("progress")
+                    if isinstance(progress, list) and progress:
+                        output.write("Steps:\n")
+                        for step in progress:
+                            output.write(f"  - {' '.join(str(step).split())}\n")
+                    if item.get("result"):
+                        output.write(f"Result: {item['result']}\n")
+                    if item.get("error"):
+                        output.write(f"Error: {item['error']}\n")
+                    output.write("\n")
+                output.flush()
+                os.fsync(output.fileno())
+            value["tasks"] = [
+                item for item in tasks if item.get("status") not in TERMINAL_STATUSES
+            ]
+            return len(finished)
+
+        return int(self._mutate(archive))
 
     def get(self, task_id: str) -> dict[str, Any] | None:
         def find(value: dict[str, Any]) -> dict[str, Any] | None:

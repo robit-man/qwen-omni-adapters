@@ -30,6 +30,16 @@ STATUS_MARKS = {
     "cancelled": "×",
 }
 
+STATE_ICONS = {
+    "starting": "process-working-symbolic",
+    "listening": "audio-input-microphone-symbolic",
+    "hearing": "media-record-symbolic",
+    "thinking": "process-working-symbolic",
+    "speaking": "audio-volume-high-symbolic",
+    "muted": "microphone-sensitivity-muted-symbolic",
+    "offline": "network-error-symbolic",
+}
+
 # Glyph per state. Text rather than themed icons: these render identically on
 # every theme, need no icon cache, and read at a glance.
 LABELS: dict[str, str] = {
@@ -82,6 +92,15 @@ def task_views(tasks: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
             else []
         )
         tools = task.get("tools_used")
+        tool_names = [str(item) for item in tools] if isinstance(tools, list) else []
+        if not tool_names:
+            # Older records predate exact tool auditing, but their checkpoint
+            # labels still identify concrete calls without guessing.
+            for step in steps:
+                if step.startswith("Ran shell step"):
+                    tool_names.append("shell")
+                elif step.startswith("Ran ") and " and retained its result" in step:
+                    tool_names.append(step[4:].split(" and retained", 1)[0])
         views.append(
             {
                 "task_id": str(task["task_id"]),
@@ -89,7 +108,7 @@ def task_views(tasks: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 "label": f"{STATUS_MARKS.get(status, '?')} {objective}",
                 "current_stage": _short(task.get("current_stage"), 110),
                 "steps": steps,
-                "tools": [str(item) for item in tools] if isinstance(tools, list) else [],
+                "tools": list(dict.fromkeys(tool_names)),
                 "result": _short(task.get("result"), 140),
                 "error": _short(task.get("error"), 140),
             }
@@ -115,6 +134,8 @@ def build_indicator(
     on_mute: Callable[[bool], None],
     on_quit: Callable[[], None],
     on_reload: Callable[[], None] | None = None,
+    on_clear_tasks: Callable[[], int] | None = None,
+    on_open_archive: Callable[[], None] | None = None,
     on_tools: Callable[[bool], None] | None = None,
     on_reasoning: Callable[[bool], None] | None = None,
     on_camera: Callable[[bool], None] | None = None,
@@ -143,18 +164,14 @@ def build_indicator(
 
     class GtkIndicator:
         def __init__(self) -> None:
-            # No icon: the label carries the state, and a microphone glyph
-            # sitting permanently in the top bar reads as a warning rather
-            # than a status.
             self._indicator = AppIndicator.Indicator.new(
                 "omni-call-harness",
-                "",
+                STATE_ICONS["starting"],
                 AppIndicator.IndicatorCategory.APPLICATION_STATUS,
             )
             self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
             self._muted = False
             self._gtk = Gtk
-            self._expanded_tasks: set[str] = set()
             self._task_widgets: list[Any] = []
             self._task_signature: object = None
             self._tasks = tasks
@@ -213,6 +230,16 @@ def build_indicator(
             self._reload_item.set_sensitive(on_reload is not None)
             menu.append(self._reload_item)
 
+            self._clear_tasks_item = Gtk.MenuItem(label="Clear finished tasks")
+            self._clear_tasks_item.connect("activate", lambda *_: self._clear_tasks())
+            self._clear_tasks_item.set_sensitive(on_clear_tasks is not None)
+            menu.append(self._clear_tasks_item)
+
+            self._archive_item = Gtk.MenuItem(label="Open task archive")
+            self._archive_item.connect("activate", lambda *_: self._open_archive())
+            self._archive_item.set_sensitive(on_open_archive is not None)
+            menu.append(self._archive_item)
+
             menu.append(Gtk.SeparatorMenuItem())
             self._tasks_header = Gtk.MenuItem(label="Tasks")
             self._tasks_header.set_sensitive(False)
@@ -226,7 +253,7 @@ def build_indicator(
 
             menu.show_all()
             self._indicator.set_menu(menu)
-            self._indicator.set_label(LABELS["starting"], "Omni")
+            self._indicator.set_label("Omni", "Omni")
             self._refresh_tasks()
             if tasks is not None:
                 GLib.timeout_add_seconds(1, self._refresh_tasks)
@@ -267,18 +294,22 @@ def build_indicator(
             on_reload()
             self.stop()
 
-        def _toggle_task(self, task_id: str) -> None:
-            if task_id in self._expanded_tasks:
-                self._expanded_tasks.remove(task_id)
-            else:
-                self._expanded_tasks.add(task_id)
+        def _clear_tasks(self) -> None:
+            if on_clear_tasks is None:
+                return
+            count = on_clear_tasks()
+            noun = "task" if count == 1 else "tasks"
+            self._status_item.set_label(f"Archived {count} finished {noun}")
             self._task_signature = None
             self._refresh_tasks()
+
+        def _open_archive(self) -> None:
+            if on_open_archive is not None:
+                on_open_archive()
 
         def _detail_item(self, text: str, *, spinning: bool = False):
             item = Gtk.MenuItem()
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=7)
-            row.set_margin_start(18)
             if spinning:
                 marker = Gtk.Spinner()
                 marker.start()
@@ -314,13 +345,10 @@ def build_indicator(
                     )
                     for view in views
                 ),
-                tuple(sorted(self._expanded_tasks)),
             )
             if signature == self._task_signature:
                 return True
             self._task_signature = signature
-            visible_ids = {view["task_id"] for view in views}
-            self._expanded_tasks.intersection_update(visible_ids)
             for widget in self._task_widgets:
                 self._menu.remove(widget)
             self._task_widgets.clear()
@@ -329,49 +357,46 @@ def build_indicator(
             )
             position = self._menu.get_children().index(self._quit_separator)
             for view in views:
-                task_id = view["task_id"]
-                item = Gtk.CheckMenuItem(label=view["label"])
-                item.set_active(task_id in self._expanded_tasks)
-                item.connect("activate", lambda _item, value=task_id: self._toggle_task(value))
+                # AppIndicator closes its whole menu when an ordinary item is
+                # activated. A native submenu stays open while the person
+                # inspects stages and closes naturally when they leave it.
+                item = Gtk.MenuItem(label=view["label"])
+                details = Gtk.Menu()
+                item.set_submenu(details)
                 self._menu.insert(item, position)
                 self._task_widgets.append(item)
                 position += 1
-                if task_id not in self._expanded_tasks:
-                    continue
                 if view["status"] in {"pending", "running"}:
                     stage = view["current_stage"] or "Waiting for the next worker step"
                     detail = self._detail_item(stage, spinning=True)
-                    self._menu.insert(detail, position)
-                    self._task_widgets.append(detail)
-                    position += 1
-                tools = ", ".join(view["tools"]) or "none yet"
+                    details.append(detail)
+                tools = ", ".join(view["tools"]) or "none recorded"
                 detail = self._detail_item(f"Tools used: {tools}")
-                self._menu.insert(detail, position)
-                self._task_widgets.append(detail)
-                position += 1
+                details.append(detail)
                 for step in view["steps"]:
                     detail = self._detail_item(step)
-                    self._menu.insert(detail, position)
-                    self._task_widgets.append(detail)
-                    position += 1
+                    details.append(detail)
                 terminal = view["error"] or view["result"]
                 if terminal:
                     detail = self._detail_item(terminal)
-                    self._menu.insert(detail, position)
-                    self._task_widgets.append(detail)
-                    position += 1
+                    details.append(detail)
+                details.show_all()
             self._menu.show_all()
             return True
 
         def set_state(self, state: str, detail: str = "") -> None:
             if self._muted and state not in {"muted", "offline"}:
                 state = "muted"
-            label = LABELS.get(state, LABELS["listening"])
             tooltip = TOOLTIPS.get(state, state)
             summary = f"{tooltip}: {detail}" if detail else tooltip
 
             def apply() -> bool:
-                self._indicator.set_label(label, "Omni")
+                icon = STATE_ICONS.get(state, STATE_ICONS["listening"])
+                try:
+                    self._indicator.set_icon_full(icon, tooltip)
+                except AttributeError:
+                    self._indicator.set_icon(icon)
+                self._indicator.set_label("Omni", "Omni")
                 self._status_item.set_label(summary[:80])
                 return False
 

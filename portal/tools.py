@@ -40,12 +40,16 @@ import httpx
 
 try:
     from portal.background_tasks import BackgroundTaskStore
+    from portal.browser import BrowserAutomationError, BrowserAutomationStore
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import runtime_environment_snapshot
+    from portal.gui import GuiAutomation, GuiAutomationError
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import BackgroundTaskStore
+    from browser import BrowserAutomationError, BrowserAutomationStore
     from documents import DocumentError, SessionDocumentStore
     from environment import runtime_environment_snapshot
+    from gui import GuiAutomation, GuiAutomationError
 
 MAX_SEARCH_RESULTS = 8
 MAX_SEARCH_QUERY_CHARS = 500
@@ -171,6 +175,69 @@ SAFE_TOOLS = [
             },
         },
         ["url"],
+    ),
+    _function_tool(
+        "browser_interact",
+        "Control one persistent rendered Chromium session for visual, interactive web work. "
+        "Navigate, inspect the screenshot and bounded visible elements, then click, type, "
+        "scroll, or go back in successive calls. Every non-close action returns fresh visual "
+        "evidence. This works with local/offline HTTP sites as well as reachable public sites.",
+        {
+            "action": {
+                "type": "string",
+                "enum": ["navigate", "snapshot", "click", "type", "scroll", "back", "close"],
+            },
+            "url": {"type": "string", "description": "Absolute HTTP(S) URL for navigate."},
+            "element_id": {
+                "type": "string",
+                "description": "Element id such as e3 from the latest rendered snapshot.",
+            },
+            "text": {"type": "string", "description": "Text for action=type."},
+            "clear": {"type": "boolean", "description": "Clear the field before typing."},
+            "submit": {"type": "boolean", "description": "Press Enter after typing."},
+            "pixels": {
+                "type": "integer",
+                "minimum": -4000,
+                "maximum": 4000,
+                "description": "Vertical amount for action=scroll.",
+            },
+            "wait_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5000,
+                "description": "Wait for rendering after the action; default 500 ms.",
+            },
+        },
+        ["action"],
+    ),
+    _function_tool(
+        "gui_interact",
+        "See and operate the active Ubuntu desktop from fresh full-screen screenshots. "
+        "Use this for applications or browser chrome outside webpage content: snapshot, "
+        "then click screen coordinates, type, press a key/chord, or scroll. Every action "
+        "returns a new screenshot so work can be assessed visually.",
+        {
+            "action": {
+                "type": "string",
+                "enum": ["snapshot", "click", "type", "key", "hotkey", "scroll"],
+            },
+            "x": {"type": "integer", "description": "Screen x coordinate for click."},
+            "y": {"type": "integer", "description": "Screen y coordinate for click."},
+            "button": {"type": "integer", "minimum": 1, "maximum": 5},
+            "text": {"type": "string", "description": "Literal text for action=type."},
+            "key": {
+                "type": "string",
+                "description": "xdotool key name or chord, for example Return or ctrl+l.",
+            },
+            "amount": {
+                "type": "integer",
+                "minimum": -20,
+                "maximum": 20,
+                "description": "Scroll notches; positive is down and negative is up.",
+            },
+            "wait_ms": {"type": "integer", "minimum": 0, "maximum": 5000},
+        },
+        ["action"],
     ),
     _function_tool(
         "document_search",
@@ -736,6 +803,14 @@ _TOOL_DISCOVERY_HINTS = {
     ),
     "web_search": "internet web current latest news weather search find public sources",
     "web_fetch": "open read fetch url page article source cite public website",
+    "browser_interact": (
+        "browser website webpage visual screenshot render navigate click type scroll form "
+        "interactive javascript login button"
+    ),
+    "gui_interact": (
+        "desktop screen workspace gui graphical application window visual screenshot "
+        "coordinate click type keyboard hotkey scroll xdotool computer use"
+    ),
     "document_search": "search attached document file excerpt pdf docx text",
     "memory_write": "remember save store fact preference session memory",
     "memory_read": "recall exact saved fact key session memory",
@@ -2133,6 +2208,8 @@ class PortalToolHarness:
         media_runner: Callable[[bytes, str, str], Mapping[str, Any]] | None = None,
         subagent_runner: Callable[[str, str, str], Mapping[str, Any]] | None = None,
         background_tasks: BackgroundTaskStore | None = None,
+        browser_automation: Any | None = None,
+        gui_automation: Any | None = None,
     ) -> None:
         self.documents = documents
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
@@ -2147,6 +2224,10 @@ class PortalToolHarness:
         self.subagents = SessionSubagentStore(ttl_s=ttl_s, runner=subagent_runner)
         self.location = SessionLocationStore(ttl_s=ttl_s)
         self.background_tasks = background_tasks
+        self.browser = browser_automation or BrowserAutomationStore(
+            ttl_s=max(900.0, ttl_s)
+        )
+        self.gui = gui_automation or GuiAutomation()
 
     def clear(self, session_id: str) -> None:
         self.memory.clear(session_id)
@@ -2154,6 +2235,8 @@ class PortalToolHarness:
         self.workspace.clear(session_id)
         self.subagents.clear(session_id)
         self.location.clear(session_id)
+        self.browser.clear(session_id)
+        self.gui.clear(session_id)
 
     def memory_stats(self, session_id: str) -> dict[str, int]:
         return self.memory.stats(session_id)
@@ -2246,6 +2329,10 @@ class PortalToolHarness:
                 )
             elif name == "web_fetch":
                 result = self.web.fetch(session_id, arguments.get("url"), arguments.get("max_length"))
+            elif name == "browser_interact":
+                result = self.browser.act(session_id, dict(arguments))
+            elif name == "gui_interact":
+                result = self.gui.act(session_id, dict(arguments))
             elif name == "web_crawl":
                 result = self.web.crawl(session_id, arguments.get("url"), arguments.get("max_pages"), arguments.get("max_depth"), arguments.get("max_length"))
             elif name == "document_search":
@@ -2375,7 +2462,13 @@ class PortalToolHarness:
                     "error": "tool_not_allowed",
                     "allowed": [item["function"]["name"] for item in SAFE_TOOLS],
                 }
-        except (ToolInputError, DocumentError, httpx.HTTPError) as exc:
+        except (
+            ToolInputError,
+            BrowserAutomationError,
+            GuiAutomationError,
+            DocumentError,
+            httpx.HTTPError,
+        ) as exc:
             result = {"error": type(exc).__name__, "message": str(exc)[:500]}
         return result
 

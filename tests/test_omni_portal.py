@@ -745,6 +745,86 @@ def test_tool_discovery_keeps_web_lookup_and_physical_vision_distinct() -> None:
     assert result["mode"] == "motion"
 
 
+def test_rendered_browser_tool_is_discoverable_and_session_scoped() -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+    cleared: list[str] = []
+
+    class Browser:
+        def act(self, session_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
+            calls.append((session_id, arguments))
+            return {
+                "rendered": True,
+                "url": "http://example.test/",
+                "elements": [{"id": "e1", "text": "Details"}],
+                "screenshot": {
+                    "mime_type": "image/png",
+                    "encoding": "base64",
+                    "data": "image-data",
+                },
+            }
+
+        def clear(self, session_id: str) -> None:
+            cleared.append(session_id)
+
+    browser = Browser()
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300), browser_automation=browser
+    )
+
+    assert discover_tool_names("visually navigate and click a rendered webpage")[0] == (
+        "browser_interact"
+    )
+    result = harness.execute(
+        "voice-session",
+        "browser_interact",
+        {"action": "click", "element_id": "e1"},
+    )
+    harness.clear("voice-session")
+
+    assert result["rendered"] is True
+    assert result["screenshot"]["data"] == "image-data"
+    assert calls == [
+        ("voice-session", {"action": "click", "element_id": "e1"})
+    ]
+    assert cleared == ["voice-session"]
+
+
+def test_desktop_gui_tool_is_discoverable_and_returns_visual_evidence() -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    class Gui:
+        def act(self, session_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
+            calls.append((session_id, arguments))
+            return {
+                "rendered": True,
+                "active_window": {"title": "Chromium"},
+                "screenshot": {
+                    "mime_type": "image/png",
+                    "encoding": "base64",
+                    "data": "desktop-image",
+                },
+            }
+
+        def clear(self, _session_id: str) -> None:
+            pass
+
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300), gui_automation=Gui()
+    )
+
+    assert discover_tool_names("look at and control the desktop workspace")[0] == (
+        "gui_interact"
+    )
+    result = harness.execute(
+        "voice-session", "gui_interact", {"action": "click", "x": 20, "y": 30}
+    )
+
+    assert result["screenshot"]["data"] == "desktop-image"
+    assert calls == [
+        ("voice-session", {"action": "click", "x": 20, "y": 30})
+    ]
+
+
 def test_shell_tool_returns_command_context(tmp_path: Path) -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
     result = harness.execute(

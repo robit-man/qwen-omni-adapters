@@ -1480,9 +1480,6 @@ def run_call_loop(
 
                 if verdict.event in {"candidate", "start", "active"}:
                     near_end_active.set()
-                    foreground_active.set()
-                    if session.background_agent is not None:
-                        session.background_agent.wake()
                     # Still talking, so nothing is finished being said.
                     settle_until = None
                     if verdict.event == "start":
@@ -1519,6 +1516,15 @@ def run_call_loop(
                         if session.background_agent is not None:
                             session.background_agent.wake()
                 elif verdict.event == "utterance" and verdict.utterance is not None:
+                    # Only an accepted utterance owns the foreground/model
+                    # lane. A raw VAD candidate can be room noise, and holding
+                    # this event from candidate onset allowed a stalled audio
+                    # stream to starve durable tasks forever. The background
+                    # worker runs one checkpoint at a time and will yield
+                    # before its next call once this accepted turn is queued.
+                    foreground_active.set()
+                    if session.background_agent is not None:
+                        session.background_agent.wake()
                     if barge_started_at is not None:
                         if not barge_paused:
                             session.request_pause()

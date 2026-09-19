@@ -123,6 +123,34 @@ def test_terminal_announcement_survives_restart_until_marked_spoken(
     assert reopened.mark_announced(created["task_id"]) is False
 
 
+def test_finished_tasks_move_to_a_human_readable_archive(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    finished = store.create("Create a verified artifact.")
+    live = store.create("Keep working on this.")
+    claimed = store.claim_next("worker")
+    assert claimed is not None and claimed["task_id"] == finished["task_id"]
+    store.checkpoint(
+        finished["task_id"],
+        "worker",
+        tools_used=["shell"],
+        progress="Verified the artifact.",
+        result="The artifact is ready.",
+        status="completed",
+    )
+    archive = tmp_path / "task-archive.log"
+
+    count = store.archive_terminal(archive)
+
+    assert count == 1
+    assert store.get(finished["task_id"]) is None
+    assert store.get(live["task_id"])["status"] == "pending"  # type: ignore[index]
+    content = archive.read_text(encoding="utf-8")
+    assert f"Task {finished['task_id']}" in content
+    assert "Tools used: shell" in content
+    assert "Verified the artifact." in content
+    assert "The artifact is ready." in content
+
+
 def test_portal_background_tool_starts_and_controls_persistent_work(
     tmp_path: Path,
 ) -> None:
@@ -326,6 +354,97 @@ def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
         item for item in current["progress"] if "transient failure" in item
     ]
     assert len(failures) == 2
+
+
+def test_browser_screenshot_is_seen_once_but_not_persisted_as_base64(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Inspect the rendered page and report the visible fact.")
+    chat_round = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        if request.url.path == "/api/tools/browser_interact/call":
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "url": "http://example.test/",
+                        "visible_text": "The answer is cobalt.",
+                        "elements": [],
+                        "rendered": True,
+                        "screenshot": {
+                            "mime_type": "image/png",
+                            "encoding": "base64",
+                            "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+                        },
+                    }
+                },
+            )
+        chat_round += 1
+        payload = json.loads(request.content)
+        if chat_round == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "browser-1",
+                                "function": {
+                                    "name": "browser_interact",
+                                    "arguments": {
+                                        "action": "navigate",
+                                        "url": "http://example.test/",
+                                    },
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        assert any(message.get("images") for message in payload["messages"])
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "TASK_COMPLETE\nI inspected the page and verified cobalt.",
+                }
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.02)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert current["tools_used"] == ["browser_interact"]
+    persisted = (tmp_path / "tasks.json").read_text(encoding="utf-8")
+    assert '"images"' not in persisted
+    assert "iVBORw0KGgo" not in persisted
+    assert "rendered screenshot was inspected" in persisted
 
 
 def test_background_agent_rejects_a_completion_with_no_action_evidence(
