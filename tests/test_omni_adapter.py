@@ -148,6 +148,49 @@ for line in sys.stdin.buffer:
         worker.close()
 
 
+def test_nonpersistent_tts_batch_reuses_one_process_for_the_whole_utterance(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    binary = tmp_path / "fake-llama-tts"
+    binary.write_text(
+        """#!/usr/bin/env python3
+import base64
+import sys
+
+def frame(kind, data=b''):
+    sys.stdout.buffer.write(kind.encode() + len(data).to_bytes(8, 'little') + data)
+    sys.stdout.buffer.flush()
+
+frame('R')
+for line in sys.stdin.buffer:
+    prompt = base64.b64decode(line.strip())
+    frame('A', b'\\x01\\x00' * len(prompt))
+    frame('D')
+"""
+    )
+    binary.chmod(0o755)
+    config = _tts_config(tmp_path, binary=binary, persistent=False, timeout_s=5)
+    real_popen = subprocess.Popen
+    starts = 0
+
+    def counting_popen(*args, **kwargs):
+        nonlocal starts
+        starts += 1
+        return real_popen(*args, **kwargs)
+
+    monkeypatch.setattr("runtime.tts_server.subprocess.Popen", counting_popen)
+    response = create_tts_app(config).test_client().post(
+        "/synthesize/stream/batch",
+        json={"blocks": ["first", "second"]},
+    )
+
+    assert response.status_code == 200
+    assert response.data == b"\x01\x00" * 11
+    assert response.headers["X-Audio-Blocks"] == "2"
+    assert starts == 1
+
+
 def test_persistent_tts_worker_discards_protocol_after_cancelled_stream(
     tmp_path: Path,
 ) -> None:
@@ -1146,8 +1189,12 @@ def test_reference_server_streams_pcm_and_keeps_final_wav_envelope() -> None:
         )
     ]
 
-    assert [path for path, _body in seen] == ["/api/chat", "/synthesize/stream"]
+    assert [path for path, _body in seen] == [
+        "/api/chat",
+        "/synthesize/stream/batch",
+    ]
     assert seen[1][1]["stream_frames"] == 2
+    assert seen[1][1]["blocks"] == ["Speak."]
     assert [event["type"] for event in events] == [
         "stage",
         "delta",
@@ -1176,7 +1223,7 @@ def test_long_tts_stream_uses_multiple_blocks_and_one_complete_wav(
         "Second sentence contains enough additional detail to require another block. "
         "Third sentence proves that the final audio continues through the ending."
     )
-    tts_texts = []
+    tts_batches = []
     pcm = b"\x01\x00\x02\x00"
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -1195,10 +1242,10 @@ def test_long_tts_stream_uses_multiple_blocks_and_one_complete_wav(
                 ).encode(),
             )
         if request.url.host == "tts":
-            tts_texts.append(body["text"])
+            tts_batches.append(body["blocks"])
             return httpx.Response(
                 200,
-                content=pcm,
+                content=pcm * len(body["blocks"]),
                 headers={"x-audio-codec": "pcm_s16le"},
             )
         return httpx.Response(404)
@@ -1219,10 +1266,11 @@ def test_long_tts_stream_uses_multiple_blocks_and_one_complete_wav(
         )
     ]
 
-    assert len(tts_texts) == len(_tts_text_blocks(text, {})) == 3
-    assert " ".join(tts_texts) == text
+    assert len(tts_batches) == 1
+    assert len(tts_batches[0]) == len(_tts_text_blocks(text, {})) == 3
+    assert " ".join(tts_batches[0]) == text
     assert sum(event["type"] == "audio_start" for event in events) == 1
-    assert sum(event["type"] == "audio_delta" for event in events) == 3
+    assert sum(event["type"] == "audio_delta" for event in events) == 1
     final = events[-1]["response"]
     decoded = decode_wav_payload(final["message"]["audio"])
     assert decoded.frames == 6

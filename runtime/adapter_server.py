@@ -1546,60 +1546,62 @@ def execute_stream(
         yield _stream_event("stage", stage="tts", blocks=tts_block_count)
         chunks: list[bytes] = []
         sequence = 0
-        for block_index, block in enumerate(text_blocks):
-            tts_payload = {
-                "text": block,
-                "output": DEFAULT_AUDIO_CONTRACT.output.to_dict(),
-                "stream_frames": DEFAULT_TTS_STREAM_FRAMES,
-                **dict(parsed.speech),
-            }
-            pending = b""
-            with client.stream(
-                "POST", config.tts_url.rstrip("/") + "/stream", json=tts_payload
-            ) as response:
-                if response.status_code >= 400:
-                    response.read()
-                    raise AdapterStageError(
-                        f"tts stream block {block_index + 1}/{tts_block_count} "
-                        f"returned HTTP {response.status_code}: {response.text[:500]}"
-                    )
-                if response.headers.get("x-audio-codec") not in {None, "pcm_s16le"}:
-                    raise AdapterStageError("tts stream returned an unsupported codec")
-                for raw in response.iter_bytes():
-                    data = pending + raw
-                    complete = len(data) - (len(data) % 2)
-                    pending = data[complete:]
-                    chunk = data[:complete]
-                    if not chunk:
-                        continue
-                    if not audio_streamed:
-                        yield _stream_event(
-                            "audio_start",
-                            audio={
-                                "codec": "pcm_s16le",
-                                "sample_rate_hz": 24000,
-                                "channels": 1,
-                                "sample_width_bits": 16,
-                                "blocks": tts_block_count,
-                            },
-                        )
-                        audio_streamed = True
-                    chunks.append(chunk)
+        tts_payload = {
+            "blocks": text_blocks,
+            "output": DEFAULT_AUDIO_CONTRACT.output.to_dict(),
+            "stream_frames": DEFAULT_TTS_STREAM_FRAMES,
+            **dict(parsed.speech),
+        }
+        pending = b""
+        with client.stream(
+            "POST",
+            config.tts_url.rstrip("/") + "/stream/batch",
+            json=tts_payload,
+        ) as response:
+            if response.status_code >= 400:
+                response.read()
+                raise AdapterStageError(
+                    f"tts batch stream returned HTTP {response.status_code}: "
+                    f"{response.text[:500]}"
+                )
+            if response.headers.get("x-audio-codec") not in {None, "pcm_s16le"}:
+                raise AdapterStageError("tts stream returned an unsupported codec")
+            for raw in response.iter_bytes():
+                data = pending + raw
+                complete = len(data) - (len(data) % 2)
+                pending = data[complete:]
+                chunk = data[:complete]
+                if not chunk:
+                    continue
+                if not audio_streamed:
                     yield _stream_event(
-                        "audio_delta",
+                        "audio_start",
                         audio={
-                            "sequence": sequence,
-                            "block": block_index,
+                            "codec": "pcm_s16le",
+                            "sample_rate_hz": 24000,
+                            "channels": 1,
+                            "sample_width_bits": 16,
                             "blocks": tts_block_count,
-                            "encoding": "base64",
-                            "data": base64.b64encode(chunk).decode("ascii"),
                         },
                     )
-                    sequence += 1
-            if pending:
-                raise AdapterStageError(
-                    f"tts PCM stream block {block_index + 1} ended on a partial sample"
+                    audio_streamed = True
+                chunks.append(chunk)
+                yield _stream_event(
+                    "audio_delta",
+                    audio={
+                        "sequence": sequence,
+                        # The batch is one uninterrupted PCM timeline. Its
+                        # internal text boundaries intentionally never become
+                        # playback boundaries again.
+                        "block": 0,
+                        "blocks": tts_block_count,
+                        "encoding": "base64",
+                        "data": base64.b64encode(chunk).decode("ascii"),
+                    },
                 )
+                sequence += 1
+        if pending:
+            raise AdapterStageError("tts PCM batch ended on a partial sample")
         pcm = b"".join(chunks)
         if not pcm:
             raise AdapterStageError("tts stream returned no PCM audio")

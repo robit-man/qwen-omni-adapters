@@ -23,7 +23,7 @@ import threading
 import time
 import wave
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -561,6 +561,23 @@ def stream_synthesize(
     return spec, _stream_synthesize(config, spec)
 
 
+def _batch_specs(config: Config, body: dict[str, Any]) -> list[SynthesisSpec]:
+    """Validate a sequence that must share one resident TTS graph."""
+
+    blocks = body.get("blocks")
+    if not isinstance(blocks, list) or not blocks:
+        raise TTSError("blocks must be a non-empty array of text")
+    common = dict(body)
+    common.pop("blocks", None)
+    common.pop("text", None)
+    specs: list[SynthesisSpec] = []
+    for block in blocks:
+        if not isinstance(block, str):
+            raise TTSError("every TTS block must be text")
+        specs.append(_synthesis_spec(config, {**common, "text": block}))
+    return specs
+
+
 class PersistentTTSWorker:
     """Keep one llama.cpp TTS graph resident and exchange framed PCM over pipes."""
 
@@ -786,6 +803,64 @@ class PersistentTTSWorker:
             raise
 
 
+def _stream_worker_batch(
+    worker: PersistentTTSWorker,
+    specs: list[SynthesisSpec],
+) -> Iterator[bytes]:
+    """Stream every text block through one loaded worker, then return cleanly."""
+
+    reference = specs[0].speaker_audio
+    if any(spec.speaker_audio != reference for spec in specs[1:]):
+        raise TTSError("all TTS blocks must use the same speaker reference")
+
+    def stream(normalized: list[SynthesisSpec]) -> Iterator[bytes]:
+        batch_started = time.monotonic()
+        total_bytes = 0
+        for index, spec in enumerate(normalized, start=1):
+            block_started = time.monotonic()
+            first_pcm_ms: float | None = None
+            block_bytes = 0
+            for chunk in worker.stream(spec):
+                if first_pcm_ms is None:
+                    first_pcm_ms = (time.monotonic() - block_started) * 1000.0
+                block_bytes += len(chunk)
+                total_bytes += len(chunk)
+                yield chunk
+            print(
+                "tts batch timing: "
+                f"block={index}/{len(normalized)} "
+                f"first_pcm={first_pcm_ms or 0.0:.1f}ms "
+                f"pcm={block_bytes / (24000 * 2):.3f}s "
+                f"generation={(time.monotonic() - block_started) * 1000.0:.1f}ms",
+                file=sys.stderr,
+                flush=True,
+            )
+        print(
+            "tts batch timing: "
+            f"complete blocks={len(normalized)} "
+            f"pcm={total_bytes / (24000 * 2):.3f}s "
+            f"elapsed={(time.monotonic() - batch_started) * 1000.0:.1f}ms",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    if reference is None:
+        yield from stream(specs)
+        return
+
+    # The persistent binary accepts a speaker file at process startup. Keep
+    # an inline browser reference only for this batch, and remove it with the
+    # ephemeral worker as soon as the utterance is complete.
+    with tempfile.TemporaryDirectory(prefix="robit-omni-tts-speaker-") as temp_dir:
+        speaker_file = Path(temp_dir) / "speaker-reference.wav"
+        speaker_file.write_bytes(reference)
+        normalized = [
+            replace(spec, speaker=str(speaker_file), speaker_audio=None)
+            for spec in specs
+        ]
+        yield from stream(normalized)
+
+
 def _warm_spec(config: Config) -> SynthesisSpec | None:
     if not config.warm_speaker_file:
         return None
@@ -905,6 +980,55 @@ def create_app(config: Config | None = None) -> Flask:
             response.headers["X-Audio-Channels"] = "1"
             response.headers["X-Audio-Stream-Version"] = "1"
             response.headers["X-Audio-Stream-Frames"] = str(spec.stream_frames)
+            response.headers["X-Accel-Buffering"] = "no"
+            return response
+        except (TTSError, ValueError, subprocess.TimeoutExpired) as exc:
+            return jsonify({"error": str(exc)}), 422
+
+    @app.post("/synthesize/stream/batch")
+    def synthesize_stream_batch_route():
+        """Stream one utterance's text blocks through one loaded TTS graph."""
+
+        try:
+            body = request.get_json(force=True)
+            if not isinstance(body, dict):
+                raise TTSError("request body must be a JSON object")
+            specs = _batch_specs(runtime, body)
+
+            def generate() -> Iterator[bytes]:
+                with lock:
+                    inline_reference = specs[0].speaker_audio is not None
+                    ephemeral = persistent is None or inline_reference
+                    worker = PersistentTTSWorker(runtime) if ephemeral else persistent
+                    if worker is None:  # narrowed above; keeps type checkers honest
+                        raise TTSError("TTS worker is unavailable")
+                    if inline_reference and persistent is not None:
+                        persistent.close()
+                    try:
+                        yield from _stream_worker_batch(worker, specs)
+                    finally:
+                        if ephemeral:
+                            worker.close()
+                        if persistent is not None and warm_spec is not None:
+                            threading.Thread(
+                                target=warm_persistent_worker,
+                                name="qwen3-tts-rewarm",
+                                daemon=True,
+                            ).start()
+
+            response = Response(
+                stream_with_context(generate()),
+                content_type="audio/pcm;rate=24000;channels=1;format=s16le",
+            )
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Audio-Codec"] = "pcm_s16le"
+            response.headers["X-Audio-Sample-Rate"] = "24000"
+            response.headers["X-Audio-Channels"] = "1"
+            response.headers["X-Audio-Stream-Version"] = "1"
+            response.headers["X-Audio-Stream-Frames"] = str(
+                specs[0].stream_frames
+            )
+            response.headers["X-Audio-Blocks"] = str(len(specs))
             response.headers["X-Accel-Buffering"] = "no"
             return response
         except (TTSError, ValueError, subprocess.TimeoutExpired) as exc:

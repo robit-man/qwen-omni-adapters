@@ -62,7 +62,9 @@ LIVE_CALL_SYSTEM_PROMPT = (
     "portion. When an answer genuinely needs a fresh view of the physical scene, "
     "discover and call the embodied-client camera tool. Internet lookups, news, "
     "research, and figurative uses of visual words use the appropriate non-camera "
-    "tools. If a "
+    "tools. A raw Bash shell tool is available for host-side commands, files, "
+    "applications, and multi-step terminal work; use it when the user asks rather "
+    "than claiming system access is unavailable. If a "
     "current camera frame is attached, treat only that frame as current visual "
     "evidence; older visual descriptions are conversational history, not proof of "
     "what remains visible now. A frame is background context unless the speaker "
@@ -435,6 +437,10 @@ class CallSession:
                 and self._frame_grabber is not None
                 and frame is None
             ),
+            # Shell is similarly explicit for this trusted local companion.
+            # Keeping it beside discovery costs one compact schema and avoids
+            # the model falling back to generic "no system access" boilerplate.
+            "portal_shell_bridge": bool(with_tools),
             "stream": True,
         }
 
@@ -641,6 +647,7 @@ class CallSession:
         speaking = False
         first_delta_ms: float | None = None
         audio_blocks: set[str] = set()
+        declared_audio_blocks = 0
         last_audio_at: float | None = None
         last_audio_block: str | None = None
         max_block_gap_ms = 0.0
@@ -724,6 +731,12 @@ class CallSession:
                     arrived = time.monotonic()
                     block = str(audio.get("block") or "0")
                     audio_blocks.add(block)
+                    try:
+                        declared_audio_blocks = max(
+                            declared_audio_blocks, int(audio.get("blocks") or 0)
+                        )
+                    except (TypeError, ValueError):
+                        pass
                     if (
                         last_audio_at is not None
                         and last_audio_block is not None
@@ -780,7 +793,7 @@ class CallSession:
                     "source_wait=%.1fms write_block=%.1fms peak_queue=%.1fms "
                     "interrupted=%s",
                     timing["chunks"],
-                    len(audio_blocks),
+                    declared_audio_blocks or len(audio_blocks),
                     timing["pcm_seconds"],
                     first_delta_ms or 0.0,
                     result.first_audio_ms or 0.0,

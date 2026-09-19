@@ -1608,6 +1608,7 @@ def create_app(
                 return jsonify({"error": "request body must be a JSON object"}), 400
             auto_tools = payload.pop("portal_auto_tools", False) is True
             camera_bridge = payload.pop("portal_camera_bridge", False) is True
+            shell_bridge = payload.pop("portal_shell_bridge", False) is True
             if payload.get("model") != runtime.model:
                 return jsonify({"error": "portal model tag is fixed"}), 400
             if payload.get("stream") is not False:
@@ -1625,6 +1626,8 @@ def create_app(
                 initial_tools = [*DISCOVERY_TOOLS]
                 if camera_bridge:
                     initial_tools.extend(tool_schemas(["request_camera_view"]))
+                if shell_bridge:
+                    initial_tools.extend(tool_schemas(["shell"]))
                 payload["tools"] = copy.deepcopy(initial_tools)
             diagnostics.begin_request(
                 session_id,
@@ -1744,6 +1747,7 @@ def create_app(
             return jsonify({"error": "request body must be a JSON object"}), 400
         auto_tools = payload.pop("portal_auto_tools", False) is True
         camera_bridge = payload.pop("portal_camera_bridge", False) is True
+        shell_bridge = payload.pop("portal_shell_bridge", False) is True
         if payload.get("model") != runtime.model:
             return jsonify({"error": "portal model tag is fixed"}), 400
         if payload.get("stream") is not True:
@@ -1763,6 +1767,8 @@ def create_app(
                 initial_tools = [*DISCOVERY_TOOLS]
                 if camera_bridge:
                     initial_tools.extend(tool_schemas(["request_camera_view"]))
+                if shell_bridge:
+                    initial_tools.extend(tool_schemas(["shell"]))
                 payload["tools"] = copy.deepcopy(initial_tools)
         except PortalRequestError as exc:
             return jsonify({"error": str(exc)}), 400

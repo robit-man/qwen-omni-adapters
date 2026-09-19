@@ -197,6 +197,7 @@ def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     assert payload["think"] is False
     assert payload["portal_auto_tools"] is True
     assert payload["portal_camera_bridge"] is False
+    assert payload["portal_shell_bridge"] is True
     assert payload["stream"] is True
     # The live-call instructions, plus the clock appended per turn.
     assert payload["messages"][0]["content"].startswith(LIVE_CALL_SYSTEM_PROMPT)

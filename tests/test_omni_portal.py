@@ -1515,7 +1515,7 @@ def test_portal_keeps_only_the_active_discovered_schema() -> None:
     ] == ["tool_search", "get_current_time"]
 
 
-def test_embodied_client_gets_one_explicit_camera_schema_beside_discovery() -> None:
+def test_embodied_client_gets_explicit_camera_and_shell_beside_discovery() -> None:
     requests: list[dict[str, Any]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -1530,14 +1530,19 @@ def test_embodied_client_gets_one_explicit_camera_schema_beside_discovery() -> N
     response = app.test_client().post(
         "/api/chat",
         headers={"Authorization": f"Bearer {TOKEN}"},
-        json=_request(portal_auto_tools=True, portal_camera_bridge=True),
+        json=_request(
+            portal_auto_tools=True,
+            portal_camera_bridge=True,
+            portal_shell_bridge=True,
+        ),
     )
 
     assert response.status_code == 200
     assert {
         item["function"]["name"] for item in requests[0]["tools"]
-    } == {"tool_search", "request_camera_view"}
+    } == {"tool_search", "request_camera_view", "shell"}
     assert "portal_camera_bridge" not in requests[0]
+    assert "portal_shell_bridge" not in requests[0]
 
 
 def test_portal_executes_only_allowlisted_tool_and_strips_media_on_followup() -> None:
