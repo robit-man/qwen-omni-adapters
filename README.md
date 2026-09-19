@@ -199,6 +199,8 @@ Current local-call behavior also includes:
 - model-requested camera capture rather than transcript keyword heuristics;
 - a compact discovery tool plus on-demand schemas, with raw shell available to
   the trusted local harness;
+- screenshot-grounded control of a real, visible Chromium window and the full
+  Ubuntu desktop, with every action followed by fresh visual evidence;
 - crash-safe persistent background tasks that checkpoint after each
   inference/tool step, yield to foreground speech, accept later spoken
   guidance, and use native thinking without speaking or storing it;
@@ -300,6 +302,7 @@ details hidden behind the adapter.
 | Semantic bridge | Adapter-generated tagged observation | Speech transcript, non-speech acoustics, and visual evidence stay separate and remain untrusted data |
 | Language, reasoning, tool choice | Selected Ollama base or configured OpenAI-compatible worker | Reasoning remains in `message.thinking`; unresolved tool calls cannot enter TTS |
 | Tool execution | Authenticated portal | Starts with compact discovery, exposes only relevant concrete schemas, records bounded evidence, and rejects repeated nonproductive calls |
+| Computer use | `portal/browser.py` + `portal/gui.py` | Opens visible Chromium on the desktop, observes rendered screenshots, clicks/types through native DevTools input, and can see/control the wider workspace through `xdotool` plus fresh desktop screenshots |
 | Speech | Patched Qwen3-TTS worker | Emits ordered decoder PCM; generation state is reset between prompts and never leaks one utterance into the next |
 | Local conversation | `harness/` | VAD, interruption, ReSpeaker state/direction, camera capture, history, passive memory, and foreground scheduling |
 | Persistent work | `harness/background_agent.py` + `portal/background_tasks.py` | Durable checkpoints and leases survive process restarts; long jobs may yield sparse spoken milestones, terminal speech is durable, and foreground speech wins every scheduling boundary |
@@ -373,6 +376,17 @@ Completed or blocked work ends with a natural spoken handoff only when the live
 conversation is idle. Its pending-delivery flag survives a harness restart,
 and the speech can be interrupted like any other reply.
 
+Rendered computer work is not reduced to a fetched-text corpus. The
+`browser_interact` tool launches a real Chromium window on the active desktop,
+returns both a screenshot and a bounded accessibility/element map, performs
+real pointer/keyboard input, then observes the changed page. `gui_interact`
+extends the same screenshot → action → screenshot loop to the full Ubuntu
+workspace. Screenshot bytes are shown to the multimodal model for one reasoning
+pass and then removed from the durable transcript so long tasks retain visual
+grounding without filling their context with base64. Local HTTP pages and all
+desktop/file tools remain usable offline; public sites naturally require a
+working network.
+
 ### Conversation state and passive memory
 
 The adapter itself is stateless between requests. The browser owns its
@@ -427,6 +441,8 @@ the unsupported `nvidia-smi` process table.
 | Text and Markdown, including responsive GFM tables | Selected Qwen3.8/Ornith Ollama base or configured Qwen3-Omni language worker | Yes |
 | Structured tools | Selected language backend + portal executor | Yes |
 | Portal web/document/session-memory tools | Explicit opt-in allowlisted portal loop with local-browser discovery | Yes |
+| Visible Chromium interaction | Persistent rendered browser, screenshot + element evidence, click/type/scroll/back | Yes |
+| Full desktop computer use | Fresh whole-desktop screenshots + coordinate/keyboard/scroll input | Yes |
 | Trusted local shell | Unrestricted execution in the checkpointed voice-task worker; bounded output and timeout | Yes |
 | Persistent background tasks | Checkpointed long-horizon worker with status/update/cancel, sparse spoken milestones, durable terminal speech, and restart recovery | Yes |
 | Passive semantic voice memory | Idle-only encoder worker + SQLite; never gates a foreground turn | Yes |
@@ -461,10 +477,13 @@ It listens continuously, answers out loud, and shows what it is doing in the
 GNOME top bar (`Omni ●` listening, `◉` hearing, `◍` thinking, `▶` speaking).
 The indicator's menu mutes the microphone, toggles tools, reasoning and
 cameras, copies the public link when the portal is published through a tunnel,
-and cleanly reloads the voice service. It also appends the live and recent
-durable tasks. Click a task once to expand its current stage, animated activity
-marker, exact tools used and retained checkpoints; click it again to collapse
-the details. Without a desktop it runs headless and logs instead.
+and cleanly reloads the voice service. It also appends live/recent durable tasks
+as native submenus, so inspecting a task does not close the whole menu. Each
+submenu shows the current-stage spinner, exact tools, retained checkpoints, and
+terminal result. **Clear finished tasks** moves terminal records into the
+human-readable archive, and **Open task archive** opens that log in the desktop
+editor. A real themed state icon sits to the left of `Omni`. Without a desktop
+the harness runs headless and logs instead.
 
 Defaults are chosen for a spoken conversation:
 
@@ -495,6 +514,11 @@ Defaults are chosen for a spoken conversation:
   to the persistent worker, acknowledge immediately, and keep listening. The
   worker reasons and uses tools between speech turns, records progress after
   each result, accepts spoken refinements, and reports when it completes.
+- **Live host state is compact.** Every turn receives current local time,
+  honest network attachment (a route is never presented as proof of internet),
+  offline capability boundaries, and the fresh battery percentage/voltage from
+  EGG's `/run/egg-battery/status.json` service when installed. Detailed
+  hardware/load data still requires `get_system_snapshot`.
 
 The speech detector is a port of `portal/static/call_vad.js` with its constants
 intact, so the same room behaves the same way in the browser and here.

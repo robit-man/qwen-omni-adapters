@@ -124,7 +124,11 @@ class BackgroundTaskStore:
                 "round": 0,
                 "progress": ["Accepted from the live conversation."],
                 "messages": [],
-                "active_tools": ["shell"],
+                # Every concrete contract, including unrestricted shell, is
+                # discovered from the tiny tool_search surface. Preloading
+                # shell made browser/desktop jobs grab the first visible tool
+                # and retry commands instead of discovering computer use.
+                "active_tools": [],
                 "tools_used": [],
                 "current_stage": "Queued",
                 "guidance": [],

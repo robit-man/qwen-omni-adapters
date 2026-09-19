@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
 import platform
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,7 @@ from qwen_omni_adapters.accelerator import (
 
 MAX_INTERFACES = 8
 MAX_GPUS = 16
+DEFAULT_BATTERY_STATE = Path("/run/egg-battery/status.json")
 
 
 def _read_text(path: Path, limit: int = 512) -> str:
@@ -107,6 +110,82 @@ def _network_facts(root: Path = Path("/sys/class/net")) -> list[dict[str, Any]]:
     return interfaces
 
 
+def _connectivity_facts(
+    route_path: Path = Path("/proc/net/route"),
+    network_root: Path = Path("/sys/class/net"),
+) -> dict[str, Any]:
+    """Report local routing evidence without pretending it proves internet access."""
+
+    default_interface = ""
+    for line in _read_text(route_path, 64 * 1024).splitlines()[1:]:
+        fields = line.split()
+        if len(fields) < 4 or fields[1] != "00000000":
+            continue
+        try:
+            flags = int(fields[3], 16)
+        except ValueError:
+            continue
+        if flags & 0x1:
+            default_interface = fields[0][:64]
+            break
+    link_state = (
+        _read_text(network_root / default_interface / "operstate", 32)
+        if default_interface
+        else ""
+    )
+    route_present = bool(default_interface)
+    active_link = route_present and link_state in {"up", "unknown", "dormant"}
+    return {
+        "default_route": route_present,
+        "active_link": active_link,
+        "interface": default_interface,
+        "link_state": link_state or "unavailable",
+        "public_internet": (
+            "not_verified" if active_link else "unavailable_no_active_default_route"
+        ),
+        "note": (
+            "A local route is evidence of network attachment, not proof that public "
+            "internet or any particular site is reachable."
+        ),
+    }
+
+
+def _battery_facts(path: Path | None = None) -> dict[str, Any]:
+    """Read the bounded state published by the EGG battery system service."""
+
+    source = path or Path(os.environ.get("EGG_BATTERY_STATE", DEFAULT_BATTERY_STATE))
+    try:
+        raw = json.loads(source.read_text(encoding="utf-8")[:4096])
+    except (OSError, ValueError):
+        return {"available": False, "reason": "battery service state unavailable"}
+    if not isinstance(raw, dict) or raw.get("schema") != "robit.egg.battery.v1":
+        return {"available": False, "reason": "battery service state invalid"}
+    try:
+        age = max(0.0, time.time() - float(raw.get("updated_at") or 0))
+        stale_after = max(1.0, float(raw.get("stale_after_seconds") or 15))
+    except (TypeError, ValueError):
+        return {"available": False, "reason": "battery service timestamp invalid"}
+    if age > stale_after or raw.get("available") is not True:
+        return {
+            "available": False,
+            "reason": str(raw.get("error") or "battery reading stale")[:200],
+            "age_seconds": round(age, 1),
+        }
+    try:
+        percentage = max(0, min(100, int(raw.get("percentage"))))
+        voltage = round(float(raw.get("voltage_v")), 2)
+    except (TypeError, ValueError):
+        return {"available": False, "reason": "battery reading incomplete"}
+    return {
+        "available": True,
+        "percentage": percentage,
+        "voltage_v": voltage,
+        "charging": raw.get("charging") if isinstance(raw.get("charging"), bool) else None,
+        "age_seconds": round(age, 1),
+        "source": "EGG system battery service",
+    }
+
+
 def _gpu_facts() -> list[dict[str, Any]]:
     if is_tegra():
         # nvidia-smi answers "[N/A]" for every queried column on Tegra, so the
@@ -175,11 +254,49 @@ def runtime_environment_snapshot() -> dict[str, Any]:
         "memory": _memory_facts(),
         "gpus": _gpu_facts(),
         "network_interfaces": _network_facts(),
+        "connectivity": _connectivity_facts(),
+        "battery": _battery_facts(),
         "privacy": (
             "No hostnames, IP/MAC addresses, routes, sockets, process lists, "
             "command lines, credentials, or user/session content are included."
         ),
     }
+
+
+def runtime_capability_summary(now: dt.datetime | None = None) -> str:
+    """Small live grounding block suitable for every conversational turn."""
+
+    moment = (now or dt.datetime.now()).astimezone()
+    battery = _battery_facts()
+    connectivity = _connectivity_facts()
+    if battery.get("available"):
+        battery_line = (
+            f"Battery: {battery['percentage']}% at {battery['voltage_v']:.2f} V "
+            "(fresh EGG system-service reading; charge/discharge direction unknown)."
+        )
+    else:
+        battery_line = f"Battery: unavailable ({battery.get('reason', 'no fresh reading')})."
+    if connectivity.get("active_link"):
+        network_line = (
+            "Network: an active default route exists; public internet and individual "
+            "sites are not guaranteed until a request succeeds."
+        )
+    else:
+        network_line = (
+            "Network: no active default route; public web/search/downloads are unavailable."
+        )
+    return (
+        "<live_system>\n"
+        f"Local time: {moment.isoformat(timespec='seconds')}.\n"
+        f"{battery_line}\n"
+        f"{network_line}\n"
+        "Available offline: conversation/audio comprehension, local TTS, cameras when "
+        "attached, persistent tasks, shell/files/FFmpeg, full-desktop screenshots and "
+        "input, and visible Chromium against local pages. Public web, news, remote URLs, "
+        "and downloads require a working network. Browser and desktop actions must be "
+        "verified from fresh rendered screenshots.\n"
+        "</live_system>"
+    )
 
 
 def portal_behavior_system_message() -> dict[str, str]:
@@ -198,7 +315,9 @@ def portal_behavior_system_message() -> dict[str, str]:
             "network/city estimate, never device GPS, a current street, or a visible scene. "
             "Attribute specific places or current facts to the tool or public source that "
             "introduced them, and state uncertainty when the evidence cannot support precision. "
-            "Do not claim knowledge of the portal host's hardware, load, or clock unless a "
-            "current tool result provides it."
+            "The live-system block below is current trusted host state; use it naturally "
+            "when relevant, but do not recite it unprompted. Other host hardware/load facts "
+            "still require a current tool result.\n\n"
+            f"{runtime_capability_summary()}"
         ),
     }

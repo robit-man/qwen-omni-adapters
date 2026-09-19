@@ -100,7 +100,7 @@ SAFE_TOOLS = [
     _function_tool(
         "get_system_snapshot",
         "Return a fresh, bounded snapshot of the portal host's platform, CPU/load, RAM, "
-        "NVIDIA GPU utilization, network-interface counters, date, and time. Use only "
+        "NVIDIA GPU utilization, network attachment, EGG battery state, date, and time. Use only "
         "when the user asks about this runtime or the answer materially depends on current "
         "host resources. It excludes hostnames, addresses, processes, credentials, and "
         "session content; it does not describe the user's device.",

@@ -2341,6 +2341,57 @@ def test_mock_live_call_stream_defaults_native_reasoning_off() -> None:
     assert "current tool result" in environment["content"]
     assert "only a current visual observation" in environment["content"]
     assert "never device GPS, a current street" in environment["content"]
+    assert "<live_system>" in environment["content"]
+    assert "Available offline:" in environment["content"]
+
+
+def test_live_system_summary_includes_fresh_battery_and_honest_connectivity(
+    monkeypatch,
+) -> None:
+    import datetime as dt
+
+    from portal import environment
+
+    monkeypatch.setattr(
+        environment,
+        "_battery_facts",
+        lambda: {"available": True, "percentage": 87, "voltage_v": 28.46},
+    )
+    monkeypatch.setattr(
+        environment,
+        "_connectivity_facts",
+        lambda: {"active_link": True},
+    )
+
+    summary = environment.runtime_capability_summary(
+        dt.datetime(2026, 9, 19, 15, 30, tzinfo=dt.timezone.utc)
+    )
+
+    assert "Battery: 87% at 28.46 V" in summary
+    assert "public internet and individual sites are not guaranteed" in summary
+    assert "shell/files/FFmpeg" in summary
+    assert "visible Chromium" in summary
+
+
+def test_battery_state_reader_rejects_stale_service_data(tmp_path: Path) -> None:
+    from portal.environment import _battery_facts
+
+    state = tmp_path / "battery.json"
+    state.write_text(
+        json.dumps(
+            {
+                "schema": "robit.egg.battery.v1",
+                "available": True,
+                "updated_at": time.time() - 120,
+                "stale_after_seconds": 15,
+                "percentage": 80,
+                "voltage_v": 28.0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert _battery_facts(state)["available"] is False
 
 
 def test_runtime_environment_snapshot_is_bounded_and_omits_sensitive_network_data(

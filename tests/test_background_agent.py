@@ -281,6 +281,97 @@ def test_background_agent_yields_between_inference_and_tool_steps(
     assert completed[0]["task_id"] == task["task_id"]
 
 
+def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaway_thinking(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Open the rendered browser and inspect the page.")
+    chat_round = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        payload = json.loads(request.content)
+        if request.url.path == "/api/tools/tool_search/call":
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "available_tools": ["browser_interact"],
+                        "results": [{"name": "browser_interact"}],
+                    }
+                },
+            )
+        if request.url.path == "/api/tools/browser_interact/call":
+            return httpx.Response(
+                200,
+                json={"result": {"rendered": True, "url": "http://example.test/"}},
+            )
+        chat_round += 1
+        tool_names = [item["function"]["name"] for item in payload["tools"]]
+        assert payload["options"]["num_predict"] == 256
+        if chat_round == 1:
+            assert payload["think"] is True
+            assert tool_names == ["tool_search"]
+            call_name = "tool_search"
+            arguments = {"query": "visual rendered browser navigation"}
+        elif chat_round == 2:
+            assert payload["think"] is False
+            assert tool_names == ["tool_search", "browser_interact"]
+            call_name = "browser_interact"
+            arguments = {"action": "navigate", "url": "http://example.test/"}
+        else:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "TASK_COMPLETE\nI opened and verified the rendered page.",
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": f"call-{chat_round}",
+                            "function": {"name": call_name, "arguments": arguments},
+                        }
+                    ],
+                }
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        step_token_limit=256,
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.02)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert current["tools_used"] == ["tool_search", "browser_interact"]
+
+
 def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
     tmp_path: Path,
 ) -> None:

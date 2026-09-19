@@ -6,6 +6,7 @@ import copy
 import hashlib
 import json
 import logging
+import os
 import secrets
 import threading
 import time
@@ -29,6 +30,9 @@ AGENT_SYSTEM_PROMPT = (
     "completion report only after the work has been verified. You have a long horizon: "
     "keep using tools, inspecting their results, correcting problems, and continuing until "
     "the objective is actually complete; do not stop just because it takes many steps. "
+    "Keep each individual planning pass concise. When a concrete tool schema is visible, "
+    "call it promptly instead of narrating alternatives or searching the shell for another "
+    "way to perform the same action. "
     "For a genuinely long task, you may occasionally pause after a meaningful verified "
     "milestone and emit TASK_PROGRESS on its own line followed by one or two natural spoken "
     "sentences saying what you finished, what you are working on, and what comes next. The "
@@ -247,6 +251,7 @@ class BackgroundAgent:
         retry_initial_s: float = 1.0,
         retry_max_s: float = 30.0,
         request_timeout_s: float = 300.0,
+        step_token_limit: int | None = None,
         client: httpx.Client | None = None,
     ) -> None:
         self.store = store
@@ -263,6 +268,15 @@ class BackgroundAgent:
         self.progress_min_interval_s = max(0.0, progress_min_interval_s)
         self.retry_initial_s = max(0.01, retry_initial_s)
         self.retry_max_s = max(self.retry_initial_s, retry_max_s)
+        configured_step_limit = step_token_limit
+        if configured_step_limit is None:
+            try:
+                configured_step_limit = int(
+                    os.environ.get("OMNI_BACKGROUND_STEP_TOKENS", "768")
+                )
+            except ValueError:
+                configured_step_limit = 768
+        self.step_token_limit = max(128, min(4096, configured_step_limit))
         self._failures: dict[str, int] = {}
         self.owner = f"voice-agent-{secrets.token_hex(8)}"
         self.active = threading.Event()
@@ -441,11 +455,9 @@ class BackgroundAgent:
             messages = compacted
         active_tools = [
             name
-            for name in task.get("active_tools", ["shell"])
+            for name in task.get("active_tools", [])
             if isinstance(name, str) and name != "background_task"
         ]
-        if "shell" not in active_tools:
-            active_tools.insert(0, "shell")
         tools_used = [
             name for name in task.get("tools_used", []) if isinstance(name, str) and name
         ]
@@ -485,6 +497,15 @@ class BackgroundAgent:
                 *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
                 *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
             ]
+            # A discovery result already chose the capability. Disabling the
+            # private thinking channel for that one handoff prevents a small
+            # model from spending thousands of tokens reconsidering tools
+            # instead of invoking the newly exposed contract.
+            action_after_discovery = bool(
+                messages
+                and messages[-1].get("role") == "tool"
+                and messages[-1].get("tool_name") == "tool_search"
+            )
             payload = {
                 "model": self.model,
                 "messages": messages,
@@ -496,7 +517,8 @@ class BackgroundAgent:
                 # waste far more time than deliberation costs. Native thinking
                 # remains a separate backend channel and is never spoken or
                 # copied into the durable task transcript.
-                "think": True,
+                "think": not action_after_discovery,
+                "options": {"num_predict": self.step_token_limit},
                 "tools": schemas,
                 "portal_auto_tools": False,
                 "stream": False,
@@ -763,7 +785,6 @@ class BackgroundAgent:
                         active_tools = list(
                             dict.fromkeys(
                                 [
-                                    "shell",
                                     *(
                                         str(item)
                                         for item in available
@@ -773,7 +794,7 @@ class BackgroundAgent:
                             )
                         )[:3]
                 elif name and name != "background_task":
-                    active_tools = list(dict.fromkeys(["shell", name]))[:3]
+                    active_tools = [name]
                 tool_message: dict[str, Any] = {
                     "role": "tool",
                     "tool_name": name or "unknown",
