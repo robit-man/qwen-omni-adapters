@@ -1,0 +1,58 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from harness.indicator import MAX_VISIBLE_TASKS, task_views
+
+
+def test_running_tasks_lead_and_expose_stage_steps_and_tools() -> None:
+    views = task_views(
+        [
+            {
+                "task_id": "done",
+                "objective": "Older completed work",
+                "status": "completed",
+                "updated_at": 20,
+                "progress": ["Finished."],
+                "tools_used": ["shell"],
+                "result": "Verified.",
+            },
+            {
+                "task_id": "live",
+                "objective": "Create the requested audio file",
+                "status": "running",
+                "updated_at": 10,
+                "current_stage": "Running shell",
+                "progress": ["Accepted.", "Inspected the destination."],
+                "tools_used": ["tool_search", "shell"],
+            },
+        ]
+    )
+
+    assert [view["task_id"] for view in views] == ["live", "done"]
+    assert views[0]["label"].startswith("● Create the requested audio file")
+    assert views[0]["current_stage"] == "Running shell"
+    assert views[0]["steps"] == ["Accepted.", "Inspected the destination."]
+    assert views[0]["tools"] == ["tool_search", "shell"]
+    assert views[1]["result"] == "Verified."
+
+
+def test_task_menu_is_bounded_and_keeps_the_newest_live_work() -> None:
+    tasks = [
+        {
+            "task_id": f"task-{index}",
+            "objective": f"Task {index}",
+            "status": "running" if index == 0 else "completed",
+            "updated_at": index,
+        }
+        for index in range(MAX_VISIBLE_TASKS + 4)
+    ]
+
+    views = task_views(tasks)
+
+    assert len(views) == MAX_VISIBLE_TASKS
+    assert views[0]["task_id"] == "task-0"
+    assert views[1]["task_id"] == f"task-{MAX_VISIBLE_TASKS + 3}"

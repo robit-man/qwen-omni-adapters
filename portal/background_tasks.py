@@ -92,6 +92,8 @@ class BackgroundTaskStore:
                 "updated_at",
                 "round",
                 "progress",
+                "current_stage",
+                "tools_used",
                 "guidance",
                 "result",
                 "error",
@@ -122,6 +124,8 @@ class BackgroundTaskStore:
                 "progress": ["Accepted from the live conversation."],
                 "messages": [],
                 "active_tools": ["shell"],
+                "tools_used": [],
+                "current_stage": "Queued",
                 "guidance": [],
                 "applied_guidance_ids": [],
             }
@@ -165,6 +169,7 @@ class BackgroundTaskStore:
                 item["owner"] = owner
                 item["lease_until"] = now + max(5.0, lease_s)
                 item["updated_at"] = now
+                item["current_stage"] = "Preparing task"
                 if expired:
                     item.setdefault("progress", []).append(
                         "Resumed after the previous worker stopped."
@@ -181,8 +186,10 @@ class BackgroundTaskStore:
         *,
         messages: list[dict[str, Any]] | None = None,
         active_tools: list[str] | None = None,
+        tools_used: list[str] | None = None,
         applied_guidance_ids: list[str] | None = None,
         progress: str = "",
+        current_stage: str = "",
         result: str = "",
         error: str = "",
         status: str = "running",
@@ -201,9 +208,15 @@ class BackgroundTaskStore:
                 item["status"] = status
                 if status == "running":
                     item["lease_until"] = now + max(5.0, lease_s)
+                    if current_stage:
+                        item["current_stage"] = current_stage[:300]
                 else:
                     item.pop("lease_until", None)
                     item.pop("owner", None)
+                    if status == "pending" and current_stage:
+                        item["current_stage"] = current_stage[:300]
+                    else:
+                        item.pop("current_stage", None)
                 if (
                     status in {"completed", "blocked"}
                     and previous_status not in TERMINAL_STATUSES
@@ -217,6 +230,8 @@ class BackgroundTaskStore:
                     item["messages"] = copy.deepcopy(messages)
                 if active_tools is not None:
                     item["active_tools"] = list(dict.fromkeys(active_tools))[:3]
+                if tools_used is not None:
+                    item["tools_used"] = list(dict.fromkeys(tools_used))[-16:]
                 if applied_guidance_ids is not None:
                     item["applied_guidance_ids"] = list(
                         dict.fromkeys(applied_guidance_ids)
@@ -231,6 +246,35 @@ class BackgroundTaskStore:
                     item["error"] = error[:2000]
                 else:
                     item.pop("error", None)
+                return self._public(item)
+            return None
+
+        return self._mutate(update)
+
+    def update_stage(
+        self,
+        task_id: str,
+        owner: str,
+        stage: str,
+        *,
+        lease_s: float = 60.0,
+    ) -> dict[str, Any] | None:
+        """Publish a live stage without fabricating a completed checkpoint."""
+
+        stage = str(stage).strip()
+        if not stage:
+            raise ValueError("stage is required")
+
+        def update(value: dict[str, Any]) -> dict[str, Any] | None:
+            for item in value.get("tasks", []):
+                if item.get("task_id") != task_id or item.get("owner") != owner:
+                    continue
+                if item.get("status") != "running":
+                    return self._public(item)
+                now = time.time()
+                item["current_stage"] = stage[:300]
+                item["updated_at"] = now
+                item["lease_until"] = now + max(5.0, lease_s)
                 return self._public(item)
             return None
 

@@ -313,12 +313,16 @@ details hidden behind the adapter.
    transcript and any non-speech observation; silence or a cough stops before
    language and TTS when no speech was found.
 3. The configured language backend receives bounded text history, tagged
-   evidence, any already-prefetched relevant memories, and compact tool
-   contracts. On the constrained 32 GB profile this is the same resident
-   Qwen3-Omni worker; a normal profile uses the selected Ollama base.
-4. The portal executes structured calls until a grounded final response exists.
-   Tool discovery and results are carried in fresh request rounds, so the full
-   catalog never consumes every ordinary turn's context.
+   evidence, and any already-prefetched relevant memories. The local voice
+   harness requires a schema-constrained semantic dispatch result: ordinary
+   reply, fresh foreground tools, or persistent background execution. On the
+   constrained 32 GB profile this is the same resident Qwen3-Omni worker; a
+   normal profile uses the selected Ollama base.
+4. A background-execution route is written to the durable task store before an
+   acknowledgment may be spoken. A fresh-evidence route gets compact discovery
+   and must complete a real tool call before its answer is eligible for speech.
+   Tool discovery and results use fresh request rounds, so the full catalog
+   never consumes every ordinary turn's context.
 5. Only final answer text is sent to TTS. PCM is played as decoder windows
    arrive, with one small initial lead to absorb packet jitter rather than
    waiting for the complete WAV.
@@ -456,8 +460,11 @@ PYTHONPATH=. .venv/bin/python -m harness
 It listens continuously, answers out loud, and shows what it is doing in the
 GNOME top bar (`Omni ●` listening, `◉` hearing, `◍` thinking, `▶` speaking).
 The indicator's menu mutes the microphone, toggles tools, reasoning and
-cameras, and copies the public link when the portal is published through a
-tunnel. Without a desktop it runs headless and logs instead.
+cameras, copies the public link when the portal is published through a tunnel,
+and cleanly reloads the voice service. It also appends the live and recent
+durable tasks. Click a task once to expand its current stage, animated activity
+marker, exact tools used and retained checkpoints; click it again to collapse
+the details. Without a desktop it runs headless and logs instead.
 
 Defaults are chosen for a spoken conversation:
 

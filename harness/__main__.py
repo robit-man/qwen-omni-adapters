@@ -14,6 +14,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -27,6 +28,7 @@ from harness.camera import CameraSet
 from harness.indicator import ThreadedIndicator, build_indicator
 from harness.residency import SpeechResidency
 from harness.respeaker import find_source
+from portal.background_tasks import BackgroundTaskStore
 
 logger = logging.getLogger("omni.harness")
 
@@ -286,6 +288,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     stop = threading.Event()
+    reload_requested = threading.Event()
     muted = threading.Event()
     cameras = CameraSet.discover(args.camera_device if args.camera_device_only else None)
 
@@ -306,10 +309,22 @@ def main(argv: list[str] | None = None) -> int:
 
         return _published_access_url(_repo_root())
 
+    def request_reload() -> None:
+        logger.info("indicator requested a clean voice-service reload")
+        reload_requested.set()
+        stop.set()
+
+    indicator_task_store = (
+        BackgroundTaskStore(config.background_task_path)
+        if config.background_task_path
+        else None
+    )
+
     indicator = (
         build_indicator(
             on_mute=lambda value: muted.set() if value else muted.clear(),
             on_quit=stop.set,
+            on_reload=request_reload,
             on_tools=set_tools,
             on_reasoning=set_reasoning,
             on_camera=set_camera,
@@ -317,6 +332,7 @@ def main(argv: list[str] | None = None) -> int:
             reasoning_enabled=config.reasoning_enabled,
             camera_enabled=config.camera_enabled,
             endpoint=public_link,
+            tasks=indicator_task_store.list if indicator_task_store is not None else None,
         )
         if not args.no_indicator
         else None
@@ -377,6 +393,9 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         stop.set()
         runner.join()
+    if reload_requested.is_set():
+        arguments = list(argv) if argv is not None else sys.argv[1:]
+        os.execv(sys.executable, [sys.executable, "-m", "harness", *arguments])
     return 0
 
 

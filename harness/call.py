@@ -82,6 +82,112 @@ LIVE_CALL_SYSTEM_PROMPT = (
     "the room, the scene, or what you can see unless they asked."
 )
 
+LIVE_ROUTE_PROMPT = (
+    "For this pass, do not answer in ordinary prose. Classify and prepare the live turn "
+    "using the required JSON schema. Use mode=reply only for ordinary conversation or a "
+    "knowledge answer that needs no fresh external evidence and performs no host action. "
+    "Use mode=fresh_evidence only for current information, web research, or current camera "
+    "evidence; it must never represent shell, files, applications, downloads, or host work. "
+    "Use mode=start_task for every requested host action, including opening an application, "
+    "reading "
+    "or changing files, creating or converting media, downloading an artifact, controlling "
+    "an application, running commands, or doing multi-step work. Never claim an action has "
+    "already happened in reply mode. Use update_task for a new direction concerning an "
+    "existing running task, task_status when asked for its progress, and cancel_task only on "
+    "an explicit request to stop it. The current task IDs and progress are in the system "
+    "context; put the selected ID in task_id. A foreground interjection that asks an unrelated "
+    "question does not cancel or replace running work: route the interjection normally and the "
+    "worker will resume afterward. For start_task, preserve every requested location "
+    "and constraint in a self-contained objective, and require direct inspection of the "
+    "finished artifact in completion_criteria; a creation command or spoken confirmation is "
+    "not verification. For fresh_evidence, put the needed capability in tool_query and do "
+    "not answer from memory. Unused string fields must be empty strings."
+)
+
+LIVE_ROUTE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "live_turn_route",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "reply",
+                        "fresh_evidence",
+                        "start_task",
+                        "update_task",
+                        "task_status",
+                        "cancel_task",
+                    ],
+                },
+                "reply": {"type": "string"},
+                "objective": {"type": "string"},
+                "completion_criteria": {"type": "string"},
+                "tool_query": {"type": "string"},
+                "task_id": {"type": "string"},
+                "guidance": {"type": "string"},
+            },
+            "required": [
+                "mode",
+                "reply",
+                "objective",
+                "completion_criteria",
+                "tool_query",
+                "task_id",
+                "guidance",
+            ],
+            "additionalProperties": False,
+        },
+    },
+}
+
+
+def _parse_live_route(content: str) -> dict[str, str]:
+    """Parse the constrained dispatcher response, failing closed on free-form claims."""
+
+    try:
+        value = json.loads(content)
+    except ValueError as error:
+        raise ValueError("live turn dispatcher returned invalid JSON") from error
+    if not isinstance(value, dict):
+        raise ValueError("live turn dispatcher returned a non-object")
+    mode = str(value.get("mode") or "")
+    if mode not in {
+        "reply",
+        "fresh_evidence",
+        "start_task",
+        "update_task",
+        "task_status",
+        "cancel_task",
+    }:
+        raise ValueError("live turn dispatcher returned an invalid mode")
+    route = {
+        key: str(value.get(key) or "").strip()
+        for key in (
+            "mode",
+            "reply",
+            "objective",
+            "completion_criteria",
+            "tool_query",
+            "task_id",
+            "guidance",
+        )
+    }
+    if mode == "reply" and not route["reply"]:
+        raise ValueError("live turn dispatcher returned an empty reply")
+    if mode == "start_task" and not route["objective"]:
+        raise ValueError("live turn dispatcher returned an empty objective")
+    if mode == "fresh_evidence" and not route["tool_query"]:
+        raise ValueError("live turn dispatcher returned an empty tool query")
+    if mode in {"update_task", "task_status", "cancel_task"} and not route["task_id"]:
+        raise ValueError("live turn dispatcher returned an empty task id")
+    if mode == "update_task" and not route["guidance"]:
+        raise ValueError("live turn dispatcher returned empty task guidance")
+    return route
+
 def grounding_preamble(
     now: datetime | None = None, place: Place | None = None
 ) -> str:
@@ -541,24 +647,159 @@ class CallSession:
 
         audio = to_wav(samples)
 
-        # The tools go in the pass that actually speaks. Withholding them so
-        # the first answer came back faster meant the model was asked about
-        # the news while genuinely holding nothing, and said so -- it was not
-        # pretending, it had no way to look. A turn that needs no tool calls
-        # none and costs nothing extra; only the schemas ride along.
-        #
-        # No imagery on this pass, though. A camera frame attached to every
-        # turn makes the picture the subject: asked "can you hear me okay?",
-        # the model answers and then starts describing the room. If current
-        # visual evidence is needed, the model explicitly requests it through
-        # the discoverable camera bridge tool.
-        result = self._run(
-            self._build_payload(
-                audio, segments, None, with_tools=self.config.tools_enabled
-            )
+        # On the installed live harness, the first language result is a strict
+        # semantic dispatch object rather than ungrounded prose. A host-action
+        # request therefore creates its durable task in code before any words
+        # can reach TTS. Ordinary conversation still takes one language pass;
+        # only turns that genuinely need fresh tools take a second text pass.
+        routed = bool(
+            self.background_agent is not None
+            and self.config.tools_enabled
         )
+        payload = self._build_payload(
+            audio,
+            segments,
+            None,
+            with_tools=False if routed else self.config.tools_enabled,
+        )
+        if routed:
+            payload["messages"][0]["content"] += f"\n\n{LIVE_ROUTE_PROMPT}"
+            payload["response_format"] = LIVE_ROUTE_FORMAT
+            payload["response_modalities"] = ["text"]
+            payload["speech_mode"] = "never"
+            payload["portal_auto_tools"] = False
+            payload["portal_camera_bridge"] = False
+            payload["portal_background_bridge"] = False
+        result = self._run(payload)
         if result.echo_suppressed:
             return result
+        if result.interrupted:
+            return result
+        if routed and not result.error and (
+            result.transcript or result.audio_observation
+        ):
+            try:
+                route = _parse_live_route(result.reply)
+                if route["mode"] == "start_task" and route["task_id"]:
+                    # Structured generation occasionally chooses the adjacent
+                    # start_task enum for a pronoun-heavy correction while
+                    # still resolving the right durable task ID. Task state is
+                    # stronger evidence than that enum: an extant live ID is a
+                    # redirection, while an invented or terminal ID remains a
+                    # genuinely new task. This is semantic/state based and
+                    # does not regress into matching words such as "change".
+                    assert self.background_agent is not None
+                    referenced = self.background_agent.store.get(route["task_id"])
+                    if referenced is not None and referenced.get("status") in {
+                        "pending",
+                        "running",
+                    }:
+                        route["mode"] = "update_task"
+                        route["guidance"] = route["guidance"] or route["objective"]
+                if route["mode"] == "reply":
+                    result.reply = route["reply"]
+                elif route["mode"] == "start_task":
+                    assert self.background_agent is not None
+                    verification = (
+                        "After creating the requested output, inspect it directly and "
+                        "retain the successful check as the final tool evidence. A creation "
+                        "command or assertion alone is not verification."
+                    )
+                    criteria = (
+                        f"{route['completion_criteria']} {verification}"
+                    ).strip()
+                    accepted = self.background_agent.store.create(
+                        route["objective"], criteria
+                    )
+                    self.background_agent.wake()
+                    result.reply = (
+                        "I’ve started that as a background task. I’ll let you know after "
+                        "the result has been created and verified."
+                    )
+                    result.tools_used = ["background_task"]
+                    logger.info(
+                        "live turn delegated to background task %s: %s",
+                        accepted.get("task_id"),
+                        route["objective"][:300],
+                    )
+                elif route["mode"] == "update_task":
+                    assert self.background_agent is not None
+                    updated = self.background_agent.store.add_guidance(
+                        route["task_id"], route["guidance"]
+                    )
+                    if updated is None:
+                        raise ValueError("the referenced background task does not exist")
+                    self.background_agent.wake()
+                    result.reply = (
+                        "I’ve added that direction to the running task. I’ll resume it with "
+                        "your update and report the verified result."
+                    )
+                    result.tools_used = ["background_task"]
+                    logger.info(
+                        "live turn updated background task %s: %s",
+                        route["task_id"],
+                        route["guidance"][:300],
+                    )
+                elif route["mode"] == "task_status":
+                    assert self.background_agent is not None
+                    current_task = self.background_agent.store.get(route["task_id"])
+                    if current_task is None:
+                        raise ValueError("the referenced background task does not exist")
+                    progress = current_task.get("progress")
+                    latest = (
+                        str(progress[-1])
+                        if isinstance(progress, list) and progress
+                        else "No checkpoint has been recorded yet."
+                    )
+                    result.reply = (
+                        f"That task is {current_task.get('status', 'unknown')}. {latest}"
+                    )
+                    result.tools_used = ["background_task"]
+                elif route["mode"] == "cancel_task":
+                    assert self.background_agent is not None
+                    cancelled = self.background_agent.store.cancel(route["task_id"])
+                    if cancelled is None:
+                        raise ValueError("the referenced background task does not exist")
+                    self.background_agent.wake()
+                    result.reply = "I’ve cancelled that task."
+                    result.tools_used = ["background_task"]
+                    logger.info("live turn cancelled background task %s", route["task_id"])
+                else:
+                    # Reuse the transcript instead of re-encoding the same
+                    # audio. The semantic dispatch explicitly established that
+                    # fresh evidence is necessary, so a no-tool answer is an
+                    # error rather than something we might accidentally speak.
+                    tool_payload = self._build_payload(
+                        audio,
+                        segments,
+                        None,
+                        with_tools=True,
+                    )
+                    tool_payload["messages"][0]["content"] += (
+                        "\n\nA schema-constrained dispatcher determined that this turn "
+                        f"requires fresh tool evidence for: {route['tool_query']}. Call the "
+                        "smallest relevant tool before answering. Do not answer from memory."
+                    )
+                    current = tool_payload["messages"][-1]
+                    current.pop("audios", None)
+                    current["content"] = (
+                        "The user's current spoken request was:\n<spoken_request>\n"
+                        f"{result.transcript or result.audio_observation}\n"
+                        "</spoken_request>"
+                    )
+                    tool_payload["omni"]["require_speech"] = False
+                    followed = self._run(tool_payload, queue_recall=False)
+                    followed.transcript = result.transcript
+                    followed.audio_observation = result.audio_observation
+                    if not followed.error and not followed.tools_used:
+                        followed.error = (
+                            "fresh evidence was required but no foreground tool completed"
+                        )
+                    result = followed
+            except (OSError, ValueError) as error:
+                result.error = str(error)
+                result.reply = ""
+
         self._note_spoken(result.reply, result.spoke_seconds)
         self._remember(result)
         if result.interrupted:
@@ -571,7 +812,7 @@ class CallSession:
             # Preserve the original error for diagnostics and never imply that
             # an unverified mutation succeeded.
             self._mark_interrupted(result.reply, 0.0)
-            if self.config.prepare_speech is not None and result.transcript:
+            if (routed or self.config.prepare_speech is not None) and result.transcript:
                 if "without actionable progress" in result.error.lower():
                     failure = (
                         "I couldn’t complete that because the tool execution stopped "
@@ -631,7 +872,7 @@ class CallSession:
             if follow.error:
                 return result
 
-        if self.config.prepare_speech is not None:
+        if routed or self.config.prepare_speech is not None:
             speech = self._speak_finished(result.followup or result.reply)
             result.spoke_seconds += speech.spoke_seconds
             result.first_audio_ms = speech.first_audio_ms
@@ -659,14 +900,12 @@ class CallSession:
             return TurnResult()
         prepare = self.config.prepare_speech
         restore = self.config.restore_after_speech
-        if prepare is None:
-            return TurnResult(error="speech residency callback is not configured")
-
-        self._state("thinking", "making room for speech")
-        try:
-            prepare()
-        except Exception as error:  # noqa: BLE001 - report one failed turn
-            return TurnResult(error=f"could not make room for speech: {error}")
+        if prepare is not None:
+            self._state("thinking", "making room for speech")
+            try:
+                prepare()
+            except Exception as error:  # noqa: BLE001 - report one failed turn
+                return TurnResult(error=f"could not make room for speech: {error}")
 
         speech = TurnResult()
         try:

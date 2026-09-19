@@ -20,9 +20,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from harness.audio import MicrophoneStream, SpeakerStream  # noqa: E402
 from harness.call import (  # noqa: E402
     LIVE_CALL_SYSTEM_PROMPT,
+    LIVE_ROUTE_FORMAT,
     CallConfig,
     CallSession,
     TurnResult,
+    _parse_live_route,
 )
 from harness.vad import Vad, VadConfig  # noqa: E402
 
@@ -220,6 +222,220 @@ def test_a_live_background_worker_is_exposed_and_its_progress_is_context() -> No
 
     assert payload["portal_background_bridge"] is True
     assert "abc: running" in payload["messages"][0]["content"]
+
+
+def test_live_route_parser_fails_closed_on_free_form_or_incomplete_output() -> None:
+    with pytest.raises(ValueError, match="invalid JSON"):
+        _parse_live_route("I've created it.")
+    with pytest.raises(ValueError, match="empty objective"):
+        _parse_live_route(
+            json.dumps(
+                {
+                    "mode": "start_task",
+                    "reply": "Done.",
+                    "objective": "",
+                    "completion_criteria": "",
+                    "tool_query": "",
+                    "task_id": "",
+                    "guidance": "",
+                }
+            )
+        )
+
+
+def test_host_action_is_durably_created_before_any_acknowledgment() -> None:
+    created: list[tuple[str, str]] = []
+    wakes: list[bool] = []
+    payloads: list[dict[str, object]] = []
+
+    class Store:
+        def create(self, objective: str, criteria: str) -> dict[str, str]:
+            created.append((objective, criteria))
+            return {"task_id": "task-1"}
+
+    class Worker:
+        store = Store()
+
+        def context_summary(self) -> str:
+            return ""
+
+        def wake(self) -> None:
+            wakes.append(True)
+
+    call = CallSession(
+        CallConfig(
+            token="t",
+            model="m",
+            tools_enabled=True,
+            camera_enabled=False,
+            prepare_speech=lambda: None,
+            restore_after_speech=lambda: None,
+        )
+    )
+    call.background_agent = Worker()  # type: ignore[assignment]
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        payloads.append(payload)
+        if payload["omni"]["task"] == "synthesize":  # type: ignore[index]
+            assert created
+            return TurnResult(spoke_seconds=1.0)
+        return TurnResult(
+            transcript="create a tone on my desktop",
+            reply=json.dumps(
+                {
+                    "mode": "start_task",
+                    "reply": "",
+                    "objective": "Create the requested tone on the user's Desktop.",
+                    "completion_criteria": "Inspect the duration and frequency.",
+                    "tool_query": "",
+                    "task_id": "",
+                    "guidance": "",
+                }
+            ),
+        )
+
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert payloads[0]["portal_auto_tools"] is False
+    assert payloads[0]["response_format"] == LIVE_ROUTE_FORMAT
+    assert len(created) == 1
+    assert "Desktop" in created[0][0]
+    assert "directly" in created[0][1]
+    assert wakes == [True]
+    assert result.tools_used == ["background_task"]
+    assert "started" in result.reply
+    assert not result.reply.startswith("I’ve created")
+    assert all("background_task\"" not in item["content"] for item in call._history)
+
+
+def test_spoken_redirection_updates_the_existing_task_instead_of_replacing_it() -> None:
+    guidance: list[tuple[str, str]] = []
+    wakes: list[bool] = []
+
+    class Store:
+        def create(self, _objective: str, _criteria: str) -> dict[str, str]:
+            raise AssertionError("a redirection must not create a second task")
+
+        def get(self, task_id: str) -> dict[str, str] | None:
+            if task_id == "task-1":
+                return {"task_id": task_id, "status": "running"}
+            return None
+
+        def add_guidance(self, task_id: str, content: str) -> dict[str, str]:
+            guidance.append((task_id, content))
+            return {"task_id": task_id, "status": "running"}
+
+    class Worker:
+        store = Store()
+
+        def context_summary(self) -> str:
+            return "Persistent background work:\n- task-1: running — create the image"
+
+        def wake(self) -> None:
+            wakes.append(True)
+
+    call = CallSession(
+        CallConfig(
+            token="t",
+            model="m",
+            tools_enabled=True,
+            camera_enabled=False,
+            prepare_speech=lambda: None,
+            restore_after_speech=lambda: None,
+        )
+    )
+    call.background_agent = Worker()  # type: ignore[assignment]
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        if payload["omni"]["task"] == "synthesize":  # type: ignore[index]
+            assert guidance
+            return TurnResult(spoke_seconds=0.5)
+        return TurnResult(
+            transcript="make that one blue instead",
+            reply=json.dumps(
+                {
+                    # This is the exact adjacent-mode mistake observed from
+                    # live constrained inference. Resolving an extant live ID
+                    # must still update it rather than create a duplicate.
+                    "mode": "start_task",
+                    "reply": "",
+                    "objective": "Make the output blue instead.",
+                    "completion_criteria": "",
+                    "tool_query": "",
+                    "task_id": "task-1",
+                    "guidance": "",
+                }
+            ),
+        )
+
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert guidance == [("task-1", "Make the output blue instead.")]
+    assert wakes == [True]
+    assert result.tools_used == ["background_task"]
+    assert "added that direction" in result.reply
+
+
+def test_fresh_evidence_route_cannot_speak_an_answer_without_a_tool() -> None:
+    payloads: list[dict[str, object]] = []
+
+    class Store:
+        def create(self, _objective: str, _criteria: str) -> dict[str, str]:
+            raise AssertionError("foreground evidence must not create a background task")
+
+    class Worker:
+        store = Store()
+
+        def context_summary(self) -> str:
+            return ""
+
+        def wake(self) -> None:
+            pass
+
+    call = CallSession(
+        CallConfig(
+            token="t",
+            model="m",
+            tools_enabled=True,
+            camera_enabled=False,
+            prepare_speech=lambda: None,
+            restore_after_speech=lambda: None,
+        )
+    )
+    call.background_agent = Worker()  # type: ignore[assignment]
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        payloads.append(payload)
+        task = payload["omni"]["task"]  # type: ignore[index]
+        if task == "synthesize":
+            return TurnResult(spoke_seconds=0.5)
+        if len(payloads) == 1:
+            return TurnResult(
+                transcript="what is the latest NASA news",
+                reply=json.dumps(
+                    {
+                        "mode": "fresh_evidence",
+                        "reply": "",
+                        "objective": "",
+                        "completion_criteria": "",
+                        "tool_query": "latest NASA news",
+                        "task_id": "",
+                        "guidance": "",
+                    }
+                ),
+            )
+        return TurnResult(reply="Here is some unverified old news.")
+
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert len(payloads) == 3
+    assert "audios" not in payloads[1]["messages"][-1]  # type: ignore[index]
+    assert result.error.startswith("fresh evidence was required")
+    assert "haven’t confirmed" in result.followup
+    assert "unverified old news" not in result.followup
 
 
 def test_an_embodied_turn_advertises_the_camera_bridge_without_word_matching() -> None:

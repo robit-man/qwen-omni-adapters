@@ -26,14 +26,21 @@ def test_background_task_store_checkpoints_and_recovers_expired_work(
     assert claimed is not None
     assert claimed["task_id"] == created["task_id"]
     assert claimed["status"] == "running"
+    assert store.update_stage(
+        created["task_id"], "first", "Running shell"
+    )["current_stage"] == "Running shell"  # type: ignore[index]
     checkpoint = store.checkpoint(
         created["task_id"],
         "first",
         messages=[{"role": "tool", "content": "created"}],
+        tools_used=["shell"],
         progress="Created the files.",
+        current_stage="Assessing the result",
     )
     assert checkpoint is not None
     assert checkpoint["progress"][-1] == "Created the files."
+    assert checkpoint["current_stage"] == "Assessing the result"
+    assert checkpoint["tools_used"] == ["shell"]
 
     # A second instance sees the same cross-process checkpoint.
     reopened = BackgroundTaskStore(tmp_path / "tasks.json")
@@ -191,6 +198,81 @@ def test_background_agent_yields_between_inference_and_tool_steps(
     assert "TASK_COMPLETE" not in current["result"]
     assert requests == ["/api/chat", "/api/tools/shell/call", "/api/chat"]
     assert completed[0]["task_id"] == task["task_id"]
+
+
+def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Create a marker after the backend recovers.")
+    chat_round = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        if request.url.path == "/api/tools/shell/call":
+            return httpx.Response(200, json={"result": {"exit_code": 0}})
+        chat_round += 1
+        if chat_round <= 3:
+            return httpx.Response(502, json={"error": "temporarily unavailable"})
+        if chat_round == 4:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "recovered-action",
+                                "function": {
+                                    "name": "shell",
+                                    "arguments": {"command": "touch marker"},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "TASK_COMPLETE\nCreated and verified the marker.",
+                }
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        retry_initial_s=0.01,
+        retry_max_s=0.04,
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.01)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert current["tools_used"] == ["shell"]
+    failures = [
+        item for item in current["progress"] if "transient failure" in item
+    ]
+    assert len(failures) == 2
 
 
 def test_background_agent_rejects_a_completion_with_no_action_evidence(
@@ -558,4 +640,105 @@ def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:
     assert commands == ["touch base", "touch typescript"]
     assert any(
         "newer spoken update" in item.lower() for item in current["progress"]
+    )
+
+
+def test_human_interjection_redirects_before_a_stale_action_and_then_resumes(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Create the requested artifact.")
+    inference_started = threading.Event()
+    release_inference = threading.Event()
+    foreground = threading.Event()
+    chat_round = 0
+    commands: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        payload = json.loads(request.content)
+        if request.url.path == "/api/tools/shell/call":
+            commands.append(payload["arguments"]["command"])
+            return httpx.Response(200, json={"result": {"exit_code": 0}})
+        chat_round += 1
+        if chat_round == 1:
+            inference_started.set()
+            release_inference.wait(2)
+            command = "touch stale-artifact"
+        elif chat_round == 2:
+            assert any(
+                "make the redirected artifact" in str(item.get("content") or "")
+                for item in payload["messages"]
+            )
+            assert not any(
+                item.get("role") == "assistant" and item.get("tool_calls")
+                for item in payload["messages"]
+            )
+            command = "touch redirected-artifact"
+        else:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": (
+                            "TASK_COMPLETE\nI created and verified the redirected artifact."
+                        ),
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": f"action-{chat_round}",
+                            "function": {
+                                "name": "shell",
+                                "arguments": {"command": command},
+                            },
+                        }
+                    ],
+                }
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=foreground,
+        stop=threading.Event(),
+        client=client,
+    )
+    agent.start()
+    assert inference_started.wait(2)
+    foreground.set()
+    store.add_guidance(task["task_id"], "Instead, make the redirected artifact.")
+    release_inference.set()
+    time.sleep(0.1)
+    assert commands == []
+    foreground.clear()
+    agent.wake()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.02)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert commands == ["touch redirected-artifact"]
+    assert any(
+        "redirected the task before its pending action" in item
+        for item in current["progress"]
     )

@@ -169,6 +169,8 @@ class BackgroundAgent:
         on_progress: Callable[[dict[str, Any]], None] | None = None,
         progress_after_s: float = 45.0,
         progress_min_interval_s: float = 120.0,
+        retry_initial_s: float = 1.0,
+        retry_max_s: float = 30.0,
         request_timeout_s: float = 300.0,
         client: httpx.Client | None = None,
     ) -> None:
@@ -184,6 +186,9 @@ class BackgroundAgent:
         self.on_progress = on_progress
         self.progress_after_s = max(0.0, progress_after_s)
         self.progress_min_interval_s = max(0.0, progress_min_interval_s)
+        self.retry_initial_s = max(0.01, retry_initial_s)
+        self.retry_max_s = max(self.retry_initial_s, retry_max_s)
+        self._failures: dict[str, int] = {}
         self.owner = f"voice-agent-{secrets.token_hex(8)}"
         self.active = threading.Event()
         self._wake = threading.Event()
@@ -270,9 +275,18 @@ class BackgroundAgent:
         return response
 
     def _wait_for_foreground(self) -> bool:
+        yielded = False
         while self.foreground_active.is_set() and not self.stop.is_set():
+            if self.active.is_set() and not yielded:
+                logger.info(
+                    "background work yielded to a live human interjection; task context "
+                    "remains checkpointed"
+                )
+                yielded = True
             self._wake.wait(0.2)
             self._wake.clear()
+        if yielded and not self.stop.is_set():
+            logger.info("live interjection finished; resuming checkpointed background work")
         return not self.stop.is_set()
 
     def _run(self) -> None:
@@ -289,17 +303,38 @@ class BackgroundAgent:
             self.active.set()
             try:
                 self._execute(task)
+                self._failures.pop(task_id, None)
             except Exception as error:  # noqa: BLE001 - checkpoint and retry later
                 detail = f"{type(error).__name__}: {error}"
-                logger.warning("background task %s yielded after: %s", task_id, detail)
+                failures = self._failures.get(task_id, 0) + 1
+                self._failures[task_id] = failures
+                delay = min(
+                    self.retry_max_s,
+                    self.retry_initial_s * (2 ** min(failures - 1, 10)),
+                )
+                # Preserve the first failure and exponentially sparse repeats
+                # in the durable audit without replacing all useful work with
+                # an outage log. Every retry still updates error and stage.
+                record_failure = failures == 1 or failures & (failures - 1) == 0
+                logger.warning(
+                    "background task %s yielded after: %s; retrying in %.1fs",
+                    task_id,
+                    detail,
+                    delay,
+                )
                 self.store.checkpoint(
                     task_id,
                     self.owner,
-                    progress=f"Worker yielded after a transient failure: {detail}",
+                    progress=(
+                        f"Worker yielded after a transient failure: {detail}"
+                        if record_failure
+                        else ""
+                    ),
+                    current_stage=f"Waiting {delay:.1f}s to retry after a backend error",
                     error=detail,
                     status="pending",
                 )
-                self._wake.wait(1.0)
+                self._wake.wait(delay)
                 self._wake.clear()
             finally:
                 self.active.clear()
@@ -325,6 +360,9 @@ class BackgroundAgent:
         ]
         if "shell" not in active_tools:
             active_tools.insert(0, "shell")
+        tools_used = [
+            name for name in task.get("tools_used", []) if isinstance(name, str) and name
+        ]
         seen: set[str] = set()
         seen_guidance = {
             str(item) for item in task.get("applied_guidance_ids", []) if str(item)
@@ -350,9 +388,13 @@ class BackgroundAgent:
             # dead port. This waits for existing weights; it does not load a
             # separate Ornith/Ollama model.
             if self.await_language is not None:
+                self.store.update_stage(
+                    task_id, self.owner, "Waiting for the language model"
+                )
                 self.await_language()
             if self.foreground_active.is_set():
                 continue
+            self.store.update_stage(task_id, self.owner, "Planning the next step")
             schemas = [
                 *copy.deepcopy(DISCOVERY_TOOLS),
                 *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
@@ -411,12 +453,14 @@ class BackgroundAgent:
                         self.owner,
                         messages=messages,
                         active_tools=active_tools,
+                        tools_used=tools_used,
                         applied_guidance_ids=list(seen_guidance),
                         progress=(
                             "Rejected an unsupported completion report; no action tool "
                             "had executed."
                         ),
                         status="running",
+                        current_stage="Planning the next step",
                     )
                     if checkpoint is None or checkpoint.get("status") == "cancelled":
                         return
@@ -440,12 +484,14 @@ class BackgroundAgent:
                         self.owner,
                         messages=messages,
                         active_tools=active_tools,
+                        tools_used=tools_used,
                         applied_guidance_ids=list(seen_guidance),
                         progress=(
                             "Rejected a completion or milestone because the latest concrete "
                             f"action failed: {latest_error}."
                         ),
                         status="running",
+                        current_stage="Reassessing the failed action",
                     )
                     if checkpoint is None or checkpoint.get("status") == "cancelled":
                         return
@@ -467,9 +513,11 @@ class BackgroundAgent:
                         self.owner,
                         messages=messages,
                         active_tools=active_tools,
+                        tools_used=tools_used,
                         applied_guidance_ids=list(seen_guidance),
                         progress=f"Spoken milestone: {spoken}",
                         status="running",
+                        current_stage="Resuming after the spoken checkpoint",
                     )
                     if checkpoint is None or checkpoint.get("status") == "cancelled":
                         return
@@ -507,12 +555,14 @@ class BackgroundAgent:
                         self.owner,
                         messages=messages,
                         active_tools=active_tools,
+                        tools_used=tools_used,
                         applied_guidance_ids=list(seen_guidance),
                         progress=(
                             "A newer spoken update arrived before completion; "
                             "reassessing the task."
                         ),
                         status="running",
+                        current_stage="Applying the latest spoken update",
                     )
                     if checkpoint is None or checkpoint.get("status") == "cancelled":
                         return
@@ -531,6 +581,7 @@ class BackgroundAgent:
                     self.owner,
                     messages=messages,
                     active_tools=active_tools,
+                    tools_used=tools_used,
                     applied_guidance_ids=list(seen_guidance),
                     progress=(
                         "Work completed and assessed."
@@ -544,6 +595,40 @@ class BackgroundAgent:
                 if completed is not None and self.on_complete is not None:
                     self.on_complete(completed)
                 return
+
+            # A person may have spoken while this inference was running. Yield
+            # before acting, then re-read task control state. A targeted update
+            # invalidates the model's now-stale proposed calls and gets a fresh
+            # reasoning pass; an unrelated interjection simply lets them run
+            # after the foreground turn finishes.
+            if not self._wait_for_foreground():
+                return
+            latest = self.store.get(task_id)
+            if latest is None or latest.get("status") == "cancelled":
+                return
+            redirected = _append_guidance(messages, latest, seen_guidance)
+            if redirected:
+                # The proposed calls have not executed, so do not leave an
+                # assistant tool-call message with missing results in the next
+                # prompt. Keep the newly appended human updates and replan.
+                del messages[-redirected - 1]
+                checkpoint = self.store.checkpoint(
+                    task_id,
+                    self.owner,
+                    messages=messages,
+                    active_tools=active_tools,
+                    tools_used=tools_used,
+                    applied_guidance_ids=list(seen_guidance),
+                    progress=(
+                        "A live interjection redirected the task before its pending action; "
+                        "replanning from the retained checkpoint."
+                    ),
+                    status="running",
+                    current_stage="Replanning after the spoken update",
+                )
+                if checkpoint is None or checkpoint.get("status") == "cancelled":
+                    return
+                continue
 
             progress_parts: list[str] = []
             for call in calls:
@@ -564,10 +649,17 @@ class BackgroundAgent:
                     }
                 else:
                     seen.add(fingerprint)
+                    self.store.update_stage(
+                        task_id,
+                        self.owner,
+                        f"Running {name or 'unknown'}",
+                    )
                     response = self._post(
                         f"/api/tools/{name}/call", {"arguments": arguments}
                     ).json()
                     result = response.get("result", response)
+                    if name:
+                        tools_used = list(dict.fromkeys([*tools_used, name]))[-16:]
                 if name == "tool_search" and isinstance(result, Mapping):
                     available = result.get("available_tools")
                     if isinstance(available, list):
@@ -607,9 +699,11 @@ class BackgroundAgent:
                 self.owner,
                 messages=messages,
                 active_tools=active_tools,
+                tools_used=tools_used,
                 applied_guidance_ids=list(seen_guidance),
                 progress=" ".join(progress_parts),
                 status="running",
+                current_stage="Assessing the tool result",
             )
             if checkpoint is None or checkpoint.get("status") == "cancelled":
                 return

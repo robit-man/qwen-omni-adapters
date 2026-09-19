@@ -130,6 +130,8 @@ def adapter_contract() -> dict[str, Any]:
                 "model",
                 "messages",
                 "tools",
+                "tool_choice",
+                "response_format",
                 "think",
                 "format",
                 "options",
