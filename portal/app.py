@@ -45,6 +45,7 @@ if __package__ in {None, ""}:
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
 
 try:
+    from portal.background_tasks import BackgroundTaskStore
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import portal_behavior_system_message
     from portal.tools import (
@@ -57,6 +58,7 @@ try:
         tool_use_instructions,
     )
 except ModuleNotFoundError:  # Direct script execution from portal/.
+    from background_tasks import BackgroundTaskStore
     from documents import DocumentError, SessionDocumentStore
     from environment import portal_behavior_system_message
     from tools import (
@@ -264,6 +266,7 @@ class PortalConfig:
     max_inflight_requests: int = 4
     session_log_dir: Path | None = None
     session_log_ttl_s: float = DIAGNOSTIC_TTL_SECONDS
+    background_task_path: Path | None = None
 
     @classmethod
     def from_environment(cls) -> PortalConfig:
@@ -316,6 +319,15 @@ class PortalConfig:
                     )
                 ),
             ),
+            background_task_path=Path(
+                os.environ.get(
+                    "OMNI_BACKGROUND_TASKS",
+                    str(
+                        Path(os.environ.get("OMNI_REPO_ROOT") or ".")
+                        / "runtime-data/state/background-tasks.json"
+                    ),
+                )
+            ).expanduser(),
         )
 
 
@@ -948,6 +960,9 @@ def _tool_followup(
                 "max_results",
                 "max_length",
                 "objective",
+                "completion_criteria",
+                "action",
+                "guidance",
                 "role",
                 "context_source",
                 "task_id",
@@ -1064,6 +1079,9 @@ def _tool_start_trace(calls: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
                         "max_results",
                         "max_length",
                         "objective",
+                        "completion_criteria",
+                        "action",
+                        "guidance",
                         "role",
                         "task_id",
                     }
@@ -1221,6 +1239,11 @@ def create_app(
         web_client=web_client,
         browser_runner=web_browser_runner,
         subagent_runner=run_subagent,
+        background_tasks=(
+            BackgroundTaskStore(runtime.background_task_path)
+            if runtime.background_task_path is not None
+            else None
+        ),
     )
     app.config["MAX_CONTENT_LENGTH"] = runtime.max_body_bytes
 
@@ -1609,6 +1632,7 @@ def create_app(
             auto_tools = payload.pop("portal_auto_tools", False) is True
             camera_bridge = payload.pop("portal_camera_bridge", False) is True
             shell_bridge = payload.pop("portal_shell_bridge", False) is True
+            background_bridge = payload.pop("portal_background_bridge", False) is True
             if payload.get("model") != runtime.model:
                 return jsonify({"error": "portal model tag is fixed"}), 400
             if payload.get("stream") is not False:
@@ -1628,6 +1652,8 @@ def create_app(
                     initial_tools.extend(tool_schemas(["request_camera_view"]))
                 if shell_bridge:
                     initial_tools.extend(tool_schemas(["shell"]))
+                if background_bridge:
+                    initial_tools.extend(tool_schemas(["background_task"]))
                 payload["tools"] = copy.deepcopy(initial_tools)
             diagnostics.begin_request(
                 session_id,
@@ -1748,6 +1774,7 @@ def create_app(
         auto_tools = payload.pop("portal_auto_tools", False) is True
         camera_bridge = payload.pop("portal_camera_bridge", False) is True
         shell_bridge = payload.pop("portal_shell_bridge", False) is True
+        background_bridge = payload.pop("portal_background_bridge", False) is True
         if payload.get("model") != runtime.model:
             return jsonify({"error": "portal model tag is fixed"}), 400
         if payload.get("stream") is not True:
@@ -1769,6 +1796,8 @@ def create_app(
                     initial_tools.extend(tool_schemas(["request_camera_view"]))
                 if shell_bridge:
                     initial_tools.extend(tool_schemas(["shell"]))
+                if background_bridge:
+                    initial_tools.extend(tool_schemas(["background_task"]))
                 payload["tools"] = copy.deepcopy(initial_tools)
         except PortalRequestError as exc:
             return jsonify({"error": str(exc)}), 400

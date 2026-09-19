@@ -39,6 +39,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
+GIB_IN_BYTES = 1024**3
 
 # How close two memories must be before they are treated as the same thing.
 MERGE_SIMILARITY = 0.93
@@ -137,9 +138,38 @@ class Embedder:
         self.model = model
         self._client = httpx.Client(timeout=timeout_s)
         self._warned = False
+        self._payload_gib: float | None = None
 
     def close(self) -> None:
         self._client.close()
+
+    def payload_gib(self) -> float:
+        """Return the installed encoder payload reported by Ollama.
+
+        This is used only for admission, never as a fixed device assumption.
+        A failed inventory returns zero; the caller still retains the
+        model-derived comprehension reserve and retries the inventory later.
+        """
+
+        if self._payload_gib is not None:
+            return self._payload_gib
+        try:
+            response = self._client.get(f"{self.base_url}/api/tags")
+            response.raise_for_status()
+            models = response.json().get("models")
+            if isinstance(models, list):
+                wanted = self.model.split(":", 1)[0]
+                for item in models:
+                    if not isinstance(item, dict):
+                        continue
+                    name = str(item.get("name") or item.get("model") or "")
+                    size = item.get("size")
+                    if name.split(":", 1)[0] == wanted and isinstance(size, int):
+                        self._payload_gib = max(0.0, size / GIB_IN_BYTES)
+                        return self._payload_gib
+        except Exception:  # noqa: BLE001 - admission remains conservative
+            logger.debug("could not inventory memory encoder payload", exc_info=True)
+        return 0.0
 
     def __call__(self, text: str) -> list[float] | None:
         text = " ".join((text or "").split())
@@ -391,6 +421,7 @@ class PassiveMemory:
         self._ready_lock = threading.Lock()
         self._closed = threading.Event()
         self._warned_full = False
+        self._admit: Callable[[float], bool] | None = None
         self._thread = threading.Thread(
             target=self._work,
             name="omni-passive-memory",
@@ -431,6 +462,11 @@ class PassiveMemory:
             self._ready = []
         return ready
 
+    def set_admission(self, callback: Callable[[float], bool] | None) -> None:
+        """Gate encoder residency without ever blocking the conversation."""
+
+        self._admit = callback
+
     def close(self) -> None:
         """Drain the tiny local journal queue during service shutdown."""
 
@@ -454,6 +490,19 @@ class PassiveMemory:
                 except queue.Empty:
                     continue
                 try:
+                    embedder = getattr(store, "embedder", None)
+                    payload = getattr(embedder, "payload_gib", None)
+                    required_gib = float(payload()) if callable(payload) else 0.0
+                    while (
+                        self._admit is not None
+                        and not self._admit(required_gib)
+                        and not self._closed.is_set()
+                    ):
+                        # Work stays queued. If conversation or agent work is
+                        # active, or live memory is tight, semantic memory waits.
+                        self._closed.wait(0.25)
+                    if self._closed.is_set():
+                        continue
                     if action == "remember":
                         store.remember(text, kind=kind)
                     elif action == "recall":
@@ -472,3 +521,35 @@ class PassiveMemory:
                     store.close()
                 except Exception:  # noqa: BLE001 - process teardown is best effort
                     logger.debug("could not close memory store", exc_info=True)
+
+
+def memory_capacity_available(
+    calibration_path: Path,
+    encoder_payload_gib: float,
+    *,
+    meminfo: Path = Path("/proc/meminfo"),
+) -> bool:
+    """Admit the auxiliary encoder from live capacity and model calibration.
+
+    The reserve is one current-window KV allocation, derived from the GGUF
+    slope and the context actually loaded. No board-size or fixed GiB constant
+    is involved. Missing calibration fails closed because memory is optional.
+    """
+
+    try:
+        calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
+        sample = calibration["last_sample"]
+        context = int(sample["context_tokens"])
+        kv = float(calibration["kv_gib_per_token"])
+        slots = max(1, int(sample.get("parallel_slots") or 1))
+        lines = meminfo.read_text(encoding="utf-8").splitlines()
+        available_kib = next(
+            float(line.partition(":")[2].strip().split()[0])
+            for line in lines
+            if line.partition(":")[0] == "MemAvailable"
+        )
+    except (OSError, ValueError, TypeError, KeyError, StopIteration):
+        return False
+    available_gib = available_kib / (1024 * 1024)
+    model_reserve_gib = context * kv * slots
+    return available_gib >= model_reserve_gib + max(0.0, encoder_payload_gib)

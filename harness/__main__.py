@@ -259,9 +259,22 @@ def main(argv: list[str] | None = None) -> int:
         # has to be able to go and look again rather than holding a dead key.
         token_reader=lambda: _read_token(args.token),
         memory_path="" if args.no_memory else args.memory_path,
+        memory_calibration_path=(
+            ""
+            if args.no_memory
+            else os.environ.get("OMNI_COMPREHENSION_CALIBRATION_FILE")
+            or str(_repo_root() / "runtime-data/state/comprehension-memory.json")
+        ),
+        background_task_path=(
+            ""
+            if args.no_tools
+            else os.environ.get("OMNI_BACKGROUND_TASKS")
+            or str(_repo_root() / "runtime-data/state/background-tasks.json")
+        ),
         prepare_speech=residency.prepare_speech if residency else None,
         restore_after_speech=residency.restore if residency else None,
         await_comprehension=residency.await_ready if residency else None,
+        comprehension_ready=residency.ready_now if residency else None,
     )
     logger.info(
         "call harness ready: model=%s tools=%s reasoning=%s camera=%s speech_eviction=%s",

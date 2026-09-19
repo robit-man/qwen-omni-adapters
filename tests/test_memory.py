@@ -9,6 +9,7 @@ than a log that gets longer.
 
 from __future__ import annotations
 
+import json
 import math
 import sys
 import threading
@@ -18,7 +19,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from harness.memory import Memory, MemoryStore, PassiveMemory  # noqa: E402
+from harness.memory import (  # noqa: E402
+    Memory,
+    MemoryStore,
+    PassiveMemory,
+    memory_capacity_available,
+)
 
 
 class FakeEmbedder:
@@ -233,6 +239,54 @@ def test_passive_memory_embeds_after_the_caller_has_moved_on(tmp_path: Path) -> 
     release.set()
     worker.close()
     assert stored == [("The user said their dog is called Biscuit.", "exchange")]
+
+
+def test_passive_memory_waits_for_dynamic_admission(tmp_path: Path) -> None:
+    admitted = threading.Event()
+    stored = threading.Event()
+
+    class Store:
+        def decay(self) -> int:
+            return 0
+
+        def stats(self) -> dict[str, int]:
+            return {"memories": 0}
+
+        def remember(self, _text: str, *, kind: str) -> None:
+            stored.set()
+
+        def close(self) -> None:
+            pass
+
+    worker = PassiveMemory(
+        tmp_path / "memory.sqlite3", store_factory=lambda _path: Store()
+    )
+    worker.set_admission(lambda _required: admitted.is_set())
+    worker.remember("Keep this out of the foreground phase.", kind="exchange")
+    assert not stored.wait(0.2)
+
+    admitted.set()
+    assert stored.wait(1)
+    worker.close()
+
+
+def test_memory_admission_uses_live_calibration_and_memavailable(tmp_path: Path) -> None:
+    calibration = tmp_path / "calibration.json"
+    calibration.write_text(
+        json.dumps(
+            {
+                "kv_gib_per_token": 0.0001,
+                "last_sample": {"context_tokens": 16_384, "parallel_slots": 1},
+            }
+        ),
+        encoding="utf-8",
+    )
+    meminfo = tmp_path / "meminfo"
+    meminfo.write_text("MemAvailable: 2097152 kB\n", encoding="utf-8")
+
+    assert memory_capacity_available(calibration, 0.25, meminfo=meminfo)
+    meminfo.write_text("MemAvailable: 1835008 kB\n", encoding="utf-8")
+    assert not memory_capacity_available(calibration, 0.25, meminfo=meminfo)
 
 
 def test_passive_recall_is_taken_only_after_it_finishes(tmp_path: Path) -> None:

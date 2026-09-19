@@ -198,12 +198,26 @@ def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     assert payload["portal_auto_tools"] is True
     assert payload["portal_camera_bridge"] is False
     assert payload["portal_shell_bridge"] is True
+    assert payload["portal_background_bridge"] is False
     assert payload["stream"] is True
     # The live-call instructions, plus the clock appended per turn.
     assert payload["messages"][0]["content"].startswith(LIVE_CALL_SYSTEM_PROMPT)
     # The normal chat request hears and answers in one pass.
     assert "latest spoken turn" in payload["messages"][-1]["content"]
     assert payload["messages"][-1]["audios"][0]["data"] == "d2F2"
+
+
+def test_a_live_background_worker_is_exposed_and_its_progress_is_context() -> None:
+    class Worker:
+        def context_summary(self) -> str:
+            return "Persistent background work:\n- abc: running — build the app"
+
+    call = session()
+    call.background_agent = Worker()  # type: ignore[assignment]
+    payload = call._build_payload(b"wav", 1, None)
+
+    assert payload["portal_background_bridge"] is True
+    assert "abc: running" in payload["messages"][0]["content"]
 
 
 def test_an_embodied_turn_advertises_the_camera_bridge_without_word_matching() -> None:

@@ -5,9 +5,9 @@ an otherwise idle machine can take the desktop down when another worker is
 resident, so the systemd unit cannot sensibly bake in one ``-c`` value. This
 launcher samples ``MemAvailable`` immediately before each model load, combines
 it with the observed resident footprint and the KV-cache slope derived from
-the installed GGUF, and publishes the largest standard window that fits. The
-gap between that window and the next one is the live-calculated headroom; no
-machine-specific footprint or reserve is baked into the launcher.
+the installed GGUF, and publishes the largest standard window that fits while
+retaining one model-derived context-tier increment as live headroom. No
+machine-specific footprint or fixed reserve is baked into the launcher.
 """
 
 from __future__ import annotations
@@ -91,19 +91,57 @@ def choose_context_tokens(
     kv_gib_per_token: float,
     parallel_slots: int = 1,
 ) -> int | None:
-    """Choose the largest standard window that fits the live capacity."""
+    """Choose the largest window that fits with model-derived wiggle room."""
 
     chosen: int | None = None
-    for context_tokens in candidate_windows(minimum, maximum):
+    windows = candidate_windows(minimum, maximum)
+    for context_tokens in windows:
         needed = estimated_resident_gib(
             context_tokens,
             base_gib=base_gib,
             kv_gib_per_token=kv_gib_per_token,
             parallel_slots=parallel_slots,
         )
-        if needed <= available_gib:
+        headroom = context_headroom_gib(
+            context_tokens,
+            windows=windows,
+            kv_gib_per_token=kv_gib_per_token,
+            parallel_slots=parallel_slots,
+        )
+        if needed + headroom <= available_gib:
             chosen = context_tokens
     return chosen
+
+
+def context_headroom_gib(
+    context_tokens: int,
+    *,
+    windows: list[int],
+    kv_gib_per_token: float,
+    parallel_slots: int = 1,
+) -> float:
+    """Reserve one adjacent context tier's KV growth, derived from this model.
+
+    ``MemAvailable`` is not stationary: the desktop, audio server, cameras,
+    allocator scratch, and CUDA bookkeeping all move after admission. Spending
+    the final byte merely because the weights mathematically fit is what made
+    a large window start successfully and later starve the host. The adjacent
+    tier is already derived from the live GGUF rather than a device-specific
+    magic GiB number.
+    """
+
+    ordered = sorted(set(windows))
+    try:
+        index = ordered.index(context_tokens)
+    except ValueError as error:
+        raise ValueError("context_tokens must be present in windows") from error
+    if len(ordered) == 1:
+        delta = context_tokens
+    elif index + 1 < len(ordered):
+        delta = ordered[index + 1] - context_tokens
+    else:
+        delta = context_tokens - ordered[index - 1]
+    return max(1, delta) * kv_gib_per_token * max(1, parallel_slots)
 
 
 def _positive_int(value: str) -> int:
@@ -250,6 +288,7 @@ def _record_live_sample(
         "available_before_gib": before_gib,
         "available_after_gib": after_gib,
         "context_tokens": context_tokens,
+        "parallel_slots": parallel_slots,
         "measured_resident_gib": measured,
         "sampled_base_gib": sampled_base,
         "sampled_at": time.time(),
@@ -392,14 +431,19 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         # The first successful load is the calibration probe. Reuse the last
-        # context that worked for this runtime, or the configured minimum on a
-        # fresh boot. Component file size is a conservative preflight derived
-        # from the actual installed weights, not a machine-specific constant.
-        selected = (
-            _last_context(args.state_file, args.min_context, args.max_context)
-            if component_gib <= available
-            else None
+        # installed components for a conservative minimum-window probe. The
+        # probe also retains one minimum-tier KV increment; component bytes
+        # fitting by themselves says nothing about cache or runtime headroom.
+        probe = args.min_context
+        probe_windows = candidate_windows(args.min_context, args.max_context)
+        probe_needed = component_gib + probe * kv * args.parallel_slots
+        probe_headroom = context_headroom_gib(
+            probe,
+            windows=probe_windows,
+            kv_gib_per_token=kv,
+            parallel_slots=args.parallel_slots,
         )
+        selected = probe if probe_needed + probe_headroom <= available else None
     if selected is None:
         print(
             "refusing comprehension load: "
@@ -419,9 +463,16 @@ def main(argv: list[str] | None = None) -> int:
             parallel_slots=args.parallel_slots,
         )
         headroom = max(0.0, available - estimated)
+        required_headroom = context_headroom_gib(
+            selected,
+            windows=candidate_windows(args.min_context, args.max_context),
+            kv_gib_per_token=kv,
+            parallel_slots=args.parallel_slots,
+        )
         detail = (
             f"~{estimated:.2f} GiB from live calibration, "
-            f"{headroom:.2f} GiB live headroom"
+            f"{headroom:.2f} GiB live headroom "
+            f"({required_headroom:.2f} GiB model-derived minimum)"
         )
     else:
         detail = f"first live calibration probe; {component_gib:.2f} GiB components"
@@ -438,6 +489,7 @@ def main(argv: list[str] | None = None) -> int:
     ]
     process = subprocess.Popen(rendered, env=os.environ.copy())
     sampled = False
+    pressure_downshift = False
     while process.poll() is None:
         if not sampled and _healthy(args.health_url):
             after = available_memory_gib()
@@ -455,9 +507,33 @@ def main(argv: list[str] | None = None) -> int:
                 flush=True,
             )
             sampled = True
+            required_headroom = context_headroom_gib(
+                selected,
+                windows=candidate_windows(args.min_context, args.max_context),
+                kv_gib_per_token=kv,
+                parallel_slots=args.parallel_slots,
+            )
+            if after < required_headroom:
+                print(
+                    "controlled comprehension downshift: "
+                    f"only {after:.2f} GiB remained after load, below the "
+                    f"{required_headroom:.2f} GiB adjacent-tier reserve",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                _record_failed_context(
+                    args.calibration_file,
+                    calibration,
+                    context_tokens=selected,
+                    minimum=args.min_context,
+                    maximum=args.max_context,
+                    available_gib=available,
+                )
+                pressure_downshift = True
+                process.terminate()
         time.sleep(0.5)
     returncode = int(process.returncode or 0)
-    if returncode != 0:
+    if returncode != 0 and not pressure_downshift:
         _record_failed_context(
             args.calibration_file,
             calibration,
@@ -466,7 +542,7 @@ def main(argv: list[str] | None = None) -> int:
             maximum=args.max_context,
             available_gib=available,
         )
-    return returncode
+    return 75 if pressure_downshift else returncode
 
 
 if __name__ == "__main__":

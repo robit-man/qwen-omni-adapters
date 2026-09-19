@@ -36,11 +36,13 @@ from harness.audio import (
     SpeakerStream,
     to_wav,
 )
+from harness.background_agent import BackgroundAgent
 from harness.call_queue import SETTLE_MS, CallQueue, Pending
-from harness.memory import PassiveMemory
+from harness.memory import PassiveMemory, memory_capacity_available
 from harness.place import Place, PlaceLookup
 from harness.respeaker import STATE_TO_RING, ReSpeaker, describe_direction
 from harness.vad import Vad, VadConfig
+from portal.background_tasks import BackgroundTaskStore
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +66,13 @@ LIVE_CALL_SYSTEM_PROMPT = (
     "research, and figurative uses of visual words use the appropriate non-camera "
     "tools. A raw Bash shell tool is available for host-side commands, files, "
     "applications, and multi-step terminal work; use it when the user asks rather "
-    "than claiming system access is unavailable. If a "
+    "than claiming system access is unavailable. For sustained work that should "
+    "continue after a prompt acknowledgment, call background_task with action=start "
+    "and a self-contained objective. Never say you will do long-running work without "
+    "calling it. Once accepted, acknowledge briefly; the persistent worker executes, "
+    "checks, tracks, and reports it without blocking later conversation. Apply later "
+    "spoken refinements to the relevant running task with background_task action=update, "
+    "and use status or cancel when asked. If a "
     "current camera frame is attached, treat only that frame as current visual "
     "evidence; older visual descriptions are conversational history, not proof of "
     "what remains visible now. A frame is background context unless the speaker "
@@ -139,6 +147,10 @@ class CallConfig:
     # Bounded speculative memories carried into a later related turn. Recall
     # runs in the background and is skipped whenever it is not ready.
     memory_recall: int = 4
+    memory_calibration_path: str = ""
+    # Shared crash-safe handoff between the portal and the stepwise background
+    # agent. Empty disables background work without affecting normal tools.
+    background_task_path: str = ""
     # Unified-memory hosts may need to evict comprehension before loading TTS.
     # When configured, chat stays text-only until every reasoning/tool/vision
     # pass is complete, then these callbacks bracket one direct synthesis pass.
@@ -149,6 +161,7 @@ class CallConfig:
     # its reload overlaps the reply still playing and the pause before anyone
     # speaks again.
     await_comprehension: Callable[[], None] | None = None
+    comprehension_ready: Callable[[], bool] | None = None
     # Whether the speaker may talk over a reply in progress.
     #
     # Detecting that someone has started speaking is the VAD, which runs on
@@ -231,10 +244,13 @@ class CallSession:
             PassiveMemory(Path(config.memory_path)) if config.memory_path else None
         )
         self._recalled: list[Any] = []
+        self.background_agent: BackgroundAgent | None = None
 
     # -- plumbing --------------------------------------------------------
 
     def close(self) -> None:
+        if self.background_agent is not None:
+            self.background_agent.close()
         self._client.close()
         if self.memory is not None:
             self.memory.close()
@@ -406,6 +422,10 @@ class CallSession:
                 f"{lines}\nUse it only if it also bears on the current words. "
                 "Do not list it, announce recall, or treat it as current sensory evidence."
             )
+        if self.background_agent is not None:
+            background = self.background_agent.context_summary()
+            if background:
+                system_content += f"\n\n{background}"
         return {
             "model": self.config.model,
             "messages": [
@@ -441,6 +461,11 @@ class CallSession:
             # Keeping it beside discovery costs one compact schema and avoids
             # the model falling back to generic "no system access" boilerplate.
             "portal_shell_bridge": bool(with_tools),
+            # One compact handoff contract lets a spoken turn return promptly
+            # while a checkpointed worker performs sustained tool chains.
+            "portal_background_bridge": bool(
+                with_tools and self.background_agent is not None
+            ),
             "stream": True,
         }
 
@@ -715,6 +740,8 @@ class CallSession:
                                 result.camera_motion = (
                                     str(arguments.get("mode") or "still") == "motion"
                                 )
+                        if name == "background_task" and self.background_agent is not None:
+                            self.background_agent.wake()
                         if phase != "complete":
                             self._state("thinking", f"using {name}")
                 elif kind == "delta":
@@ -921,6 +948,18 @@ class CallSession:
         elif result.audio_observation:
             self.memory.remember(result.audio_observation, kind="sound")
 
+    def announce(self, text: str) -> TurnResult:
+        """Speak a background completion when the live conversation is idle."""
+
+        text = text.strip()
+        if not text:
+            return TurnResult()
+        speech = self._speak_finished(text)
+        self._note_spoken(text, speech.spoke_seconds)
+        if not speech.error:
+            self._append_history("assistant", f"[Background task update] {text}")
+        return speech
+
 
 def run_call_loop(
     config: CallConfig,
@@ -953,6 +992,9 @@ def run_call_loop(
     # poisoning the caller-owned stop event that permits the outer supervisor
     # to reopen the microphone.
     worker_stop = threading.Event()
+    agent_stop = threading.Event()
+    foreground_active = threading.Event()
+    near_end_active = threading.Event()
     session = CallSession(config, on_state=on_state, frame_grabber=frame_grabber)
     vad = Vad(config.vad)
     outer_notify = on_state or (lambda state, detail: None)
@@ -979,6 +1021,57 @@ def run_call_loop(
     waiting = CallQueue(CAPTURE_RATE_HZ)
     lock = threading.Lock()
     work: queue.Queue[Pending] = queue.Queue(maxsize=1)
+    background_completions: queue.Queue[dict[str, Any]] = queue.Queue()
+
+    if config.background_task_path and config.tools_enabled:
+        session.background_agent = BackgroundAgent(
+            store=BackgroundTaskStore(config.background_task_path),
+            portal_url=config.portal_url,
+            token=config.token,
+            model=config.model,
+            foreground_active=foreground_active,
+            stop=agent_stop,
+            token_reader=config.token_reader,
+            await_language=config.await_comprehension,
+            on_complete=background_completions.put,
+            request_timeout_s=config.request_timeout_s,
+        )
+        session.background_agent.start()
+
+    if session.memory is not None:
+        calibration_path = (
+            Path(config.memory_calibration_path)
+            if config.memory_calibration_path
+            else None
+        )
+
+        def admit_memory(encoder_payload_gib: float) -> bool:
+            # Encoder work is lower priority than both a person and an agent
+            # task. Wait until the shared Qwen worker has finished restoring,
+            # then use its live calibration and current MemAvailable rather
+            # than a fixed board-size assumption.
+            if foreground_active.is_set():
+                return False
+            if (
+                session.background_agent is not None
+                and (
+                    session.background_agent.active.is_set()
+                    or session.background_agent.has_work()
+                )
+            ):
+                return False
+            if (
+                config.comprehension_ready is not None
+                and not config.comprehension_ready()
+            ):
+                return False
+            if calibration_path is None:
+                return True
+            return memory_capacity_available(
+                calibration_path, encoder_payload_gib
+            )
+
+        session.memory.set_admission(admit_memory)
 
     def notify(state: State, detail: str = "") -> None:
         nonlocal speaking_since
@@ -992,25 +1085,58 @@ def run_call_loop(
         """Take turns one at a time, off the thread that holds the microphone."""
 
         while not stop.is_set() and not worker_stop.is_set():
+            pending: Pending | None = None
+            completed: dict[str, Any] | None = None
             try:
-                pending = work.get(timeout=0.2)
+                pending = work.get_nowait()
             except queue.Empty:
-                continue
+                with lock:
+                    person_waiting = bool(waiting)
+                if not foreground_active.is_set() and not person_waiting:
+                    try:
+                        completed = background_completions.get_nowait()
+                    except queue.Empty:
+                        pass
+                if completed is None:
+                    worker_stop.wait(0.1)
+                    continue
             busy.set()
+            foreground_active.set()
+            if pending is not None:
+                # The utterance that produced this work item is now owned by
+                # the foreground worker. A later VAD start will set this again.
+                near_end_active.clear()
             try:
-                session.direction = describe_direction(array.direction)
-                session.place = places.place or None
-                result = session.take_turn(
-                    pending.audio(), segments=max(1, pending.segments)
-                )
-                if result.interrupted:
-                    logger.info("reply yielded to the speaker")
-                if on_turn:
-                    on_turn(result)
+                if pending is not None:
+                    session.direction = describe_direction(array.direction)
+                    session.place = places.place or None
+                    result = session.take_turn(
+                        pending.audio(), segments=max(1, pending.segments)
+                    )
+                    if result.interrupted:
+                        logger.info("reply yielded to the speaker")
+                    if on_turn:
+                        on_turn(result)
+                elif completed is not None:
+                    task_id = str(completed.get("task_id") or "")
+                    report = str(completed.get("result") or "").strip()
+                    if report:
+                        logger.info("announcing completed background task %s", task_id)
+                        result = session.announce(report)
+                        if result.error:
+                            logger.warning(
+                                "background completion %s could not be spoken: %s",
+                                task_id,
+                                result.error,
+                            )
             except Exception as error:  # noqa: BLE001 - one turn is not the call
                 logger.warning("turn failed: %s", error)
             finally:
                 busy.clear()
+                if not near_end_active.is_set():
+                    foreground_active.clear()
+                if session.background_agent is not None:
+                    session.background_agent.wake()
                 notify("listening", "")
 
     turns = threading.Thread(target=worker, name="omni-call-turn", daemon=True)
@@ -1051,6 +1177,10 @@ def run_call_loop(
                 now = time.monotonic()
 
                 if verdict.event in {"candidate", "start", "active"}:
+                    near_end_active.set()
+                    foreground_active.set()
+                    if session.background_agent is not None:
+                        session.background_agent.wake()
                     # Still talking, so nothing is finished being said.
                     settle_until = None
                     if verdict.event == "start":
@@ -1075,6 +1205,7 @@ def run_call_loop(
                         barge_paused = True
                         session.request_pause()
                 elif verdict.event == "rejected":
+                    near_end_active.clear()
                     if barge_started_at is not None:
                         logger.info("interruption rejected; resuming reply")
                         session.resume_reply()
@@ -1082,6 +1213,9 @@ def run_call_loop(
                         barge_paused = False
                     if not busy.is_set():
                         notify("listening", "")
+                        foreground_active.clear()
+                        if session.background_agent is not None:
+                            session.background_agent.wake()
                 elif verdict.event == "utterance" and verdict.utterance is not None:
                     if barge_started_at is not None:
                         if not barge_paused:
@@ -1122,6 +1256,7 @@ def run_call_loop(
                         waiting.prepend(pending.audio(), pending.active_ms)
     finally:
         worker_stop.set()
+        agent_stop.set()
         turns.join(timeout=5)
         array.stop()
         session.close()

@@ -78,6 +78,14 @@ class SpeechResidency:
         )
         return active.returncode == 0
 
+    def ready_now(self) -> bool:
+        """Whether the evicted model is presently ready, without waiting."""
+
+        try:
+            return httpx.get(self.health_url, timeout=1.0).status_code == 200
+        except httpx.HTTPError:
+            return False
+
     def _ensure_started(self) -> bool:
         """Make one serialized start attempt and confirm it survived startup."""
 

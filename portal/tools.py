@@ -39,9 +39,11 @@ from urllib.parse import parse_qs, quote_plus, urljoin, urlsplit
 import httpx
 
 try:
+    from portal.background_tasks import BackgroundTaskStore
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import runtime_environment_snapshot
 except ModuleNotFoundError:  # Direct script execution from portal/.
+    from background_tasks import BackgroundTaskStore
     from documents import DocumentError, SessionDocumentStore
     from environment import runtime_environment_snapshot
 
@@ -338,6 +340,37 @@ SAFE_TOOLS = [
             },
         },
         ["command"],
+    ),
+    _function_tool(
+        "background_task",
+        "Hand sustained multi-step work to the persistent local agent so the live voice "
+        "turn can acknowledge immediately while execution, verification, and progress "
+        "tracking continue between conversations. Use action=start instead of merely "
+        "promising future work. Update adds spoken guidance to a running task; status, "
+        "list, and cancel inspect or control existing work.",
+        {
+            "action": {
+                "type": "string",
+                "enum": ["start", "update", "status", "list", "cancel"],
+            },
+            "objective": {
+                "type": "string",
+                "description": "Complete, self-contained objective for action=start.",
+            },
+            "completion_criteria": {
+                "type": "string",
+                "description": "Optional concrete checks that establish completion.",
+            },
+            "task_id": {
+                "type": "string",
+                "description": "Task identifier for update, status, or cancel.",
+            },
+            "guidance": {
+                "type": "string",
+                "description": "New direction or constraint for action=update.",
+            },
+        },
+        ["action"],
     ),
     _function_tool(
         "subagent_delegate",
@@ -713,6 +746,10 @@ _TOOL_DISCOVERY_HINTS = {
     "shell": (
         "shell bash terminal command execute run script host filesystem process system "
         "create write edit file folder directory ffmpeg encode media probe"
+    ),
+    "background_task": (
+        "background long horizon long running sustained autonomous continue task job "
+        "progress status cancel execute later multi step"
     ),
     "subagent_delegate": "delegate isolated helper analyze research plan review critic",
     "subagent_list": "list delegated helper subagent tasks",
@@ -2089,6 +2126,7 @@ class PortalToolHarness:
         search_url_template: str | None = None,
         media_runner: Callable[[bytes, str, str], Mapping[str, Any]] | None = None,
         subagent_runner: Callable[[str, str, str], Mapping[str, Any]] | None = None,
+        background_tasks: BackgroundTaskStore | None = None,
     ) -> None:
         self.documents = documents
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
@@ -2102,6 +2140,7 @@ class PortalToolHarness:
         self.workspace = SessionWorkspaceStore(ttl_s=ttl_s, media_runner=media_runner)
         self.subagents = SessionSubagentStore(ttl_s=ttl_s, runner=subagent_runner)
         self.location = SessionLocationStore(ttl_s=ttl_s)
+        self.background_tasks = background_tasks
 
     def clear(self, session_id: str) -> None:
         self.memory.clear(session_id)
@@ -2241,6 +2280,57 @@ class PortalToolHarness:
                     arguments.get("timeout_seconds"),
                     arguments.get("stdin"),
                 )
+            elif name == "background_task":
+                if self.background_tasks is None:
+                    raise ToolInputError("background task worker is not configured")
+                action = str(arguments.get("action") or "").strip()
+                if action == "start":
+                    completion_criteria = str(
+                        arguments.get("completion_criteria") or ""
+                    ).strip()
+                    if len(completion_criteria) > 2000:
+                        raise ToolInputError(
+                            "completion_criteria exceeds 2000 characters"
+                        )
+                    result = self.background_tasks.create(
+                        _bounded_text(arguments.get("objective"), "objective", 6000),
+                        completion_criteria,
+                    )
+                    result["accepted"] = True
+                    result["next_action"] = (
+                        "Tell the user briefly that the task has started. Do not execute "
+                        "it again in this foreground turn; the persistent worker will "
+                        "continue it and report completion."
+                    )
+                elif action == "update":
+                    task_id = _bounded_text(arguments.get("task_id"), "task_id", 80)
+                    guidance = _bounded_text(
+                        arguments.get("guidance"), "guidance", 4000
+                    )
+                    task = self.background_tasks.add_guidance(task_id, guidance)
+                    result = {
+                        "found": task is not None,
+                        "accepted": bool(
+                            task is not None
+                            and task.get("status")
+                            not in {"completed", "blocked", "cancelled"}
+                        ),
+                        "task": task,
+                    }
+                elif action == "list":
+                    result = {"tasks": self.background_tasks.list()}
+                elif action == "status":
+                    task_id = _bounded_text(arguments.get("task_id"), "task_id", 80)
+                    task = self.background_tasks.get(task_id)
+                    result = {"found": task is not None, "task": task}
+                elif action == "cancel":
+                    task_id = _bounded_text(arguments.get("task_id"), "task_id", 80)
+                    task = self.background_tasks.cancel(task_id)
+                    result = {"found": task is not None, "task": task}
+                else:
+                    raise ToolInputError(
+                        "background_task action must be start, update, status, list, or cancel"
+                    )
             elif name == "audio_analyze":
                 result = self.workspace.media(session_id, "audio", arguments.get("media_id"))
             elif name == "video_scan":

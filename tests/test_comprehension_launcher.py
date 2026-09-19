@@ -18,6 +18,7 @@ from comprehension_launcher import (  # noqa: E402
     available_memory_gib,
     candidate_windows,
     choose_context_tokens,
+    context_headroom_gib,
     estimated_resident_gib,
 )
 
@@ -26,7 +27,7 @@ def test_largest_context_that_fits_live_capacity_is_selected() -> None:
     # These values are supplied by live calibration and GGUF metadata; the
     # selector itself has no machine-specific footprint constants.
     assert choose_context_tokens(
-        23.1,
+        25.2,
         base_gib=16.2,
         kv_gib_per_token=0.375 / 4096,
     ) == 65_536
@@ -37,10 +38,26 @@ def test_context_falls_back_instead_of_loading_past_available_memory() -> None:
         "base_gib": 16.2,
         "kv_gib_per_token": 0.375 / 4096,
     }
-    assert choose_context_tokens(20.2, **arguments) == 32_768
-    assert choose_context_tokens(19.8, **arguments) == 32_768
-    assert choose_context_tokens(16.8, **arguments) == 4096
+    assert choose_context_tokens(20.2, **arguments) == 16_384
+    assert choose_context_tokens(19.8, **arguments) == 16_384
+    assert choose_context_tokens(16.95, **arguments) == 4096
     assert choose_context_tokens(16.5, **arguments) is None
+
+
+def test_context_reserve_is_derived_from_the_adjacent_kv_tier() -> None:
+    windows = candidate_windows(4096, 65_536)
+    kv = 0.375 / 4096
+
+    assert context_headroom_gib(
+        16_384, windows=windows, kv_gib_per_token=kv
+    ) == 1.5
+    assert context_headroom_gib(
+        32_768, windows=windows, kv_gib_per_token=kv
+    ) == 3.0
+    # The configured ceiling still retains the previous adjacent increment.
+    assert context_headroom_gib(
+        65_536, windows=windows, kv_gib_per_token=kv
+    ) == 3.0
 
 
 def test_configured_non_power_of_two_ceiling_is_considered() -> None:
