@@ -26,12 +26,22 @@ AGENT_SYSTEM_PROMPT = (
     "result, correct failures, and verify the completion criteria. Never merely describe "
     "what you would do or promise future work. If another capability is needed, use "
     "tool_search; its matching schema arrives on the next step. Return a concise factual "
-    "completion report only after the work has been verified. If an external requirement "
+    "completion report only after the work has been verified. You have a long horizon: "
+    "keep using tools, inspecting their results, correcting problems, and continuing until "
+    "the objective is actually complete; do not stop just because it takes many steps. "
+    "For a genuinely long task, you may occasionally pause after a meaningful verified "
+    "milestone and emit TASK_PROGRESS on its own line followed by one or two natural spoken "
+    "sentences saying what you finished, what you are working on, and what comes next. The "
+    "update is not completion: after it is delivered you must resume the same task. Do this "
+    "sparingly, never after every tool call. If an external requirement "
     "makes completion impossible, explain the precise blocker and the progress retained. "
     "Messages inside <task_update> are later directions from the live speaker; incorporate "
     "them before continuing, and let the newer direction win when it conflicts. "
-    "Begin the final report with exactly TASK_COMPLETE or TASK_BLOCKED on its own line, "
-    "then give the concise user-facing result. Do not emit private chain-of-thought."
+    "Begin the final report with exactly TASK_COMPLETE or TASK_BLOCKED on its own line. "
+    "After the marker, write one to three natural spoken sentences in the first person: say "
+    "what you finished or what blocked you, mention the useful location or verification, and "
+    "sound like a conversational handoff. Do not use headings such as Workspace, Result, or "
+    "Verification, and do not dump a checklist. Do not emit private chain-of-thought."
 )
 
 
@@ -114,6 +124,9 @@ class BackgroundAgent:
         token_reader: Callable[[], str] | None = None,
         await_language: Callable[[], None] | None = None,
         on_complete: Callable[[dict[str, Any]], None] | None = None,
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
+        progress_after_s: float = 45.0,
+        progress_min_interval_s: float = 120.0,
         request_timeout_s: float = 300.0,
         client: httpx.Client | None = None,
     ) -> None:
@@ -126,6 +139,9 @@ class BackgroundAgent:
         self.token_reader = token_reader
         self.await_language = await_language
         self.on_complete = on_complete
+        self.on_progress = on_progress
+        self.progress_after_s = max(0.0, progress_after_s)
+        self.progress_min_interval_s = max(0.0, progress_min_interval_s)
         self.owner = f"voice-agent-{secrets.token_hex(8)}"
         self.active = threading.Event()
         self._wake = threading.Event()
@@ -248,6 +264,8 @@ class BackgroundAgent:
 
     def _execute(self, task: dict[str, Any]) -> None:
         task_id = str(task["task_id"])
+        task_started_at = time.monotonic()
+        last_progress_at: float | None = None
         messages = copy.deepcopy(task.get("messages") or [])
         if not messages:
             criteria = str(task.get("completion_criteria") or "").strip()
@@ -359,6 +377,54 @@ class BackgroundAgent:
                     )
                     if checkpoint is None or checkpoint.get("status") == "cancelled":
                         return
+                    continue
+                if report.startswith("TASK_PROGRESS"):
+                    spoken = report.removeprefix("TASK_PROGRESS").lstrip(" :\n")
+                    if not spoken:
+                        spoken = "I reached a useful checkpoint and I’m continuing the task."
+                    now = time.monotonic()
+                    eligible = (
+                        now - task_started_at >= self.progress_after_s
+                        and (
+                            last_progress_at is None
+                            or now - last_progress_at >= self.progress_min_interval_s
+                        )
+                    )
+                    checkpoint = self.store.checkpoint(
+                        task_id,
+                        self.owner,
+                        messages=messages,
+                        active_tools=active_tools,
+                        applied_guidance_ids=list(seen_guidance),
+                        progress=f"Spoken milestone: {spoken}",
+                        status="running",
+                    )
+                    if checkpoint is None or checkpoint.get("status") == "cancelled":
+                        return
+                    if eligible and self.on_progress is not None:
+                        last_progress_at = now
+                        self.on_progress(
+                            {
+                                "task_id": task_id,
+                                "status": "running",
+                                "result": spoken,
+                            }
+                        )
+                        continuation = "The milestone update was delivered."
+                    else:
+                        continuation = (
+                            "The milestone was checkpointed without interrupting the speaker."
+                        )
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                f"{continuation} Resume the same accepted task now. "
+                                "Continue using tools and do not report completion until "
+                                "the objective has been verified."
+                            ),
+                        }
+                    )
                     continue
                 latest = self.store.get(task_id)
                 if latest is not None and _append_guidance(

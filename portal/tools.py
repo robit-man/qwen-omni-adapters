@@ -317,9 +317,11 @@ SAFE_TOOLS = [
     _function_tool(
         "shell",
         "Run an unrestricted Bash command on the portal host and return stdout, stderr, "
-        "exit status, working directory, and timeout state. Use only when the user's "
-        "request actually calls for host-side command execution; this is not a read-only "
-        "sandbox. For generated file content, pass it through stdin to a command such as "
+        "exit status, working directory, and timeout state. This is not a read-only sandbox. "
+        "In a live foreground voice turn, use it only for one bounded command or immediate "
+        "inspection; hand mutation, verification, retry, or multi-command work to "
+        "background_task. Inside an already-delegated background task, use shell freely for "
+        "the full job. For generated file content, pass it through stdin to a command such as "
         "tee instead of embedding multiline text in fragile shell quoting.",
         {
             "command": {"type": "string", "description": "Raw command passed to bash -lc."},
@@ -343,10 +345,14 @@ SAFE_TOOLS = [
     ),
     _function_tool(
         "background_task",
-        "Hand sustained multi-step work to the persistent local agent so the live voice "
-        "turn can acknowledge immediately while execution, verification, and progress "
-        "tracking continue between conversations. Use action=start instead of merely "
-        "promising future work. Update adds spoken guidance to a running task; status, "
+        "Hand executable work to the persistent long-horizon local agent so the live voice "
+        "turn can acknowledge immediately while execution, verification, retries, and "
+        "progress tracking continue between conversations. In the live foreground, use "
+        "action=start for any file or system mutation, conversion, multiple commands, or "
+        "work needing verification—not only projects that sound large. Use it instead of "
+        "merely promising future work. The worker may speak sparse milestone updates and "
+        "always reports natural completion or a precise blocker. Update adds spoken guidance "
+        "to a running task; status, "
         "list, and cancel inspect or control existing work.",
         {
             "action": {

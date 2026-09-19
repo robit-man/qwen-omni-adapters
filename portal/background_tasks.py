@@ -197,12 +197,22 @@ class BackgroundTaskStore:
                 now = time.time()
                 item["updated_at"] = now
                 item["round"] = int(item.get("round") or 0) + 1
+                previous_status = str(item.get("status") or "")
                 item["status"] = status
                 if status == "running":
                     item["lease_until"] = now + max(5.0, lease_s)
                 else:
                     item.pop("lease_until", None)
                     item.pop("owner", None)
+                if (
+                    status in {"completed", "blocked"}
+                    and previous_status not in TERMINAL_STATUSES
+                ):
+                    # Completion speech is performed by a different thread and
+                    # can be separated from this checkpoint by a process
+                    # restart. Keep that tiny piece of delivery state durable
+                    # so finished work is never silently lost.
+                    item["announcement_pending"] = True
                 if messages is not None:
                     item["messages"] = copy.deepcopy(messages)
                 if active_tools is not None:
@@ -225,6 +235,34 @@ class BackgroundTaskStore:
             return None
 
         return self._mutate(update)
+
+    def pending_announcements(self) -> list[dict[str, Any]]:
+        """Return terminal reports that have not yet reached the speaker."""
+
+        return self._inspect(
+            lambda value: [
+                self._public(item)
+                for item in value.get("tasks", [])
+                if item.get("status") in {"completed", "blocked"}
+                and item.get("announcement_pending") is True
+            ]
+        )
+
+    def mark_announced(self, task_id: str) -> bool:
+        """Persist that a terminal report was spoken or intentionally interrupted."""
+
+        def mark(value: dict[str, Any]) -> bool:
+            for item in value.get("tasks", []):
+                if item.get("task_id") != task_id:
+                    continue
+                if item.get("announcement_pending") is not True:
+                    return False
+                item["announcement_pending"] = False
+                item["announced_at"] = time.time()
+                return True
+            return False
+
+        return bool(self._mutate(mark))
 
     def add_guidance(self, task_id: str, content: str) -> dict[str, Any] | None:
         content = str(content).strip()

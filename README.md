@@ -302,7 +302,7 @@ details hidden behind the adapter.
 | Tool execution | Authenticated portal | Starts with compact discovery, exposes only relevant concrete schemas, records bounded evidence, and rejects repeated nonproductive calls |
 | Speech | Patched Qwen3-TTS worker | Emits ordered decoder PCM; generation state is reset between prompts and never leaks one utterance into the next |
 | Local conversation | `harness/` | VAD, interruption, ReSpeaker state/direction, camera capture, history, passive memory, and foreground scheduling |
-| Persistent work | `harness/background_agent.py` + `portal/background_tasks.py` | Durable checkpoints and leases survive process restarts; foreground speech wins every scheduling boundary |
+| Persistent work | `harness/background_agent.py` + `portal/background_tasks.py` | Durable checkpoints and leases survive process restarts; long jobs may yield sparse spoken milestones, terminal speech is durable, and foreground speech wins every scheduling boundary |
 
 ### A normal spoken turn
 
@@ -345,10 +345,13 @@ keyword list.
 ### Tools and long-horizon work
 
 The browser portal keeps powerful tools opt-in. The trusted local voice harness
-also exposes shell and the persistent `background_task` bridge beside tool
-discovery. A quick request can execute in the foreground. Sustained work is
-accepted into a crash-safe JSON store and acknowledged immediately, after
-which the background worker:
+exposes the persistent `background_task` bridge beside tool discovery; its
+worker, rather than the latency-critical spoken pass, owns unrestricted shell.
+This structural split prevents a small model from entering a synchronous shell
+retry loop and stranding the conversation. A request that inspects or mutates
+files or the system, needs verification or retry, or spans multiple commands is
+accepted into a crash-safe JSON store and acknowledged immediately, after which
+the background worker:
 
 ```text
 claim lease → reason once → execute/discover one or more tools
@@ -357,11 +360,14 @@ claim lease → reason once → execute/discover one or more tools
 
 Shell commands return stdout, stderr, exit status, timeouts, and truncation
 markers. Unsupported “done” claims are rejected until at least one concrete
-action produced evidence. A later spoken update is appended as authoritative
-task guidance before the next step, including a final race check so stale
-completion cannot beat a new instruction. Completed work is announced only
-when the live conversation is idle and can be interrupted like any other
-reply.
+action produced evidence. The worker has no fixed step horizon. On a genuinely
+long task it may pause after a meaningful verified milestone, speak a short
+progress explanation, then resume with the same task context. A later spoken
+update is appended as authoritative task guidance before the next step,
+including a final race check so stale completion cannot beat a new instruction.
+Completed or blocked work ends with a natural spoken handoff only when the live
+conversation is idle. Its pending-delivery flag survives a harness restart,
+and the speech can be interrupted like any other reply.
 
 ### Conversation state and passive memory
 
@@ -417,8 +423,8 @@ the unsupported `nvidia-smi` process table.
 | Text and Markdown, including responsive GFM tables | Selected Qwen3.8/Ornith Ollama base or configured Qwen3-Omni language worker | Yes |
 | Structured tools | Selected language backend + portal executor | Yes |
 | Portal web/document/session-memory tools | Explicit opt-in allowlisted portal loop with local-browser discovery | Yes |
-| Trusted local shell | Compact explicit bridge in the local voice harness; bounded output and timeout | Yes |
-| Persistent background tasks | Checkpointed local worker with status/update/cancel and restart recovery | Yes |
+| Trusted local shell | Unrestricted execution in the checkpointed voice-task worker; bounded output and timeout | Yes |
+| Persistent background tasks | Checkpointed long-horizon worker with status/update/cancel, sparse spoken milestones, durable terminal speech, and restart recovery | Yes |
 | Passive semantic voice memory | Idle-only encoder worker + SQLite; never gates a foreground turn | Yes |
 | Thinking | Native backend `think` control, separate from answer text and never spoken | Yes |
 | Image understanding | Qwen3.8 or Omni comprehension path | Yes |

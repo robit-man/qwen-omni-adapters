@@ -64,12 +64,14 @@ LIVE_CALL_SYSTEM_PROMPT = (
     "portion. When an answer genuinely needs a fresh view of the physical scene, "
     "discover and call the embodied-client camera tool. Internet lookups, news, "
     "research, and figurative uses of visual words use the appropriate non-camera "
-    "tools. A raw Bash shell tool is available for host-side commands, files, "
-    "applications, and multi-step terminal work; use it when the user asks rather "
-    "than claiming system access is unavailable. For sustained work that should "
-    "continue after a prompt acknowledgment, call background_task with action=start "
-    "and a self-contained objective. Never say you will do long-running work without "
-    "calling it. Once accepted, acknowledge briefly; the persistent worker executes, "
+    "tools. The persistent worker has a raw Bash shell for host-side commands, files, "
+    "applications, and terminal work; never claim system access is unavailable. If the "
+    "request inspects, creates, edits, converts, moves, or deletes files; needs one or more "
+    "commands, verification, retry, research plus action, or any work that should continue "
+    "after a prompt acknowledgment, call background_task with action=start and a complete, "
+    "self-contained objective and concrete completion criteria. This is a semantic execution "
+    "policy, not a keyword rule. Never promise future work without creating the task. Once "
+    "accepted, acknowledge briefly; the persistent worker has a long horizon and executes, "
     "checks, tracks, and reports it without blocking later conversation. Apply later "
     "spoken refinements to the relevant running task with background_task action=update, "
     "and use status or cancel when asked. If a "
@@ -457,10 +459,12 @@ class CallSession:
                 and self._frame_grabber is not None
                 and frame is None
             ),
-            # Shell is similarly explicit for this trusted local companion.
-            # Keeping it beside discovery costs one compact schema and avoids
-            # the model falling back to generic "no system access" boilerplate.
-            "portal_shell_bridge": bool(with_tools),
+            # Host execution belongs to the checkpointed worker. Giving the
+            # foreground both shell and background_task let a small model pick
+            # shell, enter a synchronous retry loop, and strand the spoken
+            # turn. The worker still receives unrestricted raw Bash and every
+            # result; only the latency-critical selection is made structural.
+            "portal_shell_bridge": False,
             # One compact handoff contract lets a spoken turn return promptly
             # while a checkpointed worker performs sustained tool chains.
             "portal_background_bridge": bool(
@@ -561,6 +565,33 @@ class CallSession:
             self._mark_interrupted(result.reply, result.spoke_seconds)
             return result
         if result.error:
+            # A failed portal tool loop used to leave the person in silence.
+            # On split-residency deployments comprehension has already yielded,
+            # so give one honest terminal sentence through the same TTS path.
+            # Preserve the original error for diagnostics and never imply that
+            # an unverified mutation succeeded.
+            self._mark_interrupted(result.reply, 0.0)
+            if self.config.prepare_speech is not None and result.transcript:
+                if "without actionable progress" in result.error.lower():
+                    failure = (
+                        "I couldn’t complete that because the tool execution stopped "
+                        "making progress, and I haven’t confirmed the requested result."
+                    )
+                else:
+                    failure = (
+                        "I couldn’t complete that request, and I haven’t confirmed a result."
+                    )
+                speech = self._speak_finished(failure)
+                result.followup = failure
+                result.spoke_seconds += speech.spoke_seconds
+                result.first_audio_ms = speech.first_audio_ms
+                result.total_ms += speech.total_ms
+                result.interrupted = speech.interrupted
+                self._note_spoken(failure, speech.spoke_seconds)
+                if not speech.error:
+                    self._append_history("assistant", failure)
+                else:
+                    result.error = f"{result.error}; speech fallback failed: {speech.error}"
             return result
         if not result.transcript and not result.audio_observation:
             return result
@@ -1021,11 +1052,29 @@ def run_call_loop(
     waiting = CallQueue(CAPTURE_RATE_HZ)
     lock = threading.Lock()
     work: queue.Queue[Pending] = queue.Queue(maxsize=1)
-    background_completions: queue.Queue[dict[str, Any]] = queue.Queue()
+    background_announcements: queue.Queue[dict[str, Any]] = queue.Queue()
+    background_store: BackgroundTaskStore | None = None
 
     if config.background_task_path and config.tools_enabled:
+        background_store = BackgroundTaskStore(config.background_task_path)
+
+        def queue_progress(update: dict[str, Any]) -> None:
+            """Pause agent work while its optional spoken checkpoint has the floor."""
+
+            acknowledged = threading.Event()
+            background_announcements.put(
+                {**update, "_kind": "progress", "_ack": acknowledged}
+            )
+            while not acknowledged.wait(0.2):
+                if stop.is_set() or agent_stop.is_set():
+                    return
+
+        for pending_announcement in background_store.pending_announcements():
+            background_announcements.put(
+                {**pending_announcement, "_kind": "terminal"}
+            )
         session.background_agent = BackgroundAgent(
-            store=BackgroundTaskStore(config.background_task_path),
+            store=background_store,
             portal_url=config.portal_url,
             token=config.token,
             model=config.model,
@@ -1033,7 +1082,10 @@ def run_call_loop(
             stop=agent_stop,
             token_reader=config.token_reader,
             await_language=config.await_comprehension,
-            on_complete=background_completions.put,
+            on_complete=lambda item: background_announcements.put(
+                {**item, "_kind": "terminal"}
+            ),
+            on_progress=queue_progress,
             request_timeout_s=config.request_timeout_s,
         )
         session.background_agent.start()
@@ -1086,7 +1138,7 @@ def run_call_loop(
 
         while not stop.is_set() and not worker_stop.is_set():
             pending: Pending | None = None
-            completed: dict[str, Any] | None = None
+            announcement: dict[str, Any] | None = None
             try:
                 pending = work.get_nowait()
             except queue.Empty:
@@ -1094,10 +1146,10 @@ def run_call_loop(
                     person_waiting = bool(waiting)
                 if not foreground_active.is_set() and not person_waiting:
                     try:
-                        completed = background_completions.get_nowait()
+                        announcement = background_announcements.get_nowait()
                     except queue.Empty:
                         pass
-                if completed is None:
+                if announcement is None:
                     worker_stop.wait(0.1)
                     continue
             busy.set()
@@ -1117,21 +1169,32 @@ def run_call_loop(
                         logger.info("reply yielded to the speaker")
                     if on_turn:
                         on_turn(result)
-                elif completed is not None:
-                    task_id = str(completed.get("task_id") or "")
-                    report = str(completed.get("result") or "").strip()
+                elif announcement is not None:
+                    task_id = str(announcement.get("task_id") or "")
+                    report = str(announcement.get("result") or "").strip()
+                    kind = str(announcement.get("_kind") or "terminal")
                     if report:
-                        logger.info("announcing completed background task %s", task_id)
+                        logger.info("announcing %s background task %s", kind, task_id)
                         result = session.announce(report)
                         if result.error:
                             logger.warning(
-                                "background completion %s could not be spoken: %s",
+                                "background %s %s could not be spoken: %s",
+                                kind,
                                 task_id,
                                 result.error,
                             )
+                        elif (
+                            kind == "terminal"
+                            and background_store is not None
+                        ):
+                            background_store.mark_announced(task_id)
             except Exception as error:  # noqa: BLE001 - one turn is not the call
                 logger.warning("turn failed: %s", error)
             finally:
+                if announcement is not None:
+                    acknowledged = announcement.get("_ack")
+                    if isinstance(acknowledged, threading.Event):
+                        acknowledged.set()
                 busy.clear()
                 if not near_end_active.is_set():
                     foreground_active.clear()

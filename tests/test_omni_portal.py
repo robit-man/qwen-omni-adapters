@@ -1547,6 +1547,74 @@ def test_embodied_client_gets_compact_physical_shell_and_background_bridges() ->
     assert "portal_background_bridge" not in requests[0]
 
 
+def test_background_only_voice_profile_cannot_rediscover_or_call_foreground_shell(
+    tmp_path: Path,
+) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            assert {
+                item["function"]["name"] for item in body["tools"]
+            } == {"tool_search", "background_task"}
+            call = {
+                "name": "tool_search",
+                "arguments": {"query": "raw shell file creation"},
+            }
+        elif len(requests) == 2:
+            discovery = json.loads(body["messages"][-1]["content"])
+            assert "shell" not in discovery["available_tools"]
+            assert "shell" not in {
+                item["function"]["name"] for item in body["tools"]
+            }
+            # Even a fabricated unadvertised call is rejected server-side.
+            call = {"name": "shell", "arguments": {"command": "touch forbidden"}}
+        elif len(requests) == 3:
+            rejected = json.loads(body["messages"][-1]["content"])
+            assert rejected["error"] == "tool_not_available_in_this_execution_profile"
+            call = {
+                "name": "background_task",
+                "arguments": {
+                    "action": "start",
+                    "objective": "Create and verify the requested file.",
+                },
+            }
+        else:
+            return httpx.Response(
+                200,
+                json={"message": {"role": "assistant", "content": "I started it."}},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{"type": "function", "function": call}],
+                }
+            },
+        )
+
+    app = create_app(
+        _config(background_task_path=tmp_path / "tasks.json"),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            portal_auto_tools=True,
+            portal_shell_bridge=False,
+            portal_background_bridge=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json["message"]["content"] == "I started it."
+
+
 def test_portal_executes_only_allowlisted_tool_and_strips_media_on_followup() -> None:
     requests = []
 

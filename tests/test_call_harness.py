@@ -197,7 +197,9 @@ def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     assert payload["think"] is False
     assert payload["portal_auto_tools"] is True
     assert payload["portal_camera_bridge"] is False
-    assert payload["portal_shell_bridge"] is True
+    # Host execution is structurally delegated to the checkpointed worker;
+    # synchronous foreground shell loops can no longer strand a spoken turn.
+    assert payload["portal_shell_bridge"] is False
     assert payload["portal_background_bridge"] is False
     assert payload["stream"] is True
     # The live-call instructions, plus the clock appended per turn.
@@ -561,6 +563,47 @@ def test_comprehension_is_restored_when_synthesis_fails() -> None:
 
     assert order == ["evict", "tts", "restore"]
     assert result.error == "TTS failed"
+
+
+def test_failed_foreground_tool_loop_gets_an_honest_spoken_terminal_report() -> None:
+    order: list[str] = []
+    call = CallSession(
+        CallConfig(
+            portal_url="http://127.0.0.1:8920",
+            token="t",
+            model="m",
+            tools_enabled=True,
+            camera_enabled=False,
+            prepare_speech=lambda: order.append("evict"),
+            restore_after_speech=lambda: order.append("restore"),
+        )
+    )
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        task = payload["omni"]["task"]  # type: ignore[index]
+        if task == "chat":
+            order.append("chat")
+            return TurnResult(
+                transcript="create the audio file",
+                error="safe tool loop stopped without actionable progress",
+            )
+        order.append("tts")
+        assert "haven’t confirmed" in str(payload["messages"][0]["content"])  # type: ignore[index]
+        return TurnResult(spoke_seconds=1.2)
+
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert order == ["chat", "evict", "tts", "restore"]
+    assert "haven’t confirmed" in result.followup
+    assert "without actionable progress" in result.error
+    assert result.spoke_seconds == 1.2
+
+
+def test_live_prompt_routes_mutating_verified_work_to_the_persistent_agent() -> None:
+    assert "creates, edits, converts, moves, or deletes files" in LIVE_CALL_SYSTEM_PROMPT
+    assert "background_task with action=start" in LIVE_CALL_SYSTEM_PROMPT
+    assert "semantic execution policy" in LIVE_CALL_SYSTEM_PROMPT
 
 
 

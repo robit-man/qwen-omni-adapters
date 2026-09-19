@@ -878,6 +878,7 @@ def _tool_followup(
     harness: PortalToolHarness,
     session_id: str,
     seen: set[str],
+    blocked_tools: set[str] | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
     message = response.get("message")
     if not isinstance(message, Mapping):
@@ -900,6 +901,7 @@ def _tool_followup(
     active: list[str] = []
     known_names = {item["function"]["name"] for item in SAFE_TOOLS}
     made_progress = False
+    blocked_tools = blocked_tools or set()
     for call in calls:
         if not isinstance(call, Mapping):
             continue
@@ -922,16 +924,44 @@ def _tool_followup(
             f"{name}\0{json.dumps(arguments, sort_keys=True, default=str)}".encode()
         ).hexdigest()
         duplicate = fingerprint in seen
+        blocked = name in blocked_tools
         if duplicate:
             result = {
                 "error": "duplicate_tool_call",
                 "message": "This exact tool call already ran in the current turn; use its prior result.",
+            }
+        elif blocked:
+            seen.add(fingerprint)
+            result = {
+                "error": "tool_not_available_in_this_execution_profile",
+                "message": (
+                    "Host execution is delegated in this live turn. Call "
+                    "background_task with action=start and a self-contained objective."
+                ),
             }
         else:
             seen.add(fingerprint)
             made_progress = True
             result = harness.execute(session_id, name, arguments)
             if name == "tool_search" and isinstance(result, Mapping):
+                # Discovery must respect the same execution profile as direct
+                # schemas. Otherwise hiding foreground shell only delays it by
+                # one model round, which is how a synchronous loop returned.
+                result = dict(result)
+                for field in ("available_tools", "suggested_tools"):
+                    values = result.get(field)
+                    if isinstance(values, list):
+                        result[field] = [
+                            str(item) for item in values if str(item) not in blocked_tools
+                        ]
+                results = result.get("results")
+                if isinstance(results, list):
+                    result["results"] = [
+                        item
+                        for item in results
+                        if not isinstance(item, Mapping)
+                        or str(item.get("name") or "") not in blocked_tools
+                    ]
                 available = result.get("available_tools")
                 if isinstance(available, list):
                     discovered.extend(str(item) for item in available)
@@ -1711,6 +1741,7 @@ def create_app(
                     tool_harness,
                     session_id,
                     seen_tool_calls,
+                    {"shell"} if background_bridge and not shell_bridge else set(),
                 )
                 if followup is None:
                     break
@@ -1964,6 +1995,7 @@ def create_app(
                             tool_harness,
                             session_id,
                             seen_tool_calls,
+                            {"shell"} if background_bridge and not shell_bridge else set(),
                         )
                     if followup is None:
                         final_response["portal"] = {

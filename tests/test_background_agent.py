@@ -40,6 +40,29 @@ def test_background_task_store_checkpoints_and_recovers_expired_work(
     assert reopened.get(created["task_id"])["round"] == 1  # type: ignore[index]
 
 
+def test_terminal_announcement_survives_restart_until_marked_spoken(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Finish something and report it.")
+    claimed = store.claim_next("worker")
+    assert claimed is not None
+
+    store.checkpoint(
+        created["task_id"],
+        "worker",
+        result="I finished the work and verified it.",
+        status="completed",
+    )
+
+    reopened = BackgroundTaskStore(tmp_path / "tasks.json")
+    pending = reopened.pending_announcements()
+    assert [item["task_id"] for item in pending] == [created["task_id"]]
+    assert reopened.mark_announced(created["task_id"]) is True
+    assert reopened.pending_announcements() == []
+    assert reopened.mark_announced(created["task_id"]) is False
+
+
 def test_portal_background_tool_starts_and_controls_persistent_work(
     tmp_path: Path,
 ) -> None:
@@ -239,6 +262,103 @@ def test_background_agent_rejects_a_completion_with_no_action_evidence(
     assert any(
         "Rejected an unsupported completion" in item
         for item in current["progress"]
+    )
+
+
+def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Build and verify the requested artifact.")
+    chat_round = 0
+    progress_updates: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        if request.url.path == "/api/tools/shell/call":
+            return httpx.Response(200, json={"result": {"exit_code": 0}})
+        chat_round += 1
+        if chat_round == 1:
+            content = "touch artifact"
+        elif chat_round == 2:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": (
+                            "TASK_PROGRESS\nI created the artifact. I’m verifying its "
+                            "contents now."
+                        ),
+                    }
+                },
+            )
+        elif chat_round == 3:
+            payload = json.loads(request.content)
+            assert "milestone update was delivered" in str(payload["messages"][-1])
+            content = "test -f artifact"
+        else:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": (
+                            "TASK_COMPLETE\nI finished the artifact and verified that "
+                            "the file exists."
+                        ),
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": f"step-{chat_round}",
+                            "function": {
+                                "name": "shell",
+                                "arguments": {"command": content},
+                            },
+                        }
+                    ],
+                }
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        on_progress=progress_updates.append,
+        progress_after_s=0,
+        progress_min_interval_s=0,
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.02)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert current["result"].startswith("I finished the artifact")
+    assert len(progress_updates) == 1
+    assert progress_updates[0]["result"] == (
+        "I created the artifact. I’m verifying its contents now."
     )
 
 
