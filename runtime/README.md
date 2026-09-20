@@ -354,6 +354,10 @@ preserves native `message.thinking`, separates malformed fallback
 `<think>...</think>` blocks even when tags cross stream chunks, and removes any
 such reasoning from visible/TTS text when `think:false`. This sanitation is a
 fail-closed response boundary, not a substitute for native mode selection.
+For the OpenAI-compatible Qwen worker, true explicitly enables the template
+mode while false omits that template flag: its explicit-false branch produces
+newline-only multi-turn completions, whereas omission returns plain answer
+text without a reasoning channel. No request text is rewritten.
 Structured `tool_calls` remain unchanged. If unresolved tool calls are present,
 it does not synthesize their JSON; speech can resume after the client submits
 tool results and receives final assistant text.

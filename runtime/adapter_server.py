@@ -968,14 +968,15 @@ def build_language_payload(
             for key, value in payload.items()
             if key not in _OLLAMA_ONLY_FIELDS
         }
-        # `think` is an Ollama field and was just dropped. The local
-        # OpenAI-compatible Qwen endpoint exposes the equivalent native chat
-        # template switch. Never rewrite user content with `/no_think`: that
-        # changes the request, leaks control text into replies, and violates
-        # the adapter's native-think contract.
-        payload["chat_template_kwargs"] = {
-            "enable_thinking": thinking_requested
-        }
+        # `think` is an Ollama field and was just dropped. Explicitly enable
+        # the OpenAI-compatible Qwen template only when requested. This model's
+        # false template branch degenerates to newline-only output on ordinary
+        # multi-turn prompts (the same upstream behavior as multimodal
+        # extraction). Omission produces answer text without a reasoning
+        # channel. Never rewrite user content with `/no_think` or a control
+        # prompt: both alter the request and violate the native-think contract.
+        if thinking_requested:
+            payload["chat_template_kwargs"] = {"enable_thinking": True}
         # Stop at the turn boundary. Without this the model occasionally runs
         # past its own end-of-turn and begins writing the next one, and the
         # reply arrives as the bare role header -- "user", or "user\nHello".

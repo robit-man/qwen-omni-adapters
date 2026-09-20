@@ -1539,12 +1539,12 @@ def test_openai_stream_tool_call_fragments_are_reassembled() -> None:
     ]
 
 
-def test_think_false_disables_reasoning_on_the_openai_language_path() -> None:
+def test_think_false_avoids_the_broken_false_template_branch() -> None:
     """Chain of thought before the first spoken word is pure added latency.
 
     `think` is an Ollama field and is dropped for an OpenAI-shaped backend, so
-    the equivalent native chat-template switch is used without rewriting the
-    user's message.
+    this Qwen template's explicit false branch returns only newlines on a
+    multi-turn prompt. Omission answers normally without a reasoning channel.
     """
 
     from runtime import adapter_server
@@ -1555,7 +1555,7 @@ def test_think_false_disables_reasoning_on_the_openai_language_path() -> None:
 
     payload = adapter_server.build_language_payload(parsed, None, "m", "openai")
 
-    assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+    assert "chat_template_kwargs" not in payload
     assert payload["messages"][-1]["content"] == "Hello."
     assert "/no_think" not in json.dumps(payload["messages"])
     assert "reasoning_format" not in payload

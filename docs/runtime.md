@@ -264,6 +264,10 @@ and needs a new artifact schema and release gate.
 
 - `think` is passed unchanged to stock Ollama as a native boolean. The adapter
   does not inject a reasoning-control system message or `/no_think` suffix.
+- On the constrained OpenAI-compatible Qwen worker, `think:true` explicitly
+  enables the native template mode. False leaves that template flag absent
+  because Qwen's explicit-false branch returns newline-only multi-turn output;
+  omission returns answer text without a reasoning channel.
 - `message.thinking` stays separate from answer text and is not synthesized.
 - Tagged reasoning sanitation is a fail-closed output guard only; it is not the
   mechanism used to disable reasoning.
