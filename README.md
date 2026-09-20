@@ -488,7 +488,9 @@ cameras, copies the public link when the portal is published through a tunnel,
 and cleanly reloads the voice service. It also appends live/recent durable tasks
 as native submenus, so inspecting a task does not close the whole menu. Each
 submenu shows the current-stage spinner, exact bounded tool-call arguments and
-outcomes, retained checkpoints, and terminal result. Live tasks expose
+outcomes, retained checkpoints, and terminal result. Long action rows wrap and
+ellipsize within the menu while preserving the complete text in their tooltip,
+so tool arguments cannot widen the indicator beyond the screen. Live tasks expose
 **Cancel task** and every record exposes **Clear task record**. **Clear finished
 tasks** moves all terminal records into the human-readable archive, and **Open
 task archive** opens that log in the desktop editor. A real themed state icon

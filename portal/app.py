@@ -1034,8 +1034,14 @@ def _tool_followup(
     # A concrete call narrows the candidates to the tool actually chosen. On a
     # later discovery attempt, preserve that active tool and add alternatives
     # after it, still capped at three.
+    # A discovery result has already made the capability decision. Retaining
+    # unrelated bridge schemas from the first live request beside that answer
+    # wastes the constrained model window and can prevent the chosen tool from
+    # running at all. Concrete calls stay active for iterative use; an empty
+    # discovery preserves the prior set because programs inside shell are not
+    # separate portal tools.
     concrete = list(
-        dict.fromkeys(active if active else [*current, *discovered])
+        dict.fromkeys(active if active else discovered if discovered else current)
     )[:3]
     followup["tools"] = copy.deepcopy(
         [*DISCOVERY_TOOLS, *tool_schemas(concrete)]

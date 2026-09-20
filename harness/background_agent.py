@@ -404,6 +404,7 @@ class BackgroundAgent:
         portal_url: str,
         token: str,
         model: str,
+        portal_session_id: str | None = None,
         foreground_active: threading.Event,
         stop: threading.Event,
         token_reader: Callable[[], str] | None = None,
@@ -460,7 +461,9 @@ class BackgroundAgent:
         self._wake = threading.Event()
         self._client = client or httpx.Client(
             timeout=httpx.Timeout(request_timeout_s),
-            cookies={"omni_portal_session": secrets.token_urlsafe(24)},
+            cookies={
+                "omni_portal_session": portal_session_id or secrets.token_urlsafe(24)
+            },
         )
         self._owns_client = client is None
         self._thread = threading.Thread(

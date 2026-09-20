@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 MAX_VISIBLE_TASKS = 8
 MAX_VISIBLE_STEPS = 8
 MAX_VISIBLE_ACTIONS = 12
+MAX_MENU_WIDTH_CHARS = 54
+MAX_ACTION_PREVIEW_CHARS = 132
 
 STATUS_MARKS = {
     "pending": "○",
@@ -119,13 +121,23 @@ def task_views(tasks: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 else:
                     when = "retained"
                 name = _short(action.get("tool"), 40) or "unknown"
-                arguments = _short(action.get("arguments"), 180) or "{}"
-                outcome = _short(action.get("outcome"), 180)
+                full_arguments = " ".join(str(action.get("arguments") or "{}").split())
+                full_outcome = " ".join(str(action.get("outcome") or "").split())
+                arguments = _short(full_arguments, 72) or "{}"
+                outcome = _short(full_outcome, 52)
                 label = f"{when}  {name} {arguments}"
                 if outcome:
                     label += f" → {outcome}"
+                label = _short(label, MAX_ACTION_PREVIEW_CHARS)
+                tooltip = f"{when}  {name} {full_arguments}"
+                if full_outcome:
+                    tooltip += f" → {full_outcome}"
                 action_views.append(
-                    {"label": label, "ok": action.get("ok") is True}
+                    {
+                        "label": label,
+                        "tooltip": tooltip,
+                        "ok": action.get("ok") is True,
+                    }
                 )
         views.append(
             {
@@ -362,6 +374,7 @@ def build_indicator(
             *,
             spinning: bool = False,
             marker_text: str = "✓",
+            tooltip: str | None = None,
         ):
             # A wrapped Gtk.Label inside a custom box can receive a zero-width
             # allocation in an AppIndicator submenu: the marker remains visible
@@ -372,9 +385,12 @@ def build_indicator(
             label = item.get_child()
             if isinstance(label, Gtk.Label):
                 label.set_xalign(0.0)
-                label.set_max_width_chars(96)
+                label.set_max_width_chars(MAX_MENU_WIDTH_CHARS)
+                label.set_line_wrap(True)
+                label.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+                label.set_lines(3)
                 label.set_ellipsize(Pango.EllipsizeMode.END)
-            item.set_tooltip_text(text)
+            item.set_tooltip_text(tooltip or text)
             item.set_sensitive(False)
             return item
 
@@ -394,7 +410,7 @@ def build_indicator(
                         tuple(view["steps"]),
                         tuple(view["tools"]),
                         tuple(
-                            (action["label"], action["ok"])
+                            (action["label"], action["tooltip"], action["ok"])
                             for action in view["actions"]
                         ),
                         view["result"],
@@ -441,6 +457,7 @@ def build_indicator(
                         detail = self._detail_item(
                             action["label"],
                             marker_text="✓" if action["ok"] else "!",
+                            tooltip=action["tooltip"],
                         )
                         action_menu.append(detail)
                     action_menu.show_all()

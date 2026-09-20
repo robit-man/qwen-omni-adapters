@@ -6,7 +6,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from harness.indicator import MAX_VISIBLE_TASKS, build_indicator, task_views
+from harness.indicator import (
+    MAX_ACTION_PREVIEW_CHARS,
+    MAX_MENU_WIDTH_CHARS,
+    MAX_VISIBLE_TASKS,
+    build_indicator,
+    task_views,
+)
 
 
 def test_running_tasks_lead_and_expose_stage_steps_and_tools() -> None:
@@ -51,6 +57,7 @@ def test_running_tasks_lead_and_expose_stage_steps_and_tools() -> None:
     assert "ls -l Desktop" in views[0]["actions"][0]["label"]
     assert '"exit_code": 0' in views[0]["actions"][0]["label"]
     assert views[0]["actions"][0]["ok"] is True
+    assert views[0]["actions"][0]["tooltip"].endswith('→ {"exit_code": 0}')
     assert views[1]["result"] == "Verified."
 
 
@@ -96,3 +103,33 @@ def test_exact_tool_calls_are_nested_beneath_each_task() -> None:
     assert 'label=f"Tool calls — latest {len(view[\'actions\'])}"' in source
     assert "action_header.set_submenu(action_menu)" in source
     assert 'marker_text="✓" if action["ok"] else "!"' in source
+
+
+def test_tool_call_rows_are_bounded_but_keep_full_tooltip_text() -> None:
+    command = "python -c " + "print('wide') " * 80
+    outcome = "result " * 80
+    action = task_views(
+        [
+            {
+                "task_id": "wide",
+                "objective": "Show a wide action",
+                "status": "running",
+                "actions": [
+                    {
+                        "tool": "shell",
+                        "arguments": command,
+                        "outcome": outcome,
+                        "ok": True,
+                    }
+                ],
+            }
+        ]
+    )[0]["actions"][0]
+
+    assert len(action["label"]) <= MAX_ACTION_PREVIEW_CHARS
+    assert command in action["tooltip"]
+    assert outcome.strip() in action["tooltip"]
+    source = inspect.getsource(build_indicator)
+    assert "label.set_line_wrap(True)" in source
+    assert "label.set_max_width_chars(MAX_MENU_WIDTH_CHARS)" in source
+    assert MAX_MENU_WIDTH_CHARS < 70

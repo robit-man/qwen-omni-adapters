@@ -9,12 +9,19 @@ them reliably knows the window.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
+import httpx
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "runtime"))
 
-from adapter_server import _shed_language_context  # noqa: E402
+from adapter_server import (  # noqa: E402
+    _post_language_with_context_retries,
+    _shed_language_context,
+    _stream_language_with_context_retries,
+)
 
 
 def conversation() -> dict:
@@ -168,6 +175,118 @@ def test_tool_schemas_are_shed_when_messages_cannot_free_enough() -> None:
     assert _shed_language_context(payload) is True
     # Shed from the back: the generally useful ones come first in the suite.
     assert [tool["function"]["name"] for tool in payload["tools"]] == ["web_search"]
+
+
+def test_shedding_preserves_the_capability_selected_by_tool_discovery() -> None:
+    payload = {
+        "messages": [
+            {"role": "system", "content": "RULES"},
+            {"role": "user", "content": "Open the site and use the visible form."},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "tool_search",
+                            "arguments": {"query": "interactive browser"},
+                        },
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_name": "tool_search",
+                "content": '{"available_tools":["browser_interact"]}',
+            },
+        ],
+        "tools": [
+            {"type": "function", "function": {"name": "tool_search"}},
+            {"type": "function", "function": {"name": "request_camera_view"}},
+            {"type": "function", "function": {"name": "background_task"}},
+            {"type": "function", "function": {"name": "browser_interact"}},
+        ],
+    }
+
+    assert _shed_language_context(payload) is True
+    names = [tool["function"]["name"] for tool in payload["tools"]]
+    assert "browser_interact" in names
+    assert "background_task" not in names
+
+
+def test_exact_backend_overflow_retries_after_generic_context_shedding() -> None:
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            return httpx.Response(
+                400,
+                json={
+                    "error": {
+                        "code": 400,
+                        "message": "request (19759 tokens) exceeds the available context size (16384 tokens)",
+                        "type": "exceed_context_size_error",
+                    }
+                },
+            )
+        return httpx.Response(200, json={"choices": []})
+
+    payload = {
+        "messages": [
+            {"role": "system", "content": "RULES"},
+            {"role": "user", "content": "old"},
+            {"role": "assistant", "content": "old answer"},
+            {"role": "user", "content": "current"},
+        ]
+    }
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        response = _post_language_with_context_retries(
+            client, "http://language.test", payload
+        )
+
+    assert response.status_code == 200
+    assert len(requests) == 2
+    assert [message["content"] for message in requests[1]["messages"]] == [
+        "RULES",
+        "old answer",
+        "current",
+    ]
+
+
+def test_streaming_backend_overflow_is_read_then_retried() -> None:
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            return httpx.Response(
+                400,
+                text="request (19759 tokens) exceeds the available context size (16384 tokens)",
+            )
+        return httpx.Response(200, text='data: {"choices":[]}\n\n')
+
+    payload = {
+        "messages": [
+            {"role": "system", "content": "RULES"},
+            {"role": "user", "content": "old"},
+            {"role": "assistant", "content": "old answer"},
+            {"role": "user", "content": "current"},
+        ]
+    }
+    with (
+        httpx.Client(transport=httpx.MockTransport(handler)) as client,
+        _stream_language_with_context_retries(
+            client, "http://language.test", payload
+        ) as response,
+    ):
+        assert response.status_code == 200
+        assert b"choices" in response.read()
+
+    assert len(requests) == 2
 
 
 def test_the_last_tool_is_kept_rather_than_leaving_none() -> None:

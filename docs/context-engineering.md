@@ -32,6 +32,14 @@ browser prompt values from the catalog into the page, and JavaScript fails
 closed if either is absent. This keeps browser calls and the local microphone
 harness aligned.
 
+Tool discovery is also context-bounded. Once `tool_search` selects concrete
+capabilities, its follow-up exposes those contracts instead of retaining the
+unrelated initial bridge schemas. The adapter estimates the fully rendered
+message-and-schema prompt before submission. If the language backend still
+reports an exact context overflow, the adapter sheds one generic stale-context
+layer and retries; it preserves the current user turn, system policy, current
+tool chain, and the concrete capability selected by discovery.
+
 ## Task phases and evidence
 
 The durable store distinguishes human-visible scheduling phase from model
@@ -44,7 +52,10 @@ browser work, and every substantive tool remain governed.
 
 Every concrete background call is retained as a bounded audit record containing
 call ID, exact tool name, bounded/redacted arguments, outcome, and success
-state. The top-bar task submenu shows those calls directly. A live task has a
+state. The local voice foreground and its background worker use one stable,
+opaque portal-session scope derived from the daemon capability, so a handed-off
+task can continue in the same visible browser without crossing into another
+user session. The top-bar task submenu shows those calls directly. A live task has a
 **Cancel task** action, and every task has **Clear task record**; the global
 **Clear finished tasks** action archives terminal records before removing them.
 

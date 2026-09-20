@@ -19,6 +19,7 @@ import sys
 import tempfile
 import wave
 from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -703,12 +704,54 @@ def _shed_language_context(payload: dict[str, Any]) -> bool:
     # tools before it touches searching the web or telling the time.
     tools = payload.get("tools")
     if isinstance(tools, list) and len(tools) > 1:
-        dropped = tools.pop()
-        name = ""
-        if isinstance(dropped, Mapping):
-            function = dropped.get("function")
-            if isinstance(function, Mapping):
-                name = str(function.get("name") or "")
+        # A discovery follow-up must retain the concrete capability it just
+        # selected. Blindly popping the final schema discarded browser_interact
+        # while preserving unrelated initial camera/background bridges.
+        protected: set[str] = set()
+        for message in messages[latest_user + 1 :]:
+            if not isinstance(message, Mapping):
+                continue
+            calls = message.get("tool_calls")
+            if isinstance(calls, list):
+                for call in calls:
+                    if not isinstance(call, Mapping):
+                        continue
+                    function = call.get("function")
+                    if isinstance(function, Mapping) and function.get("name"):
+                        protected.add(str(function["name"]))
+            if message.get("role") != "tool" or message.get("tool_name") != "tool_search":
+                continue
+            try:
+                discovery = json.loads(str(message.get("content") or "{}"))
+            except ValueError:
+                continue
+            if not isinstance(discovery, Mapping):
+                continue
+            for field in ("available_tools", "suggested_tools"):
+                names = discovery.get(field)
+                if isinstance(names, list):
+                    protected.update(str(name) for name in names if name)
+            results = discovery.get("results")
+            if isinstance(results, list):
+                protected.update(
+                    str(item.get("name"))
+                    for item in results
+                    if isinstance(item, Mapping) and item.get("name")
+                )
+
+        named_tools: list[tuple[int, str]] = []
+        for index, tool in enumerate(tools):
+            name = ""
+            if isinstance(tool, Mapping):
+                function = tool.get("function")
+                if isinstance(function, Mapping):
+                    name = str(function.get("name") or "")
+            named_tools.append((index, name))
+        expendable = [item for item in named_tools if item[1] not in protected]
+        if not expendable and any(name != "tool_search" for _, name in named_tools):
+            expendable = [item for item in named_tools if item[1] == "tool_search"]
+        drop_index, name = (expendable or named_tools)[-1]
+        tools.pop(drop_index)
         LOGGER.debug("dropped tool %s to fit the context window", name or "?")
         return True
 
@@ -837,6 +880,69 @@ def _fit_language_context(payload: dict[str, Any], config: Config) -> None:
         if current >= previous:
             return
         previous = current
+
+
+def _log_context_retry(payload: Mapping[str, Any], previous: int) -> None:
+    tools = payload.get("tools")
+    names = []
+    if isinstance(tools, list):
+        for tool in tools:
+            if not isinstance(tool, Mapping):
+                continue
+            function = tool.get("function")
+            if isinstance(function, Mapping) and function.get("name"):
+                names.append(str(function["name"]))
+    LOGGER.warning(
+        "language backend rejected an oversized rendered prompt; shed context "
+        "and retrying (estimated_tokens=%d->%d tools=%s)",
+        previous,
+        _estimated_prompt_tokens(payload),
+        ",".join(names) or "none",
+    )
+
+
+def _post_language_with_context_retries(
+    client: httpx.Client,
+    url: str,
+    payload: dict[str, Any],
+) -> httpx.Response:
+    """Retry an exact backend overflow after shedding one context layer."""
+
+    while True:
+        response = client.post(url, json=payload)
+        if not _context_overflow(response):
+            return response
+        previous = _estimated_prompt_tokens(payload)
+        if not _shed_language_context(payload):
+            return response
+        _log_context_retry(payload, previous)
+
+
+@contextmanager
+def _stream_language_with_context_retries(
+    client: httpx.Client,
+    url: str,
+    payload: dict[str, Any],
+) -> Iterator[httpx.Response]:
+    """Open a language stream, retrying only explicit prompt overflows."""
+
+    while True:
+        with client.stream("POST", url, json=payload) as response:
+            if response.status_code != 400:
+                yield response
+                return
+            # Streaming responses have not loaded their body yet. Read only a
+            # 400 body before inspecting it; successful streams remain truly
+            # incremental and reach the caller untouched.
+            response.read()
+            if not _context_overflow(response):
+                yield response
+                return
+            previous = _estimated_prompt_tokens(payload)
+            if not _shed_language_context(payload):
+                yield response
+                return
+            _log_context_retry(payload, previous)
 
 
 def _require_comprehension(config: Config) -> None:
@@ -1313,9 +1419,10 @@ def execute(
         last_user = next(message for message in reversed(parsed.messages) if message.role == "user")
         result = _direct_response(parsed.model, last_user.content.strip())
     else:
-        response = client.post(
+        response = _post_language_with_context_retries(
+            client,
             language_request_url(config),
-            json=build_language_payload(
+            build_language_payload(
                 parsed,
                 observation,
                 config.language_model,
@@ -1430,7 +1537,9 @@ def execute_stream(
         silent_chunks = 0
         # Make the prompt fit before sending it. llama.cpp refuses an
         # over-long prompt rather than truncating it, so a conversation that
-        with client.stream("POST", language_request_url(config), json=payload) as response:
+        with _stream_language_with_context_retries(
+            client, language_request_url(config), payload
+        ) as response:
             if response.status_code >= 400:
                 response.read()
                 raise AdapterStageError(

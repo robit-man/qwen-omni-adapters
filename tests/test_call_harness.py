@@ -236,6 +236,20 @@ def session() -> CallSession:
     )
 
 
+def test_voice_scope_is_stable_across_harness_restarts() -> None:
+    first = session()
+    second = session()
+    other = CallSession(CallConfig(token="different", model="m"))
+
+    assert first.portal_session_id == second.portal_session_id
+    assert first.portal_session_id != other.portal_session_id
+    assert first._client.cookies.get("omni_portal_session") == first.portal_session_id
+
+    first.close()
+    second.close()
+    other.close()
+
+
 def test_a_turn_asks_for_speech_and_gets_tools_without_reasoning() -> None:
     """Reasoning is silence the other person has to sit through."""
 
@@ -273,6 +287,7 @@ def test_a_live_background_worker_is_exposed_and_its_progress_is_context() -> No
     assert payload["portal_background_bridge"] is True
     assert "portal_require_tool_decision" not in payload
     assert "abc: running" in payload["messages"][0]["content"]
+    assert "never claim that work advanced" in payload["messages"][0]["content"]
 
 
 def test_every_spoken_turn_is_one_grounded_auto_tool_pass() -> None:

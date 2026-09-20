@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import difflib
+import hashlib
 import json
 import logging
 import queue
@@ -167,7 +168,18 @@ class CallSession:
         self._history_times: list[float] = []
         self._on_state = on_state or (lambda state, detail: None)
         self._frame_grabber = frame_grabber
-        self._client = httpx.Client(timeout=httpx.Timeout(config.request_timeout_s))
+        # Foreground and durable work are one embodied conversation and must
+        # own the same single visible browser. Deriving the opaque cookie from
+        # the daemon token keeps it stable across harness-only restarts without
+        # persisting or exposing that token. A daemon restart clears the portal
+        # browser store and naturally yields a new scope.
+        self.portal_session_id = hashlib.sha256(
+            b"omni-voice-session\0" + config.token.encode("utf-8")
+        ).hexdigest()
+        self._client = httpx.Client(
+            timeout=httpx.Timeout(config.request_timeout_s),
+            cookies={"omni_portal_session": self.portal_session_id},
+        )
         self._barge = threading.Event()
         self._speaker_lock = threading.Lock()
         self._active_speaker: SpeakerStream | None = None
@@ -1045,6 +1057,7 @@ def run_call_loop(
             portal_url=config.portal_url,
             token=config.token,
             model=config.model,
+            portal_session_id=session.portal_session_id,
             foreground_active=foreground_active,
             stop=agent_stop,
             token_reader=config.token_reader,

@@ -121,6 +121,9 @@ low-memory interval does not repeatedly flip the task between running and
 pending or flood its indicator history. The small durable-task control plane
 remains available under pressure: list/status/update/cancel/start can still be
 used to override work, while model inference and executable tools stay gated.
+The local voice foreground and background worker also share one stable opaque
+portal-session cookie. This preserves the visible browser handoff across the
+two clients while retaining the portal's isolation from every other session.
 
 The comprehension launcher uses the same policy when selecting its context
 window, so model/KV residency retains room for later runtime work. Warm-load
