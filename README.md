@@ -160,7 +160,7 @@ GiB unified-memory pool:
 
 | Component | Current constrained-host role | Residency |
 |---|---|---|
-| Qwen3-Omni + projector | Speech/audio/image/video comprehension **and** language/tool reasoning through its OpenAI-compatible endpoint | Resident; context chosen from live memory, currently validated at 16K |
+| Qwen3-Omni + projector | Speech/audio/image/video comprehension **and** language/tool reasoning through its OpenAI-compatible endpoint | Resident; context chosen from live memory and published to the adapter; post-speech recovery live-validated at 4K and 8K under desktop load |
 | Ornith 1.5 base | Logical release/base option, but not loaded by the constrained profile | Not resident |
 | Qwen3-TTS + codec projector | Final 24 kHz PCM16 speech | Loaded only after text/tools finish; exits after the utterance |
 | Nomic text embedder | Passive semantic conversation memory | Admitted only while foreground, background-agent, TTS, and restoration work are idle and live headroom permits |
