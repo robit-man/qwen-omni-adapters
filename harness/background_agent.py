@@ -489,6 +489,7 @@ class BackgroundAgent:
         self._failures: dict[str, int] = {}
         self._resource_deferrals: dict[str, int] = {}
         self._slice_deferrals: dict[str, int] = {}
+        self._slice_failures: dict[str, int] = {}
         self._quiesced_tasks: set[str] = set()
         self.owner = f"voice-agent-{secrets.token_hex(8)}"
         self.active = threading.Event()
@@ -941,6 +942,11 @@ class BackgroundAgent:
         slice_rounds = 0
         slice_tool_calls = 0
         stalls = 0
+        slice_failures = self._slice_failures.get(task_id, 0)
+        seen = {
+            *_seen_tool_fingerprints(messages),
+            *(str(value) for value in task.get("tool_fingerprints", []) if value),
+        }
 
         while not self.stop.is_set():
             if (
@@ -950,10 +956,26 @@ class BackgroundAgent:
             ):
                 deferrals = self._slice_deferrals.get(task_id, 0) + 1
                 self._slice_deferrals[task_id] = deferrals
+                slice_failures = self._slice_failures.get(task_id, 0) + 1
+                self._slice_failures[task_id] = slice_failures
                 delay = min(
                     self.retry_max_s,
                     self.slice_backoff_s * (2 ** min(deferrals - 1, 5)),
                 )
+                if slice_failures >= 3:
+                    guidance = (
+                        f"Background task has yielded {slice_failures} times without "
+                        f"progress. The current approach may be stuck. Consider: "
+                        f"simplifying the objective, using different tools, or asking "
+                        f"the user for clarification."
+                    )
+                    self.store.add_guidance(task_id, guidance)
+                    logger.warning(
+                        "background task %s escalated after %d slice failures: %s",
+                        task_id,
+                        slice_failures,
+                        guidance,
+                    )
                 self.store.checkpoint(
                     task_id,
                     self.owner,
@@ -997,6 +1019,19 @@ class BackgroundAgent:
             if self.foreground_active.is_set():
                 continue
             self.store.update_stage(task_id, self.owner, "Planning the next step")
+            memory_hint = ""
+            if self.memory_governor is not None and self.memory_governor.enabled:
+                avail = self.memory_governor.available_gib()
+                soft = self.memory_governor.policy.soft_floor_gib
+                if avail < soft:
+                    memory_hint = (
+                        f"\n<memory_pressure>\nAvailable: {avail:.2f} GiB, "
+                        f"soft floor: {soft:.2f} GiB. Prefer lightweight tools "
+                        f"(shell, tool_search) over heavy tools (gui_interact, "
+                        f"browser_interact). Avoid parallel actions.\n</memory_pressure>\n"
+                    )
+            if memory_hint:
+                messages.append({"role": "user", "content": memory_hint})
             can_checkpoint = _checkpoint_available(messages)
             schemas = [
                 *(
@@ -1172,6 +1207,8 @@ class BackgroundAgent:
                     )
                     if not valid:
                         stalls += 1
+                        valid_ids = [eid for eid, item in evidence.items() if item is not None and not _result_failed_or_blocked(item["result"])]
+                        failed_ids = [eid for eid, item in evidence.items() if item is not None and _result_failed_or_blocked(item["result"])]
                         checkpoint_result = {
                             "error": "unsupported_checkpoint",
                             "message": (
@@ -1179,6 +1216,8 @@ class BackgroundAgent:
                                 "progress/complete, or a concrete failed tool call "
                                 "for blocked."
                             ),
+                            "valid_evidence_ids": valid_ids[:16],
+                            "failed_evidence_ids": failed_ids[:8],
                         }
                         messages.append(
                             {
@@ -1231,6 +1270,7 @@ class BackgroundAgent:
                         )
                         if checkpoint is None or checkpoint.get("status") == "cancelled":
                             return
+                        self._slice_failures.pop(task_id, None)
                         if eligible and self.on_progress is not None:
                             last_progress_at = now
                             self.on_progress(
@@ -1279,6 +1319,8 @@ class BackgroundAgent:
                         suppress_discovery = True
                     elif name in active_tools:
                         active_tools = [item for item in active_tools if item != name]
+                    active_tools = []
+                    suppress_discovery = False
                     stalls += 1
                 else:
                     seen.add(fingerprint)
@@ -1325,6 +1367,7 @@ class BackgroundAgent:
                         tools_used = list(dict.fromkeys([*tools_used, name]))[-16:]
                     if name != "tool_search":
                         suppress_discovery = False
+                    stalls = 0
                 if name == "tool_search" and isinstance(result, Mapping):
                     available = result.get("available_tools")
                     if isinstance(available, list):
