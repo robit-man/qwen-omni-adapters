@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import secrets
 import threading
 import time
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 MAX_TASK_CONTEXT_BYTES = 256 * 1024
 MAX_TOOL_RESULT_CHARS = 24_000
+MAX_CHECKPOINT_REPORT_CHARS = 1_000
 
 AGENT_SYSTEM_PROMPT = (
     "You are the execution worker for a task already accepted during a live spoken "
@@ -67,7 +69,12 @@ TASK_CHECKPOINT_TOOL = {
                     "type": "string",
                     "enum": ["progress", "complete", "blocked"],
                 },
-                "report": {"type": "string", "maxLength": 2000},
+                # llama.cpp expands this into a bounded GBNF repetition and
+                # rejects a repetition of exactly 2,000 as too complex.
+                "report": {
+                    "type": "string",
+                    "maxLength": MAX_CHECKPOINT_REPORT_CHARS,
+                },
                 "evidence_ids": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -84,6 +91,25 @@ TASK_CHECKPOINT_TOOL = {
 
 class _ForegroundPreempted(RuntimeError):
     """Background inference was cancelled for an accepted spoken turn."""
+
+
+class _NonRetryableBackgroundError(RuntimeError):
+    """A request is invalid and cannot improve by resending the same payload."""
+
+
+_HTTP_STATUS_PATTERN = re.compile(r"\bHTTP\s+([45]\d\d)\b", re.IGNORECASE)
+_TRANSIENT_CLIENT_STATUSES = {408, 409, 425, 429}
+
+
+def _stream_error(message: str) -> RuntimeError:
+    """Classify an upstream error without coupling to backend-specific prose."""
+
+    match = _HTTP_STATUS_PATTERN.search(message)
+    if match is not None:
+        status = int(match.group(1))
+        if 400 <= status < 500 and status not in _TRANSIENT_CLIENT_STATUSES:
+            return _NonRetryableBackgroundError(message)
+    return RuntimeError(message)
 
 
 def _tool_calls(response: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -376,6 +402,7 @@ class BackgroundAgent:
         self._failures: dict[str, int] = {}
         self._resource_deferrals: dict[str, int] = {}
         self._slice_deferrals: dict[str, int] = {}
+        self._quiesced_tasks: set[str] = set()
         self.owner = f"voice-agent-{secrets.token_hex(8)}"
         self.active = threading.Event()
         self._wake = threading.Event()
@@ -552,7 +579,9 @@ class BackgroundAgent:
                         if not isinstance(event, Mapping):
                             continue
                         if event.get("type") == "error":
-                            raise RuntimeError(str(event.get("error") or "stream error"))
+                            raise _stream_error(
+                                str(event.get("error") or "stream error")
+                            )
                         if event.get("type") == "final" and isinstance(
                             event.get("response"), Mapping
                         ):
@@ -604,7 +633,9 @@ class BackgroundAgent:
         while not self.stop.is_set():
             if not self._wait_for_foreground():
                 return
-            task = self.store.claim_next(self.owner)
+            task = self.store.claim_next(
+                self.owner, exclude_task_ids=self._quiesced_tasks
+            )
             if task is None:
                 self._wake.wait(0.5)
                 self._wake.clear()
@@ -661,6 +692,24 @@ class BackgroundAgent:
                 )
                 self._wake.wait(delay)
                 self._wake.clear()
+            except _NonRetryableBackgroundError as error:
+                detail = f"{type(error).__name__}: {error}"
+                self._quiesced_tasks.add(task_id)
+                logger.error(
+                    "background task %s stopped retrying an invalid backend request: %s",
+                    task_id,
+                    error,
+                )
+                # Preserve the accepted task without spinning on an identical
+                # invalid request. A corrected worker starts with an empty
+                # quiescence set and resumes this pending task after restart.
+                self.store.checkpoint(
+                    task_id,
+                    self.owner,
+                    current_stage="Waiting for corrected worker code and restart",
+                    error=detail,
+                    status="pending",
+                )
             except Exception as error:  # noqa: BLE001 - checkpoint and retry later
                 detail = f"{type(error).__name__}: {error}"
                 failures = self._failures.get(task_id, 0) + 1
@@ -935,6 +984,7 @@ class BackgroundAgent:
                     valid = (
                         action in {"progress", "complete", "blocked"}
                         and bool(report)
+                        and len(report) <= MAX_CHECKPOINT_REPORT_CHARS
                         and valid_refs
                         and (
                             (action == "blocked" and bool(failed))

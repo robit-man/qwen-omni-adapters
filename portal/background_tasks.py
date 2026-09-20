@@ -215,12 +215,22 @@ class BackgroundTaskStore:
 
         return self._inspect(find)
 
-    def claim_next(self, owner: str, lease_s: float = 60.0) -> dict[str, Any] | None:
+    def claim_next(
+        self,
+        owner: str,
+        lease_s: float = 60.0,
+        *,
+        exclude_task_ids: set[str] | None = None,
+    ) -> dict[str, Any] | None:
         """Claim pending work, or work whose prior process lease expired."""
+
+        excluded = {str(value) for value in (exclude_task_ids or set())}
 
         def claim(value: dict[str, Any]) -> dict[str, Any] | None:
             now = time.time()
             for item in value.get("tasks", []):
+                if str(item.get("task_id") or "") in excluded:
+                    continue
                 status = item.get("status")
                 expired = status == "running" and float(item.get("lease_until") or 0) < now
                 if status != "pending" and not expired:

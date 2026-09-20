@@ -11,11 +11,15 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from harness.background_agent import (
+    MAX_CHECKPOINT_REPORT_CHARS,
     MAX_TOOL_RESULT_CHARS,
+    TASK_CHECKPOINT_TOOL,
     BackgroundAgent,
     _bounded_tool_result,
     _compact_task_messages,
+    _NonRetryableBackgroundError,
     _seen_tool_fingerprints,
+    _stream_error,
 )
 from portal.background_tasks import BackgroundTaskStore
 from portal.documents import SessionDocumentStore
@@ -47,6 +51,75 @@ def _checkpoint_response(
             }
         },
     )
+
+
+def test_checkpoint_schema_stays_below_llama_grammar_repetition_limit() -> None:
+    report = TASK_CHECKPOINT_TOOL["function"]["parameters"]["properties"]["report"]
+
+    assert report["maxLength"] == MAX_CHECKPOINT_REPORT_CHARS
+    assert MAX_CHECKPOINT_REPORT_CHARS < 2_000
+
+
+def test_deterministic_client_error_is_not_retryable() -> None:
+    error = _stream_error("language returned HTTP 400: invalid grammar")
+
+    assert isinstance(error, _NonRetryableBackgroundError)
+    assert type(_stream_error("language returned HTTP 429: busy")) is RuntimeError
+    assert type(_stream_error("language returned HTTP 503: unavailable")) is RuntimeError
+
+
+def test_nonretryable_worker_request_quiesces_until_restart(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Complete the accepted task.")
+    requests = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return httpx.Response(
+            200,
+            content=(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "error": "language returned HTTP 400: invalid request",
+                    }
+                )
+                + "\n"
+            ),
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        retry_initial_s=0.01,
+        retry_max_s=0.01,
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("current_stage") == (
+            "Waiting for corrected worker code and restart"
+        ):
+            break
+        time.sleep(0.01)
+    time.sleep(0.1)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "pending"
+    assert current["current_stage"] == "Waiting for corrected worker code and restart"
+    assert requests == 1
 
 
 def test_background_task_store_checkpoints_and_recovers_expired_work(
