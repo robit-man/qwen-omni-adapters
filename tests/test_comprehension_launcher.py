@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,7 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "runtime"))
 
 from adapter_server import _active_context_tokens  # noqa: E402
 from comprehension_launcher import (  # noqa: E402
+    _component_window_fits,
     _effective_context_maximum,
+    _probe_backed_off,
     _record_failed_context,
     _record_live_sample,
     available_memory_gib,
@@ -98,11 +101,93 @@ def test_successful_load_calibrates_base_from_live_memory(
         after_gib=3.25,
         context_tokens=8192,
         parallel_slots=1,
+        floor_gib=0.0,
     )
 
     assert calibration["base_gib"] == pytest.approx(16.2)
     assert calibration["last_sample"]["context_tokens"] == 8192
     assert state.is_file()
+
+
+def test_base_can_never_sit_below_installed_component_bytes(
+    tmp_path: Path,
+) -> None:
+    state = tmp_path / "memory.json"
+    calibration = {
+        "base_samples": [16.2],
+        "base_gib": 16.2,
+        "kv_gib_per_token": 0.375 / 4096,
+    }
+
+    for _ in range(3):
+        _record_live_sample(
+            state,
+            calibration,
+            before_gib=17.0,
+            after_gib=2.425,
+            context_tokens=4096,
+            parallel_slots=1,
+            floor_gib=15.0,
+        )
+
+    assert calibration["base_gib"] == pytest.approx(15.0)
+    assert calibration["base_samples"] == [16.2, 14.2, 14.2, 14.2]
+
+
+def test_rebaselining_tracks_healthier_loads_instead_of_staying_anchored_high(
+    tmp_path: Path,
+) -> None:
+    state = tmp_path / "memory.json"
+    calibration = {
+        "base_samples": [16.2],
+        "base_gib": 16.2,
+        "kv_gib_per_token": 0.375 / 4096,
+    }
+
+    for _ in range(3):
+        _record_live_sample(
+            state,
+            calibration,
+            before_gib=17.0,
+            after_gib=2.425,
+            context_tokens=4096,
+            parallel_slots=1,
+            floor_gib=10.0,
+        )
+
+    assert calibration["base_gib"] == pytest.approx(14.2)
+
+
+def test_minimum_window_component_probe_fits_with_headroom() -> None:
+    kv = 0.375 / 4096
+    assert _component_window_fits(
+        component_gib=16.2,
+        context_tokens=4096,
+        minimum=4096,
+        maximum=65_536,
+        kv_gib_per_token=kv,
+        parallel_slots=1,
+        available_gib=17.0,
+    )
+    assert not _component_window_fits(
+        component_gib=16.2,
+        context_tokens=4096,
+        minimum=4096,
+        maximum=65_536,
+        kv_gib_per_token=kv,
+        parallel_slots=1,
+        available_gib=16.5,
+    )
+
+
+def test_probe_recovery_is_backed_off_after_a_failed_minimum_window() -> None:
+    assert _probe_backed_off(
+        {"probe_backoff_until": time.time() + 100}
+    )
+    assert not _probe_backed_off(
+        {"probe_backoff_until": time.time() - 1}
+    )
+    assert not _probe_backed_off({})
 
 
 def test_abnormal_exit_caps_the_next_load_at_the_next_standard_window(

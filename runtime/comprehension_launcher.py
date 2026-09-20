@@ -269,6 +269,11 @@ def _healthy(url: str) -> bool:
         return False
 
 
+def _median(values: list[float]) -> float:
+    ordered = sorted(values)
+    return ordered[len(ordered) // 2]
+
+
 def _record_live_sample(
     path: Path,
     calibration: dict[str, Any],
@@ -277,13 +282,18 @@ def _record_live_sample(
     after_gib: float,
     context_tokens: int,
     parallel_slots: int,
+    floor_gib: float,
 ) -> None:
     kv = float(calibration["kv_gib_per_token"])
     measured = max(0.0, before_gib - after_gib)
     sampled_base = max(0.0, measured - context_tokens * kv * parallel_slots)
-    calibration["base_gib"] = max(
-        sampled_base, float(calibration.get("base_gib") or 0.0)
-    )
+    samples = calibration.get("base_samples")
+    if not isinstance(samples, list) or not samples:
+        samples = [float(calibration.get("base_gib") or sampled_base)]
+    samples.append(sampled_base)
+    del samples[:-16]
+    calibration["base_gib"] = max(floor_gib, _median(samples))
+    calibration["base_samples"] = samples
     calibration["last_sample"] = {
         "available_before_gib": before_gib,
         "available_after_gib": after_gib,
@@ -315,6 +325,10 @@ def _record_failed_context(
     ]
     if lower:
         calibration["context_cap"] = lower[-1]
+    if context_tokens == minimum:
+        calibration["probe_backoff_until"] = time.time() + float(
+            os.environ.get("OMNI_COMPREHENSION_PROBE_COOLDOWN", "120")
+        )
     calibration["last_failure"] = {
         "available_before_gib": available_gib,
         "context_tokens": context_tokens,
@@ -351,6 +365,36 @@ def _effective_context_maximum(
         calibration.pop("last_failure", None)
         return configured_maximum
     return min(configured_maximum, cap)
+
+
+def _component_window_fits(
+    *,
+    component_gib: float,
+    context_tokens: int,
+    minimum: int,
+    maximum: int,
+    kv_gib_per_token: float,
+    parallel_slots: int,
+    available_gib: float,
+) -> bool:
+    """Admission against component bytes alone, retaining one tier of KV."""
+
+    windows = candidate_windows(minimum, maximum)
+    needed = component_gib + context_tokens * kv_gib_per_token * max(
+        1, parallel_slots
+    )
+    headroom = context_headroom_gib(
+        context_tokens,
+        windows=windows,
+        kv_gib_per_token=kv_gib_per_token,
+        parallel_slots=parallel_slots,
+    )
+    return needed + headroom <= available_gib
+
+
+def _probe_backed_off(calibration: Mapping[str, Any]) -> bool:
+    until = calibration.get("probe_backoff_until")
+    return isinstance(until, (int, float)) and time.time() < until
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -429,21 +473,42 @@ def main(argv: list[str] | None = None) -> int:
             kv_gib_per_token=kv,
             parallel_slots=args.parallel_slots,
         )
+        if selected is None and not _probe_backed_off(calibration):
+            # A stale calibrated baseline can block every window even though
+            # the installed components fit. Re-probe at the minimum window so
+            # residency can be remeasured from a live load instead of refusing.
+            selected = (
+                args.min_context
+                if _component_window_fits(
+                    component_gib=component_gib,
+                    context_tokens=args.min_context,
+                    minimum=args.min_context,
+                    maximum=args.max_context,
+                    kv_gib_per_token=kv,
+                    parallel_slots=args.parallel_slots,
+                    available_gib=available,
+                )
+                else None
+            )
     else:
         # The first successful load is the calibration probe. Reuse the last
         # installed components for a conservative minimum-window probe. The
         # probe also retains one minimum-tier KV increment; component bytes
         # fitting by themselves says nothing about cache or runtime headroom.
         probe = args.min_context
-        probe_windows = candidate_windows(args.min_context, args.max_context)
-        probe_needed = component_gib + probe * kv * args.parallel_slots
-        probe_headroom = context_headroom_gib(
-            probe,
-            windows=probe_windows,
-            kv_gib_per_token=kv,
-            parallel_slots=args.parallel_slots,
+        selected = (
+            probe
+            if _component_window_fits(
+                component_gib=component_gib,
+                context_tokens=probe,
+                minimum=args.min_context,
+                maximum=args.max_context,
+                kv_gib_per_token=kv,
+                parallel_slots=args.parallel_slots,
+                available_gib=available,
+            )
+            else None
         )
-        selected = probe if probe_needed + probe_headroom <= available else None
     if selected is None:
         print(
             "refusing comprehension load: "
@@ -452,6 +517,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
             flush=True,
         )
+        time.sleep(float(os.environ.get("OMNI_COMPREHENSION_RETRY_SECONDS", "15")))
         return 75
 
     _write_selected_context(args.state_file, selected)
@@ -500,6 +566,7 @@ def main(argv: list[str] | None = None) -> int:
                 after_gib=after,
                 context_tokens=selected,
                 parallel_slots=args.parallel_slots,
+                floor_gib=component_gib,
             )
             print(
                 f"calibrated {selected}-token comprehension residency from live "
