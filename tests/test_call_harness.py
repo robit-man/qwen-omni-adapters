@@ -227,6 +227,8 @@ def test_a_live_background_worker_is_exposed_and_its_progress_is_context() -> No
 def test_live_route_parser_fails_closed_on_free_form_or_incomplete_output() -> None:
     with pytest.raises(ValueError, match="invalid JSON"):
         _parse_live_route("I've created it.")
+    with pytest.raises(ValueError, match="invalid JSON"):
+        _parse_live_route('{"mode": "reply", "reply": "cut off')
     with pytest.raises(ValueError, match="empty objective"):
         _parse_live_route(
             json.dumps(
@@ -241,6 +243,62 @@ def test_live_route_parser_fails_closed_on_free_form_or_incomplete_output() -> N
                 }
             )
         )
+
+
+def test_live_route_parser_recovers_fenced_or_wrapped_json() -> None:
+    wrapped = (
+        'Here is the dispatch:\n```json\n{"mode": "reply", "reply": "Hello!"}\n```'
+    )
+    route = _parse_live_route(wrapped)
+    assert route["mode"] == "reply"
+    assert route["reply"] == "Hello!"
+
+    padded = (
+        'Sure thing. {"mode": "reply", "reply": "Okay, sounds good.", '
+        '"objective": "", "completion_criteria": "", "tool_query": "", '
+        '"task_id": "", "guidance": ""} Hope that helps.'
+    )
+    assert _parse_live_route(padded)["reply"] == "Okay, sounds good."
+
+
+def test_failure_is_logged_and_carried_into_the_next_prompt() -> None:
+    call = session()
+    call._note_failure(
+        ValueError("live turn dispatcher returned invalid JSON"),
+        raw='{"mode": "reply", "reply": "cut off',
+        transcript="what do you remember",
+    )
+    assert "Previous-turn operation note" in call._pending_failure_note
+    assert "invalid JSON" in call._pending_failure_note
+    assert "what do you remember" in call._pending_failure_note
+    payload = call._build_payload(b"wav", 1, None)
+    system = payload["messages"][0]["content"]
+    assert "Previous-turn operation note" in system
+    assert "invalid JSON" in system
+    assert "what do you remember" in system
+
+
+def test_natural_fallback_is_a_no_tools_no_schema_conversational_pass() -> None:
+    call = session()
+    captured: dict[str, object] = {}
+
+    def fake_run(payload: dict[str, object], *, queue_recall: bool = True) -> TurnResult:
+        captured["payload"] = payload
+        return TurnResult(reply="Sure, let me think about that.")
+
+    call._run = fake_run  # type: ignore[assignment]
+    result = call._natural_fallback(
+        b"wav", 1, TurnResult(transcript="What do you remember today?", audio_observation="")
+    )
+    payload = captured["payload"]
+    assert result.reply == "Sure, let me think about that."
+    assert payload["portal_auto_tools"] is False
+    assert "response_format" not in payload
+    assert payload["omni"]["require_speech"] is False
+    assert "audios" not in payload["messages"][-1]
+    assert "What do you remember today?" in payload["messages"][-1]["content"]
+    assert "You have no tools" in payload["messages"][-1]["content"]
+    assert "Never claim an action" in payload["messages"][-1]["content"]
 
 
 def test_host_action_is_durably_created_before_any_acknowledgment() -> None:

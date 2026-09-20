@@ -101,7 +101,9 @@ LIVE_ROUTE_PROMPT = (
     "and constraint in a self-contained objective, and require direct inspection of the "
     "finished artifact in completion_criteria; a creation command or spoken confirmation is "
     "not verification. For fresh_evidence, put the needed capability in tool_query and do "
-    "not answer from memory. Unused string fields must be empty strings."
+    "not answer from memory. Unused string fields must be empty strings. Keep reply, "
+    "objective, and guidance concise: a few sentences is enough, never restate the schema, "
+    "and never pad the fields."
 )
 
 LIVE_ROUTE_FORMAT = {
@@ -145,11 +147,31 @@ LIVE_ROUTE_FORMAT = {
 }
 
 
+def _json_object_candidate(content: str) -> str:
+    """Recover the JSON object when generation wrapped it in fences or prose."""
+
+    text = content.strip()
+    fence = re.search(
+        r"```(?:json)?\s*(.*?)\s*```", text, flags=re.DOTALL | re.IGNORECASE
+    )
+    if fence:
+        text = fence.group(1).strip()
+    if not text.startswith("{"):
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end > start:
+            text = text[start : end + 1].strip()
+    return text
+
+
 def _parse_live_route(content: str) -> dict[str, str]:
     """Parse the constrained dispatcher response, failing closed on free-form claims."""
 
+    text = _json_object_candidate(content)
+    if not (text.startswith("{") and text.endswith("}")):
+        raise ValueError("live turn dispatcher returned invalid JSON")
     try:
-        value = json.loads(content)
+        value = json.loads(text)
     except ValueError as error:
         raise ValueError("live turn dispatcher returned invalid JSON") from error
     if not isinstance(value, dict):
@@ -353,6 +375,7 @@ class CallSession:
         )
         self._recalled: list[Any] = []
         self.background_agent: BackgroundAgent | None = None
+        self._pending_failure_note = ""
 
     # -- plumbing --------------------------------------------------------
 
@@ -534,6 +557,8 @@ class CallSession:
             background = self.background_agent.context_summary()
             if background:
                 system_content += f"\n\n{background}"
+        if self._pending_failure_note:
+            system_content += f"\n\n{self._pending_failure_note}"
         return {
             "model": self.config.model,
             "messages": [
@@ -797,15 +822,48 @@ class CallSession:
                         )
                     result = followed
             except (OSError, ValueError) as error:
-                result.error = str(error)
-                result.reply = ""
+                self._note_failure(
+                    error,
+                    raw=result.reply,
+                    transcript=result.transcript or result.audio_observation,
+                )
+                logger.warning(
+                    "live route dispatch failed (%s); generating a natural spoken answer",
+                    error,
+                )
+                if result.interrupted:
+                    result.error = ""
+                    result.reply = ""
+                else:
+                    fallback = self._natural_fallback(audio, segments, result)
+                    if fallback.interrupted:
+                        result.interrupted = True
+                        result.error = ""
+                        result.reply = ""
+                    elif not fallback.error and fallback.reply.strip():
+                        result.reply = fallback.reply.strip()
+                        result.followup = result.reply
+                        result.error = ""
+                        result.tools_used = list(
+                            dict.fromkeys([*result.tools_used, *fallback.tools_used])
+                        )
+                    else:
+                        result.error = (
+                            f"{error}; natural fallback failed: "
+                            f"{fallback.error or 'empty reply'}"
+                        )
+                        result.reply = ""
 
-        self._note_spoken(result.reply, result.spoke_seconds)
+            self._note_spoken(result.reply, result.spoke_seconds)
         self._remember(result)
         if result.interrupted:
             self._mark_interrupted(result.reply, result.spoke_seconds)
             return result
         if result.error:
+            self._note_failure(
+                result.error,
+                transcript=result.transcript or result.audio_observation,
+            )
             # A failed portal tool loop used to leave the person in silence.
             # On split-residency deployments comprehension has already yielded,
             # so give one honest terminal sentence through the same TTS path.
@@ -891,7 +949,78 @@ class CallSession:
         # Scheduling the daemon worker is the final operation. It can never
         # overlap comprehension, tool use, TTS, or comprehension restoration.
         self._persist(result)
+        self._pending_failure_note = ""
         return result
+
+    def _note_failure(
+        self,
+        error: BaseException | str,
+        *,
+        raw: str = "",
+        transcript: str = "",
+        final_error: str = "",
+    ) -> None:
+        """Log the root cause and carry it into the next prompt generation.
+
+        The system cannot retract a spoken claim, but it can tell the model
+        exactly what failed so the next generation can retry knowingly. The
+        note is injected into the next turn's system context and cleared once
+        that turn has read it.
+        """
+
+        detail = str(error)
+        if final_error and final_error != detail:
+            detail = f"{detail}; fallback also failed: {final_error}"
+        if raw:
+            logger.warning(
+                "live turn error recorded: %s; raw dispatch: %r", detail, raw[:400]
+            )
+        else:
+            logger.warning("live turn error recorded: %s", detail)
+        transcript = (transcript or "").strip()
+        note = (
+            "Previous-turn operation note (the user did not hear or see this): an "
+            "earlier attempt to handle the last spoken request failed before a "
+            "verified reply was produced. Error:\n"
+            f"{detail}\n"
+        )
+        if transcript:
+            note += (
+                f"The request that failed was: {transcript!r}. If the user asks you to "
+                "try that again, retry it as a fresh request; do not recite this note "
+                "or blame the user."
+            )
+        else:
+            note += (
+                "If the user retries the request they just made, treat it as fresh. "
+                "Do not recite this note."
+            )
+        self._pending_failure_note = note
+
+    def _natural_fallback(self, audio: bytes, segments: int, result: TurnResult) -> TurnResult:
+        """One plain-chat pass when the strict dispatcher could not settle the turn.
+
+        No tools and no schema: the model writes a natural spoken reply, but it is
+        explicitly barred from claiming host actions it had no means to run, so the
+        durable-task-in-code invariant still holds.
+        """
+
+        payload = self._build_payload(audio, segments, None, with_tools=False)
+        current = payload["messages"][-1]
+        current.pop("audios", None)
+        request = (result.transcript or result.audio_observation or "").strip()
+        current["content"] = (
+            "The user's current spoken request was:\n<spoken_request>\n"
+            f"{request}\n"
+            "</spoken_request>\n\n"
+            "Answer conversationally, briefly, and naturally, as one person to another. "
+            "You have no tools and cannot have started, changed, downloaded, or verified "
+            "anything. If the request asked for any such action, say you were unable to "
+            "act on it. Never claim an action has already happened."
+        )
+        payload["omni"]["require_speech"] = False
+        payload.pop("response_format", None)
+        return self._run(payload, queue_recall=False)
 
     def _speak_finished(self, text: str) -> TurnResult:
         """Evict heavyweight listeners, synthesize once, then restore them."""
