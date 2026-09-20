@@ -1767,6 +1767,126 @@ def test_background_only_voice_profile_cannot_rediscover_or_call_foreground_shel
     assert response.json["message"]["content"] == "I started it."
 
 
+def test_live_required_decision_cannot_end_as_unstructured_prose() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        assert body["tool_choice"] == "required"
+        assert "respond_to_user" in {
+            item["function"]["name"] for item in body["tools"]
+        }
+        response = {
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "respond_to_user",
+                            "arguments": {"content": "Four."},
+                        },
+                    }
+                ],
+            }
+        }
+        wire = json.dumps({"type": "final", "response": response}) + "\n"
+        return httpx.Response(
+            200,
+            content=wire,
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat/stream",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            stream=True,
+            portal_auto_tools=True,
+            portal_background_bridge=True,
+            portal_require_tool_decision=True,
+        ),
+    )
+    events = [json.loads(line) for line in response.data.splitlines()]
+
+    assert response.status_code == 200
+    assert len(requests) == 1
+    assert events[-1]["response"]["message"] == {
+        "role": "assistant",
+        "content": "Four.",
+    }
+
+
+def test_live_required_decision_executes_selected_tool_then_returns_normally(
+    tmp_path: Path,
+) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            assert body["tool_choice"] == "required"
+            response = {
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "background_task",
+                                "arguments": {
+                                    "action": "start",
+                                    "objective": "Carry out and verify the request.",
+                                },
+                            },
+                        }
+                    ],
+                }
+            }
+        else:
+            assert "tool_choice" not in body
+            assert "respond_to_user" not in {
+                item["function"]["name"] for item in body["tools"]
+            }
+            response = {
+                "message": {"role": "assistant", "content": "Started."}
+            }
+        wire = json.dumps({"type": "final", "response": response}) + "\n"
+        return httpx.Response(
+            200,
+            content=wire,
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    app = create_app(
+        _config(background_task_path=tmp_path / "tasks.json"),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    response = app.test_client().post(
+        "/api/chat/stream",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            stream=True,
+            portal_auto_tools=True,
+            portal_background_bridge=True,
+            portal_require_tool_decision=True,
+        ),
+    )
+    events = [json.loads(line) for line in response.data.splitlines()]
+
+    assert response.status_code == 200
+    assert len(requests) == 2
+    assert events[-1]["response"]["message"]["content"] == "Started."
+    assert events[-1]["response"]["portal"]["safe_tools_executed"][0][
+        "name"
+    ] == "background_task"
+
+
 def test_portal_executes_only_allowlisted_tool_and_strips_media_on_followup() -> None:
     requests = []
 

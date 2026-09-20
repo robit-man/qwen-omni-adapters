@@ -494,6 +494,12 @@ class CallSession:
             "portal_background_bridge": bool(
                 with_tools and self.background_agent is not None
             ),
+            # Make the foreground choose structurally between a complete
+            # direct answer and one of the real tool paths. Free-form prose
+            # cannot bypass execution with an invented capability limitation.
+            "portal_require_tool_decision": bool(
+                with_tools and self.background_agent is not None
+            ),
             "stream": True,
         }
 
