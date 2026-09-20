@@ -264,49 +264,10 @@ def runtime_environment_snapshot() -> dict[str, Any]:
     }
 
 
-def runtime_capability_summary(now: dt.datetime | None = None) -> str:
-    """Small live grounding block suitable for every conversational turn."""
-
-    moment = (now or dt.datetime.now()).astimezone()
-    battery = _battery_facts()
-    connectivity = _connectivity_facts()
-    if battery.get("available"):
-        battery_line = (
-            f"Battery: {battery['percentage']}% at {battery['voltage_v']:.2f} V "
-            "(fresh EGG system-service reading; charge/discharge direction unknown)."
-        )
-    else:
-        battery_line = f"Battery: unavailable ({battery.get('reason', 'no fresh reading')})."
-    if connectivity.get("active_link"):
-        network_line = (
-            "Network: an active default route exists; public internet and individual "
-            "sites are not guaranteed until a request succeeds."
-        )
-    else:
-        network_line = (
-            "Network: no active default route; public web/search/downloads are unavailable."
-        )
-    return (
-        "<live_system>\n"
-        f"Local time: {moment.isoformat(timespec='seconds')}.\n"
-        f"{battery_line}\n"
-        f"{network_line}\n"
-        "Available offline: conversation/audio comprehension, local TTS, cameras when "
-        "attached, persistent tasks, shell/files/FFmpeg, full-desktop screenshots and "
-        "input, and visible Chromium against local pages. Public web, news, remote URLs, "
-        "and downloads require a working network. Browser and desktop actions must be "
-        "verified from fresh rendered screenshots.\n"
-        "</live_system>"
-    )
-
-
 def portal_behavior_system_message() -> dict[str, str]:
     """Return the small stable policy surface injected into conversational turns."""
 
     return {
         "role": "system",
-        "content": (
-            f"{context_text('prompts', 'portal_behavior_system')}\n\n"
-            f"{runtime_capability_summary()}"
-        ),
+        "content": context_text("prompts", "portal_behavior_system"),
     }

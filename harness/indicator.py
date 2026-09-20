@@ -431,17 +431,19 @@ def build_indicator(
                 detail = self._detail_item(f"Tools used: {tools}")
                 details.append(detail)
                 if view["actions"]:
-                    detail = self._detail_item(
-                        f"Actions taken — latest {len(view['actions'])}",
-                        marker_text="•",
+                    action_header = Gtk.MenuItem(
+                        label=f"Tool calls — latest {len(view['actions'])}"
                     )
-                    details.append(detail)
+                    action_menu = Gtk.Menu()
+                    action_header.set_submenu(action_menu)
+                    details.append(action_header)
                     for action in view["actions"]:
                         detail = self._detail_item(
                             action["label"],
                             marker_text="✓" if action["ok"] else "!",
                         )
-                        details.append(detail)
+                        action_menu.append(detail)
+                    action_menu.show_all()
                 for step in view["steps"]:
                     detail = self._detail_item(step)
                     details.append(detail)

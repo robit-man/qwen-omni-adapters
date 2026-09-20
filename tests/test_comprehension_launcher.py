@@ -122,13 +122,29 @@ def test_successful_load_calibrates_base_from_live_memory(
     assert state.is_file()
 
 
-def test_live_samples_override_a_conservative_component_byte_floor() -> None:
+def test_live_samples_cannot_undercut_the_component_byte_floor() -> None:
     calibration = {
         "base_gib": 18.52,
         "base_samples": [16.1, 16.3, 16.2, 22.0],
     }
 
-    assert _live_calibrated_base(calibration) == pytest.approx(16.3)
+    assert _live_calibrated_base(calibration) == pytest.approx(18.52)
+
+
+def test_component_floor_prevents_a_window_that_consumes_runtime_reserve() -> None:
+    calibration = {
+        "base_gib": 18.52,
+        "base_samples": [16.1, 16.3, 16.2, 16.25],
+    }
+    base = _live_calibrated_base(calibration)
+
+    assert base == pytest.approx(18.52)
+    assert choose_context_tokens(
+        28.19,
+        base_gib=base,
+        kv_gib_per_token=0.375 / 4096,
+        runtime_reserve_gib=4.0,
+    ) == 32_768
 
 
 def test_base_can_never_sit_below_installed_component_bytes(

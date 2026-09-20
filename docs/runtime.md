@@ -122,9 +122,11 @@ remains available under pressure: list/status/update/cancel/start can still be
 used to override work, while model inference and executable tools stay gated.
 
 The comprehension launcher uses the same policy when selecting its context
-window, so model/KV residency retains room for later runtime work. Background
-tool results and transcripts also have byte bounds, and the worker runs in
-renewable round/call/stall-bounded slices. Configure the policy with
+window, so model/KV residency retains room for later runtime work. Warm-load
+samples may refine the estimate but can never undercut the installed model and
+projector byte floor; a pressure downshift or abnormal exit also caps the next
+load below the failed tier. Background tool results and transcripts have byte
+bounds, and the worker runs in renewable round/call/stall-bounded slices. Configure the policy with
 `OMNI_MEMORY_GOVERNOR`, `OMNI_MEMORY_SOFT_FLOOR_GIB`,
 `OMNI_MEMORY_HARD_FLOOR_GIB`, and `OMNI_MEMORY_OPERATION_RESERVE_GIB`.
 

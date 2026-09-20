@@ -278,15 +278,21 @@ def _median(values: list[float]) -> float:
 
 
 def _live_calibrated_base(calibration: Mapping[str, Any]) -> float | None:
-    """Prefer repeated live residency samples over the on-disk byte floor.
+    """Use live residency samples without undercutting the component floor.
 
     GGUF files are memory mapped, so their total file size is a conservative
-    first-load bound rather than the resident footprint. Once successful live
-    loads exist, using that byte floor can deadlock restoration on a few MiB
-    rounding edge even though the same model repeatedly leaves the required
-    runtime reserve intact.
+    first-load bound rather than an exact resident footprint. It is still a
+    real lower bound for admission: a low median from warm page-cache loads
+    must not erase it. That underestimation admitted a 65K cache with only
+    0.40 GiB left for inference and starved the whole host before TTS began.
     """
 
+    persisted = calibration.get("base_gib")
+    floor = (
+        float(persisted)
+        if isinstance(persisted, (int, float)) and float(persisted) > 0
+        else None
+    )
     samples = calibration.get("base_samples")
     if isinstance(samples, list):
         valid = [
@@ -295,9 +301,9 @@ def _live_calibrated_base(calibration: Mapping[str, Any]) -> float | None:
             if isinstance(value, (int, float)) and float(value) > 0
         ]
         if valid:
-            return _median(valid)
-    base = calibration.get("base_gib")
-    return float(base) if isinstance(base, (int, float)) and base > 0 else None
+            sampled = _median(valid)
+            return max(sampled, floor) if floor is not None else sampled
+    return floor
 
 
 def _record_live_sample(

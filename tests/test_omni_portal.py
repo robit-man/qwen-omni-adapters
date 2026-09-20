@@ -2539,39 +2539,12 @@ def test_mock_live_call_stream_defaults_native_reasoning_off() -> None:
     assert environment["role"] == "system"
     assert "<runtime_environment>" not in environment["content"]
     assert "conversational multimodal assistant" in environment["content"]
-    assert "current tool result" in environment["content"]
+    assert "explicit system-snapshot tool" in environment["content"]
+    assert "Tool results" in environment["content"]
     assert "only a current visual observation" in environment["content"]
     assert "not GPS, street position, or a visible scene" in environment["content"]
-    assert "<live_system>" in environment["content"]
-    assert "Available offline:" in environment["content"]
-
-
-def test_live_system_summary_includes_fresh_battery_and_honest_connectivity(
-    monkeypatch,
-) -> None:
-    import datetime as dt
-
-    from portal import environment
-
-    monkeypatch.setattr(
-        environment,
-        "_battery_facts",
-        lambda: {"available": True, "percentage": 87, "voltage_v": 28.46},
-    )
-    monkeypatch.setattr(
-        environment,
-        "_connectivity_facts",
-        lambda: {"active_link": True},
-    )
-
-    summary = environment.runtime_capability_summary(
-        dt.datetime(2026, 9, 19, 15, 30, tzinfo=dt.timezone.utc)
-    )
-
-    assert "Battery: 87% at 28.46 V" in summary
-    assert "public internet and individual sites are not guaranteed" in summary
-    assert "shell/files/FFmpeg" in summary
-    assert "visible Chromium" in summary
+    assert "<live_system>" not in environment["content"]
+    assert "Available offline:" not in environment["content"]
 
 
 def test_battery_state_reader_rejects_stale_service_data(tmp_path: Path) -> None:

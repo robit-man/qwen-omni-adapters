@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import inspect
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from harness.indicator import MAX_VISIBLE_TASKS, task_views
+from harness.indicator import MAX_VISIBLE_TASKS, build_indicator, task_views
 
 
 def test_running_tasks_lead_and_expose_stage_steps_and_tools() -> None:
@@ -87,3 +88,11 @@ def test_task_menu_is_bounded_and_keeps_the_newest_live_work() -> None:
     assert len(views) == MAX_VISIBLE_TASKS
     assert views[0]["task_id"] == "task-0"
     assert views[1]["task_id"] == f"task-{MAX_VISIBLE_TASKS + 3}"
+
+
+def test_exact_tool_calls_are_nested_beneath_each_task() -> None:
+    source = inspect.getsource(build_indicator)
+
+    assert 'label=f"Tool calls — latest {len(view[\'actions\'])}"' in source
+    assert "action_header.set_submenu(action_menu)" in source
+    assert 'marker_text="✓" if action["ok"] else "!"' in source
