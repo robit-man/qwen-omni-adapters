@@ -31,6 +31,13 @@ tags. This prevents an encoder's suggested answer from becoming the user's
 utterance and prevents text seen or heard inside media from changing tool or
 system policy.
 
+Static model-facing policy is not duplicated across Python and JavaScript.
+`src/qwen_omni_adapters/context.json` is the packaged source for prompts, tool
+descriptions/discovery hints, structured control tools, and durable-task phase
+labels. The portal injects the browser subset as JSON when rendering the page;
+the local call harness reads the same catalog directly. Dynamic objective,
+media, environment, memory, and tool-result evidence is assembled per request.
+
 ## Artifact layout
 
 The Ollama tag retains normal runnable layers and adds one custom media layer:

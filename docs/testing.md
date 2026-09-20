@@ -37,6 +37,15 @@ redirect parsing, provider-challenge fail-closed behavior, network-free session
 recall, search→fetch, textual-call compatibility, live bounded receipts, and
 memory-write→memory-search→final chains while ensuring tools remain off without
 explicit client opt-in and unresolved calls never reach TTS.
+Persistent-worker workflow fixtures use natural ASR-style requests rather than
+tool syntax. They execute real temporary Markdown, JSON, CSV, and Python file
+creation, edit and compile code, verify contents, and drive a recorded rendered
+browser through navigation, multi-field form filling, submission, and observed
+confirmation. The context-catalog gate also proves the adapter, harness,
+browser, portal, control tools, and discovery schemas read the same packaged
+configuration. Conversation-trace tests inject a mock sink and cover heard,
+generated, TTS-input, and playback events without enabling content logging by
+default.
 The browser-cache harness covers restore, five-minute logical expiry, media
 preview retention, and explicit clear. Environment tests assert bounded output
 and the omission of IP/MAC data. The persistent-TTS harness proves that two

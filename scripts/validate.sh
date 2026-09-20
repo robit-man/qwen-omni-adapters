@@ -10,8 +10,8 @@ PYTHON=${OMNI_PYTHON_BIN:-$REPO_ROOT/.venv/bin/python}
 }
 
 cd "$REPO_ROOT"
-"$PYTHON" -m compileall -q src runtime portal clients tests
-"$PYTHON" -m ruff check src runtime portal clients tests
+"$PYTHON" -m compileall -q src runtime portal harness clients tests
+"$PYTHON" -m ruff check src runtime portal harness clients tests
 "$PYTHON" -m pytest
 node portal/vad_harness.mjs >/dev/null
 node portal/call_queue_harness.mjs >/dev/null

@@ -115,12 +115,24 @@ subprocess work is stopped if availability crosses the hard floor. Resource
 pressure is scheduler state, never model evidence and never a valid reason to
 finalize a user task as blocked.
 
+The background scheduler checks admission before claiming a durable task, so a
+low-memory interval does not repeatedly flip the task between running and
+pending or flood its indicator history. The small durable-task control plane
+remains available under pressure: list/status/update/cancel/start can still be
+used to override work, while model inference and executable tools stay gated.
+
 The comprehension launcher uses the same policy when selecting its context
 window, so model/KV residency retains room for later runtime work. Background
 tool results and transcripts also have byte bounds, and the worker runs in
 renewable round/call/stall-bounded slices. Configure the policy with
 `OMNI_MEMORY_GOVERNOR`, `OMNI_MEMORY_SOFT_FLOOR_GIB`,
 `OMNI_MEMORY_HARD_FLOOR_GIB`, and `OMNI_MEMORY_OPERATION_RESERVE_GIB`.
+
+Static model policy, public tool descriptions, discovery hints, structured
+control-tool contracts, and task phase labels are loaded from the packaged
+`src/qwen_omni_adapters/context.json`. See
+[context engineering](context-engineering.md). `OMNI_CONTEXT_FILE` may select a
+complete alternate catalog at process startup for controlled testing.
 
 ## Start TTS
 

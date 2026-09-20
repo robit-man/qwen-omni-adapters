@@ -21,6 +21,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from qwen_omni_adapters.context import context_text
+
 TERMINAL_STATUSES = {"completed", "blocked", "cancelled"}
 
 
@@ -132,7 +134,7 @@ class BackgroundTaskStore:
                 "active_tools": [],
                 "tools_used": [],
                 "actions": [],
-                "current_stage": "Queued",
+                "current_stage": context_text("task_stages", "queued"),
                 "guidance": [],
                 "applied_guidance_ids": [],
                 # These survive transcript compaction, so duplicate/stalled
@@ -267,7 +269,7 @@ class BackgroundTaskStore:
             item["lease_until"] = now + max(5.0, lease_s)
             item["last_claimed_at"] = now
             item["updated_at"] = now
-            item["current_stage"] = "Preparing task"
+            item["current_stage"] = context_text("task_stages", "preparing")
             if expired:
                 item.setdefault("progress", []).append(
                     "Resumed after the previous worker stopped."

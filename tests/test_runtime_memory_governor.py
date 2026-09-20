@@ -136,3 +136,41 @@ def test_resource_pressure_never_becomes_task_evidence_or_a_blocker(
     persisted = (tmp_path / "tasks.json").read_text(encoding="utf-8").lower()
     assert "memory headroom" not in persisted
     assert '"messages": []' in persisted
+
+
+def test_idle_background_scheduler_does_not_poll_memory_or_log_pressure(
+    tmp_path: Path,
+) -> None:
+    samples = 0
+
+    def sample() -> float:
+        nonlocal samples
+        samples += 1
+        return 0.5
+
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    governor = MemoryGovernor(_policy(), sampler=sample)
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _request: (_ for _ in ()).throw(
+                AssertionError("an idle worker must not call the portal")
+            )
+        )
+    )
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        memory_governor=governor,
+        client=client,
+    )
+
+    agent.start()
+    time.sleep(0.08)
+    agent.close()
+    client.close()
+
+    assert samples == 0

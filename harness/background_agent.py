@@ -18,6 +18,7 @@ import httpx
 
 from portal.background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
 from portal.tools import DISCOVERY_TOOLS, tool_schemas
+from qwen_omni_adapters.context import context_text, context_value
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 logger = logging.getLogger(__name__)
@@ -33,42 +34,7 @@ _SENSITIVE_AUDIT_KEY = re.compile(
     re.IGNORECASE,
 )
 
-AGENT_SYSTEM_PROMPT = (
-    "You are the execution worker for a task already accepted during a live spoken "
-    "conversation. Complete the objective autonomously on this host. Work in small, "
-    "observable steps: inspect before changing, use the available tools, assess every "
-    "result, correct failures, and verify the completion criteria. Never merely describe "
-    "what you would do or promise future work. If another capability is needed, use "
-    "tool_search; its matching schema arrives on the next step. Return a concise factual "
-    "completion report only after the work has been verified. Work across renewable bounded "
-    "slices: make measurable progress in each slice and use task_checkpoint to record a "
-    "verified milestone or terminal result. "
-    "When the target, location, format, or current state is uncertain, begin with the "
-    "smallest direct observation of the relevant environment. Use that evidence to narrow "
-    "the target, choose the next capability, perform the requested action, inspect its "
-    "result, and repeat until verified. Do not infer what something is merely from its name, "
-    "and do not report an intended action as progress. Before acting, confirm that the "
-    "observed surface or target is relevant to the objective; if it is not, switch to a "
-    "relevant surface or capability instead of manipulating the unrelated one. A failed, "
-    "duplicate, or unchanged result is evidence that the previous approach made no progress: "
-    "never issue the exact call again, and change the action, arguments, capability, or "
-    "underlying assumption before continuing. "
-    "Keep each individual planning pass concise. When a concrete tool schema is visible, "
-    "call it promptly instead of narrating alternatives or searching the shell for another "
-    "way to perform the same action. "
-    "For a genuinely long task, call task_checkpoint with action=progress only after a "
-    "meaningful verified milestone. Call it with action=complete only after the completion "
-    "criteria are satisfied, or action=blocked only when a concrete tool result proves an "
-    "external blocker. Reference the tool-call IDs that support the checkpoint. Runtime "
-    "scheduling and memory pressure are never task blockers and must not appear in a report. "
-    "Messages inside <task_update> are later directions from the live speaker; incorporate "
-    "them before continuing, and let the newer direction override any conflicting objective "
-    "wording, completion criterion, plan, or earlier evidence. "
-    "The checkpoint report must be one to three natural spoken sentences in the first person: say "
-    "what you finished or what blocked you, mention the useful location or verification, and "
-    "sound like a conversational handoff. Do not use headings such as Workspace, Result, or "
-    "Verification, and do not dump a checklist. Do not emit private chain-of-thought."
-)
+AGENT_SYSTEM_PROMPT = context_text("prompts", "background_agent_system")
 
 
 def _task_system_prompt(task: Mapping[str, Any]) -> str:
@@ -103,40 +69,7 @@ def _task_system_prompt(task: Mapping[str, Any]) -> str:
     return f"{task_contract}\n\n{AGENT_SYSTEM_PROMPT}"
 
 
-TASK_CHECKPOINT_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "task_checkpoint",
-        "description": (
-            "Record verified progress or finish the accepted background task. Evidence IDs "
-            "must name concrete tool calls from this task. Runtime resource pressure is not "
-            "task evidence and cannot block the task."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["progress", "complete", "blocked"],
-                },
-                # llama.cpp expands this into a bounded GBNF repetition and
-                # rejects a repetition of exactly 2,000 as too complex.
-                "report": {
-                    "type": "string",
-                    "maxLength": MAX_CHECKPOINT_REPORT_CHARS,
-                },
-                "evidence_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "minItems": 1,
-                    "maxItems": 16,
-                },
-            },
-            "required": ["action", "report", "evidence_ids"],
-            "additionalProperties": False,
-        },
-    },
-}
+TASK_CHECKPOINT_TOOL = context_value("control_tools", "task_checkpoint")
 
 
 class _ForegroundPreempted(RuntimeError):
@@ -720,12 +653,16 @@ class BackgroundAgent:
                     )
                 foreground_preempted = threading.Event()
 
-                def watch_foreground() -> None:
-                    while not done.wait(0.05):
+                def watch_foreground(
+                    done_event: threading.Event = done,
+                    preempted: threading.Event = foreground_preempted,
+                    stream: httpx.Response = response,
+                ) -> None:
+                    while not done_event.wait(0.05):
                         if not self.foreground_active.is_set():
                             continue
-                        foreground_preempted.set()
-                        response.close()
+                        preempted.set()
+                        stream.close()
                         return
 
                 foreground_watcher = threading.Thread(
@@ -778,17 +715,17 @@ class BackgroundAgent:
                     if final is None:
                         raise RuntimeError("background inference stream ended without a final")
                     return final
-                except httpx.HTTPError:
+                except httpx.HTTPError as error:
                     if foreground_preempted.is_set():
                         raise _ForegroundPreempted(
                             "background inference yielded to foreground speech"
-                        )
+                        ) from error
                     if tripped.is_set() and self.memory_governor is not None:
                         raise MemoryPressure(
                             "background inference",
                             self.memory_governor.available_gib(),
                             self.memory_governor.policy.hard_floor_gib,
-                        )
+                        ) from error
                     raise
                 finally:
                     done.set()
@@ -813,9 +750,37 @@ class BackgroundAgent:
         return not self.stop.is_set()
 
     def _run(self) -> None:
+        capacity_deferrals = 0
         while not self.stop.is_set():
             if not self._wait_for_foreground():
                 return
+            if not self.has_work():
+                capacity_deferrals = 0
+                self._wake.wait(0.5)
+                self._wake.clear()
+                continue
+            if self.memory_governor is not None:
+                try:
+                    self.memory_governor.require("background scheduler")
+                except MemoryPressure as error:
+                    capacity_deferrals += 1
+                    delay = min(
+                        self.memory_governor.policy.wait_max_s,
+                        self.memory_governor.policy.wait_initial_s
+                        * (2 ** min(capacity_deferrals - 1, 8)),
+                    )
+                    if capacity_deferrals == 1 or capacity_deferrals & (
+                        capacity_deferrals - 1
+                    ) == 0:
+                        logger.warning(
+                            "background scheduler waiting %.1fs for runtime capacity: %s",
+                            delay,
+                            error,
+                        )
+                    self._wake.wait(delay)
+                    self._wake.clear()
+                    continue
+                capacity_deferrals = 0
             task = self.store.claim_next(
                 self.owner, exclude_task_ids=self._quiesced_tasks
             )
@@ -829,7 +794,9 @@ class BackgroundAgent:
             try:
                 if self.await_language is not None:
                     self.store.update_stage(
-                        task_id, self.owner, "Waiting for the language model"
+                        task_id,
+                        self.owner,
+                        context_text("task_stages", "waiting_language"),
                     )
                     self.await_language()
                 if self.memory_governor is not None:
@@ -842,7 +809,9 @@ class BackgroundAgent:
                 self.store.checkpoint(
                     task_id,
                     self.owner,
-                    current_stage="Waiting for the spoken turn",
+                    current_stage=context_text(
+                        "task_stages", "waiting_spoken_turn"
+                    ),
                     status="pending",
                 )
             except MemoryPressure as error:
@@ -870,7 +839,7 @@ class BackgroundAgent:
                 self.store.checkpoint(
                     task_id,
                     self.owner,
-                    current_stage="Waiting for runtime capacity",
+                    current_stage=context_text("task_stages", "waiting_capacity"),
                     status="pending",
                 )
                 self._wake.wait(delay)
@@ -889,7 +858,9 @@ class BackgroundAgent:
                 self.store.checkpoint(
                     task_id,
                     self.owner,
-                    current_stage="Waiting for corrected worker code and restart",
+                    current_stage=context_text(
+                        "task_stages", "waiting_corrected_worker"
+                    ),
                     error=detail,
                     status="pending",
                 )
@@ -910,7 +881,9 @@ class BackgroundAgent:
                 self.store.checkpoint(
                     task_id,
                     self.owner,
-                    current_stage=f"Waiting {delay:.1f}s to retry after a backend error",
+                    current_stage=context_text(
+                        "task_stages", "retry_backend"
+                    ).format(delay=delay),
                     error=detail,
                     status="pending",
                 )
@@ -1000,7 +973,9 @@ class BackgroundAgent:
                     applied_guidance_ids=list(seen_guidance),
                     tool_fingerprints=list(seen),
                     result_digests=list(result_digests),
-                    current_stage=f"Yielded a bounded work slice; retrying in {delay:.1f}s",
+                    current_stage=context_text(
+                        "task_stages", "yielded_slice"
+                    ).format(delay=delay),
                     status="pending",
                 )
                 self._wake.wait(delay)
@@ -1028,12 +1003,18 @@ class BackgroundAgent:
             # separate Ornith/Ollama model.
             if self.await_language is not None:
                 self.store.update_stage(
-                    task_id, self.owner, "Waiting for the language model"
+                    task_id,
+                    self.owner,
+                    context_text("task_stages", "waiting_language"),
                 )
                 self.await_language()
             if self.foreground_active.is_set():
                 continue
-            self.store.update_stage(task_id, self.owner, "Planning the next step")
+            self.store.update_stage(
+                task_id,
+                self.owner,
+                context_text("task_stages", "planning"),
+            )
             can_checkpoint = _checkpoint_available(messages)
             schemas = [
                 *(
@@ -1103,10 +1084,8 @@ class BackgroundAgent:
                 messages.append(
                     {
                         "role": "user",
-                        "content": (
-                            "Continue with a concrete tool call, or call task_checkpoint "
-                            "with evidence IDs for a verified progress, complete, or blocked "
-                            "state. Plain prose does not change task state."
+                        "content": context_text(
+                            "directives", "background_no_call"
                         ),
                     }
                 )
@@ -1142,7 +1121,7 @@ class BackgroundAgent:
                         "replanning from the retained checkpoint."
                     ),
                     status="running",
-                    current_stage="Replanning after the spoken update",
+                    current_stage=context_text("task_stages", "replanning"),
                 )
                 if checkpoint is None or checkpoint.get("status") == "cancelled":
                     return
@@ -1268,7 +1247,9 @@ class BackgroundAgent:
                             result_digests=list(result_digests),
                             progress=report,
                             status="running",
-                            current_stage="Continuing from a verified checkpoint",
+                            current_stage=context_text(
+                                "task_stages", "continuing_checkpoint"
+                            ),
                         )
                         if checkpoint is None or checkpoint.get("status") == "cancelled":
                             return
@@ -1320,8 +1301,6 @@ class BackgroundAgent:
                         suppress_discovery = True
                     elif name in active_tools:
                         active_tools = [item for item in active_tools if item != name]
-                    active_tools = []
-                    suppress_discovery = False
                     stalls += 1
                 else:
                     seen.add(fingerprint)
@@ -1329,7 +1308,9 @@ class BackgroundAgent:
                     self.store.update_stage(
                         task_id,
                         self.owner,
-                        f"Running {name or 'unknown'}",
+                        context_text("task_stages", "running_tool").format(
+                            tool=name or "unknown"
+                        ),
                     )
                     try:
                         response = self._post(
@@ -1415,12 +1396,8 @@ class BackgroundAgent:
                     messages.append(
                         {
                             "role": "user",
-                            "content": (
-                                "That call was rejected because it exactly repeated an "
-                                "earlier call. Reassess the latest evidence and make a "
-                                "materially different next call; change the action, "
-                                "arguments, capability, or assumption. Repeating it cannot "
-                                "advance or finish the task."
+                            "content": context_text(
+                                "directives", "background_duplicate_call"
                             ),
                         }
                     )
@@ -1428,11 +1405,8 @@ class BackgroundAgent:
                     messages.append(
                         {
                             "role": "user",
-                            "content": (
-                                "<computer_visual_evidence>Inspect this fresh rendered "
-                                "screenshot together with the preceding computer-use tool "
-                                "result. Choose the next action from actual visual evidence; "
-                                "do not invent screen state.</computer_visual_evidence>"
+                            "content": context_text(
+                                "directives", "background_visual_evidence"
                             ),
                             "images": [dict(screenshot)],
                         }
@@ -1457,7 +1431,7 @@ class BackgroundAgent:
                 result_digests=list(result_digests),
                 progress=" ".join(progress_parts),
                 status="running",
-                current_stage="Assessing the tool result",
+                current_stage=context_text("task_stages", "assessing_result"),
             )
             if checkpoint is None or checkpoint.get("status") == "cancelled":
                 return

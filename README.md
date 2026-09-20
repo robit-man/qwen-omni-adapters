@@ -482,11 +482,13 @@ The indicator's menu mutes the microphone, toggles tools, reasoning and
 cameras, copies the public link when the portal is published through a tunnel,
 and cleanly reloads the voice service. It also appends live/recent durable tasks
 as native submenus, so inspecting a task does not close the whole menu. Each
-submenu shows the current-stage spinner, exact tools, retained checkpoints, and
-terminal result. **Clear finished tasks** moves terminal records into the
-human-readable archive, and **Open task archive** opens that log in the desktop
-editor. A real themed state icon sits to the left of `Omni`. Without a desktop
-the harness runs headless and logs instead.
+submenu shows the current-stage spinner, exact bounded tool-call arguments and
+outcomes, retained checkpoints, and terminal result. Live tasks expose
+**Cancel task** and every record exposes **Clear task record**. **Clear finished
+tasks** moves all terminal records into the human-readable archive, and **Open
+task archive** opens that log in the desktop editor. A real themed state icon
+sits to the left of `Omni`. Without a desktop the harness runs headless and logs
+instead.
 
 Defaults are chosen for a spoken conversation:
 
@@ -556,6 +558,8 @@ Two environment variables are worth knowing:
 | `OMNI_MEMORY_SOFT_FLOOR_GIB` | Free-memory floor retained before starting model/tool work (default `3`) |
 | `OMNI_MEMORY_HARD_FLOOR_GIB` | Emergency floor that cancels cancellable work before kernel OOM (default `2`) |
 | `OMNI_MEMORY_OPERATION_RESERVE_GIB` | Additional per-operation reserve above the soft floor (default `1`) |
+| `OMNI_CONTEXT_FILE` | Optional complete `robit.omni.context.v1` catalog override; defaults to the packaged context catalog |
+| `OMNI_CALL_LOG_CONTENT` | Opt in to exact structured heard/generated/TTS traces; disabled by default |
 
 Keep `OMNI_TTS_PERSISTENT=1` only when speech and comprehension genuinely fit
 together. On constrained unified-memory hosts, use `OMNI_TTS_PERSISTENT=0` and
@@ -672,6 +676,7 @@ separate so environmental sounds are never misrouted as the user's words.
 - [Architecture and ownership](docs/architecture.md)
 - [Agent runbook](docs/agent-runbook.md)
 - [Runtime guide](docs/runtime.md)
+- [Context engineering and tool/phase map](docs/context-engineering.md)
 - [Verified model profiles](docs/model-profiles.md)
 - [Phone deployment](docs/phone-portal.md)
 - [Linux, macOS, and Windows services](docs/services.md)

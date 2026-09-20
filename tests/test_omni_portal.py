@@ -27,6 +27,7 @@ from portal.tools import (
     PortalToolHarness,
     discover_tool_names,
 )
+from qwen_omni_adapters.context import context_catalog
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy, MemoryPressure
 
 TOKEN = "portal-test-token-with-more-than-24-characters"
@@ -231,6 +232,7 @@ def test_portal_index_has_mobile_security_headers_and_no_token() -> None:
 def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None:
     javascript = Path("portal/static/portal.js").read_text()
     css = Path("portal/static/portal.css").read_text()
+    context = context_catalog()
 
     assert "function renderMarkdown" in javascript
     assert "function renderToolTrace" in javascript
@@ -316,8 +318,12 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert "const hasMedia = state.attachments.length > 0" in javascript
     assert "MEDIA_CONVERSATION_SYSTEM_PROMPT" in javascript
     assert "LIVE_CALL_SYSTEM_PROMPT" in javascript
-    assert "Do not echo" in javascript
-    assert "Only the media attached to the latest" in javascript
+    assert "Do not echo" in context["prompts"]["live_call_system"]
+    assert (
+        "Only the media attached to the latest"
+        in context["prompts"]["media_conversation_system"]
+    )
+    assert 'document.getElementById("omni-context")' in javascript
     assert 'task = "describe"' not in javascript
     assert "if (built.hasMedia) state.history = []" not in javascript
     assert "if (item.frame) state.history = []" not in javascript
@@ -1954,9 +1960,12 @@ def test_portal_executes_only_allowlisted_tool_and_strips_media_on_followup() ->
     assert len(requests) == 2
     assert "portal_auto_tools" not in requests[0]
     assert "<portal_tools>" in requests[0]["messages"][0]["content"]
-    assert "Any additional schema supplied beside it is immediately available" in requests[0]["messages"][0]["content"]
     assert (
-        "Search again only for a genuinely different capability"
+        "Call an already exposed matching tool directly"
+        in requests[0]["messages"][0]["content"]
+    )
+    assert (
+        "search again only for a different unmet capability"
         in requests[0]["messages"][0]["content"]
     )
     assert "images" not in requests[1]["messages"][0]
@@ -2532,7 +2541,7 @@ def test_mock_live_call_stream_defaults_native_reasoning_off() -> None:
     assert "conversational multimodal assistant" in environment["content"]
     assert "current tool result" in environment["content"]
     assert "only a current visual observation" in environment["content"]
-    assert "never device GPS, a current street" in environment["content"]
+    assert "not GPS, street position, or a visible scene" in environment["content"]
     assert "<live_system>" in environment["content"]
     assert "Available offline:" in environment["content"]
 

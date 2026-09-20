@@ -783,9 +783,9 @@ def test_failed_foreground_tool_loop_does_not_invent_canned_speech() -> None:
     assert "without actionable progress" in result.error
     assert result.spoke_seconds == 0
 def test_live_prompt_routes_mutating_verified_work_to_the_persistent_agent() -> None:
-    assert "Treat every request as solvable" in LIVE_CALL_SYSTEM_PROMPT
-    assert "background_task action=start" in LIVE_CALL_SYSTEM_PROMPT
-    assert "try a materially different method" in LIVE_CALL_SYSTEM_PROMPT
+    assert "Pursue requested outcomes" in LIVE_CALL_SYSTEM_PROMPT
+    assert "background_task" in LIVE_CALL_SYSTEM_PROMPT
+    assert "change method after a failure" in LIVE_CALL_SYSTEM_PROMPT
 
 
 def test_live_context_requires_tools_and_grounded_alternatives() -> None:
@@ -800,8 +800,9 @@ def test_live_context_requires_tools_and_grounded_alternatives() -> None:
     system = payload["messages"][0]["content"]
 
     assert "<execution_policy>" in system
-    assert "Use every supplied or discovered tool" in system
-    assert "refusal or capability disclaimer is not a valid response" in system
+    assert "Act through the supplied tools" in system
+    assert "until the requested outcome is verified" in system
+    assert "brief handoff acknowledgment" in system
 
 
 

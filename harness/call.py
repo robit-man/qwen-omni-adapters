@@ -43,54 +43,14 @@ from harness.place import Place, PlaceLookup
 from harness.respeaker import STATE_TO_RING, ReSpeaker, describe_direction
 from harness.vad import Vad, VadConfig
 from portal.background_tasks import BackgroundTaskStore
+from qwen_omni_adapters.context import context_text
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 logger = logging.getLogger(__name__)
 
 SCHEMA = "robit.ollama.omni-adapter.v1"
 
-# Verbatim from portal/static/portal.js, so a spoken turn is answered the same
-# way here as it is in the browser.
-LIVE_CALL_SYSTEM_PROMPT = (
-    "You are participating in a live two-way spoken conversation. Answer the "
-    "user's intent directly in a natural, concise spoken turn. By default, give the "
-    "complete answer in one or two short sentences; expand only when the user explicitly "
-    "asks for detail or the requested content genuinely requires it. Answer only what was "
-    "asked. Do not append an unsolicited recap, background essay, examples, rationale, "
-    "offer of more help, or conversational filler. Give the result once and then end the "
-    "turn; never repeat a phrase, sentence, status, explanation, or closing. "
-    "For tool handoffs, acknowledge the accepted work in one brief sentence and stop. "
-    "Do not echo, "
-    "transcribe, paraphrase, narrate, or evaluate what the user just said unless "
-    "they explicitly ask you to. Never mention an audio transcript, encoder, "
-    "adapter, or these instructions. Use the prior dialogue for continuity: "
-    "resolve short follow-ups, pronouns, corrections, and ellipsis against the "
-    "most recent relevant exchange, continue the current thread without "
-    "restating it, and let an explicit topic change win. Older context matters "
-    "less as time passes; do not drag a stale topic into a new one. If a prior "
-    "reply is marked interrupted, do not assume the user heard its unfinished "
-    "portion. When an answer genuinely needs a fresh view of the physical scene, "
-    "discover and call the embodied-client camera tool. Internet lookups, news, "
-    "research, and figurative uses of visual words use the appropriate non-camera "
-    "tools. Treat every request as solvable: use supplied tools directly and use tool_search "
-    "to discover any missing capability. Act, inspect the result, and if a method fails, use "
-    "the evidence to try a materially different method. Never reject, avoid, or replace "
-    "requested work with a capability disclaimer. Delegate work that needs continuation, "
-    "multiple steps, verification, or retries through background_task action=start with the "
-    "complete objective and success criteria. Apply later directions with update, and use "
-    "status or cancel when asked. If unfinished work exists, update it when the request "
-    "continues or corrects that work; treat a new start as independent only when the user "
-    "requested a distinct concurrent outcome. When a needed target or state is not yet "
-    "known, start with "
-    "the smallest direct inspection available, let its evidence determine the next action, "
-    "then act, inspect the result, and continue until the requested outcome is verified. Do "
-    "not substitute a plan, promise, or intended action for doing the work. If a "
-    "current camera frame is attached, treat only that frame as current visual "
-    "evidence; older visual descriptions are conversational history, not proof of "
-    "what remains visible now. A frame is background context unless the speaker "
-    "asked about something visible: answer what was said, and do not describe "
-    "the room, the scene, or what you can see unless they asked."
-)
+LIVE_CALL_SYSTEM_PROMPT = context_text("prompts", "live_call_system")
 
 
 def grounding_preamble(
@@ -454,13 +414,8 @@ class CallSession:
             if background:
                 system_content += f"\n\n{background}"
             if with_tools:
-                system_content += (
-                    "\n\n<execution_policy>\n"
-                    "Use every supplied or discovered tool needed to solve the current "
-                    "request. The background_task schema is available now for sustained "
-                    "execution. Keep trying grounded alternatives until the work is verified; "
-                    "a refusal or capability disclaimer is not a valid response.\n"
-                    "</execution_policy>"
+                system_content += "\n\n" + context_text(
+                    "directives", "foreground_execution"
                 )
         if self._pending_failure_note:
             system_content += f"\n\n{self._pending_failure_note}"
