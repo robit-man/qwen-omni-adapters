@@ -1834,7 +1834,7 @@ def test_portal_executes_only_allowlisted_tool_and_strips_media_on_followup() ->
     assert len(requests) == 2
     assert "portal_auto_tools" not in requests[0]
     assert "<portal_tools>" in requests[0]["messages"][0]["content"]
-    assert "Only tool_search is initially visible" in requests[0]["messages"][0]["content"]
+    assert "Any additional schema supplied beside it is immediately available" in requests[0]["messages"][0]["content"]
     assert (
         "Search again only for a genuinely different capability"
         in requests[0]["messages"][0]["content"]

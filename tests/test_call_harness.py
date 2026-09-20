@@ -736,9 +736,25 @@ def test_failed_foreground_tool_loop_gets_an_honest_spoken_terminal_report() -> 
 
 
 def test_live_prompt_routes_mutating_verified_work_to_the_persistent_agent() -> None:
-    assert "creates, edits, converts, moves, or deletes files" in LIVE_CALL_SYSTEM_PROMPT
-    assert "background_task with action=start" in LIVE_CALL_SYSTEM_PROMPT
-    assert "semantic execution policy" in LIVE_CALL_SYSTEM_PROMPT
+    assert "Treat every request as solvable" in LIVE_CALL_SYSTEM_PROMPT
+    assert "background_task action=start" in LIVE_CALL_SYSTEM_PROMPT
+    assert "try a materially different method" in LIVE_CALL_SYSTEM_PROMPT
+
+
+def test_live_context_requires_tools_and_grounded_alternatives() -> None:
+    class Worker:
+        def context_summary(self) -> str:
+            return ""
+
+    call = CallSession(CallConfig(token="t", model="m"))
+    call.background_agent = Worker()  # type: ignore[assignment]
+
+    payload = call._build_payload(b"wav", 1, None, with_tools=True)
+    system = payload["messages"][0]["content"]
+
+    assert "<execution_policy>" in system
+    assert "Use every supplied or discovered tool" in system
+    assert "refusal or capability disclaimer is not a valid response" in system
 
 
 

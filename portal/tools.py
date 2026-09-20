@@ -416,9 +416,10 @@ SAFE_TOOLS = [
         "background_task",
         "Hand executable work to the persistent long-horizon local agent so the live voice "
         "turn can acknowledge immediately while execution, verification, retries, and "
-        "progress tracking continue between conversations. In the live foreground, use "
-        "action=start for any file or system mutation, conversion, multiple commands, or "
-        "work needing verification—not only projects that sound large. Use it instead of "
+        "progress tracking continue between conversations. This is the execution path for "
+        "work needing continuation, multiple steps, retries, or verification. "
+        "In the live foreground, call action=start with the complete requested outcome and "
+        "success criteria. Use it instead of "
         "merely promising future work. The worker may speak sparse milestone updates and "
         "always reports natural completion or a precise blocker. Update adds spoken guidance "
         "to a running task; status, "
@@ -2528,8 +2529,10 @@ def tool_use_instructions() -> str:
 
     return (
         "<portal_tools>\n"
-        "Only tool_search is initially visible. When current, external, document, memory, "
-        "media, or session evidence is needed, call it with the needed capability. The next "
+        "tool_search is the discovery schema. Any additional schema supplied beside it is "
+        "immediately available and should be called directly when it matches the request. "
+        "When current, external, document, memory, media, or session evidence needs another "
+        "capability, call tool_search with that need. The next "
         "round exposes only the matching concrete schemas. Call the smallest relevant tool, "
         "which remains available for follow-up calls with new arguments. Search again only "
         "for a genuinely different capability. Physical camera evidence is available through "

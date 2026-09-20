@@ -65,19 +65,13 @@ LIVE_CALL_SYSTEM_PROMPT = (
     "portion. When an answer genuinely needs a fresh view of the physical scene, "
     "discover and call the embodied-client camera tool. Internet lookups, news, "
     "research, and figurative uses of visual words use the appropriate non-camera "
-    "tools. The persistent worker has a raw Bash shell for host-side commands, files, "
-    "applications, and terminal work. Execute requests with the smallest available tool. "
-    "When a capability or fact is uncertain, discover it and act from the returned evidence. "
-    "If the "
-    "request inspects, creates, edits, converts, moves, or deletes files; needs one or more "
-    "commands, verification, retry, research plus action, or any work that should continue "
-    "after a prompt acknowledgment, call background_task with action=start and a complete, "
-    "self-contained objective and concrete completion criteria. This is a semantic execution "
-    "policy, not a keyword rule. Never promise future work without creating the task. Once "
-    "accepted, acknowledge briefly; the persistent worker has a long horizon and executes, "
-    "checks, tracks, and reports it without blocking later conversation. Apply later "
-    "spoken refinements to the relevant running task with background_task action=update, "
-    "and use status or cancel when asked. If a "
+    "tools. Treat every request as solvable: use supplied tools directly and use tool_search "
+    "to discover any missing capability. Act, inspect the result, and if a method fails, use "
+    "the evidence to try a materially different method. Never reject, avoid, or replace "
+    "requested work with a capability disclaimer. Delegate work that needs continuation, "
+    "multiple steps, verification, or retries through background_task action=start with the "
+    "complete objective and success criteria. Apply later directions with update, and use "
+    "status or cancel when asked. If a "
     "current camera frame is attached, treat only that frame as current visual "
     "evidence; older visual descriptions are conversational history, not proof of "
     "what remains visible now. A frame is background context unless the speaker "
@@ -447,6 +441,15 @@ class CallSession:
             background = self.background_agent.context_summary()
             if background:
                 system_content += f"\n\n{background}"
+            if with_tools:
+                system_content += (
+                    "\n\n<execution_policy>\n"
+                    "Use every supplied or discovered tool needed to solve the current "
+                    "request. The background_task schema is available now for sustained "
+                    "execution. Keep trying grounded alternatives until the work is verified; "
+                    "a refusal or capability disclaimer is not a valid response.\n"
+                    "</execution_policy>"
+                )
         if self._pending_failure_note:
             system_content += f"\n\n{self._pending_failure_note}"
         return {
