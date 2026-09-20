@@ -685,6 +685,7 @@ separate so environmental sounds are never misrouted as the user's words.
 - [Portal tools and tool chaining](docs/tools.md)
 - [GGUF/Ollama sidecar ABI](docs/gguf-abi.md)
 - [Testing](docs/testing.md)
+- [Deferred component candidates](docs/candidate-components.md)
 - [Cleanup and storage safety](docs/cleanup.md)
 - [Security model](SECURITY.md)
 

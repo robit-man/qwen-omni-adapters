@@ -145,6 +145,7 @@ session can reconstruct it from the tag's sidecar layer.
 - [Runtime guide](runtime.md)
 - [Build and release runbook](build-and-release.md)
 - [Test plan](testing.md)
+- [Deferred component candidates](candidate-components.md)
 - [First release record](qwen38-27b-e03-release.md)
 - [Hugging Face model card](huggingface-model-card.md)
 - [Machine-readable first-release manifest](sidecar-manifest.json)
