@@ -512,6 +512,20 @@ class OmniDaemon:
             f"(evidence: {residency_backend()})"
         )
 
+
+
+    def _cleanup_existing_comprehension(self) -> None:
+        """Kill any existing llama-server on port 8901 so we can bind cleanly."""
+        import subprocess
+        subprocess.run(
+            ["pkill", "-9", "-f", "llama-server"],
+            capture_output=True,
+            timeout=5,
+        )
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("killed existing llama-server processes")
+
     def start_children(self) -> str:
         python = sys.executable
         common = os.environ.copy()
