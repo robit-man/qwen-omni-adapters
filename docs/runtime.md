@@ -125,8 +125,12 @@ The comprehension launcher uses the same policy when selecting its context
 window, so model/KV residency retains room for later runtime work. Warm-load
 samples may refine the estimate but can never undercut the installed model and
 projector byte floor; a pressure downshift or abnormal exit also caps the next
-load below the failed tier. Background tool results and transcripts have byte
-bounds, and the worker runs in renewable round/call/stall-bounded slices. Configure the policy with
+load below the failed tier. If allocator lag after TTS leaves no window under
+the stricter startup cushion, the smallest fitting recovery window may use the
+shared governor threshold; it still preserves the complete soft/hard safety
+band and avoids a permanent reload loop. Background tool results and
+transcripts have byte bounds, and the worker runs in renewable
+round/call/stall-bounded slices. Configure the policy with
 `OMNI_MEMORY_GOVERNOR`, `OMNI_MEMORY_SOFT_FLOOR_GIB`,
 `OMNI_MEMORY_HARD_FLOOR_GIB`, and `OMNI_MEMORY_OPERATION_RESERVE_GIB`.
 

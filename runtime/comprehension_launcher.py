@@ -24,7 +24,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from qwen_omni_adapters.memory import MemoryPolicy
+from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 
 GIB_IN_KIB = 1024 * 1024
 GIB_IN_BYTES = 1024**3
@@ -114,6 +114,48 @@ def choose_context_tokens(
         if needed + max(headroom, runtime_reserve_gib) <= available_gib:
             chosen = context_tokens
     return chosen
+
+
+def choose_context_tokens_with_recovery(
+    available_gib: float,
+    *,
+    minimum: int,
+    maximum: int,
+    base_gib: float,
+    kv_gib_per_token: float,
+    parallel_slots: int,
+    startup_reserve_gib: float,
+    recovery_reserve_gib: float,
+) -> tuple[int | None, bool]:
+    """Select normally, or recover at the shared governor's safe floor.
+
+    Normal startup keeps the soft floor *plus* an inference-operation cushion.
+    Immediately after TTS, allocator/page-cache lag can make that stricter sum
+    miss the smallest safe window by a few hundred MiB. Only when no normal
+    window fits, retry with the generic governor threshold, which still keeps
+    the full soft/hard safety band and prevents a permanent reload deadlock.
+    """
+
+    common = {
+        "minimum": minimum,
+        "maximum": maximum,
+        "base_gib": base_gib,
+        "kv_gib_per_token": kv_gib_per_token,
+        "parallel_slots": parallel_slots,
+    }
+    selected = choose_context_tokens(
+        available_gib,
+        runtime_reserve_gib=startup_reserve_gib,
+        **common,
+    )
+    if selected is not None:
+        return selected, False
+    selected = choose_context_tokens(
+        available_gib,
+        runtime_reserve_gib=min(startup_reserve_gib, recovery_reserve_gib),
+        **common,
+    )
+    return selected, selected is not None
 
 
 def context_headroom_gib(
@@ -492,6 +534,7 @@ def main(argv: list[str] | None = None) -> int:
         if memory_policy.enabled
         else 0.0
     )
+    recovery_reserve = MemoryGovernor(memory_policy).required_gib()
     fingerprint, component_gib = _component_fingerprint(command)
     calibration = _load_calibration(args.calibration_file, fingerprint, command)
     base = _live_calibrated_base(calibration)
@@ -504,14 +547,15 @@ def main(argv: list[str] | None = None) -> int:
         parallel_slots=args.parallel_slots,
     )
     if isinstance(base, (int, float)):
-        selected = choose_context_tokens(
+        selected, recovery_window = choose_context_tokens_with_recovery(
             available,
             minimum=args.min_context,
             maximum=effective_maximum,
             base_gib=float(base),
             kv_gib_per_token=kv,
             parallel_slots=args.parallel_slots,
-            runtime_reserve_gib=runtime_reserve,
+            startup_reserve_gib=runtime_reserve,
+            recovery_reserve_gib=recovery_reserve,
         )
         if selected is None and not _probe_backed_off(calibration):
             # A stale calibrated baseline can block every window even though
@@ -532,6 +576,7 @@ def main(argv: list[str] | None = None) -> int:
                 else None
             )
     else:
+        recovery_window = False
         # The first successful load is the calibration probe. Reuse the last
         # installed components for a conservative minimum-window probe. The
         # probe also retains one minimum-tier KV increment; component bytes
@@ -562,6 +607,7 @@ def main(argv: list[str] | None = None) -> int:
         time.sleep(float(os.environ.get("OMNI_COMPREHENSION_RETRY_SECONDS", "15")))
         return 75
 
+    admitted_reserve = recovery_reserve if recovery_window else runtime_reserve
     _write_selected_context(args.state_file, selected)
     if isinstance(base, (int, float)):
         estimated = estimated_resident_gib(
@@ -572,7 +618,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         headroom = max(0.0, available - estimated)
         required_headroom = max(
-            runtime_reserve,
+            admitted_reserve,
             context_headroom_gib(
             selected,
             windows=candidate_windows(args.min_context, args.max_context),
@@ -583,7 +629,8 @@ def main(argv: list[str] | None = None) -> int:
         detail = (
             f"~{estimated:.2f} GiB from live calibration, "
             f"{headroom:.2f} GiB live headroom "
-            f"({required_headroom:.2f} GiB runtime minimum)"
+            f"({required_headroom:.2f} GiB runtime minimum"
+            f"{'; recovery window' if recovery_window else ''})"
         )
     else:
         detail = f"first live calibration probe; {component_gib:.2f} GiB components"
@@ -620,7 +667,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             sampled = True
             required_headroom = max(
-                runtime_reserve,
+                admitted_reserve,
                 context_headroom_gib(
                     selected,
                     windows=candidate_windows(args.min_context, args.max_context),

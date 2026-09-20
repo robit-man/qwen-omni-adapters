@@ -22,6 +22,7 @@ from comprehension_launcher import (  # noqa: E402
     available_memory_gib,
     candidate_windows,
     choose_context_tokens,
+    choose_context_tokens_with_recovery,
     context_headroom_gib,
     estimated_resident_gib,
 )
@@ -58,6 +59,38 @@ def test_context_selection_retains_the_generic_runtime_reserve() -> None:
     assert choose_context_tokens(22.0, **arguments) == 16_384
     assert choose_context_tokens(21.5, **arguments) == 8192
     assert choose_context_tokens(20.4, **arguments) is None
+
+
+def test_recovery_window_uses_shared_governor_floor_without_deadlocking() -> None:
+    selected, recovery = choose_context_tokens_with_recovery(
+        22.53,
+        minimum=4096,
+        maximum=32_768,
+        base_gib=18.52,
+        kv_gib_per_token=0.375 / 4096,
+        parallel_slots=1,
+        startup_reserve_gib=4.0,
+        recovery_reserve_gib=3.0,
+    )
+
+    assert selected == 8192
+    assert recovery is True
+
+
+def test_recovery_floor_is_not_used_when_normal_admission_fits() -> None:
+    selected, recovery = choose_context_tokens_with_recovery(
+        25.0,
+        minimum=4096,
+        maximum=32_768,
+        base_gib=18.52,
+        kv_gib_per_token=0.375 / 4096,
+        parallel_slots=1,
+        startup_reserve_gib=4.0,
+        recovery_reserve_gib=3.0,
+    )
+
+    assert selected == 16_384
+    assert recovery is False
 
 
 def test_context_reserve_is_derived_from_the_adjacent_kv_tier() -> None:
