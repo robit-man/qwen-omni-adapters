@@ -143,7 +143,15 @@ class MemoryGovernor:
             if reserve_gib is None
             else max(0.0, float(reserve_gib))
         )
-        return self.policy.soft_floor_gib + reserve
+        # The soft floor is already the normal operating cushion. Treat the
+        # operation reserve as distance above the emergency cancellation
+        # floor instead of adding both cushions together; adding them made a
+        # healthy resident model permanently inadmissible even though it still
+        # had the full hard-to-soft safety band available.
+        return max(
+            self.policy.soft_floor_gib,
+            self.policy.hard_floor_gib + reserve,
+        )
 
     def require(self, label: str, *, reserve_gib: float | None = None) -> None:
         if not self.enabled:

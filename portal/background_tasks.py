@@ -95,6 +95,7 @@ class BackgroundTaskStore:
                 "progress",
                 "current_stage",
                 "tools_used",
+                "actions",
                 "guidance",
                 "result",
                 "error",
@@ -130,6 +131,7 @@ class BackgroundTaskStore:
                 # and retry commands instead of discovering computer use.
                 "active_tools": [],
                 "tools_used": [],
+                "actions": [],
                 "current_stage": "Queued",
                 "guidance": [],
                 "applied_guidance_ids": [],
@@ -187,6 +189,18 @@ class BackgroundTaskStore:
                         output.write(
                             f"Tools used: {', '.join(str(tool) for tool in tools)}\n"
                         )
+                    actions = item.get("actions")
+                    if isinstance(actions, list) and actions:
+                        output.write("Actions:\n")
+                        for action in actions:
+                            if not isinstance(action, Mapping):
+                                continue
+                            marker = "ok" if action.get("ok") is True else "failed"
+                            output.write(
+                                f"  - {action.get('tool', 'unknown')} "
+                                f"{action.get('arguments', '{}')} -> {marker}: "
+                                f"{action.get('outcome', '')}\n"
+                            )
                     progress = item.get("progress")
                     if isinstance(progress, list) and progress:
                         output.write("Steps:\n")
@@ -228,24 +242,37 @@ class BackgroundTaskStore:
 
         def claim(value: dict[str, Any]) -> dict[str, Any] | None:
             now = time.time()
+            candidates = []
             for item in value.get("tasks", []):
                 if str(item.get("task_id") or "") in excluded:
                     continue
                 status = item.get("status")
-                expired = status == "running" and float(item.get("lease_until") or 0) < now
-                if status != "pending" and not expired:
-                    continue
-                item["status"] = "running"
-                item["owner"] = owner
-                item["lease_until"] = now + max(5.0, lease_s)
-                item["updated_at"] = now
-                item["current_stage"] = "Preparing task"
-                if expired:
-                    item.setdefault("progress", []).append(
-                        "Resumed after the previous worker stopped."
-                    )
-                return copy.deepcopy(item)
-            return None
+                expired = (
+                    status == "running"
+                    and float(item.get("lease_until") or 0) < now
+                )
+                if status == "pending" or expired:
+                    candidates.append((item, expired))
+            if not candidates:
+                return None
+            item, expired = min(
+                candidates,
+                key=lambda candidate: (
+                    float(candidate[0].get("last_claimed_at") or 0),
+                    float(candidate[0].get("created_at") or 0),
+                ),
+            )
+            item["status"] = "running"
+            item["owner"] = owner
+            item["lease_until"] = now + max(5.0, lease_s)
+            item["last_claimed_at"] = now
+            item["updated_at"] = now
+            item["current_stage"] = "Preparing task"
+            if expired:
+                item.setdefault("progress", []).append(
+                    "Resumed after the previous worker stopped."
+                )
+            return copy.deepcopy(item)
 
         return self._mutate(claim)
 
@@ -330,6 +357,53 @@ class BackgroundTaskStore:
             return None
 
         return self._mutate(update)
+
+    def record_action(
+        self,
+        task_id: str,
+        owner: str,
+        *,
+        call_id: str,
+        tool: str,
+        arguments: str,
+        outcome: str,
+        ok: bool,
+        recorded_at: float | None = None,
+    ) -> dict[str, Any] | None:
+        """Append one bounded tool-call audit entry while its task lease is held."""
+
+        def record(value: dict[str, Any]) -> dict[str, Any] | None:
+            for item in value.get("tasks", []):
+                if item.get("task_id") != task_id or item.get("owner") != owner:
+                    continue
+                if item.get("status") != "running":
+                    return self._public(item)
+                now = time.time()
+                actions = item.setdefault("actions", [])
+                bounded_call_id = str(call_id)[:128]
+                if any(
+                    isinstance(action, Mapping)
+                    and action.get("call_id") == bounded_call_id
+                    for action in actions
+                ):
+                    return self._public(item)
+                action = {
+                    "call_id": bounded_call_id,
+                    "tool": str(tool or "unknown")[:120],
+                    "arguments": str(arguments)[:2000],
+                    "outcome": str(outcome)[:1200],
+                    "ok": bool(ok),
+                }
+                action_time = now if recorded_at is None else float(recorded_at)
+                if action_time > 0:
+                    action["at"] = action_time
+                actions.append(action)
+                item["actions"] = actions[-32:]
+                item["updated_at"] = now
+                return self._public(item)
+            return None
+
+        return self._mutate(record)
 
     def update_stage(
         self,

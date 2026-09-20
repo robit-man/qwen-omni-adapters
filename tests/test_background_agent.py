@@ -15,11 +15,14 @@ from harness.background_agent import (
     MAX_TOOL_RESULT_CHARS,
     TASK_CHECKPOINT_TOOL,
     BackgroundAgent,
+    _audit_json,
     _bounded_tool_result,
+    _checkpoint_available,
     _compact_task_messages,
     _NonRetryableBackgroundError,
     _seen_tool_fingerprints,
     _stream_error,
+    _tool_evidence,
 )
 from portal.background_tasks import BackgroundTaskStore
 from portal.documents import SessionDocumentStore
@@ -151,6 +154,138 @@ def test_background_task_store_checkpoints_and_recovers_expired_work(
     # A second instance sees the same cross-process checkpoint.
     reopened = BackgroundTaskStore(tmp_path / "tasks.json")
     assert reopened.get(created["task_id"])["round"] == 1  # type: ignore[index]
+
+
+def test_background_task_claims_rotate_between_pending_work(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    first = store.create("First task")
+    second = store.create("Second task")
+
+    claimed_first = store.claim_next("worker")
+    assert claimed_first is not None
+    assert claimed_first["task_id"] == first["task_id"]
+    store.checkpoint(first["task_id"], "worker", status="pending")
+
+    claimed_second = store.claim_next("worker")
+    assert claimed_second is not None
+    assert claimed_second["task_id"] == second["task_id"]
+
+
+def test_background_task_store_records_bounded_action_audit(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Inspect a file.")
+    claimed = store.claim_next("worker")
+    assert claimed is not None
+
+    recorded = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="call-1",
+        tool="shell",
+        arguments='{"command": "ls -l Desktop"}',
+        outcome='{"exit_code": 0}',
+        ok=True,
+    )
+
+    assert recorded is not None
+    assert recorded["actions"] == [
+        {
+            "call_id": "call-1",
+            "at": recorded["actions"][0]["at"],
+            "tool": "shell",
+            "arguments": '{"command": "ls -l Desktop"}',
+            "outcome": '{"exit_code": 0}',
+            "ok": True,
+        }
+    ]
+
+
+def test_action_audit_redacts_credentials_and_bulk_payloads() -> None:
+    rendered = _audit_json(
+        {
+            "command": "play Desktop/song.mp3",
+            "access_token": "do-not-retain",
+            "stdin": "x" * 4000,
+            "screenshot": {"data": "also-do-not-retain"},
+        },
+        2000,
+    )
+
+    assert "play Desktop/song.mp3" in rendered
+    assert "do-not-retain" not in rendered
+    assert "also-do-not-retain" not in rendered
+    assert "[redacted]" in rendered
+    assert "[omitted 4000 characters]" in rendered
+
+
+def test_checkpoint_requires_new_concrete_action_after_every_attempt() -> None:
+    messages = [
+        {
+            "role": "tool",
+            "tool_name": "tool_search",
+            "tool_call_id": "search-1",
+            "content": '{"available_tools": ["shell"]}',
+        }
+    ]
+    assert _checkpoint_available(messages) is False
+
+    messages.append(
+        {
+            "role": "tool",
+            "tool_name": "shell",
+            "tool_call_id": "shell-1",
+            "content": '{"exit_code": 0}',
+        }
+    )
+    assert _checkpoint_available(messages) is True
+
+    messages.append(
+        {
+            "role": "tool",
+            "tool_name": "shell",
+            "tool_call_id": "shell-duplicate",
+            "content": '{"error": "duplicate_tool_call"}',
+        }
+    )
+    assert _checkpoint_available(messages) is False
+    assert "shell-duplicate" not in _tool_evidence(messages)
+
+    messages.append(
+        {
+            "role": "tool",
+            "tool_name": "task_checkpoint",
+            "tool_call_id": "checkpoint-1",
+            "content": '{"error": "unsupported_checkpoint"}',
+        }
+    )
+    assert _checkpoint_available(messages) is False
+
+    messages.append(
+        {
+            "role": "tool",
+            "tool_name": "tool_search",
+            "tool_call_id": "search-2",
+            "content": '{"error": "duplicate_tool_call"}',
+        }
+    )
+    assert _checkpoint_available(messages) is False
+
+    messages.append(
+        {
+            "role": "user",
+            "content": '<task_update id="new">Use the corrected target.</task_update>',
+        }
+    )
+    assert _checkpoint_available(messages) is False
+    messages.append(
+        {
+            "role": "tool",
+            "tool_name": "shell",
+            "tool_call_id": "shell-2",
+            "content": '{"exit_code": 0}',
+        }
+    )
+    assert _checkpoint_available(messages) is True
 
 
 def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> None:
@@ -311,6 +446,38 @@ def test_portal_background_tool_starts_and_controls_persistent_work(
     )["task"]["status"] == "cancelled"
 
 
+def test_new_background_start_must_reconcile_unfinished_work(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    existing = store.create("Finish the current request.")
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300), background_tasks=store
+    )
+
+    rejected = harness.execute(
+        "voice",
+        "background_task",
+        {"action": "start", "objective": "Do another thing."},
+    )
+
+    assert rejected["accepted"] is False
+    assert rejected["error"] == "unfinished_task_requires_relationship"
+    assert rejected["active_tasks"][0]["task_id"] == existing["task_id"]
+    assert len(store.list()) == 1
+
+    independent = harness.execute(
+        "voice",
+        "background_task",
+        {
+            "action": "start",
+            "objective": "Do a separate concurrent thing.",
+            "independent": True,
+        },
+    )
+
+    assert independent["accepted"] is True
+    assert len(store.list()) == 2
+
+
 def test_background_agent_yields_between_inference_and_tool_steps(
     tmp_path: Path,
 ) -> None:
@@ -323,6 +490,7 @@ def test_background_agent_yields_between_inference_and_tool_steps(
         if request.url.path == "/api/chat/stream":
             payload = json.loads(request.content)
             assert payload["think"] is True
+            assert payload["tool_choice"] == "required"
             tool_results = [
                 item for item in payload["messages"] if item.get("role") == "tool"
             ]
@@ -388,6 +556,10 @@ def test_background_agent_yields_between_inference_and_tool_steps(
     assert current["status"] == "completed"
     assert current["result"].startswith("I created marker.txt")
     assert "TASK_COMPLETE" not in current["result"]
+    assert current["actions"][0]["tool"] == "shell"
+    assert "printf ready" in current["actions"][0]["arguments"]
+    assert '"exit_code": 0' in current["actions"][0]["outcome"]
+    assert current["actions"][0]["ok"] is True
     assert requests == [
         "/api/chat/stream",
         "/api/tools/shell/call",
@@ -426,19 +598,24 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
         assert payload["options"]["num_predict"] == 256
         if chat_round == 1:
             assert payload["think"] is True
-            assert tool_names == ["task_checkpoint", "tool_search"]
+            assert payload["tool_choice"] == "required"
+            assert tool_names == ["tool_search"]
             call_name = "tool_search"
             arguments = {"query": "visual rendered browser navigation"}
         elif chat_round == 2:
             assert payload["think"] is False
             assert tool_names == [
-                "task_checkpoint",
                 "tool_search",
                 "browser_interact",
             ]
             call_name = "browser_interact"
             arguments = {"action": "navigate", "url": "http://example.test/"}
         else:
+            assert tool_names == [
+                "task_checkpoint",
+                "tool_search",
+                "browser_interact",
+            ]
             return _checkpoint_response(
                 "complete",
                 "I opened and verified the rendered page.",

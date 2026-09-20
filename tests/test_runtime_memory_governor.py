@@ -30,7 +30,7 @@ def _policy() -> MemoryPolicy:
 
 
 def test_one_governor_admits_every_tool_class_before_execution() -> None:
-    governor = MemoryGovernor(_policy(), sampler=lambda: 3.5)
+    governor = MemoryGovernor(_policy(), sampler=lambda: 2.5)
 
     class Browser:
         def act(self, *_args, **_kwargs):
@@ -53,6 +53,13 @@ def test_one_governor_admits_every_tool_class_before_execution() -> None:
         result = harness.execute("session", name, arguments)
         assert result["error"] == "resource_pressure"
         assert result["retryable"] is True
+
+
+def test_normal_reserve_does_not_double_count_the_soft_floor() -> None:
+    governor = MemoryGovernor(_policy(), sampler=lambda: 3.5)
+
+    assert governor.required_gib() == 3.0
+    governor.require("resident task")
 
 
 def test_shell_is_killed_if_memory_collapses_after_admission(tmp_path: Path) -> None:

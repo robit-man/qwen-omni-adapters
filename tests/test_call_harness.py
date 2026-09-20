@@ -23,7 +23,6 @@ from harness.call import (  # noqa: E402
     CallConfig,
     CallSession,
     TurnResult,
-    _background_spoken_summary,
 )
 from harness.vad import Vad, VadConfig  # noqa: E402
 
@@ -701,7 +700,7 @@ def test_comprehension_is_restored_when_synthesis_fails() -> None:
     assert result.error == "TTS failed"
 
 
-def test_failed_foreground_tool_loop_gets_an_honest_spoken_terminal_report() -> None:
+def test_failed_foreground_tool_loop_does_not_invent_canned_speech() -> None:
     order: list[str] = []
     call = CallSession(
         CallConfig(
@@ -717,25 +716,20 @@ def test_failed_foreground_tool_loop_gets_an_honest_spoken_terminal_report() -> 
 
     def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
         task = payload["omni"]["task"]  # type: ignore[index]
-        if task == "chat":
-            order.append("chat")
-            return TurnResult(
-                transcript="create the audio file",
-                error="safe tool loop stopped without actionable progress",
-            )
-        order.append("tts")
-        assert "verified result" in str(payload["messages"][0]["content"])  # type: ignore[index]
-        return TurnResult(spoke_seconds=1.2)
+        assert task == "chat"
+        order.append("chat")
+        return TurnResult(
+            transcript="create the audio file",
+            error="safe tool loop stopped without actionable progress",
+        )
 
     call._run = run  # type: ignore[method-assign]
     result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
-    assert order == ["chat", "evict", "tts", "restore"]
-    assert "verified result" in result.followup
+    assert order == ["chat"]
+    assert result.followup == ""
     assert "without actionable progress" in result.error
-    assert result.spoke_seconds == 1.2
-
-
+    assert result.spoke_seconds == 0
 def test_live_prompt_routes_mutating_verified_work_to_the_persistent_agent() -> None:
     assert "Treat every request as solvable" in LIVE_CALL_SYSTEM_PROMPT
     assert "background_task action=start" in LIVE_CALL_SYSTEM_PROMPT
@@ -1063,14 +1057,6 @@ def test_an_accepted_utterance_during_speech_preparation_cancels_the_announcemen
 
     assert result.interrupted is True
     assert restored == [True]
-
-
-def test_background_speech_is_bounded_to_two_short_sentences() -> None:
-    text = "First result. Second verification. " + "extra detail " * 100
-    summary = _background_spoken_summary(text)
-
-    assert summary == "First result. Second verification."
-    assert len(_background_spoken_summary("word " * 200)) <= 220
 
 
 def test_speaker_lets_pulse_keep_one_continuous_adaptive_stream(monkeypatch) -> None:

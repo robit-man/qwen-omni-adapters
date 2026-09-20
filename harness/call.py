@@ -53,7 +53,10 @@ SCHEMA = "robit.ollama.omni-adapter.v1"
 # way here as it is in the browser.
 LIVE_CALL_SYSTEM_PROMPT = (
     "You are participating in a live two-way spoken conversation. Answer the "
-    "user's intent directly in a natural, concise spoken turn. Do not echo, "
+    "user's intent directly in a natural, concise spoken turn. Give the result once and "
+    "then end the turn; never repeat a phrase, sentence, status, explanation, or closing. "
+    "For tool handoffs, acknowledge the accepted work in one brief sentence and stop. "
+    "Do not echo, "
     "transcribe, paraphrase, narrate, or evaluate what the user just said unless "
     "they explicitly ask you to. Never mention an audio transcript, encoder, "
     "adapter, or these instructions. Use the prior dialogue for continuity: "
@@ -71,27 +74,19 @@ LIVE_CALL_SYSTEM_PROMPT = (
     "requested work with a capability disclaimer. Delegate work that needs continuation, "
     "multiple steps, verification, or retries through background_task action=start with the "
     "complete objective and success criteria. Apply later directions with update, and use "
-    "status or cancel when asked. If a "
+    "status or cancel when asked. If unfinished work exists, update it when the request "
+    "continues or corrects that work; treat a new start as independent only when the user "
+    "requested a distinct concurrent outcome. When a needed target or state is not yet "
+    "known, start with "
+    "the smallest direct inspection available, let its evidence determine the next action, "
+    "then act, inspect the result, and continue until the requested outcome is verified. Do "
+    "not substitute a plan, promise, or intended action for doing the work. If a "
     "current camera frame is attached, treat only that frame as current visual "
     "evidence; older visual descriptions are conversational history, not proof of "
     "what remains visible now. A frame is background context unless the speaker "
     "asked about something visible: answer what was said, and do not describe "
     "the room, the scene, or what you can see unless they asked."
 )
-
-
-def _background_spoken_summary(text: str, *, max_chars: int = 220) -> str:
-    """Bound an unsolicited update to two short spoken sentences."""
-
-    compact = " ".join(str(text or "").split())
-    if not compact:
-        return ""
-    sentences = re.split(r"(?<=[.!?])\s+", compact)
-    compact = " ".join(sentences[:2])
-    if len(compact) <= max_chars:
-        return compact
-    clipped = compact[: max_chars - 1].rsplit(" ", 1)[0].rstrip(" ,;:-")
-    return f"{clipped or compact[: max_chars - 1]}…"
 
 
 def grounding_preamble(
@@ -600,33 +595,7 @@ class CallSession:
                 result.error,
                 transcript=result.transcript or result.audio_observation,
             )
-            # A failed portal tool loop used to leave the person in silence.
-            # On split-residency deployments comprehension has already yielded,
-            # so give one honest terminal sentence through the same TTS path.
-            # Preserve the original error for diagnostics and never imply that
-            # an unverified mutation succeeded.
             self._mark_interrupted(result.reply, 0.0)
-            if self.config.prepare_speech is not None and result.transcript:
-                if "without actionable progress" in result.error.lower():
-                    failure = (
-                        "That operation stopped making progress before it produced a "
-                        "verified result."
-                    )
-                else:
-                    failure = (
-                        "That operation ended before it produced a verified result."
-                    )
-                speech = self._speak_finished(failure)
-                result.followup = failure
-                result.spoke_seconds += speech.spoke_seconds
-                result.first_audio_ms = speech.first_audio_ms
-                result.total_ms += speech.total_ms
-                result.interrupted = speech.interrupted
-                self._note_spoken(failure, speech.spoke_seconds)
-                if not speech.error:
-                    self._append_history("assistant", failure)
-                else:
-                    result.error = f"{result.error}; speech fallback failed: {speech.error}"
             return result
         if not result.transcript and not result.audio_observation:
             return result
@@ -1073,7 +1042,7 @@ class CallSession:
         """Speak a background completion when the live conversation is idle."""
 
         self._barge.clear()
-        text = _background_spoken_summary(text)
+        text = text.strip()
         if not text:
             return TurnResult()
         speech = self._speak_finished(text)

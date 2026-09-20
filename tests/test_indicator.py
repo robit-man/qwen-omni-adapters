@@ -28,6 +28,15 @@ def test_running_tasks_lead_and_expose_stage_steps_and_tools() -> None:
                 "current_stage": "Running shell",
                 "progress": ["Accepted.", "Inspected the destination."],
                 "tools_used": ["tool_search", "shell"],
+                "actions": [
+                    {
+                        "at": 1_700_000_000,
+                        "tool": "shell",
+                        "arguments": '{"command": "ls -l Desktop"}',
+                        "outcome": '{"exit_code": 0}',
+                        "ok": True,
+                    }
+                ],
             },
         ]
     )
@@ -37,6 +46,10 @@ def test_running_tasks_lead_and_expose_stage_steps_and_tools() -> None:
     assert views[0]["current_stage"] == "Running shell"
     assert views[0]["steps"] == ["Accepted.", "Inspected the destination."]
     assert views[0]["tools"] == ["tool_search", "shell"]
+    assert "shell" in views[0]["actions"][0]["label"]
+    assert "ls -l Desktop" in views[0]["actions"][0]["label"]
+    assert '"exit_code": 0' in views[0]["actions"][0]["label"]
+    assert views[0]["actions"][0]["ok"] is True
     assert views[1]["result"] == "Verified."
 
 

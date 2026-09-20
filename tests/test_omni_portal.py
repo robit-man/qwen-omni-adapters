@@ -63,7 +63,7 @@ def _memory_governor(available: float) -> MemoryGovernor:
 
 
 def test_browser_uses_the_generic_runtime_memory_governor() -> None:
-    governor = _memory_governor(3.5)
+    governor = _memory_governor(2.5)
     store = BrowserAutomationStore(memory_governor=governor)
 
     assert store.memory_governor is governor

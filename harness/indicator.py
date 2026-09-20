@@ -15,12 +15,14 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable, Mapping
+from datetime import datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 MAX_VISIBLE_TASKS = 8
 MAX_VISIBLE_STEPS = 8
+MAX_VISIBLE_ACTIONS = 12
 
 STATUS_MARKS = {
     "pending": "○",
@@ -101,6 +103,30 @@ def task_views(tasks: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
                     tool_names.append("shell")
                 elif step.startswith("Ran ") and " and retained its result" in step:
                     tool_names.append(step[4:].split(" and retained", 1)[0])
+        actions = task.get("actions")
+        action_views: list[dict[str, Any]] = []
+        if isinstance(actions, list):
+            for action in actions[-MAX_VISIBLE_ACTIONS:]:
+                if not isinstance(action, Mapping):
+                    continue
+                if action.get("at"):
+                    try:
+                        when = datetime.fromtimestamp(
+                            float(action["at"])
+                        ).astimezone().strftime("%H:%M:%S")
+                    except (OSError, TypeError, ValueError):
+                        when = "--:--:--"
+                else:
+                    when = "retained"
+                name = _short(action.get("tool"), 40) or "unknown"
+                arguments = _short(action.get("arguments"), 180) or "{}"
+                outcome = _short(action.get("outcome"), 180)
+                label = f"{when}  {name} {arguments}"
+                if outcome:
+                    label += f" → {outcome}"
+                action_views.append(
+                    {"label": label, "ok": action.get("ok") is True}
+                )
         views.append(
             {
                 "task_id": str(task["task_id"]),
@@ -109,6 +135,7 @@ def task_views(tasks: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 "current_stage": _short(task.get("current_stage"), 110),
                 "steps": steps,
                 "tools": list(dict.fromkeys(tool_names)),
+                "actions": action_views,
                 "result": _short(task.get("result"), 140),
                 "error": _short(task.get("error"), 140),
             }
@@ -307,14 +334,20 @@ def build_indicator(
             if on_open_archive is not None:
                 on_open_archive()
 
-        def _detail_item(self, text: str, *, spinning: bool = False):
+        def _detail_item(
+            self,
+            text: str,
+            *,
+            spinning: bool = False,
+            marker_text: str = "✓",
+        ):
             item = Gtk.MenuItem()
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=7)
             if spinning:
                 marker = Gtk.Spinner()
                 marker.start()
             else:
-                marker = Gtk.Label(label="✓")
+                marker = Gtk.Label(label=marker_text)
             row.pack_start(marker, False, False, 0)
             label = Gtk.Label(label=text)
             label.set_xalign(0.0)
@@ -340,6 +373,10 @@ def build_indicator(
                         view["current_stage"],
                         tuple(view["steps"]),
                         tuple(view["tools"]),
+                        tuple(
+                            (action["label"], action["ok"])
+                            for action in view["actions"]
+                        ),
                         view["result"],
                         view["error"],
                     )
@@ -373,6 +410,18 @@ def build_indicator(
                 tools = ", ".join(view["tools"]) or "none recorded"
                 detail = self._detail_item(f"Tools used: {tools}")
                 details.append(detail)
+                if view["actions"]:
+                    detail = self._detail_item(
+                        f"Actions taken — latest {len(view['actions'])}",
+                        marker_text="•",
+                    )
+                    details.append(detail)
+                    for action in view["actions"]:
+                        detail = self._detail_item(
+                            action["label"],
+                            marker_text="✓" if action["ok"] else "!",
+                        )
+                        details.append(detail)
                 for step in view["steps"]:
                     detail = self._detail_item(step)
                     details.append(detail)

@@ -41,13 +41,13 @@ import httpx
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 try:
-    from portal.background_tasks import BackgroundTaskStore
+    from portal.background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
     from portal.browser import BrowserAutomationError, BrowserAutomationStore
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import runtime_environment_snapshot
     from portal.gui import GuiAutomation, GuiAutomationError
 except ModuleNotFoundError:  # Direct script execution from portal/.
-    from background_tasks import BackgroundTaskStore
+    from background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
     from browser import BrowserAutomationError, BrowserAutomationStore
     from documents import DocumentError, SessionDocumentStore
     from environment import runtime_environment_snapshot
@@ -419,7 +419,9 @@ SAFE_TOOLS = [
         "progress tracking continue between conversations. This is the execution path for "
         "work needing continuation, multiple steps, retries, or verification. "
         "In the live foreground, call action=start with the complete requested outcome and "
-        "success criteria. Use it instead of "
+        "success criteria. If unfinished work already exists, use update when the request "
+        "continues or corrects it; set independent=true only for a distinct concurrent "
+        "outcome. Use it instead of "
         "merely promising future work. The worker may speak sparse milestone updates and "
         "always reports natural completion or a precise blocker. Update adds spoken guidance "
         "to a running task; status, "
@@ -436,6 +438,13 @@ SAFE_TOOLS = [
             "completion_criteria": {
                 "type": "string",
                 "description": "Optional concrete checks that establish completion.",
+            },
+            "independent": {
+                "type": "boolean",
+                "description": (
+                    "For action=start only: explicitly confirm this is distinct from every "
+                    "unfinished task and may run concurrently."
+                ),
             },
             "task_id": {
                 "type": "string",
@@ -2410,6 +2419,33 @@ class PortalToolHarness:
                     raise ToolInputError("background task worker is not configured")
                 action = str(arguments.get("action") or "").strip()
                 if action == "start":
+                    active = [
+                        task
+                        for task in self.background_tasks.list()
+                        if task.get("status") not in TERMINAL_STATUSES
+                    ]
+                    if active and arguments.get("independent") is not True:
+                        result = {
+                            "accepted": False,
+                            "error": "unfinished_task_requires_relationship",
+                            "active_tasks": [
+                                {
+                                    "task_id": task.get("task_id"),
+                                    "status": task.get("status"),
+                                    "objective": task.get("objective"),
+                                    "current_stage": task.get("current_stage"),
+                                }
+                                for task in active[:8]
+                            ],
+                            "next_action": (
+                                "If this request continues or corrects an unfinished task, "
+                                "call background_task action=update with its task_id and the "
+                                "new guidance. If it is a distinct concurrent outcome, retry "
+                                "action=start with independent=true and a self-contained "
+                                "objective."
+                            ),
+                        }
+                        return result
                     completion_criteria = str(
                         arguments.get("completion_criteria") or ""
                     ).strip()

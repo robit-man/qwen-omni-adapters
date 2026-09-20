@@ -25,6 +25,13 @@ logger = logging.getLogger(__name__)
 MAX_TASK_CONTEXT_BYTES = 256 * 1024
 MAX_TOOL_RESULT_CHARS = 24_000
 MAX_CHECKPOINT_REPORT_CHARS = 1_000
+MAX_ACTION_ARGUMENT_CHARS = 2_000
+MAX_ACTION_OUTCOME_CHARS = 1_200
+
+_SENSITIVE_AUDIT_KEY = re.compile(
+    r"(?:authorization|cookie|credential|password|secret|token|api[_-]?key)",
+    re.IGNORECASE,
+)
 
 AGENT_SYSTEM_PROMPT = (
     "You are the execution worker for a task already accepted during a live spoken "
@@ -36,6 +43,16 @@ AGENT_SYSTEM_PROMPT = (
     "completion report only after the work has been verified. Work across renewable bounded "
     "slices: make measurable progress in each slice and use task_checkpoint to record a "
     "verified milestone or terminal result. "
+    "When the target, location, format, or current state is uncertain, begin with the "
+    "smallest direct observation of the relevant environment. Use that evidence to narrow "
+    "the target, choose the next capability, perform the requested action, inspect its "
+    "result, and repeat until verified. Do not infer what something is merely from its name, "
+    "and do not report an intended action as progress. Before acting, confirm that the "
+    "observed surface or target is relevant to the objective; if it is not, switch to a "
+    "relevant surface or capability instead of manipulating the unrelated one. A failed, "
+    "duplicate, or unchanged result is evidence that the previous approach made no progress: "
+    "never issue the exact call again, and change the action, arguments, capability, or "
+    "underlying assumption before continuing. "
     "Keep each individual planning pass concise. When a concrete tool schema is visible, "
     "call it promptly instead of narrating alternatives or searching the shell for another "
     "way to perform the same action. "
@@ -45,7 +62,8 @@ AGENT_SYSTEM_PROMPT = (
     "external blocker. Reference the tool-call IDs that support the checkpoint. Runtime "
     "scheduling and memory pressure are never task blockers and must not appear in a report. "
     "Messages inside <task_update> are later directions from the live speaker; incorporate "
-    "them before continuing, and let the newer direction win when it conflicts. "
+    "them before continuing, and let the newer direction override any conflicting objective "
+    "wording, completion criterion, plan, or earlier evidence. "
     "The checkpoint report must be one to three natural spoken sentences in the first person: say "
     "what you finished or what blocked you, mention the useful location or verification, and "
     "sound like a conversational handoff. Do not use headings such as Workspace, Result, or "
@@ -284,6 +302,39 @@ def _bounded_tool_result(result: Any) -> Any:
     return bounded
 
 
+def _audit_json(value: Any, limit: int) -> str:
+    """Render useful local action detail without retaining secrets or bulk payloads."""
+
+    def clean(item: Any, *, key: str = "", depth: int = 0) -> Any:
+        if _SENSITIVE_AUDIT_KEY.search(key):
+            return "[redacted]"
+        if depth >= 6:
+            return "[nested value omitted]"
+        if isinstance(item, Mapping):
+            return {
+                str(child_key): clean(
+                    child_value, key=str(child_key), depth=depth + 1
+                )
+                for child_key, child_value in list(item.items())[:48]
+                if str(child_key) != "screenshot"
+            }
+        if isinstance(item, list):
+            return [clean(child, depth=depth + 1) for child in item[:32]]
+        if isinstance(item, str):
+            if key.casefold() == "stdin":
+                return f"[omitted {len(item)} characters]"
+            if item.startswith("data:") or len(item) > 1_000:
+                return f"{item[:320]}… [{len(item)} characters]"
+        return item
+
+    rendered = json.dumps(
+        clean(value), ensure_ascii=False, sort_keys=True, default=str
+    )
+    if len(rendered) <= limit:
+        return rendered
+    return f"{rendered[: limit - 24].rstrip()}… [{len(rendered)} chars]"
+
+
 def _tool_evidence(messages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     evidence: dict[str, dict[str, Any]] = {}
     for message in messages:
@@ -297,8 +348,44 @@ def _tool_evidence(messages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
             result = json.loads(str(message.get("content") or "{}"))
         except ValueError:
             result = {}
+        if isinstance(result, Mapping) and result.get("error") == "duplicate_tool_call":
+            continue
         evidence[evidence_id] = {"name": name, "result": result}
     return evidence
+
+
+def _checkpoint_available(messages: list[dict[str, Any]]) -> bool:
+    """Allow one checkpoint attempt only after a newer concrete tool result."""
+
+    latest_action = -1
+    latest_control = -1
+    for index, message in enumerate(messages):
+        role = message.get("role")
+        if role == "user" and "<task_update " in str(message.get("content") or ""):
+            latest_control = index
+            continue
+        if role != "tool":
+            continue
+        name = str(message.get("tool_name") or "")
+        if name == "task_checkpoint":
+            latest_control = index
+        elif _is_duplicate_tool_result(message):
+            # A locally rejected replay is control feedback, not new evidence.
+            # Require a materially different real action before checkpointing.
+            latest_control = index
+        elif name and name != "tool_search":
+            latest_action = index
+    return latest_action > latest_control
+
+
+def _is_duplicate_tool_result(message: Mapping[str, Any]) -> bool:
+    if message.get("role") != "tool":
+        return False
+    try:
+        result = json.loads(str(message.get("content") or "{}"))
+    except ValueError:
+        return False
+    return isinstance(result, Mapping) and result.get("error") == "duplicate_tool_call"
 
 
 def _result_failed_or_blocked(result: Any) -> bool:
@@ -464,6 +551,70 @@ class BackgroundAgent:
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.token}"}
+
+    def _record_action(
+        self,
+        task_id: str,
+        call_id: str,
+        name: str,
+        arguments: Mapping[str, Any],
+        result: Any,
+        *,
+        historical: bool = False,
+    ) -> None:
+        try:
+            self.store.record_action(
+                task_id,
+                self.owner,
+                call_id=call_id,
+                tool=name or "unknown",
+                arguments=_audit_json(arguments, MAX_ACTION_ARGUMENT_CHARS),
+                outcome=_audit_json(result, MAX_ACTION_OUTCOME_CHARS),
+                ok=not _result_failed_or_blocked(result),
+                recorded_at=0 if historical else None,
+            )
+        except Exception as error:  # noqa: BLE001 - auditing must not stop the task
+            logger.warning("could not audit background tool call %s: %s", name, error)
+
+    def _restore_action_audit(
+        self, task_id: str, messages: list[dict[str, Any]]
+    ) -> None:
+        """Recover retained calls from tasks created before action auditing existed."""
+
+        outcomes: dict[str, Any] = {}
+        for message in messages:
+            if message.get("role") != "tool":
+                continue
+            call_id = str(message.get("tool_call_id") or "")
+            if not call_id:
+                continue
+            try:
+                outcomes[call_id] = json.loads(str(message.get("content") or "{}"))
+            except ValueError:
+                outcomes[call_id] = str(message.get("content") or "")
+        for message in messages:
+            calls = message.get("tool_calls")
+            if message.get("role") != "assistant" or not isinstance(calls, list):
+                continue
+            for call in calls:
+                if not isinstance(call, Mapping):
+                    continue
+                function = call.get("function")
+                name = (
+                    str(function.get("name") or "")
+                    if isinstance(function, Mapping)
+                    else ""
+                )
+                call_id = str(call.get("id") or "")
+                if name and call_id in outcomes:
+                    self._record_action(
+                        task_id,
+                        call_id,
+                        name,
+                        _arguments(call),
+                        outcomes[call_id],
+                        historical=True,
+                    )
 
     def _refresh_token(self) -> bool:
         if self.token_reader is None:
@@ -750,6 +901,14 @@ class BackgroundAgent:
                 {"role": "system", "content": AGENT_SYSTEM_PROMPT},
                 {"role": "user", "content": request},
             ]
+        elif messages[0].get("role") == "system":
+            # Durable tasks keep evidence and calls across service restarts, but
+            # worker policy is executable code, not frozen task data. Always
+            # apply the current generic policy when resuming retained work.
+            messages[0] = {"role": "system", "content": AGENT_SYSTEM_PROMPT}
+        else:
+            messages.insert(0, {"role": "system", "content": AGENT_SYSTEM_PROMPT})
+        self._restore_action_audit(task_id, messages)
         seen = {
             *_seen_tool_fingerprints(messages),
             *(str(value) for value in task.get("tool_fingerprints", []) if value),
@@ -816,6 +975,8 @@ class BackgroundAgent:
                 return
             added_guidance = _append_guidance(messages, current, seen_guidance)
             if added_guidance:
+                active_tools = []
+                suppress_discovery = False
                 logger.info(
                     "background task %s accepted %d conversational update(s)",
                     task_id,
@@ -836,8 +997,13 @@ class BackgroundAgent:
             if self.foreground_active.is_set():
                 continue
             self.store.update_stage(task_id, self.owner, "Planning the next step")
+            can_checkpoint = _checkpoint_available(messages)
             schemas = [
-                copy.deepcopy(TASK_CHECKPOINT_TOOL),
+                *(
+                    [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
+                    if can_checkpoint
+                    else []
+                ),
                 *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
                 *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
             ]
@@ -864,6 +1030,12 @@ class BackgroundAgent:
                 "think": not action_after_discovery,
                 "options": {"num_predict": self.step_token_limit},
                 "tools": schemas,
+                # A background worker exists to act. Before a concrete tool
+                # result exists, checkpointing is unavailable; afterwards a
+                # required choice is either the next action or an
+                # evidence-backed checkpoint. Free prose cannot strand a
+                # durable task between those states.
+                "tool_choice": "required",
                 "portal_auto_tools": False,
                 "stream": False,
             }
@@ -919,6 +1091,8 @@ class BackgroundAgent:
                 # assistant tool-call message with missing results in the next
                 # prompt. Keep the newly appended human updates and replan.
                 del messages[-redirected - 1]
+                active_tools = []
+                suppress_discovery = False
                 checkpoint = self.store.checkpoint(
                     task_id,
                     self.owner,
@@ -954,15 +1128,20 @@ class BackgroundAgent:
                     ):
                         # The terminal assertion was based on stale directions.
                         stalls += 1
+                        checkpoint_result = {
+                            "error": "new_guidance",
+                            "retryable": True,
+                        }
                         messages.append(
                             {
                                 "role": "tool",
                                 "tool_name": name,
                                 "tool_call_id": call_id,
-                                "content": json.dumps(
-                                    {"error": "new_guidance", "retryable": True}
-                                ),
+                                "content": json.dumps(checkpoint_result),
                             }
+                        )
+                        self._record_action(
+                            task_id, call_id, name, arguments, checkpoint_result
                         )
                         continue
                     action = str(arguments.get("action") or "")
@@ -993,22 +1172,24 @@ class BackgroundAgent:
                     )
                     if not valid:
                         stalls += 1
+                        checkpoint_result = {
+                            "error": "unsupported_checkpoint",
+                            "message": (
+                                "Reference existing successful tool calls for "
+                                "progress/complete, or a concrete failed tool call "
+                                "for blocked."
+                            ),
+                        }
                         messages.append(
                             {
                                 "role": "tool",
                                 "tool_name": name,
                                 "tool_call_id": call_id,
-                                "content": json.dumps(
-                                    {
-                                        "error": "unsupported_checkpoint",
-                                        "message": (
-                                            "Reference existing successful tool calls for "
-                                            "progress/complete, or a concrete failed tool call "
-                                            "for blocked."
-                                        ),
-                                    }
-                                ),
+                                "content": json.dumps(checkpoint_result),
                             }
+                        )
+                        self._record_action(
+                            task_id, call_id, name, arguments, checkpoint_result
                         )
                         continue
                     if action == "progress":
@@ -1027,6 +1208,13 @@ class BackgroundAgent:
                                 "tool_call_id": call_id,
                                 "content": json.dumps({"accepted": True}),
                             }
+                        )
+                        self._record_action(
+                            task_id,
+                            call_id,
+                            name,
+                            arguments,
+                            {"accepted": True, "action": action},
                         )
                         checkpoint = self.store.checkpoint(
                             task_id,
@@ -1051,6 +1239,13 @@ class BackgroundAgent:
                         stalls = 0
                         continue
                     status = "completed" if action == "complete" else "blocked"
+                    self._record_action(
+                        task_id,
+                        call_id,
+                        name,
+                        arguments,
+                        {"accepted": True, "status": status},
+                    )
                     completed = self.store.checkpoint(
                         task_id,
                         self.owner,
@@ -1093,14 +1288,30 @@ class BackgroundAgent:
                         self.owner,
                         f"Running {name or 'unknown'}",
                     )
-                    response = self._post(
-                        f"/api/tools/{name}/call", {"arguments": arguments}
-                    ).json()
+                    try:
+                        response = self._post(
+                            f"/api/tools/{name}/call", {"arguments": arguments}
+                        ).json()
+                    except Exception as error:
+                        self._record_action(
+                            task_id,
+                            call_id,
+                            name,
+                            arguments,
+                            {
+                                "error": type(error).__name__,
+                                "message": str(error),
+                            },
+                        )
+                        raise
                     result = response.get("result", response)
                     if (
                         isinstance(result, Mapping)
                         and result.get("error") == "resource_pressure"
                     ):
+                        self._record_action(
+                            task_id, call_id, name, arguments, result
+                        )
                         raise MemoryPressure(
                             name or "tool",
                             self.memory_governor.available_gib()
@@ -1150,11 +1361,25 @@ class BackgroundAgent:
                         if key != "screenshot"
                     }
                 result = _bounded_tool_result(result)
+                self._record_action(task_id, call_id, name, arguments, result)
                 tool_message["content"] = json.dumps(
                     result, ensure_ascii=False, default=str
                 )
                 tool_message["tool_call_id"] = call_id
                 messages.append(tool_message)
+                if _is_duplicate_tool_result(tool_message):
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "That call was rejected because it exactly repeated an "
+                                "earlier call. Reassess the latest evidence and make a "
+                                "materially different next call; change the action, "
+                                "arguments, capability, or assumption. Repeating it cannot "
+                                "advance or finish the task."
+                            ),
+                        }
+                    )
                 if isinstance(screenshot, Mapping) and screenshot.get("data"):
                     messages.append(
                         {
