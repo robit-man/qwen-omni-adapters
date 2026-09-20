@@ -55,6 +55,28 @@ def test_one_governor_admits_every_tool_class_before_execution() -> None:
         assert result["retryable"] is True
 
 
+def test_task_control_remains_available_at_the_memory_floor(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Stop this task when asked.")
+    governor = MemoryGovernor(_policy(), sampler=lambda: 0.5)
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        background_tasks=store,
+        memory_governor=governor,
+    )
+
+    listed = harness.execute("voice", "background_task", {"action": "list"})
+    cancelled = harness.execute(
+        "voice",
+        "background_task",
+        {"action": "cancel", "task_id": task["task_id"]},
+    )
+
+    assert listed["tasks"][0]["task_id"] == task["task_id"]
+    assert cancelled["found"] is True
+    assert cancelled["task"]["status"] == "cancelled"
+
+
 def test_normal_reserve_does_not_double_count_the_soft_floor() -> None:
     governor = MemoryGovernor(_policy(), sampler=lambda: 3.5)
 

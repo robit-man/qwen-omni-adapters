@@ -353,6 +353,21 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("archived %d finished background task(s) to %s", count, task_archive)
         return count
 
+    def cancel_task(task_id: str) -> bool:
+        if indicator_task_store is None:
+            return False
+        task = indicator_task_store.cancel(task_id)
+        cancelled = bool(task is not None and task.get("status") == "cancelled")
+        logger.info("indicator cancelled background task %s: %s", task_id, cancelled)
+        return cancelled
+
+    def clear_task(task_id: str) -> bool:
+        if indicator_task_store is None:
+            return False
+        removed = indicator_task_store.remove(task_id)
+        logger.info("indicator cleared background task %s: %s", task_id, removed)
+        return removed
+
     def open_task_archive() -> None:
         task_archive.parent.mkdir(parents=True, exist_ok=True)
         task_archive.touch(exist_ok=True)
@@ -373,6 +388,8 @@ def main(argv: list[str] | None = None) -> int:
             on_quit=stop.set,
             on_reload=request_reload,
             on_clear_tasks=clear_finished_tasks,
+            on_cancel_task=cancel_task,
+            on_clear_task=clear_task,
             on_open_archive=open_task_archive,
             on_tools=set_tools,
             on_reasoning=set_reasoning,

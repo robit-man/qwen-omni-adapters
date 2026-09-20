@@ -425,6 +425,17 @@ def test_finished_tasks_move_to_a_human_readable_archive(tmp_path: Path) -> None
     assert "The artifact is ready." in content
 
 
+def test_task_store_can_remove_a_live_task_record(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("A task the user wants to clear immediately.")
+    claimed = store.claim_next("worker")
+
+    assert claimed is not None
+    assert store.remove(task["task_id"]) is True
+    assert store.get(task["task_id"]) is None
+    assert store.remove(task["task_id"]) is False
+
+
 def test_portal_background_tool_starts_and_controls_persistent_work(
     tmp_path: Path,
 ) -> None:

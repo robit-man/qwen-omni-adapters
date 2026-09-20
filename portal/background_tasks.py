@@ -508,3 +508,20 @@ class BackgroundTaskStore:
             return None
 
         return self._mutate(cancel)
+
+    def remove(self, task_id: str) -> bool:
+        """Delete one task record, including a live record the user overrides."""
+
+        normalized = str(task_id).strip()
+        if not normalized:
+            return False
+
+        def remove(value: dict[str, Any]) -> bool:
+            tasks = value.get("tasks", [])
+            for index, item in enumerate(tasks):
+                if item.get("task_id") == normalized:
+                    del tasks[index]
+                    return True
+            return False
+
+        return bool(self._mutate(remove))

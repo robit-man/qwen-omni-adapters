@@ -2328,7 +2328,13 @@ class PortalToolHarness:
         arguments: Mapping[str, Any],
     ) -> dict[str, Any]:
         try:
-            if self.memory_governor is not None:
+            # Durable task administration is the control plane for work that
+            # may itself be waiting on memory.  These tiny JSON-store actions
+            # must remain available at the memory floor so a person can inspect,
+            # redirect, or cancel runaway work.  The worker's inference and
+            # every executable tool remain governed separately.
+            task_control = name == "background_task"
+            if self.memory_governor is not None and not task_control:
                 self.memory_governor.require(f"tool {name}")
             if name == "get_current_time":
                 now = datetime.now().astimezone()
@@ -2552,6 +2558,7 @@ class PortalToolHarness:
                 }
             if (
                 self.memory_governor is not None
+                and not task_control
                 and self.memory_governor.under_hard_pressure()
             ):
                 raise MemoryPressure(

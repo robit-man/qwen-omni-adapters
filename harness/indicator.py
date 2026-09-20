@@ -162,6 +162,8 @@ def build_indicator(
     on_quit: Callable[[], None],
     on_reload: Callable[[], None] | None = None,
     on_clear_tasks: Callable[[], int] | None = None,
+    on_cancel_task: Callable[[str], bool] | None = None,
+    on_clear_task: Callable[[str], bool] | None = None,
     on_open_archive: Callable[[], None] | None = None,
     on_tools: Callable[[bool], None] | None = None,
     on_reasoning: Callable[[bool], None] | None = None,
@@ -334,6 +336,26 @@ def build_indicator(
             if on_open_archive is not None:
                 on_open_archive()
 
+        def _cancel_task(self, task_id: str) -> None:
+            if on_cancel_task is None:
+                return
+            cancelled = on_cancel_task(task_id)
+            self._status_item.set_label(
+                "Task cancelled" if cancelled else "Task was not found"
+            )
+            self._task_signature = None
+            self._refresh_tasks()
+
+        def _clear_task(self, task_id: str) -> None:
+            if on_clear_task is None:
+                return
+            removed = on_clear_task(task_id)
+            self._status_item.set_label(
+                "Task cleared" if removed else "Task was not found"
+            )
+            self._task_signature = None
+            self._refresh_tasks()
+
         def _detail_item(
             self,
             text: str,
@@ -427,6 +449,24 @@ def build_indicator(
                 if terminal:
                     detail = self._detail_item(terminal)
                     details.append(detail)
+                details.append(Gtk.SeparatorMenuItem())
+                if view["status"] in {"pending", "running"}:
+                    cancel_item = Gtk.MenuItem(label="Cancel task")
+                    cancel_item.set_sensitive(on_cancel_task is not None)
+                    cancel_item.connect(
+                        "activate",
+                        lambda _item, task_id=view["task_id"]: self._cancel_task(
+                            task_id
+                        ),
+                    )
+                    details.append(cancel_item)
+                clear_item = Gtk.MenuItem(label="Clear task record")
+                clear_item.set_sensitive(on_clear_task is not None)
+                clear_item.connect(
+                    "activate",
+                    lambda _item, task_id=view["task_id"]: self._clear_task(task_id),
+                )
+                details.append(clear_item)
                 details.show_all()
             self._menu.show_all()
             return True
