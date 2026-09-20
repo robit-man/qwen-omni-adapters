@@ -19,8 +19,10 @@ from comprehension_launcher import (  # noqa: E402
     _probe_backed_off,
     _record_failed_context,
     _record_live_sample,
+    _safe_context_tokens,
     available_memory_gib,
     candidate_windows,
+    choose_calibrated_context,
     choose_context_tokens,
     choose_context_tokens_with_recovery,
     context_headroom_gib,
@@ -147,40 +149,44 @@ def test_successful_load_calibrates_base_from_live_memory(
         after_gib=3.25,
         context_tokens=8192,
         parallel_slots=1,
-        floor_gib=0.0,
+        required_headroom_gib=3.0,
     )
 
     assert calibration["base_gib"] == pytest.approx(16.2)
     assert calibration["last_sample"]["context_tokens"] == 8192
+    assert calibration["safe_context_tokens"] == 8192
     assert state.is_file()
 
 
-def test_live_samples_cannot_undercut_the_component_byte_floor() -> None:
+def test_live_samples_override_the_conservative_component_byte_estimate() -> None:
     calibration = {
         "base_gib": 18.52,
         "base_samples": [16.1, 16.3, 16.2, 22.0],
     }
 
-    assert _live_calibrated_base(calibration) == pytest.approx(18.52)
+    assert _live_calibrated_base(calibration) == pytest.approx(16.3)
 
 
-def test_component_floor_prevents_a_window_that_consumes_runtime_reserve() -> None:
-    calibration = {
-        "base_gib": 18.52,
-        "base_samples": [16.1, 16.3, 16.2, 16.25],
-    }
-    base = _live_calibrated_base(calibration)
-
-    assert base == pytest.approx(18.52)
-    assert choose_context_tokens(
+def test_calibrated_selection_grows_only_one_unproven_tier() -> None:
+    selected, recovery, probing = choose_calibrated_context(
         28.19,
-        base_gib=base,
+        minimum=4096,
+        maximum=65_536,
+        live_base_gib=16.2,
+        component_gib=18.52,
         kv_gib_per_token=0.375 / 4096,
-        runtime_reserve_gib=4.0,
-    ) == 32_768
+        parallel_slots=1,
+        startup_reserve_gib=3.0,
+        recovery_reserve_gib=3.0,
+        safe_context_tokens=16_384,
+    )
+
+    assert selected == 32_768
+    assert recovery is False
+    assert probing is True
 
 
-def test_base_can_never_sit_below_installed_component_bytes(
+def test_live_base_tracks_observed_residency_below_mapped_component_bytes(
     tmp_path: Path,
 ) -> None:
     state = tmp_path / "memory.json"
@@ -198,10 +204,9 @@ def test_base_can_never_sit_below_installed_component_bytes(
             after_gib=2.425,
             context_tokens=4096,
             parallel_slots=1,
-            floor_gib=15.0,
         )
 
-    assert calibration["base_gib"] == pytest.approx(15.0)
+    assert calibration["base_gib"] == pytest.approx(14.2)
     assert calibration["base_samples"] == [16.2, 14.2, 14.2, 14.2]
 
 
@@ -223,10 +228,49 @@ def test_rebaselining_tracks_healthier_loads_instead_of_staying_anchored_high(
             after_gib=2.425,
             context_tokens=4096,
             parallel_slots=1,
-            floor_gib=10.0,
         )
 
     assert calibration["base_gib"] == pytest.approx(14.2)
+
+
+def test_pressure_sample_does_not_become_a_proven_safe_tier(tmp_path: Path) -> None:
+    state = tmp_path / "memory.json"
+    calibration = {
+        "base_samples": [16.2],
+        "base_gib": 16.2,
+        "kv_gib_per_token": 0.375 / 4096,
+        "safe_context_tokens": 8192,
+    }
+
+    _record_live_sample(
+        state,
+        calibration,
+        before_gib=28.0,
+        after_gib=0.5,
+        context_tokens=65_536,
+        parallel_slots=1,
+        required_headroom_gib=3.0,
+    )
+
+    assert calibration["safe_context_tokens"] == 8192
+
+
+def test_healthy_legacy_sample_migrates_to_a_proven_tier() -> None:
+    safe = _safe_context_tokens(
+        {
+            "last_sample": {
+                "context_tokens": 16_384,
+                "available_after_gib": 5.2,
+            }
+        },
+        minimum=4096,
+        maximum=65_536,
+        runtime_reserve_gib=3.0,
+        kv_gib_per_token=0.375 / 4096,
+        parallel_slots=1,
+    )
+
+    assert safe == 16_384
 
 
 def test_minimum_window_component_probe_fits_with_headroom() -> None:

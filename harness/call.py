@@ -22,7 +22,6 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +38,6 @@ from harness.audio import (
 from harness.background_agent import BackgroundAgent
 from harness.call_queue import SETTLE_MS, CallQueue, Pending
 from harness.memory import PassiveMemory, memory_capacity_available
-from harness.place import Place, PlaceLookup
 from harness.respeaker import STATE_TO_RING, ReSpeaker, describe_direction
 from harness.vad import Vad, VadConfig
 from portal.background_tasks import BackgroundTaskStore
@@ -51,41 +49,6 @@ logger = logging.getLogger(__name__)
 SCHEMA = "robit.ollama.omni-adapter.v1"
 
 LIVE_CALL_SYSTEM_PROMPT = context_text("prompts", "live_call_system")
-
-
-def grounding_preamble(
-    now: datetime | None = None, place: Place | None = None
-) -> str:
-    """Tell the model when it is, because otherwise it guesses.
-
-    A model has no clock. Asked what day it is, or how long ago something
-    happened, it answers from whenever its training stopped -- confidently and
-    wrongly. This is computed per turn rather than once at import, so a process
-    that has been listening for a week does not still think it is Monday.
-    """
-
-    moment = (now or datetime.now()).astimezone()
-    lines = [
-        "The current date and time is "
-        f"{moment.strftime('%A %-d %B %Y at %H:%M')} "
-        f"({moment.strftime('%Z')}). Use this for anything that depends on "
-        "when it is -- today, tomorrow, how long ago something was -- rather "
-        "than guessing. Timestamps in square brackets on remembered items are "
-        "when those happened, relative to now."
-    ]
-    if place:
-        # Coarse and said to be coarse: it is derived from the network address,
-        # so it places the conversation in a city and nothing finer. A model
-        # told this without the caveat will answer as if it knows the street.
-        lines.append(
-            f"This machine is in {place.describe()}"
-            + (f" ({place.timezone})" if place.timezone else "")
-            + ". That is approximate, from the network connection rather than "
-            "a GPS fix, so treat it as the general area for weather, local "
-            "time elsewhere, and what counts as nearby -- never as the "
-            "speaker's exact position."
-        )
-    return "\n\n".join(lines)
 
 
 State = str  # "starting" | "listening" | "hearing" | "thinking" | "speaking" | "offline"
@@ -117,9 +80,6 @@ class CallConfig:
     token_reader: Callable[[], str] | None = None
     # Where completed exchanges are journaled outside the conversation path.
     memory_path: str = ""
-    # Bounded speculative memories carried into a later related turn. Recall
-    # runs in the background and is skipped whenever it is not ready.
-    memory_recall: int = 4
     memory_calibration_path: str = ""
     # Shared crash-safe handoff between the portal and the stepwise background
     # agent. Empty disables background work without affecting normal tools.
@@ -215,12 +175,9 @@ class CallSession:
         self._last_spoken_at = 0.0
         # Where the voice came from, when a ReSpeaker array can say.
         self.direction: str = ""
-        # Roughly where this machine is, when the network will say.
-        self.place: Place | None = None
         self.memory: PassiveMemory | None = (
             PassiveMemory(Path(config.memory_path)) if config.memory_path else None
         )
-        self._recalled: list[Any] = []
         self.background_agent: BackgroundAgent | None = None
         self._pending_failure_note = ""
 
@@ -394,21 +351,7 @@ class CallSession:
             message[key] = [frame]
 
         split_speech = self.config.prepare_speech is not None
-        system_content = (
-            f"{LIVE_CALL_SYSTEM_PROMPT}\n\n"
-            f"{grounding_preamble(place=self.place)}"
-        )
-        if self._recalled:
-            lines = "\n".join(
-                f"- {memory.stamped()[:1600]}"
-                for memory in self._recalled[: self.config.memory_recall]
-            )
-            system_content += (
-                "\n\nEarlier semantic context, prefetched in the background "
-                "because it was relevant to the preceding conversation:\n"
-                f"{lines}\nUse it only if it also bears on the current words. "
-                "Do not list it, announce recall, or treat it as current sensory evidence."
-            )
+        system_content = LIVE_CALL_SYSTEM_PROMPT
         if self.background_agent is not None:
             background = self.background_agent.context_summary()
             if background:
@@ -515,18 +458,6 @@ class CallSession:
         """
 
         self._barge.clear()
-        self._recalled = []
-        if self.memory is not None:
-            take_recall = getattr(self.memory, "take_recall", None)
-            if callable(take_recall):
-                self._recalled = take_recall()
-        if self._recalled:
-            logger.info(
-                "using %d background-prefetched memor%s",
-                len(self._recalled),
-                "y" if len(self._recalled) == 1 else "ies",
-            )
-
         # The comprehension weights are needed from the first request. If the
         # last reply evicted them, their reload has been running since that
         # reply began playing, so this usually returns at once.
@@ -591,7 +522,6 @@ class CallSession:
                     frame,
                     with_tools=self.config.tools_enabled,
                 ),
-                queue_recall=False,
             )
             if follow.reply.strip() and not follow.error:
                 result.followup = follow.reply.strip()
@@ -703,10 +633,7 @@ class CallSession:
         speech = TurnResult()
         self._trace_content("tts_input", text)
         try:
-            speech = self._run(
-                self._build_synthesis_payload(text),
-                queue_recall=False,
-            )
+            speech = self._run(self._build_synthesis_payload(text))
         finally:
             if restore is not None:
                 self._state("thinking", "restoring comprehension")
@@ -729,7 +656,6 @@ class CallSession:
         payload: dict[str, Any],
         *,
         speak_only_if_useful: bool = False,
-        queue_recall: bool = True,
     ) -> TurnResult:
         """One request: stream it, and speak the audio as it arrives."""
 
@@ -784,11 +710,6 @@ class CallSession:
                             result.transcript[:160],
                         )
                         break
-                    query = result.transcript or result.audio_observation
-                    if query and queue_recall and self.memory is not None:
-                        recall_later = getattr(self.memory, "recall_later", None)
-                        if callable(recall_later):
-                            recall_later(query, limit=self.config.memory_recall)
                     self._state("thinking", result.transcript)
                 elif kind == "tool":
                     items = event.get("tools")
@@ -1090,11 +1011,6 @@ def run_call_loop(
     array = ReSpeaker()
     array.start()
 
-    # Looked up in the background so the first spoken turn does not pay for it,
-    # and left unknown when there is no network rather than delaying anything.
-    places = PlaceLookup()
-    places.refresh_async()
-
     # Echo cancellation is what makes talking over a reply safe. Without it the
     # microphone hears the speakers and the harness interrupts itself.
     can_barge = config.barge_in_enabled and array.present
@@ -1164,7 +1080,7 @@ def run_call_loop(
                 return False
             try:
                 memory_governor.require(
-                    "passive memory encoding", reserve_gib=encoder_payload_gib
+                    "deferred memory encoding", reserve_gib=encoder_payload_gib
                 )
             except MemoryPressure:
                 return False
@@ -1225,7 +1141,6 @@ def run_call_loop(
             try:
                 if pending is not None:
                     session.direction = describe_direction(array.direction)
-                    session.place = places.place or None
                     result = session.take_turn(
                         pending.audio(), segments=max(1, pending.segments)
                     )

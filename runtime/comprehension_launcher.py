@@ -158,6 +158,56 @@ def choose_context_tokens_with_recovery(
     return selected, selected is not None
 
 
+def choose_calibrated_context(
+    available_gib: float,
+    *,
+    minimum: int,
+    maximum: int,
+    live_base_gib: float,
+    component_gib: float,
+    kv_gib_per_token: float,
+    parallel_slots: int,
+    startup_reserve_gib: float,
+    recovery_reserve_gib: float,
+    safe_context_tokens: int,
+) -> tuple[int | None, bool, bool]:
+    """Use measured residency within proven tiers and probe one new tier.
+
+    Memory-mapped component bytes are deliberately conservative: page cache
+    means they can overstate steady live residency. They remain useful for an
+    unproven larger window, while successful live samples are authoritative
+    for windows already shown to retain the generic runtime reserve. Growing
+    only one tier at a time prevents a quiet host from jumping straight from a
+    small recovery window to an unsafe maximum.
+    """
+
+    windows = candidate_windows(minimum, maximum)
+    proven_maximum = min(maximum, max(minimum, safe_context_tokens))
+    selected, recovery = choose_context_tokens_with_recovery(
+        available_gib,
+        minimum=minimum,
+        maximum=proven_maximum,
+        base_gib=live_base_gib,
+        kv_gib_per_token=kv_gib_per_token,
+        parallel_slots=parallel_slots,
+        startup_reserve_gib=startup_reserve_gib,
+        recovery_reserve_gib=recovery_reserve_gib,
+    )
+    probe = next((window for window in windows if window > proven_maximum), None)
+    if probe is not None and _component_window_fits(
+        component_gib=component_gib,
+        context_tokens=probe,
+        minimum=minimum,
+        maximum=maximum,
+        kv_gib_per_token=kv_gib_per_token,
+        parallel_slots=parallel_slots,
+        available_gib=available_gib,
+        runtime_reserve_gib=startup_reserve_gib,
+    ):
+        return probe, False, True
+    return selected, recovery, False
+
+
 def context_headroom_gib(
     context_tokens: int,
     *,
@@ -320,14 +370,7 @@ def _median(values: list[float]) -> float:
 
 
 def _live_calibrated_base(calibration: Mapping[str, Any]) -> float | None:
-    """Use live residency samples without undercutting the component floor.
-
-    GGUF files are memory mapped, so their total file size is a conservative
-    first-load bound rather than an exact resident footprint. It is still a
-    real lower bound for admission: a low median from warm page-cache loads
-    must not erase it. That underestimation admitted a 65K cache with only
-    0.40 GiB left for inference and starved the whole host before TTS began.
-    """
+    """Return robust measured residency instead of mapped component bytes."""
 
     persisted = calibration.get("base_gib")
     floor = (
@@ -343,9 +386,42 @@ def _live_calibrated_base(calibration: Mapping[str, Any]) -> float | None:
             if isinstance(value, (int, float)) and float(value) > 0
         ]
         if valid:
-            sampled = _median(valid)
-            return max(sampled, floor) if floor is not None else sampled
+            return _median(valid)
     return floor
+
+
+def _safe_context_tokens(
+    calibration: Mapping[str, Any],
+    *,
+    minimum: int,
+    maximum: int,
+    runtime_reserve_gib: float,
+    kv_gib_per_token: float,
+    parallel_slots: int,
+) -> int:
+    """Read a proven tier, migrating a sufficiently healthy last sample."""
+
+    safe = calibration.get("safe_context_tokens")
+    if isinstance(safe, int) and safe >= minimum:
+        return min(maximum, safe)
+    sample = calibration.get("last_sample")
+    if isinstance(sample, Mapping):
+        context = sample.get("context_tokens")
+        after = sample.get("available_after_gib")
+        if isinstance(context, int) and isinstance(after, (int, float)):
+            context = min(maximum, max(minimum, context))
+            required = max(
+                runtime_reserve_gib,
+                context_headroom_gib(
+                    context,
+                    windows=candidate_windows(minimum, maximum),
+                    kv_gib_per_token=kv_gib_per_token,
+                    parallel_slots=parallel_slots,
+                ),
+            )
+            if float(after) >= required:
+                return context
+    return minimum
 
 
 def _record_live_sample(
@@ -356,7 +432,7 @@ def _record_live_sample(
     after_gib: float,
     context_tokens: int,
     parallel_slots: int,
-    floor_gib: float,
+    required_headroom_gib: float = 0.0,
 ) -> None:
     kv = float(calibration["kv_gib_per_token"])
     measured = max(0.0, before_gib - after_gib)
@@ -366,7 +442,7 @@ def _record_live_sample(
         samples = [float(calibration.get("base_gib") or sampled_base)]
     samples.append(sampled_base)
     del samples[:-16]
-    calibration["base_gib"] = max(floor_gib, _median(samples))
+    calibration["base_gib"] = _median(samples)
     calibration["base_samples"] = samples
     calibration["last_sample"] = {
         "available_before_gib": before_gib,
@@ -378,6 +454,12 @@ def _record_live_sample(
         "sampled_at": time.time(),
     }
     calibration["samples"] = int(calibration.get("samples") or 0) + 1
+    if after_gib >= required_headroom_gib:
+        prior = calibration.get("safe_context_tokens")
+        calibration["safe_context_tokens"] = max(
+            context_tokens,
+            prior if isinstance(prior, int) else 0,
+        )
     _atomic_json(path, calibration)
 
 
@@ -529,12 +611,9 @@ def main(argv: list[str] | None = None) -> int:
 
     available = sampled_available_memory_gib()
     memory_policy = MemoryPolicy.from_environment()
-    runtime_reserve = (
-        memory_policy.soft_floor_gib + memory_policy.operation_reserve_gib
-        if memory_policy.enabled
-        else 0.0
-    )
-    recovery_reserve = MemoryGovernor(memory_policy).required_gib()
+    governor = MemoryGovernor(memory_policy)
+    runtime_reserve = governor.required_gib() if memory_policy.enabled else 0.0
+    recovery_reserve = runtime_reserve
     fingerprint, component_gib = _component_fingerprint(command)
     calibration = _load_calibration(args.calibration_file, fingerprint, command)
     base = _live_calibrated_base(calibration)
@@ -547,15 +626,25 @@ def main(argv: list[str] | None = None) -> int:
         parallel_slots=args.parallel_slots,
     )
     if isinstance(base, (int, float)):
-        selected, recovery_window = choose_context_tokens_with_recovery(
+        safe_context = _safe_context_tokens(
+            calibration,
+            minimum=args.min_context,
+            maximum=effective_maximum,
+            runtime_reserve_gib=runtime_reserve,
+            kv_gib_per_token=kv,
+            parallel_slots=args.parallel_slots,
+        )
+        selected, recovery_window, probing_window = choose_calibrated_context(
             available,
             minimum=args.min_context,
             maximum=effective_maximum,
-            base_gib=float(base),
+            live_base_gib=float(base),
+            component_gib=component_gib,
             kv_gib_per_token=kv,
             parallel_slots=args.parallel_slots,
             startup_reserve_gib=runtime_reserve,
             recovery_reserve_gib=recovery_reserve,
+            safe_context_tokens=safe_context,
         )
         if selected is None and not _probe_backed_off(calibration):
             # A stale calibrated baseline can block every window even though
@@ -577,6 +666,7 @@ def main(argv: list[str] | None = None) -> int:
             )
     else:
         recovery_window = False
+        probing_window = True
         # The first successful load is the calibration probe. Reuse the last
         # installed components for a conservative minimum-window probe. The
         # probe also retains one minimum-tier KV increment; component bytes
@@ -630,7 +720,8 @@ def main(argv: list[str] | None = None) -> int:
             f"~{estimated:.2f} GiB from live calibration, "
             f"{headroom:.2f} GiB live headroom "
             f"({required_headroom:.2f} GiB runtime minimum"
-            f"{'; recovery window' if recovery_window else ''})"
+            f"{'; recovery window' if recovery_window else ''}"
+            f"{'; probing next tier' if probing_window else ''})"
         )
     else:
         detail = f"first live calibration probe; {component_gib:.2f} GiB components"
@@ -651,21 +742,6 @@ def main(argv: list[str] | None = None) -> int:
     while process.poll() is None:
         if not sampled and _healthy(args.health_url):
             after = available_memory_gib()
-            _record_live_sample(
-                args.calibration_file,
-                calibration,
-                before_gib=available,
-                after_gib=after,
-                context_tokens=selected,
-                parallel_slots=args.parallel_slots,
-                floor_gib=component_gib,
-            )
-            print(
-                f"calibrated {selected}-token comprehension residency from live "
-                f"memory: {available:.2f} -> {after:.2f} GiB available",
-                flush=True,
-            )
-            sampled = True
             required_headroom = max(
                 admitted_reserve,
                 context_headroom_gib(
@@ -675,6 +751,21 @@ def main(argv: list[str] | None = None) -> int:
                     parallel_slots=args.parallel_slots,
                 ),
             )
+            _record_live_sample(
+                args.calibration_file,
+                calibration,
+                before_gib=available,
+                after_gib=after,
+                context_tokens=selected,
+                parallel_slots=args.parallel_slots,
+                required_headroom_gib=required_headroom,
+            )
+            print(
+                f"calibrated {selected}-token comprehension residency from live "
+                f"memory: {available:.2f} -> {after:.2f} GiB available",
+                flush=True,
+            )
+            sampled = True
             if after < required_headroom:
                 print(
                     "controlled comprehension downshift: "

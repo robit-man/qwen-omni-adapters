@@ -811,11 +811,16 @@ def test_stream_exposes_only_tagged_input_transcript_to_clients() -> None:
             assert body["messages"][0]["role"] == "system"
             assert "concise voice assistant" in body["messages"][0]["content"]
             assert body["messages"][1]["role"] == "user"
-            assert '<adapter_observation source="current_attached_media"' in body["messages"][-1]["content"]
-            assert 'modalities="audio"' in body["messages"][-1]["content"]
-            assert 'current_visual_input="false"' in body["messages"][-1]["content"]
-            assert "never recast audio or tool data as something seen" in body["messages"][-1]["content"]
-            assert "/no_think" not in body["messages"][-1]["content"]
+            current = body["messages"][-1]["content"]
+            assert current.startswith("Haha, same, just vibing.\n\n")
+            assert "Reply naturally." not in current
+            assert "<speech_transcript>" not in current
+            assert "Soft room tone and a fan." in current
+            assert '<adapter_observation source="current_attached_media"' in current
+            assert 'modalities="audio"' in current
+            assert 'current_visual_input="false"' in current
+            assert "never recast audio or tool data as something seen" in current
+            assert "/no_think" not in current
             return httpx.Response(
                 200,
                 content=(
@@ -833,6 +838,11 @@ def test_stream_exposes_only_tagged_input_transcript_to_clients() -> None:
                     "audios": [{"data": _encoded(_wav(16000))}],
                 }
             ],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+            },
             think=False,
         )
     )

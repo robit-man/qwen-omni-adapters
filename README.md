@@ -206,7 +206,7 @@ Current local-call behavior also includes:
   yield cancellable inference to foreground speech, accept later spoken
   guidance, and use native thinking without speaking or storing it;
 - bounded conversational history with time-based relevance reduction and
-  passive semantic recall that never blocks a turn;
+  explicit current-query memory tools rather than next-turn prefetch;
 - live memory-derived comprehension context selection and automatic
   downshifting rather than a board-specific fixed context size;
 - continuous PCM playback, timing/starvation diagnostics, ReSpeaker echo
@@ -305,7 +305,7 @@ details hidden behind the adapter.
 | Tool execution | Authenticated portal | Starts with compact discovery, exposes only relevant concrete schemas, records bounded evidence, and rejects repeated nonproductive calls |
 | Computer use | `portal/browser.py` + `portal/gui.py` | Opens visible Chromium on the desktop, observes rendered screenshots, clicks/types through native DevTools input, and can see/control the wider workspace through `xdotool` plus fresh desktop screenshots |
 | Speech | Patched Qwen3-TTS worker | Emits ordered decoder PCM; generation state is reset between prompts and never leaks one utterance into the next |
-| Local conversation | `harness/` | VAD, interruption, ReSpeaker state/direction, camera capture, history, passive memory, and foreground scheduling |
+| Local conversation | `harness/` | VAD, interruption, ReSpeaker state/direction, camera capture, history, deferred memory writes, and foreground scheduling |
 | Persistent work | `harness/background_agent.py` + `portal/background_tasks.py` | Durable checkpoints and leases survive process restarts; long jobs may yield sparse spoken milestones, terminal speech is durable, and foreground speech wins every scheduling boundary |
 
 ### A normal spoken turn
@@ -316,8 +316,9 @@ details hidden behind the adapter.
 2. The harness submits one audio-bearing request. Qwen3-Omni produces a tagged
    transcript and any non-speech observation; silence or a cough stops before
    language and TTS when no speech was found.
-3. The configured language backend receives the spoken request with bounded text
-   history, tagged evidence, and any already-prefetched relevant memories. The
+3. The configured language backend receives the recognized speech as the latest
+   user message, with bounded text history and non-speech/visual observations as
+   secondary tagged evidence. The
    local voice harness enables the portal's real tool allowlist on every turn
    without a separate classification pass: the model either answers
    conversationally or calls the smallest tool that accomplishes the request,
@@ -390,7 +391,7 @@ grounding without filling their context with base64. Local HTTP pages and all
 desktop/file tools remain usable offline; public sites naturally require a
 working network.
 
-### Conversation state and passive memory
+### Conversation state and durable memory
 
 The adapter itself is stateless between requests. The browser owns its
 cookie-isolated conversation record; the local harness owns a bounded recent
@@ -399,21 +400,25 @@ history.
 
 Optional durable voice memory stores completed text exchanges in SQLite and
 uses a small semantic encoder rather than forcing chat-model hidden states into
-an embedding role. Recall and storage run on a daemon worker. Admission checks
+an embedding role. Storage runs on a daemon worker; retrieval is an explicit
+tool call against the current request, never a result automatically carried
+from one turn into the next. Admission checks
 foreground activity, background-agent work, comprehension readiness, the
 encoder's installed payload, current `MemAvailable`, and the active model's
-measured KV slope. If any check fails, memory waits or the speculative recall
-is skipped; conversation never waits for it.
+measured KV slope. If any check fails, deferred storage waits; conversation
+never waits for it.
 
 ### Context, residency, and recovery
 
 On unified-memory hosts, `runtime/comprehension_launcher.py` reads the installed
 GGUF, derives KV bytes per token, samples live available memory, and chooses the
-largest standard context that fits with one adjacent context tier retained as
-headroom. It records before/after residency and automatically downshifts a load
-that leaves less than that model-derived reserve. The adapter reads the chosen
-window per request and sheds old history/tool evidence before llama.cpp can
-reject an oversized prompt.
+largest proven context that fits with the runtime memory reserve. It records
+before/after residency, grows only one unproven tier at a time using the
+conservative component footprint, and automatically downshifts a load that
+leaves too little memory. This lets established windows use measured resident
+memory without jumping from a recovery window to an unsafe maximum. The
+adapter reads the chosen window per request and sheds old history/tool evidence
+before llama.cpp can reject an oversized prompt.
 
 The TTS and comprehension graphs may be simultaneously resident on a host with
 enough memory. A constrained host uses explicit eviction callbacks and
@@ -507,11 +512,11 @@ Defaults are chosen for a spoken conversation:
 - **ReSpeaker when present.** Its ring follows the conversation and the
   direction a voice came from is attached to the turn as evidence. With no
   array attached the default microphone is used and nothing else changes.
-- **Memory is passive.** Completed exchanges are embedded on a daemon worker
-  only after the answer, tools and speech finish. Semantic recall is prefetched
-  on that same worker as soon as a transcript exists; a completed result can
-  enrich the next related turn, while an unfinished one is skipped immediately.
-  It never gates hearing, answering, reasoning, tools, or speech. The
+- **Memory storage is passive.** Completed exchanges are embedded on a daemon
+  worker only after the answer, tools and speech finish. Recall uses an explicit
+  current-query portal tool, so a result selected for one utterance cannot
+  contaminate the next one. Storage never gates hearing, answering, reasoning,
+  tools, or speech. The
   Ornith/Omni chat weights have no embedding head and measured poorly when
   forced into that role, so the small dedicated encoder remains the deliberate
   exception and unloads after each job.
@@ -519,11 +524,10 @@ Defaults are chosen for a spoken conversation:
   to the persistent worker, acknowledge immediately, and keep listening. The
   worker reasons and uses tools between speech turns, records progress after
   each result, accepts spoken refinements, and reports when it completes.
-- **Live host state is compact.** Every turn receives current local time,
-  honest network attachment (a route is never presented as proof of internet),
-  offline capability boundaries, and the fresh battery percentage/voltage from
-  EGG's `/run/egg-battery/status.json` service when installed. Detailed
-  hardware/load data still requires `get_system_snapshot`.
+- **Live host state is explicit.** Ordinary turns carry no eager clock,
+  location, network, battery, or process blob. Current time, browser-provided
+  approximate location, and bounded hardware/load facts come from their
+  dedicated tools only when the request needs them.
 
 The speech detector is a port of `portal/static/call_vad.js` with its constants
 intact, so the same room behaves the same way in the browser and here.
@@ -664,7 +668,7 @@ separate so environmental sounds are never misrouted as the user's words.
 | `runtime/adapter_server.py` | Unified comprehension → language → optional TTS router |
 | `runtime/tts_server.py` | CUDA-only Qwen3-TTS wrapper and PCM stream endpoint |
 | `portal/` | Authenticated phone UI, proxy, supervisor, safe tools, persistent-task store, smoke tests, VAD harness |
-| `harness/` | Always-listening local call mode: VAD, audio I/O, cameras, ReSpeaker, passive memory, background agent, top-bar indicator |
+| `harness/` | Always-listening local call mode: VAD, audio I/O, cameras, ReSpeaker, deferred memory storage, background agent, top-bar indicator |
 | `clients/` | Minimal Python and JavaScript request examples |
 | `docs/` | Protocol, architecture, runtime, deployment, ABI, testing, release evidence |
 | `patches/` | Pinned llama.cpp Qwen3-TTS streaming and persistent-worker patches |

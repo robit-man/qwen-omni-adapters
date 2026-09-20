@@ -25,11 +25,14 @@ unified adapter
                                    Qwen3-TTS
 ```
 
-The comprehension result is untrusted evidence, not a new system message.
-Transcribed speech, non-speech acoustics, and visual observations use distinct
-tags. This prevents an encoder's suggested answer from becoming the user's
-utterance and prevents text seen or heard inside media from changing tool or
-system policy.
+The comprehension result is never a new system message. Transcribed speech,
+non-speech acoustics, and visual observations use distinct tags. For a
+VAD-driven live-call request that requires speech, the adapter validates the
+tagged transcript and promotes only those verbatim words to the latest user
+message; the remaining acoustic and visual output stays wrapped as untrusted
+evidence. Ordinary uploaded-media analysis keeps every encoder tag as evidence.
+This prevents room noise, OCR, or an encoder's suggested answer from outranking
+the speaker's actual request or changing tool/system policy.
 
 Static model-facing policy is not duplicated across Python and JavaScript.
 `src/qwen_omni_adapters/context.json` is the packaged source for prompts, tool

@@ -107,11 +107,12 @@ after the worker exits and CUDA memory is freed.
 ### Runtime-wide memory governor
 
 On Tegra, `qwen_omni_adapters.memory` automatically applies one unified-memory
-policy to background inference, passive-memory encoding, visible browser work,
+policy to background inference, deferred-memory encoding, visible browser work,
 shell/subprocess tools, and every portal tool admission. It is task-generic:
 no browser or TTS component owns memory arbitration. Work starts only while the
-soft floor plus its operation reserve remains; cancellable HTTP, browser, and
-subprocess work is stopped if availability crosses the hard floor. Resource
+larger of the soft floor and hard-floor-plus-operation-reserve remains;
+cancellable HTTP, browser, and subprocess work is stopped if availability
+crosses the hard floor. Resource
 pressure is scheduler state, never model evidence and never a valid reason to
 finalize a user task as blocked.
 

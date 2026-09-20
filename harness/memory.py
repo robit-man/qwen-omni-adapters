@@ -395,14 +395,14 @@ class MemoryStore:
 
 
 class PassiveMemory:
-    """Embed and prefetch without making a live turn wait.
+    """Persist completed exchanges without making a live turn wait.
 
     The worker remains asynchronous, but scheduling matters as much as the
     thread boundary: loading an encoder while Omni is still answering can kill
     the adapter on a unified-memory host. The host therefore reserves explicit
-    headroom for this small encoder. Writes still queue only after answer,
-    tools, and TTS are complete. Recall is speculative: a completed result may
-    enrich a later turn, but an unfinished result is skipped immediately.
+    headroom for this small encoder. Writes queue only after answer, tools, and
+    TTS are complete. Retrieval belongs to an explicit current-query memory
+    tool; automatically carrying a result into the next turn is off by one.
     """
 
     def __init__(
@@ -414,11 +414,7 @@ class PassiveMemory:
     ) -> None:
         self.path = Path(path)
         self._store_factory = store_factory
-        self._jobs: queue.Queue[tuple[str, str, str, int]] = queue.Queue(
-            maxsize=max_pending
-        )
-        self._ready: list[Memory] = []
-        self._ready_lock = threading.Lock()
+        self._jobs: queue.Queue[tuple[str, str]] = queue.Queue(maxsize=max_pending)
         self._closed = threading.Event()
         self._warned_full = False
         self._admit: Callable[[float], bool] | None = None
@@ -433,11 +429,11 @@ class PassiveMemory:
     def _key(text: str) -> str:
         return " ".join((text or "").split())
 
-    def _submit(self, job: tuple[str, str, str, int]) -> None:
-        if self._closed.is_set() or not job[1]:
+    def _submit(self, text: str, kind: str) -> None:
+        if self._closed.is_set() or not text:
             return
         try:
-            self._jobs.put_nowait(job)
+            self._jobs.put_nowait((text, kind))
             self._warned_full = False
         except queue.Full:
             if not self._warned_full:
@@ -447,20 +443,7 @@ class PassiveMemory:
     def remember(self, text: str, *, kind: str = "turn") -> None:
         """Queue a write and return immediately."""
 
-        self._submit(("remember", self._key(text), kind, 0))
-
-    def recall_later(self, query: str, *, limit: int = 4) -> None:
-        """Start semantic recall and return without waiting for the embedder."""
-
-        self._submit(("recall", self._key(query), "", max(1, limit)))
-
-    def take_recall(self) -> list[Memory]:
-        """Take completed speculative context, or return immediately with none."""
-
-        with self._ready_lock:
-            ready = self._ready
-            self._ready = []
-        return ready
+        self._submit(self._key(text), kind)
 
     def set_admission(self, callback: Callable[[float], bool] | None) -> None:
         """Gate encoder residency without ever blocking the conversation."""
@@ -479,14 +462,14 @@ class PassiveMemory:
             store = self._store_factory(self.path)
             faded = store.decay()
             logger.info(
-                "passive semantic memory ready: %s at %s%s",
+                "deferred semantic memory storage ready: %s at %s%s",
                 store.stats(),
                 self.path,
                 f"; {faded} forgotten" if faded else "",
             )
             while not (self._closed.is_set() and self._jobs.empty()):
                 try:
-                    action, text, kind, limit = self._jobs.get(timeout=0.2)
+                    text, kind = self._jobs.get(timeout=0.2)
                 except queue.Empty:
                     continue
                 try:
@@ -503,12 +486,7 @@ class PassiveMemory:
                         self._closed.wait(0.25)
                     if self._closed.is_set():
                         continue
-                    if action == "remember":
-                        store.remember(text, kind=kind)
-                    elif action == "recall":
-                        found = store.recall(text, limit=limit)
-                        with self._ready_lock:
-                            self._ready = found
+                    store.remember(text, kind=kind)
                 except Exception as error:  # noqa: BLE001 - strictly best effort
                     logger.warning("background memory write failed: %s", error)
                 finally:

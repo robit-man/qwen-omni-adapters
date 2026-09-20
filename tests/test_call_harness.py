@@ -610,41 +610,13 @@ def test_an_empty_observation_does_not_start_a_second_pass() -> None:
     assert len(payloads) == 1
 
 
-def test_completed_background_recall_is_bounded_and_added_to_next_turn() -> None:
-    call = CallSession(CallConfig(token="t", model="m", memory_recall=1))
-
-    class Recalled:
-        def stamped(self) -> str:
-            return "[yesterday] The user's dog is called Biscuit."
-
-    call._recalled = [Recalled()]
+def test_live_turn_never_injects_a_previous_turns_prefetched_memory() -> None:
+    call = CallSession(CallConfig(token="t", model="m"))
     payload = call._build_payload(b"wav", 1, None, with_tools=False)
     system = payload["messages"][0]["content"]
 
-    assert "dog is called Biscuit" in system
-    assert "Use it only if it also bears on the current words" in system
-
-
-def test_observation_prefetches_memory_without_waiting_for_it() -> None:
-    call = CallSession(CallConfig(token="t", model="m", memory_recall=3))
-    queued: list[tuple[str, int]] = []
-
-    class RecordingMemory:
-        def recall_later(self, query: str, *, limit: int) -> None:
-            queued.append((query, limit))
-
-    call.memory = RecordingMemory()  # type: ignore[assignment]
-    call._events = lambda _payload: iter(  # type: ignore[method-assign]
-        [
-            {"type": "observation", "transcript": "what is my puppy's name"},
-            {"type": "final", "response": {"message": {"content": "Biscuit."}}},
-        ]
-    )
-
-    result = call._run({"messages": []})
-
-    assert result.reply == "Biscuit."
-    assert queued == [("what is my puppy's name", 3)]
+    assert "prefetched" not in system
+    assert "preceding conversation" not in system
 
 
 def test_recent_near_verbatim_playback_echo_never_becomes_a_turn() -> None:
@@ -782,10 +754,12 @@ def test_failed_foreground_tool_loop_does_not_invent_canned_speech() -> None:
     assert result.followup == ""
     assert "without actionable progress" in result.error
     assert result.spoke_seconds == 0
+
+
 def test_live_prompt_routes_mutating_verified_work_to_the_persistent_agent() -> None:
-    assert "Pursue requested outcomes" in LIVE_CALL_SYSTEM_PROMPT
+    assert "Use supplied tools to complete requested outcomes" in LIVE_CALL_SYSTEM_PROMPT
     assert "background_task" in LIVE_CALL_SYSTEM_PROMPT
-    assert "change method after a failure" in LIVE_CALL_SYSTEM_PROMPT
+    assert "change approach after failure" in LIVE_CALL_SYSTEM_PROMPT
 
 
 def test_live_context_requires_tools_and_grounded_alternatives() -> None:
@@ -896,46 +870,17 @@ def test_explicit_camera_tool_requests_the_right_capture_mode() -> None:
     assert payloads[1]["messages"][-1]["videos"] == [frame]  # type: ignore[index]
 
 
-# -- knowing when it is ----------------------------------------------------
+# -- compact ordinary context ---------------------------------------------
 
 
-def test_the_model_is_told_the_current_date_and_time() -> None:
-    """Without a clock a model answers "what day is it" from its training."""
-
-    from datetime import datetime
-
-    from harness.call import grounding_preamble
-
-    fixed = datetime(2026, 9, 17, 14, 5)
-    preamble = grounding_preamble(fixed)
-
-    assert "Thursday 17 September 2026" in preamble
-    assert "14:05" in preamble
-
-
-def test_the_grounding_rides_on_every_turn() -> None:
+def test_runtime_facts_are_fetched_explicitly_instead_of_eagerly_injected() -> None:
     payload = session()._build_payload(b"RIFF", segments=1, frame=None)
     system = payload["messages"][0]
 
     assert system["role"] == "system"
-    assert "The current date and time is" in system["content"]
-    # The live-call instructions are still there, not replaced by it.
-    assert "live two-way spoken conversation" in system["content"]
-
-
-def test_the_clock_is_read_per_turn_not_once_at_import() -> None:
-    """A process listening for a week must not still think it is Monday."""
-
-    import harness.call as call_module
-
-    seen: list[str] = []
-    for _ in range(2):
-        payload = session()._build_payload(b"RIFF", segments=1, frame=None)
-        seen.append(payload["messages"][0]["content"])
-
-    # Same call, freshly rendered each time rather than a module constant.
-    assert "The current date and time is" not in call_module.LIVE_CALL_SYSTEM_PROMPT
-    assert all("The current date and time is" in content for content in seen)
+    assert "live spoken conversation" in system["content"]
+    assert "The current date and time is" not in system["content"]
+    assert "This machine is in" not in system["content"]
 
 
 # -- talking over a reply --------------------------------------------------
