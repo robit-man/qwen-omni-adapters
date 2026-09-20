@@ -271,7 +271,7 @@ def test_a_live_background_worker_is_exposed_and_its_progress_is_context() -> No
     payload = call._build_payload(b"wav", 1, None)
 
     assert payload["portal_background_bridge"] is True
-    assert payload["portal_require_tool_decision"] is True
+    assert "portal_require_tool_decision" not in payload
     assert "abc: running" in payload["messages"][0]["content"]
 
 

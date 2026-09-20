@@ -43,25 +43,6 @@
     "assessing_result": "Assessing the tool result"
   },
   "control_tools": {
-    "respond_to_user": {
-      "type": "function",
-      "function": {
-        "name": "respond_to_user",
-        "description": "Finish the turn with a complete direct answer only when the request is fully resolved without external evidence or action. Do not use this function to state a capability limitation, avoid requested work, promise later work, or offer a substitute for work that a supplied or discoverable tool can perform.",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "content": {
-              "type": "string",
-              "description": "The complete natural-language answer to return now."
-            }
-          },
-          "required": [
-            "content"
-          ]
-        }
-      }
-    },
     "task_checkpoint": {
       "type": "function",
       "function": {

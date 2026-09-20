@@ -111,6 +111,11 @@ MAX_VIDEO_FPS = 2.0
 MAX_GIF_SECONDS = 30
 DEFAULT_TTS_BLOCK_CHARS = 420
 DEFAULT_TTS_STREAM_FRAMES = 2
+# Non-thinking text stays private until reasoning-tag sanitation completes.
+# Emit a content-free pulse while consuming that upstream stream so a closed
+# browser or microphone connection is observed and cancels inference instead
+# of leaving the single model slot generating an orphaned response.
+STREAM_LIVENESS_CHUNKS = 16
 THINK_OPEN = "<think>"
 THINK_CLOSE = "</think>"
 THINK_OPEN_TAGS = (THINK_OPEN, "<|thinking|>")
@@ -1422,6 +1427,7 @@ def execute_stream(
         tool_calls: Any = None
         openai_tool_calls: dict[int, dict[str, Any]] = {}
         result: dict[str, Any] = {}
+        silent_chunks = 0
         # Make the prompt fit before sending it. llama.cpp refuses an
         # over-long prompt rather than truncating it, so a conversation that
         with client.stream("POST", language_request_url(config), json=payload) as response:
@@ -1493,6 +1499,12 @@ def execute_stream(
                         delta["thinking"] = delta.get("thinking", "") + piece
                 if len(delta) > 1:
                     yield _stream_event("delta", message=delta)
+                    silent_chunks = 0
+                else:
+                    silent_chunks += 1
+                    if silent_chunks >= STREAM_LIVENESS_CHUNKS:
+                        yield _stream_event("progress", stage="language")
+                        silent_chunks = 0
                 if message.get("tool_calls"):
                     tool_calls = message["tool_calls"]
         if thinking_enabled:

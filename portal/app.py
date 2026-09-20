@@ -43,7 +43,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
-from qwen_omni_adapters.context import context_text, context_value
+from qwen_omni_adapters.context import context_text
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 
 try:
@@ -104,7 +104,6 @@ DIAGNOSTIC_TTL_SECONDS = 5 * 60
 # Productive chains have no numeric round ceiling. This guard only stops a
 # model that keeps changing searches/calls without obtaining actionable data.
 MAX_STALLED_TOOL_ROUNDS = 8
-LIVE_RESPONSE_TOOL = context_value("control_tools", "respond_to_user")
 DIAGNOSTIC_NUMERIC_FIELDS = {
     "queue_wait_ms",
     "upstream_headers_ms",
@@ -820,35 +819,6 @@ def _response_tool_calls(response: Mapping[str, Any]) -> list[Mapping[str, Any]]
         message["content"] = _TEXT_TOOL_CALL_PATTERN.sub("", content).strip()
         message["tool_calls"] = parsed
     return parsed
-
-
-def _consume_live_response_call(response: dict[str, Any]) -> bool:
-    """Turn the live decision tool into a terminal assistant response.
-
-    Live execution uses a required tool decision so plain prose cannot bypass
-    available actions.  ``respond_to_user`` is the explicit no-action branch;
-    it is portal control flow, not an executable or externally advertised tool.
-    """
-
-    calls = _response_tool_calls(response)
-    matching = []
-    for call in calls:
-        function = call.get("function")
-        if isinstance(function, Mapping) and function.get("name") == "respond_to_user":
-            matching.append(call)
-    if not matching:
-        return False
-    if len(calls) != 1 or len(matching) != 1:
-        raise PortalError("respond_to_user must be the only call in its tool round")
-    content = str(_tool_arguments(matching[0]).get("content") or "").strip()
-    if not content:
-        raise PortalError("respond_to_user requires a non-empty content argument")
-    message = response.get("message")
-    if not isinstance(message, dict):
-        raise PortalError("respond_to_user returned no assistant message")
-    message["content"] = content
-    message.pop("tool_calls", None)
-    return True
 
 
 def _without_media(messages: list[Any]) -> list[Any]:
@@ -1700,9 +1670,7 @@ def create_app(
             camera_bridge = payload.pop("portal_camera_bridge", False) is True
             shell_bridge = payload.pop("portal_shell_bridge", False) is True
             background_bridge = payload.pop("portal_background_bridge", False) is True
-            require_tool_decision = (
-                payload.pop("portal_require_tool_decision", False) is True
-            )
+            payload.pop("portal_require_tool_decision", None)
             if payload.get("model") != runtime.model:
                 return jsonify({"error": "portal model tag is fixed"}), 400
             if payload.get("stream") is not False:
@@ -1724,9 +1692,6 @@ def create_app(
                     initial_tools.extend(tool_schemas(["shell"]))
                 if background_bridge:
                     initial_tools.extend(tool_schemas(["background_task"]))
-                if require_tool_decision:
-                    initial_tools.append(copy.deepcopy(LIVE_RESPONSE_TOOL))
-                    payload["tool_choice"] = "required"
                 payload["tools"] = copy.deepcopy(initial_tools)
             diagnostics.begin_request(
                 session_id,
@@ -1766,8 +1731,6 @@ def create_app(
                     response.headers["X-Omni-Request-ID"] = request_id
                     return response, upstream.status_code
                 if not auto_tools:
-                    break
-                if require_tool_decision and _consume_live_response_call(data):
                     break
                 calls = _response_tool_calls(data)
                 if calls:
@@ -1851,9 +1814,7 @@ def create_app(
         camera_bridge = payload.pop("portal_camera_bridge", False) is True
         shell_bridge = payload.pop("portal_shell_bridge", False) is True
         background_bridge = payload.pop("portal_background_bridge", False) is True
-        require_tool_decision = (
-            payload.pop("portal_require_tool_decision", False) is True
-        )
+        payload.pop("portal_require_tool_decision", None)
         if payload.get("model") != runtime.model:
             return jsonify({"error": "portal model tag is fixed"}), 400
         if payload.get("stream") is not True:
@@ -1877,9 +1838,6 @@ def create_app(
                     initial_tools.extend(tool_schemas(["shell"]))
                 if background_bridge:
                     initial_tools.extend(tool_schemas(["background_task"]))
-                if require_tool_decision:
-                    initial_tools.append(copy.deepcopy(LIVE_RESPONSE_TOOL))
-                    payload["tool_choice"] = "required"
                 payload["tools"] = copy.deepcopy(initial_tools)
         except PortalRequestError as exc:
             return jsonify({"error": str(exc)}), 400
@@ -2016,15 +1974,7 @@ def create_app(
                         )
                         return
 
-                    if (
-                        auto_tools
-                        and require_tool_decision
-                        and _consume_live_response_call(final_response)
-                    ):
-                        followup = None
-                        round_tools = []
-                        _made_progress = False
-                    elif not auto_tools:
+                    if not auto_tools:
                         followup = None
                         round_tools: list[dict[str, Any]] = []
                         _made_progress = False

@@ -18,7 +18,7 @@ not accepted.
 | Persistent execution policy | `prompts.background_agent_system`, background directives | `harness/background_agent.py` |
 | Isolated helper policy | `prompts.subagent_system` | portal sub-agent runner |
 | Public tool contracts and discovery vocabulary | `tools[].schema`, `tools[].discovery_hints` | portal discovery, foreground chaining, and background execution |
-| Structured decision/checkpoint contracts | `control_tools` | foreground `respond_to_user` and background `task_checkpoint` |
+| Structured checkpoint contracts | `control_tools` | background `task_checkpoint` |
 | Human-visible durable-task phases | `task_stages` | task store, worker, and top-bar indicator |
 
 Dynamic evidence stays in code because it is request state rather than policy:

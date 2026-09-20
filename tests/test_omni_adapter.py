@@ -1173,6 +1173,41 @@ def test_disabled_stream_suppresses_orphaned_closing_think_tag() -> None:
     assert "thinking" not in final
 
 
+def test_sanitized_stream_emits_content_free_liveness_pulses() -> None:
+    from runtime.adapter_server import STREAM_LIVENESS_CHUNKS
+
+    lines = b"".join(
+        b'data: {"choices":[{"delta":{"content":"word "}}]}\n'
+        for _ in range(STREAM_LIVENESS_CHUNKS)
+    )
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=lines)
+
+    parsed = parse_adapter_request(_base_request(think=False))
+    events = [
+        json.loads(chunk)
+        for chunk in execute_stream(
+            parsed,
+            Config(
+                "http://comp",
+                "omni",
+                "http://language/v1/chat/completions",
+                "http://tts",
+                30,
+                language_api="openai",
+            ),
+            httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+    ]
+
+    progress = [event for event in events if event["type"] == "progress"]
+    assert progress == [{"type": "progress", "stage": "language"}]
+    assert events[-1]["response"]["message"]["content"] == (
+        "word " * STREAM_LIVENESS_CHUNKS
+    ).strip()
+
+
 def test_reference_server_streams_pcm_and_keeps_final_wav_envelope() -> None:
     pcm = b"\x01\x00\x02\x00\x03\x00"
     seen = []

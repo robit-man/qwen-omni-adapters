@@ -7,7 +7,7 @@ import pytest
 
 from harness.background_agent import AGENT_SYSTEM_PROMPT, TASK_CHECKPOINT_TOOL
 from harness.call import LIVE_CALL_SYSTEM_PROMPT
-from portal.app import LIVE_RESPONSE_TOOL, TOOL_RESULT_POLICY, create_app
+from portal.app import TOOL_RESULT_POLICY, create_app
 from portal.tools import SAFE_TOOLS, tool_use_instructions
 from qwen_omni_adapters.context import (
     CONTEXT_SCHEMA,
@@ -33,7 +33,6 @@ def test_context_catalog_is_the_runtime_source_of_prompts_and_tools() -> None:
     ] == DEFAULT_LANGUAGE_SYSTEM_PROMPT
     assert catalog["directives"]["tool_result_policy"] == TOOL_RESULT_POLICY
     assert tool_use_instructions() == catalog["directives"]["tool_use"]
-    assert catalog["control_tools"]["respond_to_user"] == LIVE_RESPONSE_TOOL
     assert catalog["control_tools"]["task_checkpoint"] == TASK_CHECKPOINT_TOOL
     assert [item["schema"] for item in catalog["tools"]] == SAFE_TOOLS
 

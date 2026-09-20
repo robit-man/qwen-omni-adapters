@@ -1773,60 +1773,7 @@ def test_background_only_voice_profile_cannot_rediscover_or_call_foreground_shel
     assert response.json["message"]["content"] == "I started it."
 
 
-def test_live_required_decision_cannot_end_as_unstructured_prose() -> None:
-    requests: list[dict[str, Any]] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        body = json.loads(request.content)
-        requests.append(body)
-        assert body["tool_choice"] == "required"
-        assert "respond_to_user" in {
-            item["function"]["name"] for item in body["tools"]
-        }
-        response = {
-            "message": {
-                "role": "assistant",
-                "content": "",
-                "tool_calls": [
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "respond_to_user",
-                            "arguments": {"content": "Four."},
-                        },
-                    }
-                ],
-            }
-        }
-        wire = json.dumps({"type": "final", "response": response}) + "\n"
-        return httpx.Response(
-            200,
-            content=wire,
-            headers={"content-type": "application/x-ndjson"},
-        )
-
-    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
-    response = app.test_client().post(
-        "/api/chat/stream",
-        headers={"Authorization": f"Bearer {TOKEN}"},
-        json=_request(
-            stream=True,
-            portal_auto_tools=True,
-            portal_background_bridge=True,
-            portal_require_tool_decision=True,
-        ),
-    )
-    events = [json.loads(line) for line in response.data.splitlines()]
-
-    assert response.status_code == 200
-    assert len(requests) == 1
-    assert events[-1]["response"]["message"] == {
-        "role": "assistant",
-        "content": "Four.",
-    }
-
-
-def test_live_required_decision_executes_selected_tool_then_returns_normally(
+def test_live_tools_allow_plain_reply_or_execute_selected_tool(
     tmp_path: Path,
 ) -> None:
     requests: list[dict[str, Any]] = []
@@ -1835,7 +1782,10 @@ def test_live_required_decision_executes_selected_tool_then_returns_normally(
         body = json.loads(request.content)
         requests.append(body)
         if len(requests) == 1:
-            assert body["tool_choice"] == "required"
+            assert "tool_choice" not in body
+            assert "respond_to_user" not in {
+                item["function"]["name"] for item in body["tools"]
+            }
             response = {
                 "message": {
                     "role": "assistant",
@@ -1856,9 +1806,6 @@ def test_live_required_decision_executes_selected_tool_then_returns_normally(
             }
         else:
             assert "tool_choice" not in body
-            assert "respond_to_user" not in {
-                item["function"]["name"] for item in body["tools"]
-            }
             response = {
                 "message": {"role": "assistant", "content": "Started."}
             }
@@ -1880,7 +1827,6 @@ def test_live_required_decision_executes_selected_tool_then_returns_normally(
             stream=True,
             portal_auto_tools=True,
             portal_background_bridge=True,
-            portal_require_tool_decision=True,
         ),
     )
     events = [json.loads(line) for line in response.data.splitlines()]
