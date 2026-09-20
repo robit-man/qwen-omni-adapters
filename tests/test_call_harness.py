@@ -24,6 +24,7 @@ from harness.call import (  # noqa: E402
     CallConfig,
     CallSession,
     TurnResult,
+    _is_capability_disclaimer,
     _parse_live_route,
 )
 from harness.vad import Vad, VadConfig  # noqa: E402
@@ -259,6 +260,26 @@ def test_live_route_parser_recovers_fenced_or_wrapped_json() -> None:
         '"task_id": "", "guidance": ""} Hope that helps.'
     )
     assert _parse_live_route(padded)["reply"] == "Okay, sounds good."
+
+
+def test_capability_disclaimer_detection_is_verb_anchored() -> None:
+    disclaimers = [
+        "I can't open a browser or browse Reddit directly, but I can tell you ...",
+        "I don't have access to a browser right now.",
+        "I am unable to open applications while we talk.",
+        "I cannot search the web on this device.",
+    ]
+    for text in disclaimers:
+        assert _is_capability_disclaimer(text) is True, text
+
+    conversational = [
+        "I can't wait to help you with that.",
+        "I couldn't agree more.",
+        "That sounds good to me.",
+        "I don't have to tell you, do I?",
+    ]
+    for text in conversational:
+        assert _is_capability_disclaimer(text) is False, text
 
 
 def test_failure_is_logged_and_carried_into_the_next_prompt() -> None:

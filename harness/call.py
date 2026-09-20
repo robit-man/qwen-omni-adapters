@@ -103,7 +103,12 @@ LIVE_ROUTE_PROMPT = (
     "not verification. For fresh_evidence, put the needed capability in tool_query and do "
     "not answer from memory. Unused string fields must be empty strings. Keep reply, "
     "objective, and guidance concise: a few sentences is enough, never restate the schema, "
-    "and never pad the fields."
+    "and never pad the fields. Never answer in reply mode that you lack a capability: you "
+    "have web/browser and document tools, memory, and a persistent worker with a raw shell "
+    "that can open applications, browse, search, download, and create or modify files. "
+    "reply mode that begins with a disclaimer (\"I can't\", \"I don't have access\") is a "
+    "routing error: choose fresh_evidence for current web information and start_task for "
+    "host work instead."
 )
 
 LIVE_ROUTE_FORMAT = {
@@ -162,6 +167,30 @@ def _json_object_candidate(content: str) -> str:
         if start != -1 and end > start:
             text = text[start : end + 1].strip()
     return text
+
+
+def _is_capability_disclaimer(text: str) -> bool:
+    """A reply that starts by disclaiming an ability rather than answering.
+
+    Narrow by design: verb-anchored and checked only against the opening of the
+    reply, so conversational uses of "can't" ("I can't wait to", "I couldn't
+    agree more") are never mistaken for a capability refusal.
+    """
+
+    disclaimer_verb = (
+        r"\b(?:can|cannot|can't|can’t|unable to|not able to)\s+"
+        r"(?:open|browse|search|access|use|run|navigate|find|fetch|operate|"
+        r"download|reach|work|access|please)\b"
+    )
+    no_means = (
+        r"\b(?:don't have|do not have|doesn't have|does not have|have no|had no|"
+        r"have (?:any )?means|have no way)\s+"
+        r"(?:the\s+)?(?:ability|access|means|tools?|way)\b"
+    )
+    pattern = re.compile(
+        rf"(?:{disclaimer_verb}|{no_means})", flags=re.IGNORECASE
+    )
+    return bool(pattern.search(text[:160]))
 
 
 def _parse_live_route(content: str) -> dict[str, str]:
@@ -722,7 +751,18 @@ class CallSession:
                         route["mode"] = "update_task"
                         route["guidance"] = route["guidance"] or route["objective"]
                 if route["mode"] == "reply":
-                    result.reply = route["reply"]
+                    if result.transcript and _is_capability_disclaimer(route["reply"]):
+                        logger.info(
+                            "reply-mode capability disclaimer detected; escalating to a tool pass"
+                        )
+                        route["mode"] = "fresh_evidence"
+                        route["tool_query"] = (
+                            (result.transcript or result.audio_observation).strip()
+                            or route["reply"]
+                        )
+                        result.reply = ""
+                    else:
+                        result.reply = route["reply"]
                 elif route["mode"] == "start_task":
                     assert self.background_agent is not None
                     verification = (
