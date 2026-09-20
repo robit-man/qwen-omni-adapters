@@ -17,8 +17,12 @@ import httpx
 
 from portal.background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
 from portal.tools import DISCOVERY_TOOLS, tool_schemas
+from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 logger = logging.getLogger(__name__)
+
+MAX_TASK_CONTEXT_BYTES = 256 * 1024
+MAX_TOOL_RESULT_CHARS = 24_000
 
 AGENT_SYSTEM_PROMPT = (
     "You are the execution worker for a task already accepted during a live spoken "
@@ -27,26 +31,59 @@ AGENT_SYSTEM_PROMPT = (
     "result, correct failures, and verify the completion criteria. Never merely describe "
     "what you would do or promise future work. If another capability is needed, use "
     "tool_search; its matching schema arrives on the next step. Return a concise factual "
-    "completion report only after the work has been verified. You have a long horizon: "
-    "keep using tools, inspecting their results, correcting problems, and continuing until "
-    "the objective is actually complete; do not stop just because it takes many steps. "
+    "completion report only after the work has been verified. Work across renewable bounded "
+    "slices: make measurable progress in each slice and use task_checkpoint to record a "
+    "verified milestone or terminal result. "
     "Keep each individual planning pass concise. When a concrete tool schema is visible, "
     "call it promptly instead of narrating alternatives or searching the shell for another "
     "way to perform the same action. "
-    "For a genuinely long task, you may occasionally pause after a meaningful verified "
-    "milestone and emit TASK_PROGRESS on its own line followed by one or two natural spoken "
-    "sentences saying what you finished, what you are working on, and what comes next. The "
-    "update is not completion: after it is delivered you must resume the same task. Do this "
-    "sparingly, never after every tool call. If an external requirement "
-    "makes completion impossible, explain the precise blocker and the progress retained. "
+    "For a genuinely long task, call task_checkpoint with action=progress only after a "
+    "meaningful verified milestone. Call it with action=complete only after the completion "
+    "criteria are satisfied, or action=blocked only when a concrete tool result proves an "
+    "external blocker. Reference the tool-call IDs that support the checkpoint. Runtime "
+    "scheduling and memory pressure are never task blockers and must not appear in a report. "
     "Messages inside <task_update> are later directions from the live speaker; incorporate "
     "them before continuing, and let the newer direction win when it conflicts. "
-    "Begin the final report with exactly TASK_COMPLETE or TASK_BLOCKED on its own line. "
-    "After the marker, write one to three natural spoken sentences in the first person: say "
+    "The checkpoint report must be one to three natural spoken sentences in the first person: say "
     "what you finished or what blocked you, mention the useful location or verification, and "
     "sound like a conversational handoff. Do not use headings such as Workspace, Result, or "
     "Verification, and do not dump a checklist. Do not emit private chain-of-thought."
 )
+
+
+TASK_CHECKPOINT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "task_checkpoint",
+        "description": (
+            "Record verified progress or finish the accepted background task. Evidence IDs "
+            "must name concrete tool calls from this task. Runtime resource pressure is not "
+            "task evidence and cannot block the task."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["progress", "complete", "blocked"],
+                },
+                "report": {"type": "string", "maxLength": 2000},
+                "evidence_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "maxItems": 16,
+                },
+            },
+            "required": ["action", "report", "evidence_ids"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+
+class _ForegroundPreempted(RuntimeError):
+    """Background inference was cancelled for an accepted spoken turn."""
 
 
 def _tool_calls(response: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -76,8 +113,17 @@ def _arguments(call: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _call_fingerprint(name: str, arguments: Mapping[str, Any]) -> str:
+    def normalized(value: Any) -> Any:
+        if isinstance(value, str):
+            return " ".join(value.casefold().split())
+        if isinstance(value, Mapping):
+            return {str(key): normalized(item) for key, item in sorted(value.items())}
+        if isinstance(value, list):
+            return [normalized(item) for item in value]
+        return value
+
     return hashlib.sha256(
-        f"{name}\0{json.dumps(arguments, sort_keys=True, default=str)}".encode()
+        f"{name}\0{json.dumps(normalized(arguments), sort_keys=True, default=str)}".encode()
     ).hexdigest()
 
 
@@ -108,7 +154,10 @@ def _compact_task_messages(
 ) -> list[dict[str, Any]]:
     """Turn a long transcript into a fresh chain with its durable state intact."""
 
-    if len(messages) <= 48:
+    serialized_bytes = len(
+        json.dumps(messages, ensure_ascii=False, default=str).encode("utf-8")
+    )
+    if len(messages) <= 48 and serialized_bytes <= MAX_TASK_CONTEXT_BYTES:
         return messages
     head = copy.deepcopy(messages[:2])
     tail_start = max(2, len(messages) - 12)
@@ -147,57 +196,94 @@ def _compact_task_messages(
         sections.append(f"Tools already used: {tool_names}")
     sections.append("</retained_checkpoint>")
     checkpoint = {"role": "user", "content": "\n".join(sections)}
-    return [*head, checkpoint, *copy.deepcopy(messages[tail_start:])]
+    tail = copy.deepcopy(messages[tail_start:])
+    for message in tail:
+        if message.get("role") != "tool":
+            continue
+        try:
+            value = json.loads(str(message.get("content") or "{}"))
+        except ValueError:
+            value = str(message.get("content") or "")
+        message["content"] = json.dumps(
+            _bounded_tool_result(value), ensure_ascii=False, default=str
+        )
+    return [*head, checkpoint, *tail]
 
 
-def _has_concrete_tool_evidence(messages: list[dict[str, Any]]) -> bool:
-    return any(
-        message.get("role") == "tool"
-        and message.get("tool_name") not in {None, "", "tool_search"}
-        for message in messages
-    )
+def _result_digest(name: str, result: Any) -> str:
+    rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(f"{name}\0{rendered}".encode()).hexdigest()
 
 
-def _protocol_report(value: str) -> tuple[str | None, str]:
-    """Extract the last exact control line without ever sending it to speech."""
+def _bounded_tool_result(result: Any) -> Any:
+    """Keep durable evidence useful without letting one tool inflate context."""
 
-    markers = {"TASK_PROGRESS", "TASK_COMPLETE", "TASK_BLOCKED"}
-    kind: str | None = None
-    spoken: list[str] = []
-    for line in value.splitlines():
-        stripped = line.strip()
-        if stripped in markers:
-            kind = stripped
-        else:
-            spoken.append(line)
-    return kind, "\n".join(spoken).strip()
+    rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, default=str)
+    if len(rendered) <= MAX_TOOL_RESULT_CHARS:
+        return result
+    digest = hashlib.sha256(rendered.encode()).hexdigest()
+    if not isinstance(result, Mapping):
+        return {
+            "truncated": True,
+            "original_sha256": digest,
+            "preview": rendered[: MAX_TOOL_RESULT_CHARS - 200],
+        }
+    bounded: dict[str, Any] = {
+        key: value
+        for key, value in result.items()
+        if key
+        in {
+            "error",
+            "message",
+            "exit_code",
+            "timed_out",
+            "blocked",
+            "challenge",
+            "url",
+            "title",
+            "rendered",
+        }
+    }
+    remaining = MAX_TOOL_RESULT_CHARS - len(
+        json.dumps(bounded, ensure_ascii=False, default=str)
+    ) - 300
+    for key, value in result.items():
+        if key in bounded or remaining <= 0:
+            continue
+        text = json.dumps(value, ensure_ascii=False, default=str)
+        bounded[str(key)] = text[:remaining]
+        remaining -= min(len(text), remaining)
+    bounded["truncated"] = True
+    bounded["original_sha256"] = digest
+    return bounded
 
 
-def _latest_concrete_tool_error(messages: list[dict[str, Any]]) -> str:
-    """Return why the latest action cannot support a success claim, if anything."""
-
-    for message in reversed(messages):
-        if message.get("role") != "tool" or message.get("tool_name") in {
-            None,
-            "",
-            "tool_search",
-        }:
+def _tool_evidence(messages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    evidence: dict[str, dict[str, Any]] = {}
+    for message in messages:
+        if message.get("role") != "tool":
+            continue
+        evidence_id = str(message.get("tool_call_id") or "").strip()
+        name = str(message.get("tool_name") or "").strip()
+        if not evidence_id or not name or name in {"tool_search", "task_checkpoint"}:
             continue
         try:
             result = json.loads(str(message.get("content") or "{}"))
         except ValueError:
-            return ""
-        if not isinstance(result, Mapping):
-            return ""
-        if result.get("error"):
-            return str(result["error"])
-        if result.get("timed_out") is True:
-            return "the action timed out"
-        exit_code = result.get("exit_code")
-        if exit_code is not None and exit_code != 0:
-            return f"the action exited with status {exit_code}"
-        return ""
-    return ""
+            result = {}
+        evidence[evidence_id] = {"name": name, "result": result}
+    return evidence
+
+
+def _result_failed_or_blocked(result: Any) -> bool:
+    if not isinstance(result, Mapping):
+        return False
+    if result.get("error") or result.get("timed_out") is True:
+        return True
+    if result.get("blocked") is True or result.get("challenge") is True:
+        return True
+    exit_code = result.get("exit_code")
+    return exit_code is not None and exit_code != 0
 
 
 def _append_guidance(
@@ -252,6 +338,11 @@ class BackgroundAgent:
         retry_max_s: float = 30.0,
         request_timeout_s: float = 300.0,
         step_token_limit: int | None = None,
+        memory_governor: MemoryGovernor | None = None,
+        max_slice_rounds: int = 12,
+        max_slice_tool_calls: int = 16,
+        max_slice_stalls: int = 3,
+        slice_backoff_s: float = 10.0,
         client: httpx.Client | None = None,
     ) -> None:
         self.store = store
@@ -277,7 +368,14 @@ class BackgroundAgent:
             except ValueError:
                 configured_step_limit = 768
         self.step_token_limit = max(128, min(4096, configured_step_limit))
+        self.memory_governor = memory_governor
+        self.max_slice_rounds = max(2, int(max_slice_rounds))
+        self.max_slice_tool_calls = max(1, int(max_slice_tool_calls))
+        self.max_slice_stalls = max(1, int(max_slice_stalls))
+        self.slice_backoff_s = max(0.1, float(slice_backoff_s))
         self._failures: dict[str, int] = {}
+        self._resource_deferrals: dict[str, int] = {}
+        self._slice_deferrals: dict[str, int] = {}
         self.owner = f"voice-agent-{secrets.token_hex(8)}"
         self.active = threading.Event()
         self._wake = threading.Event()
@@ -353,6 +451,8 @@ class BackgroundAgent:
         return True
 
     def _post(self, path: str, payload: Mapping[str, Any]) -> httpx.Response:
+        if self.memory_governor is not None:
+            self.memory_governor.require(f"background tool {path.rsplit('/', 2)[-2]}")
         response = self._client.post(
             f"{self.portal_url}{path}", json=dict(payload), headers=self._headers()
         )
@@ -361,7 +461,129 @@ class BackgroundAgent:
                 f"{self.portal_url}{path}", json=dict(payload), headers=self._headers()
             )
         response.raise_for_status()
+        if self.memory_governor is not None and self.memory_governor.under_hard_pressure():
+            raise MemoryPressure(
+                "background tool result",
+                self.memory_governor.available_gib(),
+                self.memory_governor.policy.hard_floor_gib,
+            )
         return response
+
+    def _chat(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        """Run cancellable background inference through the streaming route."""
+
+        body = dict(payload)
+        body["stream"] = True
+        for attempt in range(2):
+            if self.memory_governor is not None:
+                image_turn = any(
+                    isinstance(message, Mapping) and bool(message.get("images"))
+                    for message in body.get("messages", [])
+                )
+                reserve = (
+                    self.memory_governor.policy.operation_reserve_gib * 1.5
+                    if image_turn
+                    else None
+                )
+                self.memory_governor.require(
+                    "background inference", reserve_gib=reserve
+                )
+            with self._client.stream(
+                "POST",
+                f"{self.portal_url}/api/chat/stream",
+                json=body,
+                headers=self._headers(),
+            ) as response:
+                if response.status_code == 401 and attempt == 0 and self._refresh_token():
+                    continue
+                response.raise_for_status()
+                done = threading.Event()
+
+                def cancel() -> None:
+                    response.close()
+
+                watcher = None
+                tripped = threading.Event()
+                if self.memory_governor is not None:
+                    watcher, tripped = self.memory_governor.watch(
+                        "background-inference", cancel, done
+                    )
+                foreground_preempted = threading.Event()
+
+                def watch_foreground() -> None:
+                    while not done.wait(0.05):
+                        if not self.foreground_active.is_set():
+                            continue
+                        foreground_preempted.set()
+                        response.close()
+                        return
+
+                foreground_watcher = threading.Thread(
+                    target=watch_foreground,
+                    name="omni-background-foreground-watch",
+                    daemon=True,
+                )
+                foreground_watcher.start()
+                try:
+                    content_type = response.headers.get("content-type", "")
+                    if "application/json" in content_type:
+                        response.read()
+                        if self.foreground_active.is_set():
+                            raise _ForegroundPreempted(
+                                "background inference yielded to foreground speech"
+                            )
+                        value = response.json()
+                        if not isinstance(value, dict):
+                            raise RuntimeError("background inference returned invalid JSON")
+                        return value
+                    final: dict[str, Any] | None = None
+                    for line in response.iter_lines():
+                        if self.foreground_active.is_set():
+                            response.close()
+                            raise _ForegroundPreempted(
+                                "background inference yielded to foreground speech"
+                            )
+                        if not line.strip():
+                            continue
+                        try:
+                            event = json.loads(line)
+                        except ValueError:
+                            continue
+                        if not isinstance(event, Mapping):
+                            continue
+                        if event.get("type") == "error":
+                            raise RuntimeError(str(event.get("error") or "stream error"))
+                        if event.get("type") == "final" and isinstance(
+                            event.get("response"), Mapping
+                        ):
+                            final = dict(event["response"])
+                    if tripped.is_set() and self.memory_governor is not None:
+                        raise MemoryPressure(
+                            "background inference",
+                            self.memory_governor.available_gib(),
+                            self.memory_governor.policy.hard_floor_gib,
+                        )
+                    if final is None:
+                        raise RuntimeError("background inference stream ended without a final")
+                    return final
+                except httpx.HTTPError:
+                    if foreground_preempted.is_set():
+                        raise _ForegroundPreempted(
+                            "background inference yielded to foreground speech"
+                        )
+                    if tripped.is_set() and self.memory_governor is not None:
+                        raise MemoryPressure(
+                            "background inference",
+                            self.memory_governor.available_gib(),
+                            self.memory_governor.policy.hard_floor_gib,
+                        )
+                    raise
+                finally:
+                    done.set()
+                    foreground_watcher.join(timeout=1.0)
+                    if watcher is not None:
+                        watcher.join(timeout=1.0)
+        raise RuntimeError("background inference authorization failed")
 
     def _wait_for_foreground(self) -> bool:
         yielded = False
@@ -391,8 +613,54 @@ class BackgroundAgent:
             logger.info("background task %s started: %s", task_id, task["objective"])
             self.active.set()
             try:
+                if self.await_language is not None:
+                    self.store.update_stage(
+                        task_id, self.owner, "Waiting for the language model"
+                    )
+                    self.await_language()
+                if self.memory_governor is not None:
+                    self.memory_governor.require("background task")
                 self._execute(task)
                 self._failures.pop(task_id, None)
+                self._resource_deferrals.pop(task_id, None)
+            except _ForegroundPreempted:
+                logger.info("background task %s preempted by a spoken turn", task_id)
+                self.store.checkpoint(
+                    task_id,
+                    self.owner,
+                    current_stage="Waiting for the spoken turn",
+                    status="pending",
+                )
+            except MemoryPressure as error:
+                deferrals = self._resource_deferrals.get(task_id, 0) + 1
+                self._resource_deferrals[task_id] = deferrals
+                delay = min(
+                    self.memory_governor.policy.wait_max_s
+                    if self.memory_governor is not None
+                    else self.retry_max_s,
+                    (self.memory_governor.policy.wait_initial_s
+                    if self.memory_governor is not None
+                    else self.retry_initial_s)
+                    * (2 ** min(deferrals - 1, 8)),
+                )
+                if deferrals == 1 or deferrals & (deferrals - 1) == 0:
+                    logger.warning(
+                        "background task %s deferred by the runtime memory governor; "
+                        "retrying in %.1fs: %s",
+                        task_id,
+                        delay,
+                        error,
+                    )
+                # Resource pressure is scheduler state. It is deliberately not
+                # added to messages, progress, evidence, or the task's error.
+                self.store.checkpoint(
+                    task_id,
+                    self.owner,
+                    current_stage="Waiting for runtime capacity",
+                    status="pending",
+                )
+                self._wake.wait(delay)
+                self._wake.clear()
             except Exception as error:  # noqa: BLE001 - checkpoint and retry later
                 detail = f"{type(error).__name__}: {error}"
                 failures = self._failures.get(task_id, 0) + 1
@@ -401,10 +669,6 @@ class BackgroundAgent:
                     self.retry_max_s,
                     self.retry_initial_s * (2 ** min(failures - 1, 10)),
                 )
-                # Preserve the first failure and exponentially sparse repeats
-                # in the durable audit without replacing all useful work with
-                # an outage log. Every retry still updates error and stage.
-                record_failure = failures == 1 or failures & (failures - 1) == 0
                 logger.warning(
                     "background task %s yielded after: %s; retrying in %.1fs",
                     task_id,
@@ -414,11 +678,6 @@ class BackgroundAgent:
                 self.store.checkpoint(
                     task_id,
                     self.owner,
-                    progress=(
-                        f"Worker yielded after a transient failure: {detail}"
-                        if record_failure
-                        else ""
-                    ),
                     current_stage=f"Waiting {delay:.1f}s to retry after a backend error",
                     error=detail,
                     status="pending",
@@ -442,7 +701,13 @@ class BackgroundAgent:
                 {"role": "system", "content": AGENT_SYSTEM_PROMPT},
                 {"role": "user", "content": request},
             ]
-        seen = _seen_tool_fingerprints(messages)
+        seen = {
+            *_seen_tool_fingerprints(messages),
+            *(str(value) for value in task.get("tool_fingerprints", []) if value),
+        }
+        result_digests = {
+            str(value) for value in task.get("result_digests", []) if value
+        }
         compacted = _compact_task_messages(messages, task)
         if len(compacted) < len(messages):
             logger.info(
@@ -465,8 +730,37 @@ class BackgroundAgent:
         seen_guidance = {
             str(item) for item in task.get("applied_guidance_ids", []) if str(item)
         }
+        slice_rounds = 0
+        slice_tool_calls = 0
+        stalls = 0
 
         while not self.stop.is_set():
+            if (
+                slice_rounds >= self.max_slice_rounds
+                or slice_tool_calls >= self.max_slice_tool_calls
+                or stalls >= self.max_slice_stalls
+            ):
+                deferrals = self._slice_deferrals.get(task_id, 0) + 1
+                self._slice_deferrals[task_id] = deferrals
+                delay = min(
+                    self.retry_max_s,
+                    self.slice_backoff_s * (2 ** min(deferrals - 1, 5)),
+                )
+                self.store.checkpoint(
+                    task_id,
+                    self.owner,
+                    messages=messages,
+                    active_tools=active_tools,
+                    tools_used=tools_used,
+                    applied_guidance_ids=list(seen_guidance),
+                    tool_fingerprints=list(seen),
+                    result_digests=list(result_digests),
+                    current_stage=f"Yielded a bounded work slice; retrying in {delay:.1f}s",
+                    status="pending",
+                )
+                self._wake.wait(delay)
+                self._wake.clear()
+                return
             current = self.store.get(task_id)
             if current is None or current.get("status") == "cancelled":
                 logger.info("background task %s cancelled", task_id)
@@ -494,6 +788,7 @@ class BackgroundAgent:
                 continue
             self.store.update_stage(task_id, self.owner, "Planning the next step")
             schemas = [
+                copy.deepcopy(TASK_CHECKPOINT_TOOL),
                 *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
                 *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
             ]
@@ -523,7 +818,8 @@ class BackgroundAgent:
                 "portal_auto_tools": False,
                 "stream": False,
             }
-            data = self._post("/api/chat", payload).json()
+            data = self._chat(payload)
+            slice_rounds += 1
             # Browser screenshots are one-pass perception evidence. Once the
             # model has inspected one, retain the DOM/tool summary but never
             # checkpoint megabytes of base64 into the long-horizon transcript.
@@ -545,173 +841,18 @@ class BackgroundAgent:
             messages.append(assistant)
             calls = _tool_calls(data)
             if not calls:
-                raw_report = str(message.get("content") or "").strip()
-                if not raw_report:
-                    raise RuntimeError("background agent returned an empty final report")
-                protocol, report = _protocol_report(raw_report)
-                if not _has_concrete_tool_evidence(messages):
-                    # A fluent promise or fabricated completion is not work.
-                    # Keep it in the checkpoint for audit, explicitly reject
-                    # it, then give the model another isolated step in which
-                    # the concrete shell schema is still visible.
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": (
-                                "That completion report is unsupported: no concrete tool "
-                                "has run. Continue the accepted task now by calling shell "
-                                "or another discovered action tool. Do not report completion "
-                                "until the returned evidence verifies the objective."
-                            ),
-                        }
-                    )
-                    checkpoint = self.store.checkpoint(
-                        task_id,
-                        self.owner,
-                        messages=messages,
-                        active_tools=active_tools,
-                        tools_used=tools_used,
-                        applied_guidance_ids=list(seen_guidance),
-                        progress=(
-                            "Rejected an unsupported completion report; no action tool "
-                            "had executed."
+                stalls += 1
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "Continue with a concrete tool call, or call task_checkpoint "
+                            "with evidence IDs for a verified progress, complete, or blocked "
+                            "state. Plain prose does not change task state."
                         ),
-                        status="running",
-                        current_stage="Planning the next step",
-                    )
-                    if checkpoint is None or checkpoint.get("status") == "cancelled":
-                        return
-                    continue
-                latest_error = _latest_concrete_tool_error(messages)
-                if protocol in {None, "TASK_PROGRESS", "TASK_COMPLETE"} and latest_error:
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": (
-                                "That progress or completion claim cannot be accepted because "
-                                f"the latest concrete action failed: {latest_error}. Do not treat "
-                                "an error or duplicate call as verification. Inspect the returned "
-                                "evidence, choose a materially different next step, and continue; "
-                                "report TASK_BLOCKED only for a precise external blocker."
-                            ),
-                        }
-                    )
-                    checkpoint = self.store.checkpoint(
-                        task_id,
-                        self.owner,
-                        messages=messages,
-                        active_tools=active_tools,
-                        tools_used=tools_used,
-                        applied_guidance_ids=list(seen_guidance),
-                        progress=(
-                            "Rejected a completion or milestone because the latest concrete "
-                            f"action failed: {latest_error}."
-                        ),
-                        status="running",
-                        current_stage="Reassessing the failed action",
-                    )
-                    if checkpoint is None or checkpoint.get("status") == "cancelled":
-                        return
-                    continue
-                if protocol == "TASK_PROGRESS":
-                    spoken = report
-                    if not spoken:
-                        spoken = "I reached a useful checkpoint and I’m continuing the task."
-                    now = time.monotonic()
-                    eligible = (
-                        now - task_started_at >= self.progress_after_s
-                        and (
-                            last_progress_at is None
-                            or now - last_progress_at >= self.progress_min_interval_s
-                        )
-                    )
-                    checkpoint = self.store.checkpoint(
-                        task_id,
-                        self.owner,
-                        messages=messages,
-                        active_tools=active_tools,
-                        tools_used=tools_used,
-                        applied_guidance_ids=list(seen_guidance),
-                        progress=f"Spoken milestone: {spoken}",
-                        status="running",
-                        current_stage="Resuming after the spoken checkpoint",
-                    )
-                    if checkpoint is None or checkpoint.get("status") == "cancelled":
-                        return
-                    if eligible and self.on_progress is not None:
-                        last_progress_at = now
-                        self.on_progress(
-                            {
-                                "task_id": task_id,
-                                "status": "running",
-                                "result": spoken,
-                            }
-                        )
-                        continuation = "The milestone update was delivered."
-                    else:
-                        continuation = (
-                            "The milestone was checkpointed without interrupting the speaker."
-                        )
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": (
-                                f"{continuation} Resume the same accepted task now. "
-                                "Continue using tools and do not report completion until "
-                                "the objective has been verified."
-                            ),
-                        }
-                    )
-                    continue
-                latest = self.store.get(task_id)
-                if latest is not None and _append_guidance(
-                    messages, latest, seen_guidance
-                ):
-                    checkpoint = self.store.checkpoint(
-                        task_id,
-                        self.owner,
-                        messages=messages,
-                        active_tools=active_tools,
-                        tools_used=tools_used,
-                        applied_guidance_ids=list(seen_guidance),
-                        progress=(
-                            "A newer spoken update arrived before completion; "
-                            "reassessing the task."
-                        ),
-                        status="running",
-                        current_stage="Applying the latest spoken update",
-                    )
-                    if checkpoint is None or checkpoint.get("status") == "cancelled":
-                        return
-                    continue
-                status = "completed"
-                if protocol == "TASK_BLOCKED":
-                    status = "blocked"
-                if not report:
-                    report = (
-                        "The background task completed."
-                        if status == "completed"
-                        else "The background task is blocked."
-                    )
-                completed = self.store.checkpoint(
-                    task_id,
-                    self.owner,
-                    messages=messages,
-                    active_tools=active_tools,
-                    tools_used=tools_used,
-                    applied_guidance_ids=list(seen_guidance),
-                    progress=(
-                        "Work completed and assessed."
-                        if status == "completed"
-                        else "Work stopped at a reported blocker."
-                    ),
-                    result=report,
-                    status=status,
+                    }
                 )
-                logger.info("background task %s %s: %s", task_id, status, report[:300])
-                if completed is not None and self.on_complete is not None:
-                    self.on_complete(completed)
-                return
+                continue
 
             # A person may have spoken while this inference was running. Yield
             # before acting, then re-read task control state. A targeted update
@@ -756,6 +897,133 @@ class BackgroundAgent:
                     else ""
                 )
                 arguments = _arguments(call)
+                call_id = str(call.get("id") or secrets.token_hex(6))
+                if name == "task_checkpoint":
+                    latest = self.store.get(task_id)
+                    if latest is not None and _append_guidance(
+                        messages, latest, seen_guidance
+                    ):
+                        # The terminal assertion was based on stale directions.
+                        stalls += 1
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_name": name,
+                                "tool_call_id": call_id,
+                                "content": json.dumps(
+                                    {"error": "new_guidance", "retryable": True}
+                                ),
+                            }
+                        )
+                        continue
+                    action = str(arguments.get("action") or "")
+                    report = " ".join(str(arguments.get("report") or "").split())
+                    raw_ids = arguments.get("evidence_ids")
+                    evidence_ids = (
+                        [str(value) for value in raw_ids if str(value)]
+                        if isinstance(raw_ids, list)
+                        else []
+                    )
+                    evidence = _tool_evidence(messages)
+                    selected = [evidence.get(value) for value in evidence_ids]
+                    valid_refs = bool(selected) and all(item is not None for item in selected)
+                    failed = [
+                        item
+                        for item in selected
+                        if item is not None and _result_failed_or_blocked(item["result"])
+                    ]
+                    valid = (
+                        action in {"progress", "complete", "blocked"}
+                        and bool(report)
+                        and valid_refs
+                        and (
+                            (action == "blocked" and bool(failed))
+                            or (action != "blocked" and not failed)
+                        )
+                    )
+                    if not valid:
+                        stalls += 1
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_name": name,
+                                "tool_call_id": call_id,
+                                "content": json.dumps(
+                                    {
+                                        "error": "unsupported_checkpoint",
+                                        "message": (
+                                            "Reference existing successful tool calls for "
+                                            "progress/complete, or a concrete failed tool call "
+                                            "for blocked."
+                                        ),
+                                    }
+                                ),
+                            }
+                        )
+                        continue
+                    if action == "progress":
+                        now = time.monotonic()
+                        eligible = (
+                            now - task_started_at >= self.progress_after_s
+                            and (
+                                last_progress_at is None
+                                or now - last_progress_at >= self.progress_min_interval_s
+                            )
+                        )
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_name": name,
+                                "tool_call_id": call_id,
+                                "content": json.dumps({"accepted": True}),
+                            }
+                        )
+                        checkpoint = self.store.checkpoint(
+                            task_id,
+                            self.owner,
+                            messages=messages,
+                            active_tools=active_tools,
+                            tools_used=tools_used,
+                            applied_guidance_ids=list(seen_guidance),
+                            tool_fingerprints=list(seen),
+                            result_digests=list(result_digests),
+                            progress=report,
+                            status="running",
+                            current_stage="Continuing from a verified checkpoint",
+                        )
+                        if checkpoint is None or checkpoint.get("status") == "cancelled":
+                            return
+                        if eligible and self.on_progress is not None:
+                            last_progress_at = now
+                            self.on_progress(
+                                {"task_id": task_id, "status": "running", "result": report}
+                            )
+                        stalls = 0
+                        continue
+                    status = "completed" if action == "complete" else "blocked"
+                    completed = self.store.checkpoint(
+                        task_id,
+                        self.owner,
+                        messages=messages,
+                        active_tools=active_tools,
+                        tools_used=tools_used,
+                        applied_guidance_ids=list(seen_guidance),
+                        tool_fingerprints=list(seen),
+                        result_digests=list(result_digests),
+                        progress=(
+                            "Work completed with referenced evidence."
+                            if status == "completed"
+                            else "Work stopped at a verified external blocker."
+                        ),
+                        result=report,
+                        status=status,
+                    )
+                    logger.info(
+                        "background task %s %s: %s", task_id, status, report[:300]
+                    )
+                    if completed is not None and self.on_complete is not None:
+                        self.on_complete(completed)
+                    return
                 fingerprint = _call_fingerprint(name, arguments)
                 if fingerprint in seen:
                     result: Any = {
@@ -764,8 +1032,12 @@ class BackgroundAgent:
                     }
                     if name == "tool_search":
                         suppress_discovery = True
+                    elif name in active_tools:
+                        active_tools = [item for item in active_tools if item != name]
+                    stalls += 1
                 else:
                     seen.add(fingerprint)
+                    slice_tool_calls += 1
                     self.store.update_stage(
                         task_id,
                         self.owner,
@@ -775,6 +1047,19 @@ class BackgroundAgent:
                         f"/api/tools/{name}/call", {"arguments": arguments}
                     ).json()
                     result = response.get("result", response)
+                    if (
+                        isinstance(result, Mapping)
+                        and result.get("error") == "resource_pressure"
+                    ):
+                        raise MemoryPressure(
+                            name or "tool",
+                            self.memory_governor.available_gib()
+                            if self.memory_governor is not None
+                            else 0.0,
+                            self.memory_governor.policy.hard_floor_gib
+                            if self.memory_governor is not None
+                            else 0.0,
+                        )
                     if name:
                         tools_used = list(dict.fromkeys([*tools_used, name]))[-16:]
                     if name != "tool_search":
@@ -800,6 +1085,12 @@ class BackgroundAgent:
                     "tool_name": name or "unknown",
                     "content": "",
                 }
+                digest = _result_digest(name, result)
+                if digest in result_digests:
+                    stalls += 1
+                else:
+                    result_digests.add(digest)
+                    self._slice_deferrals.pop(task_id, None)
                 screenshot = None
                 if name in {"browser_interact", "gui_interact"} and isinstance(result, Mapping):
                     screenshot = result.get("screenshot")
@@ -808,11 +1099,11 @@ class BackgroundAgent:
                         for key, value in result.items()
                         if key != "screenshot"
                     }
+                result = _bounded_tool_result(result)
                 tool_message["content"] = json.dumps(
                     result, ensure_ascii=False, default=str
                 )
-                if call.get("id"):
-                    tool_message["tool_call_id"] = str(call["id"])
+                tool_message["tool_call_id"] = call_id
                 messages.append(tool_message)
                 if isinstance(screenshot, Mapping) and screenshot.get("data"):
                     messages.append(
@@ -843,6 +1134,8 @@ class BackgroundAgent:
                 active_tools=active_tools,
                 tools_used=tools_used,
                 applied_guidance_ids=list(seen_guidance),
+                tool_fingerprints=list(seen),
+                result_digests=list(result_digests),
                 progress=" ".join(progress_parts),
                 status="running",
                 current_stage="Assessing the tool result",

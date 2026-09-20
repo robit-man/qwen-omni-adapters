@@ -19,6 +19,7 @@ from portal.app import (
     create_app,
     load_voice_profile,
 )
+from portal.browser import BrowserAutomationError, BrowserAutomationStore
 from portal.documents import SessionDocumentStore, extract_document
 from portal.tools import (
     DISCOVERY_TOOLS,
@@ -26,8 +27,79 @@ from portal.tools import (
     PortalToolHarness,
     discover_tool_names,
 )
+from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy, MemoryPressure
 
 TOKEN = "portal-test-token-with-more-than-24-characters"
+
+
+class _FakeSession:
+    def __init__(self) -> None:
+        self.process = _StaticProc()
+        self.last_seen = time.monotonic()
+
+    def poll_replacement(self) -> int | None:
+        return None
+
+
+class _StaticProc:
+    def __init__(self) -> None:
+        self.pid = 4242
+
+    def poll(self) -> int | None:
+        return None
+
+
+def _memory_governor(available: float) -> MemoryGovernor:
+    return MemoryGovernor(
+        MemoryPolicy(
+            enabled=True,
+            soft_floor_gib=3.0,
+            hard_floor_gib=2.0,
+            operation_reserve_gib=1.0,
+            poll_interval_s=0.01,
+        ),
+        sampler=lambda: available,
+    )
+
+
+def test_browser_uses_the_generic_runtime_memory_governor() -> None:
+    governor = _memory_governor(3.5)
+    store = BrowserAutomationStore(memory_governor=governor)
+
+    assert store.memory_governor is governor
+    try:
+        governor.require("visible browser")
+    except MemoryPressure as error:
+        assert error.label == "visible browser"
+    else:
+        raise AssertionError("expected generic memory admission to defer the browser")
+
+
+def test_browser_admit_refuses_a_second_live_window() -> None:
+    store = BrowserAutomationStore()
+    store._sessions["a"] = _FakeSession()  # type: ignore[assignment]
+    try:
+        store._admit_single_window()
+    except BrowserAutomationError as error:
+        assert "single visible browser window" in str(error)
+    else:
+        raise AssertionError("expected a BrowserAutomationError")
+
+
+def test_browser_emergency_closes_sessions_when_unified_memory_collapses(
+) -> None:
+    class Store(BrowserAutomationStore):
+        def __init__(self) -> None:
+            super().__init__(memory_governor=_memory_governor(0.6))
+            self.terminated: list[str] = []
+
+        def _terminate(self, session: Any) -> None:
+            self.terminated.append("terminated")
+
+    store = Store()
+    store._sessions["a"] = _FakeSession()  # type: ignore[assignment]
+    store._expire_locked()
+    assert store.terminated == ["terminated"]
 
 
 def test_initial_tool_contract_stays_tiny() -> None:

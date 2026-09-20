@@ -11,13 +11,42 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from harness.background_agent import (
+    MAX_TOOL_RESULT_CHARS,
     BackgroundAgent,
+    _bounded_tool_result,
     _compact_task_messages,
     _seen_tool_fingerprints,
 )
 from portal.background_tasks import BackgroundTaskStore
 from portal.documents import SessionDocumentStore
 from portal.tools import PortalToolHarness
+
+
+def _checkpoint_response(
+    action: str, report: str, evidence_ids: list[str]
+) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": f"checkpoint-{action}",
+                        "function": {
+                            "name": "task_checkpoint",
+                            "arguments": {
+                                "action": action,
+                                "report": report,
+                                "evidence_ids": evidence_ids,
+                            },
+                        },
+                    }
+                ],
+            }
+        },
+    )
 
 
 def test_background_task_store_checkpoints_and_recovers_expired_work(
@@ -98,6 +127,22 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
     assert "Make the final version blue" in checkpoint
     assert compacted[3]["role"] == "assistant"
     assert compacted[4]["role"] == "tool"
+
+
+def test_a_single_tool_result_cannot_balloon_the_durable_task_context() -> None:
+    result = {
+        "exit_code": 0,
+        "stdout": "x" * (2 * MAX_TOOL_RESULT_CHARS),
+        "stderr": "",
+    }
+
+    bounded = _bounded_tool_result(result)
+    rendered = json.dumps(bounded)
+
+    assert len(rendered) <= MAX_TOOL_RESULT_CHARS + 100
+    assert bounded["exit_code"] == 0
+    assert bounded["truncated"] is True
+    assert len(bounded["original_sha256"]) == 64
 
 
 def test_terminal_announcement_survives_restart_until_marked_spoken(
@@ -202,7 +247,7 @@ def test_background_agent_yields_between_inference_and_tool_steps(
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request.url.path)
-        if request.url.path == "/api/chat":
+        if request.url.path == "/api/chat/stream":
             payload = json.loads(request.content)
             assert payload["think"] is True
             tool_results = [
@@ -230,17 +275,10 @@ def test_background_agent_yields_between_inference_and_tool_steps(
                         }
                     },
                 )
-            return httpx.Response(
-                200,
-                json={
-                    "message": {
-                        "role": "assistant",
-                        "content": (
-                            "I created marker.txt and verified the write succeeded.\n"
-                            "TASK_COMPLETE"
-                        ),
-                    }
-                },
+            return _checkpoint_response(
+                "complete",
+                "I created marker.txt and verified the write succeeded.",
+                ["write-1"],
             )
         if request.url.path == "/api/tools/shell/call":
             return httpx.Response(
@@ -277,7 +315,11 @@ def test_background_agent_yields_between_inference_and_tool_steps(
     assert current["status"] == "completed"
     assert current["result"].startswith("I created marker.txt")
     assert "TASK_COMPLETE" not in current["result"]
-    assert requests == ["/api/chat", "/api/tools/shell/call", "/api/chat"]
+    assert requests == [
+        "/api/chat/stream",
+        "/api/tools/shell/call",
+        "/api/chat/stream",
+    ]
     assert completed[0]["task_id"] == task["task_id"]
 
 
@@ -311,23 +353,23 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
         assert payload["options"]["num_predict"] == 256
         if chat_round == 1:
             assert payload["think"] is True
-            assert tool_names == ["tool_search"]
+            assert tool_names == ["task_checkpoint", "tool_search"]
             call_name = "tool_search"
             arguments = {"query": "visual rendered browser navigation"}
         elif chat_round == 2:
             assert payload["think"] is False
-            assert tool_names == ["tool_search", "browser_interact"]
+            assert tool_names == [
+                "task_checkpoint",
+                "tool_search",
+                "browser_interact",
+            ]
             call_name = "browser_interact"
             arguments = {"action": "navigate", "url": "http://example.test/"}
         else:
-            return httpx.Response(
-                200,
-                json={
-                    "message": {
-                        "role": "assistant",
-                        "content": "TASK_COMPLETE\nI opened and verified the rendered page.",
-                    }
-                },
+            return _checkpoint_response(
+                "complete",
+                "I opened and verified the rendered page.",
+                ["call-2"],
             )
         return httpx.Response(
             200,
@@ -405,14 +447,8 @@ def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
                     }
                 },
             )
-        return httpx.Response(
-            200,
-            json={
-                "message": {
-                    "role": "assistant",
-                    "content": "TASK_COMPLETE\nCreated and verified the marker.",
-                }
-            },
+        return _checkpoint_response(
+            "complete", "Created and verified the marker.", ["recovered-action"]
         )
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -441,10 +477,7 @@ def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
     assert current is not None
     assert current["status"] == "completed"
     assert current["tools_used"] == ["shell"]
-    failures = [
-        item for item in current["progress"] if "transient failure" in item
-    ]
-    assert len(failures) == 2
+    assert not any("transient failure" in item for item in current["progress"])
 
 
 def test_browser_screenshot_is_seen_once_but_not_persisted_as_base64(
@@ -498,14 +531,10 @@ def test_browser_screenshot_is_seen_once_but_not_persisted_as_base64(
                 },
             )
         assert any(message.get("images") for message in payload["messages"])
-        return httpx.Response(
-            200,
-            json={
-                "message": {
-                    "role": "assistant",
-                    "content": "TASK_COMPLETE\nI inspected the page and verified cobalt.",
-                }
-            },
+        return _checkpoint_response(
+            "complete",
+            "I inspected the page and verified cobalt.",
+            ["browser-1"],
         )
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -574,14 +603,8 @@ def test_background_agent_rejects_a_completion_with_no_action_evidence(
                     }
                 },
             )
-        return httpx.Response(
-            200,
-            json={
-                "message": {
-                    "role": "assistant",
-                    "content": "TASK_COMPLETE\nCreated and verified the marker.",
-                }
-            },
+        return _checkpoint_response(
+            "complete", "Created and verified the marker.", ["real-action"]
         )
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -608,10 +631,7 @@ def test_background_agent_rejects_a_completion_with_no_action_evidence(
     assert current is not None
     assert current["status"] == "completed"
     assert chat_round == 3
-    assert any(
-        "Rejected an unsupported completion" in item
-        for item in current["progress"]
-    )
+    assert "Done." in (tmp_path / "tasks.json").read_text(encoding="utf-8")
 
 
 def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
@@ -630,34 +650,20 @@ def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
         if chat_round == 1:
             content = "touch artifact"
         elif chat_round == 2:
-            return httpx.Response(
-                200,
-                json={
-                    "message": {
-                        "role": "assistant",
-                        "content": (
-                            "TASK_PROGRESS\nI created the artifact. I’m verifying its "
-                            "contents now."
-                        ),
-                    }
-                },
+            return _checkpoint_response(
+                "progress",
+                "I created the artifact. I’m verifying its contents now.",
+                ["step-1"],
             )
         elif chat_round == 3:
             payload = json.loads(request.content)
-            assert "milestone update was delivered" in str(payload["messages"][-1])
+            assert '"accepted": true' in str(payload["messages"][-1]).lower()
             content = "test -f artifact"
         else:
-            return httpx.Response(
-                200,
-                json={
-                    "message": {
-                        "role": "assistant",
-                        "content": (
-                            "TASK_COMPLETE\nI finished the artifact and verified that "
-                            "the file exists."
-                        ),
-                    }
-                },
+            return _checkpoint_response(
+                "complete",
+                "I finished the artifact and verified that the file exists.",
+                ["step-3"],
             )
         return httpx.Response(
             200,
@@ -737,28 +743,16 @@ def test_background_agent_rejects_completion_after_latest_action_failed(
         elif chat_round == 2:
             command = "bad verification"
         elif chat_round == 3:
-            return httpx.Response(
-                200,
-                json={
-                    "message": {
-                        "role": "assistant",
-                        "content": "I finished it.\nTASK_COMPLETE",
-                    }
-                },
+            return _checkpoint_response(
+                "complete", "I finished it.", ["action-2"]
             )
         elif chat_round == 4:
             payload = json.loads(request.content)
-            assert "latest concrete action failed" in str(payload["messages"][-1])
+            assert "unsupported_checkpoint" in str(payload["messages"][-1])
             command = "different successful verification"
         else:
-            return httpx.Response(
-                200,
-                json={
-                    "message": {
-                        "role": "assistant",
-                        "content": "I finished it and the new check passed.\nTASK_COMPLETE",
-                    }
-                },
+            return _checkpoint_response(
+                "complete", "I finished it and the new check passed.", ["action-4"]
             )
         return httpx.Response(
             200,
@@ -804,10 +798,7 @@ def test_background_agent_rejects_completion_after_latest_action_failed(
     assert current["status"] == "completed"
     assert current["result"] == "I finished it and the new check passed."
     assert chat_round == 5
-    assert any(
-        "latest concrete action failed" in item.lower()
-        for item in current["progress"]
-    )
+    assert "unsupported_checkpoint" in (tmp_path / "tasks.json").read_text()
 
 
 def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:
@@ -830,14 +821,8 @@ def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:
         elif chat_round == 2:
             stale_final_started.set()
             release_stale_final.wait(2)
-            return httpx.Response(
-                200,
-                json={
-                    "message": {
-                        "role": "assistant",
-                        "content": "TASK_COMPLETE\nCreated the base project.",
-                    }
-                },
+            return _checkpoint_response(
+                "complete", "Created the base project.", ["action-1"]
             )
         elif chat_round == 3:
             assert any(
@@ -846,14 +831,8 @@ def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:
             )
             content = "touch typescript"
         else:
-            return httpx.Response(
-                200,
-                json={
-                    "message": {
-                        "role": "assistant",
-                        "content": "TASK_COMPLETE\nApplied the TypeScript update.",
-                    }
-                },
+            return _checkpoint_response(
+                "complete", "Applied the TypeScript update.", ["action-3"]
             )
         return httpx.Response(
             200,
@@ -901,9 +880,7 @@ def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:
     assert current is not None
     assert current["result"] == "Applied the TypeScript update."
     assert commands == ["touch base", "touch typescript"]
-    assert any(
-        "newer spoken update" in item.lower() for item in current["progress"]
-    )
+    assert any("redirected" in item.lower() for item in current["progress"])
 
 
 def test_human_interjection_redirects_before_a_stale_action_and_then_resumes(
@@ -939,16 +916,10 @@ def test_human_interjection_redirects_before_a_stale_action_and_then_resumes(
             )
             command = "touch redirected-artifact"
         else:
-            return httpx.Response(
-                200,
-                json={
-                    "message": {
-                        "role": "assistant",
-                        "content": (
-                            "TASK_COMPLETE\nI created and verified the redirected artifact."
-                        ),
-                    }
-                },
+            return _checkpoint_response(
+                "complete",
+                "I created and verified the redirected artifact.",
+                ["action-2"],
             )
         return httpx.Response(
             200,
@@ -1001,7 +972,4 @@ def test_human_interjection_redirects_before_a_stale_action_and_then_resumes(
     assert current is not None
     assert current["status"] == "completed"
     assert commands == ["touch redirected-artifact"]
-    assert any(
-        "redirected the task before its pending action" in item
-        for item in current["progress"]
-    )
+    assert not any("stale-artifact" in item for item in current["progress"])

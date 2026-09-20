@@ -20,12 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from harness.audio import MicrophoneStream, SpeakerStream  # noqa: E402
 from harness.call import (  # noqa: E402
     LIVE_CALL_SYSTEM_PROMPT,
-    LIVE_ROUTE_FORMAT,
     CallConfig,
     CallSession,
     TurnResult,
-    _is_capability_disclaimer,
-    _parse_live_route,
+    _background_spoken_summary,
 )
 from harness.vad import Vad, VadConfig  # noqa: E402
 
@@ -225,61 +223,42 @@ def test_a_live_background_worker_is_exposed_and_its_progress_is_context() -> No
     assert "abc: running" in payload["messages"][0]["content"]
 
 
-def test_live_route_parser_fails_closed_on_free_form_or_incomplete_output() -> None:
-    with pytest.raises(ValueError, match="invalid JSON"):
-        _parse_live_route("I've created it.")
-    with pytest.raises(ValueError, match="invalid JSON"):
-        _parse_live_route('{"mode": "reply", "reply": "cut off')
-    with pytest.raises(ValueError, match="empty objective"):
-        _parse_live_route(
-            json.dumps(
-                {
-                    "mode": "start_task",
-                    "reply": "Done.",
-                    "objective": "",
-                    "completion_criteria": "",
-                    "tool_query": "",
-                    "task_id": "",
-                    "guidance": "",
-                }
-            )
+def test_every_spoken_turn_is_one_grounded_auto_tool_pass() -> None:
+    """No tool-less classification pass: the answer pass carries the tools.
+
+    A request that needs the web, a camera, a shell, or a durable task is
+    handled in the same grounded pass; there is no separate dispatcher text
+    that could be mistaken for an action or slip into a refusal.
+    """
+
+    call = CallSession(
+        CallConfig(
+            portal_url="http://127.0.0.1:8920",
+            token="t",
+            model="m",
+            tools_enabled=True,
+            camera_enabled=False,
+        )
+    )
+    payloads: list[dict[str, object]] = []
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        payloads.append(payload)
+        return TurnResult(
+            transcript="create a tone on my desktop",
+            reply="I’ve created the tone on your desktop.",
+            tools_used=["background_task"],
         )
 
+    call._run = run  # type: ignore[method-assign]
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
-def test_live_route_parser_recovers_fenced_or_wrapped_json() -> None:
-    wrapped = (
-        'Here is the dispatch:\n```json\n{"mode": "reply", "reply": "Hello!"}\n```'
-    )
-    route = _parse_live_route(wrapped)
-    assert route["mode"] == "reply"
-    assert route["reply"] == "Hello!"
-
-    padded = (
-        'Sure thing. {"mode": "reply", "reply": "Okay, sounds good.", '
-        '"objective": "", "completion_criteria": "", "tool_query": "", '
-        '"task_id": "", "guidance": ""} Hope that helps.'
-    )
-    assert _parse_live_route(padded)["reply"] == "Okay, sounds good."
-
-
-def test_capability_disclaimer_detection_is_verb_anchored() -> None:
-    disclaimers = [
-        "I can't open a browser or browse Reddit directly, but I can tell you ...",
-        "I don't have access to a browser right now.",
-        "I am unable to open applications while we talk.",
-        "I cannot search the web on this device.",
-    ]
-    for text in disclaimers:
-        assert _is_capability_disclaimer(text) is True, text
-
-    conversational = [
-        "I can't wait to help you with that.",
-        "I couldn't agree more.",
-        "That sounds good to me.",
-        "I don't have to tell you, do I?",
-    ]
-    for text in conversational:
-        assert _is_capability_disclaimer(text) is False, text
+    assert len(payloads) == 1
+    assert payloads[0]["portal_auto_tools"] is True
+    assert "response_format" not in payloads[0]
+    assert "LIVE_ROUTE" not in payloads[0]["messages"][0]["content"]
+    assert result.reply == "I’ve created the tone on your desktop."
+    assert result.tools_used == ["background_task"]
 
 
 def test_failure_is_logged_and_carried_into_the_next_prompt() -> None:
@@ -299,222 +278,83 @@ def test_failure_is_logged_and_carried_into_the_next_prompt() -> None:
     assert "what do you remember" in system
 
 
-def test_natural_fallback_is_a_no_tools_no_schema_conversational_pass() -> None:
-    call = session()
-    captured: dict[str, object] = {}
+def test_a_host_action_request_runs_one_grounded_pass_with_background_tools() -> None:
+    """A durable-task request is answered in the same tool pass it starts in.
 
-    def fake_run(payload: dict[str, object], *, queue_recall: bool = True) -> TurnResult:
-        captured["payload"] = payload
-        return TurnResult(reply="Sure, let me think about that.")
+    The portal executes the background_task tool server-side and returns the
+    grounded reply; the harness never creates a second request or rearranges
+    the turn into a tool-less reply.
+    """
 
-    call._run = fake_run  # type: ignore[assignment]
-    result = call._natural_fallback(
-        b"wav", 1, TurnResult(transcript="What do you remember today?", audio_observation="")
+    call = CallSession(
+        CallConfig(
+            token="t",
+            model="m",
+            tools_enabled=True,
+            camera_enabled=False,
+            prepare_speech=lambda: None,
+            restore_after_speech=lambda: None,
+        )
     )
-    payload = captured["payload"]
-    assert result.reply == "Sure, let me think about that."
-    assert payload["portal_auto_tools"] is False
-    assert "response_format" not in payload
-    assert payload["omni"]["require_speech"] is False
-    assert "audios" not in payload["messages"][-1]
-    assert "What do you remember today?" in payload["messages"][-1]["content"]
-    assert "You have no tools" in payload["messages"][-1]["content"]
-    assert "Never claim an action" in payload["messages"][-1]["content"]
-
-
-def test_host_action_is_durably_created_before_any_acknowledgment() -> None:
-    created: list[tuple[str, str]] = []
-    wakes: list[bool] = []
     payloads: list[dict[str, object]] = []
-
-    class Store:
-        def create(self, objective: str, criteria: str) -> dict[str, str]:
-            created.append((objective, criteria))
-            return {"task_id": "task-1"}
-
-    class Worker:
-        store = Store()
-
-        def context_summary(self) -> str:
-            return ""
-
-        def wake(self) -> None:
-            wakes.append(True)
-
-    call = CallSession(
-        CallConfig(
-            token="t",
-            model="m",
-            tools_enabled=True,
-            camera_enabled=False,
-            prepare_speech=lambda: None,
-            restore_after_speech=lambda: None,
-        )
-    )
-    call.background_agent = Worker()  # type: ignore[assignment]
-
-    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
-        payloads.append(payload)
-        if payload["omni"]["task"] == "synthesize":  # type: ignore[index]
-            assert created
-            return TurnResult(spoke_seconds=1.0)
-        return TurnResult(
-            transcript="create a tone on my desktop",
-            reply=json.dumps(
-                {
-                    "mode": "start_task",
-                    "reply": "",
-                    "objective": "Create the requested tone on the user's Desktop.",
-                    "completion_criteria": "Inspect the duration and frequency.",
-                    "tool_query": "",
-                    "task_id": "",
-                    "guidance": "",
-                }
-            ),
-        )
-
-    call._run = run  # type: ignore[method-assign]
-    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
-
-    assert payloads[0]["portal_auto_tools"] is False
-    assert payloads[0]["response_format"] == LIVE_ROUTE_FORMAT
-    assert len(created) == 1
-    assert "Desktop" in created[0][0]
-    assert "directly" in created[0][1]
-    assert wakes == [True]
-    assert result.tools_used == ["background_task"]
-    assert "started" in result.reply
-    assert not result.reply.startswith("I’ve created")
-    assert all("background_task\"" not in item["content"] for item in call._history)
-
-
-def test_spoken_redirection_updates_the_existing_task_instead_of_replacing_it() -> None:
-    guidance: list[tuple[str, str]] = []
-    wakes: list[bool] = []
-
-    class Store:
-        def create(self, _objective: str, _criteria: str) -> dict[str, str]:
-            raise AssertionError("a redirection must not create a second task")
-
-        def get(self, task_id: str) -> dict[str, str] | None:
-            if task_id == "task-1":
-                return {"task_id": task_id, "status": "running"}
-            return None
-
-        def add_guidance(self, task_id: str, content: str) -> dict[str, str]:
-            guidance.append((task_id, content))
-            return {"task_id": task_id, "status": "running"}
-
-    class Worker:
-        store = Store()
-
-        def context_summary(self) -> str:
-            return "Persistent background work:\n- task-1: running — create the image"
-
-        def wake(self) -> None:
-            wakes.append(True)
-
-    call = CallSession(
-        CallConfig(
-            token="t",
-            model="m",
-            tools_enabled=True,
-            camera_enabled=False,
-            prepare_speech=lambda: None,
-            restore_after_speech=lambda: None,
-        )
-    )
-    call.background_agent = Worker()  # type: ignore[assignment]
-
-    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
-        if payload["omni"]["task"] == "synthesize":  # type: ignore[index]
-            assert guidance
-            return TurnResult(spoke_seconds=0.5)
-        return TurnResult(
-            transcript="make that one blue instead",
-            reply=json.dumps(
-                {
-                    # This is the exact adjacent-mode mistake observed from
-                    # live constrained inference. Resolving an extant live ID
-                    # must still update it rather than create a duplicate.
-                    "mode": "start_task",
-                    "reply": "",
-                    "objective": "Make the output blue instead.",
-                    "completion_criteria": "",
-                    "tool_query": "",
-                    "task_id": "task-1",
-                    "guidance": "",
-                }
-            ),
-        )
-
-    call._run = run  # type: ignore[method-assign]
-    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
-
-    assert guidance == [("task-1", "Make the output blue instead.")]
-    assert wakes == [True]
-    assert result.tools_used == ["background_task"]
-    assert "added that direction" in result.reply
-
-
-def test_fresh_evidence_route_cannot_speak_an_answer_without_a_tool() -> None:
-    payloads: list[dict[str, object]] = []
-
-    class Store:
-        def create(self, _objective: str, _criteria: str) -> dict[str, str]:
-            raise AssertionError("foreground evidence must not create a background task")
-
-    class Worker:
-        store = Store()
-
-        def context_summary(self) -> str:
-            return ""
-
-        def wake(self) -> None:
-            pass
-
-    call = CallSession(
-        CallConfig(
-            token="t",
-            model="m",
-            tools_enabled=True,
-            camera_enabled=False,
-            prepare_speech=lambda: None,
-            restore_after_speech=lambda: None,
-        )
-    )
-    call.background_agent = Worker()  # type: ignore[assignment]
 
     def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
         payloads.append(payload)
         task = payload["omni"]["task"]  # type: ignore[index]
         if task == "synthesize":
-            return TurnResult(spoke_seconds=0.5)
-        if len(payloads) == 1:
-            return TurnResult(
-                transcript="what is the latest NASA news",
-                reply=json.dumps(
-                    {
-                        "mode": "fresh_evidence",
-                        "reply": "",
-                        "objective": "",
-                        "completion_criteria": "",
-                        "tool_query": "latest NASA news",
-                        "task_id": "",
-                        "guidance": "",
-                    }
-                ),
-            )
-        return TurnResult(reply="Here is some unverified old news.")
+            return TurnResult(spoke_seconds=1.0)
+        return TurnResult(
+            transcript="create a tone on my desktop",
+            reply="I’ve started that as a background task.",
+            tools_used=["background_task"],
+        )
 
     call._run = run  # type: ignore[method-assign]
     result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
-    assert len(payloads) == 3
-    assert "audios" not in payloads[1]["messages"][-1]  # type: ignore[index]
-    assert result.error.startswith("fresh evidence was required")
-    assert "haven’t confirmed" in result.followup
-    assert "unverified old news" not in result.followup
+    assert len(payloads) == 2  # one grounded answer pass, then the TTS pass
+    assert payloads[0]["omni"]["task"] == "chat"  # type: ignore[index]
+    assert payloads[0]["portal_auto_tools"] is True
+    assert "response_format" not in payloads[0]
+    assert result.tools_used == ["background_task"]
+    assert result.reply == "I’ve started that as a background task."
+    assert not result.reply.startswith("I’ve created")
+
+
+def test_background_task_tool_event_wakes_the_persistent_agent_in_the_pass() -> None:
+    """The durable worker is resumed from the tool event, not a parser branch."""
+
+    wakes: list[bool] = []
+
+    class Worker:
+        store = object()
+
+        def context_summary(self) -> str:
+            return ""
+
+        def wake(self) -> None:
+            wakes.append(True)
+
+    call = CallSession(CallConfig(token="t", model="m"))
+    call.background_agent = Worker()  # type: ignore[assignment]
+    call._events = lambda _payload: iter(  # type: ignore[method-assign]
+        [
+            {"type": "observation", "transcript": "create a tone on my desktop"},
+            {
+                "type": "tool",
+                "phase": "complete",
+                "name": "background_task",
+                "tools": [{"name": "background_task", "arguments": {"action": "start"}}],
+            },
+            {"type": "final", "response": {"message": {"content": "Started."}}},
+        ]
+    )
+
+    result = call._run({"messages": []})
+
+    assert wakes == [True]
+    assert "background_task" in result.tools_used
+    assert result.reply == "Started."
 
 
 def test_an_embodied_turn_advertises_the_camera_bridge_without_word_matching() -> None:
@@ -883,14 +723,14 @@ def test_failed_foreground_tool_loop_gets_an_honest_spoken_terminal_report() -> 
                 error="safe tool loop stopped without actionable progress",
             )
         order.append("tts")
-        assert "haven’t confirmed" in str(payload["messages"][0]["content"])  # type: ignore[index]
+        assert "verified result" in str(payload["messages"][0]["content"])  # type: ignore[index]
         return TurnResult(spoke_seconds=1.2)
 
     call._run = run  # type: ignore[method-assign]
     result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
     assert order == ["chat", "evict", "tts", "restore"]
-    assert "haven’t confirmed" in result.followup
+    assert "verified result" in result.followup
     assert "without actionable progress" in result.error
     assert result.spoke_seconds == 1.2
 
@@ -1185,6 +1025,35 @@ def test_a_barge_ducks_pauses_resumes_or_commits_without_a_hard_cut() -> None:
 
     assert call._barge.is_set()
     assert actions == ["duck", "pause", "resume", ("stop", 0.12)]
+
+
+def test_an_accepted_utterance_during_speech_preparation_cancels_the_announcement() -> None:
+    restored: list[bool] = []
+    call = CallSession(
+        CallConfig(
+            portal_url="http://127.0.0.1:8920",
+            token="t",
+            model="m",
+            prepare_speech=lambda: call.request_barge(),
+            restore_after_speech=lambda: restored.append(True),
+        )
+    )
+    call._run = lambda *_args, **_kwargs: (_ for _ in ()).throw(  # type: ignore[method-assign]
+        AssertionError("cancelled announcement must not start TTS")
+    )
+
+    result = call.announce("A background task has a long result to report.")
+
+    assert result.interrupted is True
+    assert restored == [True]
+
+
+def test_background_speech_is_bounded_to_two_short_sentences() -> None:
+    text = "First result. Second verification. " + "extra detail " * 100
+    summary = _background_spoken_summary(text)
+
+    assert summary == "First result. Second verification."
+    assert len(_background_spoken_summary("word " * 200)) <= 220
 
 
 def test_speaker_lets_pulse_keep_one_continuous_adaptive_stream(monkeypatch) -> None:

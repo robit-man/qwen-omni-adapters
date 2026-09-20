@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import os
 import secrets
 import shutil
@@ -27,6 +28,10 @@ from typing import Any
 from urllib.error import URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+
+from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
+
+logger = logging.getLogger(__name__)
 
 
 class BrowserAutomationError(RuntimeError):
@@ -242,14 +247,28 @@ class BrowserAutomationStore:
         ttl_s: float = 900.0,
         chromium_bin: str | None = None,
         timeout_s: float = 15.0,
+        memory_governor: MemoryGovernor | None = None,
     ) -> None:
         self.ttl_s = max(30.0, float(ttl_s))
         self.timeout_s = max(2.0, float(timeout_s))
         self.chromium_bin = chromium_bin or os.environ.get(
             "OMNI_CHROMIUM_BIN", "/usr/local/bin/chromium"
         )
+        self.memory_governor = memory_governor
         self._lock = threading.RLock()
         self._sessions: dict[str, _BrowserSession] = {}
+
+    def _admit_single_window(self) -> None:
+        live = [
+            key
+            for key, session in self._sessions.items()
+            if session.process.poll() is None
+        ]
+        if live:
+            raise BrowserAutomationError(
+                "another portal session already owns the single visible browser window on "
+                "this constrained runtime"
+            )
 
     def _terminate(self, session: _BrowserSession) -> None:
         if session.process.poll() is None:
@@ -268,6 +287,15 @@ class BrowserAutomationStore:
         for key, session in list(self._sessions.items()):
             if now - session.last_seen >= self.ttl_s or session.process.poll() is not None:
                 self._sessions.pop(key, None)
+                self._terminate(session)
+        if (
+            self.memory_governor is not None
+            and self.memory_governor.under_hard_pressure()
+            and self._sessions
+        ):
+            logger.warning("closing visible browser sessions at the runtime memory floor")
+            sessions, self._sessions = list(self._sessions.values()), {}
+            for session in sessions:
                 self._terminate(session)
 
     def clear(self, session_id: str) -> None:
@@ -308,6 +336,9 @@ class BrowserAutomationStore:
             raise BrowserAutomationError(f"Chromium is unavailable at {self.chromium_bin}")
         if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
             raise BrowserAutomationError("No active desktop display is available")
+        self._admit_single_window()
+        if self.memory_governor is not None:
+            self.memory_governor.require("visible browser")
         port = _free_loopback_port()
         profile = Path(tempfile.mkdtemp(prefix="omni-visible-chromium-"))
         command = [
@@ -317,6 +348,7 @@ class BrowserAutomationStore:
             "--no-default-browser-check",
             "--disable-session-crashed-bubble",
             "--disable-background-networking",
+            "--disable-gpu",
             "--remote-allow-origins=*",
             "--remote-debugging-address=127.0.0.1",
             f"--remote-debugging-port={port}",
@@ -455,10 +487,17 @@ class BrowserAutomationStore:
 
         with self._lock:
             session = self._session_locked(session_id)
+            done = threading.Event()
+            watcher = None
+            tripped = threading.Event()
+            if self.memory_governor is not None:
+                watcher, tripped = self.memory_governor.watch(
+                    "visible-browser", lambda: self._terminate(session), done
+                )
             # Refresh the page target in case the user opened or closed a tab manually.
-            session.page_socket = self._page_socket(session.port)
-            cdp = _Cdp(session.page_socket, self.timeout_s)
             try:
+                session.page_socket = self._page_socket(session.port)
+                cdp = _Cdp(session.page_socket, self.timeout_s)
                 cdp.call("Page.enable")
                 cdp.call("Runtime.enable")
                 if action == "navigate":
@@ -525,8 +564,27 @@ class BrowserAutomationStore:
                 elif action == "back":
                     self._evaluate(cdp, "history.back(); true")
                 self._wait_rendered(cdp, wait_ms)
-                return self._snapshot(session, cdp)
+                result = self._snapshot(session, cdp)
+                if tripped.is_set() and self.memory_governor is not None:
+                    self._sessions.pop(_session_key(session_id), None)
+                    raise MemoryPressure(
+                        "visible browser",
+                        self.memory_governor.available_gib(),
+                        self.memory_governor.policy.hard_floor_gib,
+                    )
+                return result
             except (TimeoutError, OSError, URLError) as exc:
+                if tripped.is_set() and self.memory_governor is not None:
+                    self._sessions.pop(_session_key(session_id), None)
+                    raise MemoryPressure(
+                        "visible browser",
+                        self.memory_governor.available_gib(),
+                        self.memory_governor.policy.hard_floor_gib,
+                    ) from exc
                 raise BrowserAutomationError(f"Visible Chromium communication failed: {exc}") from exc
             finally:
-                cdp.close()
+                done.set()
+                if watcher is not None:
+                    watcher.join(timeout=1.0)
+                if "cdp" in locals():
+                    cdp.close()

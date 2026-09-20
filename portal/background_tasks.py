@@ -133,6 +133,11 @@ class BackgroundTaskStore:
                 "current_stage": "Queued",
                 "guidance": [],
                 "applied_guidance_ids": [],
+                # These survive transcript compaction, so duplicate/stalled
+                # work cannot become novel merely because older chat messages
+                # were summarized away.
+                "tool_fingerprints": [],
+                "result_digests": [],
             }
             tasks = value.setdefault("tasks", [])
             tasks.append(task)
@@ -243,6 +248,8 @@ class BackgroundTaskStore:
         active_tools: list[str] | None = None,
         tools_used: list[str] | None = None,
         applied_guidance_ids: list[str] | None = None,
+        tool_fingerprints: list[str] | None = None,
+        result_digests: list[str] | None = None,
         progress: str = "",
         current_stage: str = "",
         result: str = "",
@@ -291,6 +298,14 @@ class BackgroundTaskStore:
                     item["applied_guidance_ids"] = list(
                         dict.fromkeys(applied_guidance_ids)
                     )[-64:]
+                if tool_fingerprints is not None:
+                    item["tool_fingerprints"] = list(
+                        dict.fromkeys(str(value) for value in tool_fingerprints if value)
+                    )[-2048:]
+                if result_digests is not None:
+                    item["result_digests"] = list(
+                        dict.fromkeys(str(value) for value in result_digests if value)
+                    )[-2048:]
                 if progress:
                     entries = item.setdefault("progress", [])
                     entries.append(progress[:1000])

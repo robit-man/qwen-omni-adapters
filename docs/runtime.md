@@ -104,6 +104,24 @@ docker gpu run \
 The process must see exactly the reserved UUID. Release the broker lease only
 after the worker exits and CUDA memory is freed.
 
+### Runtime-wide memory governor
+
+On Tegra, `qwen_omni_adapters.memory` automatically applies one unified-memory
+policy to background inference, passive-memory encoding, visible browser work,
+shell/subprocess tools, and every portal tool admission. It is task-generic:
+no browser or TTS component owns memory arbitration. Work starts only while the
+soft floor plus its operation reserve remains; cancellable HTTP, browser, and
+subprocess work is stopped if availability crosses the hard floor. Resource
+pressure is scheduler state, never model evidence and never a valid reason to
+finalize a user task as blocked.
+
+The comprehension launcher uses the same policy when selecting its context
+window, so model/KV residency retains room for later runtime work. Background
+tool results and transcripts also have byte bounds, and the worker runs in
+renewable round/call/stall-bounded slices. Configure the policy with
+`OMNI_MEMORY_GOVERNOR`, `OMNI_MEMORY_SOFT_FLOOR_GIB`,
+`OMNI_MEMORY_HARD_FLOOR_GIB`, and `OMNI_MEMORY_OPERATION_RESERVE_GIB`.
+
 ## Start TTS
 
 `runtime/tts_server.py` is a serial wrapper around the patched persistent and

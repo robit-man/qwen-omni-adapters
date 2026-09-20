@@ -38,6 +38,8 @@ from urllib.parse import parse_qs, quote_plus, urljoin, urlsplit
 
 import httpx
 
+from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
+
 try:
     from portal.background_tasks import BackgroundTaskStore
     from portal.browser import BrowserAutomationError, BrowserAutomationStore
@@ -562,6 +564,7 @@ def _run_shell(
     cwd: Any = None,
     timeout_seconds: Any = None,
     stdin: Any = None,
+    memory_governor: MemoryGovernor | None = None,
 ) -> dict[str, Any]:
     """Run the requested shell verbatim, bounding only time and captured output."""
 
@@ -616,6 +619,20 @@ def _run_shell(
     ]
     for thread in threads:
         thread.start()
+    done = threading.Event()
+    watcher = None
+    tripped = threading.Event()
+
+    def cancel_for_pressure() -> None:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+    if memory_governor is not None:
+        watcher, tripped = memory_governor.watch(
+            "shell", cancel_for_pressure, done
+        )
     writer: threading.Thread | None = None
     if stdin_data is not None and process.stdin is not None:
 
@@ -630,18 +647,27 @@ def _run_shell(
         writer.start()
     timed_out = False
     try:
-        process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        timed_out = True
         try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        process.wait()
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            cancel_for_pressure()
+            process.wait()
+    finally:
+        done.set()
+        if watcher is not None:
+            watcher.join(timeout=1.0)
     for thread in threads:
         thread.join(timeout=2.0)
     if writer is not None:
         writer.join(timeout=2.0)
+
+    if tripped.is_set() and memory_governor is not None:
+        raise MemoryPressure(
+            "shell",
+            memory_governor.available_gib(),
+            memory_governor.policy.hard_floor_gib,
+        )
 
     return {
         "command": source,
@@ -2210,6 +2236,7 @@ class PortalToolHarness:
         background_tasks: BackgroundTaskStore | None = None,
         browser_automation: Any | None = None,
         gui_automation: Any | None = None,
+        memory_governor: MemoryGovernor | None = None,
     ) -> None:
         self.documents = documents
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
@@ -2224,8 +2251,9 @@ class PortalToolHarness:
         self.subagents = SessionSubagentStore(ttl_s=ttl_s, runner=subagent_runner)
         self.location = SessionLocationStore(ttl_s=ttl_s)
         self.background_tasks = background_tasks
+        self.memory_governor = memory_governor
         self.browser = browser_automation or BrowserAutomationStore(
-            ttl_s=max(900.0, ttl_s)
+            ttl_s=max(900.0, ttl_s), memory_governor=memory_governor
         )
         self.gui = gui_automation or GuiAutomation()
 
@@ -2270,6 +2298,8 @@ class PortalToolHarness:
         arguments: Mapping[str, Any],
     ) -> dict[str, Any]:
         try:
+            if self.memory_governor is not None:
+                self.memory_governor.require(f"tool {name}")
             if name == "get_current_time":
                 now = datetime.now().astimezone()
                 result: dict[str, Any] = {
@@ -2372,6 +2402,7 @@ class PortalToolHarness:
                     arguments.get("cwd"),
                     arguments.get("timeout_seconds"),
                     arguments.get("stdin"),
+                    self.memory_governor,
                 )
             elif name == "background_task":
                 if self.background_tasks is None:
@@ -2462,6 +2493,21 @@ class PortalToolHarness:
                     "error": "tool_not_allowed",
                     "allowed": [item["function"]["name"] for item in SAFE_TOOLS],
                 }
+            if (
+                self.memory_governor is not None
+                and self.memory_governor.under_hard_pressure()
+            ):
+                raise MemoryPressure(
+                    f"tool {name}",
+                    self.memory_governor.available_gib(),
+                    self.memory_governor.policy.hard_floor_gib,
+                )
+        except MemoryPressure:
+            result = {
+                "error": "resource_pressure",
+                "retryable": True,
+                "message": "The runtime deferred this operation to preserve memory headroom.",
+            }
         except (
             ToolInputError,
             BrowserAutomationError,

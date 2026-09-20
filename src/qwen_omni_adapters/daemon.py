@@ -252,6 +252,10 @@ class OmniDaemon:
         }
         partial = self.status_file.with_suffix(".tmp")
         partial.write_text(json.dumps(value, indent=2, sort_keys=True), encoding="utf-8")
+        try:
+            partial.chmod(0o600)
+        except OSError:
+            pass
         os.replace(partial, self.status_file)
 
     def _command(self, command: list[str], timeout: int = 3600) -> subprocess.CompletedProcess[str]:
@@ -746,7 +750,15 @@ class OmniDaemon:
                     {"name": child.name, "pid": child.process.pid} for child in self.children
                 ],
             )
-            print(access_url, flush=True)
+            if sys.stdout.isatty() or os.environ.get("OMNI_PRINT_ACCESS_URL") == "1":
+                print(access_url, flush=True)
+            else:
+                public = access_url.split("/#access=", 1)[0]
+                print(
+                    f"qwen-omni-daemon: portal ready at {public}; protected access URL "
+                    f"saved in {self.status_file}",
+                    flush=True,
+                )
             while not self.stop_event.wait(1):
                 if self.stop_file.exists():
                     self.request_stop()

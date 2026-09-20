@@ -469,6 +469,7 @@ run_foreground() {
   fi
   [[ ${#portal_token} -ge 24 ]] || die "portal token must contain at least 24 characters"
   printf '%s\n' "$portal_token" >"$TOKEN_FILE"
+  chmod 600 "$TOKEN_FILE"
 
   log "starting authenticated phone portal"
   OMNI_MODEL="$MODEL" \
@@ -516,8 +517,14 @@ run_foreground() {
 
   local access_url="${public_url}/#access=${portal_token}"
   printf '%s\n' "$access_url" >"$ACCESS_URL_FILE"
+  chmod 600 "$ACCESS_URL_FILE"
   log "public portal ready"
-  printf '%s\n' "$access_url"
+  if [[ -t 1 || ${OMNI_PRINT_ACCESS_URL:-0} == 1 ]]; then
+    printf '%s\n' "$access_url"
+  else
+    printf 'portal ready at %s; protected access URL saved in %s\n' \
+      "$public_url" "$ACCESS_URL_FILE"
+  fi
 
   while true; do
     local pid label

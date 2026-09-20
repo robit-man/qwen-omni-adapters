@@ -24,6 +24,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from qwen_omni_adapters.memory import MemoryPolicy
+
 GIB_IN_KIB = 1024 * 1024
 GIB_IN_BYTES = 1024**3
 
@@ -90,8 +92,9 @@ def choose_context_tokens(
     base_gib: float,
     kv_gib_per_token: float,
     parallel_slots: int = 1,
+    runtime_reserve_gib: float = 0.0,
 ) -> int | None:
-    """Choose the largest window that fits with model-derived wiggle room."""
+    """Choose the largest window that retains generic runtime headroom."""
 
     chosen: int | None = None
     windows = candidate_windows(minimum, maximum)
@@ -108,7 +111,7 @@ def choose_context_tokens(
             kv_gib_per_token=kv_gib_per_token,
             parallel_slots=parallel_slots,
         )
-        if needed + headroom <= available_gib:
+        if needed + max(headroom, runtime_reserve_gib) <= available_gib:
             chosen = context_tokens
     return chosen
 
@@ -274,6 +277,29 @@ def _median(values: list[float]) -> float:
     return ordered[len(ordered) // 2]
 
 
+def _live_calibrated_base(calibration: Mapping[str, Any]) -> float | None:
+    """Prefer repeated live residency samples over the on-disk byte floor.
+
+    GGUF files are memory mapped, so their total file size is a conservative
+    first-load bound rather than the resident footprint. Once successful live
+    loads exist, using that byte floor can deadlock restoration on a few MiB
+    rounding edge even though the same model repeatedly leaves the required
+    runtime reserve intact.
+    """
+
+    samples = calibration.get("base_samples")
+    if isinstance(samples, list):
+        valid = [
+            float(value)
+            for value in samples[-16:]
+            if isinstance(value, (int, float)) and float(value) > 0
+        ]
+        if valid:
+            return _median(valid)
+    base = calibration.get("base_gib")
+    return float(base) if isinstance(base, (int, float)) and base > 0 else None
+
+
 def _record_live_sample(
     path: Path,
     calibration: dict[str, Any],
@@ -376,6 +402,7 @@ def _component_window_fits(
     kv_gib_per_token: float,
     parallel_slots: int,
     available_gib: float,
+    runtime_reserve_gib: float = 0.0,
 ) -> bool:
     """Admission against component bytes alone, retaining one tier of KV."""
 
@@ -389,7 +416,7 @@ def _component_window_fits(
         kv_gib_per_token=kv_gib_per_token,
         parallel_slots=parallel_slots,
     )
-    return needed + headroom <= available_gib
+    return needed + max(headroom, runtime_reserve_gib) <= available_gib
 
 
 def _probe_backed_off(calibration: Mapping[str, Any]) -> bool:
@@ -453,9 +480,15 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("a llama-server command is required after --")
 
     available = sampled_available_memory_gib()
+    memory_policy = MemoryPolicy.from_environment()
+    runtime_reserve = (
+        memory_policy.soft_floor_gib + memory_policy.operation_reserve_gib
+        if memory_policy.enabled
+        else 0.0
+    )
     fingerprint, component_gib = _component_fingerprint(command)
     calibration = _load_calibration(args.calibration_file, fingerprint, command)
-    base = calibration.get("base_gib")
+    base = _live_calibrated_base(calibration)
     kv = float(calibration["kv_gib_per_token"])
     effective_maximum = _effective_context_maximum(
         calibration,
@@ -472,6 +505,7 @@ def main(argv: list[str] | None = None) -> int:
             base_gib=float(base),
             kv_gib_per_token=kv,
             parallel_slots=args.parallel_slots,
+            runtime_reserve_gib=runtime_reserve,
         )
         if selected is None and not _probe_backed_off(calibration):
             # A stale calibrated baseline can block every window even though
@@ -487,6 +521,7 @@ def main(argv: list[str] | None = None) -> int:
                     kv_gib_per_token=kv,
                     parallel_slots=args.parallel_slots,
                     available_gib=available,
+                    runtime_reserve_gib=runtime_reserve,
                 )
                 else None
             )
@@ -506,6 +541,7 @@ def main(argv: list[str] | None = None) -> int:
                 kv_gib_per_token=kv,
                 parallel_slots=args.parallel_slots,
                 available_gib=available,
+                runtime_reserve_gib=runtime_reserve,
             )
             else None
         )
@@ -529,16 +565,19 @@ def main(argv: list[str] | None = None) -> int:
             parallel_slots=args.parallel_slots,
         )
         headroom = max(0.0, available - estimated)
-        required_headroom = context_headroom_gib(
+        required_headroom = max(
+            runtime_reserve,
+            context_headroom_gib(
             selected,
             windows=candidate_windows(args.min_context, args.max_context),
             kv_gib_per_token=kv,
             parallel_slots=args.parallel_slots,
+            ),
         )
         detail = (
             f"~{estimated:.2f} GiB from live calibration, "
             f"{headroom:.2f} GiB live headroom "
-            f"({required_headroom:.2f} GiB model-derived minimum)"
+            f"({required_headroom:.2f} GiB runtime minimum)"
         )
     else:
         detail = f"first live calibration probe; {component_gib:.2f} GiB components"
@@ -574,17 +613,20 @@ def main(argv: list[str] | None = None) -> int:
                 flush=True,
             )
             sampled = True
-            required_headroom = context_headroom_gib(
-                selected,
-                windows=candidate_windows(args.min_context, args.max_context),
-                kv_gib_per_token=kv,
-                parallel_slots=args.parallel_slots,
+            required_headroom = max(
+                runtime_reserve,
+                context_headroom_gib(
+                    selected,
+                    windows=candidate_windows(args.min_context, args.max_context),
+                    kv_gib_per_token=kv,
+                    parallel_slots=args.parallel_slots,
+                ),
             )
             if after < required_headroom:
                 print(
                     "controlled comprehension downshift: "
                     f"only {after:.2f} GiB remained after load, below the "
-                    f"{required_headroom:.2f} GiB adjacent-tier reserve",
+                    f"{required_headroom:.2f} GiB runtime reserve",
                     file=sys.stderr,
                     flush=True,
                 )

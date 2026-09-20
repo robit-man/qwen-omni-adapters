@@ -43,6 +43,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
+from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 
 try:
     from portal.background_tasks import BackgroundTaskStore
@@ -267,6 +268,7 @@ class PortalConfig:
     session_log_dir: Path | None = None
     session_log_ttl_s: float = DIAGNOSTIC_TTL_SECONDS
     background_task_path: Path | None = None
+    memory_policy: MemoryPolicy | None = None
 
     @classmethod
     def from_environment(cls) -> PortalConfig:
@@ -328,6 +330,7 @@ class PortalConfig:
                     ),
                 )
             ).expanduser(),
+            memory_policy=MemoryPolicy.from_environment(),
         )
 
 
@@ -1272,6 +1275,11 @@ def create_app(
         background_tasks=(
             BackgroundTaskStore(runtime.background_task_path)
             if runtime.background_task_path is not None
+            else None
+        ),
+        memory_governor=(
+            MemoryGovernor(runtime.memory_policy)
+            if runtime.memory_policy is not None
             else None
         ),
     )

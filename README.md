@@ -202,7 +202,8 @@ Current local-call behavior also includes:
 - screenshot-grounded control of a real, visible Chromium window and the full
   Ubuntu desktop, with every action followed by fresh visual evidence;
 - crash-safe persistent background tasks that checkpoint after each
-  inference/tool step, yield to foreground speech, accept later spoken
+  bounded inference/tool slice, finalize only through referenced tool evidence,
+  yield cancellable inference to foreground speech, accept later spoken
   guidance, and use native thinking without speaking or storing it;
 - bounded conversational history with time-based relevance reduction and
   passive semantic recall that never blocks a turn;
@@ -315,17 +316,19 @@ details hidden behind the adapter.
 2. The harness submits one audio-bearing request. Qwen3-Omni produces a tagged
    transcript and any non-speech observation; silence or a cough stops before
    language and TTS when no speech was found.
-3. The configured language backend receives bounded text history, tagged
-   evidence, and any already-prefetched relevant memories. The local voice
-   harness requires a schema-constrained semantic dispatch result: ordinary
-   reply, fresh foreground tools, or persistent background execution. On the
-   constrained 32 GB profile this is the same resident Qwen3-Omni worker; a
-   normal profile uses the selected Ollama base.
-4. A background-execution route is written to the durable task store before an
-   acknowledgment may be spoken. A fresh-evidence route gets compact discovery
-   and must complete a real tool call before its answer is eligible for speech.
-   Tool discovery and results use fresh request rounds, so the full catalog
-   never consumes every ordinary turn's context.
+3. The configured language backend receives the spoken request with bounded text
+   history, tagged evidence, and any already-prefetched relevant memories. The
+   local voice harness enables the portal's real tool allowlist on every turn
+   without a separate classification pass: the model either answers
+   conversationally or calls the smallest tool that accomplishes the request,
+   the portal auto-executes it, and the spoken answer is the grounded reply that
+   follows the completed work. On the constrained 32 GB profile this is the same
+   resident Qwen3-Omni worker; a normal profile uses the selected Ollama base.
+4. A durable-task request goes through the same pass via the `background_task`
+   tool, which writes the objective to the durable store before any
+   acknowledgment; web/camera/current-information requests complete a real tool
+   call in the pass. No answer is eligible for speech before the work it claims
+   has actually completed.
 5. Only final answer text is sent to TTS. PCM is played as decoder windows
    arrive, with one small initial lead to absorb packet jitter rather than
    waiting for the complete WAV.
@@ -549,6 +552,10 @@ Two environment variables are worth knowing:
 | `OMNI_CALL_MEMORY` | Persistent passive-memory SQLite path |
 | `OMNI_CALL_SPEECH_EVICT_UNIT` | User service to stop before TTS and restore afterward |
 | `OMNI_CALL_COMPREHENSION_HEALTH` | Readiness URL used after restoring that service |
+| `OMNI_MEMORY_GOVERNOR` | Enable (`1`) or disable (`0`) generic runtime memory admission; enabled automatically on Tegra |
+| `OMNI_MEMORY_SOFT_FLOOR_GIB` | Free-memory floor retained before starting model/tool work (default `3`) |
+| `OMNI_MEMORY_HARD_FLOOR_GIB` | Emergency floor that cancels cancellable work before kernel OOM (default `2`) |
+| `OMNI_MEMORY_OPERATION_RESERVE_GIB` | Additional per-operation reserve above the soft floor (default `1`) |
 
 Keep `OMNI_TTS_PERSISTENT=1` only when speech and comprehension genuinely fit
 together. On constrained unified-memory hosts, use `OMNI_TTS_PERSISTENT=0` and

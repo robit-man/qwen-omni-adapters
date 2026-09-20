@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import stat
 import subprocess
 from pathlib import Path
 
@@ -48,6 +49,19 @@ def test_startup_smoke_can_be_disabled_for_memory_brokered_hosts(
     config = daemon.DaemonConfig.from_environment(cloudflare=False)
 
     assert config.startup_smoke is False
+
+
+def test_status_with_the_capability_url_is_owner_readable_only(tmp_path: Path) -> None:
+    supervisor = daemon.OmniDaemon(_config(tmp_path))
+    supervisor.state_dir.mkdir(parents=True)
+
+    supervisor._write_status(
+        state="ready",
+        access_url="https://example.test/#access=secret-capability",
+    )
+
+    mode = stat.S_IMODE(supervisor.status_file.stat().st_mode)
+    assert mode == 0o600
 
 
 def test_binary_finds_windows_release_layout(tmp_path: Path) -> None:

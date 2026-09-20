@@ -15,6 +15,7 @@ from adapter_server import _active_context_tokens  # noqa: E402
 from comprehension_launcher import (  # noqa: E402
     _component_window_fits,
     _effective_context_maximum,
+    _live_calibrated_base,
     _probe_backed_off,
     _record_failed_context,
     _record_live_sample,
@@ -45,6 +46,18 @@ def test_context_falls_back_instead_of_loading_past_available_memory() -> None:
     assert choose_context_tokens(19.8, **arguments) == 16_384
     assert choose_context_tokens(16.95, **arguments) == 4096
     assert choose_context_tokens(16.5, **arguments) is None
+
+
+def test_context_selection_retains_the_generic_runtime_reserve() -> None:
+    arguments = {
+        "base_gib": 16.2,
+        "kv_gib_per_token": 0.375 / 4096,
+        "runtime_reserve_gib": 4.0,
+    }
+
+    assert choose_context_tokens(22.0, **arguments) == 16_384
+    assert choose_context_tokens(21.5, **arguments) == 8192
+    assert choose_context_tokens(20.4, **arguments) is None
 
 
 def test_context_reserve_is_derived_from_the_adjacent_kv_tier() -> None:
@@ -107,6 +120,15 @@ def test_successful_load_calibrates_base_from_live_memory(
     assert calibration["base_gib"] == pytest.approx(16.2)
     assert calibration["last_sample"]["context_tokens"] == 8192
     assert state.is_file()
+
+
+def test_live_samples_override_a_conservative_component_byte_floor() -> None:
+    calibration = {
+        "base_gib": 18.52,
+        "base_samples": [16.1, 16.3, 16.2, 22.0],
+    }
+
+    assert _live_calibrated_base(calibration) == pytest.approx(16.3)
 
 
 def test_base_can_never_sit_below_installed_component_bytes(
