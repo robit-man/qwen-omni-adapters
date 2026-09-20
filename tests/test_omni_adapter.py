@@ -637,19 +637,31 @@ def test_reference_server_preserves_tools_thinking_and_adds_audio() -> None:
 
 @pytest.mark.parametrize("think", [False, True])
 def test_reference_server_separates_tagged_reasoning(think: bool) -> None:
+    THINK_OPEN = "<|thinking|>"
+    THINK_CLOSE = "<|end_thinking|>"
+
     def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
-        assert payload["think"] is think
-        assert payload["messages"] == [{"role": "user", "content": "What happened?"}]
-        return httpx.Response(
-            200,
-            json={
-                "message": {
-                    "role": "assistant",
-                    "content": "<think>private reasoning</think>Visible answer.",
-                }
-            },
-        )
+        if request.url.host == "comp":
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": "the user said hello"}}]},
+            )
+        if request.url.host == "language":
+            assert payload["think"] is think
+            assert payload["messages"][0]["role"] == "system"
+            assert "concise voice assistant" in payload["messages"][0]["content"]
+            assert payload["messages"][1] == {"role": "user", "content": "What happened?"}
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": f"{THINK_OPEN}private reasoning{THINK_CLOSE}Visible answer.",
+                    }
+                },
+            )
+        return httpx.Response(404)
 
     parsed = parse_adapter_request(_base_request(think=think))
     result = execute(
@@ -795,8 +807,10 @@ def test_stream_exposes_only_tagged_input_transcript_to_clients() -> None:
         if request.url.host == "language":
             body = json.loads(request.content)
             assert body["think"] is False
-            assert len(body["messages"]) == 1
-            assert body["messages"][0]["role"] == "user"
+            assert len(body["messages"]) == 2
+            assert body["messages"][0]["role"] == "system"
+            assert "concise voice assistant" in body["messages"][0]["content"]
+            assert body["messages"][1]["role"] == "user"
             assert '<adapter_observation source="current_attached_media"' in body["messages"][-1]["content"]
             assert 'modalities="audio"' in body["messages"][-1]["content"]
             assert 'current_visual_input="false"' in body["messages"][-1]["content"]
@@ -1119,7 +1133,9 @@ def test_disabled_stream_suppresses_orphaned_closing_think_tag() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
         assert payload["think"] is False
-        assert payload["messages"] == [{"role": "user", "content": "What happened?"}]
+        assert payload["messages"][0]["role"] == "system"
+        assert "concise voice assistant" in payload["messages"][0]["content"]
+        assert payload["messages"][1] == {"role": "user", "content": "What happened?"}
         return httpx.Response(
             200,
             content=(
@@ -1527,11 +1543,8 @@ def test_think_false_disables_reasoning_on_the_openai_language_path() -> None:
     """Chain of thought before the first spoken word is pure added latency.
 
     `think` is an Ollama field and is dropped for an OpenAI-shaped backend, so
-    the intent has to be restated in terms that backend understands -- but NOT
-    as enable_thinking=False. That pre-fills an empty think block in the Qwen3
-    template and the entire completion comes back as that block: a reply of
-    nothing but newlines, reproducible on every attempt, while the same prompt
-    with thinking left alone answered correctly every time.
+    the equivalent native chat-template switch is used without rewriting the
+    user's message.
     """
 
     from runtime import adapter_server
@@ -1542,12 +1555,9 @@ def test_think_false_disables_reasoning_on_the_openai_language_path() -> None:
 
     payload = adapter_server.build_language_payload(parsed, None, "m", "openai")
 
-    assert payload.get("chat_template_kwargs", {}).get("enable_thinking") is not False
-    # The model's own in-prompt switch, which suppresses reasoning without
-    # touching the template.
-    assert payload["messages"][-1]["content"].endswith("/no_think")
-    # reasoning_format="none" would leave the template's empty <think> prefill
-    # inline and swallow the real answer.
+    assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+    assert payload["messages"][-1]["content"] == "Hello."
+    assert "/no_think" not in json.dumps(payload["messages"])
     assert "reasoning_format" not in payload
 
 

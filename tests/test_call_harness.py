@@ -175,6 +175,58 @@ def test_the_noise_floor_rises_with_a_noisy_room() -> None:
     assert vad.noise_floor > quiet_floor
 
 
+def test_conversation_content_trace_is_injectable_and_end_to_end(monkeypatch) -> None:
+    traced: list[tuple[str, str, dict]] = []
+    call = CallSession(
+        CallConfig(
+            token="t",
+            model="m",
+            content_trace=lambda event, text, details: traced.append(
+                (event, text, details)
+            ),
+        )
+    )
+    monkeypatch.setattr(
+        call,
+        "_events",
+        lambda _payload: iter(
+            [
+                {
+                    "type": "observation",
+                    "transcript": "Please do the thing.",
+                    "audio_observation": "Quiet room tone.",
+                },
+                {
+                    "type": "final",
+                    "response": {
+                        "message": {"content": "I did the thing."}
+                    },
+                },
+            ]
+        ),
+    )
+
+    result = call._run({"omni": {"task": "chat"}})
+
+    assert result.transcript == "Please do the thing."
+    assert ("heard", "Please do the thing.", {}) in traced
+    assert ("audio_observation", "Quiet room tone.", {}) in traced
+    generated = next(item for item in traced if item[0] == "generated")
+    assert generated[1] == "I did the thing."
+
+    monkeypatch.setattr(
+        call,
+        "_run",
+        lambda *_args, **_kwargs: TurnResult(spoke_seconds=1.25),
+    )
+    call._speak_finished("I did the thing.")
+    assert ("tts_input", "I did the thing.", {}) in traced
+    playback = next(item for item in traced if item[0] == "playback")
+    assert playback[1] == "I did the thing."
+    assert playback[2]["spoke_seconds"] == 1.25
+    call.close()
+
+
 # -- the request the browser makes ----------------------------------------
 
 

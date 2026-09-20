@@ -184,7 +184,7 @@ def build_indicator(
         except (ValueError, ImportError):
             gi.require_version("AppIndicator3", "0.1")
             from gi.repository import AppIndicator3 as AppIndicator
-        from gi.repository import GLib, Gtk
+        from gi.repository import GLib, Gtk, Pango
     except Exception as error:  # noqa: BLE001 - a missing tray is not fatal
         logger.info("no top-bar indicator available (%s); running headless", error)
         return NullIndicator()
@@ -341,20 +341,18 @@ def build_indicator(
             spinning: bool = False,
             marker_text: str = "✓",
         ):
-            item = Gtk.MenuItem()
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=7)
-            if spinning:
-                marker = Gtk.Spinner()
-                marker.start()
-            else:
-                marker = Gtk.Label(label=marker_text)
-            row.pack_start(marker, False, False, 0)
-            label = Gtk.Label(label=text)
-            label.set_xalign(0.0)
-            label.set_line_wrap(True)
-            label.set_max_width_chars(72)
-            row.pack_start(label, True, True, 0)
-            item.add(row)
+            # A wrapped Gtk.Label inside a custom box can receive a zero-width
+            # allocation in an AppIndicator submenu: the marker remains visible
+            # while the actual action becomes a blank line. A native menu label
+            # gets a stable allocation and ellipsizes predictably.
+            marker = "◌" if spinning else marker_text
+            item = Gtk.MenuItem(label=f"{marker}  {text}")
+            label = item.get_child()
+            if isinstance(label, Gtk.Label):
+                label.set_xalign(0.0)
+                label.set_max_width_chars(96)
+                label.set_ellipsize(Pango.EllipsizeMode.END)
+            item.set_tooltip_text(text)
             item.set_sensitive(False)
             return item
 

@@ -62,7 +62,7 @@ FETCH_CACHE_TTL_S = 60.0
 MAX_WEB_INDEX_ENTRIES = 48
 MAX_WEB_INDEX_CHARS = 128_000
 LOCAL_BROWSER_TIMEOUT_S = 20.0
-DEFAULT_SEARCH_URL_TEMPLATE = "https://www.bing.com/search?q={query}"
+DEFAULT_SEARCH_URL_TEMPLATE = "https://duckduckgo.com/?ia=web&q={query}"
 MAX_MEMORY_ENTRIES = 64
 MAX_MEMORY_ENTRY_CHARS = 4_096
 MAX_MEMORY_SESSION_CHARS = 32_768
@@ -1403,7 +1403,14 @@ class WebToolSuite:
             return ""
         if parsed.username or parsed.password:
             return ""
-        if hostname == search_host:
+        provider_redirect = (
+            hostname == search_host
+            or hostname == "bing.com"
+            or hostname.endswith(".bing.com")
+            or hostname == "duckduckgo.com"
+            or hostname.endswith(".duckduckgo.com")
+        )
+        if provider_redirect:
             query = parse_qs(parsed.query)
             redirected = ""
             if parsed.path.startswith("/ck/"):
@@ -1455,7 +1462,15 @@ class WebToolSuite:
         collector = _AnchorCollector()
         collector.feed(dom[:MAX_FETCH_BYTES])
         search_host = (urlsplit(search_url).hostname or "").lower()
-        bing_results = search_host == "bing.com" or search_host.endswith(".bing.com")
+        bing_results = (
+            search_host == "bing.com"
+            or search_host.endswith(".bing.com")
+            or any(attrs.get("_result_heading") == "1" for _, _, attrs in collector.links)
+        )
+        duckduckgo_results = not bing_results and (
+            search_host == "duckduckgo.com"
+            or search_host.endswith(".duckduckgo.com")
+        )
         results: list[dict[str, str]] = []
         seen: set[str] = set()
         for raw_url, raw_title, attrs in collector.links:
@@ -1465,6 +1480,11 @@ class WebToolSuite:
             if "tilk" in attrs.get("class", "").split():
                 continue
             if bing_results and attrs.get("_result_heading") != "1":
+                continue
+            if duckduckgo_results and not (
+                "result__a" in attrs.get("class", "").split()
+                or attrs.get("data-testid") == "result-title-a"
+            ):
                 continue
             url = self._result_url(raw_url, search_url, search_host)
             title = re.sub(r"\s+", " ", html.unescape(raw_title)).strip()

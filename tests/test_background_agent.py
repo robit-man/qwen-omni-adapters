@@ -11,6 +11,7 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from harness.background_agent import (
+    AGENT_SYSTEM_PROMPT,
     MAX_CHECKPOINT_REPORT_CHARS,
     MAX_TOOL_RESULT_CHARS,
     TASK_CHECKPOINT_TOOL,
@@ -22,11 +23,31 @@ from harness.background_agent import (
     _NonRetryableBackgroundError,
     _seen_tool_fingerprints,
     _stream_error,
+    _task_system_prompt,
     _tool_evidence,
 )
 from portal.background_tasks import BackgroundTaskStore
 from portal.documents import SessionDocumentStore
 from portal.tools import PortalToolHarness
+
+
+def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
+    prompt = _task_system_prompt(
+        {
+            "objective": "Open the requested application.",
+            "completion_criteria": "Its window is visible.",
+            "guidance": [
+                {"content": "Use the desktop session."},
+                {"content": "Verify the active window."},
+            ],
+        }
+    )
+
+    assert prompt.startswith("<current_task>\nObjective: Open the requested application.")
+    assert "Completion criteria: Its window is visible." in prompt
+    assert "- Verify the active window." in prompt
+    assert "Ignore unrelated topics" in prompt
+    assert prompt.endswith(AGENT_SYSTEM_PROMPT)
 
 
 def _checkpoint_response(

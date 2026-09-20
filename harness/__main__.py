@@ -36,6 +36,15 @@ DEFAULT_PORTAL = "http://127.0.0.1:8920"
 DEFAULT_TOKEN_FILE = "runtime-data/state/access-token.txt"
 
 
+def _env_enabled(name: str) -> bool:
+    return str(os.environ.get(name) or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _pid_alive(pid: int) -> bool:
     if pid <= 0:
         return False
@@ -245,6 +254,17 @@ def main(argv: list[str] | None = None) -> int:
         if eviction_unit
         else None
     )
+
+    def content_trace(event: str, text: str, details: dict[str, Any]) -> None:
+        logger.info(
+            "conversation_trace %s",
+            json.dumps(
+                {"event": event, "text": text, **details},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+        )
+
     config = CallConfig(
         portal_url=args.portal,
         token=token,
@@ -277,14 +297,19 @@ def main(argv: list[str] | None = None) -> int:
         restore_after_speech=residency.restore if residency else None,
         await_comprehension=residency.await_ready if residency else None,
         comprehension_ready=residency.ready_now if residency else None,
+        content_trace=(
+            content_trace if _env_enabled("OMNI_CALL_LOG_CONTENT") else None
+        ),
     )
     logger.info(
-        "call harness ready: model=%s tools=%s reasoning=%s camera=%s speech_eviction=%s",
+        "call harness ready: model=%s tools=%s reasoning=%s camera=%s "
+        "speech_eviction=%s content_trace=%s",
         model,
         config.tools_enabled,
         config.reasoning_enabled,
         config.camera_device if camera_on else "off",
         eviction_unit or "off",
+        config.content_trace is not None,
     )
 
     stop = threading.Event()

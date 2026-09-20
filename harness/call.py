@@ -53,8 +53,12 @@ SCHEMA = "robit.ollama.omni-adapter.v1"
 # way here as it is in the browser.
 LIVE_CALL_SYSTEM_PROMPT = (
     "You are participating in a live two-way spoken conversation. Answer the "
-    "user's intent directly in a natural, concise spoken turn. Give the result once and "
-    "then end the turn; never repeat a phrase, sentence, status, explanation, or closing. "
+    "user's intent directly in a natural, concise spoken turn. By default, give the "
+    "complete answer in one or two short sentences; expand only when the user explicitly "
+    "asks for detail or the requested content genuinely requires it. Answer only what was "
+    "asked. Do not append an unsolicited recap, background essay, examples, rationale, "
+    "offer of more help, or conversational filler. Give the result once and then end the "
+    "turn; never repeat a phrase, sentence, status, explanation, or closing. "
     "For tool handoffs, acknowledge the accepted work in one brief sentence and stop. "
     "Do not echo, "
     "transcribe, paraphrase, narrate, or evaluate what the user just said unless "
@@ -171,6 +175,10 @@ class CallConfig:
     # speaks again.
     await_comprehension: Callable[[], None] | None = None
     comprehension_ready: Callable[[], bool] | None = None
+    # Exact conversational text is sensitive and therefore opt-in. Tests and
+    # explicitly configured deployments can inject a structured sink to trace
+    # recognition -> generation -> TTS -> playback end to end.
+    content_trace: Callable[[str, str, dict[str, Any]], None] | None = None
     # Whether the speaker may talk over a reply in progress.
     #
     # Detecting that someone has started speaking is the VAD, which runs on
@@ -298,6 +306,15 @@ class CallSession:
             self._on_state(state, detail)
         except Exception:  # noqa: BLE001 - an indicator must never break a call
             logger.debug("state callback failed", exc_info=True)
+
+    def _trace_content(self, event: str, text: str, **details: Any) -> None:
+        sink = self.config.content_trace
+        if sink is None:
+            return
+        try:
+            sink(event, text, dict(details))
+        except Exception:  # noqa: BLE001 - diagnostics must never break a call
+            logger.debug("conversation content trace failed", exc_info=True)
 
     def _speaker_action(self, action: str) -> None:
         with self._speaker_lock:
@@ -729,6 +746,7 @@ class CallSession:
             return TurnResult(interrupted=True)
 
         speech = TurnResult()
+        self._trace_content("tts_input", text)
         try:
             speech = self._run(
                 self._build_synthesis_payload(text),
@@ -742,6 +760,13 @@ class CallSession:
                 except Exception as error:  # noqa: BLE001 - keep the listener alive
                     detail = f"could not restore comprehension: {error}"
                     speech.error = f"{speech.error}; {detail}" if speech.error else detail
+        self._trace_content(
+            "playback",
+            text,
+            spoke_seconds=round(speech.spoke_seconds, 3),
+            interrupted=speech.interrupted,
+            error=speech.error,
+        )
         return speech
 
     def _run(
@@ -789,6 +814,12 @@ class CallSession:
                     result.audio_observation = str(
                         event.get("audio_observation") or ""
                     ).strip()
+                    if result.transcript:
+                        self._trace_content("heard", result.transcript)
+                    if result.audio_observation:
+                        self._trace_content(
+                            "audio_observation", result.audio_observation
+                        )
                     if result.transcript and self._is_recent_playback_echo(
                         result.transcript
                     ):
@@ -931,6 +962,16 @@ class CallSession:
                     self._active_speaker = None
 
         result.total_ms = (time.monotonic() - started) * 1000
+        omni = payload.get("omni")
+        task = str(omni.get("task") or "") if isinstance(omni, dict) else ""
+        if task != "synthesize" and result.reply.strip():
+            self._trace_content(
+                "generated",
+                result.reply.strip(),
+                interrupted=result.interrupted,
+                error=result.error,
+                tools=list(result.tools_used),
+            )
         return result
 
     def _append_history(self, role: str, content: str) -> None:

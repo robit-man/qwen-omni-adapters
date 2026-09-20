@@ -71,6 +71,38 @@ AGENT_SYSTEM_PROMPT = (
 )
 
 
+def _task_system_prompt(task: Mapping[str, Any]) -> str:
+    """Pin the durable task contract ahead of all renewable worker context."""
+
+    objective = " ".join(str(task.get("objective") or "").split())
+    criteria = " ".join(str(task.get("completion_criteria") or "").split())
+    contract = [
+        "<current_task>",
+        f"Objective: {objective}",
+    ]
+    if criteria:
+        contract.append(f"Completion criteria: {criteria}")
+    guidance = task.get("guidance")
+    if isinstance(guidance, list):
+        directions = [
+            " ".join(str(item.get("content") or "").split())
+            for item in guidance[-8:]
+            if isinstance(item, Mapping) and str(item.get("content") or "").strip()
+        ]
+        if directions:
+            contract.append("Later user directions, oldest to newest:")
+            contract.extend(f"- {direction}" for direction in directions)
+    contract.extend(
+        [
+            "Keep every action causally relevant to this task. Ignore unrelated topics "
+            "from model state or prior work.",
+            "</current_task>",
+        ]
+    )
+    task_contract = "\n".join(contract)
+    return f"{task_contract}\n\n{AGENT_SYSTEM_PROMPT}"
+
+
 TASK_CHECKPOINT_TOOL = {
     "type": "function",
     "function": {
@@ -489,7 +521,6 @@ class BackgroundAgent:
         self._failures: dict[str, int] = {}
         self._resource_deferrals: dict[str, int] = {}
         self._slice_deferrals: dict[str, int] = {}
-        self._slice_failures: dict[str, int] = {}
         self._quiesced_tasks: set[str] = set()
         self.owner = f"voice-agent-{secrets.token_hex(8)}"
         self.active = threading.Event()
@@ -899,16 +930,22 @@ class BackgroundAgent:
             if criteria:
                 request += f"\n\n<completion_criteria>\n{criteria}\n</completion_criteria>"
             messages = [
-                {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+                {"role": "system", "content": _task_system_prompt(task)},
                 {"role": "user", "content": request},
             ]
         elif messages[0].get("role") == "system":
             # Durable tasks keep evidence and calls across service restarts, but
             # worker policy is executable code, not frozen task data. Always
             # apply the current generic policy when resuming retained work.
-            messages[0] = {"role": "system", "content": AGENT_SYSTEM_PROMPT}
+            messages[0] = {
+                "role": "system",
+                "content": _task_system_prompt(task),
+            }
         else:
-            messages.insert(0, {"role": "system", "content": AGENT_SYSTEM_PROMPT})
+            messages.insert(
+                0,
+                {"role": "system", "content": _task_system_prompt(task)},
+            )
         self._restore_action_audit(task_id, messages)
         seen = {
             *_seen_tool_fingerprints(messages),
@@ -942,12 +979,6 @@ class BackgroundAgent:
         slice_rounds = 0
         slice_tool_calls = 0
         stalls = 0
-        slice_failures = self._slice_failures.get(task_id, 0)
-        seen = {
-            *_seen_tool_fingerprints(messages),
-            *(str(value) for value in task.get("tool_fingerprints", []) if value),
-        }
-
         while not self.stop.is_set():
             if (
                 slice_rounds >= self.max_slice_rounds
@@ -956,26 +987,10 @@ class BackgroundAgent:
             ):
                 deferrals = self._slice_deferrals.get(task_id, 0) + 1
                 self._slice_deferrals[task_id] = deferrals
-                slice_failures = self._slice_failures.get(task_id, 0) + 1
-                self._slice_failures[task_id] = slice_failures
                 delay = min(
                     self.retry_max_s,
                     self.slice_backoff_s * (2 ** min(deferrals - 1, 5)),
                 )
-                if slice_failures >= 3:
-                    guidance = (
-                        f"Background task has yielded {slice_failures} times without "
-                        f"progress. The current approach may be stuck. Consider: "
-                        f"simplifying the objective, using different tools, or asking "
-                        f"the user for clarification."
-                    )
-                    self.store.add_guidance(task_id, guidance)
-                    logger.warning(
-                        "background task %s escalated after %d slice failures: %s",
-                        task_id,
-                        slice_failures,
-                        guidance,
-                    )
                 self.store.checkpoint(
                     task_id,
                     self.owner,
@@ -1019,19 +1034,6 @@ class BackgroundAgent:
             if self.foreground_active.is_set():
                 continue
             self.store.update_stage(task_id, self.owner, "Planning the next step")
-            memory_hint = ""
-            if self.memory_governor is not None and self.memory_governor.enabled:
-                avail = self.memory_governor.available_gib()
-                soft = self.memory_governor.policy.soft_floor_gib
-                if avail < soft:
-                    memory_hint = (
-                        f"\n<memory_pressure>\nAvailable: {avail:.2f} GiB, "
-                        f"soft floor: {soft:.2f} GiB. Prefer lightweight tools "
-                        f"(shell, tool_search) over heavy tools (gui_interact, "
-                        f"browser_interact). Avoid parallel actions.\n</memory_pressure>\n"
-                    )
-            if memory_hint:
-                messages.append({"role": "user", "content": memory_hint})
             can_checkpoint = _checkpoint_available(messages)
             schemas = [
                 *(
@@ -1270,7 +1272,6 @@ class BackgroundAgent:
                         )
                         if checkpoint is None or checkpoint.get("status") == "cancelled":
                             return
-                        self._slice_failures.pop(task_id, None)
                         if eligible and self.on_progress is not None:
                             last_progress_at = now
                             self.on_progress(

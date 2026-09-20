@@ -112,7 +112,12 @@ DEFAULT_TTS_BLOCK_CHARS = 420
 DEFAULT_TTS_STREAM_FRAMES = 2
 THINK_OPEN = "<think>"
 THINK_CLOSE = "</think>"
-THINK_BLOCK = re.compile(r"<think>(.*?)</think>", re.IGNORECASE | re.DOTALL)
+THINK_OPEN_TAGS = (THINK_OPEN, "<|thinking|>")
+THINK_CLOSE_TAGS = (THINK_CLOSE, "<|end_thinking|>")
+THINK_BLOCK = re.compile(
+    r"(?:<think>|<\|thinking\|>)(.*?)(?:</think>|<\|end_thinking\|>)",
+    re.IGNORECASE | re.DOTALL,
+)
 SPEECH_TRANSCRIPT_BLOCK = re.compile(
     r"<speech_transcript\b[^>]*>(.*?)</speech_transcript\s*>",
     re.IGNORECASE | re.DOTALL,
@@ -157,6 +162,16 @@ activity, temporal changes, and uncertainty. Do not repeat the transcript.</audi
 Include only tags whose modality is present. Leave speech_transcript empty when there
 is no intelligible speech. Preserve uncertainty and use [inaudible] only for unresolved
 speech. The speech_transcript must contain the speaker's words, never your response.
+"""
+
+
+DEFAULT_LANGUAGE_SYSTEM_PROMPT = """\
+You are a concise voice assistant. Answer the user's current intent directly and
+naturally. For an ordinary exchange, give the complete answer in one or two short
+sentences and then end the turn. Expand only when the user explicitly asks for detail
+or the requested content genuinely requires it. State each point once. Do not append
+an unsolicited recap, background essay, examples, rationale, offer of more help, or
+repeated closing. Never continue by inventing another speaker turn.
 """
 
 
@@ -231,14 +246,24 @@ def _normalize_reasoning(message: dict[str, Any], *, enabled: bool) -> None:
 
     visible = THINK_BLOCK.sub(replace_block, content)
     lower_visible = visible.lower()
-    open_index = lower_visible.find(THINK_OPEN)
-    if open_index >= 0:
-        extracted.append(visible[open_index + len(THINK_OPEN) :])
+    open_matches = [
+        (lower_visible.find(tag), tag)
+        for tag in THINK_OPEN_TAGS
+        if lower_visible.find(tag) >= 0
+    ]
+    close_matches = [
+        (lower_visible.find(tag), tag)
+        for tag in THINK_CLOSE_TAGS
+        if lower_visible.find(tag) >= 0
+    ]
+    if open_matches:
+        open_index, open_tag = min(open_matches)
+        extracted.append(visible[open_index + len(open_tag) :])
         visible = visible[:open_index]
-    elif THINK_CLOSE in lower_visible:
-        close_index = lower_visible.find(THINK_CLOSE)
+    elif close_matches:
+        close_index, close_tag = min(close_matches)
         extracted.append(visible[:close_index])
-        visible = visible[close_index + len(THINK_CLOSE) :]
+        visible = visible[close_index + len(close_tag) :]
 
     message["content"] = visible.strip()
     native = str(message.get("thinking") or "").strip()
@@ -268,16 +293,23 @@ class _ThinkingTagStream:
                 return length
         return 0
 
+    @staticmethod
+    def _first_tag(value: str, tags: tuple[str, ...]) -> tuple[int, str]:
+        matches = [(value.find(tag), tag) for tag in tags if value.find(tag) >= 0]
+        return min(matches) if matches else (-1, "")
+
     def feed(self, value: str, *, final: bool = False) -> tuple[str, str]:
         self.pending += value
         visible: list[str] = []
         thinking: list[str] = []
         while self.pending:
             lowered = self.pending.lower()
-            tag = THINK_CLOSE if self.inside else THINK_OPEN
-            index = lowered.find(tag)
+            tags = THINK_CLOSE_TAGS if self.inside else THINK_OPEN_TAGS
+            index, tag = self._first_tag(lowered, tags)
             if not self.inside:
-                close_index = lowered.find(THINK_CLOSE)
+                close_index, close_tag = self._first_tag(
+                    lowered, THINK_CLOSE_TAGS
+                )
                 if close_index >= 0 and (index < 0 or close_index < index):
                     # Some Qwen templates emit a closing tag without streaming
                     # the opening tag. Treat its prefix as reasoning, never as
@@ -285,7 +317,7 @@ class _ThinkingTagStream:
                     segment = self.pending[:close_index]
                     if self.enabled and segment:
                         thinking.append(segment)
-                    self.pending = self.pending[close_index + len(THINK_CLOSE) :]
+                    self.pending = self.pending[close_index + len(close_tag) :]
                     continue
             if index >= 0:
                 segment = self.pending[:index]
@@ -297,11 +329,21 @@ class _ThinkingTagStream:
                 self.pending = self.pending[index + len(tag) :]
                 self.inside = not self.inside
                 continue
-            held = 0 if final else self._partial_tag_length(self.pending, tag)
+            held = (
+                0
+                if final
+                else max(
+                    self._partial_tag_length(self.pending, candidate)
+                    for candidate in tags
+                )
+            )
             if not self.inside and not final:
                 held = max(
                     held,
-                    self._partial_tag_length(self.pending, THINK_CLOSE),
+                    *(
+                        self._partial_tag_length(self.pending, candidate)
+                        for candidate in THINK_CLOSE_TAGS
+                    ),
                 )
             emit = self.pending if not held else self.pending[:-held]
             self.pending = "" if not held else self.pending[-held:]
@@ -677,7 +719,11 @@ def _shed_language_context(payload: dict[str, Any]) -> bool:
     # former implementation mistook those for a newer "turn" and eventually
     # deleted the question it was supposed to answer.
     for index, message in enumerate(messages[:latest_user]):
-        if isinstance(message, Mapping) and message.get("role") != "system":
+        if (
+            isinstance(message, Mapping)
+            and message.get("role") != "system"
+            and "<objective>" not in str(message.get("content") or "")
+        ):
             del messages[index]
             return True
 
@@ -921,6 +967,13 @@ def _language_messages(
         item = {"role": message.role, "content": content}
         item.update(message.passthrough)
         result.append(item)
+    if parsed.task == "chat" and not any(
+        message.get("role") == "system" for message in result
+    ):
+        result.insert(
+            0,
+            {"role": "system", "content": DEFAULT_LANGUAGE_SYSTEM_PROMPT},
+        )
     return result
 
 
@@ -937,32 +990,6 @@ def language_request_url(config: Config) -> str:
         # llama.cpp or vLLM server.
         return config.language_url
     return config.language_url + "/api/chat"
-
-
-def _suppress_reasoning(
-    messages: list[dict[str, Any]],
-    thinking_requested: bool,
-    *,
-    needed: bool = True,
-) -> list[dict[str, Any]]:
-    """Turn reasoning off with the model's own switch, not the template's.
-
-    enable_thinking=False pre-fills an empty think block in the Qwen3 template
-    and the entire completion comes back as that block -- a reply of nothing
-    but newlines. The in-prompt switch costs nothing: with it the model
-    answers in three tokens and a couple of hundred milliseconds.
-    """
-
-    if thinking_requested or not needed:
-        return messages
-    for message in reversed(messages):
-        if message.get("role") != "user":
-            continue
-        content = str(message.get("content") or "")
-        if "/no_think" not in content:
-            message["content"] = f"{content} /no_think".strip()
-        break
-    return messages
 
 
 def build_language_payload(
@@ -982,19 +1009,14 @@ def build_language_payload(
             for key, value in payload.items()
             if key not in _OLLAMA_ONLY_FIELDS
         }
-        # `think` is an Ollama field and was just dropped, so the OpenAI-shaped
-        # backend has to be told separately -- but NOT with
-        # enable_thinking=False. That pre-fills an empty think block in the
-        # Qwen3 template and the whole completion comes back as that block:
-        # a reply of nothing but newlines, measured here as broken on every
-        # attempt while the same prompt with thinking left alone answered
-        # correctly every time.
-        #
-        # Reasoning is suppressed with the model's own in-prompt switch
-        # instead, which costs nothing: with it the model answers in three
-        # tokens and a couple of hundred milliseconds.
-        if thinking_requested:
-            payload["chat_template_kwargs"] = {"enable_thinking": True}
+        # `think` is an Ollama field and was just dropped. The local
+        # OpenAI-compatible Qwen endpoint exposes the equivalent native chat
+        # template switch. Never rewrite user content with `/no_think`: that
+        # changes the request, leaks control text into replies, and violates
+        # the adapter's native-think contract.
+        payload["chat_template_kwargs"] = {
+            "enable_thinking": thinking_requested
+        }
         # Stop at the turn boundary. Without this the model occasionally runs
         # past its own end-of-turn and begins writing the next one, and the
         # reply arrives as the bare role header -- "user", or "user\nHello".
@@ -1018,14 +1040,7 @@ def build_language_payload(
     payload.update(
         {
             "model": language_model or parsed.model,
-            "messages": _suppress_reasoning(
-                _language_messages(parsed, observation),
-                thinking_requested,
-                # Ollama has a native `think` field that works; only the
-                # OpenAI-shaped path needs the in-prompt switch, because the
-                # template kwarg it would otherwise use is broken.
-                needed=language_api == "openai",
-            ),
+            "messages": _language_messages(parsed, observation),
             "stream": False,
         }
     )
