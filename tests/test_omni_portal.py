@@ -2641,6 +2641,8 @@ def test_mock_live_call_stream_defaults_native_reasoning_off() -> None:
     assert "<runtime_environment>" not in environment["content"]
     assert "conversational multimodal assistant" in environment["content"]
     assert "explicit system-snapshot tool" in environment["content"]
+    assert "fact that can change after training" in environment["content"]
+    assert "explicitly asks you to check or verify" in environment["content"]
     assert "Tool results" in environment["content"]
     assert "only a current visual observation" in environment["content"]
     assert "not GPS, street position, or a visible scene" in environment["content"]

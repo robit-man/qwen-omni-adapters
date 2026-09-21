@@ -53,6 +53,14 @@ def test_foreground_gateway_is_described_as_execution_capability() -> None:
     assert "execution gateway" in background["description"]
 
 
+def test_mutable_or_explicitly_verified_facts_require_fresh_tool_evidence() -> None:
+    tool_policy = context_catalog()["directives"]["tool_use"]
+
+    assert "fact that can change after training" in tool_policy
+    assert "explicitly asks you to check or verify" in tool_policy
+    assert "until a fresh relevant tool result confirms it" in tool_policy
+
+
 def test_browser_receives_prompts_from_the_same_catalog(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

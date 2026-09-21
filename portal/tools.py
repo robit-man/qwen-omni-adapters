@@ -1811,6 +1811,11 @@ class PortalToolHarness:
     def set_client_location(self, session_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         return self.location.set(session_id, payload)
 
+    def client_location(self, session_id: str) -> dict[str, Any]:
+        """Return only the TTL-bounded, sanitized location for this session."""
+
+        return self.location.get(session_id)
+
     def observe_request(self, session_id: str, payload: Mapping[str, Any]) -> list[str]:
         messages = payload.get("messages")
         if not isinstance(messages, list):

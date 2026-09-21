@@ -1543,11 +1543,42 @@ def create_app(
         except ToolInputError as exc:
             raise PortalRequestError(str(exc)) from exc
 
-    def apply_system_policy(payload: dict[str, Any], *, tools_enabled: bool) -> None:
+    def apply_system_policy(
+        payload: dict[str, Any], session_id: str, *, tools_enabled: bool
+    ) -> None:
         messages = payload.get("messages")
         if not isinstance(messages, list) or not messages:
             raise PortalRequestError("messages must be a non-empty array")
         environment = portal_behavior_system_message()
+        now = datetime.now().astimezone()
+        grounding: dict[str, Any] = {
+            "date": now.date().isoformat(),
+            "time": now.isoformat(timespec="seconds"),
+            "timezone": now.tzname() or "",
+            "utc_offset": now.strftime("%z"),
+        }
+        location = tool_harness.client_location(session_id)
+        if location.get("available") is True:
+            grounding["approximate_user_location"] = {
+                key: location[key]
+                for key in (
+                    "city",
+                    "region",
+                    "country",
+                    "latitude",
+                    "longitude",
+                    "timezone",
+                    "caveat",
+                )
+                if location.get(key) not in (None, "", {})
+            }
+        environment["content"] += (
+            "\n\n<current_grounding>"
+            + json.dumps(grounding, ensure_ascii=False, separators=(",", ":"))
+            + "</current_grounding>\n"
+            "This grounding was sampled at request admission. Treat location as "
+            "approximate network-area evidence, never GPS, street, or visual evidence."
+        )
         environment["content"] += f"\n\n{TOOL_RESULT_POLICY}"
         if tools_enabled:
             environment["content"] += f"\n\n{tool_use_instructions()}"
@@ -1896,7 +1927,7 @@ def create_app(
             apply_client_location(payload, session_id, tools_enabled=auto_tools)
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
-            apply_system_policy(payload, tools_enabled=auto_tools)
+            apply_system_policy(payload, session_id, tools_enabled=auto_tools)
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
             diagnostics.begin_request(
@@ -2050,7 +2081,7 @@ def create_app(
             apply_client_location(payload, session_id, tools_enabled=auto_tools)
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
-            apply_system_policy(payload, tools_enabled=auto_tools)
+            apply_system_policy(payload, session_id, tools_enabled=auto_tools)
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
             diagnostics.begin_request(
