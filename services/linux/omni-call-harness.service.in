@@ -20,6 +20,8 @@ Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH=@REPO_ROOT@
 Environment=OMNI_REPO_ROOT=@REPO_ROOT@
 Environment=OMNI_PORTAL_URL=http://127.0.0.1:8920
+Environment=OMNI_DECISION_PLANE_ENABLED=1
+Environment=OMNI_DECISION_PLANE_URL=http://127.0.0.1:8930
 EnvironmentFile=-@REPO_ROOT@/.env
 ExecStart=@HARNESS_EXEC_START@
 Restart=always
