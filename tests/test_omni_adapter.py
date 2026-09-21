@@ -93,7 +93,7 @@ def test_adapter_contract_separates_wire_schema_from_bundle_schema() -> None:
 
 def test_tts_stream_window_validation_and_cli_arguments(tmp_path: Path) -> None:
     config = _tts_config(tmp_path)
-    assert config.stream_frames == 2
+    assert config.stream_frames == 8
     spec = _synthesis_spec(config, {"text": "Hello", "stream_frames": 12})
     command = _command(config, spec, tmp_path / "speech.wav", stream=True)
 
@@ -1254,7 +1254,7 @@ def test_reference_server_streams_pcm_and_keeps_final_wav_envelope() -> None:
         "/api/chat",
         "/synthesize/stream/batch",
     ]
-    assert seen[1][1]["stream_frames"] == 2
+    assert seen[1][1]["stream_frames"] == 8
     assert seen[1][1]["blocks"] == ["Speak."]
     assert [event["type"] for event in events] == [
         "stage",

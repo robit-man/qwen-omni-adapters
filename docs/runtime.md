@@ -176,16 +176,16 @@ calls broker `prepare`, starts the resident process, verifies that PID's CUDA
 residency and explicit protocol-ready frame, and calls `ready`. Matching voice
 profiles reuse that graph while retaining the same `/synthesize` contract.
 
-The interactive wrapper default is `OMNI_TTS_STREAM_FRAMES=2`, approximately
-160 ms of codec audio per state-carrying decode window. The phone keeps an 80 ms
+The interactive wrapper default is `OMNI_TTS_STREAM_FRAMES=8`, approximately
+640 ms of codec audio per state-carrying decode window. The phone keeps an 80 ms
 initial playout lead, uses a 3 ms late-arrival scheduling floor, and applies a
 guarded 3 ms crossfade between sufficiently large contiguous buffers. In a
-post-isolation reference probe, a warm
-one-frame request reached first PCM in 774.1 ms and a warm two-frame request in
-814.1 ms. The roughly 40 ms cost halves the number of decoder boundaries; a
-voice-profile switch caused a one-time approximately 2.38 second first-PCM
-result. Treat these host-specific values as tuning evidence, not a universal
-benchmark. A voice-profile change intentionally replaces the worker.
+post-isolation Tegra reference probe, two-frame decoding ran at 1.33x real time,
+four-frame decoding at 1.06x, and eight-frame decoding at 0.91x. Only the
+eight-frame window kept the measured source cadence ahead of playback (2 ms
+worst predicted underrun versus 155 ms with two frames). Treat these
+host-specific values as tuning evidence, not a universal benchmark. A
+voice-profile change intentionally replaces the worker.
 
 The patched code2wav graph consumes and persists exactly the real codec-frame
 count rather than advancing retained state through rear padding to 72 frames.

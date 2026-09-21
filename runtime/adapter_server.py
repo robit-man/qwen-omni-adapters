@@ -70,6 +70,7 @@ class Config:
     comprehension_context_tokens: int = 65_536
     comprehension_context_file: str | None = None
     comprehension_max_output_tokens: int = 2_048
+    tts_stream_frames: int = 8
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -102,6 +103,7 @@ class Config:
             comprehension_max_output_tokens=int(
                 os.environ.get("OMNI_COMPREHENSION_MAX_OUTPUT_TOKENS", "2048")
             ),
+            tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
         )
 
 
@@ -113,7 +115,6 @@ MAX_VIDEO_FRAMES = 32
 MAX_VIDEO_FPS = 2.0
 MAX_GIF_SECONDS = 30
 DEFAULT_TTS_BLOCK_CHARS = 420
-DEFAULT_TTS_STREAM_FRAMES = 2
 # Non-thinking text stays private until reasoning-tag sanitation completes.
 # Emit a content-free pulse while consuming that upstream stream so a closed
 # browser or microphone connection is observed and cancels inference instead
@@ -1677,7 +1678,7 @@ def execute_stream(
         tts_payload = {
             "blocks": text_blocks,
             "output": DEFAULT_AUDIO_CONTRACT.output.to_dict(),
-            "stream_frames": DEFAULT_TTS_STREAM_FRAMES,
+            "stream_frames": config.tts_stream_frames,
             **dict(parsed.speech),
         }
         pending = b""

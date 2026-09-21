@@ -51,6 +51,19 @@ def test_startup_smoke_can_be_disabled_for_memory_brokered_hosts(
     assert config.startup_smoke is False
 
 
+def test_tts_stream_window_has_measured_default_and_environment_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OMNI_REPO_ROOT", str(tmp_path))
+    monkeypatch.delenv("OMNI_TTS_STREAM_FRAMES", raising=False)
+    monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
+
+    assert daemon.DaemonConfig.from_environment(cloudflare=False).tts_stream_frames == 8
+
+    monkeypatch.setenv("OMNI_TTS_STREAM_FRAMES", "12")
+    assert daemon.DaemonConfig.from_environment(cloudflare=False).tts_stream_frames == 12
+
+
 def test_status_with_the_capability_url_is_owner_readable_only(tmp_path: Path) -> None:
     supervisor = daemon.OmniDaemon(_config(tmp_path))
     supervisor.state_dir.mkdir(parents=True)

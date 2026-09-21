@@ -144,7 +144,7 @@ audio/pcm;rate=24000;channels=1;format=s16le` plus `X-Audio-Codec`,
 and may override `stream_frames`; `OMNI_TTS_STREAM_FRAMES` sets the server
 default.
 
-The interactive default is two codec frames, about 160 ms for the packaged
+The interactive default is eight codec frames, about 640 ms for the packaged
 12 Hz model. Values from 1 through 72 are accepted; larger windows improve
 aggregate decoder throughput, while smaller windows reduce time to first PCM
 at the cost of more decoder invocations. A shorter utterance flushes once at

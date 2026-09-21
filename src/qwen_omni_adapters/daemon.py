@@ -107,7 +107,7 @@ class DaemonConfig:
     portal_port: int = 8920
     decision_port: int = 8930
     context_tokens: int = 65_536
-    tts_stream_frames: int = 4
+    tts_stream_frames: int = 8
     portal_token: str = ""
     cloudflare: bool = True
     keep_cache: bool = False
@@ -183,7 +183,7 @@ class DaemonConfig:
                     "16384" if is_tegra() else "65536",
                 )
             ),
-            tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "4")),
+            tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
             portal_token=os.environ.get("OMNI_PORTAL_TOKEN", "").strip(),
             cloudflare=(
                 os.environ.get("OMNI_ENABLE_CLOUDFLARED", "1") != "0"
@@ -685,6 +685,7 @@ class OmniDaemon:
             "OMNI_LANGUAGE_URL": "http://127.0.0.1:11434",
             "OMNI_LANGUAGE_MODEL": self.config.language_model,
             "OMNI_TTS_URL": f"http://127.0.0.1:{self.config.tts_port}/synthesize",
+            "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames),
             "OMNI_ADAPTER_HOST": "127.0.0.1",
             "OMNI_ADAPTER_PORT": str(self.config.adapter_port),
             # Last, so it wins: which language backend to use is the operator's
