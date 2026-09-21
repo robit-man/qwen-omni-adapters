@@ -1552,8 +1552,12 @@ def test_local_browser_search_decodes_result_redirects_and_fails_closed() -> Non
             "<html><body>Verify you're not a bot before continuing.</body></html>"
         ),
     ).execute("one", "web_search", {"query": "example guide"})
-    assert challenged["error"] == "ToolInputError"
+    assert challenged["error"] == "provider_challenge"
     assert "provider challenge" in challenged["message"]
+    assert challenged["retryable"] is False
+    assert challenged["disposition"] == "change_capability"
+    assert challenged["task_blocked"] is False
+    assert "alternative_tools" not in challenged
 
 
 def test_portal_enforces_server_voice_profile() -> None:
@@ -2361,7 +2365,7 @@ def test_portal_returns_duplicate_errors_then_stops_if_nothing_changes() -> None
 
     assert response.status_code == 502
     assert "without actionable progress" in response.json["error"]
-    assert len(requests) == 8
+    assert len(requests) == 3
 
 
 def test_duplicate_failure_is_returned_so_the_model_can_correct_it() -> None:
@@ -2440,7 +2444,7 @@ def test_portal_stops_varying_tool_calls_that_never_make_progress() -> None:
 
     assert response.status_code == 502
     assert "without actionable progress" in response.json["error"]
-    assert len(requests) == 8
+    assert len(requests) == 3
 
 
 def test_active_tool_can_be_called_again_without_rediscovery() -> None:

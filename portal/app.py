@@ -1018,7 +1018,11 @@ def _tool_followup(
         if call.get("id"):
             tool_message["tool_call_id"] = str(call["id"])
         messages.append(tool_message)
-        display_arguments = copy.deepcopy(dict(arguments))
+        # Show the exact model-authored call while keeping server-injected
+        # handoff evidence out of the UI trace.
+        display_arguments = copy.deepcopy(
+            {key: value for key, value in arguments.items() if key != "context"}
+        )
         ok = "error" not in result
         if name == "shell":
             ok = (

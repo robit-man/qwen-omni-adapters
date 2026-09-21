@@ -1263,13 +1263,28 @@ class BackgroundAgent:
                         for item in selected
                         if item is not None and _result_failed_or_blocked(item["result"])
                     ]
+                    recovery_remains = any(
+                        isinstance(item, Mapping)
+                        and isinstance(item.get("result"), Mapping)
+                        and (
+                            item["result"].get("task_blocked") is False
+                            or item["result"].get("disposition")
+                            == "change_capability"
+                        )
+                        for item in selected
+                        if item is not None
+                    )
                     valid = (
                         action in {"progress", "complete", "blocked"}
                         and bool(report)
                         and len(report) <= MAX_CHECKPOINT_REPORT_CHARS
                         and valid_refs
                         and (
-                            (action == "blocked" and bool(failed))
+                            (
+                                action == "blocked"
+                                and bool(failed)
+                                and not recovery_remains
+                            )
                             or (action != "blocked" and not failed)
                         )
                     )
@@ -1282,7 +1297,7 @@ class BackgroundAgent:
                             "message": (
                                 "Reference existing successful tool calls for "
                                 "progress/complete, or a concrete failed tool call "
-                                "for blocked."
+                                "with no remaining alternative for blocked."
                             ),
                             "valid_evidence_ids": valid_ids[:16],
                             "failed_evidence_ids": failed_ids[:8],
@@ -1436,8 +1451,14 @@ class BackgroundAgent:
                         tools_used = list(dict.fromkeys([*tools_used, name]))[-16:]
                     if name != "tool_search":
                         suppress_discovery = False
-                    stalls = 0
-                if name == "tool_search" and isinstance(result, Mapping):
+                change_capability = (
+                    isinstance(result, Mapping)
+                    and result.get("disposition") == "change_capability"
+                )
+                if change_capability:
+                    active_tools = []
+                    suppress_discovery = False
+                elif name == "tool_search" and isinstance(result, Mapping):
                     available = result.get("available_tools")
                     if isinstance(available, list):
                         active_tools = list(
@@ -1459,11 +1480,15 @@ class BackgroundAgent:
                     "content": "",
                 }
                 digest = _result_digest(name, result)
-                if digest in result_digests:
+                repeated_result = digest in result_digests
+                failed_result = _result_failed_or_blocked(result)
+                if failed_result:
                     stalls += 1
                 else:
-                    result_digests.add(digest)
+                    stalls = 0
                     self._slice_deferrals.pop(task_id, None)
+                if not repeated_result:
+                    result_digests.add(digest)
                 screenshot = None
                 if name in {"browser_interact", "gui_interact"} and isinstance(result, Mapping):
                     screenshot = result.get("screenshot")
@@ -1487,6 +1512,15 @@ class BackgroundAgent:
                 )
                 tool_message["tool_call_id"] = call_id
                 messages.append(tool_message)
+                if change_capability:
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": context_text(
+                                "directives", "background_recovery"
+                            ),
+                        }
+                    )
                 if _is_duplicate_tool_result(tool_message):
                     messages.append(
                         {

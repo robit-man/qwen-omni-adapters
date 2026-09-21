@@ -115,6 +115,10 @@ class ToolInputError(ValueError):
     """A bounded error safe to return to the model as a tool result."""
 
 
+class ProviderChallenge(RuntimeError):
+    """A discovery provider refused automation; inputs were still valid."""
+
+
 def _bounded_text(value: Any, name: str, maximum: int) -> str:
     text = str(value or "").strip()
     if not text:
@@ -945,7 +949,9 @@ class WebToolSuite:
                 "select all squares containing a duck",
             )
         ):
-            raise ToolInputError("local browser search was interrupted by a provider challenge")
+            raise ProviderChallenge(
+                "local browser search was interrupted by a provider challenge"
+            )
         collector = _AnchorCollector()
         collector.feed(dom[:MAX_FETCH_BYTES])
         search_host = (urlsplit(search_url).hostname or "").lower()
@@ -2058,6 +2064,19 @@ class PortalToolHarness:
                 "error": "resource_pressure",
                 "retryable": True,
                 "message": "The runtime deferred this operation to preserve memory headroom.",
+            }
+        except ProviderChallenge as exc:
+            result = {
+                "error": "provider_challenge",
+                "message": str(exc)[:500],
+                "challenge": True,
+                "retryable": False,
+                "failure_scope": "capability",
+                "task_blocked": False,
+                "disposition": "change_capability",
+                "constraint": (
+                    "Do not retry the same challenged provider by varying the query."
+                ),
             }
         except (
             ToolInputError,

@@ -600,6 +600,146 @@ def test_background_agent_yields_between_inference_and_tool_steps(
     assert completed[0]["task_id"] == task["task_id"]
 
 
+def test_capability_failure_triggers_generic_recovery_and_headed_browser(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Research a current topic from public sources.")
+    chat_round = 0
+
+    def tool_call(call_id: str, name: str, arguments: dict[str, object]) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "type": "function",
+                            "function": {"name": name, "arguments": arguments},
+                        }
+                    ],
+                }
+            },
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        payload = json.loads(request.content)
+        if request.url.path == "/api/tools/tool_search/call":
+            query = payload["arguments"]["query"]
+            selected = (
+                "browser_interact" if "different capability" in query else "web_search"
+            )
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "available_tools": [selected],
+                        "results": [{"name": selected}],
+                    }
+                },
+            )
+        if request.url.path == "/api/tools/web_search/call":
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "error": "provider_challenge",
+                        "challenge": True,
+                        "retryable": False,
+                        "failure_scope": "capability",
+                        "task_blocked": False,
+                        "disposition": "change_capability",
+                    }
+                },
+            )
+        if request.url.path == "/api/tools/browser_interact/call":
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "rendered": True,
+                        "title": "Verified source",
+                        "url": "https://example.com/source",
+                    }
+                },
+            )
+        chat_round += 1
+        exposed = [item["function"]["name"] for item in payload["tools"]]
+        if chat_round == 1:
+            assert exposed == ["tool_search"]
+            return tool_call(
+                "discover-web",
+                "tool_search",
+                {"query": "public web research"},
+            )
+        if chat_round == 2:
+            assert "web_search" in exposed
+            return tool_call(
+                "challenged-search",
+                "web_search",
+                {"query": "current topic", "mode": "discover"},
+            )
+        if chat_round == 3:
+            assert "web_search" not in exposed
+            assert "tool_search" in exposed
+            assert any(
+                "Privately diagnose the failed step" in str(message.get("content") or "")
+                for message in payload["messages"]
+            )
+            return tool_call(
+                "discover-alternative",
+                "tool_search",
+                {"query": "different capability for interactive public information retrieval"},
+            )
+        if chat_round == 4:
+            assert "browser_interact" in exposed
+            return tool_call(
+                "headed-browser",
+                "browser_interact",
+                {"action": "navigate", "url": "https://example.com/source"},
+            )
+        return _checkpoint_response(
+            "complete",
+            "I researched the topic and verified the rendered source.",
+            ["headed-browser"],
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.02)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert [item["tool"] for item in current["actions"]] == [
+        "tool_search",
+        "web_search",
+        "tool_search",
+        "browser_interact",
+        "task_checkpoint",
+    ]
+
+
 def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaway_thinking(
     tmp_path: Path,
 ) -> None:
