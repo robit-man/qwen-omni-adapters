@@ -18,7 +18,8 @@ import subprocess
 import sys
 import tempfile
 import wave
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,6 +48,7 @@ from qwen_omni_adapters.contract import (
     adapter_contract,
     parse_adapter_request,
 )
+from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState
 
 
 @dataclass(frozen=True)
@@ -1392,6 +1394,7 @@ def execute(
     parsed: ParsedAdapterRequest,
     config: Config,
     client: httpx.Client,
+    decision_observer: Callable[[ParsedAdapterRequest, str | None], None] | None = None,
 ) -> dict[str, Any]:
     observation: str | None = None
     executed: list[str] = []
@@ -1412,6 +1415,9 @@ def execute(
             executed=executed,
             suppress_tts=True,
         )
+
+    if decision_observer is not None:
+        decision_observer(parsed, observation)
 
     if parsed.task in {"transcribe", "describe"}:
         result = _direct_response(parsed.model, observation or "")
@@ -1468,6 +1474,7 @@ def execute_stream(
     parsed: ParsedAdapterRequest,
     config: Config,
     client: httpx.Client,
+    decision_observer: Callable[[ParsedAdapterRequest, str | None], None] | None = None,
 ) -> Iterator[bytes]:
     """Stream language deltas, then emit one authoritative final response.
 
@@ -1505,6 +1512,9 @@ def execute_stream(
             )
             yield _stream_event("final", response=result)
             return
+
+    if decision_observer is not None:
+        decision_observer(parsed, observation)
 
     if parsed.task in {"transcribe", "describe"}:
         result = _direct_response(parsed.model, observation or "")
@@ -1742,10 +1752,65 @@ def execute_stream(
     yield _stream_event("final", response=result)
 
 
-def create_app(config: Config | None = None, client: httpx.Client | None = None) -> Flask:
+def create_app(
+    config: Config | None = None,
+    client: httpx.Client | None = None,
+    decision_plane: DecisionPlane | None = None,
+) -> Flask:
     app = Flask(__name__)
     runtime_config = config or Config.from_environment()
     session = client or httpx.Client(timeout=runtime_config.timeout_s)
+    plane = decision_plane
+    enabled = os.environ.get("OMNI_DECISION_PLANE_ENABLED", "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+    if plane is None and enabled:
+        plane = DecisionPlane.from_environment()
+    decision_executor = (
+        ThreadPoolExecutor(max_workers=1, thread_name_prefix="omni-adapter-system1")
+        if plane is not None
+        else None
+    )
+
+    def observe_input_routing(
+        parsed: ParsedAdapterRequest, observation: str | None
+    ) -> None:
+        if plane is None:
+            return
+        transcript = _observation_transcript(observation)
+        last_user = next(
+            (message for message in reversed(parsed.messages) if message.role == "user"),
+            None,
+        )
+        request_text = transcript or (last_user.content.strip() if last_user is not None else "")
+        if not request_text:
+            return
+        state = DecisionState(
+            user_request=request_text,
+            current_goal=request_text,
+            current_phase="post_comprehension" if observation is not None else "text_input",
+            last_observation=observation or "",
+            available_tool_families=tuple(
+                str(name) for name in plane.config.get("tool_families", {})
+            ),
+            authorization_state={"prediction_only": True},
+        )
+
+        def run() -> None:
+            try:
+                plane.evaluate(state=state, wave="input_routing")
+            except Exception:
+                # Laya is an optimization. The existing language route remains
+                # authoritative and must not inherit its failure.
+                return
+
+        if plane.shadow_mode and decision_executor is not None:
+            decision_executor.submit(run)
+        else:
+            run()
 
     @app.get("/healthz")
     def healthz():
@@ -1758,6 +1823,7 @@ def create_app(config: Config | None = None, client: httpx.Client | None = None)
                     "language": bool(runtime_config.language_url),
                     "tts": bool(runtime_config.tts_url),
                 },
+                "decision_plane": plane.health() if plane is not None else {"enabled": False},
             }
         )
 
@@ -1769,7 +1835,14 @@ def create_app(config: Config | None = None, client: httpx.Client | None = None)
     def chat():
         try:
             parsed = parse_adapter_request(request.get_json(force=True))
-            return jsonify(execute(parsed, runtime_config, session))
+            return jsonify(
+                execute(
+                    parsed,
+                    runtime_config,
+                    session,
+                    decision_observer=observe_input_routing,
+                )
+            )
         except OmniAdapterError as exc:
             return jsonify({"error": str(exc), "schema": ADAPTER_SCHEMA}), 400
         except (AdapterStageError, httpx.HTTPError) as exc:
@@ -1791,7 +1864,12 @@ def create_app(config: Config | None = None, client: httpx.Client | None = None)
 
         def generate() -> Iterator[bytes]:
             try:
-                yield from execute_stream(parsed, runtime_config, session)
+                yield from execute_stream(
+                    parsed,
+                    runtime_config,
+                    session,
+                    decision_observer=observe_input_routing,
+                )
             except (AdapterStageError, httpx.HTTPError) as exc:
                 yield _stream_event("error", error=str(exc), schema=ADAPTER_SCHEMA)
 

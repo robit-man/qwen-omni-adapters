@@ -12,6 +12,7 @@ import secrets
 import threading
 import time
 from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import httpx
@@ -19,6 +20,7 @@ import httpx
 from portal.background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
 from portal.tools import DISCOVERY_TOOLS, tool_schemas
 from qwen_omni_adapters.context import context_text, context_value
+from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 logger = logging.getLogger(__name__)
@@ -423,6 +425,7 @@ class BackgroundAgent:
         max_slice_stalls: int = 3,
         slice_backoff_s: float = 10.0,
         client: httpx.Client | None = None,
+        decision_plane: DecisionPlane | None = None,
     ) -> None:
         self.store = store
         self.portal_url = portal_url.rstrip("/")
@@ -432,6 +435,16 @@ class BackgroundAgent:
         self.stop = stop
         self.token_reader = token_reader
         self.await_language = await_language
+        self.decision_plane = decision_plane
+        if self.decision_plane is None and os.environ.get(
+            "OMNI_DECISION_PLANE_ENABLED", "0"
+        ).strip().lower() not in {"0", "false", "no", "off"}:
+            self.decision_plane = DecisionPlane.from_environment()
+        self._decision_executor = (
+            ThreadPoolExecutor(max_workers=1, thread_name_prefix="omni-background-system1")
+            if self.decision_plane is not None
+            else None
+        )
         self.on_complete = on_complete
         self.on_progress = on_progress
         self.progress_after_s = max(0.0, progress_after_s)
@@ -479,6 +492,36 @@ class BackgroundAgent:
         self._thread.join(timeout=5)
         if self._owns_client:
             self._client.close()
+        if self._decision_executor is not None:
+            self._decision_executor.shutdown(wait=False, cancel_futures=True)
+        if self.decision_plane is not None:
+            self.decision_plane.close()
+
+    def _observe_decision(self, wave: str, state: DecisionState) -> None:
+        plane = self.decision_plane
+        if plane is None:
+            return
+
+        def run() -> None:
+            try:
+                result = plane.evaluate(state=state, wave=wave)
+                logger.info(
+                    "background System-1 wave=%s latency=%.1fms decisions=%s shadow=%s",
+                    wave,
+                    result.latency_ms,
+                    ",".join(
+                        f"{name}:{item.value}@{item.confidence:.3f}"
+                        for name, item in result.results.items()
+                    ),
+                    plane.shadow_mode,
+                )
+            except Exception as exc:  # noqa: BLE001 - optimizer failure is non-fatal
+                logger.warning("background System-1 wave %s unavailable: %s", wave, exc)
+
+        if plane.shadow_mode and self._decision_executor is not None:
+            self._decision_executor.submit(run)
+        else:
+            run()
 
     def wake(self) -> None:
         self._wake.set()
@@ -955,6 +998,18 @@ class BackgroundAgent:
         slice_rounds = 0
         slice_tool_calls = 0
         stalls = 0
+        self._observe_decision(
+            "input_routing",
+            DecisionState(
+                user_request=str(task.get("objective") or ""),
+                current_goal=str(task.get("objective") or ""),
+                current_phase="background_admission",
+                pending_requirements=(
+                    str(task.get("completion_criteria") or "verified completion"),
+                ),
+                authorization_state={"durable_task_accepted": True},
+            ),
+        )
         while not self.stop.is_set():
             if (
                 slice_rounds >= self.max_slice_rounds
@@ -1094,6 +1149,34 @@ class BackgroundAgent:
                 )
                 continue
 
+            self._observe_decision(
+                "pre_action",
+                DecisionState(
+                    user_request=str(task.get("objective") or ""),
+                    current_goal=str(task.get("objective") or ""),
+                    current_phase="pre_action",
+                    last_action={
+                        "calls": [
+                            {
+                                "name": str(call.get("function", {}).get("name") or "")
+                                if isinstance(call.get("function"), Mapping)
+                                else "",
+                                "arguments": _arguments(call),
+                            }
+                            for call in calls
+                        ]
+                    },
+                    pending_requirements=(
+                        str(task.get("completion_criteria") or "verified completion"),
+                    ),
+                    authorization_state={
+                        "durable_task_accepted": True,
+                        "server_allowlist": True,
+                    },
+                    retry_count=stalls,
+                ),
+            )
+
             # A person may have spoken while this inference was running. Yield
             # before acting, then re-read task control state. A targeted update
             # invalidates the model's now-stale proposed calls and gets a fresh
@@ -1131,6 +1214,7 @@ class BackgroundAgent:
                 continue
 
             progress_parts: list[str] = []
+            observed_actions: list[dict[str, Any]] = []
             for call in calls:
                 function = call.get("function")
                 name = (
@@ -1390,6 +1474,14 @@ class BackgroundAgent:
                     }
                 result = _bounded_tool_result(result)
                 self._record_action(task_id, call_id, name, arguments, result)
+                observed_actions.append(
+                    {
+                        "call_id": call_id,
+                        "name": name,
+                        "arguments": arguments,
+                        "result": result,
+                    }
+                )
                 tool_message["content"] = json.dumps(
                     result, ensure_ascii=False, default=str
                 )
@@ -1422,6 +1514,42 @@ class BackgroundAgent:
                     )
                 else:
                     progress_parts.append(f"Ran {name or 'unknown'} and retained its result.")
+
+            if observed_actions:
+                self._observe_decision(
+                    "post_action",
+                    DecisionState(
+                        user_request=str(task.get("objective") or ""),
+                        current_goal=str(task.get("objective") or ""),
+                        current_phase="post_action",
+                        last_action={
+                            "calls": [
+                                {
+                                    "call_id": item["call_id"],
+                                    "name": item["name"],
+                                    "arguments": item["arguments"],
+                                }
+                                for item in observed_actions
+                            ]
+                        },
+                        last_observation=json.dumps(
+                            [
+                                {
+                                    "call_id": item["call_id"],
+                                    "name": item["name"],
+                                    "result": item["result"],
+                                }
+                                for item in observed_actions
+                            ],
+                            ensure_ascii=False,
+                            default=str,
+                        ),
+                        pending_requirements=(
+                            str(task.get("completion_criteria") or "verified completion"),
+                        ),
+                        retry_count=stalls,
+                    ),
+                )
 
             checkpoint = self.store.checkpoint(
                 task_id,

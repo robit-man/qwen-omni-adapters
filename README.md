@@ -211,6 +211,10 @@ Current local-call behavior also includes:
   downshifting rather than a board-specific fixed context size;
 - continuous PCM playback, timing/starvation diagnostics, ReSpeaker echo
   handling, and automatic service/microphone-loop recovery.
+- a resident, typed Laya System-1 decision plane with batched routing,
+  pre-action, post-action, and context-relevance waves; it is shadow-only until
+  real calibration proves a per-family fast path, and failures always preserve
+  the deliberative route. See [`docs/decision-plane.md`](docs/decision-plane.md).
 
 ## What the model tag contains
 

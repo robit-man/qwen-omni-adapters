@@ -53,6 +53,20 @@ prompts reuse one process while returning independent framed PCM sequences.
 The real-component gate also synthesizes distinct A, B, A sentinel prompts and
 transcribes their waveforms; the recognized order must remain A, B, A.
 
+Decision-plane tests cover deterministic bypass, one-pass waves, confidence
+escalation, policy override, backend failure/timeout, immutable cache identity,
+content-redacted traces, checkpoint/version invalidation, shadow isolation,
+hierarchical tool families, compact-state truncation, resident preload/warmup,
+concurrent callers, and offline replay/calibration. The ASR-style replay fixture
+spans file, code, browser, form, web, document, memory, system, camera, and
+post-action completion/retry decisions. Run a real resident checkpoint with:
+
+```bash
+.laya-venv/bin/python runtime/laya_server.py
+.venv/bin/python scripts/replay_decision_plane.py \
+  tests/fixtures/decision_replay.jsonl
+```
+
 ## Artifact gate
 
 For the release sidecar:

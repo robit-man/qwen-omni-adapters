@@ -8,7 +8,9 @@ to be owned by the native service manager. On every start it:
 2. verifies that the language tag shares the logical tag's standard blobs;
 3. resolves and validates the custom sidecar layer;
 4. materializes missing comprehension and TTS views;
-5. starts and health-checks comprehension, TTS, adapter, and portal workers;
+5. preloads and warms the optional resident Laya decision worker, then starts
+   and health-checks comprehension, TTS, adapter, and portal workers; Laya
+   failure leaves the deliberative path available;
 6. proves direct GPU residency on NVIDIA systems -- per-process compute-app
    accounting on discrete cards, integrated-GPU device handles on Tegra (see
    [arm64 and NVIDIA Jetson](arm-jetson.md)) -- or relies on the

@@ -105,6 +105,7 @@ class DaemonConfig:
     tts_port: int = 8892
     adapter_port: int = 8910
     portal_port: int = 8920
+    decision_port: int = 8930
     context_tokens: int = 65_536
     tts_stream_frames: int = 4
     portal_token: str = ""
@@ -127,6 +128,7 @@ class DaemonConfig:
     # name belongs to that server, not to Ollama. Pulling or blob-verifying it
     # against Ollama is meaningless and hangs on a tag that cannot exist.
     language_api: str = "ollama"
+    decision_plane_enabled: bool = True
 
     @classmethod
     def from_environment(
@@ -199,6 +201,10 @@ class DaemonConfig:
             ).strip().lower()
             not in {"0", "false", "no"},
             language_api=os.environ.get("OMNI_LANGUAGE_API", "ollama").strip().lower(),
+            decision_plane_enabled=os.environ.get(
+                "OMNI_DECISION_PLANE_ENABLED", "1"
+            ).strip().lower()
+            not in {"0", "false", "no"},
         )
 
 
@@ -342,6 +348,8 @@ class OmniDaemon:
             self.config.adapter_port,
             self.config.portal_port,
         ]
+        if self.config.decision_plane_enabled and self._laya_python().is_file():
+            ports.append(self.config.decision_port)
         if self.config.enable_comprehension:
             # Only required when this supervisor spawns the worker. An
             # externally managed comprehension worker legitimately occupies
@@ -477,6 +485,81 @@ class OmniDaemon:
         self.children.append(child)
         return child
 
+    def _laya_python(self) -> Path:
+        configured = os.environ.get("OMNI_LAYA_PYTHON", "").strip()
+        if configured:
+            return Path(configured).expanduser().resolve()
+        name = "python.exe" if os.name == "nt" else "python"
+        return self.config.repo_root / ".laya-venv" / ("Scripts" if os.name == "nt" else "bin") / name
+
+    def _discard_child(self, child: Child) -> None:
+        if child.process.poll() is None:
+            if os.name == "nt":
+                child.process.terminate()
+            else:
+                os.killpg(child.process.pid, signal.SIGTERM)
+            try:
+                child.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                if os.name == "nt":
+                    child.process.kill()
+                else:
+                    os.killpg(child.process.pid, signal.SIGKILL)
+                child.process.wait(timeout=5)
+        if child in self.children:
+            self.children.remove(child)
+        child.log.close()
+
+    def _start_decision_plane(self, common: dict[str, str]) -> bool:
+        """Start the optional resident optimizer without making it a SPOF."""
+
+        if not self.config.decision_plane_enabled:
+            return False
+        python = self._laya_python()
+        if not python.is_file():
+            print(
+                "qwen-omni-daemon: Laya runtime is not installed; continuing with "
+                "the deliberative fallback (run scripts/bootstrap_laya.sh)",
+                file=sys.stderr,
+                flush=True,
+            )
+            return False
+        env = {
+            **common,
+            "OMNI_LAYA_PORT": str(self.config.decision_port),
+            "OMNI_DECISION_TRACE_FILE": str(
+                self.config.runtime_root / "decision-traces.jsonl"
+            ),
+        }
+        child = self._spawn(
+            "laya",
+            [python.as_posix(), str(self.config.repo_root / "runtime" / "laya_server.py")],
+            env,
+        )
+        try:
+            self._wait_http(
+                child,
+                f"http://127.0.0.1:{self.config.decision_port}/health",
+                1800,
+            )
+            response = httpx.get(
+                f"http://127.0.0.1:{self.config.decision_port}/health", timeout=10
+            )
+            response.raise_for_status()
+            health = response.json()
+            if not isinstance(health, dict) or health.get("ready") is not True:
+                raise DaemonError("Laya decision plane did not report ready after warmup")
+        except (DaemonError, httpx.HTTPError, ValueError) as exc:
+            print(
+                "qwen-omni-daemon: Laya unavailable; continuing with the "
+                f"deliberative fallback: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+            self._discard_child(child)
+            return False
+        return True
+
     def _wait_http(self, child: Child, url: str, timeout: int) -> None:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -530,6 +613,14 @@ class OmniDaemon:
         python = sys.executable
         common = os.environ.copy()
         common["PYTHONUNBUFFERED"] = "1"
+        decision_ready = self._start_decision_plane(common)
+        common["OMNI_DECISION_PLANE_ENABLED"] = "1" if decision_ready else "0"
+        common["OMNI_DECISION_PLANE_URL"] = (
+            f"http://127.0.0.1:{self.config.decision_port}"
+        )
+        common["OMNI_DECISION_TRACE_FILE"] = str(
+            self.config.runtime_root / "decision-traces.jsonl"
+        )
         if self.config.enable_comprehension:
             comprehension = self._spawn(
                 "comprehension",
@@ -663,6 +754,7 @@ class OmniDaemon:
             state="smoke-passed" if self.config.startup_smoke else "ready",
             comprehension=self.config.enable_comprehension,
             startup_smoke=self.config.startup_smoke,
+            decision_plane=decision_ready,
         )
 
         public = f"http://127.0.0.1:{self.config.portal_port}"
@@ -777,8 +869,18 @@ class OmniDaemon:
                 if self.stop_file.exists():
                     self.request_stop()
                     continue
-                for child in self.children:
+                for child in list(self.children):
                     if child.process.poll() is not None:
+                        if child.name == "laya":
+                            print(
+                                "qwen-omni-daemon: Laya exited; continuing with "
+                                "the deliberative fallback",
+                                file=sys.stderr,
+                                flush=True,
+                            )
+                            self.children.remove(child)
+                            child.log.close()
+                            continue
                         raise DaemonError(
                             f"{child.name} exited unexpectedly; inspect {self.log_dir}"
                         )

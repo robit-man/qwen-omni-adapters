@@ -41,7 +41,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-qwen_omni_adapters = ["context.json"]
+qwen_omni_adapters = ["context.json", "decision-plane.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

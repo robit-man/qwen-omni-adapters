@@ -22,6 +22,7 @@ import threading
 import time
 from collections import deque
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -44,6 +45,7 @@ if __package__ in {None, ""}:
 
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
 from qwen_omni_adapters.context import context_text
+from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, DecisionWaveResult
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 
 try:
@@ -55,6 +57,7 @@ try:
         SAFE_TOOLS,
         PortalToolHarness,
         ToolInputError,
+        discover_tool_names,
         tool_result_json,
         tool_schemas,
         tool_use_instructions,
@@ -68,6 +71,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
         SAFE_TOOLS,
         PortalToolHarness,
         ToolInputError,
+        discover_tool_names,
         tool_result_json,
         tool_schemas,
         tool_use_instructions,
@@ -118,6 +122,8 @@ DIAGNOSTIC_NUMERIC_FIELDS = {
     "total_ms",
     "status",
     "tool_round",
+    "decision_latency_ms",
+    "decision_confidence",
 }
 DIAGNOSTIC_BOOLEAN_FIELDS = {
     "audio_requested",
@@ -128,6 +134,9 @@ DIAGNOSTIC_BOOLEAN_FIELDS = {
     "has_document_input",
     "tools_requested",
     "tool_ok",
+    "decision_shadow",
+    "decision_escalated",
+    "decision_fast_path",
 }
 DIAGNOSTIC_STRING_FIELDS = {
     "request_id",
@@ -135,6 +144,12 @@ DIAGNOSTIC_STRING_FIELDS = {
     "outcome",
     "tool_name",
     "media_id",
+    "decision_wave",
+    "decision_id",
+    "decision_value",
+    "decision_source",
+    "decision_band",
+    "decision_checkpoint",
 }
 
 def load_voice_profile(path: Path) -> dict[str, Any]:
@@ -262,6 +277,7 @@ class PortalConfig:
     session_log_ttl_s: float = DIAGNOSTIC_TTL_SECONDS
     background_task_path: Path | None = None
     memory_policy: MemoryPolicy | None = None
+    decision_plane_enabled: bool = False
 
     @classmethod
     def from_environment(cls) -> PortalConfig:
@@ -324,6 +340,10 @@ class PortalConfig:
                 )
             ).expanduser(),
             memory_policy=MemoryPolicy.from_environment(),
+            decision_plane_enabled=os.environ.get(
+                "OMNI_DECISION_PLANE_ENABLED", "0"
+            ).strip().lower()
+            not in {"0", "false", "no", "off"},
         )
 
 
@@ -875,6 +895,7 @@ def _tool_followup(
     session_id: str,
     seen: set[str],
     blocked_tools: set[str] | None = None,
+    decision_observer: Any | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
     message = response.get("message")
     if not isinstance(message, Mapping):
@@ -898,6 +919,31 @@ def _tool_followup(
     known_names = {item["function"]["name"] for item in SAFE_TOOLS}
     made_progress = False
     blocked_tools = blocked_tools or set()
+    if decision_observer is not None:
+        decision_observer(
+            "pre_action",
+            DecisionState(
+                user_request=_latest_user_context(messages),
+                current_goal=_latest_user_context(messages),
+                current_phase="pre_action",
+                last_action={
+                    "calls": [
+                        {
+                            "name": str(call.get("function", {}).get("name") or "")
+                            if isinstance(call.get("function"), Mapping)
+                            else "",
+                            "arguments": dict(_tool_arguments(call)),
+                        }
+                        for call in calls
+                        if isinstance(call, Mapping)
+                    ]
+                },
+                authorization_state={
+                    "blocked_tools": sorted(blocked_tools),
+                    "server_allowlist": True,
+                },
+            ),
+        )
     for call in calls:
         if not isinstance(call, Mapping):
             continue
@@ -1014,6 +1060,28 @@ def _tool_followup(
                 "status": "complete",
                 "duplicate": duplicate,
             }
+        )
+    if decision_observer is not None:
+        decision_observer(
+            "post_action",
+            DecisionState(
+                user_request=_latest_user_context(messages),
+                current_goal=_latest_user_context(messages),
+                current_phase="post_action",
+                last_action={
+                    "calls": [
+                        {
+                            "name": item.get("name"),
+                            "arguments": item.get("arguments"),
+                        }
+                        for item in executed
+                    ]
+                },
+                last_observation=json.dumps(
+                    _tool_trace(executed), ensure_ascii=False, default=str
+                ),
+                pending_requirements=("verify goal completion",),
+            ),
         )
     followup["messages"] = messages
     # A required choice applies only to the first live decision. Once the
@@ -1197,6 +1265,7 @@ def create_app(
     client: httpx.Client | None = None,
     web_client: httpx.Client | None = None,
     web_browser_runner: Any | None = None,
+    decision_plane: DecisionPlane | None = None,
 ) -> Flask:
     root = Path(__file__).resolve().parent
     app = Flask(
@@ -1216,6 +1285,89 @@ def create_app(
         ttl_s=runtime.session_log_ttl_s,
     )
     documents = SessionDocumentStore(ttl_s=runtime.session_log_ttl_s)
+    plane = decision_plane
+    if plane is None and runtime.decision_plane_enabled:
+        plane = DecisionPlane.from_environment()
+    decision_executor = (
+        ThreadPoolExecutor(max_workers=2, thread_name_prefix="omni-decision-shadow")
+        if plane is not None
+        else None
+    )
+
+    def observe_decision_wave(
+        wave: str,
+        state: DecisionState,
+        *,
+        session_id: str = "",
+        request_id: str = "",
+        wait: bool = False,
+    ) -> DecisionWaveResult | None:
+        if plane is None:
+            return None
+
+        def run() -> DecisionWaveResult:
+            result = plane.evaluate(state=state, wave=wave)
+            if session_id:
+                for name, item in result.results.items():
+                    diagnostics.record(
+                        session_id,
+                        "decision",
+                        {
+                            "request_id": request_id,
+                            "decision_wave": wave,
+                            "decision_id": name,
+                            "decision_value": str(item.value),
+                            "decision_confidence": item.confidence,
+                            "decision_latency_ms": item.latency_ms,
+                            "decision_band": item.band,
+                            "decision_source": item.source,
+                            "decision_checkpoint": item.checkpoint,
+                            "decision_shadow": item.shadow,
+                            "decision_escalated": item.escalated,
+                            "decision_fast_path": item.fast_path_taken,
+                        },
+                        request_id=request_id,
+                    )
+            return result
+
+        if wait or not plane.shadow_mode or decision_executor is None:
+            return run()
+        decision_executor.submit(run)
+        return None
+
+    def route_input_tools(
+        payload: Mapping[str, Any], *, session_id: str, request_id: str
+    ) -> list[str]:
+        messages = payload.get("messages")
+        text = _latest_user_context(messages if isinstance(messages, list) else [])
+        if not text:
+            return []
+        result = observe_decision_wave(
+            "input_routing",
+            DecisionState(
+                user_request=text,
+                current_goal=text,
+                current_phase="input_routing",
+                available_tool_families=tuple(
+                    str(name) for name in (plane.config.get("tool_families", {}) if plane else {})
+                ),
+                authorization_state={"portal_tools_opted_in": True},
+            ),
+            session_id=session_id,
+            request_id=request_id,
+            wait=bool(plane is not None and not plane.shadow_mode),
+        )
+        if result is None:
+            return []
+        family = result.results.get("tool_family")
+        if family is None or not family.fast_path_taken:
+            return []
+        family_map = plane.config.get("tool_families", {}) if plane is not None else {}
+        members = family_map.get(str(family.value), []) if isinstance(family_map, Mapping) else []
+        candidates = {str(item) for item in members}
+        # Agreement with the existing independent ranker makes this a
+        # reversible schema optimization, not unilateral model tool choice.
+        return [name for name in discover_tool_names(text) if name in candidates][:3]
 
     def run_subagent(objective: str, role: str, context: str) -> Mapping[str, Any]:
         system_content = context_text("prompts", "subagent_system").format(
@@ -1448,7 +1600,13 @@ def create_app(
 
     @app.get("/healthz")
     def healthz():
-        return jsonify({"ok": True, "service": "robit-omni-portal"})
+        return jsonify(
+            {
+                "ok": True,
+                "service": "robit-omni-portal",
+                "decision_plane": plane.health() if plane is not None else {"enabled": False},
+            }
+        )
 
     @app.get("/api/status")
     def status():
@@ -1461,6 +1619,7 @@ def create_app(
             "tts": _probe(session, runtime.tts_health_url),
             "ollama": _probe(session, runtime.ollama_health_url),
         }
+        decision_health = plane.health() if plane is not None else {"enabled": False}
         if runtime.comprehension_health_url:
             stages["comprehension"] = _probe(session, runtime.comprehension_health_url)
         else:
@@ -1576,6 +1735,10 @@ def create_app(
                     ],
                 },
                 "requests": inference_queue.snapshot(),
+                "decision_plane": {
+                    **decision_health,
+                    "metrics": plane.metrics() if plane is not None else {},
+                },
             }
         )
 
@@ -1690,15 +1853,6 @@ def create_app(
             apply_system_policy(payload, tools_enabled=auto_tools)
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
-            if auto_tools:
-                initial_tools = [*DISCOVERY_TOOLS]
-                if camera_bridge:
-                    initial_tools.extend(tool_schemas(["request_camera_view"]))
-                if shell_bridge:
-                    initial_tools.extend(tool_schemas(["shell"]))
-                if background_bridge:
-                    initial_tools.extend(tool_schemas(["background_task"]))
-                payload["tools"] = copy.deepcopy(initial_tools)
             diagnostics.begin_request(
                 session_id,
                 request_id,
@@ -1708,6 +1862,26 @@ def create_app(
                 diagnostics, session_id, request_id, diagnostic_media_ids
             )
             request_logged = True
+            if auto_tools:
+                routed_tools = route_input_tools(
+                    payload, session_id=session_id, request_id=request_id
+                )
+                initial_tools = [*DISCOVERY_TOOLS, *tool_schemas(routed_tools)]
+                if camera_bridge:
+                    initial_tools.extend(tool_schemas(["request_camera_view"]))
+                if shell_bridge:
+                    initial_tools.extend(tool_schemas(["shell"]))
+                if background_bridge:
+                    initial_tools.extend(tool_schemas(["background_task"]))
+                payload["tools"] = copy.deepcopy(
+                    list(
+                        {
+                            str(item.get("function", {}).get("name") or ""): item
+                            for item in initial_tools
+                            if isinstance(item, Mapping)
+                        }.values()
+                    )
+                )
             queue_started = time.monotonic()
             ticket = inference_queue.acquire(session_id, runtime.timeout_s)
             if ticket is None:
@@ -1756,6 +1930,12 @@ def create_app(
                     session_id,
                     seen_tool_calls,
                     {"shell"} if background_bridge and not shell_bridge else set(),
+                    decision_observer=lambda wave, state: observe_decision_wave(
+                        wave,
+                        state,
+                        session_id=session_id,
+                        request_id=request_id,
+                    ),
                 )
                 if followup is None:
                     break
@@ -1826,6 +2006,8 @@ def create_app(
         if payload.get("stream") is not True:
             return jsonify({"error": "stream endpoint requires stream=true"}), 400
         session_id = request_session_id()
+        request_id = secrets.token_urlsafe(9)
+        started = time.monotonic()
         diagnostic_fields = _request_diagnostic_fields(payload)
         diagnostic_fields["tools_requested"] = auto_tools
         diagnostic_media_ids = _request_media_digests(payload)
@@ -1836,27 +2018,36 @@ def create_app(
             apply_system_policy(payload, tools_enabled=auto_tools)
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
+            diagnostics.begin_request(
+                session_id,
+                request_id,
+                diagnostic_fields,
+            )
+            _record_media_diagnostics(
+                diagnostics, session_id, request_id, diagnostic_media_ids
+            )
             if auto_tools:
-                initial_tools = [*DISCOVERY_TOOLS]
+                routed_tools = route_input_tools(
+                    payload, session_id=session_id, request_id=request_id
+                )
+                initial_tools = [*DISCOVERY_TOOLS, *tool_schemas(routed_tools)]
                 if camera_bridge:
                     initial_tools.extend(tool_schemas(["request_camera_view"]))
                 if shell_bridge:
                     initial_tools.extend(tool_schemas(["shell"]))
                 if background_bridge:
                     initial_tools.extend(tool_schemas(["background_task"]))
-                payload["tools"] = copy.deepcopy(initial_tools)
+                payload["tools"] = copy.deepcopy(
+                    list(
+                        {
+                            str(item.get("function", {}).get("name") or ""): item
+                            for item in initial_tools
+                            if isinstance(item, Mapping)
+                        }.values()
+                    )
+                )
         except PortalRequestError as exc:
             return jsonify({"error": str(exc)}), 400
-        request_id = secrets.token_urlsafe(9)
-        started = time.monotonic()
-        diagnostics.begin_request(
-            session_id,
-            request_id,
-            diagnostic_fields,
-        )
-        _record_media_diagnostics(
-            diagnostics, session_id, request_id, diagnostic_media_ids
-        )
         queue_started = time.monotonic()
         ticket = inference_queue.acquire(session_id, runtime.timeout_s)
         if ticket is None:
@@ -2011,6 +2202,12 @@ def create_app(
                             session_id,
                             seen_tool_calls,
                             {"shell"} if background_bridge and not shell_bridge else set(),
+                            decision_observer=lambda wave, state: observe_decision_wave(
+                                wave,
+                                state,
+                                session_id=session_id,
+                                request_id=request_id,
+                            ),
                         )
                     if followup is None:
                         final_response["portal"] = {

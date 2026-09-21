@@ -10,6 +10,7 @@ LANGUAGE_MODEL=${OMNI_LANGUAGE_MODEL:-robit/qwen3.8-27b-obliterated-e03:27b}
 BUILD_LLAMA=1
 PULL_MODELS=1
 PREPARE_COMPONENTS=0
+INSTALL_LAYA=1
 
 usage() {
   cat <<'EOF'
@@ -18,6 +19,7 @@ Usage: ./scripts/bootstrap.sh [options]
   --skip-llama       Do not clone, patch, or build llama.cpp
   --skip-models      Do not pull or resolve Ollama models
   --prepare          Materialize the disposable component cache now
+  --skip-laya        Do not install the isolated resident Laya runtime
   --help             Show this help
 
 Environment: OMNI_MODEL, OMNI_LANGUAGE_MODEL, OMNI_VENV, PYTHON,
@@ -30,6 +32,7 @@ while (($#)); do
     --skip-llama) BUILD_LLAMA=0 ;;
     --skip-models) PULL_MODELS=0 ;;
     --prepare) PREPARE_COMPONENTS=1 ;;
+    --skip-laya) INSTALL_LAYA=0 ;;
     --help|-h) usage; exit 0 ;;
     *) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
@@ -40,6 +43,10 @@ command -v "$PYTHON" >/dev/null 2>&1 || { printf 'Missing Python: %s\n' "$PYTHON
 "$PYTHON" -m venv "$VENV"
 "$VENV/bin/python" -m pip install --upgrade pip setuptools wheel
 "$VENV/bin/python" -m pip install -e "$REPO_ROOT[dev]"
+
+if ((INSTALL_LAYA)); then
+  "$REPO_ROOT/scripts/bootstrap_laya.sh"
+fi
 
 if ((BUILD_LLAMA)); then
   build_commands=(cmake git)

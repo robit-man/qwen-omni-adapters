@@ -1,5 +1,6 @@
 .env
 .venv/
+.laya-venv/
 vendor/
 /runtime-data*/
 dist/

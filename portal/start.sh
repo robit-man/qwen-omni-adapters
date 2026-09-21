@@ -19,6 +19,9 @@ COMP_PORT=${OMNI_COMPREHENSION_PORT:-8901}
 TTS_PORT=${OMNI_TTS_PORT:-8892}
 ADAPTER_PORT=${OMNI_ADAPTER_PORT:-8910}
 PORTAL_PORT=${OMNI_PORTAL_PORT:-8920}
+LAYA_PORT=${OMNI_LAYA_PORT:-8930}
+LAYA_PYTHON=${OMNI_LAYA_PYTHON:-$REPO_ROOT/.laya-venv/bin/python}
+DECISION_ENABLED=${OMNI_DECISION_PLANE_ENABLED:-1}
 METRICS_PORT=${OMNI_CLOUDFLARED_METRICS_PORT:-49312}
 COMP_VRAM_MIB=${OMNI_COMPREHENSION_VRAM_MIB:-45000}
 COMP_CONTEXT_TOKENS=${OMNI_COMPREHENSION_CONTEXT_TOKENS:-65536}
@@ -36,6 +39,7 @@ COMP_PID=""
 TTS_PID=""
 ADAPTER_PID=""
 PORTAL_PID=""
+LAYA_PID=""
 TUNNEL_PID=""
 HEARTBEAT_PID=""
 SMOKE_PID=""
@@ -194,6 +198,7 @@ cleanup() {
   terminate_child "$PORTAL_PID" "portal"
   terminate_child "$ADAPTER_PID" "adapter"
   terminate_child "$TTS_PID" "TTS wrapper"
+  terminate_child "$LAYA_PID" "Laya decision plane"
   terminate_pid_file "$TTS_ACTIVE_PID_FILE" "TTS CUDA worker"
   terminate_child "$COMP_PID" "broker-scoped comprehension worker"
   terminate_process_group "$HEARTBEAT_PID" "GPU lease heartbeat"
@@ -368,6 +373,9 @@ run_foreground() {
   check_port_available "$TTS_PORT" "TTS"
   check_port_available "$ADAPTER_PORT" "adapter"
   check_port_available "$PORTAL_PORT" "portal"
+  if [[ "$DECISION_ENABLED" != 0 && -x "$LAYA_PYTHON" ]]; then
+    check_port_available "$LAYA_PORT" "Laya decision plane"
+  fi
   check_port_available "$METRICS_PORT" "cloudflared metrics"
 
   if ! ollama show "$MODEL" >/dev/null 2>&1; then
@@ -381,6 +389,26 @@ run_foreground() {
   verify_language_model
   "$PYTHON_BIN" -m qwen_omni_adapters resolve "$MODEL" >/dev/null
   prepare_cache
+
+  local decision_ready=0
+  if [[ "$DECISION_ENABLED" != 0 && -x "$LAYA_PYTHON" ]]; then
+    log "starting resident Laya decision plane"
+    OMNI_LAYA_PORT="$LAYA_PORT" \
+    OMNI_DECISION_TRACE_FILE="$RUNTIME_ROOT/decision-traces.jsonl" \
+    "$LAYA_PYTHON" "$REPO_ROOT/runtime/laya_server.py" \
+      >"$LOG_DIR/laya.log" 2>&1 &
+    LAYA_PID=$!
+    if wait_http_child "http://127.0.0.1:$LAYA_PORT/health" 1800 "$LAYA_PID"; then
+      decision_ready=1
+      log "resident Laya decision plane is warm and ready"
+    else
+      log "Laya unavailable; continuing with the deliberative fallback"
+      terminate_child "$LAYA_PID" "Laya decision plane"
+      LAYA_PID=""
+    fi
+  else
+    log "Laya runtime unavailable or disabled; continuing with the deliberative fallback"
+  fi
 
   local gpu_uuid
   gpu_uuid=$(choose_gpu)
@@ -456,6 +484,9 @@ run_foreground() {
   OMNI_LANGUAGE_URL=http://127.0.0.1:11434 \
   OMNI_LANGUAGE_MODEL="$LANGUAGE_MODEL" \
   OMNI_TTS_URL="http://127.0.0.1:$TTS_PORT/synthesize" \
+  OMNI_DECISION_PLANE_ENABLED="$decision_ready" \
+  OMNI_DECISION_PLANE_URL="http://127.0.0.1:$LAYA_PORT" \
+  OMNI_DECISION_TRACE_FILE="$RUNTIME_ROOT/decision-traces.jsonl" \
   OMNI_ADAPTER_HOST=127.0.0.1 \
   OMNI_ADAPTER_PORT="$ADAPTER_PORT" \
   "$PYTHON_BIN" "$REPO_ROOT/runtime/adapter_server.py" \
@@ -479,6 +510,9 @@ run_foreground() {
   OMNI_COMPREHENSION_HEALTH_URL="http://127.0.0.1:$COMP_PORT/health" \
   OMNI_TTS_HEALTH_URL="http://127.0.0.1:$TTS_PORT/healthz" \
   OMNI_PORTAL_SESSION_LOG_DIR="$SESSION_LOG_DIR" \
+  OMNI_DECISION_PLANE_ENABLED="$decision_ready" \
+  OMNI_DECISION_PLANE_URL="http://127.0.0.1:$LAYA_PORT" \
+  OMNI_DECISION_TRACE_FILE="$RUNTIME_ROOT/decision-traces.jsonl" \
   OMNI_PORTAL_HOST=127.0.0.1 \
   OMNI_PORTAL_PORT="$PORTAL_PORT" \
   "$PYTHON_BIN" "$REPO_ROOT/portal/app.py" \
@@ -528,6 +562,11 @@ run_foreground() {
 
   while true; do
     local pid label
+    if [[ -n "$LAYA_PID" ]] && ! kill -0 "$LAYA_PID" 2>/dev/null; then
+      log "Laya decision plane exited; continuing with the deliberative fallback"
+      wait "$LAYA_PID" 2>/dev/null || true
+      LAYA_PID=""
+    fi
     for pid in "$COMP_PID" "$TTS_PID" "$ADAPTER_PID" "$PORTAL_PID" "$TUNNEL_PID"; do
       if ! kill -0 "$pid" 2>/dev/null; then
         label="deployment child"

@@ -1,0 +1,268 @@
+schema: robit.omni.decision-plane.v1
+enabled: true
+# Existing production choices remain authoritative until each family has
+# workload-specific calibration evidence. Shadow predictions are still traced.
+shadow_mode: true
+policy_version: 1
+endpoint: http://127.0.0.1:8930
+timeout_ms: 6000
+state_max_chars: 12000
+
+backend:
+  implementation: laya
+  package_version: 0.3.4
+  model_id: convaiinnovations/laya
+  # CPU is the portable safe default. A CUDA device may be selected only when
+  # the deployment has reserved it through the host GPU broker first.
+  device: cpu
+  # The smaller multilingual checkpoint covers English and non-English input,
+  # has a longer native context, and leaves more unified-memory headroom.
+  checkpoint: multilingual
+  # Laya otherwise promotes CPU weights to fp32. Dynamic int8 both lowers
+  # unified-memory residency and avoids slow fp16 kernels on this ARM host.
+  # CUDA/MPS retain Laya's native precision path.
+  cpu_quantization: dynamic_int8
+  preload:
+    - multilingual
+  allow_lazy_load: false
+  startup_reserve_gib: 1.25
+  warmup: true
+
+batching:
+  enabled: true
+  max_batch_size: 32
+  max_wait_ms: 2
+
+cache:
+  enabled: true
+  max_entries: 512
+  ttl_seconds: 300
+
+trace:
+  enabled: true
+  include_state: false
+
+fallback:
+  on_failure: deliberative_model
+
+# Hierarchical family routing never chooses from the entire flat tool set.
+# A concrete schema is pre-exposed only when a calibrated Laya result and the
+# existing deterministic lexical ranker agree on a member of this family.
+tool_families:
+  filesystem: [shell]
+  shell: [shell, safe_math_eval]
+  browser: [browser_interact, gui_interact]
+  web: [web_search, web_fetch, web_crawl]
+  documents: [document_search, structured_read, ocr_pdf]
+  memory: [memory_read, memory_search, memory_write]
+  system: [get_current_time, get_system_snapshot, get_user_location, get_portal_capabilities]
+  camera: [request_camera_view]
+  background: [background_task]
+  other: []
+  none: []
+
+waves:
+  input_routing:
+    - request_kind
+    - work_shape
+    - retrieval_need
+    - tool_family
+    - risk_class
+  pre_action:
+    - action_consistency
+    - action_scope
+  post_action:
+    - action_outcome
+    - next_disposition
+    - completion_state
+  context_relevance:
+    - context_relevance
+    - context_novelty
+
+decisions:
+  request_kind:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      Classify the current user request by the single dominant kind. Choose
+      action when the requested outcome changes external or local state.
+    criteria:
+      social: greeting, acknowledgement, or ordinary conversation
+      question: answerable explanation or question without external retrieval
+      information_retrieval: asks to find, look up, verify, or use current/external information
+      action: asks to operate a tool or change state
+      code_task: asks to inspect, modify, test, or build software
+      other: none of the other mutually exclusive kinds is a good fit
+    calibrated: false
+    fast_accept: null
+
+  work_shape:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      What is the smallest execution shape needed to satisfy the request?
+      Complexity is about dependencies and state changes, not answer length.
+    criteria:
+      direct: no tool and no multi-step planning is needed
+      one_bounded_action: one typed action with already-known arguments is enough
+      multi_step: multiple dependent actions, verification, or cross-tool work is needed
+      unclear: material information is missing or the execution shape is ambiguous
+    calibrated: false
+    fast_accept: null
+
+  retrieval_need:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      Which mutually exclusive retrieval disposition best describes what is
+      needed before the request can be satisfied?
+    criteria:
+      none: existing request and working context are sufficient
+      local: local memory, documents, files, or runtime state should be inspected
+      external_current: public external or time-sensitive information is needed
+      unclear: whether retrieval helps cannot be decided from this state
+    calibrated: false
+    fast_accept: null
+
+  tool_family:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      Select only the broad capability family most likely to contain the next
+      useful tool. This does not authorize execution or construct arguments.
+    criteria:
+      none: no tool is needed
+      filesystem: inspect, create, move, or edit local files
+      shell: run commands, programs, builds, tests, or local processes
+      browser: interact with a rendered web page, controls, or forms
+      web: search or fetch public web information without interactive control
+      documents: inspect attached or indexed document contents
+      memory: store or retrieve durable conversational memory
+      system: inspect current host/runtime state, time, or capabilities
+      camera: obtain current physical visual evidence
+      background: sustained multi-step work should continue durably
+      other: a tool may be needed but none of these families fits
+    calibrated: false
+    fast_accept: null
+
+  risk_class:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      Predict the consequence class of acting on the request. This is a signal
+      for deterministic policy and never grants authorization.
+    criteria:
+      routine: reversible, local, low-impact work within the explicit request
+      consequential: meaningful external, destructive, financial, privacy, or account impact
+      uncertain: consequence or scope cannot be established from the state
+    calibrated: false
+    fast_accept: null
+
+  action_consistency:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      Compare the proposed typed action with the current goal and plan. Judge
+      intent consistency only; another layer validates arguments and authority.
+    criteria:
+      aligned: the action is a direct next step toward the goal
+      uncertain: the relationship is plausible but not established
+      misaligned: the action conflicts with or is unrelated to the goal
+    calibrated: false
+    fast_accept: null
+
+  action_scope:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      Compare the proposed action scope with the user-authorized goal. Do not
+      infer permission; identify whether the scope is expected.
+    criteria:
+      expected: scope is no broader than the requested outcome
+      broader: action affects more targets, data, people, or systems than requested
+      unclear: available state is insufficient to compare scope
+    calibrated: false
+    fast_accept: null
+
+  action_outcome:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      From the goal, typed action, and resulting observation, classify the
+      action outcome. Explicit executor errors take precedence outside this model.
+    criteria:
+      success: observation verifies the intended effect
+      partial: useful progress occurred but the intended effect is incomplete
+      failure: observation shows the action did not achieve its intended effect
+      unclear: the observation is insufficient or contradictory
+    calibrated: false
+    fast_accept: null
+
+  next_disposition:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      Choose the bounded control disposition after the latest observation.
+      Choosing a disposition does not generate new arguments or execute it.
+    criteria:
+      finish: evidence satisfies the whole goal
+      retry_same: transient conditions make the identical action useful again
+      retry_modified: the same tool is useful with different arguments
+      different_tool: another capability should be used
+      replan: dependencies or assumptions require new reasoning
+      ask_user: required information or authority must come from the user
+      continue: the current plan has another already-defined action
+    calibrated: false
+    fast_accept: null
+
+  completion_state:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      Classify task completion from the explicit goal, requirements, actions,
+      and observations. A separate deterministic layer validates evidence.
+    criteria:
+      satisfied: all stated requirements have verified supporting evidence
+      pending_actions: at least one required action remains
+      missing_information: completion needs unavailable information or authority
+      unclear: evidence does not support a reliable completion judgment
+    calibrated: false
+    fast_accept: null
+
+  context_relevance:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      Judge whether the candidate context item materially helps the current
+      task. This may filter a reversible working set but never delete memory.
+    criteria:
+      relevant: materially helps interpret or complete the current task
+      irrelevant: does not materially help the current task
+      unclear: relevance cannot be established from the compact state
+    calibrated: false
+    fast_accept: null
+
+  context_novelty:
+    category: LAYA_GATED
+    version: 1
+    type: choice
+    instructions: >-
+      Compare the candidate context item with context already selected for the
+      task. Choose duplicate only when it adds no material information.
+    criteria:
+      novel: adds material information
+      duplicate: repeats information already represented
+      unclear: novelty cannot be established reliably
+    calibrated: false
+    fast_accept: null

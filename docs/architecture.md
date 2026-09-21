@@ -12,6 +12,9 @@ client / phone
 authenticated portal (optional) ---> isolated queue + diagnostics
     |
     v
+Laya decision plane (batched shadow/gated System-1; prediction only)
+    |
+    v
 unified adapter
     |-- text ------------------------> Ollama / selected base
     |-- audio, image, video ---------> Qwen3-Omni comprehension
@@ -24,6 +27,12 @@ unified adapter
                                         v
                                    Qwen3-TTS
 ```
+
+The decision plane is a resident, replaceable optimization layer rather than a
+fourth semantic generator. Deterministic code handles exact state, Laya handles
+bounded judgment, the deliberative model handles reasoning, policy controls
+authorization, and tools execute. See [the decision-plane architecture and
+measurements](decision-plane.md).
 
 The comprehension result is never a new system message. Transcribed speech,
 non-speech acoustics, and visual observations use distinct tags. For a

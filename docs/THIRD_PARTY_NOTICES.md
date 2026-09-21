@@ -11,6 +11,7 @@ to its respective authors and subject to its source license.
 | Audio/image/video comprehension | [`ggml-org/Qwen3-Omni-30B-A3B-Instruct-GGUF`](https://huggingface.co/ggml-org/Qwen3-Omni-30B-A3B-Instruct-GGUF) | Qwen team; ggml-org conversion | Apache-2.0 upstream |
 | Text-to-speech | [`ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF`](https://huggingface.co/ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF) | Qwen team; ggml-org conversion | Apache-2.0 upstream |
 | GGUF runtime/conversion | [`ggml-org/llama.cpp`](https://github.com/ggml-org/llama.cpp) | llama.cpp contributors | MIT |
+| System-1 decision model/runtime | [`convaiinnovations/laya`](https://huggingface.co/convaiinnovations/laya), [`robit-man/laya`](https://github.com/robit-man/laya) | Convai Innovations; Robit fork | Apache-2.0 |
 
 The source model pages and their license files are authoritative. Immutable
 revisions and artifact hashes are recorded in `sidecar-manifest.json`. The

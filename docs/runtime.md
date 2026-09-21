@@ -26,6 +26,18 @@ client POST /api/chat
                                     tagged 24 kHz PCM16 WAV
 ```
 
+An isolated resident Laya worker provides typed System-1 decision waves around
+the deliberative/tool path. It is a shadow optimizer by default and therefore
+does not alter the public adapter contract or add foreground latency. Bootstrap
+installs it into `.laya-venv`; use `--skip-laya` only for a deliberately
+deliberative-only deployment. See [the decision-plane guide](decision-plane.md).
+
+```bash
+./scripts/bootstrap_laya.sh
+OMNI_LAYA_PORT=8930 .laya-venv/bin/python runtime/laya_server.py
+curl -fsS http://127.0.0.1:8930/health
+```
+
 Direct `transcribe`, `describe`, and `synthesize` tasks bypass stages they do
 not need. `chat` preserves normal Ollama `tools`, `think`, `format`, `options`,
 `keep_alive`, and log-probability fields.
