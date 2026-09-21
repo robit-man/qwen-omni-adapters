@@ -76,6 +76,30 @@ def test_browser_uses_the_generic_runtime_memory_governor() -> None:
         raise AssertionError("expected generic memory admission to defer the browser")
 
 
+def test_existing_browser_executor_is_not_readmitted_at_the_soft_floor() -> None:
+    class ExistingBrowser:
+        calls = 0
+
+        def act(self, _session_id: str, _arguments: dict[str, Any]) -> dict[str, Any]:
+            self.calls += 1
+            return {"rendered": True, "title": "existing"}
+
+        def clear(self, _session_id: str) -> None:
+            pass
+
+    browser = ExistingBrowser()
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        browser_automation=browser,
+        memory_governor=_memory_governor(2.5),
+    )
+
+    result = harness.execute("session", "browser_interact", {"action": "snapshot"})
+
+    assert result["title"] == "existing"
+    assert browser.calls == 1
+
+
 def test_browser_admit_refuses_a_second_live_window() -> None:
     store = BrowserAutomationStore()
     store._sessions["a"] = _FakeSession()  # type: ignore[assignment]

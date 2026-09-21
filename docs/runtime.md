@@ -150,6 +150,15 @@ round/call/stall-bounded slices. Configure the policy with
 `OMNI_MEMORY_GOVERNOR`, `OMNI_MEMORY_SOFT_FLOOR_GIB`,
 `OMNI_MEMORY_HARD_FLOOR_GIB`, and `OMNI_MEMORY_OPERATION_RESERVE_GIB`.
 
+The soft floor admits work that can establish new residency; the hard floor
+is the emergency boundary for tightly bounded work and continuation of an
+already-resident executor. Tool entries declare `memory_admission` as
+`standard`, `bounded`, `executor`, or `control` in the shared context catalog.
+An executor applies soft admission only when it creates new resident state and
+keeps the hard-floor watcher while reusing it. This prevents a healthy
+resident session from deadlocking inside the safety band without weakening
+the generic OOM boundary.
+
 Static model policy, public tool descriptions, discovery hints, structured
 control-tool contracts, and task phase labels are loaded from the packaged
 `src/qwen_omni_adapters/context.json`. See

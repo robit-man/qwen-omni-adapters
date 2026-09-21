@@ -77,6 +77,12 @@ _TOOL_DISCOVERY_HINTS = {
     entry["schema"]["function"]["name"]: str(entry.get("discovery_hints") or "")
     for entry in _CONFIGURED_TOOL_ENTRIES
 }
+_TOOL_MEMORY_ADMISSION = {
+    entry["schema"]["function"]["name"]: str(
+        entry.get("memory_admission") or "standard"
+    )
+    for entry in _CONFIGURED_TOOL_ENTRIES
+}
 
 _TOOL_SCHEMAS_BY_NAME = {item["function"]["name"]: item for item in SAFE_TOOLS}
 # This is the entire contract sent on the first language pass. The complete
@@ -1806,14 +1812,19 @@ class PortalToolHarness:
         arguments: Mapping[str, Any],
     ) -> dict[str, Any]:
         try:
-            # Durable task administration is the control plane for work that
-            # may itself be waiting on memory.  These tiny JSON-store actions
-            # must remain available at the memory floor so a person can inspect,
-            # redirect, or cancel runaway work.  The worker's inference and
-            # every executable tool remain governed separately.
-            task_control = name == "background_task"
-            if self.memory_governor is not None and not task_control:
-                self.memory_governor.require(f"tool {name}")
+            # Resource admission is declarative tool metadata, not a growing
+            # list of tool-name special cases. "standard" work may establish
+            # new residency and must clear the soft floor; tightly "bounded"
+            # work may run inside the soft-to-hard safety band; an "executor"
+            # owns dynamic admission; and "control" remains available so work
+            # can be inspected or cancelled under pressure.
+            memory_admission = _TOOL_MEMORY_ADMISSION.get(name, "standard")
+            task_control = memory_admission == "control"
+            if self.memory_governor is not None:
+                if memory_admission == "standard":
+                    self.memory_governor.require(f"tool {name}")
+                elif memory_admission == "bounded":
+                    self.memory_governor.require_hard_floor(f"tool {name}")
             if name == "get_current_time":
                 now = datetime.now().astimezone()
                 result: dict[str, Any] = {

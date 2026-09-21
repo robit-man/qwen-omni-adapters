@@ -53,6 +53,11 @@ def load_context(path: Path | str | None = None) -> dict[str, Any]:
         name = function.get("name") if isinstance(function, Mapping) else None
         if not isinstance(name, str) or not name or name in names:
             raise ContextConfigError("every context tool must have a unique function name")
+        admission = entry.get("memory_admission", "standard")
+        if admission not in {"standard", "bounded", "executor", "control"}:
+            raise ContextConfigError(
+                f"context tool {name} has invalid memory_admission {admission!r}"
+            )
         names.add(name)
     return value
 

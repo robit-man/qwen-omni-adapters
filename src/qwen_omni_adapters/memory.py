@@ -178,10 +178,29 @@ class MemoryGovernor:
         )
 
     def require(self, label: str, *, reserve_gib: float | None = None) -> None:
+        """Admit work that may establish new memory residency.
+
+        This is intentionally the soft-boundary check. Callers continuing an
+        already-resident operation, or doing tightly bounded control work,
+        should use :meth:`require_hard_floor` instead. Conflating those two
+        boundaries can deadlock the operations that inspect or release
+        resident state whenever available memory sits in the safety band.
+        """
+
         if not self.enabled:
             return
         available = self.available_gib()
         required = self.required_gib(reserve_gib)
+        if available < required:
+            raise MemoryPressure(label, available, required)
+
+    def require_hard_floor(self, label: str) -> None:
+        """Admit bounded or continuing work above the emergency floor."""
+
+        if not self.enabled:
+            return
+        available = self.available_gib()
+        required = self.policy.hard_floor_gib
         if available < required:
             raise MemoryPressure(label, available, required)
 

@@ -96,7 +96,8 @@
           }
         }
       },
-      "discovery_hints": "clock current time date today timezone"
+      "discovery_hints": "clock current time date today timezone",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -111,7 +112,8 @@
           }
         }
       },
-      "discovery_hints": "host runtime system cpu gpu ram memory load resources"
+      "discovery_hints": "host runtime system cpu gpu ram memory load resources",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -126,7 +128,8 @@
           }
         }
       },
-      "discovery_hints": "where am i location local nearby weather travel timezone"
+      "discovery_hints": "where am i location local nearby weather travel timezone",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -141,7 +144,8 @@
           }
         }
       },
-      "discovery_hints": "portal capabilities features media input output inventory"
+      "discovery_hints": "portal capabilities features media input output inventory",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -165,7 +169,8 @@
           }
         }
       },
-      "discovery_hints": "camera physical visual scene surroundings holding wearing visible see this motion moving happened"
+      "discovery_hints": "camera physical visual scene surroundings holding wearing visible see this motion moving happened",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -294,7 +299,8 @@
           }
         }
       },
-      "discovery_hints": "browser open browser new tab go to site visit website webpage visual screenshot render navigate click type scroll form interactive javascript login button"
+      "discovery_hints": "browser open browser new tab go to site visit website webpage visual screenshot render navigate click type scroll form interactive javascript login button",
+      "memory_admission": "executor"
     },
     {
       "schema": {
@@ -356,7 +362,8 @@
           }
         }
       },
-      "discovery_hints": "desktop screen workspace gui graphical application window visual screenshot coordinate click type keyboard hotkey scroll xdotool computer use"
+      "discovery_hints": "desktop screen workspace gui graphical application window visual screenshot coordinate click type keyboard hotkey scroll xdotool computer use",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -385,7 +392,8 @@
           }
         }
       },
-      "discovery_hints": "search attached document file excerpt pdf docx text"
+      "discovery_hints": "search attached document file excerpt pdf docx text",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -418,7 +426,8 @@
           }
         }
       },
-      "discovery_hints": "remember save store fact preference session memory"
+      "discovery_hints": "remember save store fact preference session memory",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -446,7 +455,8 @@
           }
         }
       },
-      "discovery_hints": "recall exact saved fact key session memory"
+      "discovery_hints": "recall exact saved fact key session memory",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -475,7 +485,8 @@
           }
         }
       },
-      "discovery_hints": "find recall remembered facts preferences session memory"
+      "discovery_hints": "find recall remembered facts preferences session memory",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -499,7 +510,8 @@
         }
       },
       "discovery_hints": "",
-      "routing_role": "gateway"
+      "routing_role": "gateway",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -522,7 +534,8 @@
           }
         }
       },
-      "discovery_hints": "calculate arithmetic math equation expression"
+      "discovery_hints": "calculate arithmetic math equation expression",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -551,7 +564,8 @@
           }
         }
       },
-      "discovery_hints": "read query attached json jsonl csv tsv yaml structured data"
+      "discovery_hints": "read query attached json jsonl csv tsv yaml structured data",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -649,7 +663,8 @@
           }
         }
       },
-      "discovery_hints": "search conversation notes tasks documents web memory session"
+      "discovery_hints": "search conversation notes tasks documents web memory session",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -669,7 +684,8 @@
           }
         }
       },
-      "discovery_hints": "inspect analyze attached audio sound technical media"
+      "discovery_hints": "inspect analyze attached audio sound technical media",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -689,7 +705,8 @@
           }
         }
       },
-      "discovery_hints": "inspect analyze attached video timeline stream technical media"
+      "discovery_hints": "inspect analyze attached video timeline stream technical media",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -727,7 +744,8 @@
           }
         }
       },
-      "discovery_hints": "notes scratchpad add list search remove session"
+      "discovery_hints": "notes scratchpad add list search remove session",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -770,7 +788,8 @@
           }
         }
       },
-      "discovery_hints": "tasks todo plan status track session"
+      "discovery_hints": "tasks todo plan status track session",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -858,7 +877,8 @@
         }
       },
       "discovery_hints": "background long horizon long running sustained autonomous continue task job progress status cancel execute later multi step",
-      "routing_role": "gateway"
+      "routing_role": "gateway",
+      "memory_admission": "control"
     },
     {
       "schema": {
@@ -917,7 +937,8 @@
           }
         }
       },
-      "discovery_hints": "list delegated helper subagent tasks"
+      "discovery_hints": "list delegated helper subagent tasks",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -940,7 +961,8 @@
           }
         }
       },
-      "discovery_hints": "retrieve delegated helper subagent result task"
+      "discovery_hints": "retrieve delegated helper subagent result task",
+      "memory_admission": "bounded"
     },
     {
       "schema": {
@@ -963,7 +985,8 @@
           }
         }
       },
-      "discovery_hints": "delete forget delegated helper subagent task"
+      "discovery_hints": "delete forget delegated helper subagent task",
+      "memory_admission": "bounded"
     }
   ]
 }

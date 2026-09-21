@@ -566,7 +566,7 @@ Two environment variables are worth knowing:
 | `OMNI_CALL_SPEECH_EVICT_UNIT` | User service to stop before TTS and restore afterward |
 | `OMNI_CALL_COMPREHENSION_HEALTH` | Readiness URL used after restoring that service |
 | `OMNI_MEMORY_GOVERNOR` | Enable (`1`) or disable (`0`) generic runtime memory admission; enabled automatically on Tegra |
-| `OMNI_MEMORY_SOFT_FLOOR_GIB` | Free-memory floor retained before starting model/tool work (default `3`) |
+| `OMNI_MEMORY_SOFT_FLOOR_GIB` | Free-memory floor retained before work establishes new model/tool residency (default `3`) |
 | `OMNI_MEMORY_HARD_FLOOR_GIB` | Emergency floor that cancels cancellable work before kernel OOM (default `2`) |
 | `OMNI_MEMORY_OPERATION_RESERVE_GIB` | Additional per-operation reserve above the soft floor (default `1`) |
 | `OMNI_CONTEXT_FILE` | Optional complete `robit.omni.context.v1` catalog override; defaults to the packaged context catalog |
@@ -578,6 +578,13 @@ set `OMNI_CALL_SPEECH_EVICT_UNIT`: the harness completes hearing, reasoning and
 tools as text, stops comprehension, synthesizes once, lets TTS exit, and restores
 comprehension before listening again. This is slower than resident TTS, but it
 prevents the kernel from overcommitting the machine.
+
+Tool resource admission is declared beside each tool in `context.json`.
+Standard work must clear the soft floor, bounded continuations may run within
+the soft-to-hard safety band, executors dynamically distinguish new residency
+from reuse, and control-plane work remains available so stalled work can be
+inspected or cancelled. Every cancellable operation still stops at the hard
+floor.
 
 ## Request example
 

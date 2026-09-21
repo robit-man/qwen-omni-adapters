@@ -58,12 +58,15 @@ def test_releasing_unused_memory_trims_glibc_without_changing_policy(
     assert calls == [0]
 
 
-def test_one_governor_admits_every_tool_class_before_execution() -> None:
+def test_declarative_tool_admission_distinguishes_new_bounded_and_executor_work() -> None:
     governor = MemoryGovernor(_policy(), sampler=lambda: 2.5)
 
     class Browser:
+        calls = 0
+
         def act(self, *_args, **_kwargs):
-            raise AssertionError("browser must not start below the shared reserve")
+            self.calls += 1
+            return {"rendered": True}
 
         def clear(self, _session_id: str) -> None:
             pass
@@ -74,14 +77,15 @@ def test_one_governor_admits_every_tool_class_before_execution() -> None:
         memory_governor=governor,
     )
 
-    for name, arguments in (
-        ("browser_interact", {"action": "snapshot"}),
-        ("shell", {"command": "printf should-not-run"}),
-        ("safe_math_eval", {"expression": "2 + 2"}),
-    ):
-        result = harness.execute("session", name, arguments)
-        assert result["error"] == "resource_pressure"
-        assert result["retryable"] is True
+    browser = harness.execute("session", "browser_interact", {"action": "snapshot"})
+    shell = harness.execute("session", "shell", {"command": "printf should-not-run"})
+    math_result = harness.execute("session", "safe_math_eval", {"expression": "2 + 2"})
+
+    assert browser == {"rendered": True}
+    assert harness.browser.calls == 1
+    assert shell["error"] == "resource_pressure"
+    assert shell["retryable"] is True
+    assert math_result["result"] == 4
 
 
 def test_task_control_remains_available_at_the_memory_floor(tmp_path: Path) -> None:
@@ -111,6 +115,16 @@ def test_normal_reserve_does_not_double_count_the_soft_floor() -> None:
 
     assert governor.required_gib() == 3.0
     governor.require("resident task")
+
+
+def test_bounded_continuation_uses_hard_not_soft_floor() -> None:
+    governor = MemoryGovernor(_policy(), sampler=lambda: 2.5)
+    governor.require_hard_floor("resident continuation")
+
+    governor = MemoryGovernor(_policy(), sampler=lambda: 1.5)
+    with pytest.raises(MemoryPressure) as error:
+        governor.require_hard_floor("resident continuation")
+    assert error.value.required_gib == 2.0
 
 
 def test_shell_is_killed_if_memory_collapses_after_admission(tmp_path: Path) -> None:
