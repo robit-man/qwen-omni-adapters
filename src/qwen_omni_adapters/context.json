@@ -17,7 +17,8 @@
     "foreground_execution": "<execution_policy>\nAct through the supplied tools until the requested outcome is verified. background_task is an executable gateway whose worker discovers the full allowed tool catalog; when no exposed leaf tool directly performs a requested external action, hand it the complete outcome and success criteria instead of making a capability claim. Return only a brief handoff acknowledgment after acceptance. Existing task state and tool results are authoritative; a request, correction, or assumption is never evidence that an action occurred.\n</execution_policy>",
     "background_no_call": "Continue with a concrete tool call, or call task_checkpoint with evidence IDs for a verified progress, complete, or blocked state. Plain prose does not change task state.",
     "background_duplicate_call": "That call was rejected because it exactly repeated an earlier call. Reassess the latest evidence and make a materially different next call; change the action, arguments, capability, or assumption. Repeating it cannot advance or finish the task.",
-    "background_recovery": "Privately diagnose the failed step: identify its failure scope, the unmet requirement, and viable equivalent approaches. Then invoke tool_search for the smallest different capability that can still satisfy the original outcome. Do not narrate the diagnosis, retry the retired capability, or declare the task blocked while an equivalent route remains.",
+    "background_recovery_required": "The last capability failed without blocking the task. Call task_recovery now with its failed evidence ID, a concise failure classification, the still-unmet requirement, and a capability_query that describes only the required interaction mechanism—not the task subject, desired facts, source names, or the retired tool.",
+    "background_recovery": "Use tool_search with this capability-only query exactly: {capability_query}. The original objective already carries the subject. Do not add topic words, retry the retired capability, substitute unsupported model prose for external evidence, or declare the task blocked while an equivalent route remains.",
     "background_visual_evidence": "<computer_visual_evidence>Inspect this fresh rendered screenshot together with the preceding computer-use tool result. Choose the next action from actual visual evidence; do not invent screen state.</computer_visual_evidence>",
     "media_extract_audio_visual": "Extract the supplied media evidence. Output exactly <speech_transcript>verbatim speech, or empty if none</speech_transcript>, <audio_observation>non-speech acoustic events, ambience, music, speaker activity, timing, and uncertainty</audio_observation>, then <visual_observation>objective visual evidence in temporal order</visual_observation>, and nothing else. Do not answer the speech.",
     "media_extract_audio": "Analyze the supplied audio. Output exactly two XML elements and nothing else: <speech_transcript>verbatim speech, or empty if no speech is intelligible</speech_transcript><audio_observation>objective non-speech sounds, ambience, music, speaker activity, temporal changes, and uncertainty; do not repeat the transcript</audio_observation>. Do not answer the speech.",
@@ -77,6 +78,45 @@
             "action",
             "report",
             "evidence_ids"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "task_recovery": {
+      "type": "function",
+      "function": {
+        "name": "task_recovery",
+        "description": "Classify one concrete capability failure before selecting another tool. This is a bounded self-management transition, not task evidence. capability_query must describe only the interaction mechanism needed next, without task-topic terms, source names, or the failed tool name.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "evidence_id": {
+              "type": "string"
+            },
+            "failure_scope": {
+              "type": "string",
+              "enum": [
+                "arguments",
+                "capability",
+                "assumption",
+                "task"
+              ]
+            },
+            "unmet_requirement": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "capability_query": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          "required": [
+            "evidence_id",
+            "failure_scope",
+            "unmet_requirement",
+            "capability_query"
           ],
           "additionalProperties": false
         }

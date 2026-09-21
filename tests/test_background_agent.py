@@ -15,6 +15,7 @@ from harness.background_agent import (
     MAX_CHECKPOINT_REPORT_CHARS,
     MAX_TOOL_RESULT_CHARS,
     TASK_CHECKPOINT_TOOL,
+    TASK_RECOVERY_TOOL,
     BackgroundAgent,
     _audit_json,
     _bounded_tool_result,
@@ -82,6 +83,7 @@ def test_checkpoint_schema_stays_below_llama_grammar_repetition_limit() -> None:
 
     assert report["maxLength"] == MAX_CHECKPOINT_REPORT_CHARS
     assert MAX_CHECKPOINT_REPORT_CHARS < 2_000
+    assert TASK_RECOVERY_TOOL["function"]["name"] == "task_recovery"
 
 
 def test_deterministic_client_error_is_not_retryable() -> None:
@@ -631,7 +633,7 @@ def test_capability_failure_triggers_generic_recovery_and_headed_browser(
         if request.url.path == "/api/tools/tool_search/call":
             query = payload["arguments"]["query"]
             selected = (
-                "browser_interact" if "different capability" in query else "web_search"
+                "browser_interact" if "interactive rendered" in query else "web_search"
             )
             return httpx.Response(
                 200,
@@ -684,18 +686,34 @@ def test_capability_failure_triggers_generic_recovery_and_headed_browser(
                 {"query": "current topic", "mode": "discover"},
             )
         if chat_round == 3:
-            assert "web_search" not in exposed
-            assert "tool_search" in exposed
+            assert exposed == ["task_recovery"]
             assert any(
-                "Privately diagnose the failed step" in str(message.get("content") or "")
+                "Call task_recovery now" in str(message.get("content") or "")
+                for message in payload["messages"]
+            )
+            return tool_call(
+                "assess-recovery",
+                "task_recovery",
+                {
+                    "evidence_id": "challenged-search",
+                    "failure_scope": "capability",
+                    "unmet_requirement": "retrieve and verify current public information",
+                    "capability_query": "interactive rendered public web navigation and inspection",
+                },
+            )
+        if chat_round == 4:
+            assert exposed == ["tool_search"]
+            assert any(
+                "interactive rendered public web navigation and inspection"
+                in str(message.get("content") or "")
                 for message in payload["messages"]
             )
             return tool_call(
                 "discover-alternative",
                 "tool_search",
-                {"query": "different capability for interactive public information retrieval"},
+                {"query": "interactive rendered public web navigation and inspection"},
             )
-        if chat_round == 4:
+        if chat_round == 5:
             assert "browser_interact" in exposed
             return tool_call(
                 "headed-browser",
@@ -734,6 +752,7 @@ def test_capability_failure_triggers_generic_recovery_and_headed_browser(
     assert [item["tool"] for item in current["actions"]] == [
         "tool_search",
         "web_search",
+        "task_recovery",
         "tool_search",
         "browser_interact",
         "task_checkpoint",

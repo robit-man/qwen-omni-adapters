@@ -72,6 +72,7 @@ def _task_system_prompt(task: Mapping[str, Any]) -> str:
 
 
 TASK_CHECKPOINT_TOOL = context_value("control_tools", "task_checkpoint")
+TASK_RECOVERY_TOOL = context_value("control_tools", "task_recovery")
 
 
 class _ForegroundPreempted(RuntimeError):
@@ -309,7 +310,11 @@ def _tool_evidence(messages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
             continue
         evidence_id = str(message.get("tool_call_id") or "").strip()
         name = str(message.get("tool_name") or "").strip()
-        if not evidence_id or not name or name in {"tool_search", "task_checkpoint"}:
+        if not evidence_id or not name or name in {
+            "tool_search",
+            "task_checkpoint",
+            "task_recovery",
+        }:
             continue
         try:
             result = json.loads(str(message.get("content") or "{}"))
@@ -334,7 +339,7 @@ def _checkpoint_available(messages: list[dict[str, Any]]) -> bool:
         if role != "tool":
             continue
         name = str(message.get("tool_name") or "")
-        if name == "task_checkpoint":
+        if name in {"task_checkpoint", "task_recovery"}:
             latest_control = index
         elif _is_duplicate_tool_result(message):
             # A locally rejected replay is control feedback, not new evidence.
@@ -343,6 +348,31 @@ def _checkpoint_available(messages: list[dict[str, Any]]) -> bool:
         elif name and name != "tool_search":
             latest_action = index
     return latest_action > latest_control
+
+
+def _recovery_required(messages: list[dict[str, Any]]) -> bool:
+    """Whether a capability failure still needs a typed recovery transition."""
+
+    pending = False
+    for message in messages:
+        if message.get("role") != "tool":
+            continue
+        name = str(message.get("tool_name") or "")
+        try:
+            result = json.loads(str(message.get("content") or "{}"))
+        except ValueError:
+            continue
+        if name == "task_recovery":
+            if isinstance(result, Mapping) and result.get("accepted") is True:
+                pending = False
+            continue
+        if (
+            isinstance(result, Mapping)
+            and result.get("disposition") == "change_capability"
+            and result.get("task_blocked") is False
+        ):
+            pending = True
+    return pending
 
 
 def _is_duplicate_tool_result(message: Mapping[str, Any]) -> bool:
@@ -998,6 +1028,7 @@ class BackgroundAgent:
         slice_rounds = 0
         slice_tool_calls = 0
         stalls = 0
+        recovery_required = _recovery_required(messages)
         self._observe_decision(
             "input_routing",
             DecisionState(
@@ -1073,16 +1104,20 @@ class BackgroundAgent:
                 self.owner,
                 context_text("task_stages", "planning"),
             )
-            can_checkpoint = _checkpoint_available(messages)
-            schemas = [
-                *(
-                    [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
-                    if can_checkpoint
-                    else []
-                ),
-                *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
-                *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
-            ]
+            can_checkpoint = _checkpoint_available(messages) and not recovery_required
+            schemas = (
+                [copy.deepcopy(TASK_RECOVERY_TOOL)]
+                if recovery_required
+                else [
+                    *(
+                        [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
+                        if can_checkpoint
+                        else []
+                    ),
+                    *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
+                    *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
+                ]
+            )
             # A discovery result already chose the capability. Disabling the
             # private thinking channel for that one handoff prevents a small
             # model from spending thousands of tokens reconsidering tools
@@ -1224,6 +1259,76 @@ class BackgroundAgent:
                 )
                 arguments = _arguments(call)
                 call_id = str(call.get("id") or secrets.token_hex(6))
+                if name == "task_recovery":
+                    evidence_id = str(arguments.get("evidence_id") or "").strip()
+                    failure_scope = str(arguments.get("failure_scope") or "").strip()
+                    unmet = " ".join(
+                        str(arguments.get("unmet_requirement") or "").split()
+                    )
+                    capability_query = " ".join(
+                        str(arguments.get("capability_query") or "").split()
+                    )
+                    evidence = _tool_evidence(messages).get(evidence_id)
+                    evidence_result = (
+                        evidence.get("result")
+                        if isinstance(evidence, Mapping)
+                        else None
+                    )
+                    valid = (
+                        failure_scope
+                        in {"arguments", "capability", "assumption", "task"}
+                        and bool(unmet)
+                        and len(unmet) <= 300
+                        and bool(capability_query)
+                        and len(capability_query) <= 200
+                        and isinstance(evidence_result, Mapping)
+                        and evidence_result.get("disposition")
+                        == "change_capability"
+                        and evidence_result.get("task_blocked") is False
+                    )
+                    recovery_result = (
+                        {
+                            "accepted": True,
+                            "failure_scope": failure_scope,
+                            "unmet_requirement": unmet,
+                            "capability_query": capability_query,
+                        }
+                        if valid
+                        else {
+                            "error": "invalid_recovery_assessment",
+                            "message": (
+                                "Reference a capability-scoped failed evidence ID and "
+                                "provide a bounded capability-only query."
+                            ),
+                        }
+                    )
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_name": name,
+                            "tool_call_id": call_id,
+                            "content": json.dumps(recovery_result),
+                        }
+                    )
+                    self._record_action(
+                        task_id, call_id, name, arguments, recovery_result
+                    )
+                    if valid:
+                        recovery_required = False
+                        active_tools = []
+                        suppress_discovery = False
+                        stalls = 0
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": context_text(
+                                    "directives", "background_recovery"
+                                ).format(capability_query=capability_query),
+                            }
+                        )
+                    else:
+                        stalls += 1
+                    continue
                 if name == "task_checkpoint":
                     latest = self.store.get(task_id)
                     if latest is not None and _append_guidance(
@@ -1458,6 +1563,7 @@ class BackgroundAgent:
                 if change_capability:
                     active_tools = []
                     suppress_discovery = False
+                    recovery_required = True
                 elif name == "tool_search" and isinstance(result, Mapping):
                     available = result.get("available_tools")
                     if isinstance(available, list):
@@ -1517,7 +1623,7 @@ class BackgroundAgent:
                         {
                             "role": "user",
                             "content": context_text(
-                                "directives", "background_recovery"
+                                "directives", "background_recovery_required"
                             ),
                         }
                     )
