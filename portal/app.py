@@ -107,7 +107,7 @@ SESSION_COOKIE_NAME = "omni_portal_session"
 DIAGNOSTIC_TTL_SECONDS = 5 * 60
 # Productive chains have no numeric round ceiling. This guard only stops a
 # model that keeps changing searches/calls without obtaining actionable data.
-MAX_STALLED_TOOL_ROUNDS = 8
+MAX_STALLED_TOOL_ROUNDS = 3
 DIAGNOSTIC_NUMERIC_FIELDS = {
     "queue_wait_ms",
     "upstream_headers_ms",
@@ -1018,31 +1018,7 @@ def _tool_followup(
         if call.get("id"):
             tool_message["tool_call_id"] = str(call["id"])
         messages.append(tool_message)
-        display_arguments = {
-            key: copy.deepcopy(value)
-            for key, value in arguments.items()
-            if key
-            in {
-                "query",
-                "url",
-                "topic",
-                "key",
-                "mode",
-                "num_results",
-                "max_results",
-                "max_length",
-                "objective",
-                "completion_criteria",
-                "action",
-                "guidance",
-                "role",
-                "context_source",
-                "task_id",
-                "command",
-                "cwd",
-                "timeout_seconds",
-            }
-        }
+        display_arguments = copy.deepcopy(dict(arguments))
         ok = "error" not in result
         if name == "shell":
             ok = (
@@ -1175,27 +1151,7 @@ def _tool_start_trace(calls: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
             {
                 "id": str(call.get("id") or fingerprint[:12])[:80],
                 "name": name,
-                "arguments": {
-                    key: copy.deepcopy(value)
-                    for key, value in arguments.items()
-                    if key
-                    in {
-                        "query",
-                        "url",
-                        "topic",
-                        "key",
-                        "mode",
-                        "num_results",
-                        "max_results",
-                        "max_length",
-                        "objective",
-                        "completion_criteria",
-                        "action",
-                        "guidance",
-                        "role",
-                        "task_id",
-                    }
-                },
+                "arguments": copy.deepcopy(dict(arguments)),
                 "ok": False,
                 "status": "running",
                 "result": "",
