@@ -584,7 +584,8 @@ Standard work must clear the soft floor, bounded continuations may run within
 the soft-to-hard safety band, executors dynamically distinguish new residency
 from reuse, and control-plane work remains available so stalled work can be
 inspected or cancelled. Every cancellable operation still stops at the hard
-floor.
+floor. An executor may declare a measured `memory_reserve_gib`; otherwise its
+new residency uses the conservative standard admission boundary.
 
 ## Request example
 

@@ -83,6 +83,11 @@ _TOOL_MEMORY_ADMISSION = {
     )
     for entry in _CONFIGURED_TOOL_ENTRIES
 }
+_TOOL_MEMORY_RESERVE_GIB = {
+    entry["schema"]["function"]["name"]: float(entry["memory_reserve_gib"])
+    for entry in _CONFIGURED_TOOL_ENTRIES
+    if entry.get("memory_reserve_gib") is not None
+}
 
 _TOOL_SCHEMAS_BY_NAME = {item["function"]["name"]: item for item in SAFE_TOOLS}
 # This is the entire contract sent on the first language pass. The complete
@@ -1767,7 +1772,9 @@ class PortalToolHarness:
         self.background_tasks = background_tasks
         self.memory_governor = memory_governor
         self.browser = browser_automation or BrowserAutomationStore(
-            ttl_s=max(900.0, ttl_s), memory_governor=memory_governor
+            ttl_s=max(900.0, ttl_s),
+            memory_governor=memory_governor,
+            launch_reserve_gib=_TOOL_MEMORY_RESERVE_GIB.get("browser_interact"),
         )
         self.gui = gui_automation or GuiAutomation()
 

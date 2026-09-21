@@ -248,6 +248,7 @@ class BrowserAutomationStore:
         chromium_bin: str | None = None,
         timeout_s: float = 15.0,
         memory_governor: MemoryGovernor | None = None,
+        launch_reserve_gib: float | None = None,
     ) -> None:
         self.ttl_s = max(30.0, float(ttl_s))
         self.timeout_s = max(2.0, float(timeout_s))
@@ -255,6 +256,7 @@ class BrowserAutomationStore:
             "OMNI_CHROMIUM_BIN", "/usr/local/bin/chromium"
         )
         self.memory_governor = memory_governor
+        self.launch_reserve_gib = launch_reserve_gib
         self._lock = threading.RLock()
         self._sessions: dict[str, _BrowserSession] = {}
 
@@ -338,7 +340,12 @@ class BrowserAutomationStore:
             raise BrowserAutomationError("No active desktop display is available")
         self._admit_single_window()
         if self.memory_governor is not None:
-            self.memory_governor.require("visible browser")
+            if self.launch_reserve_gib is None:
+                self.memory_governor.require("visible browser")
+            else:
+                self.memory_governor.require_capacity(
+                    "visible browser", self.launch_reserve_gib
+                )
         port = _free_loopback_port()
         profile = Path(tempfile.mkdtemp(prefix="omni-visible-chromium-"))
         command = [

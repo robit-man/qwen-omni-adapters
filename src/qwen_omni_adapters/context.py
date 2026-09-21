@@ -58,6 +58,19 @@ def load_context(path: Path | str | None = None) -> dict[str, Any]:
             raise ContextConfigError(
                 f"context tool {name} has invalid memory_admission {admission!r}"
             )
+        reserve = entry.get("memory_reserve_gib")
+        if reserve is not None and (
+            isinstance(reserve, bool)
+            or not isinstance(reserve, (int, float))
+            or not 0.0 <= float(reserve) <= 64.0
+        ):
+            raise ContextConfigError(
+                f"context tool {name} has invalid memory_reserve_gib {reserve!r}"
+            )
+        if admission == "executor" and reserve is None:
+            raise ContextConfigError(
+                f"context executor tool {name} must declare memory_reserve_gib"
+            )
         names.add(name)
     return value
 

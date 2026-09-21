@@ -127,6 +127,19 @@ def test_bounded_continuation_uses_hard_not_soft_floor() -> None:
     assert error.value.required_gib == 2.0
 
 
+def test_measured_incremental_capacity_does_not_use_unknown_work_floor() -> None:
+    governor = MemoryGovernor(_policy(), sampler=lambda: 2.6)
+
+    with pytest.raises(MemoryPressure):
+        governor.require("unknown new work")
+    governor.require_capacity("measured resident executor", 0.5)
+
+    governor = MemoryGovernor(_policy(), sampler=lambda: 2.4)
+    with pytest.raises(MemoryPressure) as error:
+        governor.require_capacity("measured resident executor", 0.5)
+    assert error.value.required_gib == 2.5
+
+
 def test_shell_is_killed_if_memory_collapses_after_admission(tmp_path: Path) -> None:
     samples = iter([10.0, 0.5])
     governor = MemoryGovernor(

@@ -159,6 +159,12 @@ keeps the hard-floor watcher while reusing it. This prevents a healthy
 resident session from deadlocking inside the safety band without weakening
 the generic OOM boundary.
 
+Executors with a measured bounded peak may also declare
+`memory_reserve_gib`. Their initial admission requires that declared capacity
+above the hard floor; executors without a measurement use the conservative
+soft floor. The hard-floor watcher cancels either form if real usage exceeds
+the estimate.
+
 Static model policy, public tool descriptions, discovery hints, structured
 control-tool contracts, and task phase labels are loaded from the packaged
 `src/qwen_omni_adapters/context.json`. See

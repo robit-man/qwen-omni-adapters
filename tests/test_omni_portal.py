@@ -76,6 +76,16 @@ def test_browser_uses_the_generic_runtime_memory_governor() -> None:
         raise AssertionError("expected generic memory admission to defer the browser")
 
 
+def test_browser_can_use_a_declarative_measured_launch_reserve() -> None:
+    governor = _memory_governor(2.6)
+    store = BrowserAutomationStore(
+        memory_governor=governor,
+        launch_reserve_gib=0.5,
+    )
+
+    governor.require_capacity("visible browser", store.launch_reserve_gib)
+
+
 def test_existing_browser_executor_is_not_readmitted_at_the_soft_floor() -> None:
     class ExistingBrowser:
         calls = 0

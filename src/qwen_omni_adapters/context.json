@@ -300,7 +300,8 @@
         }
       },
       "discovery_hints": "browser open browser new tab go to site visit website webpage visual screenshot render navigate click type scroll form interactive javascript login button",
-      "memory_admission": "executor"
+      "memory_admission": "executor",
+      "memory_reserve_gib": 0.5
     },
     {
       "schema": {

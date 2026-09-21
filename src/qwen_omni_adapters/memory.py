@@ -204,6 +204,22 @@ class MemoryGovernor:
         if available < required:
             raise MemoryPressure(label, available, required)
 
+    def require_capacity(self, label: str, additional_gib: float) -> None:
+        """Admit known incremental residency while preserving the hard floor.
+
+        The soft floor remains the conservative boundary for work whose peak
+        growth is unknown. A measured, bounded executor can instead declare
+        its peak incremental residency and use this check. Its emergency
+        watcher remains responsible for cancelling if the estimate is wrong.
+        """
+
+        if not self.enabled:
+            return
+        available = self.available_gib()
+        required = self.policy.hard_floor_gib + max(0.0, float(additional_gib))
+        if available < required:
+            raise MemoryPressure(label, available, required)
+
     def under_hard_pressure(self) -> bool:
         return self.enabled and self.available_gib() < self.policy.hard_floor_gib
 
