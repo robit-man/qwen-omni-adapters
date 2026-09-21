@@ -153,6 +153,28 @@ class _PortalError(RuntimeError):
         self.status = status
 
 
+def _accepted_utterance_preempts(
+    *,
+    busy: bool,
+    reply_started: bool,
+    can_barge: bool,
+    background_announcement: bool,
+) -> bool:
+    """Return whether accepted near-end audio should cancel current work.
+
+    Before a foreground reply has produced audio, another accepted sound is
+    ambiguous: it may be the person continuing, or a non-speech event accepted
+    for later comprehension. Preserve it for the next turn instead of silently
+    discarding a reply that never became audible. An actual streaming reply may
+    be barged when echo cancellation makes that safe. Background announcements
+    remain subordinate to a person and may be preempted before playback.
+    """
+
+    return busy and (
+        background_announcement or (reply_started and can_barge)
+    )
+
+
 class CallSession:
     """One continuous conversation: history, transport, and the turn itself."""
 
@@ -1039,6 +1061,7 @@ def run_call_loop(
 
     speaking_since: float | None = None
     busy = threading.Event()
+    background_announcement_active = threading.Event()
     waiting = CallQueue(CAPTURE_RATE_HZ)
     lock = threading.Lock()
     work: queue.Queue[Pending] = queue.Queue(maxsize=1)
@@ -1152,6 +1175,8 @@ def run_call_loop(
                     continue
             busy.set()
             foreground_active.set()
+            if announcement is not None:
+                background_announcement_active.set()
             if pending is not None:
                 # The utterance that produced this work item is now owned by
                 # the foreground worker. A later VAD start will set this again.
@@ -1188,6 +1213,7 @@ def run_call_loop(
             except Exception as error:  # noqa: BLE001 - one turn is not the call
                 logger.warning("turn failed: %s", error)
             finally:
+                background_announcement_active.clear()
                 if announcement is not None:
                     acknowledged = announcement.get("_ack")
                     if isinstance(acknowledged, threading.Event):
@@ -1283,11 +1309,22 @@ def run_call_loop(
                     foreground_active.set()
                     if session.background_agent is not None:
                         session.background_agent.wake()
-                    if busy.is_set() and (speaking_since is None or can_barge):
-                        # A confirmed utterance preempts preparation, inference,
-                        # or playback. The accepted question must never wait
-                        # behind a stale background announcement.
+                    should_preempt = _accepted_utterance_preempts(
+                        busy=busy.is_set(),
+                        reply_started=speaking_since is not None,
+                        can_barge=can_barge,
+                        background_announcement=background_announcement_active.is_set(),
+                    )
+                    if should_preempt:
+                        # A person always wins over a background announcement.
+                        # Foreground work is interrupted only after its reply
+                        # has actually started streaming to the speaker.
                         session.request_barge()
+                    elif busy.is_set() and speaking_since is None:
+                        logger.info(
+                            "accepted audio queued while the current foreground "
+                            "reply is not yet audible"
+                        )
                     if barge_started_at is not None:
                         if not barge_paused:
                             session.request_pause()

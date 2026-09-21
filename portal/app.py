@@ -1338,6 +1338,17 @@ def create_app(
     def route_input_tools(
         payload: Mapping[str, Any], *, session_id: str, request_id: str
     ) -> list[str]:
+        diagnostics_fields = _request_diagnostic_fields(payload)
+        if any(
+            diagnostics_fields.get(name) is True
+            for name in ("has_audio_input", "has_image_input", "has_video_input")
+        ):
+            # Before comprehension, embodied requests contain only a transport
+            # description (for example, "the attached audio...") rather than
+            # the speaker's words. Routing that placeholder wastes a shadow
+            # wave and can occupy the single resident Laya worker exactly when
+            # the adapter submits the useful post-comprehension transcript.
+            return []
         messages = payload.get("messages")
         text = _latest_user_context(messages if isinstance(messages, list) else [])
         if not text:

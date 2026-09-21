@@ -40,6 +40,12 @@ reports an exact context overflow, the adapter sheds one generic stale-context
 layer and retries; it preserves the current user turn, system policy, current
 tool chain, and the concrete capability selected by discovery.
 
+The spoken foreground also receives `background_task` as an executable gateway
+to the worker's full discoverable allowlist. A leaf schema omitted from the
+bounded foreground prompt is therefore not presented as a missing capability:
+the foreground hands off the requested outcome, and the worker discovers and
+invokes only the concrete schemas needed to complete it.
+
 ## Task phases and evidence
 
 The durable store distinguishes human-visible scheduling phase from model

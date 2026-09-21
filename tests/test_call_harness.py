@@ -23,6 +23,7 @@ from harness.call import (  # noqa: E402
     CallConfig,
     CallSession,
     TurnResult,
+    _accepted_utterance_preempts,
 )
 from harness.vad import Vad, VadConfig  # noqa: E402
 
@@ -1210,6 +1211,34 @@ def test_speech_during_a_turn_is_kept_rather_than_dropped() -> None:
     # The interrupting speech is kept, but submitted audio is never duplicated.
     worker = source.split("def worker(", 1)[1].split("turns =", 1)[0]
     assert "waiting.prepend(" not in worker
+
+
+@pytest.mark.parametrize(
+    ("busy", "reply_started", "can_barge", "announcement", "expected"),
+    [
+        (False, False, True, False, False),
+        (True, False, True, False, False),
+        (True, True, True, False, True),
+        (True, True, False, False, False),
+        (True, False, False, True, True),
+    ],
+)
+def test_only_audible_foreground_replies_or_background_announcements_preempt(
+    busy: bool,
+    reply_started: bool,
+    can_barge: bool,
+    announcement: bool,
+    expected: bool,
+) -> None:
+    assert (
+        _accepted_utterance_preempts(
+            busy=busy,
+            reply_started=reply_started,
+            can_barge=can_barge,
+            background_announcement=announcement,
+        )
+        is expected
+    )
 
 
 def test_the_capture_loop_uses_a_two_stage_interruption() -> None:

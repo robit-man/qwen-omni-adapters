@@ -37,6 +37,22 @@ def test_context_catalog_is_the_runtime_source_of_prompts_and_tools() -> None:
     assert [item["schema"] for item in catalog["tools"]] == SAFE_TOOLS
 
 
+def test_foreground_gateway_is_described_as_execution_capability() -> None:
+    catalog = context_catalog()
+    live = catalog["prompts"]["live_call_system"]
+    execution = catalog["directives"]["foreground_execution"]
+    background = next(
+        item["schema"]["function"]
+        for item in catalog["tools"]
+        if item["schema"]["function"]["name"] == "background_task"
+    )
+
+    assert "undiscovered, not unavailable" in live
+    assert "Report a capability blocker only after a relevant tool attempt" in live
+    assert "full allowed tool catalog" in execution
+    assert "execution gateway" in background["description"]
+
+
 def test_browser_receives_prompts_from_the_same_catalog(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

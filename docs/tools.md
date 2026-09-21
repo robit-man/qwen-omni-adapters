@@ -29,6 +29,7 @@ owns the schemas and implementations.
 | `memory_read` | Read an exact temporary topic/key | Current browser session only |
 | `memory_search` | Lexically retrieve temporary memories by relevance | Current browser session only |
 | `tool_search` | Search the allowlisted catalog when capability mapping is unclear; discovery never completes an action request | Read-only runtime metadata |
+| `background_task` | Hand an executable outcome to the persistent worker, which discovers and invokes the required allowlisted tools | Current voice session and durable local task store |
 | `safe_math_eval` | Evaluate bounded arithmetic and common math functions with an AST interpreter | Pure computation; no code execution |
 | `structured_read` | Read/query attached JSON, JSONL, CSV, TSV, or YAML | Current browser-session attachments only |
 | `web_crawl` | Fetch a bounded same-origin page graph | Public HTTP(S), 8 pages and depth 2 maximum |

@@ -46,10 +46,14 @@ question text does not live in call sites.
 | `post_action` | observed outcome, retry/continue disposition, completion state |
 | `context_relevance` | reversible relevance and duplicate filtering signals |
 
-The foreground portal, adapter after media comprehension, and durable worker
-submit these waves asynchronously in shadow mode. The worker rejects concurrent
-overflow within the configured `max_wait_ms`; callers immediately retain the
-deliberative fallback instead of accumulating a model-inference queue.
+The foreground portal submits input-routing waves for text requests, while the
+adapter submits perceptual requests only after media comprehension has produced
+the actual transcript or observation. This avoids classifying a transport
+placeholder and prevents it from occupying the single resident worker when the
+useful post-comprehension wave arrives. The durable worker submits action waves
+asynchronously in shadow mode. Concurrent overflow is rejected within the
+configured `max_wait_ms`; callers immediately retain the deliberative fallback
+instead of accumulating a model-inference queue.
 
 ## Lifecycle and residency
 

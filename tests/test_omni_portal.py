@@ -110,6 +110,63 @@ def test_initial_tool_contract_stays_tiny() -> None:
     assert len(serialized) < 600
 
 
+def test_portal_defers_perceptual_laya_routing_until_after_comprehension() -> None:
+    requests: list[dict[str, Any]] = []
+
+    class Plane:
+        shadow_mode = True
+        config = {"tool_families": {"browser": ["browser_interact"]}}
+        calls = 0
+
+        def evaluate(self, **_kwargs: Any) -> None:
+            self.calls += 1
+
+        def health(self) -> dict[str, Any]:
+            return {"ready": True, "shadow_mode": True}
+
+    plane = Plane()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Ready."}},
+        )
+
+    app = create_app(
+        _config(),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+        decision_plane=plane,  # type: ignore[arg-type]
+    )
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "The attached audio contains the current request.",
+                    "audios": [
+                        {
+                            "mime_type": "audio/wav",
+                            "encoding": "base64",
+                            "data": base64.b64encode(b"not-decoded-by-portal").decode(),
+                        }
+                    ],
+                }
+            ],
+            portal_auto_tools=True,
+            portal_background_bridge=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    assert plane.calls == 0
+    assert {
+        item["function"]["name"] for item in requests[0]["tools"]
+    } == {"tool_search", "background_task"}
+
+
 def test_model_facing_subagent_handoff_is_reference_only() -> None:
     schema = next(
         item for item in SAFE_TOOLS if item["function"]["name"] == "subagent_delegate"
