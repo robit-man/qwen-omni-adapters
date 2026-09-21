@@ -46,8 +46,10 @@ fallback:
   on_failure: deliberative_model
 
 # Hierarchical family routing never chooses from the entire flat tool set.
-# A concrete schema is pre-exposed only when a calibrated Laya result and the
-# existing deterministic lexical ranker agree on a member of this family.
+# A calibrated high-confidence Laya result exposes only the members of one
+# broad family; the deliberative model still selects the exact tool/arguments.
+# Until calibration activates that path, deterministic relevance is the
+# reversible fallback and authorization remains a separate policy decision.
 tool_families:
   filesystem: [shell]
   shell: [shell, safe_math_eval]

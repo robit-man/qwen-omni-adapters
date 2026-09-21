@@ -126,6 +126,15 @@ for a stable app-like mobile layout. Conversation text and decorative content
 also disable touch/mouse selection and iOS callouts; normal editing remains
 enabled in the composer and voice configuration fields.
 
+For media turns with portal tools enabled, the portal supplies its allowlisted
+execution profile with `omni.tool_routing=relevant`. The adapter waits for the
+current transcript or observation, then retains routing gateways plus a bounded
+relevant schema set before language inference. A calibrated high-confidence
+Laya family decision is the primary selector when enabled; an uncalibrated
+deployment uses deterministic relevance as a reversible fallback. Exact tool
+choice and arguments remain with the language model, and portal policy remains
+the execution authority.
+
 The TTS stage status means the speech request has started. It changes to
 streaming only after the adapter receives the first actual PCM bytes; an
 `audio_start` event is never emitted merely because a TTS HTTP request was

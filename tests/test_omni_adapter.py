@@ -1517,6 +1517,97 @@ def test_the_ollama_backend_keeps_its_native_fields() -> None:
     assert "max_tokens" not in payload
 
 
+def test_relevant_tool_routing_uses_recovered_speech_and_keeps_gateways() -> None:
+    from qwen_omni_adapters.context import configured_tools
+    from runtime import adapter_server
+
+    tools = [entry["schema"] for entry in configured_tools()]
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "The attached audio contains the current request.",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "tool_routing": "relevant",
+            },
+            tools=tools,
+        )
+    )
+
+    payload = adapter_server.build_language_payload(
+        parsed,
+        "<speech_transcript>Can you open the web browser?</speech_transcript>",
+        "ornith",
+        "ollama",
+    )
+    names = {item["function"]["name"] for item in payload["tools"]}
+
+    assert "browser_interact" in names
+    assert "tool_search" in names
+    assert "background_task" in names
+    assert "shell" not in names
+    assert len(names) <= 5
+
+    laya_selected = adapter_server.build_language_payload(
+        parsed,
+        "<speech_transcript>Can you open the web browser?</speech_transcript>",
+        "ornith",
+        "ollama",
+        decision_tool_names=("browser_interact", "gui_interact"),
+    )
+    laya_names = {
+        item["function"]["name"] for item in laya_selected["tools"]
+    }
+    assert laya_names == {
+        "tool_search",
+        "background_task",
+        "browser_interact",
+        "gui_interact",
+    }
+    assert "web_search" not in laya_names
+
+
+def test_client_tool_routing_preserves_supplied_contract() -> None:
+    from runtime import adapter_server
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "custom_clock",
+                "description": "Return the time.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+    parsed = parse_adapter_request(_base_request(tools=tools))
+
+    payload = adapter_server.build_language_payload(
+        parsed, None, "ornith", "ollama"
+    )
+
+    assert payload["tools"] == tools
+
+
+def test_invalid_tool_routing_mode_is_rejected() -> None:
+    with pytest.raises(OmniAdapterError, match="tool_routing"):
+        parse_adapter_request(
+            _base_request(
+                omni={
+                    "schema": ADAPTER_SCHEMA,
+                    "task": "chat",
+                    "tool_routing": "guess",
+                }
+            )
+        )
+
+
 def test_an_openai_response_is_normalized_into_the_ollama_shape() -> None:
     from runtime import adapter_server
 

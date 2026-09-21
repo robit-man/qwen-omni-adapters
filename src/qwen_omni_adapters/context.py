@@ -5,7 +5,8 @@ from __future__ import annotations
 import copy
 import json
 import os
-from collections.abc import Mapping
+import re
+from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from importlib.resources import files
 from pathlib import Path
@@ -81,3 +82,112 @@ def context_value(section: str, name: str) -> Any:
 
 def configured_tools() -> list[dict[str, Any]]:
     return [copy.deepcopy(entry) for entry in context_catalog()["tools"]]
+
+
+_TOOL_TOKEN_PATTERN = re.compile(r"[\w][\w'-]{1,}", re.UNICODE)
+
+
+def _ordered_tool_tokens(value: str) -> list[str]:
+    return _TOOL_TOKEN_PATTERN.findall(value.casefold())
+
+
+def _tool_relevance_score(query: str, document: str) -> float:
+    """Score a compact tool descriptor without invoking another model."""
+
+    query_terms = _ordered_tool_tokens(query)
+    document_terms = _ordered_tool_tokens(document)
+    if not query_terms or not document_terms:
+        return 0.0
+    document_set = set(document_terms)
+    document_bigrams = {
+        f"{document_terms[index]} {document_terms[index + 1]}"
+        for index in range(len(document_terms) - 1)
+    }
+    matched = 0.0
+    weight = float(len(query_terms))
+    for term in query_terms:
+        if term in document_set:
+            matched += 1.0
+        elif any(
+            len(term) >= 4
+            and len(candidate) >= 4
+            and (candidate.startswith(term) or term.startswith(candidate))
+            for candidate in document_set
+        ):
+            matched += 0.5
+    for index in range(len(query_terms) - 1):
+        weight += 2.0
+        if f"{query_terms[index]} {query_terms[index + 1]}" in document_bigrams:
+            matched += 2.0
+    phrase = " ".join(query_terms)
+    if len(query_terms) > 1 and phrase in " ".join(document_terms):
+        matched += 1.0
+        weight += 1.0
+    return min(1.0, matched / max(1.0, weight))
+
+
+def rank_tool_names(
+    query: str,
+    tools: Sequence[Mapping[str, Any]] | None = None,
+    *,
+    limit: int = 3,
+) -> list[str]:
+    """Return a bounded relevant subset of supplied tool schemas.
+
+    This is reversible prompt selection, not action selection: the language
+    model still chooses a tool and constructs its arguments, and policy still
+    authorizes execution. Catalog hints are observable configuration. Unknown
+    client-owned schemas participate through their name and description.
+    """
+
+    entries = configured_tools()
+    metadata = {
+        str(entry["schema"]["function"]["name"]): entry
+        for entry in entries
+        if isinstance(entry, Mapping)
+    }
+    candidates: Sequence[Mapping[str, Any]] = (
+        tools
+        if tools is not None
+        else [entry["schema"] for entry in entries if isinstance(entry, Mapping)]
+    )
+    ranked: list[tuple[float, str]] = []
+    for schema in candidates:
+        function = schema.get("function") if isinstance(schema, Mapping) else None
+        name = str(function.get("name") or "") if isinstance(function, Mapping) else ""
+        if not name or name == "tool_search":
+            continue
+        entry = metadata.get(name, {})
+        hints = str(entry.get("discovery_hints") or "")
+        description = str(function.get("description") or "")
+        positive = _tool_relevance_score(query, f"{name} {hints}")
+        descriptive = _tool_relevance_score(query, description)
+        score = positive * 2.0 + descriptive * 0.25
+        if score >= 0.06:
+            ranked.append((score, name))
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    if not ranked:
+        return []
+    minimum = max(0.06, ranked[0][0] * 0.6)
+    bounded = max(1, min(8, int(limit)))
+    return [name for score, name in ranked if score >= minimum][:bounded]
+
+
+def retained_tool_names(tools: Sequence[Mapping[str, Any]]) -> set[str]:
+    """Return configured routing gateways present in a supplied tool set."""
+
+    configured = {
+        str(entry["schema"]["function"]["name"]): entry
+        for entry in configured_tools()
+        if isinstance(entry, Mapping)
+    }
+    supplied: set[str] = set()
+    for schema in tools:
+        function = schema.get("function") if isinstance(schema, Mapping) else None
+        if isinstance(function, Mapping) and function.get("name"):
+            supplied.add(str(function["name"]))
+    return {
+        name
+        for name in supplied
+        if str(configured.get(name, {}).get("routing_role") or "") == "gateway"
+    }

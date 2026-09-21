@@ -84,6 +84,7 @@ def build_request(args: argparse.Namespace) -> dict[str, Any]:
             "schema": ADAPTER_SCHEMA,
             "task": adapter_task,
             "include_audio_from_video": getattr(args, "include_audio", True),
+            "tool_routing": args.tool_routing,
         },
         "response_modalities": response_modalities,
         "speech_mode": speech_mode,
@@ -113,6 +114,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--timeout", type=float, default=900)
     parser.add_argument("--voice")
     parser.add_argument("--think", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--tool-routing",
+        choices=("client", "relevant"),
+        default="client",
+        help="preserve client tools or select a bounded relevant subset after comprehension",
+    )
     parser.add_argument("--output-audio", default="response.wav")
     parser.add_argument(
         "--print-audio-base64",

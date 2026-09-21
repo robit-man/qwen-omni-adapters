@@ -69,6 +69,7 @@ misrouted assistant answer during perception.
 | `omni.task` | No | `chat`, `transcribe`, `describe`, or `synthesize`; default `chat` |
 | `omni.include_audio_from_video` | No | Whether video decoding exposes its audio track; default `true` |
 | `omni.require_speech` | No | When `true`, a comprehension result without a tagged speech transcript finalizes before language/TTS; default `false` |
+| `omni.tool_routing` | No | `client` preserves the supplied tool array; `relevant` retains configured gateways plus a bounded request-relevant subset after current-media comprehension; default `client` |
 | `response_modalities` | No | Non-empty subset of `text`, `audio`; default `text` |
 | `speech_mode` | No | `auto`, `always`, or `never`; default `auto` |
 | `speech` | No | Backend-specific voice, language, cloning, sampling, and style hints |
@@ -86,6 +87,15 @@ that text when `speech_mode` requests audio.
 evidence is still returned in the observation/final adapter metadata, but a
 sound-only capture cannot consume the language or TTS stages. Leave it false
 for explicit environmental-audio questions.
+
+`tool_routing=relevant` is a reversible context optimization for clients that
+supply a larger allowlisted catalog with media input. The adapter waits for the
+current transcript/observation, ranks only the client-supplied schemas, keeps
+configured discovery/execution gateways, and sends the bounded result to the
+language model. It never adds a client-owned capability, selects arguments, or
+authorizes execution. Tool follow-up rounds return to `client` routing because
+the model's concrete call and tool result are then more authoritative than the
+original media transport sentence.
 
 The reference Qwen3-TTS Base worker supports `language`, trusted server-local
 `speaker_file`, request-local base64 WAV `speaker_audio`, `temperature`,

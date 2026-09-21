@@ -294,7 +294,7 @@
           }
         }
       },
-      "discovery_hints": "browser website webpage visual screenshot render navigate click type scroll form interactive javascript login button"
+      "discovery_hints": "browser open browser new tab go to site visit website webpage visual screenshot render navigate click type scroll form interactive javascript login button"
     },
     {
       "schema": {
@@ -498,7 +498,8 @@
           }
         }
       },
-      "discovery_hints": ""
+      "discovery_hints": "",
+      "routing_role": "gateway"
     },
     {
       "schema": {
@@ -856,7 +857,8 @@
           }
         }
       },
-      "discovery_hints": "background long horizon long running sustained autonomous continue task job progress status cancel execute later multi step"
+      "discovery_hints": "background long horizon long running sustained autonomous continue task job progress status cancel execute later multi step",
+      "routing_role": "gateway"
     },
     {
       "schema": {

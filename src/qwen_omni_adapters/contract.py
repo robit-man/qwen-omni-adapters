@@ -15,6 +15,7 @@ MAX_MEDIA_PER_REQUEST = {"audio": 8, "image": 16, "video": 4}
 TASKS = {"chat", "transcribe", "describe", "synthesize"}
 SPEECH_MODES = {"auto", "always", "never"}
 RESPONSE_MODALITIES = {"text", "audio"}
+TOOL_ROUTING_MODES = {"client", "relevant"}
 
 
 class OmniAdapterError(ValueError):
@@ -71,6 +72,7 @@ class ParsedAdapterRequest:
     synthesize: bool
     include_audio_from_video: bool
     require_speech: bool
+    tool_routing: str
     passthrough: Mapping[str, Any]
     speech: Mapping[str, Any]
 
@@ -110,6 +112,7 @@ class ParsedAdapterRequest:
             "synthesize": self.synthesize,
             "include_audio_from_video": self.include_audio_from_video,
             "require_speech": self.require_speech,
+            "tool_routing": self.tool_routing,
             "route": list(self.route),
             "media": [item.summary() for item in self.media],
         }
@@ -157,6 +160,10 @@ def adapter_contract() -> dict[str, Any]:
                 "include_audio_from_video": True,
                 "require_speech": (
                     "optional boolean; stop after comprehension when no speech transcript is found"
+                ),
+                "tool_routing": (
+                    "client | relevant; relevant keeps routing gateways plus a bounded "
+                    "request-relevant subset of the client-supplied tools"
                 ),
             },
             "response_modalities": ["text", "audio"],
@@ -477,6 +484,11 @@ def parse_adapter_request(payload: Mapping[str, Any]) -> ParsedAdapterRequest:
     require_speech = omni.get("require_speech", False)
     if not isinstance(require_speech, bool):
         raise OmniAdapterError("omni.require_speech must be a boolean")
+    tool_routing = str(omni.get("tool_routing") or "client").lower()
+    if tool_routing not in TOOL_ROUTING_MODES:
+        raise OmniAdapterError(
+            f"omni.tool_routing must be one of {sorted(TOOL_ROUTING_MODES)}"
+        )
 
     raw_modalities = payload.get("response_modalities") or ["text"]
     if not isinstance(raw_modalities, list) or not raw_modalities:
@@ -529,6 +541,7 @@ def parse_adapter_request(payload: Mapping[str, Any]) -> ParsedAdapterRequest:
         synthesize=synthesize,
         include_audio_from_video=include_audio,
         require_speech=require_speech,
+        tool_routing=tool_routing,
         passthrough=passthrough,
         speech=speech,
     )

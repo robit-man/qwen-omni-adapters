@@ -38,7 +38,7 @@ from urllib.parse import parse_qs, quote_plus, urljoin, urlsplit
 
 import httpx
 
-from qwen_omni_adapters.context import configured_tools, context_text
+from qwen_omni_adapters.context import configured_tools, context_text, rank_tool_names
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 try:
@@ -393,32 +393,7 @@ def _term_match_score(query: str, document: str) -> float:
 def discover_tool_names(query: str, limit: int = 3) -> list[str]:
     """Rank the catalog without placing that catalog in the model context."""
 
-    ranked: list[tuple[float, str]] = []
-    for name, schema in _TOOL_SCHEMAS_BY_NAME.items():
-        if name == "tool_search":
-            continue
-        function = schema["function"]
-        # Explicit positive hints outrank prose descriptions. Descriptions
-        # necessarily contain negatives (safe_math says it does *not* run a
-        # shell), which must not make that tool beat the actual shell tool.
-        positive_score = _term_match_score(
-            query, f"{name} {_TOOL_DISCOVERY_HINTS.get(name, '')}"
-        )
-        description_score = _term_match_score(
-            query, str(function.get("description", ""))
-        )
-        score = positive_score * 2.0 + description_score * 0.25
-        if score > 0:
-            ranked.append((score, name))
-    ranked.sort(key=lambda item: (-item[0], item[1]))
-    if not ranked:
-        return []
-    # A generic relative cutoff keeps weak shared vocabulary from exposing
-    # sibling contracts merely because they belong to the same capability
-    # family. Genuine multi-tool matches with comparable scores still survive.
-    minimum_score = ranked[0][0] * 0.6
-    relevant = [item for item in ranked if item[0] >= minimum_score]
-    return [name for _score, name in relevant[: max(1, min(3, limit))]]
+    return rank_tool_names(query, SAFE_TOOLS, limit=limit)
 
 
 @dataclass(frozen=True)

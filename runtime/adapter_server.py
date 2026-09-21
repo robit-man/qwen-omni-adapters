@@ -38,7 +38,7 @@ from qwen_omni_adapters.audio import (
     decode_wav_payload,
     encode_audio_response,
 )
-from qwen_omni_adapters.context import context_text
+from qwen_omni_adapters.context import context_text, rank_tool_names, retained_tool_names
 from qwen_omni_adapters.contract import (
     ADAPTER_SCHEMA,
     AdapterMessage,
@@ -1089,6 +1089,7 @@ def build_language_payload(
     language_model: str | None = None,
     language_api: str = "ollama",
     config: Config | None = None,
+    decision_tool_names: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     # The parsed passthrough carries normal Ollama fields such as tools, think,
     # format, options, keep_alive, and logprobs.
@@ -1136,6 +1137,35 @@ def build_language_payload(
             "stream": False,
         }
     )
+    if parsed.tool_routing == "relevant":
+        tools = payload.get("tools")
+        if isinstance(tools, list):
+            transcript = _observation_transcript(observation)
+            latest_user = next(
+                (message for message in reversed(parsed.messages) if message.role == "user"),
+                None,
+            )
+            query = transcript or (
+                latest_user.content.strip() if latest_user is not None else ""
+            )
+            keep = retained_tool_names(tools)
+            if decision_tool_names:
+                supplied = {
+                    str(tool.get("function", {}).get("name") or "")
+                    for tool in tools
+                    if isinstance(tool, Mapping)
+                    and isinstance(tool.get("function"), Mapping)
+                }
+                keep.update(name for name in decision_tool_names if name in supplied)
+            else:
+                keep.update(rank_tool_names(query, tools, limit=3))
+            payload["tools"] = [
+                tool
+                for tool in tools
+                if isinstance(tool, Mapping)
+                and isinstance(tool.get("function"), Mapping)
+                and str(tool["function"].get("name") or "") in keep
+            ]
     # Sized here rather than at each call site: the non-streaming
     # route did not do it, and that is the one the portal uses, so a
     # tool-using turn failed with "request (4179 tokens) exceeds the
@@ -1395,7 +1425,10 @@ def execute(
     parsed: ParsedAdapterRequest,
     config: Config,
     client: httpx.Client,
-    decision_observer: Callable[[ParsedAdapterRequest, str | None], None] | None = None,
+    decision_observer: Callable[
+        [ParsedAdapterRequest, str | None], tuple[str, ...] | None
+    ]
+    | None = None,
 ) -> dict[str, Any]:
     observation: str | None = None
     executed: list[str] = []
@@ -1417,8 +1450,9 @@ def execute(
             suppress_tts=True,
         )
 
-    if decision_observer is not None:
-        decision_observer(parsed, observation)
+    decision_tool_names = (
+        decision_observer(parsed, observation) if decision_observer is not None else None
+    )
 
     if parsed.task in {"transcribe", "describe"}:
         result = _direct_response(parsed.model, observation or "")
@@ -1435,6 +1469,7 @@ def execute(
                 config.language_model,
                 config.language_api,
                 config,
+                decision_tool_names,
             ),
         )
         result = _language_result(_json_response(response, "language"), config.language_api)
@@ -1475,7 +1510,10 @@ def execute_stream(
     parsed: ParsedAdapterRequest,
     config: Config,
     client: httpx.Client,
-    decision_observer: Callable[[ParsedAdapterRequest, str | None], None] | None = None,
+    decision_observer: Callable[
+        [ParsedAdapterRequest, str | None], tuple[str, ...] | None
+    ]
+    | None = None,
 ) -> Iterator[bytes]:
     """Stream language deltas, then emit one authoritative final response.
 
@@ -1514,8 +1552,9 @@ def execute_stream(
             yield _stream_event("final", response=result)
             return
 
-    if decision_observer is not None:
-        decision_observer(parsed, observation)
+    decision_tool_names = (
+        decision_observer(parsed, observation) if decision_observer is not None else None
+    )
 
     if parsed.task in {"transcribe", "describe"}:
         result = _direct_response(parsed.model, observation or "")
@@ -1534,7 +1573,12 @@ def execute_stream(
     else:
         yield _stream_event("stage", stage="language")
         payload = build_language_payload(
-            parsed, observation, config.language_model, config.language_api, config
+            parsed,
+            observation,
+            config.language_model,
+            config.language_api,
+            config,
+            decision_tool_names,
         )
         payload["stream"] = True
         content = ""
@@ -1778,9 +1822,15 @@ def create_app(
 
     def observe_input_routing(
         parsed: ParsedAdapterRequest, observation: str | None
-    ) -> None:
+    ) -> tuple[str, ...] | None:
         if plane is None:
-            return
+            return None
+        # Text input is observed by the portal. The adapter owns this wave
+        # only after multimodal comprehension has recovered the actual spoken
+        # request or perceptual observation. Submitting both copies merely
+        # contends for the one resident decision worker.
+        if observation is None:
+            return None
         transcript = _observation_transcript(observation)
         last_user = next(
             (message for message in reversed(parsed.messages) if message.role == "user"),
@@ -1788,7 +1838,7 @@ def create_app(
         )
         request_text = transcript or (last_user.content.strip() if last_user is not None else "")
         if not request_text:
-            return
+            return None
         state = DecisionState(
             user_request=request_text,
             current_goal=request_text,
@@ -1800,18 +1850,28 @@ def create_app(
             authorization_state={"prediction_only": True},
         )
 
-        def run() -> None:
+        def run() -> tuple[str, ...] | None:
             try:
-                plane.evaluate(state=state, wave="input_routing")
+                result = plane.evaluate(state=state, wave="input_routing")
+                family = result.results.get("tool_family")
+                if family is None or not family.fast_path_taken:
+                    return None
+                families = plane.config.get("tool_families", {})
+                members = (
+                    families.get(str(family.value), [])
+                    if isinstance(families, Mapping)
+                    else []
+                )
+                return tuple(str(name) for name in members)
             except Exception:
                 # Laya is an optimization. The existing language route remains
                 # authoritative and must not inherit its failure.
-                return
+                return None
 
         if plane.shadow_mode and decision_executor is not None:
             decision_executor.submit(run)
-        else:
-            run()
+            return None
+        return run()
 
     @app.get("/healthz")
     def healthz():

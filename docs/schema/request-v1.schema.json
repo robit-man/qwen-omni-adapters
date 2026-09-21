@@ -27,7 +27,12 @@
           "default": "chat"
         },
         "include_audio_from_video": {"type": "boolean", "default": true},
-        "require_speech": {"type": "boolean", "default": false}
+        "require_speech": {"type": "boolean", "default": false},
+        "tool_routing": {
+          "type": "string",
+          "enum": ["client", "relevant"],
+          "default": "client"
+        }
       },
       "additionalProperties": false
     },

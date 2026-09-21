@@ -48,12 +48,16 @@ question text does not live in call sites.
 
 The foreground portal submits input-routing waves for text requests, while the
 adapter submits perceptual requests only after media comprehension has produced
-the actual transcript or observation. This avoids classifying a transport
-placeholder and prevents it from occupying the single resident worker when the
-useful post-comprehension wave arrives. The durable worker submits action waves
-asynchronously in shadow mode. Concurrent overflow is rejected within the
-configured `max_wait_ms`; callers immediately retain the deliberative fallback
-instead of accumulating a model-inference queue.
+the actual transcript or observation. It never submits the same text wave a
+second time. This avoids classifying a transport placeholder and prevents it
+from occupying the single resident worker when the useful post-comprehension
+wave arrives. A deterministic relevance ranker performs reversible schema
+selection while Laya is uncalibrated; Laya shadows the same state, and a future
+calibrated high-confidence family result becomes the primary selector for that
+small family. The deliberative model still chooses the exact tool and arguments. The durable
+worker submits action waves asynchronously in shadow mode. Concurrent overflow
+is rejected within the configured `max_wait_ms`; callers immediately retain the
+deliberative fallback instead of accumulating a model-inference queue.
 
 ## Lifecycle and residency
 

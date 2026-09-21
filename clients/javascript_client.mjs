@@ -11,6 +11,10 @@ if (!audioPath) {
 
 const endpoint = process.env.OMNI_ADAPTER_URL ?? "http://127.0.0.1:11435/api/chat";
 const model = process.env.OMNI_MODEL ?? "robit/qwen3.8-omni:latest";
+const toolRouting = process.env.OMNI_TOOL_ROUTING ?? "client";
+if (!["client", "relevant"].includes(toolRouting)) {
+  throw new Error("OMNI_TOOL_ROUTING must be client or relevant");
+}
 const audio = await readFile(audioPath);
 const response = await fetch(endpoint, {
   method: "POST",
@@ -26,7 +30,11 @@ const response = await fetch(endpoint, {
         data: audio.toString("base64"),
       }],
     }],
-    omni: { schema: "robit.ollama.omni-adapter.v1", task: "chat" },
+    omni: {
+      schema: "robit.ollama.omni-adapter.v1",
+      task: "chat",
+      tool_routing: toolRouting,
+    },
     response_modalities: ["text", "audio"],
     speech_mode: "always",
     think: true,

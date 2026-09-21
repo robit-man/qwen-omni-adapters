@@ -81,7 +81,7 @@ tool step, or service event as noted.
 | Produce an ordinary substantive answer | language generation | 1 LLM round/turn | D | No | low-medium | Deliberative model generates content |
 | Interpret ambiguous spoken instructions | language generation | 1 LLM round/turn | D | No | medium | Deliberative model or user clarification |
 | Decompose a long-horizon task | background language generation | 1+ LLM rounds/task | D | No | medium-high | Deliberative planner; Laya only gates admission |
-| Select a broad tool family | lexical discovery only after model calls `tool_search` | extra LLM discovery round | C | Yes, wave 1 | low | Hierarchical Laya + lexical agreement can pre-expose schemas |
+| Select a broad tool family | bounded deterministic relevance fallback plus shadow Laya | one batched shadow wave; no extra LLM discovery round when relevance succeeds | C | Yes, wave 1 | low | Calibrated high-confidence Laya becomes primary family selector; fallback remains reversible |
 | Rank a small concrete tool subset | lexical hint score and top-3 cutoff | <1 ms/discovery | C | Yes | low | Shadow against lexical baseline; never flatten large tool sets |
 | Construct novel tool arguments | language model structured tool call | 1 LLM round/step | D | No | medium-high | Keep LLM unless values are closed candidates or copied verbatim |
 | Validate tool name and JSON arguments | allowlist/schema/typed bounds | <1 ms/call | A | No | high | Deterministic rejection |

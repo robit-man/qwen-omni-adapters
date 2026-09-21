@@ -1084,6 +1084,13 @@ def _tool_followup(
             ),
         )
     followup["messages"] = messages
+    omni = followup.get("omni")
+    if isinstance(omni, dict) and omni.get("tool_routing") == "relevant":
+        # The first pass already selected a concrete schema from the recovered
+        # transcript. Follow-up tools are narrowed from the model's actual call
+        # and result; reranking them against the old media transport sentence
+        # could discard the active tool mid-chain.
+        omni["tool_routing"] = "client"
     # A required choice applies only to the first live decision. Once the
     # model selected a real tool, normal iterative tool use resumes.
     followup.pop("tool_choice", None)
@@ -1353,6 +1360,7 @@ def create_app(
         text = _latest_user_context(messages if isinstance(messages, list) else [])
         if not text:
             return []
+        ranked = discover_tool_names(text)
         result = observe_decision_wave(
             "input_routing",
             DecisionState(
@@ -1369,16 +1377,83 @@ def create_app(
             wait=bool(plane is not None and not plane.shadow_mode),
         )
         if result is None:
-            return []
+            return ranked
         family = result.results.get("tool_family")
         if family is None or not family.fast_path_taken:
-            return []
+            return ranked
         family_map = plane.config.get("tool_families", {}) if plane is not None else {}
         members = family_map.get(str(family.value), []) if isinstance(family_map, Mapping) else []
-        candidates = {str(item) for item in members}
-        # Agreement with the existing independent ranker makes this a
-        # reversible schema optimization, not unilateral model tool choice.
-        return [name for name in discover_tool_names(text) if name in candidates][:3]
+        allowed = {
+            str(item.get("function", {}).get("name") or "")
+            for item in SAFE_TOOLS
+            if isinstance(item, Mapping)
+        }
+        selected = [str(name) for name in members if str(name) in allowed][:3]
+        # This only exposes a small family; the deliberative model still picks
+        # the exact tool and arguments, and policy still authorizes execution.
+        return selected or ranked
+
+    def initial_tool_contract(
+        payload: dict[str, Any],
+        *,
+        session_id: str,
+        request_id: str,
+        camera_bridge: bool,
+        shell_bridge: bool,
+        background_bridge: bool,
+    ) -> list[dict[str, Any]]:
+        """Build one bounded contract, deferring media routing until understood.
+
+        Before comprehension an audio turn contains only a transport sentence,
+        not the words the person spoke. For those turns the adapter receives
+        the allowlisted execution profile and selects a bounded relevant subset
+        after it has the transcript. Text turns can be narrowed immediately.
+        """
+
+        fields = _request_diagnostic_fields(payload)
+        deferred = any(
+            fields.get(name) is True
+            for name in ("has_audio_input", "has_image_input", "has_video_input")
+        )
+        if deferred:
+            omni = payload.get("omni")
+            if not isinstance(omni, dict):
+                omni = {}
+                payload["omni"] = omni
+            omni["tool_routing"] = "relevant"
+            initial = copy.deepcopy(SAFE_TOOLS)
+            excluded = set()
+            if not camera_bridge:
+                excluded.add("request_camera_view")
+            if not background_bridge:
+                excluded.add("background_task")
+            # Shell remains a visible semantic candidate even when this live
+            # profile delegates host execution. Deterministic policy below
+            # rejects the call and returns the background-task transition;
+            # hiding the schema made the model infer that execution was absent.
+            initial = [
+                item
+                for item in initial
+                if str(item.get("function", {}).get("name") or "") not in excluded
+            ]
+        else:
+            routed = route_input_tools(
+                payload, session_id=session_id, request_id=request_id
+            )
+            initial = [*DISCOVERY_TOOLS, *tool_schemas(routed)]
+            if camera_bridge:
+                initial.extend(tool_schemas(["request_camera_view"]))
+            if shell_bridge:
+                initial.extend(tool_schemas(["shell"]))
+            if background_bridge:
+                initial.extend(tool_schemas(["background_task"]))
+        return list(
+            {
+                str(item.get("function", {}).get("name") or ""): item
+                for item in initial
+                if isinstance(item, Mapping)
+            }.values()
+        )
 
     def run_subagent(objective: str, role: str, context: str) -> Mapping[str, Any]:
         system_content = context_text("prompts", "subagent_system").format(
@@ -1874,24 +1949,13 @@ def create_app(
             )
             request_logged = True
             if auto_tools:
-                routed_tools = route_input_tools(
-                    payload, session_id=session_id, request_id=request_id
-                )
-                initial_tools = [*DISCOVERY_TOOLS, *tool_schemas(routed_tools)]
-                if camera_bridge:
-                    initial_tools.extend(tool_schemas(["request_camera_view"]))
-                if shell_bridge:
-                    initial_tools.extend(tool_schemas(["shell"]))
-                if background_bridge:
-                    initial_tools.extend(tool_schemas(["background_task"]))
-                payload["tools"] = copy.deepcopy(
-                    list(
-                        {
-                            str(item.get("function", {}).get("name") or ""): item
-                            for item in initial_tools
-                            if isinstance(item, Mapping)
-                        }.values()
-                    )
+                payload["tools"] = initial_tool_contract(
+                    payload,
+                    session_id=session_id,
+                    request_id=request_id,
+                    camera_bridge=camera_bridge,
+                    shell_bridge=shell_bridge,
+                    background_bridge=background_bridge,
                 )
             queue_started = time.monotonic()
             ticket = inference_queue.acquire(session_id, runtime.timeout_s)
@@ -2038,24 +2102,13 @@ def create_app(
                 diagnostics, session_id, request_id, diagnostic_media_ids
             )
             if auto_tools:
-                routed_tools = route_input_tools(
-                    payload, session_id=session_id, request_id=request_id
-                )
-                initial_tools = [*DISCOVERY_TOOLS, *tool_schemas(routed_tools)]
-                if camera_bridge:
-                    initial_tools.extend(tool_schemas(["request_camera_view"]))
-                if shell_bridge:
-                    initial_tools.extend(tool_schemas(["shell"]))
-                if background_bridge:
-                    initial_tools.extend(tool_schemas(["background_task"]))
-                payload["tools"] = copy.deepcopy(
-                    list(
-                        {
-                            str(item.get("function", {}).get("name") or ""): item
-                            for item in initial_tools
-                            if isinstance(item, Mapping)
-                        }.values()
-                    )
+                payload["tools"] = initial_tool_contract(
+                    payload,
+                    session_id=session_id,
+                    request_id=request_id,
+                    camera_bridge=camera_bridge,
+                    shell_bridge=shell_bridge,
+                    background_bridge=background_bridge,
                 )
         except PortalRequestError as exc:
             return jsonify({"error": str(exc)}), 400

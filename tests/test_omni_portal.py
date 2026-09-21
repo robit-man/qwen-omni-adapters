@@ -162,6 +162,66 @@ def test_portal_defers_perceptual_laya_routing_until_after_comprehension() -> No
 
     assert response.status_code == 200
     assert plane.calls == 0
+    names = {
+        item["function"]["name"] for item in requests[0]["tools"]
+    }
+    assert "browser_interact" in names
+    assert "shell" in names
+    assert "background_task" in names
+    assert "request_camera_view" not in names
+    assert requests[0]["omni"]["tool_routing"] == "relevant"
+
+
+def test_text_request_gets_relevant_concrete_schema_without_laya_fast_path() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Ready."}},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[{"role": "user", "content": "Open the web browser."}],
+            portal_auto_tools=True,
+            portal_background_bridge=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    names = {item["function"]["name"] for item in requests[0]["tools"]}
+    assert "browser_interact" in names
+    assert "background_task" in names
+    assert "tool_search" in names
+
+
+def test_social_text_does_not_gain_an_unrelated_leaf_tool() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Good morning."}},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[{"role": "user", "content": "Good morning."}],
+            portal_auto_tools=True,
+            portal_background_bridge=True,
+        ),
+    )
+
+    assert response.status_code == 200
     assert {
         item["function"]["name"] for item in requests[0]["tools"]
     } == {"tool_search", "background_task"}
