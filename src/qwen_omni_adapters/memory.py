@@ -15,6 +15,8 @@ running the test suite.
 
 from __future__ import annotations
 
+import ctypes
+import gc
 import os
 import platform
 import threading
@@ -25,6 +27,28 @@ from pathlib import Path
 from .accelerator import is_tegra
 
 GIB_IN_KIB = 1024 * 1024
+
+
+def release_unused_process_memory() -> bool:
+    """Return unreachable native allocations to the host when supported.
+
+    Large graph transforms can free Python and PyTorch objects while glibc
+    retains their arenas in the process. On a unified-memory device that
+    retained RSS is unavailable to every CPU and GPU component even though no
+    live object can use it. Collection is portable; ``malloc_trim`` is a
+    best-effort Linux/glibc optimization and never changes admission policy.
+    """
+
+    gc.collect()
+    if platform.system() != "Linux":
+        return False
+    try:
+        trim = ctypes.CDLL(None).malloc_trim
+        trim.argtypes = [ctypes.c_size_t]
+        trim.restype = ctypes.c_int
+        return bool(trim(0))
+    except (AttributeError, OSError):
+        return False
 
 
 class MemoryPressure(RuntimeError):

@@ -14,7 +14,12 @@ from harness.background_agent import BackgroundAgent
 from portal.background_tasks import BackgroundTaskStore
 from portal.documents import SessionDocumentStore
 from portal.tools import PortalToolHarness, _run_shell
-from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy, MemoryPressure
+from qwen_omni_adapters.memory import (
+    MemoryGovernor,
+    MemoryPolicy,
+    MemoryPressure,
+    release_unused_process_memory,
+)
 
 
 def _policy() -> MemoryPolicy:
@@ -27,6 +32,30 @@ def _policy() -> MemoryPolicy:
         wait_initial_s=0.01,
         wait_max_s=0.02,
     )
+
+
+def test_releasing_unused_memory_trims_glibc_without_changing_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[int] = []
+
+    class Trim:
+        argtypes = None
+        restype = None
+
+        def __call__(self, pad: int) -> int:
+            calls.append(pad)
+            return 1
+
+    class LibC:
+        malloc_trim = Trim()
+
+    monkeypatch.setattr("qwen_omni_adapters.memory.gc.collect", lambda: 0)
+    monkeypatch.setattr("qwen_omni_adapters.memory.platform.system", lambda: "Linux")
+    monkeypatch.setattr("qwen_omni_adapters.memory.ctypes.CDLL", lambda _name: LibC())
+
+    assert release_unused_process_memory() is True
+    assert calls == [0]
 
 
 def test_one_governor_admits_every_tool_class_before_execution() -> None:

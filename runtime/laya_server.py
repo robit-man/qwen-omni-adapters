@@ -7,7 +7,6 @@ The rest of the runtime talks only to the typed DecisionPlane abstraction.
 
 from __future__ import annotations
 
-import gc
 import importlib.metadata
 import json
 import os
@@ -24,7 +23,11 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from qwen_omni_adapters.decision_plane import load_decision_config
-from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
+from qwen_omni_adapters.memory import (
+    MemoryGovernor,
+    MemoryPressure,
+    release_unused_process_memory,
+)
 
 MAX_REQUEST_BYTES = 512 * 1024
 
@@ -130,7 +133,10 @@ class LayaRuntime:
         if self.config.preload:
             self.router.preload(list(self.config.preload))
         self._optimize_cpu_models()
-        gc.collect()
+        # Dynamic quantization replaces hundreds of large float tensors. glibc
+        # may otherwise retain the dead arenas, making a safe warmup look as
+        # though it would cross the shared memory floor.
+        release_unused_process_memory()
         if self.config.warmup:
             start = time.perf_counter()
             self.predict(

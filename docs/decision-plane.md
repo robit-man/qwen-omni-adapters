@@ -67,7 +67,10 @@ It covers English and non-English input, has a 1024-token checkpoint context,
 and uses dynamic int8 to retain the generic host memory floor. Operators can
 change device, checkpoint, preload,
 quantization, timeout, and residency through the YAML file or documented
-environment overrides. Selecting CUDA is valid only after the deployment has
+environment overrides. After quantization, unreachable native allocator arenas
+are returned to the host before warmup; the normal generic memory floor still
+governs warmup and every decision wave.
+Selecting CUDA is valid only after the deployment has
 acquired that exact device through the host broker; `auto` is intentionally not
 the portable default.
 
