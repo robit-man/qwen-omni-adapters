@@ -7,12 +7,10 @@ microphone in, speakers out, state in the top bar, no browser involved.
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import logging
 import os
 import re
-import shutil
 import subprocess
 import sys
 import threading
@@ -147,47 +145,6 @@ def _wait_for_portal(
             last = f"{type(error).__name__}: {error}"
         time.sleep(3)
     raise SystemExit(f"the omni adapter never became ready at {url} ({last})")
-
-
-def _unused_frame_grabber(device: str) -> Any:
-    """Capture one JPEG from the camera, or nothing if it cannot be read.
-
-    A frame is attached to every spoken turn so "what am I holding" needs no
-    special mode. The live-call prompt tells the model to use it only when it
-    is relevant, so an unused frame costs a little comprehension time and
-    nothing else.
-    """
-
-    if shutil.which("ffmpeg") is None:
-        return None
-
-    def grab() -> dict[str, Any] | None:
-        try:
-            completed = subprocess.run(
-                [
-                    "ffmpeg", "-hide_banner", "-loglevel", "error",
-                    "-f", "v4l2", "-i", device,
-                    "-frames:v", "1", "-vf", "scale=768:-2",
-                    "-f", "image2", "-c:v", "mjpeg", "-",
-                ],
-                capture_output=True,
-                timeout=6,
-            )
-        except (subprocess.TimeoutExpired, OSError) as error:
-            logger.debug("camera frame unavailable: %s", error)
-            return None
-        if completed.returncode != 0 or not completed.stdout:
-            logger.debug("camera frame unavailable: %s", completed.stderr[:120])
-            return None
-        return {
-            "mime_type": "image/jpeg",
-            "encoding": "base64",
-            "data": base64.b64encode(completed.stdout).decode("ascii"),
-        }
-
-    return grab
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="omni-call", description=__doc__)
     parser.add_argument("--portal", default=os.environ.get("OMNI_PORTAL_URL", DEFAULT_PORTAL))

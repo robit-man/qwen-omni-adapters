@@ -330,10 +330,10 @@ class CallSession:
             "from the user's latest spoken turn"
         )
         content += (
-            " and the attached media shows what the cameras can see right now, "
-            "supplied because the question is about something visible. Answer "
-            "their question from it directly and briefly; do not inventory the "
-            "scene."
+            " and the attached image is a fresh ambient view from the embodied "
+            "client's cameras. Use it only when it materially helps answer the "
+            "speaker's request; otherwise ignore it. Never inventory or mention "
+            "the scene merely because the view is present."
             if frame
             else ". Continue the live conversation by answering the combined "
             "intent directly and use later words to resolve self-corrections."
@@ -396,14 +396,18 @@ class CallSession:
             "speech_mode": "never" if split_speech else "always",
             "think": self.config.reasoning_enabled,
             "portal_auto_tools": with_tools,
-            # Advertise one tiny physical-camera bridge schema alongside tool
-            # discovery. The language model decides whether to call it; the
-            # harness never guesses from transcript words.
+            # A fresh still normally rides on the turn. Keep the tiny bridge
+            # available when capture failed and when a still can be upgraded
+            # to motion evidence; the harness never guesses from transcript
+            # words.
             "portal_camera_bridge": bool(
                 with_tools
                 and self.config.camera_enabled
                 and self._frame_grabber is not None
-                and frame is None
+                and (
+                    frame is None
+                    or str(frame.get("mime_type") or "").startswith("image/")
+                )
             ),
             # Host execution belongs to the checkpointed worker. Giving the
             # foreground both shell and background_task let a small model pick
@@ -457,10 +461,12 @@ class CallSession:
 
         This is the same chain as the cloudflared browser: the portal exposes
         its safe schemas, executes every requested call, and returns the final
-        grounded answer. Vision remains conditional because attaching a camera
-        frame to every conversation makes the picture become the subject. The
-        model requests current visual evidence through the camera bridge tool;
-        transcript words never decide that locally.
+        grounded answer. A camera-enabled embodied client snapshots its current
+        state before deliberation, so visual access does not depend on the
+        language model first admitting that it has a camera. The prompt keeps
+        this ambient evidence subordinate to the speaker's request. A model
+        tool call can still request motion evidence; transcript words never
+        decide that locally.
         """
 
         self._barge.clear()
@@ -476,6 +482,11 @@ class CallSession:
 
         audio = to_wav(samples)
 
+        frame = None
+        if self.config.camera_enabled and self._frame_grabber is not None:
+            self._state("thinking", "observing")
+            frame = self._frame_grabber(motion=False)
+
         # Every spoken turn is one grounded answer pass with the portal's real
         # tools auto-executed: the model either answers conversationally or
         # calls the smallest tool that accomplishes the request, and the answer
@@ -485,7 +496,7 @@ class CallSession:
         payload = self._build_payload(
             audio,
             segments,
-            None,
+            frame,
             with_tools=self.config.tools_enabled,
         )
         result = self._run(payload)

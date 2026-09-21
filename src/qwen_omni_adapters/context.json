@@ -148,7 +148,7 @@
         "type": "function",
         "function": {
           "name": "request_camera_view",
-          "description": "Ask an embodied client to attach fresh evidence from its physical cameras. Use only when answering requires what is visibly present around the client now.",
+          "description": "Ask an embodied client for fresh or motion-capable physical-camera evidence when the current request needs visual state that is not already supplied. A camera-enabled client normally attaches a current still before deliberation, so use that existing evidence directly; request motion only when change over time matters.",
           "parameters": {
             "type": "object",
             "properties": {

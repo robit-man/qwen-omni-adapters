@@ -331,9 +331,10 @@ details hidden behind the adapter.
    resident Qwen3-Omni worker; a normal profile uses the selected Ollama base.
 4. A durable-task request goes through the same pass via the `background_task`
    tool, which writes the objective to the durable store before any
-   acknowledgment; web/camera/current-information requests complete a real tool
-   call in the pass. No answer is eligible for speech before the work it claims
-   has actually completed.
+   acknowledgment. Camera-enabled embodied turns already contain one fresh
+   ambient still; web and other current-information requests complete a real
+   tool call in the pass. No answer is eligible for speech before the work it
+   claims has actually completed.
 5. Only final answer text is sent to TTS. PCM is played as decoder windows
    arrive, with one small initial lead to absorb packet jitter rather than
    waiting for the complete WAV.

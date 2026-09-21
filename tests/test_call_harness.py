@@ -424,7 +424,7 @@ def test_background_task_tool_event_wakes_the_persistent_agent_in_the_pass() -> 
     assert result.reply == "Started."
 
 
-def test_an_embodied_turn_advertises_the_camera_bridge_without_word_matching() -> None:
+def test_an_embodied_turn_keeps_camera_bridge_for_capture_or_motion() -> None:
     call = CallSession(
         CallConfig(token="t", model="m", camera_enabled=True),
         frame_grabber=lambda **_kwargs: None,  # type: ignore[arg-type]
@@ -439,7 +439,14 @@ def test_an_embodied_turn_advertises_the_camera_bridge_without_word_matching() -
         1,
         {"mime_type": "image/jpeg", "encoding": "base64", "data": "eA=="},
     )
-    assert payload_with_evidence["portal_camera_bridge"] is False
+    assert payload_with_evidence["portal_camera_bridge"] is True
+
+    payload_with_motion = call._build_payload(
+        b"wav",
+        1,
+        {"mime_type": "video/mp4", "encoding": "base64", "data": "eA=="},
+    )
+    assert payload_with_motion["portal_camera_bridge"] is False
 
 
 def test_a_still_is_attached_as_an_image_and_a_clip_as_a_video() -> None:
@@ -460,8 +467,9 @@ def test_media_is_framed_as_evidence_rather_than_a_scene_to_narrate() -> None:
     frame = {"mime_type": "image/jpeg", "encoding": "base64", "data": "x"}
     content = session()._build_payload(b"wav", 1, frame)["messages"][-1]["content"]
 
-    assert "the question is about something visible" in content
-    assert "do not inventory the scene" in content
+    assert "fresh ambient view" in content
+    assert "otherwise ignore it" in content
+    assert "Never inventory or mention the scene" in content
 
 
 def test_nothing_visual_is_sent_when_nothing_visual_was_asked() -> None:
@@ -795,7 +803,7 @@ def test_live_context_requires_tools_and_grounded_alternatives() -> None:
 
 
 
-# -- the model asks for cameras through a tool, never a word filter --------
+# -- current vision is normalized; motion upgrades stay model-driven -------
 
 
 def test_camera_intent_comes_from_the_structured_tool_event() -> None:
@@ -827,33 +835,47 @@ def test_camera_intent_comes_from_the_structured_tool_event() -> None:
     assert result.camera_motion is True
 
 
-def test_look_up_news_does_not_activate_a_camera() -> None:
-    def unexpected_camera(**_kwargs: object) -> dict[str, object]:
-        raise AssertionError("web lookup must not activate a physical camera")
+def test_every_embodied_turn_carries_one_ambient_still_without_forcing_its_use() -> None:
+    still = {"mime_type": "image/jpeg", "encoding": "base64", "data": "eA=="}
+    captured: list[bool] = []
+    payloads: list[dict[str, object]] = []
+
+    def grabber(*, motion: bool) -> dict[str, object]:
+        captured.append(motion)
+        return still
 
     call = CallSession(
         CallConfig(token="t", model="m", tools_enabled=True, camera_enabled=True),
-        frame_grabber=unexpected_camera,  # type: ignore[arg-type]
+        frame_grabber=grabber,  # type: ignore[arg-type]
     )
-    call._run = lambda *_args, **_kwargs: TurnResult(  # type: ignore[method-assign]
-        transcript="look up the latest news",
-        reply="Here is the news.",
-        tools_used=["web_search"],
-    )
+
+    def run(payload: dict[str, object], **_kwargs: object) -> TurnResult:
+        payloads.append(payload)
+        return TurnResult(
+            transcript="look up the latest news",
+            reply="Here is the news.",
+            tools_used=["web_search"],
+        )
+
+    call._run = run  # type: ignore[method-assign]
 
     result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
+    assert captured == [False]
+    assert len(payloads) == 1
+    assert payloads[0]["messages"][-1]["images"] == [still]  # type: ignore[index]
     assert result.reply == "Here is the news."
     assert result.camera_requested is False
 
 
 def test_explicit_camera_tool_requests_the_right_capture_mode() -> None:
     captured: list[bool] = []
-    frame = {"mime_type": "video/mp4", "encoding": "base64", "data": "eA=="}
+    still = {"mime_type": "image/jpeg", "encoding": "base64", "data": "aQ=="}
+    clip = {"mime_type": "video/mp4", "encoding": "base64", "data": "dg=="}
 
     def grabber(*, motion: bool) -> dict[str, object]:
         captured.append(motion)
-        return frame
+        return clip if motion else still
 
     call = CallSession(
         CallConfig(token="t", model="m", tools_enabled=True, camera_enabled=True),
@@ -880,9 +902,10 @@ def test_explicit_camera_tool_requests_the_right_capture_mode() -> None:
     call._run = run  # type: ignore[method-assign]
     result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
-    assert captured == [True]
+    assert captured == [False, True]
     assert result.followup == "The box fell over."
-    assert payloads[1]["messages"][-1]["videos"] == [frame]  # type: ignore[index]
+    assert payloads[0]["messages"][-1]["images"] == [still]  # type: ignore[index]
+    assert payloads[1]["messages"][-1]["videos"] == [clip]  # type: ignore[index]
 
 
 # -- compact ordinary context ---------------------------------------------

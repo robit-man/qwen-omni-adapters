@@ -49,7 +49,7 @@ substantive answers and open-ended task decomposition.
 
 | Lifecycle | Current implementation | Decision-bearing boundaries |
 |---|---|---|
-| Spoken input | `harness/vad.py`, `harness/call_queue.py`, `harness/call.py` | signal admission, echo rejection, turn consolidation, camera/tool bridge exposure |
+| Spoken input | `harness/vad.py`, `harness/call_queue.py`, `harness/call.py` | signal admission, echo rejection, turn consolidation, current camera snapshot, tool bridge exposure |
 | Request ABI | `contract.py`, `runtime/adapter_server.py` | schema, media route, comprehension admission, language-context shedding, TTS admission |
 | Foreground agent | `portal/app.py` | input policy, initial schemas, iterative tool calls, progress/stall, completion |
 | Durable agent | `background_agent.py`, `background_tasks.py` | claim, plan, tool choice, call admission, result assessment, retry, checkpoint, completion |
