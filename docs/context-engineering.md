@@ -46,6 +46,13 @@ bounded foreground prompt is therefore not presented as a missing capability:
 the foreground hands off the requested outcome, and the worker discovers and
 invokes only the concrete schemas needed to complete it.
 
+Camera availability is likewise a gateway, not eager evidence. The local
+harness sends the spoken turn without a room image and exposes only
+`request_camera_view`. The model may request a still or bounded clip only when
+the current intent depends on physical-scene facts. A successful request starts
+a new multimodal pass; unrelated turns never receive, describe, or carry an
+ambient frame merely because cameras are enabled.
+
 ## Task phases and evidence
 
 The durable store distinguishes human-visible scheduling phase from model
@@ -64,6 +71,14 @@ task can continue in the same visible browser without crossing into another
 user session. The top-bar task submenu shows those calls directly. A live task has a
 **Cancel task** action, and every task has **Clear task record**; the global
 **Clear finished tasks** action archives terminal records before removing them.
+
+After each concrete result, the worker injects a bounded `<task_self_check>`
+that requires the next reasoning pass to compare that result with the durable
+objective, completion criteria, and latest spoken guidance. The model must
+identify remaining work before choosing another structured action. Checkpoints
+carry a separate criteria assessment and must cite the freshest concrete result;
+an older successful call cannot hide a newer failed verification. These checks
+remain private task-control context and are never synthesized as reasoning.
 
 ## Conversation tracing
 

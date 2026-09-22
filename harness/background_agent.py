@@ -326,6 +326,27 @@ def _tool_evidence(messages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return evidence
 
 
+def _freshest_evidence_id(messages: list[dict[str, Any]]) -> str:
+    """Return the newest concrete, non-control result available to the worker."""
+
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            continue
+        evidence_id = str(message.get("tool_call_id") or "").strip()
+        name = str(message.get("tool_name") or "").strip()
+        if not evidence_id or name in {
+            "",
+            "tool_search",
+            "task_checkpoint",
+            "task_recovery",
+        }:
+            continue
+        if _is_duplicate_tool_result(message):
+            continue
+        return evidence_id
+    return ""
+
+
 def _checkpoint_available(messages: list[dict[str, Any]]) -> bool:
     """Allow one checkpoint attempt only after a newer concrete tool result."""
 
@@ -1354,6 +1375,9 @@ class BackgroundAgent:
                         continue
                     action = str(arguments.get("action") or "")
                     report = " ".join(str(arguments.get("report") or "").split())
+                    criteria_assessment = " ".join(
+                        str(arguments.get("criteria_assessment") or "").split()
+                    )
                     raw_ids = arguments.get("evidence_ids")
                     evidence_ids = (
                         [str(value) for value in raw_ids if str(value)]
@@ -1363,6 +1387,10 @@ class BackgroundAgent:
                     evidence = _tool_evidence(messages)
                     selected = [evidence.get(value) for value in evidence_ids]
                     valid_refs = bool(selected) and all(item is not None for item in selected)
+                    freshest_evidence_id = _freshest_evidence_id(messages)
+                    cites_freshest = bool(freshest_evidence_id) and (
+                        freshest_evidence_id in evidence_ids
+                    )
                     failed = [
                         item
                         for item in selected
@@ -1383,7 +1411,10 @@ class BackgroundAgent:
                         action in {"progress", "complete", "blocked"}
                         and bool(report)
                         and len(report) <= MAX_CHECKPOINT_REPORT_CHARS
+                        and bool(criteria_assessment)
+                        and len(criteria_assessment) <= MAX_CHECKPOINT_REPORT_CHARS
                         and valid_refs
+                        and cites_freshest
                         and (
                             (
                                 action == "blocked"
@@ -1402,10 +1433,13 @@ class BackgroundAgent:
                             "message": (
                                 "Reference existing successful tool calls for "
                                 "progress/complete, or a concrete failed tool call "
-                                "with no remaining alternative for blocked."
+                                "with no remaining alternative for blocked. Include "
+                                "the freshest concrete result and explicitly assess "
+                                "the completion criteria."
                             ),
                             "valid_evidence_ids": valid_ids[:16],
                             "failed_evidence_ids": failed_ids[:8],
+                            "freshest_evidence_id": freshest_evidence_id,
                         }
                         messages.append(
                             {
@@ -1691,6 +1725,22 @@ class BackgroundAgent:
                     ),
                 )
 
+            concrete_evidence = _tool_evidence(messages)
+            newest_evidence_ids = [
+                str(item["call_id"])
+                for item in observed_actions
+                if str(item["call_id"]) in concrete_evidence
+            ]
+            if newest_evidence_ids:
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": context_text(
+                            "directives", "background_self_check"
+                        ).format(evidence_ids=",".join(newest_evidence_ids)),
+                    }
+                )
+
             checkpoint = self.store.checkpoint(
                 task_id,
                 self.owner,
@@ -1702,7 +1752,10 @@ class BackgroundAgent:
                 result_digests=list(result_digests),
                 progress=" ".join(progress_parts),
                 status="running",
-                current_stage=context_text("task_stages", "assessing_result"),
+                current_stage=context_text(
+                    "task_stages",
+                    "self_check" if newest_evidence_ids else "assessing_result",
+                ),
             )
             if checkpoint is None or checkpoint.get("status") == "cancelled":
                 return

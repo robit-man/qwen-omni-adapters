@@ -321,8 +321,9 @@ details hidden behind the adapter.
    transcript and any non-speech observation; silence or a cough stops before
    language and TTS when no speech was found.
 3. The configured language backend receives the recognized speech as the latest
-   user message, with bounded text history and non-speech/visual observations as
-   secondary tagged evidence. The
+   user message, with bounded text history and non-speech observations as
+   secondary tagged evidence. Visual evidence is added only after a structured
+   camera request, or when the client explicitly attached media. The
    local voice harness enables the portal's real tool allowlist on every turn
    without a separate classification pass: the model either answers
    conversationally or calls the smallest tool that accomplishes the request,
@@ -331,10 +332,11 @@ details hidden behind the adapter.
    resident Qwen3-Omni worker; a normal profile uses the selected Ollama base.
 4. A durable-task request goes through the same pass via the `background_task`
    tool, which writes the objective to the durable store before any
-   acknowledgment. Camera-enabled embodied turns already contain one fresh
-   ambient still; web and other current-information requests complete a real
-   tool call in the pass. No answer is eligible for speech before the work it
-   claims has actually completed.
+   acknowledgment. Camera-enabled embodied turns expose a capture bridge but do
+   not attach an ambient still unless the request needs current physical-scene
+   evidence; web and other current-information requests complete a real tool
+   call in the pass. No answer is eligible for speech before the work it claims
+   has actually completed.
 5. Only final answer text is sent to TTS. PCM is played as decoder windows
    arrive, with one small initial lead to absorb packet jitter rather than
    waiting for the complete WAV.
@@ -470,7 +472,7 @@ the unsupported `nvidia-smi` process table.
 | Voice reference cloning | Qwen3-TTS Base speaker embedding path | Yes |
 | Live-call turns | Adaptive VAD + bounded single-flight speech consolidation + streamed text/PCM | Yes |
 | Headless always-listening call mode | `harness/`: local mic/speakers, GNOME top-bar state, systemd unit | Yes |
-| Every camera at once | `harness/camera.py` snaps all V4L2 devices together, stitches and downscales to one image or clip | Yes |
+| Every camera at once, on request | `harness/camera.py` snaps all V4L2 devices together, stitches and downscales to one image or clip only after a visual-evidence request | Yes |
 | ReSpeaker ring and direction | Used when the array is attached, ignored when it is not | Yes |
 | Tool execution by an external loop | `GET /api/tools`, `POST /api/tools/<name>/call` | Yes |
 | Video generation | No component is shipped | No |
@@ -512,10 +514,10 @@ Defaults are chosen for a spoken conversation:
   requested calls execute until the model has a grounded final answer. The
   trusted local harness also carries compact shell and persistent-task bridges.
   The full catalog no longer displaces conversation or memory context.
-- **Every camera, together.** All V4L2 devices are snapped at the same moment,
-  stitched into one grid and scaled down, so "what am I holding" needs no
-  special mode and costs one vision pass rather than one per camera. Clips
-  work the same way for questions about what just happened.
+- **Every camera together, only when relevant.** The audio-only pass may call
+  `request_camera_view` when the answer depends on the current physical scene.
+  Only then are all V4L2 devices snapped at the same moment, stitched into one
+  grid, and scaled down. Clips work the same way for temporal questions.
 - **ReSpeaker when present.** Its ring follows the conversation and the
   direction a voice came from is attached to the turn as evidence. With no
   array attached the default microphone is used and nothing else changes.
@@ -527,10 +529,12 @@ Defaults are chosen for a spoken conversation:
   Ornith/Omni chat weights have no embedding head and measured poorly when
   forced into that role, so the small dedicated encoder remains the deliberate
   exception and unloads after each job.
-- **Long work is checkpointed.** The foreground turn can hand a sustained job
+- **Long work is checkpointed and self-checked.** The foreground turn can hand a sustained job
   to the persistent worker, acknowledge immediately, and keep listening. The
-  worker reasons and uses tools between speech turns, records progress after
-  each result, accepts spoken refinements, and reports when it completes.
+  worker reasons and uses tools between speech turns, reassesses objective
+  alignment and remaining criteria after every concrete result, records
+  evidence-backed progress, accepts spoken refinements, and reports only after
+  the freshest result supports completion or a real blocker.
 - **Live host state is explicit.** Ordinary turns carry no eager clock,
   location, network, battery, or process blob. Current time, browser-provided
   approximate location, and bounded hardware/load facts come from their

@@ -21,6 +21,7 @@ from harness.background_agent import (
     _bounded_tool_result,
     _checkpoint_available,
     _compact_task_messages,
+    _freshest_evidence_id,
     _NonRetryableBackgroundError,
     _seen_tool_fingerprints,
     _stream_error,
@@ -68,6 +69,10 @@ def _checkpoint_response(
                             "arguments": {
                                 "action": action,
                                 "report": report,
+                                "criteria_assessment": (
+                                    "The cited evidence was checked against the "
+                                    "completion criteria; no required work remains."
+                                ),
                                 "evidence_ids": evidence_ids,
                             },
                         },
@@ -80,8 +85,12 @@ def _checkpoint_response(
 
 def test_checkpoint_schema_stays_below_llama_grammar_repetition_limit() -> None:
     report = TASK_CHECKPOINT_TOOL["function"]["parameters"]["properties"]["report"]
+    criteria = TASK_CHECKPOINT_TOOL["function"]["parameters"]["properties"][
+        "criteria_assessment"
+    ]
 
     assert report["maxLength"] == MAX_CHECKPOINT_REPORT_CHARS
+    assert criteria["maxLength"] == MAX_CHECKPOINT_REPORT_CHARS
     assert MAX_CHECKPOINT_REPORT_CHARS < 2_000
     assert TASK_RECOVERY_TOOL["function"]["name"] == "task_recovery"
 
@@ -261,6 +270,7 @@ def test_checkpoint_requires_new_concrete_action_after_every_attempt() -> None:
         }
     )
     assert _checkpoint_available(messages) is True
+    assert _freshest_evidence_id(messages) == "shell-1"
 
     messages.append(
         {
@@ -272,6 +282,7 @@ def test_checkpoint_requires_new_concrete_action_after_every_attempt() -> None:
     )
     assert _checkpoint_available(messages) is False
     assert "shell-duplicate" not in _tool_evidence(messages)
+    assert _freshest_evidence_id(messages) == "shell-1"
 
     messages.append(
         {
@@ -550,6 +561,11 @@ def test_background_agent_yields_between_inference_and_tool_steps(
                         }
                     },
                 )
+            assert any(
+                "<task_self_check" in str(item.get("content") or "")
+                and "write-1" in str(item.get("content") or "")
+                for item in payload["messages"]
+            )
             return _checkpoint_response(
                 "complete",
                 "I created marker.txt and verified the write succeeded.",
@@ -1185,7 +1201,7 @@ def test_background_agent_rejects_completion_after_latest_action_failed(
             command = "bad verification"
         elif chat_round == 3:
             return _checkpoint_response(
-                "complete", "I finished it.", ["action-2"]
+                "complete", "I finished it.", ["action-1"]
             )
         elif chat_round == 4:
             payload = json.loads(request.content)

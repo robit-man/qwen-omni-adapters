@@ -250,7 +250,10 @@ def runtime_environment_snapshot() -> dict[str, Any]:
             "release": platform.release()[:160],
             "architecture": platform.machine()[:64],
         },
-        "accelerator": accelerator_profile(),
+        # Use the same host classification as the GPU-fact route. Passing the
+        # already detected value also prevents a Tegra snapshot from falling
+        # through to discrete-GPU process accounting on this code path.
+        "accelerator": accelerator_profile(tegra=is_tegra()),
         "cpu": _cpu_facts(),
         "memory": _memory_facts(),
         "gpus": _gpu_facts(),

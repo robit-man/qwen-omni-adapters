@@ -418,10 +418,9 @@ class CallSession:
             "speech_mode": "never" if split_speech else "always",
             "think": self.config.reasoning_enabled,
             "portal_auto_tools": with_tools,
-            # A fresh still normally rides on the turn. Keep the tiny bridge
-            # available when capture failed and when a still can be upgraded
-            # to motion evidence; the harness never guesses from transcript
-            # words.
+            # Camera access is a model-selected capability, not eager context.
+            # Keeping only the tiny bridge on the audio pass prevents an
+            # unrelated ambient frame from steering an ordinary spoken answer.
             "portal_camera_bridge": bool(
                 with_tools
                 and self.config.camera_enabled
@@ -483,12 +482,11 @@ class CallSession:
 
         This is the same chain as the cloudflared browser: the portal exposes
         its safe schemas, executes every requested call, and returns the final
-        grounded answer. A camera-enabled embodied client snapshots its current
-        state before deliberation, so visual access does not depend on the
-        language model first admitting that it has a camera. The prompt keeps
-        this ambient evidence subordinate to the speaker's request. A model
-        tool call can still request motion evidence; transcript words never
-        decide that locally.
+        grounded answer. A camera-enabled client exposes a structured capture
+        bridge, but the first pass is audio-only. The model must determine that
+        the request materially needs current visual evidence before it can ask
+        for a still or motion clip; transcript keywords never decide that
+        locally.
         """
 
         self._barge.clear()
@@ -504,11 +502,6 @@ class CallSession:
 
         audio = to_wav(samples)
 
-        frame = None
-        if self.config.camera_enabled and self._frame_grabber is not None:
-            self._state("thinking", "observing")
-            frame = self._frame_grabber(motion=False)
-
         # Every spoken turn is one grounded answer pass with the portal's real
         # tools auto-executed: the model either answers conversationally or
         # calls the smallest tool that accomplishes the request, and the answer
@@ -518,7 +511,7 @@ class CallSession:
         payload = self._build_payload(
             audio,
             segments,
-            frame,
+            None,
             with_tools=self.config.tools_enabled,
         )
         result = self._run(payload)

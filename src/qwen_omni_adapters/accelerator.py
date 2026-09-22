@@ -389,20 +389,33 @@ def gpu_facts() -> list[dict[str, Any]] | None:
     return tegra_gpu_facts() if is_tegra() else None
 
 
-def accelerator_profile() -> dict[str, Any]:
-    """Summarize the accelerator for diagnostics and the doctor command."""
+def accelerator_profile(*, tegra: bool | None = None) -> dict[str, Any]:
+    """Summarize the accelerator for diagnostics and the doctor command.
+
+    ``tegra`` lets a caller reuse an already sampled platform classification,
+    keeping all fields on the same branch without performing a second probe.
+    """
+
+    tegra_detected = is_tegra() if tegra is None else bool(tegra)
 
     profile: dict[str, Any] = {
         "system": platform.system(),
         "machine": platform.machine(),
-        "tegra": is_tegra(),
-        "residency_backend": residency_backend(),
-        "gpu_memory_model": "unified" if is_tegra() else "discrete",
+        "tegra": tegra_detected,
+        "residency_backend": (
+            "tegra-device-handles" if tegra_detected else residency_backend()
+        ),
+        "gpu_memory_model": "unified" if tegra_detected else "discrete",
     }
-    if is_tegra():
-        profile["tegra_soc"] = tegra_soc()
+    soc = tegra_soc() if tegra_detected else None
+    if tegra_detected:
+        profile["tegra_soc"] = soc
         profile["l4t_release"] = l4t_release()
-    architectures = cuda_architectures()
+    architectures = (
+        os.environ.get("OMNI_CUDA_ARCHITECTURES", "").strip()
+        or (_TEGRA_SOC_ARCHITECTURES.get(soc or "") if tegra_detected else None)
+        or (cuda_architectures() if tegra is None else None)
+    )
     if architectures:
         profile["cuda_architectures"] = architectures
     return profile

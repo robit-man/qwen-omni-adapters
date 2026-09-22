@@ -171,6 +171,9 @@ result. Do not commit large or restricted media.
 - trash followed by a late aborted-request event recreating diagnostic data.
 - cache restoration re-submitting display-only media to inference;
 - live-call prompting that merely echoes or paraphrases the user by default;
+- camera-enabled nonvisual turns capturing or mentioning an ambient scene;
+- background checkpoints omitting a criteria assessment or citing stale
+  evidence after a newer concrete result;
 - runtime snapshots exposing hostnames, addresses, processes, or credentials.
 
 Errors must be typed and must not echo raw media, secrets, thinking, or tool

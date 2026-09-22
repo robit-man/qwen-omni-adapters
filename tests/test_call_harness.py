@@ -836,7 +836,7 @@ def test_camera_intent_comes_from_the_structured_tool_event() -> None:
     assert result.camera_motion is True
 
 
-def test_every_embodied_turn_carries_one_ambient_still_without_forcing_its_use() -> None:
+def test_unrelated_spoken_turn_does_not_capture_or_attach_an_ambient_still() -> None:
     still = {"mime_type": "image/jpeg", "encoding": "base64", "data": "eA=="}
     captured: list[bool] = []
     payloads: list[dict[str, object]] = []
@@ -862,9 +862,10 @@ def test_every_embodied_turn_carries_one_ambient_still_without_forcing_its_use()
 
     result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
-    assert captured == [False]
+    assert captured == []
     assert len(payloads) == 1
-    assert payloads[0]["messages"][-1]["images"] == [still]  # type: ignore[index]
+    assert "images" not in payloads[0]["messages"][-1]  # type: ignore[operator]
+    assert payloads[0]["portal_camera_bridge"] is True
     assert result.reply == "Here is the news."
     assert result.camera_requested is False
 
@@ -903,9 +904,9 @@ def test_explicit_camera_tool_requests_the_right_capture_mode() -> None:
     call._run = run  # type: ignore[method-assign]
     result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
-    assert captured == [False, True]
+    assert captured == [True]
     assert result.followup == "The box fell over."
-    assert payloads[0]["messages"][-1]["images"] == [still]  # type: ignore[index]
+    assert "images" not in payloads[0]["messages"][-1]  # type: ignore[operator]
     assert payloads[1]["messages"][-1]["videos"] == [clip]  # type: ignore[index]
 
 

@@ -110,11 +110,12 @@ The portable adapter v1 response is turn-based. The phone portal adds an NDJSON
 transport that relays language deltas and live Qwen3-TTS PCM windows while
 retaining one authoritative final Ollama-shaped response. It also relays
 bounded tool-round start/completion events; only a final response with no
-pending calls may enter TTS. Camera-call mode snapshots a current ambient frame
-before each confirmed speech turn and labels it subordinate to the spoken
-request; the model may request a short motion clip when temporal evidence
-matters. It does not feed an unbounded camera stream into one ever-growing
-context. Long speech replies are
+pending calls may enter TTS. Camera-call mode starts with audio and a bounded
+capture tool only. When the spoken request materially depends on the current
+physical scene, the model requests one fresh still or a short motion clip and
+receives it in a follow-up pass. Unrelated turns therefore contain no ambient
+visual evidence, and the runtime never feeds an unbounded camera stream into
+one ever-growing context. Long speech replies are
 split at sentence boundaries before the Qwen3-TTS per-generation frame limit;
 their PCM windows share one monotonically increasing sequence and are assembled
 into the final replay WAV. Silent video is valid, and animated GIF input is

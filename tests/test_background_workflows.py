@@ -68,6 +68,10 @@ def _run_scripted_task(
                     {
                         "action": "complete",
                         "report": "I finished the requested work and verified the result.",
+                        "criteria_assessment": (
+                            "The cited results satisfy every stated completion "
+                            "criterion; no required work remains."
+                        ),
                         "evidence_ids": evidence_ids,
                     },
                 ),

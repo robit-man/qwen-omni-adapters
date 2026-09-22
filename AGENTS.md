@@ -142,6 +142,8 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
   sustained alarm submit one each.
 - rapid call segments consolidate into one bounded pending turn and do not
   create parallel requests from the same browser call.
+- camera-enabled nonvisual turns attach no ambient frame and make no visual
+  claim; a structured camera request adds only the newly captured evidence.
 - sound-only `require_speech` fixtures call comprehension only, never language
   or TTS, and bounded Audio-context fixtures retain at most six entries;
 - location fixtures prove session isolation, Trash cleanup, and removal of raw
@@ -150,6 +152,9 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
   web fixtures preserve producing-tool authority, source URL, and claim limits;
 - two simultaneous sessions receive only their own marker and expose at most
   aggregate active/queued counts.
+- background work performs a task-alignment self-check after each concrete
+  result, and terminal checkpoints assess criteria and cite the freshest
+  evidence rather than an older successful action.
 - TTS returns valid 24 kHz mono PCM16 WAV; streaming returns ordered PCM chunks,
   repeated matching-profile prompts reuse one resident worker PID, and an
   A → B → A synthesize/transcribe gate returns A → B → A without one-turn lag.
