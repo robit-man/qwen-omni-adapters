@@ -8,11 +8,14 @@ from pathlib import Path
 from typing import Any
 
 from qwen_omni_adapters.single_gguf import (
+    LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA,
     inspect_monolithic_gguf,
     materialize_component_view,
 )
 
 OMNI_LAYER_MEDIA_TYPE = "application/vnd.robit.ollama.omni.bundle.v1+gguf"
+OLLAMA_MODEL_MEDIA_TYPE = "application/vnd.ollama.image.model"
+OLLAMA_PROJECTOR_MEDIA_TYPE = "application/vnd.ollama.image.projector"
 DEFAULT_REGISTRY = "registry.ollama.ai"
 RUNTIME_VIEWS = (
     "comprehension_model",
@@ -98,6 +101,39 @@ def _read_manifest(path: Path) -> dict[str, Any]:
     if not isinstance(manifest.get("layers"), list):
         raise OllamaSidecarError(f"Ollama manifest has no layer list: {path}")
     return manifest
+
+
+def _resolve_standard_layers(
+    manifest: dict[str, Any],
+    root: Path,
+) -> dict[str, dict[str, Any]]:
+    media_types = {
+        "language_model": OLLAMA_MODEL_MEDIA_TYPE,
+        "projector": OLLAMA_PROJECTOR_MEDIA_TYPE,
+    }
+    resolved: dict[str, dict[str, Any]] = {}
+    for name, media_type in media_types.items():
+        matches = [
+            layer for layer in manifest["layers"] if layer.get("mediaType") == media_type
+        ]
+        if len(matches) > 1:
+            raise OllamaSidecarError(
+                f"expected at most one {name} layer, found {len(matches)}"
+            )
+        if not matches:
+            continue
+        layer = matches[0]
+        digest = str(layer.get("digest") or "")
+        if not digest.startswith("sha256:"):
+            raise OllamaSidecarError(f"{name} layer has no SHA-256 digest")
+        blob = root / "blobs" / digest.replace(":", "-", 1)
+        available = blob.is_file() and blob.stat().st_size == layer.get("size")
+        resolved[name] = {
+            "layer": layer,
+            "path": str(blob),
+            "available": available,
+        }
+    return resolved
 
 
 def _install_blob(source: Path, destination: Path) -> str:
@@ -206,12 +242,33 @@ def resolve_ollama_sidecar(
     inspection = inspect_monolithic_gguf(blob)
     if not inspection["valid"]:
         raise OllamaSidecarError(f"Omni sidecar failed inspection: {inspection['errors']}")
+    schema = (inspection.get("manifest") or {}).get("schema")
+    profile = (
+        "trained-audio-bridge"
+        if schema == LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA
+        else "legacy-cascade"
+    )
+    standard_layers = _resolve_standard_layers(manifest, root)
+    if profile == "trained-audio-bridge":
+        required = {"language_model", "projector"}
+        missing = sorted(
+            name
+            for name in required
+            if name not in standard_layers or not standard_layers[name]["available"]
+        )
+        if missing:
+            raise OllamaSidecarError(
+                "trained audio bridge requires standard Ollama layers: "
+                + ", ".join(missing)
+            )
     return {
         "model": model,
         "manifest": str(path),
         "layer": layer,
         "bundle": str(blob),
         "inspection": inspection,
+        "profile": profile,
+        "standard_layers": standard_layers,
     }
 
 
@@ -219,21 +276,40 @@ def prepare_ollama_sidecar(
     *,
     model: str,
     output_dir: Path,
-    views: tuple[str, ...] = RUNTIME_VIEWS,
+    views: tuple[str, ...] | None = None,
     models_dir: Path | None = None,
     overwrite: bool = False,
 ) -> dict[str, Any]:
     """Materialize disposable runtime views directly from an installed Ollama tag."""
-    unknown = sorted(set(views) - set(RUNTIME_VIEWS))
+    resolved = resolve_ollama_sidecar(model=model, models_dir=models_dir)
+    default_views = (
+        ("tts_model", "tts_projector")
+        if resolved["profile"] == "trained-audio-bridge"
+        else RUNTIME_VIEWS
+    )
+    selected_views = default_views if views is None else views
+    unknown = sorted(set(selected_views) - set(RUNTIME_VIEWS))
     if unknown:
         raise OllamaSidecarError(f"unsupported runtime views: {', '.join(unknown)}")
-    if not views:
+    if not selected_views:
         raise OllamaSidecarError("at least one runtime view is required")
-    resolved = resolve_ollama_sidecar(model=model, models_dir=models_dir)
+    declared = {
+        str(component.get("name"))
+        for component in (resolved["inspection"].get("manifest") or {}).get(
+            "components", []
+        )
+        if isinstance(component, dict)
+    }
+    unavailable = sorted(set(selected_views) - declared)
+    if unavailable:
+        raise OllamaSidecarError(
+            f"sidecar profile {resolved['profile']} has no runtime views: "
+            + ", ".join(unavailable)
+        )
     destination = output_dir.expanduser().resolve()
     destination.mkdir(parents=True, exist_ok=True)
     outputs: dict[str, dict[str, Any]] = {}
-    for view in views:
+    for view in selected_views:
         output = destination / (view.replace("_", "-") + ".gguf")
         outputs[view] = materialize_component_view(
             bundle_gguf=Path(resolved["bundle"]),
@@ -247,5 +323,7 @@ def prepare_ollama_sidecar(
         "bundle_digest": resolved["layer"]["digest"],
         "output_dir": str(destination),
         "disposable_cache": True,
+        "profile": resolved["profile"],
+        "standard_layers": resolved["standard_layers"],
         "views": outputs,
     }

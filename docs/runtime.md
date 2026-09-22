@@ -91,6 +91,12 @@ tts-projector.gguf
 These are derived cache files, not additional release downloads. Stop every
 worker before deleting them.
 
+A trained-audio-bridge tag resolves as profile `trained-audio-bridge`. Its
+language model and combined vision/audio projector remain standard Ollama
+layers, so `prepare` creates only `tts-model.gguf` and
+`tts-projector.gguf`. The launcher passes the two standard blob paths directly
+to llama.cpp and points both adapter stages at that one server.
+
 ## Start the comprehension worker
 
 On hosts using the ollama-unify broker, first run `docker gpu discover`, select
@@ -115,6 +121,13 @@ docker gpu run \
 
 The process must see exactly the reserved UUID. Release the broker lease only
 after the worker exits and CUDA memory is freed.
+
+Trained-audio-bridge profiles enable llama.cpp `ngram-simple` speculative
+decoding by default because it adds no draft-model weights and benefits the
+structured evidence/tool output used here. Set `OMNI_SPECULATIVE_TYPE=none` to
+disable it, or another pinned llama.cpp speculative type to benchmark an
+explicit alternative. Release evidence must report workload-specific results;
+the optimization is not assumed to improve every open-ended answer.
 
 ### Runtime-wide memory governor
 

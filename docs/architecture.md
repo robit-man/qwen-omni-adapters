@@ -43,6 +43,15 @@ evidence. Ordinary uploaded-media analysis keeps every encoder tag as evidence.
 This prevents room noise, OCR, or an encoder's suggested answer from outranking
 the speaker's actual request or changing tool/system policy.
 
+A trained-audio-bridge release uses a smaller execution profile without
+changing that evidence contract. Its standard Ollama model layer is the target
+Qwen3.8 E03 or standard Ornith language trunk, and its standard projector layer
+contains the target's native vision tensors plus the frozen Omni audio encoder.
+Only the final 1,280-wide audio projection is trained into the target embedding
+width. One local llama.cpp server then performs media comprehension and the
+language/tool pass; the Omni Thinker is absent and a second Ollama language
+runner is not started.
+
 Static model-facing policy is not duplicated across Python and JavaScript.
 `src/qwen_omni_adapters/context.json` is the packaged source for prompts, tool
 descriptions/discovery hints, structured control tools, and durable-task phase
@@ -71,6 +80,12 @@ The custom GGUF uses namespaces for byte-preserving component views:
 
 `qwen-omni prepare` reconstructs only the runtime views. They are disposable;
 the attached sidecar remains the source of truth.
+
+For `robit.ollama-audio-bridge.v1`, the standard model/projector layers are
+directly executable and the custom sidecar contains only `s.t.m.*` and
+`s.t.p.*`. Preparation therefore materializes only the two TTS views. The
+resolver validates the standard model and combined vision/audio projector
+blobs before startup.
 
 ## State and concurrency
 

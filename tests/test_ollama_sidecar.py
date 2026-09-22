@@ -16,6 +16,46 @@ from qwen_omni_adapters.ollama_sidecar import (
 from qwen_omni_adapters.single_gguf import pack_monolithic_gguf
 
 
+def _make_lightweight_sidecar(path: Path) -> None:
+    gguf = pytest.importorskip("gguf")
+    np = pytest.importorskip("numpy")
+    manifest = {
+        "schema": "robit.ollama-audio-bridge.v1",
+        "profile": "trained-audio-bridge",
+        "components": [
+            {"name": "tts_model"},
+            {"name": "tts_projector"},
+        ],
+    }
+    writer = gguf.GGUFWriter(str(path), arch="clip")
+    writer.add_key_value(
+        "robit.audio_bundle.schema",
+        "robit.ollama-audio-bridge.v1",
+        gguf.GGUFValueType.STRING,
+    )
+    writer.add_key_value(
+        "robit.audio_bundle.manifest",
+        json.dumps(manifest),
+        gguf.GGUFValueType.STRING,
+    )
+    writer.add_key_value(
+        "robit.audio_bundle.component.tts_model.kv.general.architecture",
+        "llama",
+        gguf.GGUFValueType.STRING,
+    )
+    writer.add_key_value(
+        "robit.audio_bundle.component.tts_projector.kv.general.architecture",
+        "clip",
+        gguf.GGUFValueType.STRING,
+    )
+    writer.add_tensor("s.t.m.tts.weight", np.asarray([[1.0]], dtype=np.float32))
+    writer.add_tensor("s.t.p.projector.weight", np.asarray([[2.0]], dtype=np.float32))
+    writer.write_header_to_file()
+    writer.write_kv_data_to_file()
+    writer.write_tensors_to_file()
+    writer.close()
+
+
 def _make_gguf(path: Path, name: str, value: float) -> None:
     gguf = pytest.importorskip("gguf")
     np = pytest.importorskip("numpy")
@@ -91,6 +131,63 @@ def test_attach_and_resolve_omni_sidecar_layer(tmp_path: Path) -> None:
     assert prepared["disposable_cache"] is True
     assert set(prepared["views"]) == {"comprehension_model", "tts_model"}
     assert Path(prepared["views"]["tts_model"]["output"]).is_file()
+
+
+def test_lightweight_bridge_resolves_standard_layers_and_materializes_only_tts(
+    tmp_path: Path,
+) -> None:
+    models_dir = tmp_path / "models"
+    blobs = models_dir / "blobs"
+    blobs.mkdir(parents=True)
+    language = blobs / "sha256-language"
+    projector = blobs / "sha256-projector"
+    sidecar = blobs / "sha256-sidecar"
+    language.write_bytes(b"language")
+    projector.write_bytes(b"projector")
+    _make_lightweight_sidecar(sidecar)
+    path = manifest_path("robit/bridge:q4km", models_dir)
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schemaVersion": 2,
+                "layers": [
+                    {
+                        "mediaType": "application/vnd.ollama.image.model",
+                        "digest": "sha256:language",
+                        "size": language.stat().st_size,
+                    },
+                    {
+                        "mediaType": "application/vnd.ollama.image.projector",
+                        "digest": "sha256:projector",
+                        "size": projector.stat().st_size,
+                    },
+                    {
+                        "mediaType": OMNI_LAYER_MEDIA_TYPE,
+                        "digest": "sha256:sidecar",
+                        "size": sidecar.stat().st_size,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    resolved = resolve_ollama_sidecar(
+        model="robit/bridge:q4km",
+        models_dir=models_dir,
+    )
+    prepared = prepare_ollama_sidecar(
+        model="robit/bridge:q4km",
+        output_dir=tmp_path / "runtime-cache",
+        models_dir=models_dir,
+    )
+
+    assert resolved["profile"] == "trained-audio-bridge"
+    assert resolved["standard_layers"]["language_model"]["path"] == str(language)
+    assert resolved["standard_layers"]["projector"]["path"] == str(projector)
+    assert set(prepared["views"]) == {"tts_model", "tts_projector"}
+    assert not (tmp_path / "runtime-cache" / "comprehension-model.gguf").exists()
 
 
 def test_a_populated_store_is_preferred_over_one_that_merely_exists(monkeypatch, tmp_path):

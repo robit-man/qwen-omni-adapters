@@ -245,6 +245,7 @@ class OmniDaemon:
         self.token_file = self.state_dir / "access-token.txt"
         self.children: list[Child] = []
         self.stop_event = threading.Event()
+        self.sidecar_resolution: dict[str, Any] | None = None
 
     def _write_status(self, **fields: Any) -> None:
         value = {
@@ -438,7 +439,15 @@ class OmniDaemon:
         self._write_status(state="preflight")
         self._preflight()
         self._ensure_model(self.config.model)
-        if self.config.language_api == "ollama":
+        resolved = resolve_ollama_sidecar(model=self.config.model)
+        self.sidecar_resolution = resolved
+        bridge_profile = resolved.get("profile") == "trained-audio-bridge"
+        if bridge_profile:
+            self._write_status(
+                state="preflight",
+                detail="trained audio bridge uses one local language trunk",
+            )
+        elif self.config.language_api == "ollama":
             self._ensure_model(self.config.language_model)
             self._verify_shared_base()
         else:
@@ -448,13 +457,12 @@ class OmniDaemon:
                 state="preflight",
                 detail=f"language stage on the {self.config.language_api} backend",
             )
-        resolved = resolve_ollama_sidecar(model=self.config.model)
         self._write_status(state="materializing", sidecar_digest=resolved["layer"]["digest"])
         required = [
             self.cache_dir / "tts-model.gguf",
             self.cache_dir / "tts-projector.gguf",
         ]
-        if self.config.enable_comprehension:
+        if self.config.enable_comprehension and not bridge_profile:
             required[:0] = [
                 self.cache_dir / "comprehension-model.gguf",
                 self.cache_dir / "comprehension-projector.gguf",
@@ -465,6 +473,56 @@ class OmniDaemon:
                 output_dir=self.cache_dir,
                 overwrite=True,
             )
+
+    def _resolved_sidecar(self) -> dict[str, Any]:
+        if self.sidecar_resolution is None:
+            self.sidecar_resolution = resolve_ollama_sidecar(model=self.config.model)
+        return self.sidecar_resolution
+
+    def _comprehension_artifacts(self) -> tuple[Path, Path]:
+        resolved = self._resolved_sidecar()
+        if resolved.get("profile") == "trained-audio-bridge":
+            layers = resolved.get("standard_layers") or {}
+            try:
+                model = Path(layers["language_model"]["path"])
+                projector = Path(layers["projector"]["path"])
+            except (KeyError, TypeError) as exc:
+                raise DaemonError(
+                    "trained audio bridge is missing its standard model/projector layers"
+                ) from exc
+            return model, projector
+        return (
+            self.cache_dir / "comprehension-model.gguf",
+            self.cache_dir / "comprehension-projector.gguf",
+        )
+
+    def _language_route(self) -> tuple[str, str, str]:
+        resolved = self._resolved_sidecar()
+        if (
+            resolved.get("profile") == "trained-audio-bridge"
+            and self.config.enable_comprehension
+        ):
+            return (
+                "openai",
+                f"http://127.0.0.1:{self.config.comprehension_port}/v1/chat/completions",
+                "local-audio-bridge",
+            )
+        return (
+            self.config.language_api,
+            os.environ.get("OMNI_LANGUAGE_URL", "http://127.0.0.1:11434"),
+            self.config.language_model,
+        )
+
+    def _speculative_args(self) -> list[str]:
+        configured = os.environ.get("OMNI_SPECULATIVE_TYPE")
+        if configured is None:
+            configured = (
+                "ngram-simple"
+                if self._resolved_sidecar().get("profile") == "trained-audio-bridge"
+                else ""
+            )
+        selected = configured.strip()
+        return ["--spec-type", selected] if selected else []
 
     def _spawn(self, name: str, command: list[str], env: dict[str, str] | None = None) -> Child:
         log = (self.log_dir / f"{name}.log").open("ab", buffering=0)
@@ -621,15 +679,16 @@ class OmniDaemon:
         common["OMNI_DECISION_TRACE_FILE"] = str(
             self.config.runtime_root / "decision-traces.jsonl"
         )
+        comprehension_model, comprehension_projector = self._comprehension_artifacts()
         if self.config.enable_comprehension:
             comprehension = self._spawn(
                 "comprehension",
                 [
                     str(_binary(self.config.repo_root, "llama-server")),
                     "-m",
-                    str(self.cache_dir / "comprehension-model.gguf"),
+                    str(comprehension_model),
                     "--mmproj",
-                    str(self.cache_dir / "comprehension-projector.gguf"),
+                    str(comprehension_projector),
                     "--host",
                     "127.0.0.1",
                     "--port",
@@ -639,6 +698,7 @@ class OmniDaemon:
                     "99",
                     "-c",
                     str(self.config.context_tokens),
+                    *self._speculative_args(),
                 ],
                 common,
             )
@@ -668,6 +728,7 @@ class OmniDaemon:
         )
         self._wait_http(tts, f"http://127.0.0.1:{self.config.tts_port}/healthz", 60)
 
+        language_api, language_url, language_model = self._language_route()
         adapter_env = {
             **common,
             # An empty URL is how the adapter reports comprehension as
@@ -680,23 +741,15 @@ class OmniDaemon:
                 if self.config.enable_comprehension
                 else os.environ.get("OMNI_COMPREHENSION_URL", "")
             ),
-            "OMNI_COMPREHENSION_MODEL": "local-qwen3-omni",
+            "OMNI_COMPREHENSION_MODEL": language_model,
             "OMNI_COMPREHENSION_CONTEXT_TOKENS": str(self.config.context_tokens),
-            "OMNI_LANGUAGE_URL": "http://127.0.0.1:11434",
-            "OMNI_LANGUAGE_MODEL": self.config.language_model,
+            "OMNI_LANGUAGE_API": language_api,
+            "OMNI_LANGUAGE_URL": language_url,
+            "OMNI_LANGUAGE_MODEL": language_model,
             "OMNI_TTS_URL": f"http://127.0.0.1:{self.config.tts_port}/synthesize",
             "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames),
             "OMNI_ADAPTER_HOST": "127.0.0.1",
             "OMNI_ADAPTER_PORT": str(self.config.adapter_port),
-            # Last, so it wins: which language backend to use is the operator's
-            # choice, not the supervisor's. A constrained host points it at the
-            # comprehension server it has already loaded rather than a second
-            # set of weights.
-            **{
-                key: os.environ[key]
-                for key in ("OMNI_LANGUAGE_API", "OMNI_LANGUAGE_URL")
-                if os.environ.get(key)
-            },
         }
         adapter = self._spawn(
             "adapter",

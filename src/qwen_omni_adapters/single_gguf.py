@@ -12,6 +12,7 @@ from typing import Any
 from qwen_omni_adapters.contract import adapter_contract
 
 BUNDLE_SCHEMA = "robit.ollama-monolithic-omni.v3"
+LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA = "robit.ollama-audio-bridge.v1"
 BUNDLE_NAMESPACE = "robit.audio_bundle"
 CONTAINER_FORMAT = "robit-namespaced-multigraph-gguf-v1"
 MAX_GGML_TENSOR_NAME_BYTES = 127
@@ -463,7 +464,8 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         manifest = None
         errors.append(f"invalid bundle manifest JSON: {exc}")
-    if metadata.get(f"{BUNDLE_NAMESPACE}.schema") != BUNDLE_SCHEMA:
+    schema = metadata.get(f"{BUNDLE_NAMESPACE}.schema")
+    if schema not in {BUNDLE_SCHEMA, LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA}:
         errors.append("missing or unsupported bundle schema")
     view_counts = {"base": 0, **{component.name: 0 for component in EMBEDDED_COMPONENTS}}
     for tensor in reader.tensors:
@@ -480,7 +482,12 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
         ),
         "tts": view_counts["tts_model"] + view_counts["tts_projector"],
     }
-    for component in ("base", "comprehension", "tts"):
+    required_groups = (
+        ("tts",)
+        if schema == LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA
+        else ("base", "comprehension", "tts")
+    )
+    for component in required_groups:
         if counts[component] == 0:
             errors.append(f"bundle has no {component} tensors")
     declared = {
@@ -564,7 +571,10 @@ def materialize_component_view(
 
     reader = gguf.GGUFReader(str(source))
     metadata = _reader_metadata(reader)
-    if metadata.get(f"{BUNDLE_NAMESPACE}.schema") != BUNDLE_SCHEMA:
+    if metadata.get(f"{BUNDLE_NAMESPACE}.schema") not in {
+        BUNDLE_SCHEMA,
+        LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA,
+    }:
         raise SingleGGUFError(f"unsupported or missing bundle schema in {source}")
     if component:
         architecture = str(metadata.get(component.metadata_prefix + "general.architecture") or "")

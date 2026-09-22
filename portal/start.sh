@@ -35,6 +35,16 @@ TTS_ACTIVE_PID_FILE="$STATE_DIR/tts-active.pid"
 SUPERVISOR_LOG="$LOG_DIR/supervisor.log"
 CACHE_MARKER="$CACHE_DIR/.robit-omni-portal-cache"
 
+SIDECAR_PROFILE=legacy-cascade
+COMP_MODEL_GGUF="$CACHE_DIR/comprehension-model.gguf"
+COMP_PROJECTOR_GGUF="$CACHE_DIR/comprehension-projector.gguf"
+ADAPTER_COMPREHENSION_MODEL=local-qwen3-omni
+ADAPTER_LANGUAGE_API=${OMNI_LANGUAGE_API:-ollama}
+ADAPTER_LANGUAGE_URL=${OMNI_LANGUAGE_URL:-http://127.0.0.1:11434}
+ADAPTER_LANGUAGE_MODEL=$LANGUAGE_MODEL
+SPECULATIVE_TYPE=${OMNI_SPECULATIVE_TYPE:-}
+COMP_SPEC_ARGS=()
+
 COMP_PID=""
 TTS_PID=""
 ADAPTER_PID=""
@@ -67,6 +77,29 @@ verify_language_model() {
   [[ -n "$logical_sources" && "$logical_sources" == "$language_sources" ]] \
     || die "OMNI_LANGUAGE_MODEL does not reference the combined tag's base/projector blobs"
   log "verified language backend shares the combined tag's standard blobs"
+}
+
+resolve_runtime_profile() {
+  local resolved
+  resolved=$("$PYTHON_BIN" -m qwen_omni_adapters resolve "$MODEL")
+  SIDECAR_PROFILE=$(jq -r '.profile // "legacy-cascade"' <<<"$resolved")
+  if [[ "$SIDECAR_PROFILE" == trained-audio-bridge ]]; then
+    COMP_MODEL_GGUF=$(jq -er '.standard_layers.language_model.path' <<<"$resolved")
+    COMP_PROJECTOR_GGUF=$(jq -er '.standard_layers.projector.path' <<<"$resolved")
+    [[ -f "$COMP_MODEL_GGUF" ]] || die "audio-bridge language model blob is missing"
+    [[ -f "$COMP_PROJECTOR_GGUF" ]] || die "audio-bridge projector blob is missing"
+    ADAPTER_COMPREHENSION_MODEL=local-audio-bridge
+    ADAPTER_LANGUAGE_API=openai
+    ADAPTER_LANGUAGE_URL="http://127.0.0.1:$COMP_PORT/v1/chat/completions"
+    ADAPTER_LANGUAGE_MODEL=local-audio-bridge
+    if [[ -z "$SPECULATIVE_TYPE" ]]; then
+      SPECULATIVE_TYPE=ngram-simple
+    fi
+    log "resolved trained audio bridge; one local trunk will serve media and language"
+  fi
+  if [[ -n "$SPECULATIVE_TYPE" ]]; then
+    COMP_SPEC_ARGS=(--spec-type "$SPECULATIVE_TYPE")
+  fi
 }
 
 wait_http() {
@@ -295,11 +328,15 @@ check_port_available() {
 
 prepare_cache() {
   local required=(
-    "$CACHE_DIR/comprehension-model.gguf"
-    "$CACHE_DIR/comprehension-projector.gguf"
     "$CACHE_DIR/tts-model.gguf"
     "$CACHE_DIR/tts-projector.gguf"
   )
+  if [[ "$SIDECAR_PROFILE" != trained-audio-bridge ]]; then
+    required+=(
+      "$CACHE_DIR/comprehension-model.gguf"
+      "$CACHE_DIR/comprehension-projector.gguf"
+    )
+  fi
   local missing=0
   local file
   for file in "${required[@]}"; do
@@ -311,9 +348,18 @@ prepare_cache() {
   fi
   local free_kib
   free_kib=$(df -Pk "$RUNTIME_ROOT" | awk 'NR==2 {print $4}')
-  (( free_kib >= 30 * 1024 * 1024 )) || die "at least 30 GiB free is required to prepare the component cache"
+  local required_free_gib=30
+  if [[ "$SIDECAR_PROFILE" == trained-audio-bridge ]]; then
+    required_free_gib=4
+  fi
+  (( free_kib >= required_free_gib * 1024 * 1024 )) \
+    || die "at least $required_free_gib GiB free is required to prepare the component cache"
   mkdir -p "$CACHE_DIR"
-  log "materializing four verified runtime views from the installed Ollama sidecar"
+  if [[ "$SIDECAR_PROFILE" == trained-audio-bridge ]]; then
+    log "materializing two verified TTS views from the lightweight sidecar"
+  else
+    log "materializing four verified runtime views from the installed Ollama sidecar"
+  fi
   "$PYTHON_BIN" -m qwen_omni_adapters prepare "$MODEL" --out "$CACHE_DIR" --overwrite
   : >"$CACHE_MARKER"
 }
@@ -382,12 +428,14 @@ run_foreground() {
     log "model is not installed; pulling $MODEL"
     ollama pull "$MODEL"
   fi
-  if ! ollama show "$LANGUAGE_MODEL" >/dev/null 2>&1; then
-    log "language backend is not installed; pulling $LANGUAGE_MODEL"
-    ollama pull "$LANGUAGE_MODEL"
+  resolve_runtime_profile
+  if [[ "$SIDECAR_PROFILE" != trained-audio-bridge ]]; then
+    if ! ollama show "$LANGUAGE_MODEL" >/dev/null 2>&1; then
+      log "language backend is not installed; pulling $LANGUAGE_MODEL"
+      ollama pull "$LANGUAGE_MODEL"
+    fi
+    verify_language_model
   fi
-  verify_language_model
-  "$PYTHON_BIN" -m qwen_omni_adapters resolve "$MODEL" >/dev/null
   prepare_cache
 
   local decision_ready=0
@@ -429,10 +477,11 @@ run_foreground() {
   HIP_VISIBLE_DEVICES=-1 \
   ROCR_VISIBLE_DEVICES=-1 \
   "$REPO_ROOT/vendor/llama.cpp/build/bin/llama-server" \
-    -m "$CACHE_DIR/comprehension-model.gguf" \
-    --mmproj "$CACHE_DIR/comprehension-projector.gguf" \
+    -m "$COMP_MODEL_GGUF" \
+    --mmproj "$COMP_PROJECTOR_GGUF" \
     --host 127.0.0.1 --port "$COMP_PORT" \
     --jinja -ngl 99 -c "$COMP_CONTEXT_TOKENS" \
+    "${COMP_SPEC_ARGS[@]}" \
     >"$LOG_DIR/comprehension.log" 2>&1 &
   COMP_PID=$!
   wait_http "http://127.0.0.1:$COMP_PORT/health" "CUDA comprehension" 1200 "$COMP_PID"
@@ -479,10 +528,11 @@ run_foreground() {
 
   log "starting unified Omni adapter"
   OMNI_COMPREHENSION_URL="http://127.0.0.1:$COMP_PORT/v1/chat/completions" \
-  OMNI_COMPREHENSION_MODEL=local-qwen3-omni \
+  OMNI_COMPREHENSION_MODEL="$ADAPTER_COMPREHENSION_MODEL" \
   OMNI_COMPREHENSION_CONTEXT_TOKENS="$COMP_CONTEXT_TOKENS" \
-  OMNI_LANGUAGE_URL=http://127.0.0.1:11434 \
-  OMNI_LANGUAGE_MODEL="$LANGUAGE_MODEL" \
+  OMNI_LANGUAGE_API="$ADAPTER_LANGUAGE_API" \
+  OMNI_LANGUAGE_URL="$ADAPTER_LANGUAGE_URL" \
+  OMNI_LANGUAGE_MODEL="$ADAPTER_LANGUAGE_MODEL" \
   OMNI_TTS_URL="http://127.0.0.1:$TTS_PORT/synthesize" \
   OMNI_DECISION_PLANE_ENABLED="$decision_ready" \
   OMNI_DECISION_PLANE_URL="http://127.0.0.1:$LAYA_PORT" \

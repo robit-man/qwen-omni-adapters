@@ -244,16 +244,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "resolve":
             result = resolve_ollama_sidecar(model=args.model, models_dir=args.models_dir)
         elif args.command == "prepare":
-            views = (
-                tuple(args.views)
-                if args.views
-                else (
-                    "comprehension_model",
-                    "comprehension_projector",
-                    "tts_model",
-                    "tts_projector",
-                )
-            )
+            views = tuple(args.views) if args.views else None
             result = prepare_ollama_sidecar(
                 model=args.model,
                 output_dir=args.out,

@@ -130,6 +130,25 @@ Note that `-ngl 99` does not increase the footprint here the way it does on a
 discrete card: there is one pool, so offloading layers changes which engine
 computes them, not how much memory they occupy.
 
+### Trained audio-bridge profile
+
+The lightweight profile removes the separate 18.5 GiB Omni comprehension
+model. It retains one quantized target language trunk, the target's native
+vision projector, the frozen Omni audio encoder, a trained final audio
+projection, and the existing TTS stack. Current artifact-byte projections are:
+
+| Target | Language + combined projector + TTS weights |
+|---|---:|
+| standard Ornith 1.5 9B | about 8.2 GiB |
+| Qwen3.8 27B E03 Obliterated | about 18.3 GiB |
+
+These are file/resident-weight totals, not measured Jetson peak unified
+memory. KV cache, graph workspaces, CUDA allocations, the OS, and the portal
+still consume the shared pool. Publish a no-eviction claim only after the
+candidate is measured on a 32 GB Orin with its production context and TTS
+policy; the resolver exposes exact layer sizes so that evidence can be tied to
+the released digests.
+
 `qwen-omni doctor` reports the accelerator, and omits the broker tooling
 (`docker`, `jq`, `ss`) that does not apply:
 

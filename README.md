@@ -235,6 +235,13 @@ sidecar layer, reconstructs byte-preserving executable component views, and
 runs audio/video comprehension and TTS with the pinned llama.cpp build. The
 public request remains Ollama-shaped and names the one logical tag.
 
+The runtime also accepts the reduced `robit.ollama-audio-bridge.v1` profile.
+There the standard projector combines target-native vision with the frozen
+Omni audio encoder and its trained final projection. The sidecar carries only
+TTS, and one local llama.cpp server is both the multimodal comprehension path
+and the sole language/tool trunk. This removes the full secondary Omni Thinker
+and avoids loading an adjacent Ollama language copy.
+
 This is intentionally a semantic router. Qwen3.8, Qwen3-Omni, and Qwen3-TTS do
 not share compatible hidden-state interfaces, so the implementation does not
 pretend that their tensors can be spliced into a directly executable graph.

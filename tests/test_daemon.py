@@ -250,6 +250,32 @@ def test_an_ollama_language_backend_is_still_pulled_and_verified(monkeypatch, tm
     assert verified == [True]
 
 
+def test_trained_audio_bridge_uses_standard_layers_as_its_only_language_trunk(
+    tmp_path,
+) -> None:
+    from qwen_omni_adapters import daemon as daemon_module
+
+    config = _config(tmp_path)
+    supervisor = daemon_module.OmniDaemon(config)
+    model = tmp_path / "blobs" / "language.gguf"
+    projector = tmp_path / "blobs" / "projector.gguf"
+    supervisor.sidecar_resolution = {
+        "profile": "trained-audio-bridge",
+        "standard_layers": {
+            "language_model": {"path": str(model)},
+            "projector": {"path": str(projector)},
+        },
+    }
+
+    assert supervisor._comprehension_artifacts() == (model, projector)
+    assert supervisor._language_route() == (
+        "openai",
+        f"http://127.0.0.1:{config.comprehension_port}/v1/chat/completions",
+        "local-audio-bridge",
+    )
+    assert supervisor._speculative_args() == ["--spec-type", "ngram-simple"]
+
+
 def test_an_externally_managed_comprehension_port_does_not_block_start(monkeypatch):
     """A worker this supervisor does not own may already hold that port."""
 
