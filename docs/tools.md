@@ -230,8 +230,8 @@ There is no hosted/keyless search API, API SDK, or API credential in this
 harness. `web_search(mode=discover)` starts an installed Chromium/Chrome binary
 with an ephemeral local profile and reads links from normal public search
 result pages. Discovery starts with DuckDuckGo and, when that page is
-challenged, empty, or fails, makes one bounded attempt each with Bing and Brave
-Search. A public primary page can be selected with a template containing
+challenged, empty, or fails, makes one bounded attempt with Brave Search.
+A public primary page can be selected with a template containing
 `{query}` via `OMNI_WEB_SEARCH_URL_TEMPLATE`; the same bounded fallbacks remain
 available. `OMNI_WEB_BROWSER` pins the local browser executable. Linux, macOS,
 and Windows browser locations are discovered when no override is present.
@@ -240,7 +240,9 @@ providers challenge, the result exposes visible `browser_interact` and
 whole-desktop `gui_interact` as first-class next capabilities. The tool loop
 must continue through the rendered GUI rather than claiming the task is
 blocked, while still withholding any factual claim until a clean results or
-source page is observed.
+source page is observed. Both browser and desktop interaction support drag
+gestures for sliders, and rendered `<summary>` controls remain clickable so
+reasoning and tool evidence panels can be inspected through the same loop.
 
 Discovery indexes at most 48 result/fetched pages and 128,000 characters for
 the opaque browser session. `web_search(mode=session)` ranks that local index

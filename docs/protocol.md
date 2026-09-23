@@ -228,6 +228,19 @@ tool events on the portal NDJSON extension, and returns bounded arguments and
 result evidence under `response.portal`. The toggle defaults off. This flag and
 trace are portal extensions, not fields in portable adapter v1.
 
+If an adapter language stream ends with a classified network/timeout failure
+before audio starts, the portal retries that exact round once. It emits
+`{"type":"reset","reason":"upstream_network_retry","attempt":1}` before
+replacement deltas so clients discard only the partial content and reasoning
+from the interrupted round. Tool receipts from already completed prior rounds
+remain authoritative. A second failure is terminal and is emitted as an error;
+the diagnostic journal records the recovered or terminal upstream failure.
+The browser applies the same one-retry/reset rule when Chromium itself reports
+a transient fetch/network change. It reconnects only while replay is safe:
+audio must not have started, and every completed tool must be on the explicit
+read-only retry allowlist. Stateful browser, GUI, shell, memory-write, and task
+actions are never replayed automatically.
+
 ### `transcribe`
 
 Requires audio on the last user message. It executes only the comprehension

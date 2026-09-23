@@ -108,6 +108,7 @@ DIAGNOSTIC_TTL_SECONDS = 5 * 60
 # Productive chains have no numeric round ceiling. This guard only stops a
 # model that keeps changing searches/calls without obtaining actionable data.
 MAX_STALLED_TOOL_ROUNDS = 3
+MAX_STREAM_NETWORK_RETRIES = 1
 DIAGNOSTIC_NUMERIC_FIELDS = {
     "queue_wait_ms",
     "upstream_headers_ms",
@@ -1301,6 +1302,35 @@ def _probe(client: httpx.Client, url: str) -> dict[str, Any]:
         return {"ok": False, "status": None}
 
 
+def _stream_error_outcome(value: Any) -> str:
+    message = str(value or "").strip().lower()
+    if any(
+        marker in message
+        for marker in (
+            "network error",
+            "connection reset",
+            "connection aborted",
+            "server disconnected",
+            "incomplete chunked",
+            "remote protocol",
+        )
+    ):
+        return "network_error"
+    if "timed out" in message or "timeout" in message:
+        return "timeout"
+    if "without a final response" in message:
+        return "incomplete_stream"
+    return "upstream_stream_error"
+
+
+def _retryable_stream_error(value: Any) -> bool:
+    return _stream_error_outcome(value) in {
+        "network_error",
+        "timeout",
+        "incomplete_stream",
+    }
+
+
 def create_app(
     config: PortalConfig | None = None,
     client: httpx.Client | None = None,
@@ -2266,6 +2296,7 @@ def create_app(
             stalled_rounds = 0
             recovery_pending = False
             recovery_refusals = 0
+            stream_retries = 0
 
             def event_bytes(event: Mapping[str, Any]) -> bytes:
                 return (json.dumps(event, separators=(",", ":")) + "\n").encode()
@@ -2277,8 +2308,17 @@ def create_app(
                 round_index = 0
                 while True:
                     final_response: dict[str, Any] | None = None
-                    stream_failed = False
-                    for line in current_upstream.iter_lines():
+                    stream_error = ""
+                    round_audio_started = False
+                    upstream_lines = current_upstream.iter_lines()
+                    while True:
+                        try:
+                            line = next(upstream_lines)
+                        except StopIteration:
+                            break
+                        except httpx.HTTPError as exc:
+                            stream_error = str(exc)[:500]
+                            break
                         if first_byte:
                             first_byte = False
                             diagnostics.record(
@@ -2298,34 +2338,89 @@ def create_app(
                         try:
                             event = json.loads(line)
                         except ValueError:
-                            yield event_bytes(
-                                {"type": "error", "error": "adapter returned an invalid stream event"}
-                            )
-                            stream_failed = True
+                            stream_error = "adapter returned an invalid stream event"
                             break
                         if not isinstance(event, Mapping):
-                            yield event_bytes(
-                                {"type": "error", "error": "adapter returned a non-object stream event"}
-                            )
-                            stream_failed = True
+                            stream_error = "adapter returned a non-object stream event"
                             break
                         if event.get("type") == "final":
                             candidate = event.get("response")
                             if isinstance(candidate, dict):
                                 final_response = candidate
                             continue
-                        yield event_bytes(event)
                         if event.get("type") == "error":
-                            stream_failed = True
+                            stream_error = str(
+                                event.get("error") or "adapter stream failed"
+                            )[:500]
                             break
+                        if event.get("type") == "audio_start":
+                            round_audio_started = True
+                        yield event_bytes(event)
                     current_upstream.close()
-                    if stream_failed:
-                        return
-                    if final_response is None:
-                        yield event_bytes(
-                            {"type": "error", "error": "adapter stream ended without a final response"}
+                    if not stream_error and final_response is None:
+                        stream_error = "adapter stream ended without a final response"
+                    if stream_error:
+                        outcome = _stream_error_outcome(stream_error)
+                        diagnostics.record(
+                            session_id,
+                            "upstream_stream_error",
+                            {
+                                "request_id": request_id,
+                                "status": 502,
+                                "outcome": outcome,
+                            },
+                            request_id=request_id,
                         )
+                        if (
+                            stream_retries < MAX_STREAM_NETWORK_RETRIES
+                            and not round_audio_started
+                            and _retryable_stream_error(stream_error)
+                        ):
+                            stream_retries += 1
+                            diagnostics.record(
+                                session_id,
+                                "upstream_stream_retry",
+                                {
+                                    "request_id": request_id,
+                                    "outcome": outcome,
+                                },
+                                request_id=request_id,
+                            )
+                            yield event_bytes(
+                                {
+                                    "type": "reset",
+                                    "reason": "upstream_network_retry",
+                                    "attempt": stream_retries,
+                                }
+                            )
+                            try:
+                                retry_request = session.build_request(
+                                    "POST",
+                                    runtime.adapter_url.rstrip("/") + "/stream",
+                                    json=current_payload,
+                                )
+                                current_upstream = session.send(
+                                    retry_request, stream=True
+                                )
+                            except httpx.HTTPError as exc:
+                                final_status = 502
+                                yield event_bytes(
+                                    {"type": "error", "error": str(exc)[:500]}
+                                )
+                                return
+                            final_status = current_upstream.status_code
+                            if current_upstream.status_code < 400:
+                                continue
+                            current_upstream.read()
+                            stream_error = (
+                                "stream retry returned HTTP "
+                                f"{current_upstream.status_code}: "
+                                f"{current_upstream.text[:500]}"
+                            )
+                        final_status = 502
+                        yield event_bytes({"type": "error", "error": stream_error})
                         return
+                    stream_retries = 0
 
                     if not auto_tools:
                         followup = None
@@ -2339,7 +2434,7 @@ def create_app(
                                 diagnostics,
                                 session_id,
                                 request_id,
-                                round_index + 1,
+                                round_index,
                                 "started",
                                 calls,
                             )
@@ -2347,7 +2442,7 @@ def create_app(
                                 {
                                     "type": "tool",
                                     "phase": "start",
-                                    "round": round_index + 1,
+                                    "round": round_index,
                                     "tools": _tool_start_trace(calls),
                                 }
                             )
@@ -2421,7 +2516,7 @@ def create_app(
                             diagnostics,
                             session_id,
                             request_id,
-                            round_index + 1,
+                            round_index,
                             "completed",
                             round_tools,
                         )
@@ -2429,11 +2524,12 @@ def create_app(
                             {
                                 "type": "tool",
                                 "phase": "complete",
-                                "round": round_index + 1,
+                                "round": round_index,
                                 "tools": _tool_trace(round_tools),
                             }
                         )
                     current_payload = followup
+                    stream_retries = 0
                     try:
                         next_request = session.build_request(
                             "POST",

@@ -114,7 +114,12 @@ Microphone capture is encoded in the browser as a complete 16 kHz mono PCM16
 WAV. `/api/chat/stream` is a portal extension that relays NDJSON stage events,
 Ollama text/reasoning deltas, and one authoritative final response. It does not
 change the portable adapter v1 contract, whose `/api/chat` route still requires
-`stream:false`. Generated speech arrives as base64-tagged PCM16 deltas and is
+`stream:false`. A retryable network failure before audio starts gets one bounded
+same-round retry; a `reset` event retracts that round's partial text/reasoning
+before replacement deltas arrive. The browser likewise retries one transient
+fetch/network-change failure only when audio has not started and every completed
+tool is explicitly read-only; stateful actions are never replayed. Generated
+speech arrives as base64-tagged PCM16 deltas and is
 scheduled directly into the browser's unlocked Web Audio context. The final
 event also carries the complete tagged 24 kHz mono PCM16 WAV for replay and
 adapter compatibility. The browser remains receptive to barge-in throughout
@@ -446,7 +451,7 @@ continue through broker-owned GPU lanes.
 | `OMNI_PORTAL_SESSION_LOG_DIR` | runtime `session-logs` | Content-redacted, per-session timing journals |
 | `OMNI_PORTAL_SESSION_LOG_TTL_S` | `300` | Inactive-session diagnostic retention; five minutes by default |
 | `OMNI_WEB_BROWSER` | auto-detected Chromium/Chrome | Local executable used only for public search-page discovery |
-| `OMNI_WEB_SEARCH_URL_TEMPLATE` | Bing Web Search page | Public browser URL containing the literal `{query}` placeholder; no search API endpoint |
+| `OMNI_WEB_SEARCH_URL_TEMPLATE` | DuckDuckGo browser results page | Public browser URL containing the literal `{query}` placeholder; no search API endpoint |
 
 Ports `8901`, `8892`, `8910`, and `8920` are loopback-only. The Cloudflare
 metrics endpoint defaults to loopback port `49312`.

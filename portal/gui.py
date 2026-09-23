@@ -99,9 +99,17 @@ class GuiAutomation:
 
     def act(self, _session_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
         action = str(arguments.get("action") or "").strip().lower()
-        if action not in {"snapshot", "click", "type", "key", "hotkey", "scroll"}:
+        if action not in {
+            "snapshot",
+            "click",
+            "drag",
+            "type",
+            "key",
+            "hotkey",
+            "scroll",
+        }:
             raise GuiAutomationError(
-                "action must be snapshot, click, type, key, hotkey, or scroll"
+                "action must be snapshot, click, drag, type, key, hotkey, or scroll"
             )
         if action == "click":
             x = self._integer(arguments.get("x"), "x", 0, 16_384)
@@ -115,6 +123,33 @@ class GuiAutomation:
                     str(x),
                     str(y),
                     "click",
+                    str(button),
+                ]
+            )
+        elif action == "drag":
+            x = self._integer(arguments.get("x"), "x", 0, 16_384)
+            y = self._integer(arguments.get("y"), "y", 0, 16_384)
+            to_x = self._integer(arguments.get("to_x"), "to_x", 0, 16_384)
+            to_y = self._integer(arguments.get("to_y"), "to_y", 0, 16_384)
+            button = self._integer(arguments.get("button", 1), "button", 1, 5)
+            if x == to_x and y == to_y:
+                raise GuiAutomationError("drag start and destination must differ")
+            self._run(
+                [
+                    "xdotool",
+                    "mousemove",
+                    "--sync",
+                    str(x),
+                    str(y),
+                    "mousedown",
+                    str(button),
+                    "mousemove",
+                    "--sync",
+                    "--duration",
+                    "600",
+                    str(to_x),
+                    str(to_y),
+                    "mouseup",
                     str(button),
                 ]
             )

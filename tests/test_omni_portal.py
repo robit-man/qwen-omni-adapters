@@ -10,6 +10,7 @@ import time
 import wave
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote_plus
 
 import httpx
 
@@ -19,8 +20,13 @@ from portal.app import (
     create_app,
     load_voice_profile,
 )
-from portal.browser import BrowserAutomationError, BrowserAutomationStore
+from portal.browser import (
+    _SNAPSHOT_SCRIPT,
+    BrowserAutomationError,
+    BrowserAutomationStore,
+)
 from portal.documents import SessionDocumentStore, extract_document
+from portal.gui import GuiAutomation
 from portal.tools import (
     DISCOVERY_TOOLS,
     SAFE_TOOLS,
@@ -86,6 +92,73 @@ def test_browser_can_use_a_declarative_measured_launch_reserve() -> None:
     governor.require_capacity("visible browser", store.launch_reserve_gib)
 
 
+def test_browser_snapshot_exposes_collapsible_reasoning_and_tool_summaries() -> None:
+    assert "select,summary," in _SNAPSHOT_SCRIPT
+
+
+def test_browser_drag_emits_a_pressed_mouse_path() -> None:
+    class Cdp:
+        calls: list[tuple[str, dict[str, Any]]] = []
+
+        def call(self, method: str, arguments: dict[str, Any]) -> None:
+            self.calls.append((method, arguments))
+
+    cdp = Cdp()
+    BrowserAutomationStore()._drag(
+        cdp,  # type: ignore[arg-type]
+        {"x": 10, "y": 20, "width": 40, "height": 10},
+        120,
+        5,
+    )
+
+    events = [arguments["type"] for _method, arguments in cdp.calls]
+    assert events[0:2] == ["mouseMoved", "mousePressed"]
+    assert events[-1] == "mouseReleased"
+    assert cdp.calls[-1][1]["x"] == 150
+    assert cdp.calls[-1][1]["y"] == 30
+
+
+def test_gui_drag_uses_one_bounded_xdotool_gesture() -> None:
+    class Gui(GuiAutomation):
+        def __init__(self) -> None:
+            super().__init__()
+            self.commands: list[list[str]] = []
+
+        def _run(self, command: list[str]) -> str:
+            self.commands.append(command)
+            return ""
+
+        def _snapshot(self) -> dict[str, Any]:
+            return {"rendered": True}
+
+    gui = Gui()
+    result = gui.act(
+        "session",
+        {"action": "drag", "x": 100, "y": 200, "to_x": 500, "to_y": 205},
+    )
+
+    assert result == {"rendered": True}
+    assert gui.commands == [
+        [
+            "xdotool",
+            "mousemove",
+            "--sync",
+            "100",
+            "200",
+            "mousedown",
+            "1",
+            "mousemove",
+            "--sync",
+            "--duration",
+            "600",
+            "500",
+            "205",
+            "mouseup",
+            "1",
+        ]
+    ]
+
+
 def test_existing_browser_executor_is_not_readmitted_at_the_soft_floor() -> None:
     class ExistingBrowser:
         calls = 0
@@ -142,6 +215,22 @@ def test_initial_tool_contract_stays_tiny() -> None:
 
     assert {item["function"]["name"] for item in DISCOVERY_TOOLS} == {"tool_search"}
     assert len(serialized) < 600
+
+
+def test_browser_and_gui_tools_expose_drag_recovery_actions() -> None:
+    schemas = {
+        item["function"]["name"]: item["function"]["parameters"]
+        for item in SAFE_TOOLS
+    }
+
+    assert "drag" in schemas["browser_interact"]["properties"]["action"]["enum"]
+    assert {"delta_x", "delta_y"} <= set(
+        schemas["browser_interact"]["properties"]
+    )
+    assert "drag" in schemas["gui_interact"]["properties"]["action"]["enum"]
+    assert {"x", "y", "to_x", "to_y"} <= set(
+        schemas["gui_interact"]["properties"]
+    )
 
 
 def test_portal_defers_perceptual_laya_routing_until_after_comprehension() -> None:
@@ -431,6 +520,13 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert "function startCameraCapture" in javascript
     assert "function stopCameraCapture" in javascript
     assert "function streamChat" in javascript
+    assert "function streamChatAttempt" in javascript
+    assert "function retryableClientStreamError" in javascript
+    assert "CLIENT_STREAM_RETRY_SAFE_TOOLS" in javascript
+    assert 'reason: "browser_network_retry"' in javascript
+    assert "replayUnsafe" in javascript
+    assert javascript.count('event.type === "reset"') == 2
+    assert "Retrying interrupted model stream" in javascript
     assert "BARGE_VAD_OPTIONS" in javascript
     assert "think: wantsThinking" in javascript
     assert "think: showThinking" in javascript
@@ -1586,12 +1682,10 @@ def test_bundled_voice_presets_are_metadata_free_pcm() -> None:
 
 def test_local_browser_search_decodes_result_redirects_and_fails_closed() -> None:
     destination = "https://example.com/guide"
-    encoded = base64.urlsafe_b64encode(destination.encode()).decode().rstrip("=")
-    redirect = f"https://www.bing.com/ck/a?u=a1{encoded}"
+    redirect = f"https://duckduckgo.com/l/?uddg={quote_plus(destination)}"
     result_html = (
-        '<a href="https://go.microsoft.com/privacy">Privacy</a>'
-        f'<li class="b_algo"><a class="tilk" href="{redirect}">example.com</a>'
-        f'<h2><a href="{redirect}">Example guide title</a></h2></li>'
+        '<a href="https://duckduckgo.com/settings">Settings</a>'
+        f'<a class="result__a" href="{redirect}">Example guide title</a>'
     )
     harness = PortalToolHarness(
         SessionDocumentStore(ttl_s=300),
@@ -1627,10 +1721,7 @@ def test_local_browser_search_fails_over_after_a_provider_challenge() -> None:
         attempted.append(url)
         if "duckduckgo.com" in url:
             return "<html><body>Verify you're not a bot before continuing.</body></html>"
-        return (
-            '<li class="b_algo"><h2><a href="https://example.com/current">'
-            "Current source</a></h2></li>"
-        )
+        return '<a href="https://example.com/current">Current source</a>'
 
     harness = PortalToolHarness(
         SessionDocumentStore(ttl_s=300),
@@ -1640,7 +1731,7 @@ def test_local_browser_search_fails_over_after_a_provider_challenge() -> None:
 
     result = harness.execute("one", "web_search", {"query": "current topic"})
 
-    assert result["search_provider"] == "www.bing.com"
+    assert result["search_provider"] == "search.brave.com"
     assert result["results"] == [
         {
             "title": "Current source",
@@ -1650,9 +1741,31 @@ def test_local_browser_search_fails_over_after_a_provider_challenge() -> None:
     ]
     assert result["provider_attempts"] == [
         {"provider": "duckduckgo.com", "status": "challenge"},
-        {"provider": "www.bing.com", "status": "results"},
+        {"provider": "search.brave.com", "status": "results"},
     ]
     assert len(attempted) == 2
+
+
+def test_local_browser_search_rejects_brave_slider_captcha_as_evidence() -> None:
+    def browser(url: str, _timeout: float) -> str:
+        if "duckduckgo.com" in url:
+            return "<html><body>Verify you're not a bot before continuing.</body></html>"
+        return (
+            "<html><head><title>Captcha - Brave Search</title></head><body>"
+            "Verifying you're not a bot. Drag the slider. "
+            '<a href="https://tb-manual.torproject.org/security-settings/#safest">'
+            "safest</a></body></html>"
+        )
+
+    result = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        resolver=lambda _hostname: ["93.184.216.34"],
+        browser_runner=browser,
+    ).execute("one", "web_search", {"query": "current weather"})
+
+    assert result["error"] == "provider_challenge"
+    assert result["task_blocked"] is False
+    assert result["alternative_tools"] == ["browser_interact", "gui_interact"]
 
 
 def test_foreground_challenge_requires_gui_browser_recovery(monkeypatch) -> None:
@@ -2816,6 +2929,142 @@ def test_portal_stream_route_pins_profile_and_relays_ndjson() -> None:
     assert response.headers["X-Omni-Request-ID"]
 
 
+def test_portal_retries_one_network_stream_failure_and_resets_partial_text() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        if len(requests) == 1:
+            wire = (
+                b'{"type":"delta","message":{"content":"Partial"}}\n'
+                b'{"type":"error","error":"network error"}\n'
+            )
+        else:
+            wire = (
+                b'{"type":"delta","message":{"content":"Recovered"}}\n'
+                b'{"type":"final","response":{"message":{"content":"Recovered"}}}\n'
+            )
+        return httpx.Response(
+            200,
+            content=wire,
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    client = app.test_client()
+    client.get("/")
+    response = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(stream=True),
+    )
+
+    events = [json.loads(line) for line in response.data.splitlines()]
+    assert len(requests) == 2
+    assert requests[0] == requests[1]
+    assert [event["type"] for event in events] == [
+        "delta",
+        "reset",
+        "delta",
+        "final",
+    ]
+    assert events[1] == {
+        "type": "reset",
+        "reason": "upstream_network_retry",
+        "attempt": 1,
+    }
+    diagnostics = client.get(
+        "/api/diagnostics",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    ).json["events"]
+    assert any(
+        event["event"] == "upstream_stream_error"
+        and event["outcome"] == "network_error"
+        for event in diagnostics
+    )
+    assert any(event["event"] == "upstream_stream_retry" for event in diagnostics)
+    assert diagnostics[-1]["event"] == "request_complete"
+    assert diagnostics[-1]["status"] == 200
+
+
+def test_portal_retries_an_incomplete_httpx_response_body() -> None:
+    requests = 0
+
+    class BrokenBody(httpx.SyncByteStream):
+        def __iter__(self):
+            yield b'{"type":"delta","message":{"content":"Partial"}}\n'
+            raise httpx.ReadError("peer connection reset")
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        if requests == 1:
+            return httpx.Response(
+                200,
+                stream=BrokenBody(),
+                headers={"content-type": "application/x-ndjson"},
+            )
+        return httpx.Response(
+            200,
+            content=(
+                b'{"type":"delta","message":{"content":"Recovered"}}\n'
+                b'{"type":"final","response":{"message":{"content":"Recovered"}}}\n'
+            ),
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat/stream",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(stream=True),
+    )
+
+    events = [json.loads(line) for line in response.data.splitlines()]
+    assert requests == 2
+    assert [event["type"] for event in events] == [
+        "delta",
+        "reset",
+        "delta",
+        "final",
+    ]
+
+
+def test_portal_does_not_retry_a_stream_after_audio_has_started() -> None:
+    requests = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return httpx.Response(
+            200,
+            content=(
+                b'{"type":"audio_start","audio":{"codec":"pcm_s16le"}}\n'
+                b'{"type":"error","error":"network error"}\n'
+            ),
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    client = app.test_client()
+    client.get("/")
+    response = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(stream=True),
+    )
+
+    events = [json.loads(line) for line in response.data.splitlines()]
+    assert requests == 1
+    assert [event["type"] for event in events] == ["audio_start", "error"]
+    diagnostics = client.get(
+        "/api/diagnostics",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    ).json["events"]
+    assert diagnostics[-1]["event"] == "request_complete"
+    assert diagnostics[-1]["status"] == 502
+
+
 def test_mock_live_call_stream_defaults_native_reasoning_off() -> None:
     seen = []
     wire = (
@@ -3080,6 +3329,8 @@ def test_portal_stream_route_requires_auth_and_chains_session_tools() -> None:
     assert [event["tools"][0]["id"] for event in start_events] == [
         event["tools"][0]["id"] for event in complete_events
     ]
+    assert [event["round"] for event in start_events] == [1, 2]
+    assert [event["round"] for event in complete_events] == [1, 2]
     assert complete_events[0]["tools"][0]["status"] == "complete"
     assert complete_events[0]["tools"][0]["result"]
     assert events[-1]["response"]["message"]["content"] == "Violet."

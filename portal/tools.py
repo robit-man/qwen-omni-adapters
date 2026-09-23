@@ -67,7 +67,6 @@ MAX_WEB_INDEX_CHARS = 128_000
 LOCAL_BROWSER_TIMEOUT_S = 20.0
 DEFAULT_SEARCH_URL_TEMPLATES = (
     "https://duckduckgo.com/?ia=web&q={query}",
-    "https://www.bing.com/search?q={query}",
     "https://search.brave.com/search?q={query}&source=web",
 )
 DEFAULT_SEARCH_URL_TEMPLATE = DEFAULT_SEARCH_URL_TEMPLATES[0]
@@ -668,20 +667,10 @@ class _AnchorCollector(HTMLParser):
         self._href: str | None = None
         self._text: list[str] = []
         self._attrs: dict[str, str] = {}
-        self._result_list_depth = 0
-        self._result_heading = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         normalized_tag = tag.lower()
         values = {key.lower(): value for key, value in attrs}
-        classes = str(values.get("class") or "").split()
-        if normalized_tag == "li":
-            if self._result_list_depth:
-                self._result_list_depth += 1
-            elif "b_algo" in classes:
-                self._result_list_depth = 1
-        if normalized_tag in {"h2", "h3"} and self._result_list_depth:
-            self._result_heading = True
         if normalized_tag != "a" or self._href is not None:
             return
         self._href = str(values.get("href") or "").strip()
@@ -689,8 +678,6 @@ class _AnchorCollector(HTMLParser):
             key: str(value or "")
             for key, value in values.items()
         }
-        if self._result_list_depth and self._result_heading:
-            self._attrs["_result_heading"] = "1"
         self._text = []
 
     def handle_data(self, data: str) -> None:
@@ -699,10 +686,6 @@ class _AnchorCollector(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         normalized_tag = tag.lower()
-        if normalized_tag in {"h2", "h3"}:
-            self._result_heading = False
-        if normalized_tag == "li" and self._result_list_depth:
-            self._result_list_depth -= 1
         if normalized_tag != "a" or self._href is None:
             return
         self.links.append((self._href, " ".join(self._text), self._attrs))
@@ -907,32 +890,19 @@ class WebToolSuite:
             return ""
         provider_redirect = (
             hostname == search_host
-            or hostname == "bing.com"
-            or hostname.endswith(".bing.com")
             or hostname == "duckduckgo.com"
             or hostname.endswith(".duckduckgo.com")
         )
         if provider_redirect:
             query = parse_qs(parsed.query)
-            redirected = ""
-            if parsed.path.startswith("/ck/"):
-                encoded = next(iter(query.get("u", [])), "")
-                encoded = encoded.removeprefix("a1")
-                try:
-                    redirected = base64.urlsafe_b64decode(
-                        encoded + ("=" * (-len(encoded) % 4))
-                    ).decode("utf-8")
-                except (binascii.Error, UnicodeDecodeError, ValueError):
-                    redirected = ""
-            else:
-                redirected = next(
-                    (
-                        values[0]
-                        for key in ("uddg", "url", "u", "target")
-                        if (values := query.get(key))
-                    ),
-                    "",
-                )
+            redirected = next(
+                (
+                    values[0]
+                    for key in ("uddg", "url", "u", "target")
+                    if (values := query.get(key))
+                ),
+                "",
+            )
             if not redirected:
                 return ""
             candidate = html.unescape(redirected)
@@ -958,9 +928,12 @@ class WebToolSuite:
             marker in challenge_text
             for marker in (
                 "verify you're not a bot",
+                "verifying you're not a bot",
                 "unusual traffic from your computer network",
                 "complete the following challenge",
                 "select all squares containing a duck",
+                "captcha - brave search",
+                "drag the slider",
             )
         ):
             raise ProviderChallenge(
@@ -969,25 +942,13 @@ class WebToolSuite:
             )
         collector = _AnchorCollector()
         collector.feed(dom[:MAX_FETCH_BYTES])
-        bing_results = (
-            search_host == "bing.com"
-            or search_host.endswith(".bing.com")
-            or any(attrs.get("_result_heading") == "1" for _, _, attrs in collector.links)
-        )
-        duckduckgo_results = not bing_results and (
+        duckduckgo_results = (
             search_host == "duckduckgo.com"
             or search_host.endswith(".duckduckgo.com")
         )
         results: list[dict[str, str]] = []
         seen: set[str] = set()
         for raw_url, raw_title, attrs in collector.links:
-            # Bing emits a breadcrumb anchor followed by the actual result title
-            # with the same redirect URL. Keep only the title so the trace is
-            # useful and duplicate-free.
-            if "tilk" in attrs.get("class", "").split():
-                continue
-            if bing_results and attrs.get("_result_heading") != "1":
-                continue
             if duckduckgo_results and not (
                 "result__a" in attrs.get("class", "").split()
                 or attrs.get("data-testid") == "result-title-a"

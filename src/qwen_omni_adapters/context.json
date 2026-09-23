@@ -293,7 +293,7 @@
         "type": "function",
         "function": {
           "name": "browser_interact",
-          "description": "Control one persistent rendered Chromium session for visual, interactive web work. Navigate, inspect the screenshot and bounded visible elements, then click, type, scroll, or go back in successive calls. Every non-close action returns fresh visual evidence. This works with local/offline HTTP sites as well as reachable public sites.",
+          "description": "Control one persistent rendered Chromium session for visual, interactive web work. Navigate, inspect the screenshot and bounded visible elements, then click, drag, type, scroll, or go back in successive calls. Every non-close action returns fresh visual evidence. This works with local/offline HTTP sites as well as reachable public sites.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -303,6 +303,7 @@
                   "navigate",
                   "snapshot",
                   "click",
+                  "drag",
                   "type",
                   "scroll",
                   "back",
@@ -335,6 +336,18 @@
                 "maximum": 4000,
                 "description": "Vertical amount for action=scroll."
               },
+              "delta_x": {
+                "type": "integer",
+                "minimum": -4000,
+                "maximum": 4000,
+                "description": "Horizontal distance from the selected element center for action=drag."
+              },
+              "delta_y": {
+                "type": "integer",
+                "minimum": -4000,
+                "maximum": 4000,
+                "description": "Vertical distance from the selected element center for action=drag."
+              },
               "wait_ms": {
                 "type": "integer",
                 "minimum": 0,
@@ -349,7 +362,7 @@
           }
         }
       },
-      "discovery_hints": "browser open browser new tab go to site visit website webpage visual screenshot render navigate click type scroll form interactive javascript login button",
+      "discovery_hints": "browser open browser new tab go to site visit website webpage visual screenshot render navigate click drag type scroll form interactive javascript login button slider",
       "memory_admission": "executor",
       "memory_reserve_gib": 0.5
     },
@@ -358,7 +371,7 @@
         "type": "function",
         "function": {
           "name": "gui_interact",
-          "description": "See and operate the active Ubuntu desktop from fresh full-screen screenshots. Use this for applications or browser chrome outside webpage content: snapshot, then click screen coordinates, type, press a key/chord, or scroll. Every action returns a new screenshot so work can be assessed visually.",
+          "description": "See and operate the active Ubuntu desktop from fresh full-screen screenshots. Use this for applications or browser chrome outside webpage content: snapshot, then click or drag between screen coordinates, type, press a key/chord, or scroll. Every action returns a new screenshot so work can be assessed visually.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -367,6 +380,7 @@
                 "enum": [
                   "snapshot",
                   "click",
+                  "drag",
                   "type",
                   "key",
                   "hotkey",
@@ -379,7 +393,15 @@
               },
               "y": {
                 "type": "integer",
-                "description": "Screen y coordinate for click."
+                "description": "Screen y coordinate for click or drag start."
+              },
+              "to_x": {
+                "type": "integer",
+                "description": "Destination screen x coordinate for drag."
+              },
+              "to_y": {
+                "type": "integer",
+                "description": "Destination screen y coordinate for drag."
               },
               "button": {
                 "type": "integer",
@@ -413,7 +435,7 @@
           }
         }
       },
-      "discovery_hints": "desktop screen workspace gui graphical application window visual screenshot coordinate click type keyboard hotkey scroll xdotool computer use",
+      "discovery_hints": "desktop screen workspace gui graphical application window visual screenshot coordinate click drag slider type keyboard hotkey scroll xdotool computer use",
       "memory_admission": "bounded"
     },
     {

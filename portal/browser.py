@@ -214,7 +214,7 @@ _SNAPSHOT_SCRIPT = r"""
   };
   document.querySelectorAll('[data-omni-id]').forEach(el => el.removeAttribute('data-omni-id'));
   const candidates = [...document.querySelectorAll(
-    'a[href],button,input,textarea,select,[role="button"],[role="link"],[tabindex]'
+    'a[href],button,input,textarea,select,summary,[role="button"],[role="link"],[tabindex]'
   )].filter(visible).slice(0, 120);
   const elements = candidates.map((el, i) => {
     const id = `e${i + 1}`, r = el.getBoundingClientRect();
@@ -484,11 +484,70 @@ class BrowserAutomationStore:
                 },
             )
 
+    def _drag(
+        self,
+        cdp: _Cdp,
+        element: dict[str, Any],
+        delta_x: int,
+        delta_y: int,
+    ) -> None:
+        start_x = float(element.get("x") or 0) + float(element.get("width") or 0) / 2
+        start_y = float(element.get("y") or 0) + float(element.get("height") or 0) / 2
+        end_x = start_x + delta_x
+        end_y = start_y + delta_y
+        cdp.call(
+            "Input.dispatchMouseEvent",
+            {"type": "mouseMoved", "x": start_x, "y": start_y, "buttons": 0},
+        )
+        cdp.call(
+            "Input.dispatchMouseEvent",
+            {
+                "type": "mousePressed",
+                "x": start_x,
+                "y": start_y,
+                "button": "left",
+                "buttons": 1,
+                "clickCount": 1,
+            },
+        )
+        for step in range(1, 13):
+            fraction = step / 12
+            cdp.call(
+                "Input.dispatchMouseEvent",
+                {
+                    "type": "mouseMoved",
+                    "x": start_x + delta_x * fraction,
+                    "y": start_y + delta_y * fraction,
+                    "button": "left",
+                    "buttons": 1,
+                },
+            )
+        cdp.call(
+            "Input.dispatchMouseEvent",
+            {
+                "type": "mouseReleased",
+                "x": end_x,
+                "y": end_y,
+                "button": "left",
+                "buttons": 0,
+                "clickCount": 1,
+            },
+        )
+
     def act(self, session_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
         action = str(arguments.get("action") or "").strip().lower()
-        if action not in {"navigate", "snapshot", "click", "type", "scroll", "back", "close"}:
+        if action not in {
+            "navigate",
+            "snapshot",
+            "click",
+            "drag",
+            "type",
+            "scroll",
+            "back",
+            "close",
+        }:
             raise BrowserAutomationError(
-                "action must be navigate, snapshot, click, type, scroll, back, or close"
+                "action must be navigate, snapshot, click, drag, type, scroll, back, or close"
             )
         if action == "close":
             self.clear(session_id)
@@ -522,9 +581,23 @@ class BrowserAutomationStore:
                             "navigate requires an absolute HTTP(S) URL"
                         )
                     cdp.call("Page.navigate", {"url": url})
-                elif action in {"click", "type"}:
+                elif action in {"click", "drag", "type"}:
                     element = self._element(session, arguments.get("element_id"))
-                    self._click(cdp, element)
+                    if action == "drag":
+                        try:
+                            delta_x = max(-4000, min(4000, int(arguments.get("delta_x", 0))))
+                            delta_y = max(-4000, min(4000, int(arguments.get("delta_y", 0))))
+                        except (TypeError, ValueError) as exc:
+                            raise BrowserAutomationError(
+                                "delta_x and delta_y must be integers"
+                            ) from exc
+                        if delta_x == 0 and delta_y == 0:
+                            raise BrowserAutomationError(
+                                "drag requires a non-zero delta_x or delta_y"
+                            )
+                        self._drag(cdp, element, delta_x, delta_y)
+                    else:
+                        self._click(cdp, element)
                     if action == "type":
                         if arguments.get("clear") is True:
                             cdp.call(

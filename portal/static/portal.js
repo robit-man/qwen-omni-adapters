@@ -23,6 +23,26 @@
   const CLIENT_LOCATION_ENDPOINT = "https://ipwho.is/";
   const CLIENT_LOCATION_TIMEOUT_MS = 6000;
   const CLIENT_LOCATION_RETRY_MS = 30000;
+  const CLIENT_STREAM_RETRY_SAFE_TOOLS = new Set([
+    "get_current_time",
+    "get_system_snapshot",
+    "get_user_location",
+    "get_portal_capabilities",
+    "web_search",
+    "web_fetch",
+    "document_search",
+    "memory_read",
+    "memory_search",
+    "tool_search",
+    "safe_math_eval",
+    "structured_read",
+    "web_crawl",
+    "session_search",
+    "audio_analyze",
+    "video_scan",
+    "subagent_list",
+    "subagent_result",
+  ]);
   const CONTEXT = JSON.parse(document.getElementById("omni-context").textContent);
   const LIVE_CALL_SYSTEM_PROMPT = String(CONTEXT.live_call_system || "").trim();
   const MEDIA_CONVERSATION_SYSTEM_PROMPT = String(
@@ -1512,7 +1532,7 @@
     if (state.playbackContext.state === "suspended") await state.playbackContext.resume().catch(() => {});
   }
 
-  async function streamChat(payload, { signal, onEvent } = {}) {
+  async function streamChatAttempt(payload, { signal, onEvent } = {}) {
     const startedAt = performance.now();
     const timings = {};
     const response = await fetch("/api/chat/stream", {
@@ -1579,6 +1599,56 @@
       ...timings,
     });
     return finalResponse;
+  }
+
+  function retryableClientStreamError(error) {
+    if (!error || error.name === "AbortError") return false;
+    const message = String(error.message || error).toLowerCase();
+    return (
+      error.name === "TypeError"
+      || error.name === "NetworkError"
+      || message.includes("network error")
+      || message.includes("failed to fetch")
+      || message.includes("load failed")
+      || message.includes("network changed")
+    );
+  }
+
+  async function streamChat(payload, { signal, onEvent } = {}) {
+    let replayUnsafe = false;
+    const observe = event => {
+      if (event.type === "audio_start") replayUnsafe = true;
+      if (event.type === "tool" && event.phase === "complete") {
+        for (const item of event.tools || []) {
+          const name = typeof item === "string"
+            ? item
+            : String((item || {}).name || "");
+          if (!CLIENT_STREAM_RETRY_SAFE_TOOLS.has(name)) replayUnsafe = true;
+        }
+      }
+      if (onEvent) onEvent(event);
+    };
+    for (let attempt = 0; attempt <= 1; attempt += 1) {
+      try {
+        return await streamChatAttempt(payload, { signal, onEvent: observe });
+      } catch (error) {
+        if (
+          attempt >= 1
+          || replayUnsafe
+          || (signal && signal.aborted)
+          || !retryableClientStreamError(error)
+        ) {
+          throw error;
+        }
+        observe({
+          type: "reset",
+          reason: "browser_network_retry",
+          attempt: attempt + 1,
+        });
+        await new Promise(resolve => window.setTimeout(resolve, 750));
+      }
+    }
+    throw new Error("Streaming inference failed after retry");
   }
 
   function reasoningEnabled() {
@@ -2617,6 +2687,19 @@
                 setComposerStatus("Call · audio context saved · listening");
                 turn.controller.abort();
               }
+            } else if (event.type === "reset") {
+              if (turn.discardReply) return;
+              streamedContent = "";
+              streamedThinking = "";
+              if (event.reason === "browser_network_retry") activeToolTrace = [];
+              turn.languageSettled = false;
+              updateMessage(assistant, {
+                content: "",
+                thinking: "",
+                toolTrace: activeToolTrace,
+                streaming: true,
+              });
+              setComposerStatus("Call · retrying interrupted model stream…");
             } else if (event.type === "delta") {
               if (turn.discardReply) return;
               const contentDelta = String((event.message || {}).content || "");
@@ -3119,6 +3202,18 @@
           if (requestSequence !== state.requestSequence) return;
           if (event.type === "observation") {
             applyInputAudioEvidence(event.transcript, event.audio_observation);
+          } else if (event.type === "reset") {
+            streamedContent = "";
+            streamedThinking = "";
+            if (event.reason === "browser_network_retry") activeToolTrace = [];
+            languageSettled = false;
+            updateMessage(assistant, {
+              content: "",
+              thinking: "",
+              toolTrace: activeToolTrace,
+              streaming: true,
+            });
+            setComposerStatus("Retrying interrupted model stream…");
           } else if (event.type === "delta") {
             const contentDelta = String((event.message || {}).content || "");
             const thinkingDelta = built.wantsThinking
