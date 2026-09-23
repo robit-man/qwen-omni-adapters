@@ -1009,6 +1009,14 @@ def _tool_followup(
                     discovered.extend(str(item) for item in available)
             elif name in known_names:
                 active.append(name)
+                if isinstance(result, Mapping):
+                    alternatives = result.get("alternative_tools")
+                    if isinstance(alternatives, list):
+                        active.extend(
+                            str(item)
+                            for item in alternatives
+                            if str(item) in known_names
+                        )
         content = tool_result_json(result)
         tool_message: dict[str, Any] = {
             "role": "tool",
@@ -1018,6 +1026,19 @@ def _tool_followup(
         if call.get("id"):
             tool_message["tool_call_id"] = str(call["id"])
         messages.append(tool_message)
+        if (
+            isinstance(result, Mapping)
+            and result.get("disposition") == "change_capability"
+            and result.get("task_blocked") is False
+        ):
+            messages.append(
+                {
+                    "role": "user",
+                    "content": context_text(
+                        "directives", "foreground_recovery_required"
+                    ),
+                }
+            )
         # Show the exact model-authored call while keeping server-injected
         # handoff evidence out of the UI trace.
         display_arguments = copy.deepcopy(
@@ -1118,12 +1139,65 @@ def _tool_round_productive(executed: list[dict[str, Any]]) -> bool:
             return True
         if not isinstance(result, Mapping):
             return True
+        if result.get("error") or result.get("challenge") is True:
+            continue
         if result.get("found") is False:
             continue
         if "results" in result and not result.get("results"):
             continue
         return True
     return False
+
+
+def _tool_recovery_transition(executed: list[dict[str, Any]]) -> bool | None:
+    """Return a recovery-state transition made by one concrete tool round."""
+
+    concrete_success = False
+    for item in executed:
+        if str(item.get("name") or "") == "tool_search":
+            continue
+        try:
+            result = json.loads(str(item.get("result") or "{}"))
+        except ValueError:
+            result = {}
+        if (
+            isinstance(result, Mapping)
+            and result.get("disposition") == "change_capability"
+            and result.get("task_blocked") is False
+        ):
+            return True
+        if item.get("ok") is True:
+            concrete_success = True
+    return False if concrete_success else None
+
+
+def _tool_recovery_retry_payload(
+    payload: Mapping[str, Any], response: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Reject one premature final answer while a viable tool route remains."""
+
+    followup = copy.deepcopy(dict(payload))
+    messages = _without_media(list(followup.get("messages") or []))
+    message = response.get("message")
+    if isinstance(message, Mapping):
+        messages.append(
+            {
+                "role": "assistant",
+                "content": str(message.get("content") or ""),
+            }
+        )
+    messages.append(
+        {
+            "role": "user",
+            "content": context_text("directives", "foreground_recovery_required"),
+        }
+    )
+    followup["messages"] = messages
+    followup.pop("tool_choice", None)
+    omni = followup.get("omni")
+    if isinstance(omni, dict) and omni.get("tool_routing") == "relevant":
+        omni["tool_routing"] = "client"
+    return followup
 
 
 def _tool_trace(executed: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1975,6 +2049,8 @@ def create_app(
             current_payload: dict[str, Any] = payload
             round_index = 0
             stalled_rounds = 0
+            recovery_pending = False
+            recovery_refusals = 0
             while True:
                 upstream = session.post(runtime.adapter_url, json=current_payload)
                 data = _json_object(upstream, "adapter")
@@ -2010,7 +2086,23 @@ def create_app(
                         request_id=request_id,
                     ),
                 )
+                recovery_transition = _tool_recovery_transition(round_tools)
+                if recovery_transition is not None:
+                    recovery_pending = recovery_transition
+                    if not recovery_pending:
+                        recovery_refusals = 0
                 if followup is None:
+                    if recovery_pending:
+                        recovery_refusals += 1
+                        if recovery_refusals >= 2:
+                            raise PortalError(
+                                "tool recovery stopped after the model repeatedly "
+                                "refused an available GUI-browser route"
+                            )
+                        current_payload = _tool_recovery_retry_payload(
+                            current_payload, data
+                        )
+                        continue
                     break
                 if _tool_round_productive(round_tools):
                     stalled_rounds = 0
@@ -2172,6 +2264,8 @@ def create_app(
             seen_tool_calls: set[str] = set()
             final_status = upstream.status_code
             stalled_rounds = 0
+            recovery_pending = False
+            recovery_refusals = 0
 
             def event_bytes(event: Mapping[str, Any]) -> bytes:
                 return (json.dumps(event, separators=(",", ":")) + "\n").encode()
@@ -2271,6 +2365,31 @@ def create_app(
                                 request_id=request_id,
                             ),
                         )
+                    recovery_transition = _tool_recovery_transition(round_tools)
+                    if recovery_transition is not None:
+                        recovery_pending = recovery_transition
+                        if not recovery_pending:
+                            recovery_refusals = 0
+                    recovery_retry = False
+                    if followup is None and recovery_pending:
+                        recovery_refusals += 1
+                        if recovery_refusals >= 2:
+                            final_status = 502
+                            yield event_bytes(
+                                {
+                                    "type": "error",
+                                    "error": (
+                                        "tool recovery stopped after the model "
+                                        "repeatedly refused an available "
+                                        "GUI-browser route"
+                                    ),
+                                }
+                            )
+                            return
+                        followup = _tool_recovery_retry_payload(
+                            current_payload, final_response
+                        )
+                        recovery_retry = True
                     if followup is None:
                         final_response["portal"] = {
                             "schema": "robit.omni-phone-portal.v1",
@@ -2280,39 +2399,40 @@ def create_app(
                         }
                         yield event_bytes({"type": "final", "response": final_response})
                         return
-                    if _tool_round_productive(round_tools):
-                        stalled_rounds = 0
-                    else:
-                        stalled_rounds += 1
-                    if stalled_rounds >= MAX_STALLED_TOOL_ROUNDS:
-                        final_status = 502
+                    if not recovery_retry:
+                        if _tool_round_productive(round_tools):
+                            stalled_rounds = 0
+                        else:
+                            stalled_rounds += 1
+                        if stalled_rounds >= MAX_STALLED_TOOL_ROUNDS:
+                            final_status = 502
+                            yield event_bytes(
+                                {
+                                    "type": "error",
+                                    "error": (
+                                        "safe tool loop stopped after repeated rounds "
+                                        "without actionable progress"
+                                    ),
+                                }
+                            )
+                            return
+                        executed.extend(round_tools)
+                        _record_tool_diagnostics(
+                            diagnostics,
+                            session_id,
+                            request_id,
+                            round_index + 1,
+                            "completed",
+                            round_tools,
+                        )
                         yield event_bytes(
                             {
-                                "type": "error",
-                                "error": (
-                                    "safe tool loop stopped after repeated rounds "
-                                    "without actionable progress"
-                                ),
+                                "type": "tool",
+                                "phase": "complete",
+                                "round": round_index + 1,
+                                "tools": _tool_trace(round_tools),
                             }
                         )
-                        return
-                    executed.extend(round_tools)
-                    _record_tool_diagnostics(
-                        diagnostics,
-                        session_id,
-                        request_id,
-                        round_index + 1,
-                        "completed",
-                        round_tools,
-                    )
-                    yield event_bytes(
-                        {
-                            "type": "tool",
-                            "phase": "complete",
-                            "round": round_index + 1,
-                            "tools": _tool_trace(round_tools),
-                        }
-                    )
                     current_payload = followup
                     try:
                         next_request = session.build_request(

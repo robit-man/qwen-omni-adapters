@@ -30,11 +30,65 @@ from harness.call import (  # noqa: E402
     TurnResult,
     _accepted_utterance_preempts,
 )
+from harness.location import BrowserLocationProvider  # noqa: E402
 from harness.vad import Vad, VadConfig  # noqa: E402
 
 FRAME_MS = 20.0
 RATE = 16_000
 FRAME = int(RATE * FRAME_MS / 1000)
+
+
+def test_local_voice_location_uses_browser_and_discards_raw_ip() -> None:
+    provider = BrowserLocationProvider(
+        runner=lambda _url, _timeout: (
+            "<html><body><pre>"
+            '{"success":true,"ip":"203.0.113.42","city":"Seattle",'
+            '"region":"Washington","country":"United States",'
+            '"latitude":47.6062,"longitude":-122.3321,'
+            '"connection":{"isp":"private"},'
+            '"timezone":{"id":"America/Los_Angeles","utc":"-07:00"}}'
+            "</pre></body></html>"
+        )
+    )
+
+    location = provider.refresh_now()
+
+    assert location == {
+        "city": "Seattle",
+        "region": "Washington",
+        "region_code": "",
+        "country": "United States",
+        "country_code": "",
+        "continent": "",
+        "continent_code": "",
+        "latitude": 47.61,
+        "longitude": -122.33,
+        "timezone": {
+            "id": "America/Los_Angeles",
+            "abbreviation": "",
+            "utc_offset": "-07:00",
+        },
+    }
+    assert "203.0.113.42" not in json.dumps(location)
+    assert "connection" not in location
+
+
+def test_local_voice_payload_supplies_sanitized_location_to_the_portal() -> None:
+    location = {"city": "Seattle", "country": "United States"}
+    call = CallSession(
+        CallConfig(
+            token="t",
+            model="m",
+            client_location_reader=lambda: location,
+        )
+    )
+
+    payload = call._build_payload(b"audio", 1, None, with_tools=True)
+
+    assert payload["portal_client_location"] == location
+    assert call._build_payload(b"audio", 1, None, with_tools=False).get(
+        "portal_client_location"
+    ) is None
 
 
 def test_harness_status_is_private_and_contains_only_bounded_liveness(

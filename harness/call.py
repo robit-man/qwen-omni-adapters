@@ -21,7 +21,7 @@ import queue
 import re
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -79,6 +79,10 @@ class CallConfig:
     vad: VadConfig = field(default_factory=VadConfig)
     # How to fetch the portal token again when the one in hand is refused.
     token_reader: Callable[[], str] | None = None
+    # Approximate location comes from an isolated client-side Chromium lookup.
+    # The callback returns only sanitized geography; raw IP/provider fields
+    # never enter the request, logs, history, or model context.
+    client_location_reader: Callable[[], Mapping[str, Any] | None] | None = None
     # Where completed exchanges are journaled outside the conversation path.
     memory_path: str = ""
     memory_calibration_path: str = ""
@@ -396,7 +400,7 @@ class CallSession:
                 )
         if self._pending_failure_note:
             system_content += f"\n\n{self._pending_failure_note}"
-        return {
+        payload = {
             "model": self.config.model,
             "messages": [
                 {
@@ -443,6 +447,14 @@ class CallSession:
             ),
             "stream": True,
         }
+        if with_tools and self.config.client_location_reader is not None:
+            try:
+                client_location = self.config.client_location_reader()
+            except Exception:  # noqa: BLE001 - location never gates conversation
+                client_location = None
+            if client_location:
+                payload["portal_client_location"] = dict(client_location)
+        return payload
 
     def _build_synthesis_payload(self, text: str) -> dict[str, Any]:
         """Speak finished text without loading comprehension or language."""

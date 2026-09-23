@@ -65,7 +65,12 @@ FETCH_CACHE_TTL_S = 60.0
 MAX_WEB_INDEX_ENTRIES = 48
 MAX_WEB_INDEX_CHARS = 128_000
 LOCAL_BROWSER_TIMEOUT_S = 20.0
-DEFAULT_SEARCH_URL_TEMPLATE = "https://duckduckgo.com/?ia=web&q={query}"
+DEFAULT_SEARCH_URL_TEMPLATES = (
+    "https://duckduckgo.com/?ia=web&q={query}",
+    "https://www.bing.com/search?q={query}",
+    "https://search.brave.com/search?q={query}&source=web",
+)
+DEFAULT_SEARCH_URL_TEMPLATE = DEFAULT_SEARCH_URL_TEMPLATES[0]
 MAX_MEMORY_ENTRIES = 64
 MAX_MEMORY_ENTRY_CHARS = 4_096
 MAX_MEMORY_SESSION_CHARS = 32_768
@@ -802,6 +807,9 @@ class WebToolSuite:
         )
         if "{query}" not in self.search_url_template:
             raise ValueError("OMNI_WEB_SEARCH_URL_TEMPLATE must contain {query}")
+        self.search_url_templates = tuple(
+            dict.fromkeys((self.search_url_template, *DEFAULT_SEARCH_URL_TEMPLATES))
+        )
         self._lock = threading.Lock()
         self._sessions: dict[str, _WebSession] = {}
 
@@ -938,8 +946,11 @@ class WebToolSuite:
             return ""
         return candidate
 
-    def _browser_discover(self, query: str, limit: int) -> list[dict[str, str]]:
-        search_url = self.search_url_template.format(query=quote_plus(query))
+    def _browser_discover_provider(
+        self, template: str, query: str, limit: int
+    ) -> tuple[list[dict[str, str]], str]:
+        search_url = template.format(query=quote_plus(query))
+        search_host = (urlsplit(search_url).hostname or "").lower()
         _validate_public_url(search_url, self.resolver)
         dom = self.browser_runner(search_url, LOCAL_BROWSER_TIMEOUT_S)
         challenge_text = re.sub(r"\s+", " ", _strip_html(dom[:200_000])).lower()
@@ -953,11 +964,11 @@ class WebToolSuite:
             )
         ):
             raise ProviderChallenge(
-                "local browser search was interrupted by a provider challenge"
+                f"local browser search at {search_host or 'the provider'} was "
+                "interrupted by a provider challenge"
             )
         collector = _AnchorCollector()
         collector.feed(dom[:MAX_FETCH_BYTES])
-        search_host = (urlsplit(search_url).hostname or "").lower()
         bing_results = (
             search_host == "bing.com"
             or search_host.endswith(".bing.com")
@@ -990,7 +1001,46 @@ class WebToolSuite:
             results.append({"title": title[:300], "url": url, "snippet": ""})
             if len(results) >= limit:
                 break
-        return results
+        return results, search_host
+
+    def _browser_discover(
+        self, query: str, limit: int
+    ) -> tuple[list[dict[str, str]], str, list[dict[str, str]]]:
+        attempts: list[dict[str, str]] = []
+        challenges: list[str] = []
+        failures: list[str] = []
+        last_provider = ""
+        for template in self.search_url_templates:
+            provider = (urlsplit(template).hostname or "unknown").lower()
+            last_provider = provider
+            try:
+                results, provider = self._browser_discover_provider(
+                    template, query, limit
+                )
+            except ProviderChallenge:
+                attempts.append({"provider": provider, "status": "challenge"})
+                challenges.append(provider)
+                continue
+            except ToolInputError as exc:
+                attempts.append({"provider": provider, "status": "failed"})
+                failures.append(f"{provider}: {str(exc)[:160]}")
+                continue
+            if results:
+                attempts.append({"provider": provider, "status": "results"})
+                return results, provider, attempts
+            attempts.append({"provider": provider, "status": "empty"})
+
+        if challenges and len(challenges) == len(attempts):
+            raise ProviderChallenge(
+                "every local-browser search provider returned a provider challenge "
+                f"({', '.join(challenges)})"
+            )
+        if failures and len(failures) + len(challenges) == len(attempts):
+            raise ToolInputError(
+                "no local-browser search provider completed: "
+                + "; ".join(failures)
+            )
+        return [], last_provider, attempts
 
     def _index_entries(self, session_id: str, entries: Sequence[_WebIndexEntry]) -> None:
         now = time.monotonic()
@@ -1027,7 +1077,9 @@ class WebToolSuite:
         if normalized_mode not in {"discover", "session"}:
             raise ToolInputError("mode must be discover or session")
         if normalized_mode == "discover":
-            results = self._browser_discover(normalized_query, limit)
+            results, search_provider, attempts = self._browser_discover(
+                normalized_query, limit
+            )
             indexed_at = time.monotonic()
             self._index_entries(
                 session_id,
@@ -1045,6 +1097,8 @@ class WebToolSuite:
             return {
                 "trust": "untrusted_web_results",
                 "provider": "local_chromium",
+                "search_provider": search_provider,
+                "provider_attempts": attempts,
                 "mode": "discover",
                 "query": normalized_query,
                 "provenance": {
@@ -2084,6 +2138,13 @@ class PortalToolHarness:
                 "disposition": "change_capability",
                 "constraint": (
                     "Do not retry the same challenged provider by varying the query."
+                ),
+                "alternative_tools": ["browser_interact", "gui_interact"],
+                "next_action": (
+                    "Continue in the visible GUI browser with browser_interact, "
+                    "using gui_interact only when page-level controls cannot operate "
+                    "the challenge. Treat the challenge page as non-evidence until "
+                    "a clean rendered results page is observed."
                 ),
             }
         except (

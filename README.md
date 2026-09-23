@@ -573,9 +573,10 @@ launches FFmpeg or activates a camera privacy indicator.
   evidence-backed progress, accepts spoken refinements, and reports only after
   the freshest result supports completion or a real blocker.
 - **Live host state is explicit.** Ordinary turns carry no eager clock,
-  location, network, battery, or process blob. Current time, browser-provided
+  location, network, battery, or process blob. Current time, client-browser
   approximate location, and bounded hardware/load facts come from their
-  dedicated tools only when the request needs them.
+  dedicated tools only when the request needs them. The local voice client
+  warms the same privacy-filtered browser lookup while the model loads.
 
 The speech detector is a port of `portal/static/call_vad.js` with its constants
 intact, so the same room behaves the same way in the browser and here.

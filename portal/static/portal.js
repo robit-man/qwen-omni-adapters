@@ -21,7 +21,8 @@
   const MAX_CALL_AUDIO_CONTEXTS = 6;
   const MAX_CALL_AUDIO_CONTEXT_CHARS = 800;
   const CLIENT_LOCATION_ENDPOINT = "https://ipwho.is/";
-  const CLIENT_LOCATION_TIMEOUT_MS = 1500;
+  const CLIENT_LOCATION_TIMEOUT_MS = 6000;
+  const CLIENT_LOCATION_RETRY_MS = 30000;
   const CONTEXT = JSON.parse(document.getElementById("omni-context").textContent);
   const LIVE_CALL_SYSTEM_PROMPT = String(CONTEXT.live_call_system || "").trim();
   const MEDIA_CONVERSATION_SYSTEM_PROMPT = String(
@@ -300,6 +301,7 @@
     toolExecutionAvailable: false,
     clientLocation: undefined,
     clientLocationPromise: null,
+    clientLocationRetryAt: 0,
     recording: null,
     holdingMic: false,
     micHoldStartedAt: 0,
@@ -1625,6 +1627,7 @@
   async function clientLocationForTools() {
     if (!toolUseEnabled()) return null;
     if (state.clientLocation !== undefined) return state.clientLocation;
+    if (Date.now() < state.clientLocationRetryAt) return null;
     if (!state.clientLocationPromise) {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), CLIENT_LOCATION_TIMEOUT_MS);
@@ -1642,7 +1645,16 @@
         .catch(() => null)
         .finally(() => window.clearTimeout(timeout))
         .then(locationValue => {
-          state.clientLocation = locationValue;
+          if (locationValue) {
+            state.clientLocation = locationValue;
+            state.clientLocationRetryAt = 0;
+          } else {
+            // A transient provider/CORS timeout must not poison the complete
+            // five-minute portal session. Retry later without blocking every
+            // turn in between.
+            state.clientLocation = undefined;
+            state.clientLocationRetryAt = Date.now() + CLIENT_LOCATION_RETRY_MS;
+          }
           state.clientLocationPromise = null;
           return locationValue;
         });
@@ -3444,6 +3456,7 @@
     state.history = [];
     state.clientLocation = undefined;
     state.clientLocationPromise = null;
+    state.clientLocationRetryAt = 0;
     for (const item of state.attachments) {
       if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
     }

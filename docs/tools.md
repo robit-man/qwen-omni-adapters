@@ -65,12 +65,16 @@ the model can call `get_system_snapshot`; each call samples fresh bounded data.
 The result describes the server running the portal, never the user's phone.
 
 User location is also explicit and tool-only. When tools are enabled, the
-browser calls `https://ipwho.is/` directly, allowlists only coarse geographic
-fields, rounds coordinates to two decimals, and sends that sanitized object
-with the model request. The portal never receives the lookup's raw `ip`, ISP,
+phone client calls `https://ipwho.is/` directly in the browser; the local voice
+client performs the same lookup in an isolated headless Chromium process while
+the model stack starts. Both clients allowlist only coarse geographic fields,
+round coordinates to two decimals, and send only that sanitized object with
+the model request. The portal never receives the lookup's raw `ip`, ISP,
 connection, security, or currency fields. `get_user_location` returns only the
-current opaque browser session's sanitized value; Trash clears it and the
-normal five-minute session TTL expires it. IP location is approximate and may
+current opaque client session's sanitized value; Trash clears the phone value
+and the normal five-minute portal TTL expires either session value. A failed
+phone lookup is retried after a short cooldown instead of being cached as
+unavailable for the page's lifetime. IP location is approximate and may
 identify a carrier gateway or VPN rather than the physical device. A typical
 dependent chain is `get_user_location -> web_search -> web_fetch`, while an
 unavailable location requires an explicit city from the user.
@@ -224,13 +228,19 @@ and retrieved text remains untrusted data rather than command authority.
 
 There is no hosted/keyless search API, API SDK, or API credential in this
 harness. `web_search(mode=discover)` starts an installed Chromium/Chrome binary
-with an ephemeral local profile and reads links from a normal public search
-results page. The default page is Bing Web Search; it can be replaced with a
-public search-page template containing `{query}` via
-`OMNI_WEB_SEARCH_URL_TEMPLATE`. `OMNI_WEB_BROWSER` pins the local browser
-executable. Linux, macOS, and Windows browser locations are discovered when no
-override is present. Bot challenges fail closed instead of returning navigation
-or promotional links as results.
+with an ephemeral local profile and reads links from normal public search
+result pages. Discovery starts with DuckDuckGo and, when that page is
+challenged, empty, or fails, makes one bounded attempt each with Bing and Brave
+Search. A public primary page can be selected with a template containing
+`{query}` via `OMNI_WEB_SEARCH_URL_TEMPLATE`; the same bounded fallbacks remain
+available. `OMNI_WEB_BROWSER` pins the local browser executable. Linux, macOS,
+and Windows browser locations are discovered when no override is present.
+Every challenge page fails closed instead of becoming evidence. If all
+providers challenge, the result exposes visible `browser_interact` and
+whole-desktop `gui_interact` as first-class next capabilities. The tool loop
+must continue through the rendered GUI rather than claiming the task is
+blocked, while still withholding any factual claim until a clean results or
+source page is observed.
 
 Discovery indexes at most 48 result/fetched pages and 128,000 characters for
 the opaque browser session. `web_search(mode=session)` ranks that local index

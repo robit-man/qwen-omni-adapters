@@ -394,6 +394,8 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert ".tool-json-branch" in css
     assert "portal_auto_tools: toolUseEnabled()" in javascript
     assert "CLIENT_LOCATION_ENDPOINT = \"https://ipwho.is/\"" in javascript
+    assert "CLIENT_LOCATION_TIMEOUT_MS = 6000" in javascript
+    assert "clientLocationRetryAt" in javascript
     assert "function sanitizeClientLocation" in javascript
     assert "portal_client_location" in javascript
     assert 'document.getElementById("tool-toggle")' in javascript
@@ -1614,7 +1616,171 @@ def test_local_browser_search_decodes_result_redirects_and_fails_closed() -> Non
     assert challenged["retryable"] is False
     assert challenged["disposition"] == "change_capability"
     assert challenged["task_blocked"] is False
-    assert "alternative_tools" not in challenged
+    assert challenged["alternative_tools"] == ["browser_interact", "gui_interact"]
+    assert "visible gui browser" in challenged["next_action"].lower()
+
+
+def test_local_browser_search_fails_over_after_a_provider_challenge() -> None:
+    attempted: list[str] = []
+
+    def browser(url: str, _timeout: float) -> str:
+        attempted.append(url)
+        if "duckduckgo.com" in url:
+            return "<html><body>Verify you're not a bot before continuing.</body></html>"
+        return (
+            '<li class="b_algo"><h2><a href="https://example.com/current">'
+            "Current source</a></h2></li>"
+        )
+
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        resolver=lambda _hostname: ["93.184.216.34"],
+        browser_runner=browser,
+    )
+
+    result = harness.execute("one", "web_search", {"query": "current topic"})
+
+    assert result["search_provider"] == "www.bing.com"
+    assert result["results"] == [
+        {
+            "title": "Current source",
+            "url": "https://example.com/current",
+            "snippet": "",
+        }
+    ]
+    assert result["provider_attempts"] == [
+        {"provider": "duckduckgo.com", "status": "challenge"},
+        {"provider": "www.bing.com", "status": "results"},
+    ]
+    assert len(attempted) == 2
+
+
+def test_foreground_challenge_requires_gui_browser_recovery(monkeypatch) -> None:
+    requests: list[dict[str, Any]] = []
+    original_execute = PortalToolHarness.execute
+
+    def execute(self, session_id, name, arguments):
+        if name == "web_search":
+            return {
+                "error": "provider_challenge",
+                "challenge": True,
+                "retryable": False,
+                "failure_scope": "capability",
+                "task_blocked": False,
+                "disposition": "change_capability",
+                "alternative_tools": ["browser_interact", "gui_interact"],
+            }
+        if name == "browser_interact":
+            return {
+                "rendered": True,
+                "url": "https://example.com/source",
+                "title": "Verified source",
+            }
+        return original_execute(self, session_id, name, arguments)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        names = {item["function"]["name"] for item in body.get("tools", [])}
+        if len(requests) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "tool_search",
+                                    "arguments": {"query": "current public web research"},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        if len(requests) == 2:
+            assert "web_search" in names
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "web_search",
+                                    "arguments": {
+                                        "query": "current topic",
+                                        "mode": "discover",
+                                    },
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        if len(requests) == 3:
+            assert {"browser_interact", "gui_interact"} <= names
+            assert any(
+                "<tool_recovery>" in str(message.get("content") or "")
+                for message in body["messages"]
+            )
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "I cannot continue because search was challenged.",
+                    }
+                },
+            )
+        if len(requests) == 4:
+            assert {"browser_interact", "gui_interact"} <= names
+            assert "Do not give up" in body["messages"][-1]["content"]
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "browser_interact",
+                                    "arguments": {
+                                        "action": "navigate",
+                                        "url": "https://example.com/source",
+                                    },
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Verified."}},
+        )
+
+    monkeypatch.setattr(PortalToolHarness, "execute", execute)
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(portal_auto_tools=True),
+    )
+
+    assert response.status_code == 200
+    assert response.json["message"]["content"] == "Verified."
+    assert [
+        item["name"] for item in response.json["portal"]["safe_tools_executed"]
+    ] == ["tool_search", "web_search", "browser_interact"]
 
 
 def test_portal_enforces_server_voice_profile() -> None:

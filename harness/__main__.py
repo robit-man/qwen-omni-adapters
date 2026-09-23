@@ -24,6 +24,7 @@ from harness.audio import probe_audio_server, require_tools
 from harness.call import CallConfig, TurnResult, run_call_loop
 from harness.camera import CameraSet
 from harness.indicator import ThreadedIndicator, build_indicator, probe_indicator
+from harness.location import BrowserLocationProvider
 from harness.models import IndicatorModelManager
 from harness.residency import SpeechResidency
 from harness.respeaker import find_source
@@ -251,6 +252,12 @@ def main(argv: list[str] | None = None) -> int:
         state="starting",
         indicator_backend="required" if indicator_required else "pending",
     )
+    # This is a browser-side HTTPS lookup whose sanitized result is later
+    # attached by the local client. Start it while the model stack is loading
+    # so the first spoken location request does not race the lookup.
+    client_location = BrowserLocationProvider()
+    if not args.no_tools:
+        client_location.start()
 
     # The desktop service intentionally starts in parallel with the core
     # service. The first boot therefore often precedes access-token creation;
@@ -314,6 +321,7 @@ def main(argv: list[str] | None = None) -> int:
         # The daemon mints a fresh token every time it starts, so the harness
         # has to be able to go and look again rather than holding a dead key.
         token_reader=lambda: _available_token(args.token),
+        client_location_reader=client_location.get,
         memory_path="" if args.no_memory else args.memory_path,
         memory_calibration_path=(
             ""
