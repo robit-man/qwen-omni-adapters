@@ -35,6 +35,33 @@ def test_a_missing_cloudflared_only_disables_publishing() -> None:
     assert "serving locally only" in source
 
 
+def test_missing_cloudflared_does_not_mutate_the_frozen_config(
+    monkeypatch, tmp_path: Path
+) -> None:
+    config = daemon.DaemonConfig(
+        repo_root=tmp_path,
+        runtime_root=tmp_path / "runtime-data",
+        model="robit/test:q4km",
+        language_model="robit/test:q4km",
+        cloudflare=True,
+        allow_direct_gpu=True,
+    )
+    supervisor = daemon.OmniDaemon(config)
+    monkeypatch.setattr(supervisor, "_broker_present", lambda: False)
+    monkeypatch.setattr(
+        daemon.shutil,
+        "which",
+        lambda name: None if name == "cloudflared" else f"/usr/bin/{name}",
+    )
+    monkeypatch.setattr(daemon, "_binary", lambda _root, _name: Path("/bin/sh"))
+    monkeypatch.setattr(daemon, "_port_available", lambda _host, _port: True)
+
+    supervisor._preflight()
+
+    assert config.cloudflare is True
+    assert supervisor.cloudflare_enabled is False
+
+
 def test_a_stale_instance_is_replaced_rather_than_refused() -> None:
     """Refusing left the ports held until a human noticed and intervened."""
 

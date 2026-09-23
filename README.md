@@ -108,6 +108,12 @@ handles. The Ornith bridge is the recommended 32 GB Jetson choice. Qwen's
 not claimed until measured on the target board with its real context and TTS
 policy.
 
+Upgrades perform a live-runtime handoff before replacing the unit: the
+deployer identifies and stops recognized old Omni listeners, unloads their
+relevant Ollama runners, verifies the ports are free, and samples Jetson GPU
+load and unified-memory headroom. The old configuration, unit, and managed
+services are restored if the replacement does not reach ready state.
+
 The first run creates `.venv`, installs the Python package, clones a pinned
 llama.cpp revision, applies the Qwen3-TTS PCM streaming and resident-worker
 patches, builds the two

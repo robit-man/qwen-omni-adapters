@@ -51,7 +51,9 @@ def test_noninteractive_dry_run_uses_one_bridge_tag_for_both_stages() -> None:
     assert f"OMNI_LANGUAGE_MODEL={tag}" in completed.stdout
     assert "scripts/bootstrap.sh --refresh-models" in completed.stdout
     assert "services/linux/install.sh --auto --no-enable" in completed.stdout
-    assert "systemctl restart qwen-omni-adapters.service" in completed.stdout
+    assert "inventory owners of ports 8892,8901,8910,8920,8930" in completed.stdout
+    assert "unload only the selected, prior-configured" in completed.stdout
+    assert "systemctl start qwen-omni-adapters.service" in completed.stdout
     assert "wait up to 30 minutes for state=ready" in completed.stdout
 
 
@@ -60,6 +62,27 @@ def test_noninteractive_mode_fails_closed_without_a_profile() -> None:
 
     assert completed.returncode != 0
     assert "non-interactive use requires --profile" in completed.stderr
+
+
+def test_cutover_stops_and_unloads_the_old_runtime_before_installing() -> None:
+    source = DEPLOY.read_text(encoding="utf-8")
+    deploy_body = source.split("deploy_service() {", 1)[1].split("\n}\n\nwhile (($#))", 1)[0]
+
+    assert deploy_body.index("prepare_runtime_handoff") < deploy_body.index(
+        "install_environment"
+    )
+    assert "unload_relevant_ollama_models" in source
+    assert "handoff_command admit" in source
+    assert "OMNI_DEPLOY_MEMORY_RESERVE_MIB:-6144" in source
+    assert "nvidia-smi" not in source
+
+
+def test_readiness_wait_accepts_activation_and_prints_the_journal_on_failure() -> None:
+    source = DEPLOY.read_text(encoding="utf-8")
+
+    assert "active|activating|reloading" in source
+    assert "NRestarts" in source
+    assert 'journalctl -u "$SERVICE_NAME"' in source
 
 
 def test_arrow_key_menu_selects_qwen_bridge() -> None:

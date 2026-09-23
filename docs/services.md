@@ -33,8 +33,13 @@ On Jetson, the preferred entry point is the guided service installer:
 It detects fresh versus installed state, offers install/upgrade and both
 trained bridge models through arrow-key menus, persists the selected logical
 tag, invokes the Linux installer in direct mode, and waits for the selected
-model's startup smoke gates. The lower-level commands below remain available
-for staged and custom deployments.
+model's startup smoke gates. Before cutover it inventories the five runtime
+ports, stops only recognized Omni services/processes, unloads the selected and
+prior-configured Ollama runners, and proves the ports are free. On Tegra it
+then samples GPU utilization from sysfs and admits the exact installed layer
+bytes only when unified memory retains a 6 GiB runtime reserve. A failed
+startup restores the prior `.env`, systemd unit, and managed services. The
+lower-level commands below remain available for staged and custom deployments.
 
 On an ollama-unify host, the systemd unit deliberately uses the broker-aware
 `portal/start.sh --foreground` lifecycle:

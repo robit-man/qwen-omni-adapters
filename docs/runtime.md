@@ -56,8 +56,11 @@ menu, or pass a verified profile name for automation:
 Each guided profile is a trained audio bridge and uses its logical sidecar tag
 as the sole language trunk. `deploy.sh` pulls and resolves that tag, runs the
 deployment doctor and full regression suite, persists the selection, and
-installs or upgrades the managed service. See `model-profiles.md` for exact
-tags. Explicit `OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` environment values remain
+installs or upgrades the managed service. Upgrades first hand off from the
+existing runtime: recognized Omni port owners are stopped, relevant Ollama
+runners are unloaded, and Jetson GPU load plus unified-memory headroom are
+checked before the new service starts. See `model-profiles.md` for exact tags.
+Explicit `OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` environment values remain
 supported for advanced and legacy profiles.
 
 ## Runtime prerequisites

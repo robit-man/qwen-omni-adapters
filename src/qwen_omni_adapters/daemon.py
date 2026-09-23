@@ -246,6 +246,11 @@ class OmniDaemon:
         self.children: list[Child] = []
         self.stop_event = threading.Event()
         self.sidecar_resolution: dict[str, Any] | None = None
+        # DaemonConfig is intentionally immutable.  Tunnel availability is a
+        # runtime condition, so keep the effective value on the supervisor
+        # instead of trying to mutate the frozen configuration during
+        # preflight.
+        self.cloudflare_enabled = config.cloudflare
 
     def _write_status(self, **fields: Any) -> None:
         value = {
@@ -328,7 +333,7 @@ class OmniDaemon:
         missing = [command for command in required if not shutil.which(command)]
         if missing:
             raise DaemonError(f"missing commands: {', '.join(missing)}")
-        if self.config.cloudflare and not shutil.which("cloudflared"):
+        if self.cloudflare_enabled and not shutil.which("cloudflared"):
             # Publishing is a convenience; the conversation this daemon exists
             # to serve happens over loopback. Losing the tunnel must not cost
             # the microphone.
@@ -337,7 +342,7 @@ class OmniDaemon:
                 file=sys.stderr,
                 flush=True,
             )
-            self.config.cloudflare = False
+            self.cloudflare_enabled = False
         for binary_name in ("llama-server", "llama-tts"):
             binary = _binary(self.config.repo_root, binary_name)
             if not binary.is_file():
@@ -817,7 +822,7 @@ class OmniDaemon:
         )
 
         public = f"http://127.0.0.1:{self.config.portal_port}"
-        if self.config.cloudflare:
+        if self.cloudflare_enabled:
             tunnel_log = self.log_dir / "cloudflared.log"
             try:
                 tunnel_log_offset = tunnel_log.stat().st_size

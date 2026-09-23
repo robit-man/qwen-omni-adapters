@@ -81,6 +81,19 @@ gates, installs the direct systemd service, and waits for that exact model to
 pass startup smoke gates. `cloudflared` is optional; without it the portal
 stays on loopback.
 
+An upgrade is a controlled handoff. The deployer resolves the live owners of
+ports 8892, 8901, 8910, 8920, and 8930 from procfs and refuses an unknown
+owner. It stops and records recognized legacy/current Omni units, waits for
+the ports to close, and asks Ollama to unload only the selected,
+prior-configured, and known legacy Omni tags. It then prints pre/post GPU and
+unified-memory snapshots from `qwen_omni_adapters.accelerator`, samples the
+Tegra load five times, and requires the exact installed bundle bytes plus a
+6 GiB reserve before starting the replacement. Override the conservative
+admission values with `OMNI_DEPLOY_MEMORY_RESERVE_MIB` and
+`OMNI_DEPLOY_MAX_GPU_UTILIZATION` only when production measurements justify
+it. If the replacement fails, the old environment, unit, and managed services
+are restored; unmanaged processes are identified but cannot be reconstructed.
+
 `ornith15` is recommended for a 32 GB Jetson. `qwen38` provides the larger E03
 trunk but leaves less room for KV cache, graph workspaces, the desktop, and
 concurrent tools; see [the trained-bridge budget](#trained-audio-bridge-profile).
@@ -143,7 +156,9 @@ memory. KV cache, graph workspaces, CUDA allocations, the OS, and the portal
 still consume the shared pool. Publish a no-eviction claim only after the
 candidate is measured on a 32 GB Orin with its production context and TTS
 policy; the resolver exposes exact layer sizes so that evidence can be tied to
-the released digests.
+the released digests. The guided deployer's admission gate prevents a start
+when the post-handoff host cannot retain the installed layers and its default
+6 GiB operating reserve; it is a startup safety bound, not a benchmark claim.
 
 `qwen-omni doctor` reports the accelerator, and omits the broker tooling
 (`docker`, `jq`, `ss`) that does not apply:

@@ -3,6 +3,9 @@ set -Eeuo pipefail
 
 REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 SERVICE_NAME=qwen-omni-adapters.service
+SERVICE_UNIT=/etc/systemd/system/$SERVICE_NAME
+HARNESS_NAME=omni-call-harness.service
+DEPLOYMENT_PORTS=8892,8901,8910,8920,8930
 PROFILE=""
 ACTION=""
 WITH_HARNESS=""
@@ -12,10 +15,18 @@ ALLOW_UPDATE=1
 ENV_BACKUP=""
 ENV_EXISTED=0
 CONFIG_INSTALLED=0
-SERVICE_WAS_ACTIVE=0
-SERVICE_EXISTED=0
+SERVICE_WAS_ENABLED=0
 SERVICE_START_EPOCH=0
 DEPLOY_COMPLETE=0
+HANDOFF_STARTED=0
+UNIT_BACKUP=""
+UNIT_EXISTED=0
+UNIT_INSTALLED=0
+PRIOR_OMNI_MODEL=""
+PRIOR_LANGUAGE_MODEL=""
+declare -a STOPPED_SYSTEM_UNITS=()
+declare -a STOPPED_USER_UNITS=()
+declare -a STOPPED_MANUAL_PIDS=()
 
 restore_cursor() {
   if [[ -t 1 ]]; then
@@ -97,9 +108,14 @@ service_installed() {
     && systemctl cat "$SERVICE_NAME" >/dev/null 2>&1
 }
 
-configured_model() {
+configured_value() {
+  local key=$1
   [[ -r "$REPO_ROOT/.env" ]] || return 0
-  awk -F= '$1 == "OMNI_MODEL" {sub(/^[^=]*=/, ""); print; exit}' "$REPO_ROOT/.env"
+  awk -v key="$key" -F= '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$REPO_ROOT/.env"
+}
+
+configured_model() {
+  configured_value OMNI_MODEL
 }
 
 deployment_state() {
@@ -270,7 +286,6 @@ check_deploy_prerequisites() {
   local required=(cmake curl ffmpeg git node ollama openssl sudo systemctl)
   local python_command=${PYTHON:-python3}
   required+=("$python_command")
-  is_tegra && required+=(nvidia-smi)
   local missing=() dependency
   for dependency in "${required[@]}"; do
     command -v "$dependency" >/dev/null 2>&1 || missing+=("$dependency")
@@ -333,6 +348,18 @@ backup_environment() {
   fi
 }
 
+backup_service_unit() {
+  UNIT_BACKUP=$(mktemp)
+  if sudo test -f "$SERVICE_UNIT"; then
+    # shellcheck disable=SC2024 # sudo grants the read; this shell owns the temp output.
+    sudo cat "$SERVICE_UNIT" >"$UNIT_BACKUP"
+    UNIT_EXISTED=1
+  fi
+  if systemctl is-enabled --quiet "$SERVICE_NAME" 2>/dev/null; then
+    SERVICE_WAS_ENABLED=1
+  fi
+}
+
 install_environment() {
   local temporary
   temporary=$(mktemp "$REPO_ROOT/.env.deploy.XXXXXX")
@@ -360,35 +387,283 @@ restore_environment() {
   fi
 }
 
+restore_service_unit() {
+  ((UNIT_INSTALLED || HANDOFF_STARTED)) || return 0
+  sudo systemctl stop "$SERVICE_NAME" >/dev/null 2>&1 || true
+  if ((UNIT_EXISTED)); then
+    sudo install -m 0644 "$UNIT_BACKUP" "$SERVICE_UNIT"
+  else
+    sudo rm -f -- "$SERVICE_UNIT"
+  fi
+  sudo systemctl daemon-reload
+  if ((UNIT_EXISTED == 0 || SERVICE_WAS_ENABLED == 0)); then
+    sudo systemctl disable "$SERVICE_NAME" >/dev/null 2>&1 || true
+  else
+    sudo systemctl enable "$SERVICE_NAME" >/dev/null 2>&1 || true
+  fi
+}
+
+append_unique() {
+  local array_name=$1 value=$2 existing
+  local -n values="$array_name"
+  for existing in "${values[@]}"; do
+    [[ $existing == "$value" ]] && return 0
+  done
+  values+=("$value")
+}
+
+handoff_command() {
+  "$REPO_ROOT/.venv/bin/python" -m qwen_omni_adapters.deployment_handoff "$@"
+}
+
+read_running_ollama_models() {
+  local array_name=$1 output
+  local -n result="$array_name"
+  if ! output=$(ollama ps 2>&1); then
+    printf '%s\n' "$output" >&2
+    die 'could not inspect resident Ollama runners before deployment'
+  fi
+  # shellcheck disable=SC2034 # result is a nameref populated for the caller.
+  mapfile -t result < <(printf '%s\n' "$output" | awk 'NR > 1 && NF {print $1}')
+}
+
+is_relevant_ollama_model() {
+  local running=$1 candidate
+  shift
+  for candidate in "$@"; do
+    [[ -n $candidate && $running == "$candidate" ]] && return 0
+  done
+  return 1
+}
+
+unload_relevant_ollama_models() {
+  local candidates=(
+    "$OMNI_MODEL"
+    "$PRIOR_OMNI_MODEL"
+    "$PRIOR_LANGUAGE_MODEL"
+    robit/qwen3.8-27b-e03-obliterated-omni:q4km
+    robit/qwen3.8-27b-obliterated-e03:27b
+    robit/ornith-1.5-omni:q4km
+    robit/ornith-1.5:9b
+    robit/ornith-1.5-obliterated-omni:q4km
+    robit/ornith-1.5-obliterated:9b
+  )
+  local running=() model stopped=0 deadline
+  read_running_ollama_models running
+  for model in "${running[@]}"; do
+    if is_relevant_ollama_model "$model" "${candidates[@]}"; then
+      printf 'Unloading prior Ollama runner: %s\n' "$model"
+      ollama stop "$model"
+      stopped=1
+    fi
+  done
+  ((stopped)) || printf 'No relevant Ollama runner is resident.\n'
+
+  deadline=$((SECONDS + 120))
+  while ((SECONDS < deadline)); do
+    local remaining=()
+    read_running_ollama_models running
+    for model in "${running[@]}"; do
+      is_relevant_ollama_model "$model" "${candidates[@]}" && remaining+=("$model")
+    done
+    ((${#remaining[@]} == 0)) && return 0
+    sleep 2
+  done
+  die "Ollama did not unload the prior model runner within 120 seconds"
+}
+
+wait_for_handoff_ports() {
+  local deadline=$((SECONDS + 120))
+  while ((SECONDS < deadline)); do
+    if handoff_command ports-free --ports "$DEPLOYMENT_PORTS" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  handoff_command inventory --ports "$DEPLOYMENT_PORTS" >&2 || true
+  die 'the old runtime did not release all Omni listener ports within 120 seconds'
+}
+
+prepare_runtime_handoff() {
+  local target_file kind value unit pid unit_state invalid_target=""
+  target_file=$(mktemp)
+  if command -v docker >/dev/null 2>&1; then
+    printf '\nInspecting the host CUDA lease policy before changing services...\n'
+    if ! docker gpu discover; then
+      is_tegra || die 'docker GPU discovery failed on a non-Tegra host; refusing an unscoped CUDA cutover'
+      printf 'No discrete-GPU broker is active; Tegra direct lifecycle applies.\n'
+    fi
+  fi
+  printf '\nInspecting live Omni ports and accelerator state before cutover...\n'
+  handoff_command inventory --ports "$DEPLOYMENT_PORTS"
+  if ! handoff_command targets --ports "$DEPLOYMENT_PORTS" >"$target_file"; then
+    unlink "$target_file" 2>/dev/null || true
+    die 'a deployment port is owned by an unknown process; leaving the live runtime untouched'
+  fi
+
+  while IFS=$'\t' read -r kind value; do
+    [[ -n $kind && -n $value ]] || continue
+    case $kind in
+      system-unit) append_unique STOPPED_SYSTEM_UNITS "$value" ;;
+      user-unit) append_unique STOPPED_USER_UNITS "$value" ;;
+      process) append_unique STOPPED_MANUAL_PIDS "$value" ;;
+      *) invalid_target=$kind ;;
+    esac
+  done <"$target_file"
+  unlink "$target_file" 2>/dev/null || true
+  [[ -z $invalid_target ]] || die "invalid handoff target: $invalid_target"
+
+  # A managed runtime may still be starting and not own a port yet.  Include
+  # the installed unit and legacy Omni units so they cannot race the new one.
+  unit_state=$(systemctl show "$SERVICE_NAME" -p ActiveState --value 2>/dev/null || true)
+  case $unit_state in
+    active|activating|reloading|deactivating)
+      append_unique STOPPED_SYSTEM_UNITS "$SERVICE_NAME"
+      ;;
+  esac
+  while read -r unit _; do
+    [[ -n $unit ]] || continue
+    append_unique STOPPED_SYSTEM_UNITS "$unit"
+  done < <(
+    systemctl list-units --type=service --all --no-legend --plain 2>/dev/null \
+      | awk 'tolower($1) ~ /omni/ && $3 ~ /^(active|activating|reloading|deactivating)$/ {print $1}'
+  )
+  if systemctl --user is-active --quiet "$HARNESS_NAME" 2>/dev/null; then
+    append_unique STOPPED_USER_UNITS "$HARNESS_NAME"
+  fi
+
+  HANDOFF_STARTED=1
+  for unit in "${STOPPED_USER_UNITS[@]}"; do
+    printf 'Stopping prior user service: %s\n' "$unit"
+    systemctl --user stop "$unit"
+  done
+  for unit in "${STOPPED_SYSTEM_UNITS[@]}"; do
+    printf 'Stopping prior system service: %s\n' "$unit"
+    sudo systemctl stop "$unit"
+  done
+  for pid in "${STOPPED_MANUAL_PIDS[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      printf 'Stopping recognized unmanaged Omni listener PID: %s\n' "$pid"
+      sudo kill -TERM "$pid"
+    fi
+  done
+
+  wait_for_handoff_ports
+  unload_relevant_ollama_models
+
+  printf '\nPost-handoff port and accelerator snapshot...\n'
+  handoff_command inventory --ports "$DEPLOYMENT_PORTS"
+  if is_tegra; then
+    printf 'Checking exact bundle bytes, unified-memory headroom, and sampled GPU utilization...\n'
+    handoff_command admit \
+      --model "$OMNI_MODEL" \
+      --reserve-mib "${OMNI_DEPLOY_MEMORY_RESERVE_MIB:-6144}" \
+      --max-utilization-percent "${OMNI_DEPLOY_MAX_GPU_UTILIZATION:-80}"
+  else
+    printf 'Jetson unified-memory admission is not applicable; the selected host lifecycle remains authoritative.\n'
+  fi
+}
+
+retire_prior_services() {
+  local unit
+  for unit in "${STOPPED_SYSTEM_UNITS[@]}"; do
+    [[ $unit == "$SERVICE_NAME" ]] && continue
+    sudo systemctl disable "$unit" >/dev/null 2>&1 || true
+  done
+  for unit in "${STOPPED_USER_UNITS[@]}"; do
+    if [[ $unit == "$HARNESS_NAME" && $WITH_HARNESS == 1 ]]; then
+      continue
+    fi
+    systemctl --user disable "$unit" >/dev/null 2>&1 || true
+  done
+}
+
+restart_prior_services() {
+  local unit
+  for unit in "${STOPPED_SYSTEM_UNITS[@]}"; do
+    if ! sudo systemctl start "$unit" >/dev/null 2>&1; then
+      printf 'deploy: failed to restart prior system service %s\n' "$unit" >&2
+    elif ! sudo systemctl is-active --quiet "$unit"; then
+      printf 'deploy: prior system service did not become active: %s\n' "$unit" >&2
+    fi
+  done
+  for unit in "${STOPPED_USER_UNITS[@]}"; do
+    if ! systemctl --user start "$unit" >/dev/null 2>&1; then
+      printf 'deploy: failed to restart prior user service %s\n' "$unit" >&2
+    elif ! systemctl --user is-active --quiet "$unit"; then
+      printf 'deploy: prior user service did not become active: %s\n' "$unit" >&2
+    fi
+  done
+  if ((${#STOPPED_MANUAL_PIDS[@]})); then
+    printf 'deploy: unmanaged prior listener(s) cannot be reconstructed automatically: %s\n' \
+      "${STOPPED_MANUAL_PIDS[*]}" >&2
+  fi
+}
+
 on_exit() {
   local status=$?
   restore_cursor
-  if ((status != 0 && CONFIG_INSTALLED && DEPLOY_COMPLETE == 0)); then
-    printf '\ndeploy: deployment failed; restoring the prior model configuration.\n' >&2
+  if ((status != 0 && HANDOFF_STARTED && DEPLOY_COMPLETE == 0)); then
+    printf '\ndeploy: deployment failed; restoring the prior configuration, unit, and managed services.\n' >&2
     restore_environment
-    if ((SERVICE_WAS_ACTIVE)) && command -v systemctl >/dev/null 2>&1; then
-      sudo systemctl restart "$SERVICE_NAME" >/dev/null 2>&1 || true
-    elif command -v systemctl >/dev/null 2>&1; then
-      sudo systemctl stop "$SERVICE_NAME" >/dev/null 2>&1 || true
-      if ((SERVICE_EXISTED == 0)); then
-        sudo systemctl disable "$SERVICE_NAME" >/dev/null 2>&1 || true
-      fi
-    fi
+    restore_service_unit || true
+    restart_prior_services
   fi
   [[ -z $ENV_BACKUP ]] || unlink "$ENV_BACKUP" 2>/dev/null || true
+  [[ -z $UNIT_BACKUP ]] || unlink "$UNIT_BACKUP" 2>/dev/null || true
 }
 
 trap on_exit EXIT
 trap 'exit 130' INT TERM
 
+report_service_failure() {
+  printf '\nService startup evidence\n' >&2
+  sudo systemctl status "$SERVICE_NAME" --no-pager -l >&2 || true
+  sudo journalctl -u "$SERVICE_NAME" -n 100 --no-pager >&2 || true
+  if [[ -r "$REPO_ROOT/runtime-data/state/daemon-status.json" ]]; then
+    "$REPO_ROOT/.venv/bin/python" - "$REPO_ROOT/runtime-data/state/daemon-status.json" <<'PY' >&2 || true
+import json
+import sys
+
+try:
+    source = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError) as exc:
+    print(json.dumps({"status_error": str(exc)}, indent=2))
+else:
+    allowed = {
+        key: source[key]
+        for key in (
+            "state", "detail", "model", "updated_at", "accelerator",
+            "comprehension", "startup_smoke", "decision_plane", "children",
+        )
+        if key in source
+    }
+    print(json.dumps(allowed, indent=2, sort_keys=True))
+PY
+  fi
+}
+
 wait_for_service() {
-  local deadline=$((SECONDS + 1800)) state model updated_at
+  local started=$SECONDS deadline=$((SECONDS + 1800)) state model updated_at
+  local active_state sub_state restarts
   printf 'Waiting for the selected model to pass startup smoke gates...\n'
   while ((SECONDS < deadline)); do
-    if ! sudo systemctl is-active --quiet "$SERVICE_NAME"; then
-      sudo systemctl status "$SERVICE_NAME" --no-pager -l >&2 || true
-      die "$SERVICE_NAME stopped before readiness"
-    fi
+    active_state=$(sudo systemctl show "$SERVICE_NAME" -p ActiveState --value 2>/dev/null || true)
+    sub_state=$(sudo systemctl show "$SERVICE_NAME" -p SubState --value 2>/dev/null || true)
+    restarts=$(sudo systemctl show "$SERVICE_NAME" -p NRestarts --value 2>/dev/null || true)
+    [[ $restarts =~ ^[0-9]+$ ]] || restarts=0
+    case $active_state in
+      active|activating|reloading) ;;
+      failed|inactive|deactivating|*)
+        # Restart=on-failure has a deliberate ten-second gap.  An immediate
+        # is-active check used to misclassify both "activating" and that gap
+        # as a terminal failure and hide the journal that explained it.
+        if ((SECONDS - started >= 60)); then
+          report_service_failure
+          die "$SERVICE_NAME failed before readiness (state=$active_state/$sub_state, restarts=$restarts)"
+        fi
+        ;;
+    esac
     if [[ -r "$REPO_ROOT/runtime-data/state/daemon-status.json" ]]; then
       read -r state model updated_at < <(
         "$REPO_ROOT/.venv/bin/python" - "$REPO_ROOT/runtime-data/state/daemon-status.json" <<'PY'
@@ -407,8 +682,13 @@ PY
         return 0
       fi
     fi
+    if ((restarts >= 3)); then
+      report_service_failure
+      die "$SERVICE_NAME restarted repeatedly before readiness (state=$active_state/$sub_state, restarts=$restarts)"
+    fi
     sleep 2
   done
+  report_service_failure
   die 'service did not become ready within 30 minutes'
 }
 
@@ -422,13 +702,20 @@ deploy_service() {
   run "$REPO_ROOT/scripts/validate.sh"
 
   if ((DRY_RUN)); then
+    printf '+ inventory owners of ports %s and refuse unknown listeners\n' "$DEPLOYMENT_PORTS"
+    printf '+ stop and record prior Omni system/user services; wait for all deployment ports to close\n'
+    printf '+ unload only the selected, prior-configured, and known legacy Omni Ollama runners\n'
+    if is_tegra; then
+      printf '+ sample Tegra GPU utilization and require exact model bytes plus %s MiB free headroom\n' \
+        "${OMNI_DEPLOY_MEMORY_RESERVE_MIB:-6144}"
+    fi
     printf '+ persist OMNI_PROFILE=%q OMNI_MODEL=%q OMNI_LANGUAGE_MODEL=%q in %q\n' \
       "$PROFILE" "$OMNI_MODEL" "$OMNI_LANGUAGE_MODEL" "$REPO_ROOT/.env"
     local dry_install=("$REPO_ROOT/services/linux/install.sh" --auto --no-enable)
     ((WITH_HARNESS)) && dry_install+=(--with-harness)
     run "${dry_install[@]}"
     run sudo systemctl enable "$SERVICE_NAME"
-    run sudo systemctl restart "$SERVICE_NAME"
+    run sudo systemctl start "$SERVICE_NAME"
     if ((WITH_HARNESS)); then
       run systemctl --user enable --now omni-call-harness.service
     fi
@@ -436,26 +723,21 @@ deploy_service() {
     return 0
   fi
 
+  PRIOR_OMNI_MODEL=$(configured_value OMNI_MODEL)
+  PRIOR_LANGUAGE_MODEL=$(configured_value OMNI_LANGUAGE_MODEL)
   backup_environment
-  if service_installed; then
-    SERVICE_EXISTED=1
-    if sudo systemctl is-active --quiet "$SERVICE_NAME"; then
-      SERVICE_WAS_ACTIVE=1
-    fi
-  fi
+  backup_service_unit
+  prepare_runtime_handoff
   install_environment
 
   local install=("$REPO_ROOT/services/linux/install.sh" --auto --no-enable)
   ((WITH_HARNESS)) && install+=(--with-harness)
   "${install[@]}"
+  UNIT_INSTALLED=1
 
   sudo systemctl enable "$SERVICE_NAME"
   SERVICE_START_EPOCH=$(date +%s)
-  if ((SERVICE_WAS_ACTIVE)); then
-    sudo systemctl restart "$SERVICE_NAME"
-  else
-    sudo systemctl start "$SERVICE_NAME"
-  fi
+  sudo systemctl start "$SERVICE_NAME"
   wait_for_service
 
   if ((WITH_HARNESS)); then
@@ -466,6 +748,8 @@ deploy_service() {
       systemctl --user start omni-call-harness.service
     fi
   fi
+
+  retire_prior_services
 
   printf '\nDeployment ready.\n'
   sudo systemctl status "$SERVICE_NAME" --no-pager -l
