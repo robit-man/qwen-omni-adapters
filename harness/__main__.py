@@ -97,7 +97,9 @@ def _repo_root() -> Path:
     return Path(os.environ.get("OMNI_REPO_ROOT") or Path(__file__).resolve().parents[1])
 
 
-def _read_token(explicit: str | None) -> str:
+def _available_token(explicit: str | None) -> str:
+    """Return the current portal token, or empty while the daemon mints it."""
+
     if explicit:
         return explicit.strip()
     env = os.environ.get("OMNI_PORTAL_TOKEN", "").strip()
@@ -106,11 +108,21 @@ def _read_token(explicit: str | None) -> str:
     path = _repo_root() / DEFAULT_TOKEN_FILE
     try:
         return path.read_text(encoding="utf-8").strip()
-    except OSError as error:
-        raise SystemExit(
-            f"no portal token: pass --token, set OMNI_PORTAL_TOKEN, or start the "
-            f"daemon so it writes {path} ({error})"
-        ) from error
+    except OSError:
+        return ""
+
+
+def _read_token(explicit: str | None) -> str:
+    """Read a required token for callers that are not allowed to wait."""
+
+    token = _available_token(explicit)
+    if token:
+        return token
+    path = _repo_root() / DEFAULT_TOKEN_FILE
+    raise SystemExit(
+        f"no portal token: pass --token, set OMNI_PORTAL_TOKEN, or start the "
+        f"daemon so it writes {path}"
+    )
 
 
 def _write_harness_status(
@@ -153,6 +165,7 @@ def _wait_for_portal(
 
     deadline = time.monotonic() + timeout_s
     last = ""
+    token = token.strip()
     while time.monotonic() < deadline:
         if reader is not None:
             try:
@@ -162,6 +175,10 @@ def _wait_for_portal(
                     token = fresh
             except Exception:  # noqa: BLE001 - keep waiting rather than give up
                 pass
+        if not token:
+            last = "waiting for the daemon to publish its access token"
+            time.sleep(3)
+            continue
         try:
             response = httpx.get(
                 f"{url.rstrip('/')}/api/status",
@@ -175,6 +192,8 @@ def _wait_for_portal(
             last = f"{type(error).__name__}: {error}"
         time.sleep(3)
     raise SystemExit(f"the omni adapter never became ready at {url} ({last})")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="omni-call", description=__doc__)
     parser.add_argument("--portal", default=os.environ.get("OMNI_PORTAL_URL", DEFAULT_PORTAL))
@@ -233,9 +252,12 @@ def main(argv: list[str] | None = None) -> int:
         indicator_backend="required" if indicator_required else "pending",
     )
 
-    token = _read_token(args.token)
+    # The desktop service intentionally starts in parallel with the core
+    # service. The first boot therefore often precedes access-token creation;
+    # absence is a normal startup state, not a reason to crash-loop.
+    token = _available_token(args.token)
     status, token = _wait_for_portal(
-        args.portal, token, args.ready_timeout, lambda: _read_token(args.token)
+        args.portal, token, args.ready_timeout, lambda: _available_token(args.token)
     )
     model = args.model or str(status.get("model") or "")
     if not model:
@@ -291,7 +313,7 @@ def main(argv: list[str] | None = None) -> int:
         camera_device=args.camera_device,
         # The daemon mints a fresh token every time it starts, so the harness
         # has to be able to go and look again rather than holding a dead key.
-        token_reader=lambda: _read_token(args.token),
+        token_reader=lambda: _available_token(args.token),
         memory_path="" if args.no_memory else args.memory_path,
         memory_calibration_path=(
             ""

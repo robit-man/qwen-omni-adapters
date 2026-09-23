@@ -128,10 +128,15 @@ def test_indicator_service_starts_before_the_core_readiness_wait() -> None:
 
 def test_readiness_wait_accepts_activation_and_prints_the_journal_on_failure() -> None:
     source = DEPLOY.read_text(encoding="utf-8")
+    harness_wait = source.split("wait_for_harness() {", 1)[1].split(
+        "\n}\n\nwait_for_service()", 1
+    )[0]
 
     assert "active|activating|reloading" in source
     assert "NRestarts" in source
     assert 'journalctl -u "$SERVICE_NAME"' in source
+    assert "restarts -ge" not in harness_wait
+    assert "Only the deadline is terminal" in harness_wait
 
 
 def test_arrow_key_menu_selects_qwen_bridge() -> None:

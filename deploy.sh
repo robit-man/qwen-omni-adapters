@@ -704,10 +704,11 @@ PY
 }
 
 wait_for_harness() {
-  local deadline=$((SECONDS + 120)) state backend updated_at pid active_state restarts
+  local deadline=$((SECONDS + 120)) state backend updated_at pid active_state sub_state restarts
   printf 'Waiting for the desktop harness and real indicator backend...\n'
   while ((SECONDS < deadline)); do
     active_state=$(systemctl --user show "$HARNESS_NAME" -p ActiveState --value 2>/dev/null || true)
+    sub_state=$(systemctl --user show "$HARNESS_NAME" -p SubState --value 2>/dev/null || true)
     restarts=$(systemctl --user show "$HARNESS_NAME" -p NRestarts --value 2>/dev/null || true)
     [[ $restarts =~ ^[0-9]+$ ]] || restarts=0
     if [[ -r "$REPO_ROOT/runtime-data/state/harness-status.json" ]]; then
@@ -735,14 +736,13 @@ PY
         return 0
       fi
     fi
-    if [[ $active_state == failed || $active_state == inactive || $restarts -ge 3 ]]; then
-      report_harness_failure
-      die "$HARNESS_NAME failed its visible-indicator readiness gate"
-    fi
+    # Restart=always deliberately passes through failed/inactive and
+    # auto-restart while the core daemon is still loading and rotating its
+    # token. Only the deadline is terminal; an arbitrary restart count is not.
     sleep 2
   done
   report_harness_failure
-  die "$HARNESS_NAME did not prove a visible indicator within 120 seconds"
+  die "$HARNESS_NAME did not prove a visible indicator within 120 seconds (state=$active_state/$sub_state, restarts=$restarts)"
 }
 
 wait_for_service() {

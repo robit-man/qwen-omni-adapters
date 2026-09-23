@@ -63,6 +63,53 @@ def test_harness_status_is_private_and_contains_only_bounded_liveness(
     }
 
 
+def test_missing_startup_token_is_waitable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("OMNI_PORTAL_TOKEN", raising=False)
+    monkeypatch.setattr(harness_main, "_repo_root", lambda: tmp_path)
+
+    assert harness_main._available_token(None) == ""
+
+    with pytest.raises(SystemExit, match="no portal token"):
+        harness_main._read_token(None)
+
+
+def test_portal_wait_does_not_send_a_request_until_token_exists(monkeypatch) -> None:
+    tokens = iter(["", "new-token"])
+    clock = iter([0.0, 0.0, 0.0])
+    requests: list[tuple[str, dict[str, str]]] = []
+
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json() -> dict[str, object]:
+            return {"model": "test-model"}
+
+    def get(url: str, *, headers: dict[str, str], timeout: float) -> Response:
+        assert timeout == 5.0
+        requests.append((url, headers))
+        return Response()
+
+    monkeypatch.setattr(harness_main.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(harness_main.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(harness_main.httpx, "get", get)
+
+    status, token = harness_main._wait_for_portal(
+        "http://127.0.0.1:8920", "", 30.0, lambda: next(tokens)
+    )
+
+    assert status == {"model": "test-model"}
+    assert token == "new-token"
+    assert requests == [
+        (
+            "http://127.0.0.1:8920/api/status",
+            {"Authorization": "Bearer new-token"},
+        )
+    ]
+
+
 def test_audio_probe_requires_a_real_capture_source_and_sink(monkeypatch) -> None:
     outputs = {
         "sources": "1\talsa_input.usb-mic\tmodule-alsa-card.c\ts16le 1ch 16000Hz\tIDLE\n",
