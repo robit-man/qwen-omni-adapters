@@ -5,9 +5,10 @@ the GNOME top bar, where it is visible without opening anything, and gives a
 menu to mute, unmute, or quit -- so consent is one click away rather than a
 terminal command.
 
-AppIndicator is used because Ubuntu ships the extension that renders it; when
-it is unavailable the harness still runs, silently, rather than refusing to
-start over a status icon.
+AppIndicator is used because Ubuntu ships the extension that renders it. A
+manually launched harness may fall back to headless operation, but the managed
+desktop service requires a real indicator so an always-listening microphone is
+never silently active.
 """
 
 from __future__ import annotations
@@ -65,6 +66,76 @@ TOOLTIPS: dict[str, str] = {
     "muted": "Microphone muted",
     "offline": "The omni adapter is unreachable",
 }
+
+
+class IndicatorUnavailable(RuntimeError):
+    """Raised when a deployment promised a desktop indicator but cannot host one."""
+
+
+def _indicator_modules():
+    try:
+        import gi
+
+        gi.require_version("Gtk", "3.0")
+        try:
+            gi.require_version("AyatanaAppIndicator3", "0.1")
+            from gi.repository import AyatanaAppIndicator3 as AppIndicator
+
+            backend = "ayatana-appindicator3"
+        except (ValueError, ImportError):
+            gi.require_version("AppIndicator3", "0.1")
+            from gi.repository import AppIndicator3 as AppIndicator
+
+            backend = "appindicator3"
+        from gi.repository import GLib, Gtk, Pango
+    except Exception as error:  # noqa: BLE001 - normalize optional desktop imports
+        raise IndicatorUnavailable(str(error)) from error
+
+    initialized = Gtk.init_check(None)
+    if isinstance(initialized, tuple):
+        initialized = initialized[0]
+    if not initialized:
+        raise IndicatorUnavailable(
+            "GTK could not connect to the desktop display; check the user service "
+            "DISPLAY/WAYLAND_DISPLAY and graphical session"
+        )
+    return AppIndicator, GLib, Gtk, Pango, backend
+
+
+def _require_status_notifier(glib) -> None:
+    """Require the desktop host that actually renders AppIndicator objects."""
+
+    try:
+        from gi.repository import Gio
+
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        reply = bus.call_sync(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "NameHasOwner",
+            glib.Variant("(s)", ("org.kde.StatusNotifierWatcher",)),
+            glib.VariantType("(b)"),
+            Gio.DBusCallFlags.NONE,
+            3000,
+            None,
+        )
+        watcher = bool(reply.unpack()[0])
+    except Exception as error:  # noqa: BLE001 - normalize desktop bus failures
+        raise IndicatorUnavailable(f"could not query the desktop indicator host: {error}") from error
+    if not watcher:
+        raise IndicatorUnavailable(
+            "the desktop has no org.kde.StatusNotifierWatcher; enable the Ubuntu "
+            "AppIndicators extension"
+        )
+
+
+def probe_indicator() -> str:
+    """Prove that this process can import and initialize the real tray backend."""
+
+    _app_indicator, glib, _gtk, _pango, backend = _indicator_modules()
+    _require_status_notifier(glib)
+    return backend
 
 
 def _short(value: Any, limit: int) -> str:
@@ -158,6 +229,8 @@ def task_views(tasks: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
 class NullIndicator:
     """What the harness uses when there is no desktop to show anything on."""
 
+    backend = "headless"
+
     def set_state(self, state: str, detail: str = "") -> None:  # noqa: D102
         logger.debug("state=%s detail=%s", state, detail)
 
@@ -185,26 +258,25 @@ def build_indicator(
     camera_enabled: bool = True,
     endpoint: Callable[[], str] | None = None,
     tasks: Callable[[], list[Mapping[str, Any]]] | None = None,
+    required: bool = False,
 ):
     """Return a top-bar indicator, or a no-op one if the desktop cannot host it."""
 
     try:
-        import gi
-
-        gi.require_version("Gtk", "3.0")
-        try:
-            gi.require_version("AyatanaAppIndicator3", "0.1")
-            from gi.repository import AyatanaAppIndicator3 as AppIndicator
-        except (ValueError, ImportError):
-            gi.require_version("AppIndicator3", "0.1")
-            from gi.repository import AppIndicator3 as AppIndicator
-        from gi.repository import GLib, Gtk, Pango
-    except Exception as error:  # noqa: BLE001 - a missing tray is not fatal
+        AppIndicator, GLib, Gtk, Pango, backend = _indicator_modules()
+        if required:
+            _require_status_notifier(GLib)
+    except IndicatorUnavailable as error:
+        if required:
+            raise
         logger.info("no top-bar indicator available (%s); running headless", error)
         return NullIndicator()
 
     class GtkIndicator:
+        backend = ""
+
         def __init__(self) -> None:
+            self.backend = backend
             self._indicator = AppIndicator.Indicator.new(
                 "omni-call-harness",
                 STATE_ICONS["starting"],
@@ -515,7 +587,15 @@ def build_indicator(
         def stop(self) -> None:
             GLib.idle_add(self._gtk.main_quit)
 
-    return GtkIndicator()
+    try:
+        return GtkIndicator()
+    except Exception as error:  # noqa: BLE001 - optional in an interactive shell
+        if required:
+            raise IndicatorUnavailable(
+                f"could not create the {backend} status indicator: {error}"
+            ) from error
+        logger.info("could not create top-bar indicator (%s); running headless", error)
+        return NullIndicator()
 
 
 class ThreadedIndicator:

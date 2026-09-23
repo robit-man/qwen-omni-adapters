@@ -54,7 +54,10 @@ cd qwen-omni-adapters
 The installer pulls the selected logical Ollama tag, validates its trained
 audio-bridge sidecar, builds or upgrades the runtime, runs doctor and regression
 gates, persists the exact profile, and installs/restarts the systemd service.
-It does not require a separate adjacent language-model download.
+When the desktop harness is selected, it also installs the Ubuntu
+GTK/AppIndicator and PulseAudio client bindings, waits for a real top-bar
+indicator, and does not declare the harness ready until it reads a microphone
+frame. It does not require a separate adjacent language-model download.
 
 ### Validate and start
 
@@ -487,7 +490,7 @@ the unsupported `nvidia-smi` process table.
 | Spoken response | Qwen3-TTS, 24 kHz mono PCM16 | Yes |
 | Voice reference cloning | Qwen3-TTS Base speaker embedding path | Yes |
 | Live-call turns | Adaptive VAD + bounded single-flight speech consolidation + streamed text/PCM | Yes |
-| Headless always-listening call mode | `harness/`: local mic/speakers, GNOME top-bar state, systemd unit | Yes |
+| Always-listening local call mode | `harness/`: local mic/speakers, mandatory GNOME top-bar state for its managed desktop unit | Yes |
 | Every camera at once, on request | `harness/camera.py` snaps all V4L2 devices together, stitches and downscales to one image or clip only after a visual-evidence request | Yes |
 | ReSpeaker ring and direction | Used when the array is attached, ignored when it is not | Yes |
 | Tool execution by an external loop | `GET /api/tools`, `POST /api/tools/<name>/call` | Yes |
@@ -517,8 +520,10 @@ so tool arguments cannot widen the indicator beyond the screen. Live tasks expos
 **Cancel task** and every record exposes **Clear task record**. **Clear finished
 tasks** moves all terminal records into the human-readable archive, and **Open
 task archive** opens that log in the desktop editor. A real themed state icon
-sits to the left of `Omni`. Without a desktop the harness runs headless and logs
-instead.
+sits to the left of `Omni`. A manual invocation may run headless and log instead.
+The managed desktop service fails closed if GTK, the StatusNotifier host, the
+desktop audio server, or a usable microphone/sink is unavailable; it never
+silently leaves an always-listening service running without its indicator.
 
 Defaults are chosen for a spoken conversation:
 
@@ -532,8 +537,10 @@ Defaults are chosen for a spoken conversation:
   The full catalog no longer displaces conversation or memory context.
 - **Every camera together, only when relevant.** The audio-only pass may call
   `request_camera_view` when the answer depends on the current physical scene.
-  Only then are all V4L2 devices snapped at the same moment, stitched into one
-  grid, and scaled down. Clips work the same way for temporal questions.
+Only then are V4L2 devices opened and probed, all working cameras are snapped
+at the same moment, and their frames are stitched into one scaled grid. Clips
+work the same way for temporal questions. Merely starting the harness never
+launches FFmpeg or activates a camera privacy indicator.
 - **ReSpeaker when present.** Its ring follows the conversation and the
   direction a voice came from is attached to the turn as evidence. With no
   array attached the default microphone is used and nothing else changes.
@@ -571,10 +578,18 @@ speaks into -- its audio devices, its top bar, and the USB permissions the
 logged-in user already has -- so installing it system-wide would leave it
 listening on behalf of nobody.
 
-The unit template is `services/linux/omni-call-harness.service.in`. It `Wants`
-the adapter rather than requiring it, so a restart of the adapter does not take
-the listener down with it, and it caps its own memory: the adapter holds the
+The unit template is `services/linux/omni-call-harness.service.in`. It is a
+desktop-session user unit, while the adapter is a system unit, so it waits for
+the loopback portal rather than declaring an invalid cross-manager dependency.
+Its preflight runs in the exact user-service environment and requires the real
+indicator and audio stack. The unit caps its own memory: the adapter holds the
 weights, this process only moves audio.
+
+The core daemon's startup smoke uses a tracked speech fixture and requires a
+tagged transcript, a direct ASR-to-TTS route, valid 24 kHz mono PCM16 output,
+and the normal streamed TTS gate. A generic sound observation cannot satisfy
+the ASR check. On Jetson those requests run against the installed arm64/CUDA
+workers; desktop-host unit tests do not substitute for that device gate.
 
 Two environment variables are worth knowing:
 

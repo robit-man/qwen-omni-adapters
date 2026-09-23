@@ -15,7 +15,7 @@ to be owned by the native service manager. On every start it:
    accounting on discrete cards, integrated-GPU device handles on Tegra (see
    [arm64 and NVIDIA Jetson](arm-jetson.md)) -- or relies on the
    Metal-enabled pinned build on macOS;
-7. runs text, TTS, and streaming smoke gates;
+7. runs text, tagged-ASR, direct ASR-to-TTS, WAV, and streaming speech smoke gates;
 8. starts Cloudflared last and records the authenticated dashboard URL.
 
 Configuration is read from environment variables and an optional repository
@@ -33,13 +33,21 @@ On Jetson, the preferred entry point is the guided service installer:
 It detects fresh versus installed state, offers install/upgrade and both
 trained bridge models through arrow-key menus, persists the selected logical
 tag, invokes the Linux installer in direct mode, and waits for the selected
-model's startup smoke gates. Before cutover it inventories the five runtime
+model's startup smoke gates. With the optional desktop harness it also installs
+the GTK/AppIndicator and PulseAudio bindings, requires an actual status-notifier
+host, and waits until the harness has consumed a microphone frame. Before
+cutover it inventories the five runtime
 ports, stops only recognized Omni services/processes, unloads the selected and
 prior-configured Ollama runners, and proves the ports are free. On Tegra it
 then samples GPU utilization from sysfs and admits the exact installed layer
 bytes only when unified memory retains a 6 GiB runtime reserve. A failed
 startup restores the prior `.env`, systemd unit, and managed services. The
 lower-level commands below remain available for staged and custom deployments.
+
+These post-install gates execute on the target host. In particular, a Jetson
+must prove its own `nvgpu`/`nvmap` residency and run the real speech route using
+the arm64/CUDA binaries; passing the portable suite on an x86 development host
+is necessary but not treated as Jetson runtime evidence.
 
 On an ollama-unify host, the systemd unit deliberately uses the broker-aware
 `portal/start.sh --foreground` lifecycle:

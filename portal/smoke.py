@@ -93,6 +93,20 @@ def validate_wav(audio: dict[str, Any]) -> None:
         assert wav.getnframes() > 0
 
 
+def require_input_transcript(result: dict[str, Any], *, stage: str = "ASR") -> str:
+    """Require attributed speech, not a generic non-speech audio observation."""
+
+    transcript = str(
+        (result.get("adapter") or {}).get("input_transcript") or ""
+    ).strip()
+    if not transcript:
+        raise RuntimeError(
+            f"{stage} returned no tagged speech transcript "
+            "(an audio observation alone does not pass)"
+        )
+    return transcript
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoint", required=True)
@@ -143,19 +157,20 @@ def main() -> int:
             },
         )
         result = call(client, endpoint, payload)
-        if not str(result["message"].get("content") or "").strip():
-            raise RuntimeError("ASR returned empty text")
+        require_input_transcript(result)
         checks["audio"] = "pass"
         if args.tts:
             payload["response_modalities"] = ["text", "audio"]
             payload["speech_mode"] = "always"
             result = call(client, endpoint, payload)
             validate_wav(result["message"].get("audio") or {})
-            if (result.get("adapter") or {}).get("route") != [
+            adapter = result.get("adapter") or {}
+            require_input_transcript(result, stage="ASR-to-TTS route")
+            if adapter.get("route") != [
                 "comprehension",
                 "tts",
             ]:
-                raise RuntimeError(f"ASR-to-TTS route was not direct: {result.get('adapter')!r}")
+                raise RuntimeError(f"ASR-to-TTS route was not direct: {adapter!r}")
             checks["audio_tts"] = "pass"
 
     if args.image:

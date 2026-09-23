@@ -82,6 +82,20 @@ if ((HARNESS)); then
   # speaks into -- its audio devices, its top bar, and the USB permissions the
   # logged-in user already has. Installing it system-wide would have none of
   # those and would listen on behalf of nobody.
+  for dependency in parec paplay pactl; do
+    command -v "$dependency" >/dev/null 2>&1 || {
+      printf 'Missing desktop harness dependency: %s (rerun scripts/bootstrap.sh --with-harness).\n' \
+        "$dependency" >&2
+      exit 1
+    }
+  done
+  "$REPO_ROOT/.venv/bin/python" - <<'PY' >/dev/null || {
+from harness.indicator import probe_indicator
+print(probe_indicator())
+PY
+    printf 'The venv cannot initialize a desktop AppIndicator; rerun scripts/bootstrap.sh --with-harness from the graphical login.\n' >&2
+    exit 1
+  }
   harness_unit="$HOME/.config/systemd/user/omni-call-harness.service"
   mkdir -p "$(dirname "$harness_unit")"
   harness_tmp=$(mktemp)
@@ -91,6 +105,15 @@ if ((HARNESS)); then
     "$SCRIPT_DIR/omni-call-harness.service.in" >"$harness_tmp"
   install -m 0644 "$harness_tmp" "$harness_unit"
   unlink "$harness_tmp" 2>/dev/null || true
+  desktop_variables=()
+  for variable in \
+    DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP \
+    DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR; do
+    [[ -n ${!variable:-} ]] && desktop_variables+=("$variable")
+  done
+  if ((${#desktop_variables[@]})); then
+    systemctl --user import-environment "${desktop_variables[@]}"
+  fi
   systemctl --user daemon-reload
   if ((ENABLE)); then
     systemctl --user enable --now omni-call-harness.service

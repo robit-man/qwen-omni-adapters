@@ -60,6 +60,11 @@ installs or upgrades the managed service. Upgrades first hand off from the
 existing runtime: recognized Omni port owners are stopped, relevant Ollama
 runners are unloaded, and Jetson GPU load plus unified-memory headroom are
 checked before the new service starts. See `model-profiles.md` for exact tags.
+Ready means the target host itself completed text, tagged-ASR, direct
+ASR-to-TTS, valid-WAV, and streaming-TTS smoke routes. When selected, the
+desktop harness must additionally prove its visible indicator, audio server,
+and live microphone capture; an x86 unit-test run is not used as a proxy for
+Jetson arm64/CUDA behavior.
 Explicit `OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` environment values remain
 supported for advanced and legacy profiles.
 

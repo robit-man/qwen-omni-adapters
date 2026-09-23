@@ -16,6 +16,27 @@ def test_linux_service_template_uses_broker_or_explicit_direct_launcher() -> Non
     assert "Refusing --direct" in installer
 
 
+def test_linux_desktop_harness_requires_a_real_indicator_and_audio_stack() -> None:
+    template = Path("services/linux/omni-call-harness.service.in").read_text(
+        encoding="utf-8"
+    )
+    installer = Path("services/linux/install.sh").read_text(encoding="utf-8")
+    bootstrap = Path("scripts/bootstrap.sh").read_text(encoding="utf-8")
+
+    assert "Environment=OMNI_REQUIRE_INDICATOR=1" in template
+    assert "ExecStartPre=@HARNESS_EXEC_START@ --check" in template
+    assert "qwen-omni-adapters.service" not in "\n".join(
+        line for line in template.splitlines() if line.startswith(("Wants=", "After="))
+    )
+    assert "probe_indicator" in installer
+    assert "systemctl --user import-environment" in installer
+    assert "DBUS_SESSION_BUS_ADDRESS" in installer
+    assert "XDG_RUNTIME_DIR" in installer
+    assert "--system-site-packages" in bootstrap
+    assert "gir1.2-ayatanaappindicator3-0.1" in bootstrap
+    assert "pulseaudio-utils" in bootstrap
+
+
 def test_macos_launchd_template_is_valid_after_substitution() -> None:
     template = Path("services/macos/ai.robit.qwen-omni-adapters.plist.in").read_text(
         encoding="utf-8"

@@ -4,15 +4,68 @@ import inspect
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from harness import indicator as indicator_module  # noqa: E402
 from harness.indicator import (
     MAX_ACTION_PREVIEW_CHARS,
     MAX_MENU_WIDTH_CHARS,
     MAX_VISIBLE_TASKS,
+    IndicatorUnavailable,
     build_indicator,
     task_views,
 )
+
+
+def _indicator_arguments() -> dict:
+    return {
+        "on_mute": lambda _value: None,
+        "on_quit": lambda: None,
+    }
+
+
+def test_required_indicator_fails_instead_of_silently_running_headless(monkeypatch) -> None:
+    monkeypatch.setattr(
+        indicator_module,
+        "_indicator_modules",
+        lambda: (_ for _ in ()).throw(IndicatorUnavailable("missing GTK")),
+    )
+
+    with pytest.raises(IndicatorUnavailable, match="missing GTK"):
+        build_indicator(**_indicator_arguments(), required=True)
+
+
+def test_optional_indicator_can_still_run_headless(monkeypatch) -> None:
+    monkeypatch.setattr(
+        indicator_module,
+        "_indicator_modules",
+        lambda: (_ for _ in ()).throw(IndicatorUnavailable("missing GTK")),
+    )
+
+    result = build_indicator(**_indicator_arguments())
+
+    assert result.backend == "headless"
+
+
+def test_required_indicator_also_requires_a_desktop_status_notifier(monkeypatch) -> None:
+    sentinel = object()
+    monkeypatch.setattr(
+        indicator_module,
+        "_indicator_modules",
+        lambda: (sentinel, sentinel, sentinel, sentinel, "ayatana-appindicator3"),
+    )
+    monkeypatch.setattr(
+        indicator_module,
+        "_require_status_notifier",
+        lambda _glib: (_ for _ in ()).throw(
+            IndicatorUnavailable("no StatusNotifierWatcher")
+        ),
+    )
+
+    with pytest.raises(IndicatorUnavailable, match="StatusNotifierWatcher"):
+        build_indicator(**_indicator_arguments(), required=True)
 
 
 def test_running_tasks_lead_and_expose_stage_steps_and_tools() -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import stat
 import subprocess
@@ -274,6 +275,14 @@ def test_trained_audio_bridge_uses_standard_layers_as_its_only_language_trunk(
         "local-audio-bridge",
     )
     assert supervisor._speculative_args() == ["--spec-type", "ngram-simple"]
+
+
+def test_startup_smoke_includes_real_audio_asr_and_tts() -> None:
+    source = inspect.getsource(daemon.OmniDaemon.start_children)
+
+    assert '"--audio"' in source
+    assert '"default_voice.wav"' in source
+    assert '"--tts"' in source
 
 
 def test_an_externally_managed_comprehension_port_does_not_block_start(monkeypatch):

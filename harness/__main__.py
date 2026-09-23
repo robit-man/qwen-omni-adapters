@@ -20,10 +20,10 @@ from typing import Any
 
 import httpx
 
-from harness.audio import require_tools
+from harness.audio import probe_audio_server, require_tools
 from harness.call import CallConfig, TurnResult, run_call_loop
 from harness.camera import CameraSet
-from harness.indicator import ThreadedIndicator, build_indicator
+from harness.indicator import ThreadedIndicator, build_indicator, probe_indicator
 from harness.residency import SpeechResidency
 from harness.respeaker import find_source
 from portal.background_tasks import BackgroundTaskStore
@@ -32,6 +32,8 @@ logger = logging.getLogger("omni.harness")
 
 DEFAULT_PORTAL = "http://127.0.0.1:8920"
 DEFAULT_TOKEN_FILE = "runtime-data/state/access-token.txt"
+HARNESS_STATUS_FILE = "runtime-data/state/harness-status.json"
+_STATUS_LOCK = threading.Lock()
 
 
 def _env_enabled(name: str) -> bool:
@@ -110,6 +112,33 @@ def _read_token(explicit: str | None) -> str:
         ) from error
 
 
+def _write_harness_status(
+    repo_root: Path,
+    *,
+    state: str,
+    indicator_backend: str,
+    detail: str = "",
+) -> None:
+    """Publish a privacy-bounded liveness record for deployment and support."""
+
+    path = repo_root / HARNESS_STATUS_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    value = {
+        "schema": "robit.omni-call-harness.status.v1",
+        "pid": os.getpid(),
+        "state": state,
+        "indicator_backend": indicator_backend,
+        "updated_at": time.time(),
+    }
+    if detail:
+        value["detail"] = detail[:160]
+    partial = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    with _STATUS_LOCK:
+        partial.write_text(json.dumps(value, indent=2, sort_keys=True), encoding="utf-8")
+        partial.chmod(0o600)
+        os.replace(partial, path)
+
+
 def _wait_for_portal(
     url: str, token: str, timeout_s: float, reader: Any = None
 ) -> tuple[dict[str, Any], str]:
@@ -164,6 +193,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-tools", action="store_true")
     parser.add_argument("--reasoning", action="store_true", help="leave reasoning on (slower to first word)")
     parser.add_argument("--no-indicator", action="store_true")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="verify desktop indicator and audio prerequisites, then exit",
+    )
     parser.add_argument("--no-memory", action="store_true")
     parser.add_argument(
         "--memory-path",
@@ -177,6 +211,26 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
     )
     require_tools()
+    if args.check:
+        backend = probe_indicator()
+        audio = probe_audio_server()
+        print(
+            json.dumps(
+                {"ok": True, "indicator_backend": backend, "audio": audio},
+                sort_keys=True,
+            )
+        )
+        return 0
+
+    indicator_required = _env_enabled("OMNI_REQUIRE_INDICATOR")
+    if indicator_required and args.no_indicator:
+        raise SystemExit("OMNI_REQUIRE_INDICATOR=1 conflicts with --no-indicator")
+    repo_root = _repo_root()
+    _write_harness_status(
+        repo_root,
+        state="starting",
+        indicator_backend="required" if indicator_required else "pending",
+    )
 
     token = _read_token(args.token)
     status, token = _wait_for_portal(
@@ -356,12 +410,29 @@ def main(argv: list[str] | None = None) -> int:
             camera_enabled=config.camera_enabled,
             endpoint=public_link,
             tasks=indicator_task_store.list if indicator_task_store is not None else None,
+            required=indicator_required,
         )
         if not args.no_indicator
         else None
     )
 
+    indicator_backend = (
+        str(getattr(indicator, "backend", "unknown")) if indicator is not None else "disabled"
+    )
+    _write_harness_status(
+        repo_root,
+        # The indicator exists, but deployment readiness waits for the call
+        # loop to read a real microphone frame and publish ``listening``.
+        state="indicator-ready",
+        indicator_backend=indicator_backend,
+    )
+
     def on_state(state: str, detail: str) -> None:
+        _write_harness_status(
+            repo_root,
+            state=state,
+            indicator_backend=indicator_backend,
+        )
         if indicator is not None:
             indicator.set_state(state, detail)
 
@@ -382,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
     def guarded_frame(motion: bool = False) -> dict[str, Any] | None:
         """Every camera at once: a still, or a clip when the question is about time."""
 
-        if muted.is_set() or not config.camera_enabled or not cameras.available:
+        if muted.is_set() or not config.camera_enabled:
             return None
         return cameras.clip() if motion else cameras.snapshot()
 
@@ -416,6 +487,11 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         stop.set()
         runner.join()
+        _write_harness_status(
+            repo_root,
+            state="stopped",
+            indicator_backend=indicator_backend,
+        )
     if reload_requested.is_set():
         arguments = list(argv) if argv is not None else sys.argv[1:]
         os.execv(sys.executable, [sys.executable, "-m", "harness", *arguments])

@@ -81,6 +81,14 @@ gates, installs the direct systemd service, and waits for that exact model to
 pass startup smoke gates. `cloudflared` is optional; without it the portal
 stays on loopback.
 
+The readiness decision is made on the board, not inferred from an x86 build.
+The daemon must prove the worker PIDs' Tegra GPU handles and complete text,
+tagged ASR, direct ASR-to-TTS, valid WAV, and streamed speech requests against
+the selected release. If the desktop harness is selected, deployment also
+requires its real AppIndicator backend, a reachable desktop audio server, and
+a captured microphone frame. Camera nodes are not opened during this startup:
+FFmpeg first touches them only after a structured camera-view request.
+
 An upgrade is a controlled handoff. The deployer resolves the live owners of
 ports 8892, 8901, 8910, 8920, and 8930 from procfs and refuses an unknown
 owner. It stops and records recognized legacy/current Omni units, waits for

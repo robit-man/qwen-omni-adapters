@@ -798,22 +798,31 @@ class OmniDaemon:
         self._wait_http(portal, f"http://127.0.0.1:{self.config.portal_port}/healthz", 60)
 
         if self.config.startup_smoke:
-            self._command(
-                [
-                    python,
-                    str(self.config.repo_root / "portal" / "smoke.py"),
-                    "--endpoint",
-                    f"http://127.0.0.1:{self.config.portal_port}",
-                    "--token-file",
-                    str(self.token_file),
-                    "--model",
-                    self.config.model,
-                    "--text",
-                    "--tts",
-                    "--stream",
-                ],
-                timeout=1200,
-            )
+            smoke = [
+                python,
+                str(self.config.repo_root / "portal" / "smoke.py"),
+                "--endpoint",
+                f"http://127.0.0.1:{self.config.portal_port}",
+                "--token-file",
+                str(self.token_file),
+                "--model",
+                self.config.model,
+                "--text",
+                "--tts",
+                "--stream",
+            ]
+            if self.config.enable_comprehension:
+                # A text+TTS check can pass while the audio projector/ASR path
+                # is broken. The desktop harness is useless in exactly that
+                # state, so readiness includes a real tracked speech fixture
+                # and its direct ASR→TTS route.
+                smoke.extend(
+                    [
+                        "--audio",
+                        str(self.config.repo_root / "portal" / "voices" / "default_voice.wav"),
+                    ]
+                )
+            self._command(smoke, timeout=1200)
         self._write_status(
             state="smoke-passed" if self.config.startup_smoke else "ready",
             comprehension=self.config.enable_comprehension,

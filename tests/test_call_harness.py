@@ -17,7 +17,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from harness.audio import MicrophoneStream, SpeakerStream  # noqa: E402
+from harness import __main__ as harness_main  # noqa: E402
+from harness.audio import (  # noqa: E402
+    MicrophoneStream,
+    SpeakerStream,
+    probe_audio_server,
+)
 from harness.call import (  # noqa: E402
     LIVE_CALL_SYSTEM_PROMPT,
     CallConfig,
@@ -30,6 +35,62 @@ from harness.vad import Vad, VadConfig  # noqa: E402
 FRAME_MS = 20.0
 RATE = 16_000
 FRAME = int(RATE * FRAME_MS / 1000)
+
+
+def test_harness_status_is_private_and_contains_only_bounded_liveness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(harness_main.os, "getpid", lambda: 4242)
+    monkeypatch.setattr(harness_main.time, "time", lambda: 1234.5)
+
+    harness_main._write_harness_status(
+        tmp_path,
+        state="listening",
+        indicator_backend="ayatana-appindicator3",
+        detail="x" * 500,
+    )
+
+    path = tmp_path / harness_main.HARNESS_STATUS_FILE
+    value = json.loads(path.read_text(encoding="utf-8"))
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert value == {
+        "detail": "x" * 160,
+        "indicator_backend": "ayatana-appindicator3",
+        "pid": 4242,
+        "schema": "robit.omni-call-harness.status.v1",
+        "state": "listening",
+        "updated_at": 1234.5,
+    }
+
+
+def test_audio_probe_requires_a_real_capture_source_and_sink(monkeypatch) -> None:
+    outputs = {
+        "sources": "1\talsa_input.usb-mic\tmodule-alsa-card.c\ts16le 1ch 16000Hz\tIDLE\n",
+        "sinks": "2\talsa_output.hdmi\tmodule-alsa-card.c\ts16le 2ch 48000Hz\tIDLE\n",
+    }
+
+    def run(command, **_kwargs):
+        kind = command[-1]
+        return type("Completed", (), {"returncode": 0, "stdout": outputs[kind], "stderr": ""})()
+
+    monkeypatch.setattr(harness_main.subprocess, "run", run)
+
+    assert probe_audio_server() == {"sources": 1, "sinks": 1}
+
+
+def test_audio_probe_rejects_monitor_only_capture(monkeypatch) -> None:
+    def run(command, **_kwargs):
+        output = (
+            "1\talsa_output.hdmi.monitor\tmodule-alsa-card.c\ts16le 2ch 48000Hz\tIDLE\n"
+            if command[-1] == "sources"
+            else "2\talsa_output.hdmi\tmodule-alsa-card.c\ts16le 2ch 48000Hz\tIDLE\n"
+        )
+        return type("Completed", (), {"returncode": 0, "stdout": output, "stderr": ""})()
+
+    monkeypatch.setattr(harness_main.subprocess, "run", run)
+
+    with pytest.raises(RuntimeError, match="no usable sources"):
+        probe_audio_server()
 
 
 def tone(level: float) -> np.ndarray:

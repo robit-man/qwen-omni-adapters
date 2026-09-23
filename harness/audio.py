@@ -46,6 +46,40 @@ def require_tools() -> None:
         )
 
 
+def probe_audio_server() -> dict[str, int]:
+    """Prove the desktop service can reach a real capture source and sink."""
+
+    counts: dict[str, int] = {}
+    for kind in ("sources", "sinks"):
+        try:
+            completed = subprocess.run(
+                ["pactl", "list", "short", kind],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise RuntimeError(f"could not query PulseAudio {kind}: {error}") from error
+        if completed.returncode != 0:
+            detail = " ".join(completed.stderr.split())[:240]
+            raise RuntimeError(
+                f"could not query PulseAudio {kind}"
+                + (f": {detail}" if detail else "")
+            )
+        rows = [line for line in completed.stdout.splitlines() if line.strip()]
+        if kind == "sources":
+            rows = [
+                line
+                for line in rows
+                if len(line.split("\t", 2)) > 1
+                and ".monitor" not in line.split("\t", 2)[1]
+            ]
+        if not rows:
+            raise RuntimeError(f"PulseAudio exposes no usable {kind}")
+        counts[kind] = len(rows)
+    return counts
+
+
 @dataclass
 class MicrophoneStream:
     """Raw mono frames from the default (or named) capture device."""

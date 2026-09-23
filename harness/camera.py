@@ -42,25 +42,29 @@ class CameraSet:
     stitch_width: int = STITCH_WIDTH
     # Remembered so a later look can repeat the same search.
     _explicit: str | None = None
+    _candidates: list[str] = field(default_factory=list)
 
     @classmethod
     def discover(cls, explicit: str | None = None) -> CameraSet:
-        """Find usable cameras, or take the one that was named."""
+        """List candidate nodes without opening a camera."""
 
-        if explicit:
-            return cls(devices=[explicit], _explicit=explicit)
-        found: list[str] = []
-        for path in sorted(Path("/dev").glob("video*")):
-            # v4l2 exposes metadata nodes alongside capture nodes; only the
-            # ones that actually yield a frame are of any use here.
-            if _can_capture(str(path)):
-                found.append(str(path))
-        logger.info("cameras: %s", ", ".join(found) if found else "none")
-        return cls(devices=found)
+        candidates = (
+            [explicit]
+            if explicit
+            else [str(path) for path in sorted(Path("/dev").glob("video*"))]
+        )
+        # Listing character devices is intentionally not a capture. Probing a
+        # V4L2 node runs ffmpeg and activates the camera privacy indicator, so
+        # it belongs only to a structured request_camera_view action.
+        logger.info(
+            "camera candidates: %s",
+            ", ".join(candidates) if candidates else "none",
+        )
+        return cls(devices=[], _explicit=explicit, _candidates=candidates)
 
     @property
     def available(self) -> bool:
-        return bool(self.devices)
+        return bool(self.devices or self._candidates or self._explicit)
 
     def ensure_devices(self) -> bool:
         """Find cameras now if the last look found none.
@@ -74,8 +78,16 @@ class CameraSet:
 
         if self.devices:
             return True
-        found = CameraSet.discover(self._explicit)
-        self.devices = found.devices
+        candidates = self._candidates
+        if not candidates:
+            candidates = (
+                [self._explicit]
+                if self._explicit
+                else [str(path) for path in sorted(Path("/dev").glob("video*"))]
+            )
+        # This is the first operation that opens a camera. It is reached only
+        # after the model emitted a structured camera tool request.
+        self.devices = [device for device in candidates if _can_capture(device)]
         return bool(self.devices)
 
     def snapshot(self) -> dict[str, Any] | None:

@@ -57,6 +57,29 @@ def test_noninteractive_dry_run_uses_one_bridge_tag_for_both_stages() -> None:
     assert "wait up to 30 minutes for state=ready" in completed.stdout
 
 
+def test_desktop_selection_bootstraps_and_waits_for_the_real_indicator() -> None:
+    completed = _run(
+        "--profile",
+        "ornith15",
+        "--action",
+        "deploy",
+        "--no-update",
+        "--with-harness",
+        "--yes",
+        "--dry-run",
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "scripts/bootstrap.sh --refresh-models --with-harness" in completed.stdout
+    assert "services/linux/install.sh --auto --no-enable --with-harness" in completed.stdout
+    assert "wait up to 120 seconds for a live GTK/AppIndicator harness status" in completed.stdout
+    source = DEPLOY.read_text(encoding="utf-8")
+    assert "listening|hearing|thinking|speaking|muted" in source
+    assert "indicator-ready" not in source.split("wait_for_harness()", 1)[1].split(
+        "wait_for_service()", 1
+    )[0]
+
+
 def test_noninteractive_mode_fails_closed_without_a_profile() -> None:
     completed = _run("--action", "deploy", "--dry-run")
 

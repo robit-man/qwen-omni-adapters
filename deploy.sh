@@ -5,6 +5,7 @@ REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 SERVICE_NAME=qwen-omni-adapters.service
 SERVICE_UNIT=/etc/systemd/system/$SERVICE_NAME
 HARNESS_NAME=omni-call-harness.service
+HARNESS_UNIT=$HOME/.config/systemd/user/$HARNESS_NAME
 DEPLOYMENT_PORTS=8892,8901,8910,8920,8930
 PROFILE=""
 ACTION=""
@@ -17,11 +18,15 @@ ENV_EXISTED=0
 CONFIG_INSTALLED=0
 SERVICE_WAS_ENABLED=0
 SERVICE_START_EPOCH=0
+HARNESS_START_EPOCH=0
 DEPLOY_COMPLETE=0
 HANDOFF_STARTED=0
 UNIT_BACKUP=""
 UNIT_EXISTED=0
 UNIT_INSTALLED=0
+HARNESS_UNIT_BACKUP=""
+HARNESS_UNIT_EXISTED=0
+HARNESS_WAS_ENABLED=0
 PRIOR_OMNI_MODEL=""
 PRIOR_LANGUAGE_MODEL=""
 declare -a STOPPED_SYSTEM_UNITS=()
@@ -358,6 +363,14 @@ backup_service_unit() {
   if systemctl is-enabled --quiet "$SERVICE_NAME" 2>/dev/null; then
     SERVICE_WAS_ENABLED=1
   fi
+  HARNESS_UNIT_BACKUP=$(mktemp)
+  if [[ -f $HARNESS_UNIT ]]; then
+    cp -- "$HARNESS_UNIT" "$HARNESS_UNIT_BACKUP"
+    HARNESS_UNIT_EXISTED=1
+  fi
+  if systemctl --user is-enabled --quiet "$HARNESS_NAME" 2>/dev/null; then
+    HARNESS_WAS_ENABLED=1
+  fi
 }
 
 install_environment() {
@@ -400,6 +413,23 @@ restore_service_unit() {
     sudo systemctl disable "$SERVICE_NAME" >/dev/null 2>&1 || true
   else
     sudo systemctl enable "$SERVICE_NAME" >/dev/null 2>&1 || true
+  fi
+}
+
+restore_harness_unit() {
+  ((WITH_HARNESS)) || return 0
+  systemctl --user stop "$HARNESS_NAME" >/dev/null 2>&1 || true
+  if ((HARNESS_UNIT_EXISTED)); then
+    mkdir -p "$(dirname "$HARNESS_UNIT")"
+    install -m 0644 "$HARNESS_UNIT_BACKUP" "$HARNESS_UNIT"
+  else
+    unlink "$HARNESS_UNIT" 2>/dev/null || true
+  fi
+  systemctl --user daemon-reload
+  if ((HARNESS_UNIT_EXISTED == 0 || HARNESS_WAS_ENABLED == 0)); then
+    systemctl --user disable "$HARNESS_NAME" >/dev/null 2>&1 || true
+  else
+    systemctl --user enable "$HARNESS_NAME" >/dev/null 2>&1 || true
   fi
 }
 
@@ -607,10 +637,12 @@ on_exit() {
     printf '\ndeploy: deployment failed; restoring the prior configuration, unit, and managed services.\n' >&2
     restore_environment
     restore_service_unit || true
+    restore_harness_unit || true
     restart_prior_services
   fi
   [[ -z $ENV_BACKUP ]] || unlink "$ENV_BACKUP" 2>/dev/null || true
   [[ -z $UNIT_BACKUP ]] || unlink "$UNIT_BACKUP" 2>/dev/null || true
+  [[ -z $HARNESS_UNIT_BACKUP ]] || unlink "$HARNESS_UNIT_BACKUP" 2>/dev/null || true
 }
 
 trap on_exit EXIT
@@ -641,6 +673,66 @@ else:
     print(json.dumps(allowed, indent=2, sort_keys=True))
 PY
   fi
+}
+
+report_harness_failure() {
+  printf '\nDesktop harness startup evidence\n' >&2
+  systemctl --user status "$HARNESS_NAME" --no-pager -l >&2 || true
+  journalctl --user -u "$HARNESS_NAME" -n 100 --no-pager >&2 || true
+  if [[ -r "$REPO_ROOT/runtime-data/state/harness-status.json" ]]; then
+    "$REPO_ROOT/.venv/bin/python" - "$REPO_ROOT/runtime-data/state/harness-status.json" <<'PY' >&2 || true
+import json
+import sys
+
+try:
+    value = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError) as exc:
+    value = {"status_error": str(exc)}
+print(json.dumps(value, indent=2, sort_keys=True))
+PY
+  fi
+}
+
+wait_for_harness() {
+  local deadline=$((SECONDS + 120)) state backend updated_at pid active_state restarts
+  printf 'Waiting for the desktop harness and real indicator backend...\n'
+  while ((SECONDS < deadline)); do
+    active_state=$(systemctl --user show "$HARNESS_NAME" -p ActiveState --value 2>/dev/null || true)
+    restarts=$(systemctl --user show "$HARNESS_NAME" -p NRestarts --value 2>/dev/null || true)
+    [[ $restarts =~ ^[0-9]+$ ]] || restarts=0
+    if [[ -r "$REPO_ROOT/runtime-data/state/harness-status.json" ]]; then
+      read -r state backend updated_at pid < <(
+        "$REPO_ROOT/.venv/bin/python" - "$REPO_ROOT/runtime-data/state/harness-status.json" <<'PY'
+import json
+import sys
+
+try:
+    value = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError):
+    value = {}
+print(
+    value.get("state", ""),
+    value.get("indicator_backend", ""),
+    int(value.get("updated_at", 0)),
+    int(value.get("pid", 0)),
+)
+PY
+      )
+      if [[ $backend == ayatana-appindicator3 || $backend == appindicator3 ]] \
+        && [[ $updated_at =~ ^[0-9]+$ ]] && ((updated_at >= HARNESS_START_EPOCH)) \
+        && [[ $pid =~ ^[0-9]+$ ]] && ((pid > 0)) && kill -0 "$pid" 2>/dev/null \
+        && [[ $state =~ ^(listening|hearing|thinking|speaking|muted)$ ]]; then
+        return 0
+      fi
+    fi
+    if [[ $active_state == failed || $active_state == inactive || $restarts -ge 3 ]]; then
+      report_harness_failure
+      die "$HARNESS_NAME failed its visible-indicator readiness gate"
+    fi
+    sleep 2
+  done
+  report_harness_failure
+  die "$HARNESS_NAME did not prove a visible indicator within 120 seconds"
 }
 
 wait_for_service() {
@@ -718,6 +810,7 @@ deploy_service() {
     run sudo systemctl start "$SERVICE_NAME"
     if ((WITH_HARNESS)); then
       run systemctl --user enable --now omni-call-harness.service
+      printf '+ wait up to 120 seconds for a live GTK/AppIndicator harness status\n'
     fi
     printf '+ wait up to 30 minutes for state=ready and model=%q\n' "$OMNI_MODEL"
     return 0
@@ -742,11 +835,13 @@ deploy_service() {
 
   if ((WITH_HARNESS)); then
     systemctl --user enable omni-call-harness.service
+    HARNESS_START_EPOCH=$(date +%s)
     if systemctl --user is-active --quiet omni-call-harness.service; then
       systemctl --user restart omni-call-harness.service
     else
       systemctl --user start omni-call-harness.service
     fi
+    wait_for_harness
   fi
 
   retire_prior_services
@@ -841,11 +936,14 @@ if [[ $ACTION == download ]]; then
   exit 0
 fi
 
+bootstrap=("$REPO_ROOT/scripts/bootstrap.sh" --refresh-models)
+((WITH_HARNESS)) && bootstrap+=(--with-harness)
+
 if ((DRY_RUN)); then
-  run "$REPO_ROOT/scripts/bootstrap.sh" --refresh-models
+  run "${bootstrap[@]}"
   deploy_service
   exit 0
 fi
 
-"$REPO_ROOT/scripts/bootstrap.sh" --refresh-models
+"${bootstrap[@]}"
 deploy_service

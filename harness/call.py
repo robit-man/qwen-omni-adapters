@@ -1234,10 +1234,15 @@ def run_call_loop(
     barge_paused = False
     try:
         with microphone:
-            notify("listening", "")
+            listening_announced = False
             for frame in microphone.frames():
                 if stop.is_set():
                     return
+                if not listening_announced:
+                    # Popen alone does not prove the selected source works.
+                    # Publish listening only after a full capture frame arrives.
+                    notify("listening", "")
+                    listening_announced = True
                 now_ms += frame_ms
                 verdict = vad.process(
                     frame,
