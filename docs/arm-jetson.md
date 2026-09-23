@@ -83,8 +83,14 @@ stays on loopback.
 
 The readiness decision is made on the board, not inferred from an x86 build.
 The daemon must prove the worker PIDs' Tegra GPU handles and complete text,
-tagged ASR, direct ASR-to-TTS, valid WAV, and streamed speech requests against
-the selected release. If the desktop harness is selected, deployment also
+tagged ASR, direct ASR-to-cloned-TTS, valid WAV, and streamed speech requests
+against the selected release. It then repeats ASR after synthesis and requires
+the original comprehension PID plus the persistent, shipped-speaker-profile TTS
+PID to remain GPU-resident together. A successful guided deployment therefore
+does not use the legacy comprehension-eviction cycle. If either graph exits,
+reloads, loses its Tegra handles, or TTS falls back to an unconditioned voice,
+readiness fails and the deployer restores the prior service. If the desktop
+harness is selected, deployment also
 requires its real AppIndicator backend, a reachable desktop audio server, and
 a captured microphone frame. Camera nodes are not opened during this startup:
 FFmpeg first touches them only after a structured camera-view request.
@@ -159,14 +165,14 @@ projection, and the existing TTS stack. Current artifact-byte projections are:
 | standard Ornith 1.5 9B | about 8.2 GiB |
 | Qwen3.8 27B E03 Obliterated | about 18.3 GiB |
 
-These are file/resident-weight totals, not measured Jetson peak unified
-memory. KV cache, graph workspaces, CUDA allocations, the OS, and the portal
-still consume the shared pool. Publish a no-eviction claim only after the
-candidate is measured on a 32 GB Orin with its production context and TTS
-policy; the resolver exposes exact layer sizes so that evidence can be tied to
-the released digests. The guided deployer's admission gate prevents a start
-when the post-handoff host cannot retain the installed layers and its default
-6 GiB operating reserve; it is a startup safety bound, not a benchmark claim.
+These are file/resident-weight totals, not a general peak-unified-memory
+benchmark. KV cache, graph workspaces, CUDA allocations, the OS, and the portal
+still consume the shared pool. The guided deployer's admission gate prevents a
+start when the post-handoff host cannot retain the installed layers and its
+default 6 GiB operating reserve. Its on-board smoke then proves functional
+no-eviction co-residency for the configured context and shipped clone profile;
+that proof is tied to the installed process PIDs and Tegra handles. It does not
+claim that every larger context, concurrent workload, or long-run peak will fit.
 
 `qwen-omni doctor` reports the accelerator, and omits the broker tooling
 (`docker`, `jq`, `ss`) that does not apply:

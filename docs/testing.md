@@ -128,12 +128,16 @@ result. Do not commit large or restricted media.
 - the first audio event is emitted only with the first real PCM window;
 - at least two repeated requests succeed;
 - matching-profile repeated requests retain the same resident worker PID;
+- the shipped default clone reference is active in that resident worker;
 - distinct A, B, A prompts transcribe back in A, B, A order with no one-turn lag;
 - the default stream window is two codec frames and disables proxy buffering;
 - `runtime/verify_pcm_stream.py` passes on raw server PCM, with no deterministic
   prefix or high median discontinuity at decoder-window boundaries;
 - empty/excessive text and unsupported options have defined errors;
-- selected languages/voices are only advertised after their own tests.
+- selected languages/voices are only advertised after their own tests;
+- on Tegra, cloned synthesis is followed by another tagged-ASR request while
+  both the original comprehension PID and persistent TTS PID retain nvgpu/nvmap
+  residency; a reload or eviction fails readiness.
 
 ## Route matrix
 

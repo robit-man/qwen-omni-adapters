@@ -61,7 +61,10 @@ existing runtime: recognized Omni port owners are stopped, relevant Ollama
 runners are unloaded, and Jetson GPU load plus unified-memory headroom are
 checked before the new service starts. See `model-profiles.md` for exact tags.
 Ready means the target host itself completed text, tagged-ASR, direct
-ASR-to-TTS, valid-WAV, and streaming-TTS smoke routes. When selected, the
+ASR-to-cloned-TTS, valid-WAV, streaming-TTS, and post-TTS ASR smoke routes.
+The shipped default speaker reference must be active in the persistent TTS
+worker, and both that worker and the unchanged comprehension PID must remain
+GPU-resident after synthesis. When selected, the
 desktop harness must additionally prove its visible indicator, audio server,
 and live microphone capture; an x86 unit-test run is not used as a proxy for
 Jetson arm64/CUDA behavior.
@@ -214,6 +217,11 @@ an exactly matching `CUDA_VISIBLE_DEVICES`. With `OMNI_TTS_GPU_LAYERS=-1`, it
 calls broker `prepare`, starts the resident process, verifies that PID's CUDA
 residency and explicit protocol-ready frame, and calls `ready`. Matching voice
 profiles reuse that graph while retaining the same `/synthesize` contract.
+The direct daemon warms the reference selected by `portal/voice-profile.json`
+and refuses readiness unless the persistent worker reports that a speaker
+reference is active. The bundled female default and male alternate are real
+clone references; synthesis cannot silently degrade to an unconditioned
+generic voice during startup validation.
 
 The interactive wrapper default is `OMNI_TTS_STREAM_FRAMES=8`, approximately
 640 ms of codec audio per state-carrying decode window. The phone keeps an 80 ms

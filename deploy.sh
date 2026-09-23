@@ -377,13 +377,18 @@ install_environment() {
   local temporary
   temporary=$(mktemp "$REPO_ROOT/.env.deploy.XXXXXX")
   if [[ -f "$REPO_ROOT/.env" ]]; then
-    awk '!/^OMNI_PROFILE=/ && !/^OMNI_MODEL=/ && !/^OMNI_LANGUAGE_MODEL=/' \
+    awk '!/^OMNI_PROFILE=/ && !/^OMNI_MODEL=/ && !/^OMNI_LANGUAGE_MODEL=/ \
+      && !/^OMNI_ENABLE_COMPREHENSION=/ && !/^OMNI_STARTUP_SMOKE=/ \
+      && !/^OMNI_TTS_PERSISTENT=/ && !/^OMNI_CALL_SPEECH_EVICT_UNIT=/' \
       "$REPO_ROOT/.env" >"$temporary"
   fi
   {
     printf 'OMNI_PROFILE=%s\n' "$PROFILE"
     printf 'OMNI_MODEL=%s\n' "$OMNI_MODEL"
     printf 'OMNI_LANGUAGE_MODEL=%s\n' "$OMNI_LANGUAGE_MODEL"
+    printf 'OMNI_ENABLE_COMPREHENSION=1\n'
+    printf 'OMNI_STARTUP_SMOKE=1\n'
+    printf 'OMNI_TTS_PERSISTENT=1\n'
   } >>"$temporary"
   chmod 600 "$temporary"
   mv -- "$temporary" "$REPO_ROOT/.env"
@@ -667,6 +672,7 @@ else:
         for key in (
             "state", "detail", "model", "updated_at", "accelerator",
             "comprehension", "startup_smoke", "decision_plane", "children",
+            "co_resident_stack",
         )
         if key in source
     }
@@ -757,7 +763,7 @@ wait_for_service() {
         ;;
     esac
     if [[ -r "$REPO_ROOT/runtime-data/state/daemon-status.json" ]]; then
-      read -r state model updated_at < <(
+      read -r state model updated_at co_resident < <(
         "$REPO_ROOT/.venv/bin/python" - "$REPO_ROOT/runtime-data/state/daemon-status.json" <<'PY'
 import json
 import sys
@@ -766,11 +772,17 @@ try:
     value = json.load(open(sys.argv[1], encoding="utf-8"))
 except (OSError, ValueError):
     value = {}
-print(value.get("state", ""), value.get("model", ""), int(value.get("updated_at", 0)))
+print(
+    value.get("state", ""),
+    value.get("model", ""),
+    int(value.get("updated_at", 0)),
+    int(isinstance(value.get("co_resident_stack"), dict)),
+)
 PY
       )
       if [[ $state == ready && $model == "$OMNI_MODEL" ]] \
-        && [[ $updated_at =~ ^[0-9]+$ ]] && ((updated_at >= SERVICE_START_EPOCH)); then
+        && [[ $updated_at =~ ^[0-9]+$ ]] && ((updated_at >= SERVICE_START_EPOCH)) \
+        && [[ $co_resident == 1 ]]; then
         return 0
       fi
     fi
@@ -801,6 +813,8 @@ deploy_service() {
       printf '+ sample Tegra GPU utilization and require exact model bytes plus %s MiB free headroom\n' \
         "${OMNI_DEPLOY_MEMORY_RESERVE_MIB:-6144}"
     fi
+    printf '+ persist the trained-bridge model, mandatory comprehension, startup smoke, and persistent TTS in %q\n' \
+      "$REPO_ROOT/.env"
     printf '+ persist OMNI_PROFILE=%q OMNI_MODEL=%q OMNI_LANGUAGE_MODEL=%q in %q\n' \
       "$PROFILE" "$OMNI_MODEL" "$OMNI_LANGUAGE_MODEL" "$REPO_ROOT/.env"
     local dry_install=("$REPO_ROOT/services/linux/install.sh" --auto --no-enable)
@@ -812,7 +826,7 @@ deploy_service() {
       run systemctl --user enable --now omni-call-harness.service
       printf '+ wait up to 120 seconds for a live GTK/AppIndicator harness status\n'
     fi
-    printf '+ wait up to 30 minutes for state=ready and model=%q\n' "$OMNI_MODEL"
+    printf '+ wait up to 30 minutes for state=ready, model=%q, and co-resident ASR/cloned-TTS evidence\n' "$OMNI_MODEL"
     return 0
   fi
 

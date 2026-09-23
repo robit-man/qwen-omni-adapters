@@ -484,6 +484,49 @@ class OmniDaemon:
             self.sidecar_resolution = resolve_ollama_sidecar(model=self.config.model)
         return self.sidecar_resolution
 
+    def _voice_reference(self) -> Path:
+        """Resolve the configured default clone reference without exposing it."""
+
+        override = os.environ.get("OMNI_TTS_WARM_SPEAKER_FILE", "").strip()
+        if override:
+            reference = Path(override).expanduser().resolve()
+        else:
+            configured = os.environ.get("OMNI_VOICE_PROFILE", "").strip()
+            profile_path = (
+                Path(configured).expanduser().resolve()
+                if configured
+                else self.config.repo_root / "portal" / "voice-profile.json"
+            )
+            try:
+                profile = json.loads(profile_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                raise DaemonError(
+                    f"could not load the voice-clone profile {profile_path}: {exc}"
+                ) from exc
+            speaker = str(profile.get("speaker_file") or "").strip()
+            presets = profile.get("presets")
+            if isinstance(presets, list):
+                defaults = [
+                    item
+                    for item in presets
+                    if isinstance(item, dict) and item.get("default") is True
+                ]
+                if len(defaults) == 1:
+                    speaker = str(defaults[0].get("speaker_file") or "").strip()
+            if not speaker:
+                raise DaemonError(
+                    "voice-clone readiness requires one default speaker reference"
+                )
+            reference = Path(speaker).expanduser()
+            if not reference.is_absolute():
+                reference = profile_path.parent / reference
+            reference = reference.resolve()
+        if not reference.is_file():
+            raise DaemonError(
+                f"voice-clone speaker reference does not exist: {reference}"
+            )
+        return reference
+
     def _comprehension_artifacts(self) -> tuple[Path, Path]:
         resolved = self._resolved_sidecar()
         if resolved.get("profile") == "trained-audio-bridge":
@@ -637,7 +680,7 @@ class OmniDaemon:
             self.stop_event.wait(1)
         raise DaemonError(f"{child.name} readiness timed out: {url}")
 
-    def _verify_direct_gpu(self, pid: int) -> None:
+    def _verify_direct_gpu(self, pid: int, component: str = "comprehension") -> None:
         if platform.system() == "Darwin":
             return  # bootstrap enforces a Metal-enabled llama.cpp build
         if is_tegra():
@@ -654,23 +697,56 @@ class OmniDaemon:
                 return
             time.sleep(1)
         raise DaemonError(
-            f"comprehension pid {pid} did not become CUDA-resident "
+            f"{component} pid {pid} did not become CUDA-resident "
             f"(evidence: {residency_backend()})"
         )
 
+    def _verify_co_resident_stack(
+        self, comprehension: Child | None, tts: Child
+    ) -> dict[str, Any]:
+        """Prove cloned TTS did not evict the comprehension worker."""
 
-
-    def _cleanup_existing_comprehension(self) -> None:
-        """Kill any existing llama-server on port 8901 so we can bind cleanly."""
-        import subprocess
-        subprocess.run(
-            ["pkill", "-9", "-f", "llama-server"],
-            capture_output=True,
-            timeout=5,
-        )
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info("killed existing llama-server processes")
+        if comprehension is not None:
+            if comprehension.process.poll() is not None:
+                raise DaemonError(
+                    "comprehension exited during cloned TTS synthesis; the selected "
+                    "bundle does not satisfy the co-residency gate"
+                )
+            self._verify_direct_gpu(comprehension.process.pid, "comprehension")
+        if tts.process.poll() is not None:
+            raise DaemonError("TTS wrapper exited during startup smoke")
+        try:
+            response = httpx.get(
+                f"http://127.0.0.1:{self.config.tts_port}/healthz", timeout=10
+            )
+            response.raise_for_status()
+            health = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise DaemonError(f"could not verify resident cloned TTS: {exc}") from exc
+        if not isinstance(health, dict):
+            raise DaemonError("TTS health returned no object")
+        tts_pid = health.get("persistent_pid")
+        if (
+            health.get("persistent_ready") is not True
+            or health.get("speaker_reference_configured") is not True
+            or health.get("speaker_reference_active") is not True
+            or not isinstance(tts_pid, int)
+            or tts_pid <= 0
+            or not _pid_alive(tts_pid)
+        ):
+            raise DaemonError(
+                "cloned TTS did not retain one live persistent speaker-profile worker"
+            )
+        if platform.system() != "Darwin":
+            self._verify_direct_gpu(tts_pid, "tts")
+        return {
+            "comprehension_pid": (
+                comprehension.process.pid if comprehension is not None else None
+            ),
+            "tts_pid": tts_pid,
+            "gpu_residency": residency_backend(),
+            "speaker_reference_active": True,
+        }
 
     def start_children(self) -> str:
         python = sys.executable
@@ -688,6 +764,7 @@ class OmniDaemon:
             self.config.runtime_root / "decision-traces.jsonl"
         )
         comprehension_model, comprehension_projector = self._comprehension_artifacts()
+        comprehension: Child | None = None
         if self.config.enable_comprehension:
             comprehension = self._spawn(
                 "comprehension",
@@ -727,6 +804,9 @@ class OmniDaemon:
             "OMNI_COMPONENT_CACHE": str(self.cache_dir),
             "OMNI_TTS_GPU_LAYERS": "-1",
             "OMNI_TTS_REQUIRE_GPU": "0" if platform.system() == "Darwin" else "1",
+            "OMNI_TTS_PERSISTENT": "1",
+            "OMNI_TTS_WARM_SPEAKER_FILE": str(self._voice_reference()),
+            "OMNI_TTS_ACTIVE_PID_FILE": str(self.state_dir / "tts-worker.pid"),
             "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames),
             "OMNI_TTS_HOST": "127.0.0.1",
             "OMNI_TTS_PORT": str(self.config.tts_port),
@@ -820,14 +900,19 @@ class OmniDaemon:
                     [
                         "--audio",
                         str(self.config.repo_root / "portal" / "voices" / "default_voice.wav"),
+                        "--voice-clone",
                     ]
                 )
             self._command(smoke, timeout=1200)
+            resident_stack = self._verify_co_resident_stack(comprehension, tts)
+        else:
+            resident_stack = None
         self._write_status(
             state="smoke-passed" if self.config.startup_smoke else "ready",
             comprehension=self.config.enable_comprehension,
             startup_smoke=self.config.startup_smoke,
             decision_plane=decision_ready,
+            co_resident_stack=resident_stack,
         )
 
         public = f"http://127.0.0.1:{self.config.portal_port}"

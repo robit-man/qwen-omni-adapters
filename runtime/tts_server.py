@@ -606,6 +606,17 @@ class PersistentTTSWorker:
     def ready(self) -> bool:
         return self.process is not None and self.process.poll() is None
 
+    @property
+    def pid(self) -> int | None:
+        return self.process.pid if self.ready and self.process is not None else None
+
+    @property
+    def speaker_reference_active(self) -> bool:
+        # Profile item 1 is the server-local reference passed to
+        # --tts-speaker-file when the resident graph was created. Report only
+        # its presence; never expose a reference path through health metadata.
+        return bool(self.ready and self.profile and self.profile[1])
+
     def _diagnostic(self) -> str:
         if self.stderr_log is None:
             return ""
@@ -919,6 +930,16 @@ def create_app(config: Config | None = None) -> Flask:
                 "missing": missing,
                 "persistent": bool(persistent),
                 "persistent_ready": bool(persistent and persistent.ready),
+                "persistent_pid": persistent.pid if persistent else None,
+                "speaker_reference_configured": warm_spec is not None,
+                "speaker_reference_active": bool(
+                    persistent and persistent.speaker_reference_active
+                ),
+                "gpu_resident": (
+                    _cuda_process_is_resident(persistent.pid, runtime.gpu_uuid)
+                    if persistent and persistent.pid and runtime.require_gpu
+                    else None
+                ),
             }
         ), 200 if not missing else 503
 

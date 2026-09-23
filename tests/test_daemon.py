@@ -5,6 +5,7 @@ import json
 import stat
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -283,6 +284,79 @@ def test_startup_smoke_includes_real_audio_asr_and_tts() -> None:
     assert '"--audio"' in source
     assert '"default_voice.wav"' in source
     assert '"--tts"' in source
+    assert '"--voice-clone"' in source
+    assert "_verify_co_resident_stack" in source
+
+
+def test_daemon_resolves_the_shipped_default_clone_reference(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "portal"
+    voice_dir = profile_dir / "voices"
+    voice_dir.mkdir(parents=True)
+    female = voice_dir / "female.wav"
+    male = voice_dir / "male.wav"
+    female.write_bytes(b"female")
+    male.write_bytes(b"male")
+    (profile_dir / "voice-profile.json").write_text(
+        json.dumps(
+            {
+                "speaker_file": "voices/male.wav",
+                "presets": [
+                    {
+                        "id": "female",
+                        "speaker_file": "voices/female.wav",
+                        "default": True,
+                    },
+                    {
+                        "id": "male",
+                        "speaker_file": "voices/male.wav",
+                        "default": False,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert daemon.OmniDaemon(_config(tmp_path))._voice_reference() == female.resolve()
+
+
+def test_co_residency_gate_requires_live_cloned_tts_and_comprehension(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    supervisor = daemon.OmniDaemon(_config(tmp_path))
+    comprehension = daemon.Child(
+        "comprehension", SimpleNamespace(pid=101, poll=lambda: None), None
+    )
+    tts = daemon.Child("tts", SimpleNamespace(pid=202, poll=lambda: None), None)
+    checked: list[tuple[int, str]] = []
+
+    class Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self):
+            return {
+                "persistent_ready": True,
+                "persistent_pid": 303,
+                "speaker_reference_configured": True,
+                "speaker_reference_active": True,
+            }
+
+    monkeypatch.setattr(daemon.httpx, "get", lambda *args, **kwargs: Response())
+    monkeypatch.setattr(daemon, "_pid_alive", lambda pid: pid == 303)
+    monkeypatch.setattr(
+        supervisor,
+        "_verify_direct_gpu",
+        lambda pid, component="comprehension": checked.append((pid, component)),
+    )
+    monkeypatch.setattr(daemon.platform, "system", lambda: "Linux")
+
+    evidence = supervisor._verify_co_resident_stack(comprehension, tts)
+
+    assert checked == [(101, "comprehension"), (303, "tts")]
+    assert evidence["comprehension_pid"] == 101
+    assert evidence["tts_pid"] == 303
+    assert evidence["speaker_reference_active"] is True
 
 
 def test_an_externally_managed_comprehension_port_does_not_block_start(monkeypatch):

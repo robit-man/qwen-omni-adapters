@@ -257,6 +257,10 @@ The event and final adapter trace similarly expose tagged acoustic evidence as
 `audio_observation` and `adapter.audio_observation`. Audio-only `transcribe`
 remains the fast ASR route; attach audio with a text question to run combined
 speech and environmental analysis through the language model.
+For a trained audio bridge, audio-only chat and `transcribe` use the exact
+tagged prompt pair from bridge training and release evaluation. The runtime
+prompt digest is pinned in tests, and a plain-text caller instruction cannot
+replace the tagged evidence contract.
 
 ## Python client
 

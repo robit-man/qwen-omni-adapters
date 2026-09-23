@@ -22,6 +22,9 @@ from qwen_omni_adapters.contract import (
     parse_adapter_request,
 )
 from runtime.adapter_server import (
+    TRAINED_AUDIO_PROMPT_SHA256,
+    TRAINED_AUDIO_SUFFIX_PROMPT,
+    TRAINED_AUDIO_SYSTEM_PROMPT,
     Config,
     _tts_text_blocks,
     _video_audio,
@@ -146,6 +149,45 @@ for line in sys.stdin.buffer:
         assert worker.process.pid == first_pid
     finally:
         worker.close()
+
+
+def test_persistent_tts_worker_reports_an_active_clone_reference(
+    tmp_path: Path,
+) -> None:
+    binary = tmp_path / "fake-llama-tts"
+    binary.write_text(
+        """#!/usr/bin/env python3
+import base64
+import sys
+
+def frame(kind, data=b''):
+    sys.stdout.buffer.write(kind.encode() + len(data).to_bytes(8, 'little') + data)
+    sys.stdout.buffer.flush()
+
+frame('R')
+for line in sys.stdin.buffer:
+    prompt = base64.b64decode(line.strip())
+    frame('A', b'\\x01\\x00' * max(1, len(prompt)))
+    frame('D')
+"""
+    )
+    binary.chmod(0o755)
+    reference = tmp_path / "shipped-reference.wav"
+    reference.write_bytes(_wav(16000))
+    config = _tts_config(tmp_path, binary=binary, persistent=True, timeout_s=5)
+    spec = _synthesis_spec(
+        config,
+        {"text": "Clone this shipped voice.", "speaker_file": str(reference)},
+    )
+    worker = PersistentTTSWorker(config)
+    try:
+        assert b"".join(worker.stream(spec))
+        assert isinstance(worker.pid, int)
+        assert worker.speaker_reference_active is True
+    finally:
+        worker.close()
+    assert worker.pid is None
+    assert worker.speaker_reference_active is False
 
 
 def test_nonpersistent_tts_batch_reuses_one_process_for_the_whole_utterance(
@@ -785,9 +827,82 @@ def test_chat_comprehension_payload_forbids_conversational_media_reply() -> None
     media_parts = payload["messages"][-1]["content"]
     assert [part["type"] for part in media_parts] == ["input_audio", "text"]
     assert "Reply to this recording." not in media_parts[-1]["text"]
-    assert "Analyze the supplied audio" in media_parts[-1]["text"]
-    assert "non-speech sounds" in media_parts[-1]["text"]
-    assert "Do not answer the speech" in media_parts[-1]["text"]
+    assert "Analyze this audio" in media_parts[-1]["text"]
+    assert "non-speech evidence" in media_parts[-1]["text"]
+    assert "nothing else" in media_parts[-1]["text"]
+
+
+def test_trained_audio_bridge_uses_the_release_gated_prompt_contract() -> None:
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "This caller text must not perturb ASR.",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+            omni={"schema": ADAPTER_SCHEMA, "task": "transcribe"},
+        )
+    )
+    payload = build_comprehension_payload(
+        parsed,
+        Config(
+            "http://comp",
+            "local-audio-bridge",
+            "http://language",
+            "http://tts",
+            30,
+            comprehension_disable_thinking=True,
+            comprehension_repeat_penalty=1.1,
+        ),
+    )
+
+    assert TRAINED_AUDIO_PROMPT_SHA256 == (
+        "9f73862652e0226ec3f9690f0a783d1c21dc1113285b4dc18d0edd51f2766758"
+    )
+    assert payload["messages"][0] == {
+        "role": "system",
+        "content": TRAINED_AUDIO_SYSTEM_PROMPT,
+    }
+    assert [part["type"] for part in payload["messages"][1]["content"]] == [
+        "input_audio",
+        "text",
+    ]
+    assert payload["messages"][1]["content"][-1]["text"] == TRAINED_AUDIO_SUFFIX_PROMPT
+    assert "This caller text" not in json.dumps(payload["messages"])
+    assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+    assert payload["repeat_penalty"] == 1.1
+    assert payload["cache_prompt"] is False
+
+
+def test_trained_audio_chat_uses_the_same_asr_prompt_as_training() -> None:
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Answer what I said.",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ]
+        )
+    )
+
+    payload = build_comprehension_payload(
+        parsed,
+        Config(
+            "http://comp",
+            "local-audio-bridge",
+            "http://language",
+            "http://tts",
+            30,
+            comprehension_disable_thinking=True,
+        ),
+    )
+
+    assert payload["messages"][0]["content"] == TRAINED_AUDIO_SYSTEM_PROMPT
+    assert payload["messages"][-1]["content"][-1]["text"] == TRAINED_AUDIO_SUFFIX_PROMPT
 
 
 def test_stream_exposes_only_tagged_input_transcript_to_clients() -> None:

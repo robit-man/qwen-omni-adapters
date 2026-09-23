@@ -446,9 +446,12 @@ memory without jumping from a recovery window to an unsafe maximum. The
 adapter reads the chosen window per request and sheds old history/tool evidence
 before llama.cpp can reject an oversized prompt.
 
-The TTS and comprehension graphs may be simultaneously resident on a host with
-enough memory. A constrained host uses explicit eviction callbacks and
-non-persistent TTS. Service managers restart failed workers; the harness waits
+The guided trained-bridge deployment requires TTS and comprehension to remain
+simultaneously resident. Startup exercises the shipped clone reference, repeats
+ASR after synthesis, and proves both unchanged worker PIDs still hold GPU
+residency; failure rolls the deployment back. Legacy/manual constrained
+profiles may still opt into explicit eviction callbacks and non-persistent TTS.
+Service managers restart failed workers; the harness waits
 through token rotation and adapter/comprehension restoration, reopens a failed
 microphone capture loop, and resumes expired background-task leases. On Tegra,
 GPU residency is proven from each process's `nvgpu`/`nvmap` handles rather than
@@ -586,10 +589,13 @@ indicator and audio stack. The unit caps its own memory: the adapter holds the
 weights, this process only moves audio.
 
 The core daemon's startup smoke uses a tracked speech fixture and requires a
-tagged transcript, a direct ASR-to-TTS route, valid 24 kHz mono PCM16 output,
-and the normal streamed TTS gate. A generic sound observation cannot satisfy
-the ASR check. On Jetson those requests run against the installed arm64/CUDA
-workers; desktop-host unit tests do not substitute for that device gate.
+tagged transcript, a direct ASR-to-cloned-TTS route using the shipped default
+speaker reference, valid 24 kHz mono PCM16 output, the normal streamed TTS gate,
+and another tagged-ASR pass after speech. It then proves that the original
+comprehension PID and persistent clone-profile TTS PID remain GPU-resident
+together. A generic sound observation or unconditioned WAV cannot satisfy the
+gate. On Jetson those requests run against the installed arm64/CUDA workers;
+desktop-host unit tests do not substitute for that device gate.
 
 Two environment variables are worth knowing:
 
@@ -677,11 +683,12 @@ separate so environmental sounds are never misrouted as the user's words.
   The document index follows the same session partition and expiry policy.
 - Long speech is split before the per-generation codec-frame ceiling, streamed
   with continuous sequence numbers, and assembled into one complete final WAV.
-- When memory permits, Qwen3-TTS keeps a matching voice profile resident on its
+- Guided trained-bridge deployments require Qwen3-TTS to keep the matching
+  shipped voice profile resident alongside comprehension on its
   assigned GPU and emits two codec frames (about 160 ms) per stream window by
   default. A voice-profile change intentionally replaces the resident worker.
-  Constrained hosts instead use a non-persistent worker and explicit residency
-  handoff.
+  Non-persistent workers and explicit residency handoff remain legacy/manual
+  escape hatches and do not pass the guided trained-bridge readiness gate.
 - Ordinary turns receive only a compact stable behavioral system policy. With
   tools enabled, `get_system_snapshot` can explicitly sample current date/time,
   OS/architecture, CPU/load, RAM, interface counters, and NVIDIA utilization.

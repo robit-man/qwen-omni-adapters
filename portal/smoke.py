@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import io
 import json
 import wave
@@ -100,9 +101,21 @@ def require_input_transcript(result: dict[str, Any], *, stage: str = "ASR") -> s
         (result.get("adapter") or {}).get("input_transcript") or ""
     ).strip()
     if not transcript:
+        adapter = result.get("adapter") or {}
+        content = str((result.get("message") or {}).get("content") or "")
+        shape = {
+            "route": adapter.get("route"),
+            "observation_present": bool(adapter.get("observation")),
+            "audio_observation_present": bool(adapter.get("audio_observation")),
+            "speech_tag_present": "<speech_transcript" in content.casefold(),
+            "content_chars": len(content),
+            # A digest distinguishes repeatable malformed output without
+            # putting a person's words into service logs.
+            "content_sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+        }
         raise RuntimeError(
             f"{stage} returned no tagged speech transcript "
-            "(an audio observation alone does not pass)"
+            f"(an audio observation alone does not pass; shape={shape})"
         )
     return transcript
 
@@ -117,6 +130,11 @@ def main() -> int:
     parser.add_argument("--image", type=Path)
     parser.add_argument("--video", type=Path)
     parser.add_argument("--tts", action="store_true")
+    parser.add_argument(
+        "--voice-clone",
+        action="store_true",
+        help="Require and exercise the server's configured speaker reference",
+    )
     parser.add_argument("--stream", action="store_true")
     parser.add_argument("--tool", action="store_true")
     args = parser.parse_args()
@@ -132,6 +150,15 @@ def main() -> int:
     status_data = status.json()
     if not status_data.get("ok"):
         raise RuntimeError(f"portal status gate failed: {status_data}")
+    if args.voice_clone:
+        voice_profile = status_data.get("voice_profile") or {}
+        if (
+            voice_profile.get("speaker_reference") is not True
+            or voice_profile.get("clone_mode") != "speaker_embedding"
+        ):
+            raise RuntimeError(
+                "voice-clone smoke requires a configured speaker-embedding reference"
+            )
 
     checks: dict[str, Any] = {"status": "pass"}
     if args.text:
@@ -162,6 +189,8 @@ def main() -> int:
         if args.tts:
             payload["response_modalities"] = ["text", "audio"]
             payload["speech_mode"] = "always"
+            if args.voice_clone:
+                payload["portal_voice"] = {"clone_enabled": True}
             result = call(client, endpoint, payload)
             validate_wav(result["message"].get("audio") or {})
             adapter = result.get("adapter") or {}
@@ -217,6 +246,8 @@ def main() -> int:
         )
         payload["response_modalities"] = ["text", "audio"]
         payload["speech_mode"] = "always"
+        if args.voice_clone:
+            payload["portal_voice"] = {"clone_enabled": True}
         if args.stream:
             result, pcm = stream_call(client, endpoint, payload)
             if not pcm or len(pcm) % 2:
@@ -229,6 +260,23 @@ def main() -> int:
             result = call(client, endpoint, payload)
         validate_wav(result["message"].get("audio") or {})
         checks["tts"] = "pass"
+
+    if args.audio and args.tts:
+        # Run comprehension once more after synthesis. On unified-memory Tegra
+        # this catches the old eviction cycle: a valid TTS WAV is insufficient
+        # if producing it displaced the resident ASR/language trunk.
+        payload = base_request(
+            args.model,
+            "transcribe",
+            {
+                "role": "user",
+                "content": "Transcribe faithfully.",
+                "audios": [envelope(args.audio, "audio/wav")],
+            },
+        )
+        result = call(client, endpoint, payload)
+        require_input_transcript(result, stage="post-TTS ASR")
+        checks["post_tts_asr"] = "pass"
 
     if args.tool:
         payload = base_request(

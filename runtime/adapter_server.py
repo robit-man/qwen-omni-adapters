@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import copy
+import hashlib
 import io
 import json
 import logging
@@ -173,6 +174,16 @@ def _active_context_tokens(config: Config) -> int:
 
 MEDIA_CHAT_SYSTEM_PROMPT = context_text("prompts", "media_encoder_system")
 DEFAULT_LANGUAGE_SYSTEM_PROMPT = context_text("prompts", "default_language_system")
+TRAINED_AUDIO_SYSTEM_PROMPT = context_text("prompts", "transcribe_system")
+TRAINED_AUDIO_SUFFIX_PROMPT = context_text("directives", "media_extract_audio")
+TRAINED_AUDIO_TEMPLATE_SUFFIX = (
+    "\n"
+    + TRAINED_AUDIO_SUFFIX_PROMPT
+    + "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+)
+TRAINED_AUDIO_PROMPT_SHA256 = hashlib.sha256(
+    (TRAINED_AUDIO_SYSTEM_PROMPT + "\0" + TRAINED_AUDIO_TEMPLATE_SUFFIX).encode("utf-8")
+).hexdigest()
 
 
 def _json_response(response: httpx.Response, stage: str) -> dict[str, Any]:
@@ -585,44 +596,46 @@ def build_comprehension_payload(
     *,
     max_video_frames: int = MAX_VIDEO_FRAMES,
 ) -> dict[str, Any]:
-    messages: list[dict[str, Any]] = []
-    if parsed.task == "transcribe":
-        messages.append(
-            {
-                "role": "system",
-                "content": context_text("prompts", "transcribe_system"),
-            }
-        )
-    elif parsed.task == "describe":
-        messages.append(
-            {
-                "role": "system",
-                "content": context_text("prompts", "describe_system"),
-            }
-        )
-    elif parsed.task == "chat":
-        messages.append(
-            {
-                "role": "system",
-                "content": MEDIA_CHAT_SYSTEM_PROMPT,
-            }
-        )
+    media_messages: list[dict[str, Any]] = []
     for message in parsed.messages:
         parts = _content_parts(
             message,
             include_audio_from_video=parsed.include_audio_from_video,
             max_video_frames=max_video_frames,
         )
-        if parsed.task == "chat":
+        if parsed.task in {"chat", "transcribe"}:
             # The user's conversational text belongs exclusively to the language
             # model. Giving it to the media graph can turn the perception stage
-            # into a second assistant and invert roles in downstream clients.
+            # into a second assistant and invert roles in downstream clients. A
+            # direct ASR request is likewise evaluated against the media itself,
+            # not a caller-supplied instruction that can conflict with the tagged
+            # evidence contract.
             parts = [part for part in parts if part.get("type") != "text"]
-            extraction = _media_extraction_instruction(parts)
-            if extraction and parts:
-                parts.append({"type": "text", "text": extraction})
+        extraction = _media_extraction_instruction(parts)
+        if extraction and parts:
+            parts.append({"type": "text", "text": extraction})
         if parts:
-            messages.append({"role": message.role, "content": parts})
+            media_messages.append({"role": message.role, "content": parts})
+
+    # The trained projector was optimized and release-gated against this exact
+    # audio-only system/directive pair plus the target trunk's native
+    # enable_thinking=false prefill. Keep mixed audio/visual requests on the
+    # general modality policy so native target vision can still emit visual
+    # evidence, but never ask an audio-only trained bridge for untagged prose.
+    media_modalities = set(parsed.input_modalities) - {"text"}
+    audio_only = media_modalities == {"audio"}
+    if parsed.task == "transcribe" or (
+        config.comprehension_disable_thinking and audio_only
+    ):
+        system_prompt = TRAINED_AUDIO_SYSTEM_PROMPT
+    elif parsed.task == "describe":
+        system_prompt = context_text("prompts", "describe_system")
+    else:
+        system_prompt = MEDIA_CHAT_SYSTEM_PROMPT
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system_prompt},
+        *media_messages,
+    ]
     payload = {
         "model": config.comprehension_model,
         "messages": messages,

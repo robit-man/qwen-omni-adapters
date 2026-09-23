@@ -53,6 +53,16 @@ the current intent depends on physical-scene facts. A successful request starts
 a new multimodal pass; unrelated turns never receive, describe, or carry an
 ambient frame merely because cameras are enabled.
 
+Trained audio bridges have an additional reproducibility boundary. Audio-only
+chat and direct ASR use the same tagged system/directive pair as projector
+training and release evaluation, with native `enable_thinking=false` prefill.
+The pair's release digest is
+`9f73862652e0226ec3f9690f0a783d1c21dc1113285b4dc18d0edd51f2766758`.
+Caller text is withheld from this perception pass, and the result must contain
+separate `speech_transcript` and `audio_observation` elements. This prevents a
+plain-text transcription prompt from defeating the attributed-speech parser or
+turning acoustic evidence into visual evidence.
+
 ## Task phases and evidence
 
 The durable store distinguishes human-visible scheduling phase from model
