@@ -60,14 +60,12 @@ installs or upgrades the managed service. Upgrades first hand off from the
 existing runtime: recognized Omni port owners are stopped, relevant Ollama
 runners are unloaded, and Jetson GPU load plus unified-memory headroom are
 checked before the new service starts. See `model-profiles.md` for exact tags.
-Ready means the target host itself completed text, tagged-ASR, direct
-ASR-to-cloned-TTS, valid-WAV, streaming-TTS, and post-TTS ASR smoke routes.
-The shipped default speaker reference must be active in the persistent TTS
-worker, and both that worker and the unchanged comprehension PID must remain
-GPU-resident after synthesis. When selected, the
-desktop harness must additionally prove its visible indicator, audio server,
-and live microphone capture; an x86 unit-test run is not used as a proxy for
-Jetson arm64/CUDA behavior.
+Ready means the local component health endpoints are available; guided startup
+does not issue model generations. The desktop indicator service starts
+immediately after the core unit and waits for the portal concurrently. When
+selected, the desktop harness must additionally prove its visible indicator,
+audio server, and live microphone capture. Set `OMNI_STARTUP_SMOKE=1` only for
+an intentional blocking text/ASR/cloned-TTS/co-residency diagnostic.
 Explicit `OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` environment values remain
 supported for advanced and legacy profiles.
 

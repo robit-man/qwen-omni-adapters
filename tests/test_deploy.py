@@ -54,8 +54,8 @@ def test_noninteractive_dry_run_uses_one_bridge_tag_for_both_stages() -> None:
     assert "inventory owners of ports 8892,8901,8910,8920,8930" in completed.stdout
     assert "unload only the selected, prior-configured" in completed.stdout
     assert "systemctl start qwen-omni-adapters.service" in completed.stdout
-    assert "wait up to 30 minutes for state=ready" in completed.stdout
-    assert "co-resident ASR/cloned-TTS evidence" in completed.stdout
+    assert "start the desktop indicator immediately" in completed.stdout
+    assert "do not run generation smoke" in completed.stdout
 
 
 def test_desktop_selection_bootstraps_and_waits_for_the_real_indicator() -> None:
@@ -101,7 +101,7 @@ def test_cutover_stops_and_unloads_the_old_runtime_before_installing() -> None:
     assert "nvidia-smi" not in source
 
 
-def test_guided_bridge_disables_the_legacy_speech_eviction_cycle() -> None:
+def test_guided_bridge_disables_legacy_eviction_and_blocking_smoke() -> None:
     source = DEPLOY.read_text(encoding="utf-8")
     install_body = source.split("install_environment() {", 1)[1].split(
         "\n}\n\nrestore_environment", 1
@@ -109,9 +109,20 @@ def test_guided_bridge_disables_the_legacy_speech_eviction_cycle() -> None:
 
     assert "OMNI_CALL_SPEECH_EVICT_UNIT" in install_body
     assert "OMNI_ENABLE_COMPREHENSION=1" in install_body
-    assert "OMNI_STARTUP_SMOKE=1" in install_body
+    assert "OMNI_STARTUP_SMOKE=0" in install_body
     assert "OMNI_TTS_PERSISTENT=1" in install_body
-    assert "co_resident_stack" in source
+    assert "co_resident_stack == 1" not in source
+
+
+def test_indicator_service_starts_before_the_core_readiness_wait() -> None:
+    source = DEPLOY.read_text(encoding="utf-8")
+    deploy_body = source.split("deploy_service() {", 1)[1].split(
+        "\n}\n\nwhile (($#))", 1
+    )[0]
+
+    assert deploy_body.index(
+        "systemctl --user start omni-call-harness.service"
+    ) < deploy_body.index("wait_for_service")
 
 
 def test_readiness_wait_accepts_activation_and_prints_the_journal_on_failure() -> None:

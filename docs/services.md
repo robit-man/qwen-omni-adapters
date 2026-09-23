@@ -32,8 +32,9 @@ On Jetson, the preferred entry point is the guided service installer:
 
 It detects fresh versus installed state, offers install/upgrade and both
 trained bridge models through arrow-key menus, persists the selected logical
-tag, invokes the Linux installer in direct mode, and waits for the selected
-model's startup smoke gates. With the optional desktop harness it also installs
+tag, invokes the Linux installer in direct mode, and waits only for local
+component health. With the optional desktop harness it starts the user service
+immediately after the core unit, installs
 the GTK/AppIndicator and PulseAudio bindings, requires an actual status-notifier
 host, and waits until the harness has consumed a microphone frame. Before
 cutover it inventories the five runtime

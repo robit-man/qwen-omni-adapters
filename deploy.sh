@@ -387,7 +387,7 @@ install_environment() {
     printf 'OMNI_MODEL=%s\n' "$OMNI_MODEL"
     printf 'OMNI_LANGUAGE_MODEL=%s\n' "$OMNI_LANGUAGE_MODEL"
     printf 'OMNI_ENABLE_COMPREHENSION=1\n'
-    printf 'OMNI_STARTUP_SMOKE=1\n'
+    printf 'OMNI_STARTUP_SMOKE=0\n'
     printf 'OMNI_TTS_PERSISTENT=1\n'
   } >>"$temporary"
   chmod 600 "$temporary"
@@ -744,7 +744,7 @@ PY
 wait_for_service() {
   local started=$SECONDS deadline=$((SECONDS + 1800)) state model updated_at
   local active_state sub_state restarts
-  printf 'Waiting for the selected model to pass startup smoke gates...\n'
+  printf 'Waiting for local services to report ready (generation smoke disabled)...\n'
   while ((SECONDS < deadline)); do
     active_state=$(sudo systemctl show "$SERVICE_NAME" -p ActiveState --value 2>/dev/null || true)
     sub_state=$(sudo systemctl show "$SERVICE_NAME" -p SubState --value 2>/dev/null || true)
@@ -763,7 +763,7 @@ wait_for_service() {
         ;;
     esac
     if [[ -r "$REPO_ROOT/runtime-data/state/daemon-status.json" ]]; then
-      read -r state model updated_at co_resident < <(
+      read -r state model updated_at < <(
         "$REPO_ROOT/.venv/bin/python" - "$REPO_ROOT/runtime-data/state/daemon-status.json" <<'PY'
 import json
 import sys
@@ -776,13 +776,11 @@ print(
     value.get("state", ""),
     value.get("model", ""),
     int(value.get("updated_at", 0)),
-    int(isinstance(value.get("co_resident_stack"), dict)),
 )
 PY
       )
       if [[ $state == ready && $model == "$OMNI_MODEL" ]] \
-        && [[ $updated_at =~ ^[0-9]+$ ]] && ((updated_at >= SERVICE_START_EPOCH)) \
-        && [[ $co_resident == 1 ]]; then
+        && [[ $updated_at =~ ^[0-9]+$ ]] && ((updated_at >= SERVICE_START_EPOCH)); then
         return 0
       fi
     fi
@@ -813,7 +811,7 @@ deploy_service() {
       printf '+ sample Tegra GPU utilization and require exact model bytes plus %s MiB free headroom\n' \
         "${OMNI_DEPLOY_MEMORY_RESERVE_MIB:-6144}"
     fi
-    printf '+ persist the trained-bridge model, mandatory comprehension, startup smoke, and persistent TTS in %q\n' \
+    printf '+ persist the trained-bridge model, mandatory comprehension, smoke-free startup, and persistent TTS in %q\n' \
       "$REPO_ROOT/.env"
     printf '+ persist OMNI_PROFILE=%q OMNI_MODEL=%q OMNI_LANGUAGE_MODEL=%q in %q\n' \
       "$PROFILE" "$OMNI_MODEL" "$OMNI_LANGUAGE_MODEL" "$REPO_ROOT/.env"
@@ -826,7 +824,8 @@ deploy_service() {
       run systemctl --user enable --now omni-call-harness.service
       printf '+ wait up to 120 seconds for a live GTK/AppIndicator harness status\n'
     fi
-    printf '+ wait up to 30 minutes for state=ready, model=%q, and co-resident ASR/cloned-TTS evidence\n' "$OMNI_MODEL"
+    printf '+ start the desktop indicator immediately after the core service (when selected)\n'
+    printf '+ wait for local service health only; do not run generation smoke\n'
     return 0
   fi
 
@@ -845,9 +844,9 @@ deploy_service() {
   sudo systemctl enable "$SERVICE_NAME"
   SERVICE_START_EPOCH=$(date +%s)
   sudo systemctl start "$SERVICE_NAME"
-  wait_for_service
 
   if ((WITH_HARNESS)); then
+    printf 'Starting the desktop indicator while the core service becomes ready...\n'
     systemctl --user enable omni-call-harness.service
     HARNESS_START_EPOCH=$(date +%s)
     if systemctl --user is-active --quiet omni-call-harness.service; then
@@ -855,6 +854,11 @@ deploy_service() {
     else
       systemctl --user start omni-call-harness.service
     fi
+  fi
+
+  wait_for_service
+
+  if ((WITH_HARNESS)); then
     wait_for_harness
   fi
 

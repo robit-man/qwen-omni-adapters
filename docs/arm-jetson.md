@@ -77,22 +77,19 @@ cd qwen-omni-adapters
 managed service, and current model. Arrow-key menus select install/upgrade,
 one of the two trained bridges, and the optional always-listening harness. It
 pulls the logical Ollama tag, validates the sidecar, runs doctor/regression
-gates, installs the direct systemd service, and waits for that exact model to
-pass startup smoke gates. `cloudflared` is optional; without it the portal
-stays on loopback.
+gates, installs the direct systemd service, and waits only for local component
+health. The desktop indicator service is started immediately after the core
+unit and waits for the portal in parallel. Generation smoke is not part of
+guided readiness. `cloudflared` is optional; without it the portal stays on
+loopback.
 
-The readiness decision is made on the board, not inferred from an x86 build.
-The daemon must prove the worker PIDs' Tegra GPU handles and complete text,
-tagged ASR, direct ASR-to-cloned-TTS, valid WAV, and streamed speech requests
-against the selected release. It then repeats ASR after synthesis and requires
-the original comprehension PID plus the persistent, shipped-speaker-profile TTS
-PID to remain GPU-resident together. A successful guided deployment therefore
-does not use the legacy comprehension-eviction cycle. If either graph exits,
-reloads, loses its Tegra handles, or TTS falls back to an unconditioned voice,
-readiness fails and the deployer restores the prior service. If the desktop
-harness is selected, deployment also
-requires its real AppIndicator backend, a reachable desktop audio server, and
-a captured microphone frame. Camera nodes are not opened during this startup:
+The board still proves each worker's Tegra GPU handles while loading, but it
+does not generate text or speech before exposing the portal. Set
+`OMNI_STARTUP_SMOKE=1` for the blocking ASR → cloned-TTS → ASR and co-residency
+diagnostic when deliberately troubleshooting. If the desktop harness is
+selected, deployment requires its real AppIndicator backend, a reachable
+desktop audio server, and a captured microphone frame. Camera nodes are not
+opened during this startup:
 FFmpeg first touches them only after a structured camera-view request.
 
 An upgrade is a controlled handoff. The deployer resolves the live owners of
@@ -169,10 +166,9 @@ These are file/resident-weight totals, not a general peak-unified-memory
 benchmark. KV cache, graph workspaces, CUDA allocations, the OS, and the portal
 still consume the shared pool. The guided deployer's admission gate prevents a
 start when the post-handoff host cannot retain the installed layers and its
-default 6 GiB operating reserve. Its on-board smoke then proves functional
-no-eviction co-residency for the configured context and shipped clone profile;
-that proof is tied to the installed process PIDs and Tegra handles. It does not
-claim that every larger context, concurrent workload, or long-run peak will fit.
+default 6 GiB operating reserve. This admission check is intentionally quick;
+it does not run inference or claim that every larger context, concurrent
+workload, or long-run peak will fit.
 
 `qwen-omni doctor` reports the accelerator, and omits the broker tooling
 (`docker`, `jq`, `ss`) that does not apply:
