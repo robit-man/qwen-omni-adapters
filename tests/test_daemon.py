@@ -167,6 +167,29 @@ def test_stop_command_uses_cross_platform_control_file(
     assert (state_dir / "stop.request").is_file()
 
 
+def test_restart_control_file_exits_for_systemd_relaunch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    supervisor = daemon.OmniDaemon(_config(tmp_path))
+    supervisor.state_dir.mkdir(parents=True)
+    supervisor.restart_file.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(supervisor, "prepare", lambda: None)
+    monkeypatch.setattr(supervisor, "start_children", lambda: "http://local/#access=x")
+    monkeypatch.setattr(supervisor, "cleanup", lambda: None)
+    monkeypatch.setattr(supervisor, "_write_status", lambda **_fields: None)
+
+    assert supervisor.run(register_signals=False) == 75
+
+
+def test_tegra_direct_daemon_uses_dynamic_context_launcher() -> None:
+    source = inspect.getsource(daemon.OmniDaemon.start_children)
+
+    assert '"comprehension_launcher.py"' in source
+    assert '"--child-pid-file"' in source
+    assert '"OMNI_COMPREHENSION_CONTEXT_FILE"' in source
+    assert '"{context}" if is_tegra()' in source
+
+
 def test_an_openai_language_backend_is_not_pulled_from_ollama(monkeypatch, tmp_path):
     """Its model name belongs to that server; Ollama has never heard of it.
 

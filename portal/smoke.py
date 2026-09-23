@@ -97,9 +97,7 @@ def validate_wav(audio: dict[str, Any]) -> None:
 def require_input_transcript(result: dict[str, Any], *, stage: str = "ASR") -> str:
     """Require attributed speech, not a generic non-speech audio observation."""
 
-    transcript = str(
-        (result.get("adapter") or {}).get("input_transcript") or ""
-    ).strip()
+    transcript = str((result.get("adapter") or {}).get("input_transcript") or "").strip()
     if not transcript:
         adapter = result.get("adapter") or {}
         content = str((result.get("message") or {}).get("content") or "")
@@ -137,6 +135,11 @@ def main() -> int:
     )
     parser.add_argument("--stream", action="store_true")
     parser.add_argument("--tool", action="store_true")
+    parser.add_argument(
+        "--tool-suite",
+        action="store_true",
+        help="exercise representative post-training tool routing without gating startup",
+    )
     args = parser.parse_args()
 
     token = args.token_file.read_text().strip()
@@ -294,6 +297,48 @@ def main() -> int:
         if not executed or executed[0].get("name") != "get_current_time":
             raise RuntimeError(f"safe tool was not executed: {executed!r}")
         checks["tool"] = "pass"
+
+    if args.tool_suite:
+        cases = (
+            (
+                "capabilities",
+                "Use the portal capability tool, then summarize what this system can do.",
+                "get_portal_capabilities",
+            ),
+            (
+                "arithmetic",
+                "Use the provided calculator tool to compute 173 multiplied by 419.",
+                "safe_math_eval",
+            ),
+            (
+                "runtime",
+                "Use the system snapshot tool and report current available memory.",
+                "get_system_snapshot",
+            ),
+            (
+                "clock",
+                "Use the current-time tool and report its returned date and time.",
+                "get_current_time",
+            ),
+        )
+        suite: dict[str, str] = {}
+        for name, prompt, expected in cases:
+            payload = base_request(
+                args.model,
+                "chat",
+                {"role": "user", "content": prompt},
+            )
+            payload["portal_auto_tools"] = True
+            result = call(client, endpoint, payload)
+            executed = (result.get("portal") or {}).get("safe_tools_executed") or []
+            names = [str(item.get("name") or "") for item in executed]
+            if expected not in names:
+                raise RuntimeError(f"{name} tool-routing case expected {expected}, got {names!r}")
+            content = str((result.get("message") or {}).get("content") or "").strip()
+            if not content:
+                raise RuntimeError(f"{name} tool-routing case returned no final answer")
+            suite[name] = "pass"
+        checks["tool_suite"] = suite
 
     print(json.dumps({"ok": True, "checks": checks}, indent=2, sort_keys=True))
     return 0

@@ -438,11 +438,12 @@ never waits for it.
 
 On unified-memory hosts, `runtime/comprehension_launcher.py` reads the installed
 GGUF, derives KV bytes per token, samples live available memory, and chooses the
-largest proven context that fits with the runtime memory reserve. It records
-before/after residency, grows only one unproven tier at a time using the
-conservative component footprint, and automatically downshifts a load that
-leaves too little memory. This lets established windows use measured resident
-memory without jumping from a recovery window to an unsafe maximum. The
+largest context tier that fits with the runtime memory reserve. Compact models
+advertise their 262,144-token native ceiling, but that ceiling is never
+allocated blindly. First load uses the conservative complete component-byte
+footprint; later loads also use measured residency. It records before/after
+residency and automatically caps the next load below a tier that exits or
+leaves too little memory. The
 adapter reads the chosen window per request and sheds old history/tool evidence
 before llama.cpp can reject an oversized prompt.
 
@@ -515,7 +516,15 @@ It listens continuously, answers out loud, and shows what it is doing in the
 GNOME top bar (`Omni ●` listening, `◉` hearing, `◍` thinking, `▶` speaking).
 The indicator's menu mutes the microphone, toggles tools, reasoning and
 cameras, copies the public link when the portal is published through a tunnel,
-and cleanly reloads the voice service. It also appends live/recent durable tasks
+and cleanly reloads the voice service. Its **Models** submenu lists both compact
+audio bridges and both legacy full bundles. Missing tags expose **Download**
+with live percentage/status text; downloaded tags expose **Activate**, **Load
+into Ollama**, **Unload from Ollama**, and confirmed **Delete local copy**
+actions as applicable. Activation atomically selects the one logical language/
+Omni tag, requests a controlled core restart, and lets the indicator reconnect
+with the new service environment. An active direct-daemon model is labelled
+separately from an optional Ollama runner so the UI never hides a duplicate
+allocation on a 32 GB Jetson. It also appends live/recent durable tasks
 as native submenus, so inspecting a task does not close the whole menu. Each
 submenu shows the current-stage spinner, exact bounded tool-call arguments and
 outcomes, retained checkpoints, and terminal result. Long action rows wrap and
@@ -600,6 +609,20 @@ Guided deployment sets it to `0`, starts the indicator in parallel with core
 readiness, and does not wait for inference. On Jetson diagnostic requests run
 against the installed arm64/CUDA workers;
 desktop-host unit tests do not substitute for that device gate.
+
+After deployment, run the non-blocking post-training tool-routing suite
+explicitly without delaying normal boot:
+
+```bash
+.venv/bin/python portal/smoke.py \
+  --endpoint http://127.0.0.1:8920 \
+  --token-file runtime-data/state/access-token.txt \
+  --model "$(awk -F= '$1 == "OMNI_MODEL" {print $2}' .env)" \
+  --tool-suite
+```
+
+It requires real structured calls for portal capabilities, arithmetic, current
+runtime state, and time; a prose capability disclaimer does not pass.
 
 Two environment variables are worth knowing:
 

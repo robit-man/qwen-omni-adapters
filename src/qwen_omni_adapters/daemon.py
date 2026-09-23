@@ -144,12 +144,13 @@ class DaemonConfig:
             .expanduser()
             .resolve()
         )
+        model = os.environ.get("OMNI_MODEL", "robit/qwen3.8-27b-e03-obliterated-omni:q4km").strip()
+        tegra = is_tegra()
+        default_context = "262144" if tegra and "-audio-bridge:" in model else "65536"
         return cls(
             repo_root=root,
             runtime_root=runtime,
-            model=os.environ.get(
-                "OMNI_MODEL", "robit/qwen3.8-27b-e03-obliterated-omni:q4km"
-            ).strip(),
+            model=model,
             language_model=os.environ.get(
                 "OMNI_LANGUAGE_MODEL",
                 # The logical tag's standard layers are the language model:
@@ -165,22 +166,17 @@ class DaemonConfig:
                     os.environ.get("OMNI_MODEL", "").strip()
                     or "robit/qwen3.8-27b-e03-obliterated-omni:q4km"
                 )
-                if is_tegra()
+                if tegra
                 else "robit/qwen3.8-27b-obliterated-e03:27b",
             ).strip(),
             context_tokens=int(
                 os.environ.get(
                     "OMNI_COMPREHENSION_CONTEXT_TOKENS",
-                    # Tegra's GPU shares the module's system RAM with the
-                    # language backend, the TTS worker, and the OS. The
-                    # comprehension component alone is 17.3 GiB of Q4_K_M
-                    # Qwen3-Omni-30B-A3B weights, so on a 32 GB module the KV
-                    # cache is the only part of that budget still worth
-                    # spending carefully: a 64K window sized for a discrete
-                    # 48 GB card does not fit beside the rest.
-                    # OMNI_COMPREHENSION_CONTEXT_TOKENS still wins, and a
-                    # 64 GB module can comfortably raise it.
-                    "16384" if is_tegra() else "65536",
+                    # This is a ceiling, not an eager allocation. The Tegra
+                    # launcher derives KV bytes from the selected GGUF and
+                    # picks the largest tier that current MemAvailable can
+                    # fund while retaining the shared runtime reserve.
+                    default_context,
                 )
             ),
             tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
@@ -192,18 +188,14 @@ class DaemonConfig:
             ),
             keep_cache=os.environ.get("OMNI_KEEP_CACHE", "0") == "1",
             allow_direct_gpu=allow_direct_gpu,
-            enable_comprehension=os.environ.get(
-                "OMNI_ENABLE_COMPREHENSION", "1"
-            ).strip().lower()
+            enable_comprehension=os.environ.get("OMNI_ENABLE_COMPREHENSION", "1").strip().lower()
             not in {"0", "false", "no"},
-            startup_smoke=os.environ.get(
-                "OMNI_STARTUP_SMOKE", "1"
-            ).strip().lower()
+            startup_smoke=os.environ.get("OMNI_STARTUP_SMOKE", "1").strip().lower()
             not in {"0", "false", "no"},
             language_api=os.environ.get("OMNI_LANGUAGE_API", "ollama").strip().lower(),
-            decision_plane_enabled=os.environ.get(
-                "OMNI_DECISION_PLANE_ENABLED", "1"
-            ).strip().lower()
+            decision_plane_enabled=os.environ.get("OMNI_DECISION_PLANE_ENABLED", "1")
+            .strip()
+            .lower()
             not in {"0", "false", "no"},
         )
 
@@ -213,6 +205,7 @@ class Child:
     name: str
     process: subprocess.Popen[bytes]
     log: IO[bytes]
+    resident_pid: int | None = None
 
 
 def _connected_tunnel_url(log_path: Path, start_offset: int) -> str:
@@ -242,6 +235,9 @@ class OmniDaemon:
         self.pid_file = self.state_dir / "daemon.pid"
         self.status_file = self.state_dir / "daemon-status.json"
         self.stop_file = self.state_dir / "stop.request"
+        self.restart_file = self.state_dir / "restart.request"
+        self.context_file = self.state_dir / "comprehension-context-tokens"
+        self.comprehension_pid_file = self.state_dir / "comprehension-worker.pid"
         self.token_file = self.state_dir / "access-token.txt"
         self.children: list[Child] = []
         self.stop_event = threading.Event()
@@ -369,9 +365,7 @@ class OmniDaemon:
             deadline = time.monotonic() + 20
             while not _port_available("127.0.0.1", port):
                 if time.monotonic() >= deadline:
-                    raise DaemonError(
-                        f"required loopback port is already in use: {port}"
-                    )
+                    raise DaemonError(f"required loopback port is already in use: {port}")
                 time.sleep(0.5)
 
     def _reclaim_from_prior_instance(self) -> None:
@@ -441,6 +435,8 @@ class OmniDaemon:
                     pass
         self._reclaim_from_prior_instance()
         self.stop_file.unlink(missing_ok=True)
+        self.restart_file.unlink(missing_ok=True)
+        self.comprehension_pid_file.unlink(missing_ok=True)
         self._write_status(state="preflight")
         self._preflight()
         self._ensure_model(self.config.model)
@@ -514,17 +510,13 @@ class OmniDaemon:
                 if len(defaults) == 1:
                     speaker = str(defaults[0].get("speaker_file") or "").strip()
             if not speaker:
-                raise DaemonError(
-                    "voice-clone readiness requires one default speaker reference"
-                )
+                raise DaemonError("voice-clone readiness requires one default speaker reference")
             reference = Path(speaker).expanduser()
             if not reference.is_absolute():
                 reference = profile_path.parent / reference
             reference = reference.resolve()
         if not reference.is_file():
-            raise DaemonError(
-                f"voice-clone speaker reference does not exist: {reference}"
-            )
+            raise DaemonError(f"voice-clone speaker reference does not exist: {reference}")
         return reference
 
     def _comprehension_artifacts(self) -> tuple[Path, Path]:
@@ -546,10 +538,7 @@ class OmniDaemon:
 
     def _language_route(self) -> tuple[str, str, str]:
         resolved = self._resolved_sidecar()
-        if (
-            resolved.get("profile") == "trained-audio-bridge"
-            and self.config.enable_comprehension
-        ):
+        if resolved.get("profile") == "trained-audio-bridge" and self.config.enable_comprehension:
             return (
                 "openai",
                 f"http://127.0.0.1:{self.config.comprehension_port}/v1/chat/completions",
@@ -596,7 +585,9 @@ class OmniDaemon:
         if configured:
             return Path(configured).expanduser().resolve()
         name = "python.exe" if os.name == "nt" else "python"
-        return self.config.repo_root / ".laya-venv" / ("Scripts" if os.name == "nt" else "bin") / name
+        return (
+            self.config.repo_root / ".laya-venv" / ("Scripts" if os.name == "nt" else "bin") / name
+        )
 
     def _discard_child(self, child: Child) -> None:
         if child.process.poll() is None:
@@ -633,13 +624,14 @@ class OmniDaemon:
         env = {
             **common,
             "OMNI_LAYA_PORT": str(self.config.decision_port),
-            "OMNI_DECISION_TRACE_FILE": str(
-                self.config.runtime_root / "decision-traces.jsonl"
-            ),
+            "OMNI_DECISION_TRACE_FILE": str(self.config.runtime_root / "decision-traces.jsonl"),
         }
         child = self._spawn(
             "laya",
-            [python.as_posix(), str(self.config.repo_root / "runtime" / "laya_server.py")],
+            [
+                python.as_posix(),
+                str(self.config.repo_root / "runtime" / "laya_server.py"),
+            ],
             env,
         )
         try:
@@ -648,9 +640,7 @@ class OmniDaemon:
                 f"http://127.0.0.1:{self.config.decision_port}/health",
                 1800,
             )
-            response = httpx.get(
-                f"http://127.0.0.1:{self.config.decision_port}/health", timeout=10
-            )
+            response = httpx.get(f"http://127.0.0.1:{self.config.decision_port}/health", timeout=10)
             response.raise_for_status()
             health = response.json()
             if not isinstance(health, dict) or health.get("ready") is not True:
@@ -680,6 +670,31 @@ class OmniDaemon:
             self.stop_event.wait(1)
         raise DaemonError(f"{child.name} readiness timed out: {url}")
 
+    def _wait_worker_pid(self, child: Child, path: Path, timeout: int = 120) -> int:
+        """Read a live CUDA worker pid published by a supervised launcher."""
+
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if child.process.poll() is not None:
+                raise DaemonError(f"{child.name} launcher exited before publishing its worker pid")
+            try:
+                pid = int(path.read_text(encoding="utf-8").strip())
+            except (OSError, ValueError):
+                pid = 0
+            if pid > 0 and _pid_alive(pid):
+                return pid
+            time.sleep(0.2)
+        raise DaemonError(f"{child.name} did not publish a live worker pid")
+
+    def _active_context_tokens(self) -> int:
+        if not is_tegra():
+            return self.config.context_tokens
+        try:
+            selected = int(self.context_file.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            return self.config.context_tokens
+        return min(self.config.context_tokens, max(1024, selected))
+
     def _verify_direct_gpu(self, pid: int, component: str = "comprehension") -> None:
         if platform.system() == "Darwin":
             return  # bootstrap enforces a Metal-enabled llama.cpp build
@@ -697,13 +712,10 @@ class OmniDaemon:
                 return
             time.sleep(1)
         raise DaemonError(
-            f"{component} pid {pid} did not become CUDA-resident "
-            f"(evidence: {residency_backend()})"
+            f"{component} pid {pid} did not become CUDA-resident (evidence: {residency_backend()})"
         )
 
-    def _verify_co_resident_stack(
-        self, comprehension: Child | None, tts: Child
-    ) -> dict[str, Any]:
+    def _verify_co_resident_stack(self, comprehension: Child | None, tts: Child) -> dict[str, Any]:
         """Prove cloned TTS did not evict the comprehension worker."""
 
         if comprehension is not None:
@@ -712,13 +724,14 @@ class OmniDaemon:
                     "comprehension exited during cloned TTS synthesis; the selected "
                     "bundle does not satisfy the co-residency gate"
                 )
-            self._verify_direct_gpu(comprehension.process.pid, "comprehension")
+            self._verify_direct_gpu(
+                comprehension.resident_pid or comprehension.process.pid,
+                "comprehension",
+            )
         if tts.process.poll() is not None:
             raise DaemonError("TTS wrapper exited during startup smoke")
         try:
-            response = httpx.get(
-                f"http://127.0.0.1:{self.config.tts_port}/healthz", timeout=10
-            )
+            response = httpx.get(f"http://127.0.0.1:{self.config.tts_port}/healthz", timeout=10)
             response.raise_for_status()
             health = response.json()
         except (httpx.HTTPError, ValueError) as exc:
@@ -741,7 +754,9 @@ class OmniDaemon:
             self._verify_direct_gpu(tts_pid, "tts")
         return {
             "comprehension_pid": (
-                comprehension.process.pid if comprehension is not None else None
+                (comprehension.resident_pid or comprehension.process.pid)
+                if comprehension is not None
+                else None
             ),
             "tts_pid": tts_pid,
             "gpu_residency": residency_backend(),
@@ -751,40 +766,53 @@ class OmniDaemon:
     def start_children(self) -> str:
         python = sys.executable
         common = os.environ.copy()
-        bridge_profile = (
-            self._resolved_sidecar().get("profile") == "trained-audio-bridge"
-        )
+        bridge_profile = self._resolved_sidecar().get("profile") == "trained-audio-bridge"
         common["PYTHONUNBUFFERED"] = "1"
         decision_ready = self._start_decision_plane(common)
         common["OMNI_DECISION_PLANE_ENABLED"] = "1" if decision_ready else "0"
-        common["OMNI_DECISION_PLANE_URL"] = (
-            f"http://127.0.0.1:{self.config.decision_port}"
-        )
-        common["OMNI_DECISION_TRACE_FILE"] = str(
-            self.config.runtime_root / "decision-traces.jsonl"
-        )
+        common["OMNI_DECISION_PLANE_URL"] = f"http://127.0.0.1:{self.config.decision_port}"
+        common["OMNI_DECISION_TRACE_FILE"] = str(self.config.runtime_root / "decision-traces.jsonl")
         comprehension_model, comprehension_projector = self._comprehension_artifacts()
         comprehension: Child | None = None
         if self.config.enable_comprehension:
+            server_command = [
+                str(_binary(self.config.repo_root, "llama-server")),
+                "-m",
+                str(comprehension_model),
+                "--mmproj",
+                str(comprehension_projector),
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(self.config.comprehension_port),
+                "--jinja",
+                "-ngl",
+                "99",
+                "-c",
+                "{context}" if is_tegra() else str(self.config.context_tokens),
+                *self._speculative_args(),
+            ]
+            command = server_command
+            if is_tegra():
+                command = [
+                    python,
+                    str(self.config.repo_root / "runtime" / "comprehension_launcher.py"),
+                    "--state-file",
+                    str(self.context_file),
+                    "--calibration-file",
+                    str(self.state_dir / "comprehension-memory.json"),
+                    "--max-context",
+                    str(self.config.context_tokens),
+                    "--health-url",
+                    f"http://127.0.0.1:{self.config.comprehension_port}/health",
+                    "--child-pid-file",
+                    str(self.comprehension_pid_file),
+                    "--",
+                    *server_command,
+                ]
             comprehension = self._spawn(
                 "comprehension",
-                [
-                    str(_binary(self.config.repo_root, "llama-server")),
-                    "-m",
-                    str(comprehension_model),
-                    "--mmproj",
-                    str(comprehension_projector),
-                    "--host",
-                    "127.0.0.1",
-                    "--port",
-                    str(self.config.comprehension_port),
-                    "--jinja",
-                    "-ngl",
-                    "99",
-                    "-c",
-                    str(self.config.context_tokens),
-                    *self._speculative_args(),
-                ],
+                command,
                 common,
             )
             self._wait_http(
@@ -792,7 +820,11 @@ class OmniDaemon:
                 f"http://127.0.0.1:{self.config.comprehension_port}/health",
                 1200,
             )
-            self._verify_direct_gpu(comprehension.process.pid)
+            if is_tegra():
+                comprehension.resident_pid = self._wait_worker_pid(
+                    comprehension, self.comprehension_pid_file
+                )
+            self._verify_direct_gpu(comprehension.resident_pid or comprehension.process.pid)
         else:
             self._write_status(state="starting", detail="comprehension disabled")
 
@@ -812,7 +844,9 @@ class OmniDaemon:
             "OMNI_TTS_PORT": str(self.config.tts_port),
         }
         tts = self._spawn(
-            "tts", [python, str(self.config.repo_root / "runtime" / "tts_server.py")], tts_env
+            "tts",
+            [python, str(self.config.repo_root / "runtime" / "tts_server.py")],
+            tts_env,
         )
         self._wait_http(tts, f"http://127.0.0.1:{self.config.tts_port}/healthz", 60)
 
@@ -831,6 +865,7 @@ class OmniDaemon:
             ),
             "OMNI_COMPREHENSION_MODEL": language_model,
             "OMNI_COMPREHENSION_CONTEXT_TOKENS": str(self.config.context_tokens),
+            "OMNI_COMPREHENSION_CONTEXT_FILE": (str(self.context_file) if is_tegra() else ""),
             "OMNI_COMPREHENSION_DISABLE_THINKING": "1" if bridge_profile else "0",
             "OMNI_COMPREHENSION_REPEAT_PENALTY": "1.1" if bridge_profile else "1.0",
             "OMNI_LANGUAGE_API": language_api,
@@ -873,7 +908,9 @@ class OmniDaemon:
             "OMNI_PORTAL_PORT": str(self.config.portal_port),
         }
         portal = self._spawn(
-            "portal", [python, str(self.config.repo_root / "portal" / "app.py")], portal_env
+            "portal",
+            [python, str(self.config.repo_root / "portal" / "app.py")],
+            portal_env,
         )
         self._wait_http(portal, f"http://127.0.0.1:{self.config.portal_port}/healthz", 60)
 
@@ -940,9 +977,7 @@ class OmniDaemon:
             while time.monotonic() < deadline:
                 if tunnel.process.poll() is not None:
                     break
-                published = _connected_tunnel_url(
-                    tunnel_log, tunnel_log_offset
-                )
+                published = _connected_tunnel_url(tunnel_log, tunnel_log_offset)
                 if published:
                     break
                 time.sleep(1)
@@ -986,6 +1021,8 @@ class OmniDaemon:
     def cleanup(self) -> None:
         self.stop_children()
         self.stop_file.unlink(missing_ok=True)
+        self.restart_file.unlink(missing_ok=True)
+        self.comprehension_pid_file.unlink(missing_ok=True)
         self.pid_file.unlink(missing_ok=True)
         self.token_file.unlink(missing_ok=True)
         if not self.config.keep_cache:
@@ -1004,14 +1041,26 @@ class OmniDaemon:
         if register_signals:
             signal.signal(signal.SIGTERM, lambda *_: self.request_stop())
             signal.signal(signal.SIGINT, lambda *_: self.request_stop())
+        restart_requested = False
         try:
             access_url = self.start_children()
             self._write_status(
                 state="ready",
                 access_url=access_url,
                 startup_smoke=self.config.startup_smoke,
+                comprehension_context_tokens=self._active_context_tokens(),
+                comprehension_context_ceiling=self.config.context_tokens,
                 children=[
-                    {"name": child.name, "pid": child.process.pid} for child in self.children
+                    {
+                        "name": child.name,
+                        "pid": child.resident_pid or child.process.pid,
+                        **(
+                            {"supervisor_pid": child.process.pid}
+                            if child.resident_pid is not None
+                            else {}
+                        ),
+                    }
+                    for child in self.children
                 ],
             )
             if sys.stdout.isatty() or os.environ.get("OMNI_PRINT_ACCESS_URL") == "1":
@@ -1024,6 +1073,11 @@ class OmniDaemon:
                     flush=True,
                 )
             while not self.stop_event.wait(1):
+                if self.restart_file.exists():
+                    restart_requested = True
+                    self._write_status(state="restarting")
+                    self.request_stop()
+                    continue
                 if self.stop_file.exists():
                     self.request_stop()
                     continue
@@ -1042,7 +1096,7 @@ class OmniDaemon:
                         raise DaemonError(
                             f"{child.name} exited unexpectedly; inspect {self.log_dir}"
                         )
-            return 0
+            return 75 if restart_requested else 0
         finally:
             self.cleanup()
 

@@ -1195,6 +1195,18 @@ def build_language_payload(
                 and isinstance(tool.get("function"), Mapping)
                 and str(tool["function"].get("name") or "") in keep
             ]
+            concrete = {
+                str(tool["function"].get("name") or "")
+                for tool in payload["tools"]
+                if isinstance(tool, Mapping)
+                and isinstance(tool.get("function"), Mapping)
+            } - retained_tool_names(payload["tools"])
+            if concrete:
+                # Relevant routing is used after recovering a spoken request.
+                # A concrete deterministic match is an evidence/action turn,
+                # so require the trained trunk to select a tool instead of
+                # emitting a generic "I cannot" answer.
+                payload["tool_choice"] = "required"
     # Sized here rather than at each call site: the non-streaming
     # route did not do it, and that is the one the portal uses, so a
     # tool-using turn failed with "request (4179 tokens) exceeds the

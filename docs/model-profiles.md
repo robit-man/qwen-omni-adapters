@@ -42,4 +42,8 @@ and [Qwen3.8 on Hugging Face](https://huggingface.co/cudabenchmarktest/Qwen3.8-2
 
 Legacy full-Omni logical tags remain supported through explicit advanced
 `OMNI_MODEL`/`OMNI_LANGUAGE_MODEL` configuration, but they are intentionally
-absent from the guided Jetson menu.
+absent from the guided Jetson installer menu. After the desktop service is
+installed, the indicator's **Models** submenu exposes those two legacy tags
+alongside the compact releases, including download progress and exact-tag
+activate/load/unload/delete actions. The rejected Ornith obliterated release is
+not in either catalog.

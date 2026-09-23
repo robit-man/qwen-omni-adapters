@@ -1400,6 +1400,13 @@ def create_app(
             routed = route_input_tools(
                 payload, session_id=session_id, request_id=request_id
             )
+            if routed:
+                # A high-confidence deterministic capability match means this
+                # is an action/evidence request. Requiring one structured call
+                # prevents a fine-tuned trunk from replacing an available tool
+                # with a learned capability disclaimer. Follow-up rounds are
+                # free to answer normally after concrete evidence arrives.
+                payload["tool_choice"] = "required"
             initial = [*DISCOVERY_TOOLS, *tool_schemas(routed)]
             if camera_bridge:
                 initial.extend(tool_schemas(["request_camera_view"]))

@@ -379,6 +379,7 @@ install_environment() {
   if [[ -f "$REPO_ROOT/.env" ]]; then
     awk '!/^OMNI_PROFILE=/ && !/^OMNI_MODEL=/ && !/^OMNI_LANGUAGE_MODEL=/ \
       && !/^OMNI_ENABLE_COMPREHENSION=/ && !/^OMNI_STARTUP_SMOKE=/ \
+      && !/^OMNI_COMPREHENSION_CONTEXT_TOKENS=/ \
       && !/^OMNI_TTS_PERSISTENT=/ && !/^OMNI_CALL_SPEECH_EVICT_UNIT=/' \
       "$REPO_ROOT/.env" >"$temporary"
   fi
@@ -387,6 +388,9 @@ install_environment() {
     printf 'OMNI_MODEL=%s\n' "$OMNI_MODEL"
     printf 'OMNI_LANGUAGE_MODEL=%s\n' "$OMNI_LANGUAGE_MODEL"
     printf 'OMNI_ENABLE_COMPREHENSION=1\n'
+    # This is the native ceiling. The Tegra launcher derives KV cost from the
+    # selected GGUF and chooses the largest currently safe tier beneath it.
+    printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=262144\n'
     printf 'OMNI_STARTUP_SMOKE=0\n'
     printf 'OMNI_TTS_PERSISTENT=1\n'
   } >>"$temporary"

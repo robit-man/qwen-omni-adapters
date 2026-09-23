@@ -141,10 +141,14 @@ ample headroom. A **32 GB module is tight**: it fits the three workers, but
 not with much else resident, so budget carefully if the host is also running
 vision or other CUDA workloads.
 
-The comprehension window therefore defaults to 16384 tokens on Tegra rather
-than 65536 -- the KV cache is the part of that budget still worth spending
-carefully. `OMNI_COMPREHENSION_CONTEXT_TOKENS` overrides it, and a 64 GB
-module can comfortably raise it.
+Legacy full bundles retain a 65,536-token ceiling. Compact bridge bundles use
+their 262,144-token native ceiling, but the ceiling is not an allocation. The
+direct Jetson daemon runs `runtime/comprehension_launcher.py`, derives KV bytes
+per token from the selected GGUF, samples current `MemAvailable`, and selects
+the largest standard tier that leaves the shared runtime reserve. The selected
+value is published in daemon status as `comprehension_context_tokens`; the
+ceiling is `comprehension_context_ceiling`. An explicit
+`OMNI_COMPREHENSION_CONTEXT_TOKENS` still overrides the ceiling.
 
 Note that `-ngl 99` does not increase the footprint here the way it does on a
 discrete card: there is one pool, so offloading layers changes which engine
@@ -169,6 +173,12 @@ start when the post-handoff host cannot retain the installed layers and its
 default 6 GiB operating reserve. This admission check is intentionally quick;
 it does not run inference or claim that every larger context, concurrent
 workload, or long-run peak will fit.
+
+At worker start, the context launcher performs the finer-grained KV admission.
+Its first load can select the largest tier justified by complete component
+bytes instead of waiting through multiple restarts at 4K/8K/16K. A live sample
+then calibrates actual residency; an abnormal exit or insufficient post-load
+reserve caps the next attempt below that failed tier.
 
 `qwen-omni doctor` reports the accelerator, and omits the broker tooling
 (`docker`, `jq`, `ss`) that does not apply:

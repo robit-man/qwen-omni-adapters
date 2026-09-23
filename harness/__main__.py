@@ -24,6 +24,7 @@ from harness.audio import probe_audio_server, require_tools
 from harness.call import CallConfig, TurnResult, run_call_loop
 from harness.camera import CameraSet
 from harness.indicator import ThreadedIndicator, build_indicator, probe_indicator
+from harness.models import IndicatorModelManager
 from harness.residency import SpeechResidency
 from harness.respeaker import find_source
 from portal.background_tasks import BackgroundTaskStore
@@ -325,6 +326,7 @@ def main(argv: list[str] | None = None) -> int:
 
     stop = threading.Event()
     reload_requested = threading.Event()
+    model_switch_requested = threading.Event()
     muted = threading.Event()
     cameras = CameraSet.discover(args.camera_device if args.camera_device_only else None)
 
@@ -349,6 +351,19 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("indicator requested a clean voice-service reload")
         reload_requested.set()
         stop.set()
+
+    model_manager = IndicatorModelManager(repo_root, model)
+
+    def model_action(tag: str, action: str) -> tuple[bool, str]:
+        ok, detail = model_manager.action(tag, action)
+        logger.info("indicator model action %s %s: %s", action, tag, detail)
+        if ok and action == "activate":
+            # The manager atomically updates .env and asks the system daemon to
+            # restart. Exit this user service too, so systemd relaunches it with
+            # the selected OMNI_MODEL rather than retaining stale environment.
+            model_switch_requested.set()
+            stop.set()
+        return ok, detail
 
     indicator_task_store = (
         BackgroundTaskStore(config.background_task_path)
@@ -410,6 +425,8 @@ def main(argv: list[str] | None = None) -> int:
             camera_enabled=config.camera_enabled,
             endpoint=public_link,
             tasks=indicator_task_store.list if indicator_task_store is not None else None,
+            models=model_manager.views,
+            on_model_action=model_action,
             required=indicator_required,
         )
         if not args.no_indicator
@@ -495,6 +512,8 @@ def main(argv: list[str] | None = None) -> int:
     if reload_requested.is_set():
         arguments = list(argv) if argv is not None else sys.argv[1:]
         os.execv(sys.executable, [sys.executable, "-m", "harness", *arguments])
+    if model_switch_requested.is_set():
+        logger.info("model activation requested; waiting for service managers to relaunch")
     return 0
 
 

@@ -974,6 +974,63 @@ def test_tool_discovery_keeps_web_lookup_and_physical_vision_distinct() -> None:
     assert result["mode"] == "motion"
 
 
+def test_capability_and_research_requests_do_not_collapse_to_weather() -> None:
+    capabilities = discover_tool_names("what can you do and what abilities are available")
+    research = discover_tool_names("research the newest robotics papers and cite sources")
+
+    assert capabilities[0] == "get_portal_capabilities"
+    assert "get_user_location" not in capabilities
+    assert "web_search" in research
+    assert "get_user_location" not in research
+
+
+def test_actionable_text_match_requires_a_structured_tool_call() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            names = {item["function"]["name"] for item in body["tools"]}
+            assert body["tool_choice"] == "required"
+            assert "get_portal_capabilities" in names
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "get_portal_capabilities",
+                                    "arguments": {},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        assert "tool_choice" not in body
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Capabilities ready."}},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    request = _request(portal_auto_tools=True)
+    request["messages"][-1]["content"] = "What can you do?"
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=request,
+    )
+
+    assert response.status_code == 200
+    assert response.json["message"]["content"] == "Capabilities ready."
+
+
 def test_rendered_browser_tool_is_discoverable_and_session_scoped() -> None:
     calls: list[tuple[str, dict[str, Any]]] = []
     cleared: list[str] = []

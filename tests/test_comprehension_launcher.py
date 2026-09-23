@@ -167,7 +167,7 @@ def test_live_samples_override_the_conservative_component_byte_estimate() -> Non
     assert _live_calibrated_base(calibration) == pytest.approx(16.3)
 
 
-def test_calibrated_selection_grows_only_one_unproven_tier() -> None:
+def test_calibrated_selection_uses_the_largest_component_safe_unproven_tier() -> None:
     selected, recovery, probing = choose_calibrated_context(
         28.19,
         minimum=4096,
@@ -181,7 +181,7 @@ def test_calibrated_selection_grows_only_one_unproven_tier() -> None:
         safe_context_tokens=16_384,
     )
 
-    assert selected == 32_768
+    assert selected == 65_536
     assert recovery is False
     assert probing is True
 

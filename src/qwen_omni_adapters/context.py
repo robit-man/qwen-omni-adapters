@@ -27,9 +27,7 @@ def _default_path() -> Path:
 def load_context(path: Path | str | None = None) -> dict[str, Any]:
     """Read and validate one context catalog without retaining mutable state."""
 
-    selected = Path(
-        path or os.environ.get(CONTEXT_FILE_ENV) or _default_path()
-    ).expanduser()
+    selected = Path(path or os.environ.get(CONTEXT_FILE_ENV) or _default_path()).expanduser()
     try:
         value = json.loads(selected.read_text(encoding="utf-8"))
     except OSError as exc:
@@ -37,9 +35,7 @@ def load_context(path: Path | str | None = None) -> dict[str, Any]:
     except ValueError as exc:
         raise ContextConfigError(f"context catalog {selected} is not valid JSON") from exc
     if not isinstance(value, dict) or value.get("schema") != CONTEXT_SCHEMA:
-        raise ContextConfigError(
-            f"context catalog {selected} must use schema {CONTEXT_SCHEMA}"
-        )
+        raise ContextConfigError(f"context catalog {selected} must use schema {CONTEXT_SCHEMA}")
     for section in ("prompts", "directives", "control_tools"):
         if not isinstance(value.get(section), dict):
             raise ContextConfigError(f"context catalog section {section} must be an object")
@@ -158,6 +154,12 @@ def rank_tool_names(
     client-owned schemas participate through their name and description.
     """
 
+    if re.search(
+        r"\b(?:what can (?:you|this (?:portal|system|assistant)) do|"
+        r"(?:your|portal|system) (?:capabilities|abilities))\b",
+        query.casefold(),
+    ):
+        query = f"{query} portal capabilities abilities available actions"
     entries = configured_tools()
     metadata = {
         str(entry["schema"]["function"]["name"]): entry

@@ -109,6 +109,7 @@ def test_guided_bridge_disables_legacy_eviction_and_blocking_smoke() -> None:
 
     assert "OMNI_CALL_SPEECH_EVICT_UNIT" in install_body
     assert "OMNI_ENABLE_COMPREHENSION=1" in install_body
+    assert "OMNI_COMPREHENSION_CONTEXT_TOKENS=262144" in install_body
     assert "OMNI_STARTUP_SMOKE=0" in install_body
     assert "OMNI_TTS_PERSISTENT=1" in install_body
     assert "co_resident_stack == 1" not in source
@@ -178,6 +179,14 @@ def test_arrow_key_menu_selects_qwen_bridge() -> None:
             if process.poll() is not None:
                 break
         process.wait(timeout=5)
+        while True:
+            try:
+                chunk = os.read(master, 65536)
+            except OSError:
+                break
+            if not chunk:
+                break
+            output.extend(chunk)
     finally:
         if process.poll() is None:
             process.kill()

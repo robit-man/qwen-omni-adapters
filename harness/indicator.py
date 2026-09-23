@@ -122,7 +122,9 @@ def _require_status_notifier(glib) -> None:
         )
         watcher = bool(reply.unpack()[0])
     except Exception as error:  # noqa: BLE001 - normalize desktop bus failures
-        raise IndicatorUnavailable(f"could not query the desktop indicator host: {error}") from error
+        raise IndicatorUnavailable(
+            f"could not query the desktop indicator host: {error}"
+        ) from error
     if not watcher:
         raise IndicatorUnavailable(
             "the desktop has no org.kde.StatusNotifierWatcher; enable the Ubuntu "
@@ -184,9 +186,11 @@ def task_views(tasks: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
                     continue
                 if action.get("at"):
                     try:
-                        when = datetime.fromtimestamp(
-                            float(action["at"])
-                        ).astimezone().strftime("%H:%M:%S")
+                        when = (
+                            datetime.fromtimestamp(float(action["at"]))
+                            .astimezone()
+                            .strftime("%H:%M:%S")
+                        )
                     except (OSError, TypeError, ValueError):
                         when = "--:--:--"
                 else:
@@ -226,6 +230,75 @@ def task_views(tasks: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return views
 
 
+def model_views(models: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Normalize model lifecycle state into compact indicator rows."""
+
+    views: list[dict[str, Any]] = []
+    for model in models:
+        tag = str(model.get("tag") or "")
+        if not tag:
+            continue
+        label = _short(model.get("label"), 52) or tag
+        active = model.get("active") is True
+        installed = model.get("installed") is True
+        loaded = model.get("loaded") is True
+        ollama_loaded = model.get("ollama_loaded", loaded) is True
+        service_loaded = model.get("service_loaded") is True
+        context_tokens = int(model.get("context_tokens") or 0)
+        context_ceiling = int(model.get("context_ceiling") or 0)
+        inventory_ready = model.get("inventory_ready", True) is True
+        busy = model.get("busy") is True
+        operation = model.get("operation")
+        operation = operation if isinstance(operation, Mapping) else {}
+        running = operation.get("state") == "running"
+        action = str(operation.get("action") or "")
+        progress = operation.get("progress")
+        if not inventory_ready and not running:
+            state = "checking local state"
+            marker = "◌"
+        elif running:
+            if isinstance(progress, int):
+                state = f"{action or 'working'} {max(0, min(100, progress))}%"
+            else:
+                state = action or "working"
+            marker = "◌"
+        else:
+            states = []
+            if active:
+                states.append("active")
+            if service_loaded:
+                states.append("daemon loaded")
+                if context_tokens > 0:
+                    states.append(f"{context_tokens:,} ctx")
+            if ollama_loaded:
+                states.append("Ollama loaded")
+            if not installed:
+                states.append("download required")
+            elif not states:
+                states.append("downloaded")
+            state = ", ".join(states)
+            marker = "●" if active else "◆" if loaded else "✓" if installed else "↓"
+        views.append(
+            {
+                "tag": tag,
+                "label": f"{marker} {label} — {state}",
+                "detail": _short(operation.get("detail"), 100),
+                "size_gib": model.get("size_gib"),
+                "generation": str(model.get("generation") or ""),
+                "active": active,
+                "installed": installed,
+                "loaded": loaded,
+                "ollama_loaded": ollama_loaded,
+                "service_loaded": service_loaded,
+                "context_tokens": context_tokens,
+                "context_ceiling": context_ceiling,
+                "running": running,
+                "busy": busy or not inventory_ready,
+            }
+        )
+    return views
+
+
 class NullIndicator:
     """What the harness uses when there is no desktop to show anything on."""
 
@@ -258,6 +331,8 @@ def build_indicator(
     camera_enabled: bool = True,
     endpoint: Callable[[], str] | None = None,
     tasks: Callable[[], list[Mapping[str, Any]]] | None = None,
+    models: Callable[[], list[Mapping[str, Any]]] | None = None,
+    on_model_action: Callable[[str, str], tuple[bool, str]] | None = None,
     required: bool = False,
 ):
     """Return a top-bar indicator, or a no-op one if the desktop cannot host it."""
@@ -288,6 +363,8 @@ def build_indicator(
             self._task_widgets: list[Any] = []
             self._task_signature: object = None
             self._tasks = tasks
+            self._model_signature: object = None
+            self._models = models
 
             menu = Gtk.Menu()
             self._menu = menu
@@ -303,9 +380,7 @@ def build_indicator(
             self._tools_item = Gtk.CheckMenuItem(label="Use tools")
             self._tools_item.set_active(tools_enabled)
             if on_tools is not None:
-                self._tools_item.connect(
-                    "toggled", lambda item: on_tools(bool(item.get_active()))
-                )
+                self._tools_item.connect("toggled", lambda item: on_tools(bool(item.get_active())))
             else:
                 self._tools_item.set_sensitive(False)
             menu.append(self._tools_item)
@@ -343,6 +418,12 @@ def build_indicator(
             self._reload_item.set_sensitive(on_reload is not None)
             menu.append(self._reload_item)
 
+            self._models_item = Gtk.MenuItem(label="Models")
+            self._models_menu = Gtk.Menu()
+            self._models_item.set_submenu(self._models_menu)
+            self._models_item.set_sensitive(models is not None)
+            menu.append(self._models_item)
+
             self._clear_tasks_item = Gtk.MenuItem(label="Clear finished tasks")
             self._clear_tasks_item.connect("activate", lambda *_: self._clear_tasks())
             self._clear_tasks_item.set_sensitive(on_clear_tasks is not None)
@@ -367,7 +448,10 @@ def build_indicator(
             menu.show_all()
             self._indicator.set_menu(menu)
             self._indicator.set_label("Omni", "Omni")
+            self._refresh_models()
             self._refresh_tasks()
+            if models is not None:
+                GLib.timeout_add_seconds(1, self._refresh_models)
             if tasks is not None:
                 GLib.timeout_add_seconds(1, self._refresh_tasks)
 
@@ -420,13 +504,138 @@ def build_indicator(
             if on_open_archive is not None:
                 on_open_archive()
 
+        def _confirm_delete(self, tag: str, label: str) -> bool:
+            dialog = Gtk.MessageDialog(
+                transient_for=None,
+                flags=0,
+                message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.CANCEL,
+                text="Delete downloaded model?",
+            )
+            dialog.format_secondary_text(
+                f"{label}\n{tag}\n\nThis removes only the exact Ollama tag. "
+                "It can be downloaded again later."
+            )
+            dialog.add_button("Delete", Gtk.ResponseType.OK)
+            try:
+                return dialog.run() == Gtk.ResponseType.OK
+            finally:
+                dialog.destroy()
+
+        def _model_action(self, tag: str, action: str, label: str) -> None:
+            if on_model_action is None:
+                return
+            if action == "delete" and not self._confirm_delete(tag, label):
+                return
+            ok, detail = on_model_action(tag, action)
+            self._status_item.set_label(detail[:80])
+            if not ok:
+                logger.warning("model %s %s rejected: %s", tag, action, detail)
+            elif action == "activate":
+                self.stop()
+            self._model_signature = None
+            self._refresh_models()
+
+        def _refresh_models(self) -> bool:
+            try:
+                views = model_views(self._models()) if self._models is not None else []
+            except Exception as error:  # noqa: BLE001 - keep the voice loop usable
+                logger.warning("could not refresh indicator models: %s", error)
+                views = []
+            signature = tuple(
+                (
+                    view["tag"],
+                    view["label"],
+                    view["detail"],
+                    view["active"],
+                    view["installed"],
+                    view["loaded"],
+                    view["ollama_loaded"],
+                    view["service_loaded"],
+                    view["context_tokens"],
+                    view["context_ceiling"],
+                    view["running"],
+                    view["busy"],
+                )
+                for view in views
+            )
+            if signature == self._model_signature:
+                return True
+            self._model_signature = signature
+            for widget in self._models_menu.get_children():
+                self._models_menu.remove(widget)
+            for view in views:
+                item = Gtk.MenuItem(label=view["label"])
+                actions = Gtk.Menu()
+                item.set_submenu(actions)
+                self._models_menu.append(item)
+
+                size = view["size_gib"]
+                size_text = (
+                    f"{float(size):.2f} GiB" if isinstance(size, (int, float)) else "size unknown"
+                )
+                detail = self._detail_item(f"{size_text} · {view['generation']} · {view['tag']}")
+                actions.append(detail)
+                if view["service_loaded"] and view["context_tokens"]:
+                    ceiling = view["context_ceiling"] or view["context_tokens"]
+                    context = self._detail_item(
+                        f"Active context: {view['context_tokens']:,} / {ceiling:,} tokens"
+                    )
+                    actions.append(context)
+                if view["detail"]:
+                    operation = self._detail_item(view["detail"])
+                    actions.append(operation)
+                actions.append(Gtk.SeparatorMenuItem())
+
+                choices = (
+                    (("Download", "download", not view["busy"]),)
+                    if not view["installed"]
+                    else (
+                        (
+                            "Activate",
+                            "activate",
+                            not view["active"] and not view["busy"],
+                        ),
+                        (
+                            "Load into Ollama",
+                            "load",
+                            not view["ollama_loaded"] and not view["active"] and not view["busy"],
+                        ),
+                        (
+                            "Unload from Ollama",
+                            "unload",
+                            view["ollama_loaded"] and not view["busy"],
+                        ),
+                        (
+                            "Delete local copy…",
+                            "delete",
+                            not view["active"] and not view["busy"],
+                        ),
+                    )
+                )
+                for action_label, action, enabled in choices:
+                    action_item = Gtk.MenuItem(label=action_label)
+                    action_item.set_sensitive(on_model_action is not None and enabled)
+                    action_item.connect(
+                        "activate",
+                        lambda _item, tag=view["tag"], action=action, label=view["label"]: (
+                            self._model_action(tag, action, label)
+                        ),
+                    )
+                    actions.append(action_item)
+                actions.show_all()
+            if not views:
+                empty = Gtk.MenuItem(label="No managed models")
+                empty.set_sensitive(False)
+                self._models_menu.append(empty)
+            self._models_menu.show_all()
+            return True
+
         def _cancel_task(self, task_id: str) -> None:
             if on_cancel_task is None:
                 return
             cancelled = on_cancel_task(task_id)
-            self._status_item.set_label(
-                "Task cancelled" if cancelled else "Task was not found"
-            )
+            self._status_item.set_label("Task cancelled" if cancelled else "Task was not found")
             self._task_signature = None
             self._refresh_tasks()
 
@@ -434,9 +643,7 @@ def build_indicator(
             if on_clear_task is None:
                 return
             removed = on_clear_task(task_id)
-            self._status_item.set_label(
-                "Task cleared" if removed else "Task was not found"
-            )
+            self._status_item.set_label("Task cleared" if removed else "Task was not found")
             self._task_signature = None
             self._refresh_tasks()
 
@@ -497,9 +704,7 @@ def build_indicator(
             for widget in self._task_widgets:
                 self._menu.remove(widget)
             self._task_widgets.clear()
-            self._tasks_header.set_label(
-                f"Tasks — {len(views)}" if views else "Tasks — none"
-            )
+            self._tasks_header.set_label(f"Tasks — {len(views)}" if views else "Tasks — none")
             position = self._menu.get_children().index(self._quit_separator)
             for view in views:
                 # AppIndicator closes its whole menu when an ordinary item is
@@ -546,9 +751,7 @@ def build_indicator(
                     cancel_item.set_sensitive(on_cancel_task is not None)
                     cancel_item.connect(
                         "activate",
-                        lambda _item, task_id=view["task_id"]: self._cancel_task(
-                            task_id
-                        ),
+                        lambda _item, task_id=view["task_id"]: self._cancel_task(task_id),
                     )
                     details.append(cancel_item)
                 clear_item = Gtk.MenuItem(label="Clear task record")
@@ -612,9 +815,7 @@ class ThreadedIndicator:
         self._thread: threading.Thread | None = None
 
     def run(self) -> None:
-        self._thread = threading.Thread(
-            target=self._worker, name="omni-call-loop", daemon=True
-        )
+        self._thread = threading.Thread(target=self._worker, name="omni-call-loop", daemon=True)
         self._thread.start()
         self._indicator.run()
 

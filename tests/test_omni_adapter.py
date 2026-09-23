@@ -1673,6 +1673,7 @@ def test_relevant_tool_routing_uses_recovered_speech_and_keeps_gateways() -> Non
     assert "background_task" in names
     assert "shell" not in names
     assert len(names) <= 5
+    assert payload["tool_choice"] == "required"
 
     laya_selected = adapter_server.build_language_payload(
         parsed,

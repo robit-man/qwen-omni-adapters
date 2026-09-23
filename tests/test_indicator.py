@@ -15,6 +15,7 @@ from harness.indicator import (
     MAX_VISIBLE_TASKS,
     IndicatorUnavailable,
     build_indicator,
+    model_views,
     task_views,
 )
 
@@ -186,3 +187,16 @@ def test_tool_call_rows_are_bounded_but_keep_full_tooltip_text() -> None:
     assert "label.set_line_wrap(True)" in source
     assert "label.set_max_width_chars(MAX_MENU_WIDTH_CHARS)" in source
     assert MAX_MENU_WIDTH_CHARS < 70
+
+
+def test_indicator_exposes_the_complete_managed_model_lifecycle() -> None:
+    source = inspect.getsource(build_indicator)
+
+    assert 'Gtk.MenuItem(label="Models")' in source
+    assert '(("Download", "download"' in source
+    assert '"Activate",' in source
+    assert '"activate",' in source
+    assert '"Load into Ollama"' in source
+    assert '"Unload from Ollama"' in source
+    assert '"Delete local copy…"' in source
+    assert model_views([]) == []

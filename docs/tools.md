@@ -89,7 +89,9 @@ come from a fetched `source_url` and be attributed to it.
 ```text
 user/media turn
   -> optional Qwen3-Omni comprehension
-  -> Qwen3.8 calls tool_search when a capability is needed
+  -> deterministic routing exposes a small matching schema set when confident
+  -> an actionable match requires one structured call (not a capability disclaimer)
+  -> otherwise Qwen3.8 calls tool_search when a capability is needed
   -> portal exposes only matching concrete schema(s) for the next round
   -> Qwen3.8 emits the concrete structured tool_call
   -> portal validates and executes allowlisted calls
