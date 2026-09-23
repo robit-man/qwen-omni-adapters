@@ -31,6 +31,11 @@ from urllib.request import Request, urlopen
 
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
+try:
+    from portal.desktop import desktop_subprocess_environment
+except ModuleNotFoundError:  # Direct script execution from portal/.
+    from desktop import desktop_subprocess_environment
+
 logger = logging.getLogger(__name__)
 
 
@@ -336,7 +341,8 @@ class BrowserAutomationStore:
     def _launch(self) -> _BrowserSession:
         if not shutil.which(self.chromium_bin):
             raise BrowserAutomationError(f"Chromium is unavailable at {self.chromium_bin}")
-        if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        environment = desktop_subprocess_environment()
+        if not environment.get("DISPLAY") and not environment.get("WAYLAND_DISPLAY"):
             raise BrowserAutomationError("No active desktop display is available")
         self._admit_single_window()
         if self.memory_governor is not None:
@@ -369,6 +375,7 @@ class BrowserAutomationStore:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
+            env=environment,
         )
         deadline = time.monotonic() + self.timeout_s
         last_error: Exception | None = None

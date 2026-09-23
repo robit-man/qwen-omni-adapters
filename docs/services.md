@@ -78,6 +78,11 @@ discover` succeeds, direct otherwise. Direct mode verifies the comprehension
 PID with `nvidia-smi` compute-app accounting on a discrete card, or with the
 integrated-GPU device handles on Tegra, where that accounting does not exist.
 It has no CPU fallback, and it is still refused when the broker is present.
+Desktop tool subprocesses recover the service user's session bus and the one
+unambiguous Wayland or X11 display from their live Unix sockets. The system
+unit exposes only the X11 socket directory through its private `/tmp`, so
+headless search and explicitly requested visible browser/GUI tools work without
+granting the core service a broader desktop environment at boot.
 
 Remove the unit without removing models or runtime evidence:
 

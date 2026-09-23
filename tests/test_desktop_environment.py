@@ -1,0 +1,148 @@
+from __future__ import annotations
+
+import shutil
+import socket
+import subprocess
+from pathlib import Path
+
+from portal import browser as browser_module
+from portal import gui as gui_module
+from portal import tools as tools_module
+from portal.desktop import desktop_subprocess_environment
+
+
+def test_desktop_environment_recovers_session_bus_and_wayland(
+    tmp_path: Path,
+) -> None:
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    with socket.socket(socket.AF_UNIX) as bus, socket.socket(socket.AF_UNIX) as wayland:
+        bus.bind(str(runtime / "bus"))
+        wayland.bind(str(runtime / "wayland-7"))
+
+        environment = desktop_subprocess_environment(
+            {}, runtime_dir=runtime, x11_dir=tmp_path / "x11", home=tmp_path
+        )
+
+    assert environment["XDG_RUNTIME_DIR"] == str(runtime)
+    assert environment["DBUS_SESSION_BUS_ADDRESS"] == f"unix:path={runtime / 'bus'}"
+    assert environment["WAYLAND_DISPLAY"] == "wayland-7"
+    assert "DISPLAY" not in environment
+
+
+def test_desktop_environment_preserves_explicit_session_values(tmp_path: Path) -> None:
+    explicit = {
+        "DISPLAY": ":44",
+        "WAYLAND_DISPLAY": "wayland-explicit",
+        "DBUS_SESSION_BUS_ADDRESS": "unix:path=/chosen/bus",
+        "XDG_RUNTIME_DIR": "/chosen/runtime",
+        "XAUTHORITY": "/chosen/auth",
+    }
+
+    environment = desktop_subprocess_environment(
+        explicit, runtime_dir=tmp_path, x11_dir=tmp_path, home=tmp_path
+    )
+
+    assert environment == explicit
+
+
+def test_desktop_environment_recovers_one_x11_display(tmp_path: Path) -> None:
+    runtime = tmp_path / "runtime"
+    x11 = tmp_path / "x11"
+    runtime.mkdir()
+    x11.mkdir()
+    with socket.socket(socket.AF_UNIX) as display:
+        display.bind(str(x11 / "X0"))
+
+        environment = desktop_subprocess_environment(
+            {}, runtime_dir=runtime, x11_dir=x11, home=tmp_path
+        )
+
+    assert environment["DISPLAY"] == ":0"
+
+
+def test_headless_browser_receives_recovered_desktop_environment(
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def run(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(command, 0, "<html>ready</html>", "")
+
+    monkeypatch.setattr(tools_module, "_find_browser", lambda: "/usr/bin/chromium")
+    monkeypatch.setattr(
+        tools_module,
+        "desktop_subprocess_environment",
+        lambda: {"DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"},
+    )
+    monkeypatch.setattr(tools_module.subprocess, "run", run)
+
+    assert "ready" in tools_module._run_local_browser("https://example.test", 5)
+    assert captured["env"] == {
+        "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"
+    }
+
+
+def test_gui_commands_receive_recovered_desktop_environment(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def run(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(command, 0, "1280 720\n", "")
+
+    monkeypatch.setattr(
+        gui_module,
+        "desktop_subprocess_environment",
+        lambda: {"DISPLAY": ":0", "DBUS_SESSION_BUS_ADDRESS": "unix:path=/bus"},
+    )
+    monkeypatch.setattr(gui_module.subprocess, "run", run)
+
+    assert gui_module.GuiAutomation()._run(["xdotool", "getdisplaygeometry"]) == (
+        "1280 720"
+    )
+    assert captured["env"] == {
+        "DISPLAY": ":0",
+        "DBUS_SESSION_BUS_ADDRESS": "unix:path=/bus",
+    }
+
+
+def test_visible_browser_uses_the_recovered_display(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class Process:
+        pid = 4242
+
+        @staticmethod
+        def poll() -> None:
+            return None
+
+    def popen(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return Process()
+
+    monkeypatch.setattr(browser_module.shutil, "which", lambda _binary: "/chromium")
+    monkeypatch.setattr(
+        browser_module,
+        "desktop_subprocess_environment",
+        lambda: {"WAYLAND_DISPLAY": "wayland-0", "XDG_RUNTIME_DIR": "/run/user/1000"},
+    )
+    monkeypatch.setattr(browser_module.subprocess, "Popen", popen)
+    monkeypatch.setattr(
+        browser_module.BrowserAutomationStore,
+        "_page_socket",
+        lambda _self, _port: "ws://127.0.0.1/devtools/page/one",
+    )
+    store = browser_module.BrowserAutomationStore(chromium_bin="/chromium")
+
+    session = store._launch()
+    try:
+        assert captured["env"] == {
+            "WAYLAND_DISPLAY": "wayland-0",
+            "XDG_RUNTIME_DIR": "/run/user/1000",
+        }
+    finally:
+        shutil.rmtree(session.profile, ignore_errors=True)

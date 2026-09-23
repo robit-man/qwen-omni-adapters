@@ -19,6 +19,9 @@ TimeoutStopSec=120
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
+# X11 uses a Unix socket under /tmp. Re-expose only that socket directory in
+# the private namespace; Wayland and the user bus remain under /run/user/UID.
+BindReadOnlyPaths=-/tmp/.X11-unix
 ProtectSystem=full
 ReadWritePaths=-@REPO_ROOT@/runtime-data
 

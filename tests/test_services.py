@@ -10,6 +10,7 @@ def test_linux_service_template_uses_broker_or_explicit_direct_launcher() -> Non
 
     assert "ExecStart=@EXEC_START@" in template
     assert "EnvironmentFile=-@REPO_ROOT@/.env" in template
+    assert "BindReadOnlyPaths=-/tmp/.X11-unix" in template
     assert "portal/start.sh --foreground" in installer
     assert "qwen-omni-daemon serve --allow-direct-gpu" in installer
     assert "docker gpu discover" in installer

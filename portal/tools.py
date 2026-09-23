@@ -44,12 +44,14 @@ from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 try:
     from portal.background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
     from portal.browser import BrowserAutomationError, BrowserAutomationStore
+    from portal.desktop import desktop_subprocess_environment
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import runtime_environment_snapshot
     from portal.gui import GuiAutomation, GuiAutomationError
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
     from browser import BrowserAutomationError, BrowserAutomationStore
+    from desktop import desktop_subprocess_environment
     from documents import DocumentError, SessionDocumentStore
     from environment import runtime_environment_snapshot
     from gui import GuiAutomation, GuiAutomationError
@@ -767,6 +769,7 @@ def _run_local_browser(url: str, timeout_s: float) -> str:
                 capture_output=True,
                 text=True,
                 timeout=timeout_s,
+                env=desktop_subprocess_environment(),
             )
         except subprocess.TimeoutExpired as exc:
             raise ToolInputError("local browser search timed out") from exc

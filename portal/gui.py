@@ -11,6 +11,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+try:
+    from portal.desktop import desktop_subprocess_environment
+except ModuleNotFoundError:  # Direct script execution from portal/.
+    from desktop import desktop_subprocess_environment
+
 
 class GuiAutomationError(RuntimeError):
     """The desktop could not be observed or controlled."""
@@ -36,6 +41,7 @@ class GuiAutomation:
                 capture_output=True,
                 text=True,
                 timeout=self.timeout_s,
+                env=desktop_subprocess_environment(),
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise GuiAutomationError(f"Desktop command failed: {exc}") from exc
