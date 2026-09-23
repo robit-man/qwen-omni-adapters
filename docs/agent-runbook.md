@@ -13,7 +13,19 @@ df -h .
 Do not stop a running portal or delete its cache unless the user requested that
 state change. Review `AGENTS.md` and the host GPU policy before deployment.
 
-## 2. Bootstrap without inference
+## 2. Guided Jetson install or upgrade
+
+```bash
+./deploy.sh
+```
+
+The arrow-key workflow detects the board and current installation, selects one
+of the two release audio bridges, pulls and resolves the logical tag, performs
+the remaining bootstrap work, runs doctor and validation, and deploys the
+managed service. Use `./deploy.sh ornith15` or `./deploy.sh qwen38` for an
+explicit profile.
+
+For a staged/manual workflow, bootstrap without inference:
 
 ```bash
 ./scripts/bootstrap.sh
@@ -35,12 +47,12 @@ For a source-only CI check with no model pull or CUDA build:
 
 ```bash
 .venv/bin/qwen-omni resolve \
-  robit/qwen3.8-27b-e03-obliterated-omni:q4km
+  robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km
 ```
 
-Expect exactly one custom sidecar layer, a valid bundle schema, and non-zero
-base/comprehension/TTS tensor inventories. Do not point Ollama `FROM` at the
-sidecar GGUF.
+Expect exactly one custom sidecar layer, the trained-audio-bridge schema,
+standard language/projector layers, and non-zero TTS inventories. Do not point
+Ollama `FROM` at the sidecar GGUF.
 
 ## 4. Deploy
 

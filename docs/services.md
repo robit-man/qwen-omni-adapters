@@ -24,6 +24,18 @@ the permission-restricted `runtime-data/state` directory.
 
 ## Linux systemd
 
+On Jetson, the preferred entry point is the guided service installer:
+
+```bash
+./deploy.sh
+```
+
+It detects fresh versus installed state, offers install/upgrade and both
+trained bridge models through arrow-key menus, persists the selected logical
+tag, invokes the Linux installer in direct mode, and waits for the selected
+model's startup smoke gates. The lower-level commands below remain available
+for staged and custom deployments.
+
 On an ollama-unify host, the systemd unit deliberately uses the broker-aware
 `portal/start.sh --foreground` lifecycle:
 

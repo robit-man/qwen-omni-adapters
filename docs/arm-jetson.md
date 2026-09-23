@@ -70,41 +70,37 @@ memory `nvcc` competes with everything else on the module and an unbounded
 ```bash
 git clone https://github.com/robit-man/qwen-omni-adapters.git
 cd qwen-omni-adapters
-./deploy.sh ornith15
+./deploy.sh
 ```
 
-`deploy.sh` probes for the broker and routes accordingly: with `docker gpu`
-present it keeps the existing broker-managed `portal/start.sh --daemon`
-lifecycle unchanged; without it — every Tegra module, and any unmanaged
-workstation — it runs the portable direct supervisor in the foreground, which
-prints the authenticated URL when the stack is ready. `cloudflared` is optional
-there; without it the portal stays on loopback.
+`deploy.sh` detects the Tegra SoC, unified-memory size, installed runtime,
+managed service, and current model. Arrow-key menus select install/upgrade,
+one of the two trained bridges, and the optional always-listening harness. It
+pulls the logical Ollama tag, validates the sidecar, runs doctor/regression
+gates, installs the direct systemd service, and waits for that exact model to
+pass startup smoke gates. `cloudflared` is optional; without it the portal
+stays on loopback.
 
-`ornith15` is the profile that fits a Jetson -- see [Memory](#memory) for the
-actual budget. The `qwen38` profile's 27B base needs roughly 12 GiB more
-unified memory on top of the same comprehension and TTS components.
+`ornith15` is recommended for a 32 GB Jetson. `qwen38` provides the larger E03
+trunk but leaves less room for KV cache, graph workspaces, the desktop, and
+concurrent tools; see [the trained-bridge budget](#trained-audio-bridge-profile).
 
 As a service:
 
 ```bash
-./scripts/bootstrap.sh
-./services/linux/install.sh          # auto-selects direct mode on Tegra
+./deploy.sh                           # installs/upgrades and starts the service
 .venv/bin/qwen-omni-daemon status
 ```
 
 ## One Ollama slot
 
-The logical tag carries the language model in its standard layers: `ollama
-show --modelfile` gives `robit/ornith-1.5-omni:q4km` and `robit/ornith-1.5:9b`
-byte-identical base and projector blobs. Ollama keys a loaded runner by tag
-*name*, though, so naming the core tag for the language stage loads a second
-resident copy of the same weights.
+Each trained bridge carries its sole language model in the standard Ollama
+layer and its combined native-vision/Omni-audio projector in the standard
+projector layer. The installer names that same logical tag for both runtime
+stages, so one llama.cpp server performs comprehension, language, and tools;
+there is no second Ollama language runner.
 
-On Tegra the language stage therefore defaults to the logical tag itself --
-one name, one runner, one copy. `OMNI_LANGUAGE_MODEL` still overrides it, and
-discrete hosts keep the explicit core tag they have always used.
-
-## Memory
+## Legacy full-Omni memory
 
 Unified memory means the "VRAM" figures below come out of the same pool as the
 OS and every other process. Measured from the `ornith15` bundle manifest
@@ -130,7 +126,7 @@ Note that `-ngl 99` does not increase the footprint here the way it does on a
 discrete card: there is one pool, so offloading layers changes which engine
 computes them, not how much memory they occupy.
 
-### Trained audio-bridge profile
+## Trained audio-bridge profile
 
 The lightweight profile removes the separate 18.5 GiB Omni comprehension
 model. It retains one quantized target language trunk, the target's native
@@ -153,8 +149,9 @@ the released digests.
 (`docker`, `jq`, `ss`) that does not apply:
 
 ```bash
-.venv/bin/qwen-omni doctor --model robit/ornith-1.5-omni:q4km \
-  --language-model robit/ornith-1.5-omni:q4km
+.venv/bin/qwen-omni doctor \
+  --model robit/ornith-1.5-omni-audio-bridge:q4km \
+  --language-model robit/ornith-1.5-omni-audio-bridge:q4km
 ```
 
 ```json

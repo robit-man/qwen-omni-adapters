@@ -1,37 +1,45 @@
 # Verified model profiles
 
-The adapter runtime is graph-agnostic at the semantic boundary, but a logical
-tag must be paired with the exact standard language/projector tag from which
-its sidecar was packed. The launcher provides these audited profiles:
+The guided Jetson launcher provides two audited trained-audio-bridge profiles:
 
-| Launcher profile | Logical model | Language backend | Base identity |
-|---|---|---|---|
-| `qwen38` | `robit/qwen3.8-27b-e03-obliterated-omni:q4km` | `robit/qwen3.8-27b-obliterated-e03:27b` | Qwen3.8 E03 obliterated |
-| `ornith15` | `robit/ornith-1.5-omni:q4km` | `robit/ornith-1.5:9b` | stock Ornith 1.5 9B |
-| `ornith15-obliterated` | `robit/ornith-1.5-obliterated-omni:q4km` | `robit/ornith-1.5-obliterated:9b` | OBLITERATUS Ornith 1.5 9B |
+| Launcher profile | Logical model and sole language trunk | Artifact weights | Base identity |
+|---|---|---:|---|
+| `qwen38` | `robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km` | 18.33 GiB | Qwen3.8 E03 obliterated |
+| `ornith15` | `robit/ornith-1.5-omni-audio-bridge:q4km` | 8.15 GiB | standard Ornith 1.5 9B |
 
 ```bash
-./deploy.sh ornith15
-./deploy.sh ornith15-obliterated
+./deploy.sh                         # arrow-key guided install/upgrade
+./deploy.sh ornith15                # non-interactive profile selection
+./deploy.sh qwen38
 ```
 
-The launcher exports `OMNI_MODEL` and `OMNI_LANGUAGE_MODEL`; the supervisor
-then proves that both resolve to the same standard model/projector blobs before
-loading CUDA media workers. A mismatched pair fails closed.
+The launcher sets `OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` to the same logical
+bridge tag. Its standard model layer is the sole language trunk, so no adjacent
+Ollama language runner is loaded. The resolver proves the standard language
+and combined native-vision/Omni-audio projector layers before CUDA startup.
 
-All three profiles use the same wire contract and the same pinned
-Qwen3-Omni/Qwen3-TTS media graphs. What changes is the Ollama-owned language,
-native-image, tool, and optional-thinking base. Consequently:
+Both profiles use the same adapter wire contract and Qwen3-TTS sidecar. What
+changes is the language, native-image, tool, and optional-thinking trunk:
 
-- ordinary `/api/chat` text/tool/image behavior comes from the selected base;
-- audio/video comprehension remains a separate Qwen3-Omni graph;
-- tagged semantic evidence is passed to the selected base;
+- ordinary `/api/chat` text/tool/image behavior comes from the selected trunk;
+- the frozen Omni audio encoder and trained final projection feed that trunk;
+- tagged speech and acoustic evidence remain provenance-separated;
 - spoken output remains text-conditioned Qwen3-TTS;
-- no profile claims native hidden-state fusion.
+- the full Omni Thinker and a second Ollama language copy are absent.
 
-The two Ornith profiles have 262,144-token contexts and use
-`num_predict=-1`, Ollama's unlimited model-level generation setting. Clients
-may still choose a bounded per-request limit.
+That makes these releases drop-in replacements at the logical adapter/daemon
+boundary. They are not standalone stock-Ollama audio/TTS models: stock Ollama
+does not execute the custom sidecar, so clients that need Omni audio or speech
+must continue to use this repository's daemon API.
 
-The build records and exact six-view SHA-256 inventories live in the
-[`fine_tuning_suite` Ornith release documentation](https://github.com/robit-man/fine_tuning_suite/blob/main/docs/omni-adapter/ornith15-release.md).
+Standard Ornith advertises a 262,144-token model context; the published bridge
+tag bounds default generation to 16,384 tokens. Runtime memory admission still
+selects a safe active window for the Jetson.
+
+Release artifacts and cards are mirrored at
+[Ornith on Hugging Face](https://huggingface.co/cudabenchmarktest/Ornith-1.5-9B-Omni-Audio-Bridge-GGUF)
+and [Qwen3.8 on Hugging Face](https://huggingface.co/cudabenchmarktest/Qwen3.8-27B-E03-Obliterated-Omni-Audio-Bridge-GGUF).
+
+Legacy full-Omni logical tags remain supported through explicit advanced
+`OMNI_MODEL`/`OMNI_LANGUAGE_MODEL` configuration, but they are intentionally
+absent from the guided Jetson menu.

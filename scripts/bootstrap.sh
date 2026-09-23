@@ -9,6 +9,7 @@ MODEL=${OMNI_MODEL:-robit/qwen3.8-27b-e03-obliterated-omni:q4km}
 LANGUAGE_MODEL=${OMNI_LANGUAGE_MODEL:-robit/qwen3.8-27b-obliterated-e03:27b}
 BUILD_LLAMA=1
 PULL_MODELS=1
+REFRESH_MODELS=0
 PREPARE_COMPONENTS=0
 INSTALL_LAYA=1
 
@@ -18,6 +19,7 @@ Usage: ./scripts/bootstrap.sh [options]
 
   --skip-llama       Do not clone, patch, or build llama.cpp
   --skip-models      Do not pull or resolve Ollama models
+  --refresh-models   Pull selected tags even when already installed
   --prepare          Materialize the disposable component cache now
   --skip-laya        Do not install the isolated resident Laya runtime
   --help             Show this help
@@ -31,6 +33,7 @@ while (($#)); do
   case $1 in
     --skip-llama) BUILD_LLAMA=0 ;;
     --skip-models) PULL_MODELS=0 ;;
+    --refresh-models) REFRESH_MODELS=1 ;;
     --prepare) PREPARE_COMPONENTS=1 ;;
     --skip-laya) INSTALL_LAYA=0 ;;
     --help|-h) usage; exit 0 ;;
@@ -42,7 +45,7 @@ done
 command -v "$PYTHON" >/dev/null 2>&1 || { printf 'Missing Python: %s\n' "$PYTHON" >&2; exit 1; }
 "$PYTHON" -m venv "$VENV"
 "$VENV/bin/python" -m pip install --upgrade pip setuptools wheel
-"$VENV/bin/python" -m pip install -e "$REPO_ROOT[dev]"
+"$VENV/bin/python" -m pip install -e "${REPO_ROOT}[dev]"
 
 if ((INSTALL_LAYA)); then
   "$REPO_ROOT/scripts/bootstrap_laya.sh"
@@ -62,11 +65,12 @@ fi
 
 if ((PULL_MODELS)); then
   command -v ollama >/dev/null 2>&1 || { printf 'Missing command: ollama\n' >&2; exit 1; }
-  if ! ollama show "$MODEL" >/dev/null 2>&1; then
+  if ((REFRESH_MODELS)) || ! ollama show "$MODEL" >/dev/null 2>&1; then
     printf 'Pulling logical Omni tag %s\n' "$MODEL"
     ollama pull "$MODEL"
   fi
-  if ! ollama show "$LANGUAGE_MODEL" >/dev/null 2>&1; then
+  if [[ $LANGUAGE_MODEL != "$MODEL" ]] \
+    && { ((REFRESH_MODELS)) || ! ollama show "$LANGUAGE_MODEL" >/dev/null 2>&1; }; then
     printf 'Pulling language backend %s\n' "$LANGUAGE_MODEL"
     ollama pull "$LANGUAGE_MODEL"
   fi

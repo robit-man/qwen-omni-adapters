@@ -44,18 +44,21 @@ not need. `chat` preserves normal Ollama `tools`, `think`, `format`, `options`,
 
 ## Select a verified model profile
 
-The one-command launcher accepts a verified profile name:
+Run the launcher without arguments for an arrow-key install/upgrade and model
+menu, or pass a verified profile name for automation:
 
 ```bash
+./deploy.sh
 ./deploy.sh qwen38
 ./deploy.sh ornith15
-./deploy.sh ornith15-obliterated
 ```
 
-The profile sets both the logical sidecar tag and its byte-matching language
-backend. See `model-profiles.md` for the exact pairings. Explicit
-`OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` environment values remain supported for
-advanced use and are checked against one another before any CUDA worker starts.
+Each guided profile is a trained audio bridge and uses its logical sidecar tag
+as the sole language trunk. `deploy.sh` pulls and resolves that tag, runs the
+deployment doctor and full regression suite, persists the selection, and
+installs or upgrades the managed service. See `model-profiles.md` for exact
+tags. Explicit `OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` environment values remain
+supported for advanced and legacy profiles.
 
 ## Runtime prerequisites
 

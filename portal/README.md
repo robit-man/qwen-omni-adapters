@@ -1,9 +1,9 @@
 # Robit Omni Phone Portal
 
-This example is a phone-first web client for
-`robit/qwen3.8-27b-e03-obliterated-omni:q4km`. It exposes the existing Omni
-adapter through one authenticated HTTPS origin and keeps Ollama,
-Qwen3-Omni comprehension, and Qwen3-TTS bound to loopback.
+This example is a phone-first web client for the Qwen3.8 E03 and standard
+Ornith trained-audio-bridge releases. It exposes the Omni adapter through one
+authenticated HTTPS origin and keeps the bridge worker and Qwen3-TTS bound to
+loopback. Legacy full-Omni tags remain supported as an advanced configuration.
 
 The interface borrows the visual language of the
 [NOCLIP documentation](https://noclip.org/docs): black grid background,
@@ -30,8 +30,9 @@ the originating user bubble with the adapter's tagged verbatim
 **Sounds heard** disclosure styled like the reasoning trace. If no intelligible
 speech exists, the acoustic observation becomes the bubble's half-brightness
 primary text instead of being mislabelled as ASR. Both evidence channels pass
-through Qwen3.8. Clients that need transcription without a language reply can
-still call the adapter explicitly with `omni.task="transcribe"`.
+through the selected language trunk. Clients that need transcription without a
+language reply can still call the adapter explicitly with
+`omni.task="transcribe"`.
 
 The brain icon controls the real Ollama `think` request field. Gray is the
 default and sends the boolean `think:false`; violet explicitly sends
@@ -367,14 +368,14 @@ From the repository root:
 
 The command:
 
-1. verifies the installed Ollama tag and sidecar;
-2. reconstructs the four disposable media-runtime views when missing;
-3. runs `docker gpu discover` and selects an unclaimed broker-approved GPU;
-4. acquires one scoped 45 GiB lease and starts comprehension on that exact UUID;
-5. starts broker-coordinated CUDA TTS, the unified adapter, and portal;
-6. runs local status, exact-text, and GPU TTS smoke gates;
-7. starts a Cloudflare Quick Tunnel and prints an HTTPS URL containing the
-   access token in its URL fragment.
+1. detects Jetson/Tegra, memory, runtime, service, and current-model state;
+2. presents arrow-key menus for install/upgrade, bridge model, and harness;
+3. pulls and validates the selected logical Ollama tag and sidecar;
+4. builds or upgrades the pinned runtime and runs doctor/regression gates;
+5. persists the exact tag and installs/restarts the appropriate managed service;
+6. proves CUDA residency, runs exact-text/TTS smoke gates, and waits for ready;
+7. starts Cloudflared last when available and protects the authenticated URL in
+   the daemon status record.
 
 The core portal does not require a browser executable on the host. The optional
 `web_search(mode=discover)` tool does: install Chromium or Chrome, or set
@@ -394,12 +395,15 @@ exact browser URL, including the access fragment, locally on the device; no QR
 API receives it. The modal also offers a copy-link action. Treat the QR code and
 complete access URL as bearer credentials and do not publish either one.
 
-Manage the deployment:
+Manage a guided Jetson/systemd deployment:
 
 ```bash
-portal/start.sh --status
-portal/start.sh --stop
+sudo systemctl status qwen-omni-adapters
+.venv/bin/qwen-omni-daemon status
 ```
+
+Broker-managed staged deployments still use `portal/start.sh --status` and
+`portal/start.sh --stop`.
 
 Runtime state and logs default to
 `runtime-data`. The supervisor owns all child

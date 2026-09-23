@@ -1,12 +1,11 @@
 # Qwen Omni Adapters
 
 Standalone runtime, protocol, and deployment tooling for logical Ollama Omni
-models. Verified profiles are:
+models. The guided Jetson deployer offers these verified reduced profiles:
 
 ```text
-robit/qwen3.8-27b-e03-obliterated-omni:q4km
-robit/ornith-1.5-omni:q4km
-robit/ornith-1.5-obliterated-omni:q4km
+robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km
+robit/ornith-1.5-omni-audio-bridge:q4km
 ```
 
 The repository turns that one Ollama tag into one authenticated, Ollama-shaped
@@ -34,31 +33,34 @@ only then start services. Do not copy a CUDA configuration from another host:
 the launcher distinguishes broker-managed discrete GPUs from unified-memory
 NVIDIA Tegra systems.
 
-Required host tools are Python 3.10+, Git, CMake, a working NVIDIA CUDA or
-Apple Metal toolchain, FFmpeg, and a running Ollama installation. Cloudflared
-is optional; without it the portal remains available only on loopback.
+Required host tools are Python 3.10+, Node.js, Git, CMake, a working NVIDIA
+CUDA or Apple Metal toolchain, FFmpeg, and a running Ollama installation.
+Cloudflared is optional; without it the portal remains available only on
+loopback.
 
-### One-line clone and install
+### Guided clone and install
 
-This command clones the repository, creates `.venv`, installs the Python
-package and development checks, builds the pinned llama.cpp workers, pulls the
-stock Ornith logical bundle and language backend, and validates the sidecar.
-It installs but does not start the runtime:
+Clone the repository and run the guided installer. On a Jetson it detects the
+Tegra SoC, unified-memory size, existing runtime and managed-service state,
+then presents arrow-key menus for install/upgrade, model, and optional local
+voice harness:
 
 ```bash
-git clone https://github.com/robit-man/qwen-omni-adapters.git && cd qwen-omni-adapters && OMNI_MODEL=robit/ornith-1.5-omni:q4km OMNI_LANGUAGE_MODEL=robit/ornith-1.5:9b ./scripts/bootstrap.sh
+git clone https://github.com/robit-man/qwen-omni-adapters.git
+cd qwen-omni-adapters
+./deploy.sh
 ```
 
-For the Qwen3.8 base, omit those two environment variables or use its explicit
-profile during launch. Qwen3.8 needs substantially more memory than Ornith.
-The profile variables apply to one command only; for a staged Ornith session,
-export them before doctor/start as well:
+The installer pulls the selected logical Ollama tag, validates its trained
+audio-bridge sidecar, builds or upgrades the runtime, runs doctor and regression
+gates, persists the exact profile, and installs/restarts the systemd service.
+It does not require a separate adjacent language-model download.
 
 ### Validate and start
 
 ```bash
-export OMNI_MODEL=robit/ornith-1.5-omni:q4km
-export OMNI_LANGUAGE_MODEL=robit/ornith-1.5:9b
+export OMNI_MODEL=robit/ornith-1.5-omni-audio-bridge:q4km
+export OMNI_LANGUAGE_MODEL=$OMNI_MODEL
 cat AGENTS.md
 .venv/bin/qwen-omni doctor --deployment
 ./scripts/validate.sh
@@ -84,8 +86,8 @@ platform service manager after a service install. Do not delete
 
 ### One-line install and launch
 
-On a host already prepared with the prerequisites, `deploy.sh` performs any
-missing bootstrap work and launches the selected verified profile:
+For non-interactive automation, the short profile names select the same two
+bridge releases and deploy the managed service:
 
 
 ```bash
@@ -95,23 +97,24 @@ git clone https://github.com/robit-man/qwen-omni-adapters.git && cd qwen-omni-ad
 Available profiles are:
 
 ```bash
-./deploy.sh qwen38                  # Qwen3.8 27B base; default
-./deploy.sh ornith15                # stock Ornith 1.5 9B base
-./deploy.sh ornith15-obliterated    # OBLITERATUS Ornith 1.5 9B base
+./deploy.sh ornith15                # standard Ornith 1.5 9B bridge; about 8.15 GiB
+./deploy.sh qwen38                  # Qwen3.8 27B E03 bridge; about 18.33 GiB
 ```
 
-On a broker-managed GPU host the launcher uses the scoped broker and daemonizes
-the portal. On Tegra or another unmanaged NVIDIA host it uses the direct
-supervisor in the foreground. A 32 GB Jetson must use the constrained residency
-arrangement described below; do not attempt to keep the standard language,
-comprehension, and TTS workers resident together.
+On a broker-managed GPU host the installed service uses the scoped broker. On
+Tegra it uses the direct supervisor and proves residency from `nvgpu`/`nvmap`
+handles. The Ornith bridge is the recommended 32 GB Jetson choice. Qwen's
+18.33 GiB artifact set fits nominally, but an eviction-free production peak is
+not claimed until measured on the target board with its real context and TTS
+policy.
 
 The first run creates `.venv`, installs the Python package, clones a pinned
 llama.cpp revision, applies the Qwen3-TTS PCM streaming and resident-worker
 patches, builds the two
-CUDA binaries, pulls missing Ollama tags, validates the attached sidecar,
-materializes its disposable runtime views, starts the services, runs local
-smoke gates, and prints an authenticated Cloudflare Quick Tunnel URL.
+CUDA binaries, pulls the selected Ollama tag, validates the attached sidecar,
+materializes its disposable TTS views, installs the managed service, runs local
+smoke gates, and records the authenticated portal URL in the protected daemon
+status.
 
 For a staged installation:
 
@@ -123,18 +126,16 @@ For a staged installation:
 ./portal/start.sh --stop
 ```
 
-On an arm64 NVIDIA Jetson, the launcher selects the direct supervisor because
-a Tegra module has an integrated GPU and no GPU broker. That selection changes
-the process lifecycle, not what fits in unified memory. A 64 GB module can use
-the normal profile directly:
+On an arm64 NVIDIA Jetson, the launcher selects the direct managed service
+because a Tegra module has an integrated GPU and no GPU broker. Run without a
+profile to choose interactively:
 
 ```bash
-./deploy.sh ornith15
+./deploy.sh
 ```
 
-See [arm64 and NVIDIA Jetson](docs/arm-jetson.md) for the build architecture
-pinning, residency evidence, and memory defaults that differ there. A 32 GB
-module must use the constrained configuration below.
+See [arm64 and NVIDIA Jetson](docs/arm-jetson.md) for build architecture
+pinning, residency evidence, and unified-memory guidance.
 
 Platform service installs are also one command after cloning:
 
@@ -152,11 +153,13 @@ fragment is the portal credential.
 
 ## Current implementation state
 
-The portable/default architecture uses Qwen3-Omni for media comprehension,
-the selected Qwen3.8 or Ornith base for language/vision/tools, and Qwen3-TTS
-for speech. The currently validated 32 GB AGX Orin deployment uses a tighter
-residency profile because all three graphs cannot safely coexist in its 29.98
-GiB unified-memory pool:
+The guided deployment uses a trained audio bridge: the selected Qwen3.8 or
+standard Ornith trunk handles audio/ASR, native vision, language, and tools in
+one llama.cpp server, while Qwen3-TTS provides speech. Legacy full-Omni bundles
+remain supported and use Qwen3-Omni for media comprehension plus a selected
+language base. The previously validated legacy 32 GB AGX Orin deployment uses
+a tighter residency profile because all three graphs cannot safely coexist in
+its 29.98 GiB unified-memory pool:
 
 | Component | Current constrained-host role | Residency |
 |---|---|---|
@@ -242,12 +245,12 @@ TTS, and one local llama.cpp server is both the multimodal comprehension path
 and the sole language/tool trunk. This removes the full secondary Omni Thinker
 and avoids loading an adjacent Ollama language copy.
 
-This is intentionally a semantic router. Qwen3.8, Qwen3-Omni, and Qwen3-TTS do
-not share compatible hidden-state interfaces, so the implementation does not
-pretend that their tensors can be spliced into a directly executable graph.
-For Ornith, the generic profile is stock-backed and the explicitly named
-`ornith15-obliterated` profile is OBLITERATUS-backed; their base tensors and
-Ollama tags are never interchangeable.
+Legacy full-Omni tags remain semantic routers because Qwen3.8, Qwen3-Omni, and
+Qwen3-TTS do not share compatible hidden-state interfaces. The trained bridge
+profiles are different: they contain the frozen Omni audio encoder plus a
+trained final projection into the selected trunk, while keeping evidence tags
+and TTS as explicit runtime boundaries. Standard Ornith and Qwen3.8 E03 tensors
+and Ollama tags are never interchangeable.
 
 ## Architecture breakdown
 
@@ -605,7 +608,7 @@ Adapter v1 is `robit.ollama.omni-adapter.v1` and its portable route requires
 
 ```json
 {
-  "model": "robit/qwen3.8-27b-e03-obliterated-omni:q4km",
+  "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
   "messages": [{
     "role": "user",
     "content": "What happened, and answer aloud.",
