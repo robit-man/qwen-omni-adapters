@@ -70,6 +70,11 @@ class Config:
     comprehension_context_tokens: int = 65_536
     comprehension_context_file: str | None = None
     comprehension_max_output_tokens: int = 2_048
+    # Trained audio bridges are optimized against the target trunk's native
+    # no-thinking prefill. Stock Qwen3-Omni is not: its explicit false branch
+    # is known to degenerate, so this stays opt-in per deployment profile.
+    comprehension_disable_thinking: bool = False
+    comprehension_repeat_penalty: float = 1.0
     tts_stream_frames: int = 8
 
     @classmethod
@@ -102,6 +107,12 @@ class Config:
             ),
             comprehension_max_output_tokens=int(
                 os.environ.get("OMNI_COMPREHENSION_MAX_OUTPUT_TOKENS", "2048")
+            ),
+            comprehension_disable_thinking=(
+                os.environ.get("OMNI_COMPREHENSION_DISABLE_THINKING", "0") == "1"
+            ),
+            comprehension_repeat_penalty=float(
+                os.environ.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.0")
             ),
             tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
         )
@@ -612,24 +623,24 @@ def build_comprehension_payload(
                 parts.append({"type": "text", "text": extraction})
         if parts:
             messages.append({"role": message.role, "content": parts})
-    return {
+    payload = {
         "model": config.comprehension_model,
         "messages": messages,
         "stream": False,
-        # Deliberately NO chat_template_kwargs here. Qwen3-Omni's template
-        # degenerates on a multimodal prompt when thinking is explicitly
-        # disabled -- measured on an AGX Orin, the identical request returns
-        # only newlines with the flag and a correct tagged transcript without
-        # it. Perception does not emit reasoning for these extraction prompts
-        # anyway, so the flag buys nothing and costs the whole observation.
-        # The language stage is unaffected and still sets it; see
-        # build_language_payload.
+        # Stock Qwen3-Omni deliberately receives no chat_template_kwargs: its
+        # explicit false branch degenerates on multimodal prompts (measured on
+        # AGX Orin). A trained single-trunk audio bridge is different: its
+        # projection is optimized against the target model's native
+        # enable_thinking=false prefill, which is added below only when that
+        # deployment profile opts in. The language stage remains independent;
+        # see build_language_payload.
         # llama.cpp enables prompt-slot caching by default. Its multimodal slot
         # cache can retain decoded frames across otherwise independent video
         # requests, causing a new clip to be answered from the prior clip.
         # Media preprocessing is request-local, so correctness takes priority
         # over prefix reuse at this boundary.
         "cache_prompt": False,
+        "temperature": 0,
         "max_tokens": min(
             config.comprehension_max_output_tokens,
             max(1, _active_context_tokens(config) // 4),
@@ -640,6 +651,11 @@ def build_comprehension_payload(
             "use_audio_in_video": parsed.include_audio_from_video,
         },
     }
+    if config.comprehension_disable_thinking:
+        payload["chat_template_kwargs"] = {"enable_thinking": False}
+    if config.comprehension_repeat_penalty != 1.0:
+        payload["repeat_penalty"] = config.comprehension_repeat_penalty
+    return payload
 
 
 LOGGER = logging.getLogger("omni.adapter")

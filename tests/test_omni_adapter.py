@@ -236,6 +236,11 @@ def test_persistent_tts_patch_recreates_audio_helper_per_prompt() -> None:
 
     assert "+        mtmd_helper::gen_audio gen(lctx, mctx.get());" in patch
     assert "+        gen.reset();" not in patch
+    assert "+        common_sampler_ptr request_sampler(" in patch
+    assert "common_sampler_init(model, params.sampling)" in patch
+    assert "+        common_sampler_reset(smpl);" not in patch
+    assert "+        mtmd_gen_audio_reset_rng(mctx.get());" in patch
+    assert "+void clip_reset_rng(struct clip_ctx * ctx)" in patch
 
 
 def test_tts_accepts_bounded_wav_speaker_envelope(tmp_path: Path) -> None:
@@ -1735,4 +1740,36 @@ def test_comprehension_does_not_set_the_thinking_flag() -> None:
     payload = adapter_server.build_comprehension_payload(parsed, _adapter_config())
 
     assert "chat_template_kwargs" not in payload
+    assert "reasoning_format" not in payload
+    assert payload["temperature"] == 0
+    assert "repeat_penalty" not in payload
+
+
+def test_trained_bridge_comprehension_uses_its_no_thinking_prefill() -> None:
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(
+            omni={"schema": ADAPTER_SCHEMA, "task": "transcribe"},
+            messages=[
+                {
+                    "role": "user",
+                    "content": "",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+        )
+    )
+
+    payload = adapter_server.build_comprehension_payload(
+        parsed,
+        _adapter_config(
+            comprehension_disable_thinking=True,
+            comprehension_repeat_penalty=1.1,
+        ),
+    )
+
+    assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+    assert payload["repeat_penalty"] == 1.1
+    assert payload["temperature"] == 0
     assert "reasoning_format" not in payload

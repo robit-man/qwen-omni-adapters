@@ -169,9 +169,10 @@ This route is experimental. If generation fails after response headers, the
 PCM stream terminates early; the final WAV is still checked server-side when
 generation succeeds. In persistent mode, prompts are base64-framed over stdin
 and PCM/done/error events are length-framed over stdout; model, projector, and
-speaker weights remain resident while generation memory and samplers reset and
-a fresh audio-generation helper is constructed for every prompt. The helper
-must not be reused: its decoded-output state otherwise makes audio trail the
+speaker weights remain resident while generation memory is cleared, a fresh
+semantic sampler is created, the MTMD audio RNG is explicitly reset, and a fresh
+audio-generation helper is constructed for every prompt. The helper must not be
+reused: its decoded-output state otherwise makes audio trail the
 displayed response by one request. Inline request-local speaker audio uses the
 isolated single-shot fallback, after which the configured default profile is
 rewarmed. Cancelling an active PCM response invalidates the framed worker

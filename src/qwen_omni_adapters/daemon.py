@@ -670,6 +670,9 @@ class OmniDaemon:
     def start_children(self) -> str:
         python = sys.executable
         common = os.environ.copy()
+        bridge_profile = (
+            self._resolved_sidecar().get("profile") == "trained-audio-bridge"
+        )
         common["PYTHONUNBUFFERED"] = "1"
         decision_ready = self._start_decision_plane(common)
         common["OMNI_DECISION_PLANE_ENABLED"] = "1" if decision_ready else "0"
@@ -743,6 +746,8 @@ class OmniDaemon:
             ),
             "OMNI_COMPREHENSION_MODEL": language_model,
             "OMNI_COMPREHENSION_CONTEXT_TOKENS": str(self.config.context_tokens),
+            "OMNI_COMPREHENSION_DISABLE_THINKING": "1" if bridge_profile else "0",
+            "OMNI_COMPREHENSION_REPEAT_PENALTY": "1.1" if bridge_profile else "1.0",
             "OMNI_LANGUAGE_API": language_api,
             "OMNI_LANGUAGE_URL": language_url,
             "OMNI_LANGUAGE_MODEL": language_model,
