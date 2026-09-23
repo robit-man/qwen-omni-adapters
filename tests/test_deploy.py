@@ -81,6 +81,23 @@ def test_desktop_selection_bootstraps_and_waits_for_the_real_indicator() -> None
     )[0]
 
 
+def test_yes_path_defaults_to_the_visible_desktop_indicator() -> None:
+    completed = _run(
+        "--profile",
+        "ornith15",
+        "--action",
+        "deploy",
+        "--no-update",
+        "--yes",
+        "--dry-run",
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "Services:   core daemon + always-listening harness" in completed.stdout
+    assert "scripts/bootstrap.sh --refresh-models --with-harness" in completed.stdout
+    assert "services/linux/install.sh --auto --no-enable --with-harness" in completed.stdout
+
+
 def test_noninteractive_mode_fails_closed_without_a_profile() -> None:
     completed = _run("--action", "deploy", "--dry-run")
 
@@ -204,3 +221,5 @@ def test_arrow_key_menu_selects_qwen_bridge() -> None:
     assert selected_service, rendered
     assert process.returncode == 0, rendered
     assert "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km" in rendered
+    assert "Services:   core daemon + always-listening harness" in rendered
+    assert "scripts/bootstrap.sh --refresh-models --with-harness" in rendered

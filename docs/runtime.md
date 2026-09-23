@@ -61,9 +61,10 @@ existing runtime: recognized Omni port owners are stopped, relevant Ollama
 runners are unloaded, and Jetson GPU load plus unified-memory headroom are
 checked before the new service starts. See `model-profiles.md` for exact tags.
 Ready means the local component health endpoints are available; guided startup
-does not issue model generations. The desktop indicator service starts
-immediately after the core unit and waits for the portal concurrently. When
-selected, the desktop harness must additionally prove its visible indicator,
+does not issue model generations. The desktop indicator service is enabled by
+default, starts immediately after the core unit, and waits for the portal
+concurrently. Unless explicitly disabled with `--no-harness`, the desktop
+harness must additionally prove its visible indicator,
 audio server, and live microphone capture. Set `OMNI_STARTUP_SMOKE=1` only for
 an intentional blocking text/ASR/cloned-TTS/co-residency diagnostic.
 Explicit `OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` environment values remain

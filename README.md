@@ -42,8 +42,9 @@ loopback.
 
 Clone the repository and run the guided installer. On a Jetson it detects the
 Tegra SoC, unified-memory size, existing runtime and managed-service state,
-then presents arrow-key menus for install/upgrade, model, and optional local
-voice harness:
+then presents arrow-key menus for install/upgrade, model, and local voice
+harness. The Enter-through/default path always enables its desktop indicator;
+core-only deployment requires the explicit `--no-harness` opt-out:
 
 ```bash
 git clone https://github.com/robit-man/qwen-omni-adapters.git
@@ -54,7 +55,7 @@ cd qwen-omni-adapters
 The installer pulls the selected logical Ollama tag, validates its trained
 audio-bridge sidecar, builds or upgrades the runtime, runs doctor and regression
 gates, persists the exact profile, and installs/restarts the systemd service.
-When the desktop harness is selected, it also installs the Ubuntu
+The default desktop harness deployment also installs the Ubuntu
 GTK/AppIndicator and PulseAudio client bindings, waits for a real top-bar
 indicator, and does not declare the harness ready until it reads a microphone
 frame. It does not require a separate adjacent language-model download.

@@ -75,7 +75,8 @@ cd qwen-omni-adapters
 
 `deploy.sh` detects the Tegra SoC, unified-memory size, installed runtime,
 managed service, and current model. Arrow-key menus select install/upgrade,
-one of the two trained bridges, and the optional always-listening harness. It
+one of the two trained bridges, and the always-listening harness by default;
+only an explicit core-only selection or `--no-harness` omits its indicator. It
 pulls the logical Ollama tag, validates the sidecar, runs doctor/regression
 gates, installs the direct systemd service, and waits only for local component
 health. The desktop indicator service is started immediately after the core
@@ -86,8 +87,8 @@ loopback.
 The board still proves each worker's Tegra GPU handles while loading, but it
 does not generate text or speech before exposing the portal. Set
 `OMNI_STARTUP_SMOKE=1` for the blocking ASR → cloned-TTS → ASR and co-residency
-diagnostic when deliberately troubleshooting. If the desktop harness is
-selected, deployment requires its real AppIndicator backend, a reachable
+diagnostic when deliberately troubleshooting. The default desktop harness
+deployment requires its real AppIndicator backend, a reachable
 desktop audio server, and a captured microphone frame. Camera nodes are not
 opened during this startup:
 FFmpeg first touches them only after a structured camera-view request.

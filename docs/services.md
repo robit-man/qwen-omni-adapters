@@ -33,10 +33,11 @@ On Jetson, the preferred entry point is the guided service installer:
 It detects fresh versus installed state, offers install/upgrade and both
 trained bridge models through arrow-key menus, persists the selected logical
 tag, invokes the Linux installer in direct mode, and waits only for local
-component health. With the optional desktop harness it starts the user service
+component health. By default it starts the desktop harness user service
 immediately after the core unit, installs
 the GTK/AppIndicator and PulseAudio bindings, requires an actual status-notifier
-host, and waits until the harness has consumed a microphone frame. Before
+host, and waits until the harness has consumed a microphone frame; only
+`--no-harness` opts out. Before
 cutover it inventories the five runtime
 ports, stops only recognized Omni services/processes, unloads the selected and
 prior-configured Ollama runners, and proves the ports are free. On Tegra it

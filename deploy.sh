@@ -52,8 +52,8 @@ Profiles:
 Options:
   --profile NAME       Select a profile without opening the model menu
   --action ACTION      install, upgrade, deploy, or download
-  --with-harness       Also install the always-listening user service
-  --no-harness         Install only the core daemon/portal service
+  --with-harness       Install the always-listening user service (default)
+  --no-harness         Explicitly install only the core daemon/portal service
   --no-update          Do not fast-forward the checkout during an upgrade
   --yes                Accept the final confirmation (requires --profile)
   --dry-run            Print the resolved deployment plan without changing the host
@@ -260,9 +260,9 @@ choose_profile() {
 choose_harness() {
   local selected
   select_menu selected 'Select the service deployment (↑/↓, Enter):' 0 \
-    'Core daemon and portal service' \
-    'Core service plus always-listening desktop harness'
-  ((selected == 1)) && WITH_HARNESS=1 || WITH_HARNESS=0
+    'Core service plus always-listening desktop indicator (recommended)' \
+    'Core daemon and portal only (no desktop indicator)'
+  ((selected == 0)) && WITH_HARNESS=1 || WITH_HARNESS=0
 }
 
 confirm_plan() {
@@ -933,7 +933,10 @@ if [[ $ACTION != download && -z $WITH_HARNESS ]]; then
   if [[ -t 0 && -t 1 && $ASSUME_YES == 0 ]]; then
     choose_harness
   else
-    WITH_HARNESS=0
+    # The safe/default deployment is visibly listening. Core-only operation
+    # requires the explicit --no-harness opt-out; Enter-through and --yes
+    # must never silently omit the desktop indicator.
+    WITH_HARNESS=1
   fi
 fi
 confirm_plan
