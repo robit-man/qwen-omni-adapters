@@ -228,15 +228,15 @@ class GuiAutomation:
         """Return a compact perceptual frame for causal action verification."""
 
         resampling = getattr(Image, "Resampling", Image).BILINEAR
-        sample = image.convert("L").resize((32, 32), resampling)
+        sample = image.convert("RGB").resize((64, 64), resampling)
         pixels = (
             sample.get_flattened_data()
             if hasattr(sample, "get_flattened_data")
             else sample.getdata()
         )
-        quantized = bytes(value // 16 for value in pixels)
+        quantized = bytes(channel // 16 for pixel in pixels for channel in pixel)
         return {
-            "algorithm": "gray32-q16-v1",
+            "algorithm": "rgb64-q16-v1",
             "digest": hashlib.sha256(quantized).hexdigest(),
             "sample": base64.b64encode(quantized).decode("ascii"),
         }
@@ -279,11 +279,13 @@ class GuiAutomation:
                 fraction = changed / len(sample)
                 change = {
                     "comparable": True,
+                    "changed_sample_count": changed,
                     "changed_sample_fraction": round(fraction, 4),
-                    # A caret, cursor, or tiny animation must not turn a missed click
-                    # into apparent progress. Two percent of the coarse frame is a
-                    # conservative material-change floor, not a success assertion.
-                    "materially_changed": fraction >= 0.02,
+                    # The screenshot backend omits the pointer. Two quantized cells
+                    # preserve small checkbox/button transitions while filtering a
+                    # one-cell resampling wobble. This is causality evidence only,
+                    # never an assertion that the desired state was reached.
+                    "materially_changed": changed >= 2,
                 }
             self._visual_states[session_id] = {
                 "identity": identity,

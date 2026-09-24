@@ -250,6 +250,16 @@ coordinate frame, the active window's screen bounds, and whether the coarse fram
 materially changed since the preceding GUI result; that change signal is evidence
 of causality, not proof that the requested state succeeded.
 
+The focused deterministic gate is `tests/test_gui_action_loop.py`. It renders
+synthetic desktops with offset and resized browser windows, asserts that captured
+target pixels and translated clicks share one coordinate frame, exercises full-screen
+handoff, and distinguishes a hit from an unchanged miss. On a running desktop
+deployment, `python runtime/verify_gui_action_loop.py` adds an end-to-end multimodal
+gate: the background worker must navigate visible Chromium and solve three canvas-only
+image targets, including a modal and a shifted lower strip. The fixture keeps target
+coordinates out of the DOM, verifies accepted hits independently, audits the task for
+nonvisual bypass tools, and requires fresh GUI evidence before completion.
+
 Discovery indexes at most 48 result/fetched pages and 128,000 characters for
 the opaque browser session. `web_search(mode=session)` ranks that local index
 with a deterministic lexical term/bigram scorer and performs no network call.

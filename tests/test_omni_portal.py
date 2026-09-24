@@ -379,6 +379,7 @@ def test_gui_reports_when_an_action_does_not_materially_change_the_frame() -> No
     }
     assert unchanged["visual_change"] == {
         "comparable": True,
+        "changed_sample_count": 0,
         "changed_sample_fraction": 0.0,
         "materially_changed": False,
     }
