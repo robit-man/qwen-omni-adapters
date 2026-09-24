@@ -1038,6 +1038,11 @@ class WebToolSuite:
                 "transport": "direct_html",
                 "mode": "discover",
                 "query": normalized_query,
+                # Discovery metadata is not source evidence. Keep the concrete
+                # source-reading routes in the next bounded model round so it
+                # can inspect a selected result instead of issuing variations
+                # of the same search merely to rediscover web_fetch.
+                "alternative_tools": ["web_fetch", "browser_interact"],
                 "provenance": {
                     "tool": "web_search",
                     "source_type": "search_result_metadata",
@@ -1068,6 +1073,7 @@ class WebToolSuite:
             "provider": "session_local_index",
             "mode": "session",
             "query": normalized_query,
+            "alternative_tools": ["web_fetch", "browser_interact"],
             "provenance": {
                 "tool": "web_search",
                 "source_type": "session_index_metadata",

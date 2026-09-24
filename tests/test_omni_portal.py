@@ -948,6 +948,7 @@ def test_safe_tools_search_fetch_memory_and_block_private_networks() -> None:
     assert search["transport"] == "direct_html"
     assert search["provenance"]["authority"] == "discovery_only"
     assert search["provenance"]["citation_ready"] is False
+    assert search["alternative_tools"] == ["web_fetch", "browser_interact"]
     assert search["results"][0]["url"] == "https://example.com/guide"
     fetched = harness.execute(
         "one", "web_fetch", {"url": search["results"][0]["url"]}
@@ -1944,6 +1945,106 @@ def test_foreground_static_fetch_handoff_requires_rendered_browser_recovery(
     assert [
         item["name"] for item in response.json["portal"]["safe_tools_executed"]
     ] == ["tool_search", "web_search", "browser_interact"]
+
+
+def test_successful_search_exposes_source_reading_on_the_next_round(
+    monkeypatch,
+) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def execute(_self, _session_id, name, _arguments):
+        if name == "web_search":
+            return {
+                "results": [
+                    {
+                        "title": "Forecast",
+                        "url": "https://example.com/forecast",
+                    }
+                ],
+                "alternative_tools": ["web_fetch", "browser_interact"],
+                "provenance": {
+                    "authority": "discovery_only",
+                    "citation_ready": False,
+                },
+            }
+        if name == "web_fetch":
+            return {
+                "content": "A complete seven-day forecast.",
+                "provenance": {
+                    "source_url": "https://example.com/forecast",
+                    "citation_ready": True,
+                },
+            }
+        raise AssertionError(f"unexpected tool: {name}")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        names = {item["function"]["name"] for item in body.get("tools", [])}
+        if len(requests) == 1:
+            assert "web_search" in names
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "web_search",
+                                    "arguments": {"query": "seven day forecast"},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        if len(requests) == 2:
+            assert {"web_search", "web_fetch", "browser_interact"} <= names
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "web_fetch",
+                                    "arguments": {
+                                        "url": "https://example.com/forecast"
+                                    },
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Forecast ready."}},
+        )
+
+    monkeypatch.setattr(PortalToolHarness, "execute", execute)
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    request = _request(portal_auto_tools=True)
+    request["messages"][-1]["content"] = (
+        "Search the web for Portland weather this week."
+    )
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=request,
+    )
+
+    assert response.status_code == 200
+    assert response.json["message"]["content"] == "Forecast ready."
+    assert [
+        item["name"] for item in response.json["portal"]["safe_tools_executed"]
+    ] == ["web_search", "web_fetch"]
 
 
 def test_portal_enforces_server_voice_profile() -> None:
