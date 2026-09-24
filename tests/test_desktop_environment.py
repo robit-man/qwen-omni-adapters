@@ -247,3 +247,43 @@ def test_browser_profile_process_discovery_is_exact(tmp_path: Path) -> None:
 
     assert browser_module._profile_process_ids(owned_profile, proc) == [101, 104]
     assert browser_module._profile_process_ids(Path("/tmp/unowned"), proc) == []
+
+
+def test_browser_keeps_the_controlled_tab_when_chromium_adds_a_blank_tab(
+    monkeypatch,
+) -> None:
+    store = browser_module.BrowserAutomationStore()
+    targets = [
+        {
+            "id": "reddit",
+            "type": "page",
+            "title": "Reddit - Prove your humanity",
+            "url": "https://www.reddit.com/r/robots/",
+            "webSocketDebuggerUrl": "ws://127.0.0.1/devtools/page/reddit",
+        },
+        {
+            "id": "blank",
+            "type": "page",
+            "title": "",
+            "url": "about:blank",
+            "webSocketDebuggerUrl": "ws://127.0.0.1/devtools/page/blank",
+        },
+    ]
+    monkeypatch.setattr(store, "_json", lambda _port, _path: targets)
+
+    assert store._page_socket(9222, "reddit").endswith("/reddit")
+    assert store._page_socket(9222).endswith("/reddit")
+
+
+def test_browser_challenge_hands_the_visible_window_to_gui() -> None:
+    metadata = browser_module._challenge_metadata(
+        "Reddit - Prove your humanity",
+        "https://www.reddit.com/r/robots/",
+        "",
+    )
+
+    assert metadata["challenge"] is True
+    assert metadata["challenge_kind"] == "recaptcha"
+    assert metadata["disposition"] == "change_capability"
+    assert metadata["task_blocked"] is False
+    assert metadata["alternative_tools"] == ["gui_interact"]

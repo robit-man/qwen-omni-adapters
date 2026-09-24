@@ -87,6 +87,34 @@ def _profile_process_ids(profile: Path, proc_root: Path = Path("/proc")) -> list
     return sorted(matches)
 
 
+def _page_target_id(socket_url: str) -> str:
+    return urlsplit(socket_url).path.rstrip("/").rsplit("/", 1)[-1]
+
+
+def _challenge_metadata(title: str, url: str, visible_text: str) -> dict[str, Any]:
+    combined = f"{title}\n{url}\n{visible_text}".lower()
+    markers = {
+        "recaptcha": ("recaptcha", "prove your humanity", "i'm not a robot"),
+        "cloudflare": ("cf-chl-", "checking your browser", "verify you are human"),
+    }
+    for kind, candidates in markers.items():
+        if any(candidate in combined for candidate in candidates):
+            return {
+                "challenge": True,
+                "challenge_kind": kind,
+                "failure_scope": "interactive_challenge",
+                "task_blocked": False,
+                "disposition": "change_capability",
+                "alternative_tools": ["gui_interact"],
+                "next_action": (
+                    "Use gui_interact on this same visible Chromium window and "
+                    "inspect a fresh screenshot before each click. Do not treat "
+                    "the challenge page as source evidence."
+                ),
+            }
+    return {}
+
+
 def _read_exact(connection: socket.socket, length: int) -> bytes:
     output = bytearray()
     while len(output) < length:
@@ -235,6 +263,7 @@ class _BrowserSession:
     port: int
     page_socket: str
     visible_on_desktop: bool
+    target_id: str = ""
     last_seen: float = field(default_factory=time.monotonic)
     elements: dict[str, dict[str, Any]] = field(default_factory=dict)
 
@@ -380,17 +409,28 @@ class BrowserAutomationStore:
         with urlopen(request, timeout=self.timeout_s) as response:  # noqa: S310
             return json.loads(response.read(2 * 1024 * 1024))
 
-    def _page_socket(self, port: int) -> str:
+    def _page_socket(self, port: int, target_id: str = "") -> str:
         targets = self._json(port, "/json/list")
         if not isinstance(targets, list):
             raise BrowserAutomationError("Chromium returned no browser targets")
-        for target in targets:
-            if (
-                isinstance(target, dict)
-                and target.get("type") == "page"
-                and str(target.get("webSocketDebuggerUrl") or "")
-            ):
+        pages = [
+            target
+            for target in targets
+            if isinstance(target, dict)
+            and target.get("type") == "page"
+            and str(target.get("webSocketDebuggerUrl") or "")
+        ]
+        if target_id:
+            for target in pages:
+                if str(target.get("id") or "") == target_id:
+                    return str(target["webSocketDebuggerUrl"])
+        # If the tracked tab was closed manually, recover to an actual page
+        # before Chromium's incidental extra about:blank tab.
+        for target in pages:
+            if str(target.get("url") or "") not in {"", "about:blank"}:
                 return str(target["webSocketDebuggerUrl"])
+        if pages:
+            return str(pages[0]["webSocketDebuggerUrl"])
         raise BrowserAutomationError("Chromium has no visible page target")
 
     def _launch(self) -> _BrowserSession:
@@ -449,6 +489,7 @@ class BrowserAutomationStore:
                     port,
                     socket_url,
                     visible_on_desktop,
+                    target_id=_page_target_id(socket_url),
                 )
             except (BrowserAutomationError, OSError, URLError, ValueError) as exc:
                 last_error = exc
@@ -516,14 +557,17 @@ class BrowserAutomationStore:
         ).get("data")
         if not isinstance(shot, str) or not shot:
             raise BrowserAutomationError("Chromium produced no screenshot")
-        return {
+        title = str(raw.get("title") or "")[:500]
+        url = str(raw.get("url") or "")[:4096]
+        visible_text = str(raw.get("visible_text") or "")[:12000]
+        result = {
             "rendered": True,
             "browser_visible_on_desktop": session.visible_on_desktop,
-            "title": str(raw.get("title") or "")[:500],
-            "url": str(raw.get("url") or "")[:4096],
+            "title": title,
+            "url": url,
             "ready_state": str(raw.get("ready_state") or ""),
             "viewport": raw.get("viewport") if isinstance(raw.get("viewport"), dict) else {},
-            "visible_text": str(raw.get("visible_text") or "")[:12000],
+            "visible_text": visible_text,
             "elements": list(session.elements.values()),
             "screenshot": {
                 "mime_type": "image/png",
@@ -531,6 +575,8 @@ class BrowserAutomationStore:
                 "data": shot,
             },
         }
+        result.update(_challenge_metadata(title, url, visible_text))
+        return result
 
     def _element(self, session: _BrowserSession, element_id: Any) -> dict[str, Any]:
         normalized = str(element_id or "").strip()
@@ -642,7 +688,10 @@ class BrowserAutomationStore:
                 )
             # Refresh the page target in case the user opened or closed a tab manually.
             try:
-                session.page_socket = self._page_socket(session.port)
+                session.page_socket = self._page_socket(
+                    session.port, session.target_id
+                )
+                session.target_id = _page_target_id(session.page_socket)
                 cdp = _Cdp(session.page_socket, self.timeout_s)
                 cdp.call("Page.enable")
                 cdp.call("Runtime.enable")
