@@ -54,6 +54,7 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
     assert "Completion criteria: Its window is visible." in prompt
     assert "- Verify the active window." in prompt
     assert "Ignore unrelated topics" in prompt
+    assert "every qualifier in the completion criteria as a constraint" in prompt
     assert prompt.endswith(AGENT_SYSTEM_PROMPT)
 
 
