@@ -182,9 +182,16 @@ The launcher continues sampling after readiness because CUDA and KV pages can
 be committed lazily by the first large image or text request. A short dip is
 ignored, but availability below the model-derived adjacent-tier reserve for a
 continuous grace interval causes a controlled one-tier restart. The failed
-tier remains capped until a later start has enough additional live capacity to
-fund its measured KV increment; this avoids repeatedly selecting a window that
-only fit before its pages were touched.
+tier remains capped until enough additional live capacity can fund its measured
+KV increment; this avoids repeatedly selecting a window that only fit before
+its pages were touched.
+The reverse path is live as well. If the next tier's incremental KV plus its
+complete reserve remains available, every llama.cpp slot stays idle for the
+expansion grace interval, and the last pressure event is outside the cooldown,
+the launcher requests one controlled tier-up restart. Expansion and downshift
+therefore use different thresholds and time horizons instead of oscillating at
+one boundary. llama.cpp allocates context per process, so either resize is a
+worker restart rather than an unsafe in-place mutation.
 
 The soft floor admits work that can establish new residency; the hard floor
 is the emergency boundary for tightly bounded work and continuation of an

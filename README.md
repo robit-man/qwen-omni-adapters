@@ -460,6 +460,11 @@ after a continuous low-headroom interval, catching KV/CUDA pages committed by
 real inference without reacting to a momentary spike. The
 adapter reads the chosen window per request and sheds old history/tool evidence
 before llama.cpp can reject an oversized prompt.
+Sustained surplus performs the inverse one tier at a time, but only when every
+inference slot is idle and the pressure cooldown has elapsed. The resize is a
+controlled worker restart because llama.cpp fixes KV capacity at process
+creation; asymmetric grace periods keep the worker from bouncing between
+adjacent tiers.
 
 The trained-bridge runtime keeps TTS and comprehension simultaneously resident,
 but guided deployment does not block the desktop on generation probes. It marks
@@ -665,6 +670,9 @@ These environment variables are worth knowing:
 | `OMNI_MEMORY_SOFT_FLOOR_GIB` | Free-memory floor retained before work establishes new model/tool residency (default `3`) |
 | `OMNI_MEMORY_HARD_FLOOR_GIB` | Emergency floor that cancels cancellable work before kernel OOM (default `2`) |
 | `OMNI_MEMORY_OPERATION_RESERVE_GIB` | Additional per-operation reserve above the soft floor (default `1`) |
+| `OMNI_COMPREHENSION_PRESSURE_GRACE_SECONDS` | Continuous low-headroom interval before a context downshift (default `8`) |
+| `OMNI_COMPREHENSION_EXPANSION_GRACE_SECONDS` | Continuous idle-surplus interval before a one-tier expansion (default `60`) |
+| `OMNI_COMPREHENSION_EXPANSION_COOLDOWN_SECONDS` | Minimum delay after a failed/pressured tier before retrying it (default `900`) |
 | `OMNI_CONTEXT_FILE` | Optional complete `robit.omni.context.v1` catalog override; defaults to the packaged context catalog |
 | `OMNI_CALL_LOG_CONTENT` | Opt in to exact structured heard/generated/TTS traces; disabled by default |
 | `OMNI_UPDATE_INTERVAL_SECONDS` | Indicator Git update polling interval; minimum 60 seconds, default 900 |

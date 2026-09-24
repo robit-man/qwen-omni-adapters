@@ -24,6 +24,7 @@ import urllib.request
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 
@@ -560,6 +561,69 @@ def _pressure_started_at(
     return now if started_at is None else started_at
 
 
+def _next_context_tier(selected: int, minimum: int, maximum: int) -> int | None:
+    """Return the next configured tier above the live allocation."""
+
+    return next(
+        (
+            window
+            for window in candidate_windows(minimum, maximum)
+            if window > selected
+        ),
+        None,
+    )
+
+
+def _expansion_required_gib(
+    selected: int,
+    target: int,
+    *,
+    minimum: int,
+    maximum: int,
+    kv_gib_per_token: float,
+    parallel_slots: int,
+    runtime_reserve_gib: float,
+) -> float:
+    """Charge incremental KV plus the target tier's complete live reserve."""
+
+    growth = max(0, target - selected) * kv_gib_per_token * max(1, parallel_slots)
+    target_headroom = context_headroom_gib(
+        target,
+        windows=candidate_windows(minimum, maximum),
+        kv_gib_per_token=kv_gib_per_token,
+        parallel_slots=parallel_slots,
+    )
+    return growth + max(runtime_reserve_gib, target_headroom)
+
+
+def _expansion_backed_off(
+    calibration: Mapping[str, Any], *, now: float, cooldown_s: float
+) -> bool:
+    """Prevent an idle/pressure resize oscillation after a failed larger tier."""
+
+    failure = calibration.get("last_failure")
+    if not isinstance(failure, Mapping):
+        return False
+    failed_at = failure.get("failed_at")
+    return isinstance(failed_at, (int, float)) and now < float(failed_at) + cooldown_s
+
+
+def _server_idle(health_url: str) -> bool:
+    """Fail closed unless every llama.cpp slot reports that it is idle."""
+
+    parsed = urlsplit(health_url)
+    slots_url = urlunsplit((parsed.scheme, parsed.netloc, "/slots", "", ""))
+    try:
+        with urllib.request.urlopen(slots_url, timeout=1.0) as response:
+            payload = json.loads(response.read())
+    except (OSError, ValueError, TypeError, urllib.error.URLError):
+        return False
+    return bool(payload) and isinstance(payload, list) and all(
+        isinstance(slot, Mapping) and slot.get("is_processing") is False
+        for slot in payload
+    )
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -742,10 +806,20 @@ def main(argv: list[str] | None = None) -> int:
     sampled = False
     pressure_downshift = False
     pressure_started_at: float | None = None
+    expansion_restart = False
+    expansion_started_at: float | None = None
     runtime_required_headroom = 0.0
     pressure_grace_s = max(
         1.0,
         float(os.environ.get("OMNI_COMPREHENSION_PRESSURE_GRACE_SECONDS", "8")),
+    )
+    expansion_grace_s = max(
+        10.0,
+        float(os.environ.get("OMNI_COMPREHENSION_EXPANSION_GRACE_SECONDS", "60")),
+    )
+    expansion_cooldown_s = max(
+        expansion_grace_s,
+        float(os.environ.get("OMNI_COMPREHENSION_EXPANSION_COOLDOWN_SECONDS", "900")),
     )
     stopping = False
 
@@ -840,12 +914,70 @@ def main(argv: list[str] | None = None) -> int:
                     )
                     pressure_downshift = True
                     process.terminate()
+                elif pressure_started_at is None:
+                    target = _next_context_tier(
+                        selected, args.min_context, args.max_context
+                    )
+                    expansion_required = (
+                        _expansion_required_gib(
+                            selected,
+                            target,
+                            minimum=args.min_context,
+                            maximum=args.max_context,
+                            kv_gib_per_token=kv,
+                            parallel_slots=args.parallel_slots,
+                            runtime_reserve_gib=admitted_reserve,
+                        )
+                        if target is not None
+                        else float("inf")
+                    )
+                    expansion_eligible = (
+                        target is not None
+                        and current_available >= expansion_required
+                        and not _expansion_backed_off(
+                            calibration,
+                            now=time.time(),
+                            cooldown_s=expansion_cooldown_s,
+                        )
+                        and _server_idle(args.health_url)
+                    )
+                    if expansion_eligible:
+                        if expansion_started_at is None:
+                            expansion_started_at = now
+                        elif now - expansion_started_at >= expansion_grace_s:
+                            print(
+                                "controlled comprehension expansion after sustained "
+                                f"idle surplus: {current_available:.2f} GiB available "
+                                f"funds {selected}->{target} tokens with "
+                                f"{expansion_required:.2f} GiB required",
+                                flush=True,
+                            )
+                            calibration.pop("context_cap", None)
+                            calibration.pop("last_failure", None)
+                            calibration["last_expansion"] = {
+                                "from_context_tokens": selected,
+                                "to_context_tokens": target,
+                                "available_gib": current_available,
+                                "expanded_at": time.time(),
+                            }
+                            _atomic_json(args.calibration_file, calibration)
+                            expansion_restart = True
+                            process.terminate()
+                    else:
+                        expansion_started_at = None
+                else:
+                    expansion_started_at = None
             time.sleep(0.5)
     finally:
         if args.child_pid_file is not None:
             args.child_pid_file.unlink(missing_ok=True)
     returncode = int(process.returncode or 0)
-    if returncode != 0 and not pressure_downshift and not stopping:
+    if (
+        returncode != 0
+        and not pressure_downshift
+        and not expansion_restart
+        and not stopping
+    ):
         _record_failed_context(
             args.calibration_file,
             calibration,
@@ -856,7 +988,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     if stopping:
         return 0
-    return 75 if pressure_downshift else returncode
+    return 75 if pressure_downshift or expansion_restart else returncode
 
 
 if __name__ == "__main__":

@@ -198,7 +198,11 @@ reserve caps the next attempt below that failed tier. Sampling continues after
 readiness so lazily committed KV/CUDA pages are included: sustained pressure,
 not a brief inference transient, triggers a controlled one-tier downshift. A
 future start can expand again only when live capacity has grown by at least the
-KV cost of the failed tier.
+KV cost of the failed tier. While running, sustained surplus can also request a
+one-tier expansion, but only while every inference slot is idle and after the
+pressure cooldown. Since llama.cpp fixes KV capacity at process creation, both
+directions use a supervised worker restart; request/task context is compacted
+against the currently published active tier before inference.
 
 `qwen-omni doctor` reports the accelerator, and omits the broker tooling
 (`docker`, `jq`, `ss`) that does not apply:

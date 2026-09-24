@@ -15,7 +15,10 @@ from adapter_server import _active_context_tokens  # noqa: E402
 from comprehension_launcher import (  # noqa: E402
     _component_window_fits,
     _effective_context_maximum,
+    _expansion_backed_off,
+    _expansion_required_gib,
     _live_calibrated_base,
+    _next_context_tier,
     _pressure_started_at,
     _probe_backed_off,
     _record_failed_context,
@@ -118,6 +121,30 @@ def test_runtime_pressure_requires_one_continuous_low_memory_interval() -> None:
     assert _pressure_started_at(2.0, 4.0, started, now=14.0) == 10.0
     assert _pressure_started_at(4.1, 4.0, started, now=15.0) is None
     assert _pressure_started_at(3.9, 4.0, None, now=16.0) == 16.0
+
+
+def test_live_context_expansion_charges_growth_and_target_headroom() -> None:
+    kv = 0.375 / 4096
+
+    assert _next_context_tier(16_384, 4096, 65_536) == 32_768
+    assert _next_context_tier(65_536, 4096, 65_536) is None
+    assert _expansion_required_gib(
+        16_384,
+        32_768,
+        minimum=4096,
+        maximum=65_536,
+        kv_gib_per_token=kv,
+        parallel_slots=1,
+        runtime_reserve_gib=3.0,
+    ) == 4.5
+
+
+def test_live_context_expansion_observes_failure_cooldown() -> None:
+    calibration = {"last_failure": {"failed_at": 100.0}}
+
+    assert _expansion_backed_off(calibration, now=999.0, cooldown_s=900.0)
+    assert not _expansion_backed_off(calibration, now=1000.0, cooldown_s=900.0)
+    assert not _expansion_backed_off({}, now=100.0, cooldown_s=900.0)
 
 
 def test_configured_non_power_of_two_ceiling_is_considered() -> None:
