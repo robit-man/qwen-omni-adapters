@@ -64,6 +64,8 @@ def test_live_context_forbids_support_boilerplate_and_unsolicited_transport_meta
     assert "Never announce your role, availability, or readiness" in live
     assert "I'm here to help" in live
     assert "How can I assist?" in live
+    assert "unless the speaker explicitly asks you to discuss" in live
+    assert "give one rather than a menu" in live
     assert "Do not mention message delivery, the microphone" in live
     assert "unless the speaker explicitly asks about it" in live
     assert "not as a support agent" in portal
