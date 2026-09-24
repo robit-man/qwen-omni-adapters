@@ -980,6 +980,17 @@ def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal chat_round, repair_seen
         if request.url.path == "/api/tools/shell/call":
+            arguments = json.loads(request.content).get("arguments", {})
+            if not arguments.get("command"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "result": {
+                            "error": "ToolInputError",
+                            "message": "command is required",
+                        }
+                    },
+                )
             return httpx.Response(200, json={"result": {"exit_code": 0}})
         chat_round += 1
         body = json.loads(request.content)
@@ -995,7 +1006,10 @@ def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
                                 "id": "inspect",
                                 "function": {
                                     "name": "shell",
-                                    "arguments": {"command": "node --version"},
+                                    "arguments": (
+                                        '{"command":"cat > package.json <<\'EOF\'\\n'
+                                        '{\\n  "name": "unfinished'
+                                    ),
                                 },
                             }
                         ],
@@ -1003,27 +1017,19 @@ def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
                 },
             )
         if chat_round == 2:
-            return httpx.Response(
-                200,
-                content=(
-                    json.dumps(
-                        {
-                            "type": "error",
-                            "error": (
-                                "language returned HTTP 500: Failed to parse tool "
-                                "call arguments as JSON: missing closing quote"
-                            ),
-                        }
-                    )
-                    + "\n"
-                ),
-                headers={"content-type": "application/x-ndjson"},
-            )
-        if chat_round == 3:
-            repair_seen = any(
-                "split large inline file contents" in str(message.get("content") or "")
+            repair_messages = [
+                message
                 for message in body["messages"]
+                if "structured_call_recovery"
+                in str(message.get("content") or "")
+            ]
+            repair_seen = len(repair_messages) == 1
+            malformed = next(
+                message
+                for message in body["messages"]
+                if message.get("role") == "assistant" and message.get("tool_calls")
             )
+            assert malformed["tool_calls"][0]["function"]["arguments"] == {}
             return httpx.Response(
                 200,
                 json={
@@ -1072,12 +1078,13 @@ def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
     assert current is not None
     assert current["status"] == "completed"
     assert repair_seen is True
-    assert chat_round == 4
+    assert chat_round == 3
     assert [item["tool"] for item in current["actions"]] == [
         "shell",
         "shell",
         "task_checkpoint",
     ]
+    assert [item["ok"] for item in current["actions"]] == [False, True, True]
 
 
 def test_browser_screenshot_is_seen_once_but_not_persisted_as_base64(

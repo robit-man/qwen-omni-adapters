@@ -133,6 +133,50 @@ def _arguments(call: Mapping[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def _repair_malformed_tool_history(messages: list[dict[str, Any]]) -> int:
+    """Make retained rejected calls parseable without turning them into evidence."""
+
+    repaired = 0
+    for message in messages:
+        calls = message.get("tool_calls")
+        if message.get("role") != "assistant" or not isinstance(calls, list):
+            continue
+        for call in calls:
+            if not isinstance(call, dict):
+                continue
+            function = call.get("function")
+            if not isinstance(function, dict):
+                continue
+            raw = function.get("arguments")
+            if not isinstance(raw, str):
+                continue
+            try:
+                parsed = json.loads(raw)
+            except ValueError:
+                function["arguments"] = {}
+                repaired += 1
+                continue
+            if not isinstance(parsed, Mapping):
+                function["arguments"] = {}
+                repaired += 1
+    return repaired
+
+
+def _append_malformed_tool_recovery(messages: list[dict[str, Any]]) -> None:
+    """Keep one current repair instruction instead of an unbounded retry pile."""
+
+    directive = context_text("directives", "background_malformed_tool_call")
+    messages[:] = [
+        message
+        for message in messages
+        if not (
+            message.get("role") == "user"
+            and str(message.get("content") or "") == directive
+        )
+    ]
+    messages.append({"role": "user", "content": directive})
+
+
 def _call_fingerprint(name: str, arguments: Mapping[str, Any]) -> str:
     def normalized(value: Any) -> Any:
         if isinstance(value, str):
@@ -1134,6 +1178,15 @@ class BackgroundAgent:
                 self.owner,
                 context_text("task_stages", "planning"),
             )
+            repaired_history = _repair_malformed_tool_history(messages)
+            if repaired_history:
+                _append_malformed_tool_recovery(messages)
+                logger.warning(
+                    "background task %s repaired %d malformed retained tool call(s) "
+                    "before replanning",
+                    task_id,
+                    repaired_history,
+                )
             can_checkpoint = _checkpoint_available(messages) and not recovery_required
             schemas = (
                 [copy.deepcopy(TASK_RECOVERY_TOOL)]
@@ -1189,14 +1242,8 @@ class BackgroundAgent:
                 # slice; the rejected generation never becomes task evidence.
                 slice_rounds += 1
                 stalls += 1
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": context_text(
-                            "directives", "background_malformed_tool_call"
-                        ),
-                    }
-                )
+                _repair_malformed_tool_history(messages)
+                _append_malformed_tool_recovery(messages)
                 checkpoint = self.store.checkpoint(
                     task_id,
                     self.owner,
