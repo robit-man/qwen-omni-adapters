@@ -28,6 +28,7 @@ from harness.background_agent import (
     _compaction_available,
     _compaction_receipt,
     _computer_action_messages,
+    _ForegroundPreempted,
     _freshest_evidence_id,
     _inference_diagnostics,
     _latest_tool_fingerprint,
@@ -184,6 +185,60 @@ def test_computer_action_scope_is_disabled_while_capability_recovery_is_required
         )
         is messages
     )
+
+
+def test_foreground_preemption_releases_a_blocked_stream_reader_promptly(
+    tmp_path: Path,
+) -> None:
+    started = threading.Event()
+    closed = threading.Event()
+
+    class BlockingStream(httpx.SyncByteStream):
+        def __iter__(self):  # type: ignore[no-untyped-def]
+            started.set()
+            yield b'{"type":"thinking","content":"working"}\n'
+            closed.wait(5)
+
+        def close(self) -> None:
+            closed.set()
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/x-ndjson"},
+            stream=BlockingStream(),
+        )
+
+    foreground = threading.Event()
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=BackgroundTaskStore(tmp_path / "tasks.json"),
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=foreground,
+        stop=threading.Event(),
+        client=client,
+    )
+    errors: list[Exception] = []
+
+    def chat() -> None:
+        try:
+            agent._chat({"model": "model", "messages": [], "stream": False})
+        except Exception as error:  # noqa: BLE001 - asserted below
+            errors.append(error)
+
+    thread = threading.Thread(target=chat)
+    thread.start()
+    assert started.wait(1)
+    foreground.set()
+    thread.join(timeout=1)
+    client.close()
+
+    assert not thread.is_alive()
+    assert closed.is_set()
+    assert len(errors) == 1
+    assert isinstance(errors[0], _ForegroundPreempted)
 
 
 def _checkpoint_response(

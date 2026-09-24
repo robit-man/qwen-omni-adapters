@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import os
+import queue
 import re
 import secrets
 import threading
@@ -1112,45 +1113,64 @@ class BackgroundAgent:
                     watcher, tripped = self.memory_governor.watch(
                         "background-inference", cancel, done
                     )
-                foreground_preempted = threading.Event()
+                stream_items: queue.Queue[tuple[str, Any]] = queue.Queue()
+                content_type = response.headers.get("content-type", "")
 
-                def watch_foreground(
-                    done_event: threading.Event = done,
-                    preempted: threading.Event = foreground_preempted,
+                def read_stream(
                     stream: httpx.Response = response,
+                    response_content_type: str = content_type,
+                    items: queue.Queue[tuple[str, Any]] = stream_items,
                 ) -> None:
-                    while not done_event.wait(0.05):
-                        if not self.foreground_active.is_set():
-                            continue
-                        preempted.set()
-                        stream.close()
-                        return
+                    try:
+                        if "application/json" in response_content_type:
+                            stream.read()
+                            items.put(("json", stream.json()))
+                        else:
+                            for line in stream.iter_lines():
+                                items.put(("line", line))
+                    except Exception as error:  # noqa: BLE001 - forwarded below
+                        items.put(("error", error))
+                    finally:
+                        items.put(("done", None))
 
-                foreground_watcher = threading.Thread(
-                    target=watch_foreground,
-                    name="omni-background-foreground-watch",
+                stream_reader = threading.Thread(
+                    target=read_stream,
+                    name="omni-background-stream-reader",
                     daemon=True,
                 )
-                foreground_watcher.start()
+                stream_reader.start()
                 try:
-                    content_type = response.headers.get("content-type", "")
-                    if "application/json" in content_type:
-                        response.read()
-                        if self.foreground_active.is_set():
-                            raise _ForegroundPreempted(
-                                "background inference yielded to foreground speech"
-                            )
-                        value = response.json()
-                        if not isinstance(value, dict):
-                            raise RuntimeError("background inference returned invalid JSON")
-                        return value
                     final: dict[str, Any] | None = None
-                    for line in response.iter_lines():
+                    while True:
                         if self.foreground_active.is_set():
                             response.close()
                             raise _ForegroundPreempted(
                                 "background inference yielded to foreground speech"
                             )
+                        if tripped.is_set() and self.memory_governor is not None:
+                            response.close()
+                            raise MemoryPressure(
+                                "background inference",
+                                self.memory_governor.available_gib(),
+                                self.memory_governor.policy.hard_floor_gib,
+                            )
+                        try:
+                            kind, value = stream_items.get(timeout=0.05)
+                        except queue.Empty:
+                            continue
+                        if kind == "done":
+                            break
+                        if kind == "error":
+                            if isinstance(value, Exception):
+                                raise value
+                            raise RuntimeError("background inference stream failed")
+                        if kind == "json":
+                            if not isinstance(value, dict):
+                                raise RuntimeError(
+                                    "background inference returned invalid JSON"
+                                )
+                            return value
+                        line = str(value)
                         if not line.strip():
                             continue
                         try:
@@ -1167,17 +1187,11 @@ class BackgroundAgent:
                             event.get("response"), Mapping
                         ):
                             final = dict(event["response"])
-                    if tripped.is_set() and self.memory_governor is not None:
-                        raise MemoryPressure(
-                            "background inference",
-                            self.memory_governor.available_gib(),
-                            self.memory_governor.policy.hard_floor_gib,
-                        )
                     if final is None:
                         raise RuntimeError("background inference stream ended without a final")
                     return final
                 except httpx.HTTPError as error:
-                    if foreground_preempted.is_set():
+                    if self.foreground_active.is_set():
                         raise _ForegroundPreempted(
                             "background inference yielded to foreground speech"
                         ) from error
@@ -1190,7 +1204,8 @@ class BackgroundAgent:
                     raise
                 finally:
                     done.set()
-                    foreground_watcher.join(timeout=1.0)
+                    response.close()
+                    stream_reader.join(timeout=1.0)
                     if watcher is not None:
                         watcher.join(timeout=1.0)
         raise RuntimeError("background inference authorization failed")
