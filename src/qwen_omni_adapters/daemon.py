@@ -203,7 +203,14 @@ class DaemonConfig:
             startup_smoke=os.environ.get("OMNI_STARTUP_SMOKE", "1").strip().lower()
             not in {"0", "false", "no"},
             language_api=os.environ.get("OMNI_LANGUAGE_API", "ollama").strip().lower(),
-            decision_plane_enabled=os.environ.get("OMNI_DECISION_PLANE_ENABLED", "1")
+            # The optional shadow router retains roughly 1.5--2 GiB on its
+            # own. On a unified-memory Tegra that cushion is needed by the
+            # co-resident comprehension/TTS graphs and bounded GUI/shell
+            # tools. Keep Laya opt-in there; larger Jetsons can explicitly set
+            # OMNI_DECISION_PLANE_ENABLED=1 after measuring their workload.
+            decision_plane_enabled=os.environ.get(
+                "OMNI_DECISION_PLANE_ENABLED", "0" if tegra else "1"
+            )
             .strip()
             .lower()
             not in {"0", "false", "no"},

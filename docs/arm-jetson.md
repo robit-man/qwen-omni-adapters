@@ -116,6 +116,13 @@ are restored; unmanaged processes are identified but cannot be reconstructed.
 trunk but leaves less room for KV cache, graph workspaces, the desktop, and
 concurrent tools; see [the trained-bridge budget](#trained-audio-bridge-profile).
 
+The optional Laya shadow decision worker is disabled by default on Tegra. Its
+roughly 1.5--2 GiB resident host allocation otherwise consumes the safety band
+needed to keep comprehension and cloned TTS resident while browser and shell
+tasks run. A larger measured Jetson deployment may opt in with
+`OMNI_DECISION_PLANE_ENABLED=1`; the language/tool path remains authoritative
+when the shadow worker is absent.
+
 As a service:
 
 ```bash

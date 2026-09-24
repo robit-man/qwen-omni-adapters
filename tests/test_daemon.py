@@ -53,6 +53,32 @@ def test_startup_smoke_can_be_disabled_for_memory_brokered_hosts(
     assert config.startup_smoke is False
 
 
+def test_tegra_defaults_optional_decision_plane_off_for_shared_memory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OMNI_REPO_ROOT", str(tmp_path))
+    monkeypatch.delenv("OMNI_DECISION_PLANE_ENABLED", raising=False)
+    monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
+    monkeypatch.setattr(daemon, "is_tegra", lambda: True)
+
+    config = daemon.DaemonConfig.from_environment(cloudflare=False)
+
+    assert config.decision_plane_enabled is False
+
+
+def test_tegra_can_explicitly_enable_optional_decision_plane(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OMNI_REPO_ROOT", str(tmp_path))
+    monkeypatch.setenv("OMNI_DECISION_PLANE_ENABLED", "1")
+    monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
+    monkeypatch.setattr(daemon, "is_tegra", lambda: True)
+
+    config = daemon.DaemonConfig.from_environment(cloudflare=False)
+
+    assert config.decision_plane_enabled is True
+
+
 def test_tts_stream_window_has_measured_default_and_environment_override(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

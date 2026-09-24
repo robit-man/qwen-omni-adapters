@@ -26,11 +26,13 @@ client POST /api/chat
                                     tagged 24 kHz PCM16 WAV
 ```
 
-An isolated resident Laya worker provides typed System-1 decision waves around
-the deliberative/tool path. It is a shadow optimizer by default and therefore
-does not alter the public adapter contract or add foreground latency. Bootstrap
-installs it into `.laya-venv`; use `--skip-laya` only for a deliberately
-deliberative-only deployment. See [the decision-plane guide](decision-plane.md).
+An isolated resident Laya worker can provide typed System-1 decision waves
+around the deliberative/tool path. It is a shadow optimizer and therefore does
+not alter the public adapter contract. Bootstrap installs it into
+`.laya-venv`. It starts by default on discrete-memory hosts, but remains opt-in
+on Tegra (`OMNI_DECISION_PLANE_ENABLED=1`) so a 32 GiB unified-memory device
+keeps enough measured headroom for its co-resident comprehension/TTS graphs and
+bounded GUI or shell tools. See [the decision-plane guide](decision-plane.md).
 
 ```bash
 ./scripts/bootstrap_laya.sh
