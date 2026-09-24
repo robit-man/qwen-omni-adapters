@@ -18,7 +18,7 @@ not accepted.
 | Persistent execution policy | `prompts.background_agent_system`, background directives | `harness/background_agent.py` |
 | Isolated helper policy | `prompts.subagent_system` | portal sub-agent runner |
 | Public tool contracts and discovery vocabulary | `tools[].schema`, `tools[].discovery_hints` | portal discovery, foreground chaining, and background execution |
-| Structured checkpoint contracts | `control_tools` | background `task_checkpoint` |
+| Structured checkpoint and compaction contracts | `control_tools` | background `task_checkpoint`, `task_compact` |
 | Human-visible durable-task phases | `task_stages` | task store, worker, and top-bar indicator |
 
 Dynamic evidence stays in code because it is request state rather than policy:
@@ -57,6 +57,15 @@ return no speakable answer. Qwen3.8 retains the omission path required by its
 template. A real `think:true` request overrides either profile and keeps the
 reasoning channel separate.
 
+Language prompts receive a bounded `<self_state>` generated at runtime. An
+explicit `OMNI_AGENT_NAME` overrides the default; otherwise the name comes from
+the actual OS service account, never a hard-coded device name. Live speech
+history remains in native user/assistant roles without adding model-copyable
+“Earlier in this conversation” prose. Live and background language turns also
+set llama.cpp `cache_prompt:false`: the bounded messages in the request are the
+authoritative state, so a prior generated reply cannot survive as stale slot KV
+and discarded context can be reclaimed on unified-memory devices.
+
 Tool discovery is also context-bounded. Once `tool_search` selects concrete
 capabilities, its follow-up exposes those contracts instead of retaining the
 unrelated initial bridge schemas. The adapter estimates the fully rendered
@@ -92,11 +101,23 @@ turning acoustic evidence into visual evidence.
 
 The durable store distinguishes human-visible scheduling phase from model
 evidence. Memory pressure can leave a task pending, but is never injected into
-the model transcript and can never justify a blocked checkpoint. Admission is
-checked before a task is claimed, preventing repeated running/pending churn in
-the indicator. Administrative `background_task` list, status, update, cancel,
-and start operations remain available at the memory floor; inference, shell,
-browser work, and every substantive tool remain governed.
+the model transcript and can never justify a blocked checkpoint. Claiming and
+deterministic transcript compaction are bounded control work admitted in the
+soft-to-hard safety band; new residency still waits for the soft floor and the
+emergency watcher cancels continuing work at the hard floor. Administrative
+`background_task` list, status, update, cancel, and start operations remain
+available at the memory floor. Shell declares a bounded peak reserve and owns a
+runtime pressure watcher, while browser work and other substantive tools retain
+their declared admission policies.
+
+Background transcripts compact proactively before they exceed 28 messages or
+96 KiB, and are compacted before admission whenever host memory is inside the
+safety band. The deterministic retained checkpoint keeps the original
+objective and completion criteria, the newest spoken directions, durable
+progress, recent success and failure receipts, and the freshest concrete tool
+evidence. Older private reasoning and bulk tool output are discarded. The
+worker can also invoke `task_compact` when the transcript is noisy; its receipt
+reports before/after message and byte counts plus the retained evidence IDs.
 
 Every concrete background call is retained as a bounded audit record containing
 call ID, exact tool name, bounded/redacted arguments, outcome, and success

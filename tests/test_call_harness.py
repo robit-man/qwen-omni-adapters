@@ -690,7 +690,13 @@ def test_conversation_context_falls_off_with_elapsed_time() -> None:
 
     after_twenty_minutes = call._history_for_prompt(now + 20 * 60)
     assert len(after_twenty_minutes) == 6
-    assert all("20 minutes ago" in item["content"] for item in after_twenty_minutes)
+    assert [item["content"] for item in after_twenty_minutes] == [
+        f"m{index}" for index in range(6, 12)
+    ]
+    assert all(
+        "Earlier in this conversation" not in item["content"]
+        for item in after_twenty_minutes
+    )
 
     assert call._history_for_prompt(now + 2 * 86400) == []
 

@@ -101,6 +101,7 @@ class BackgroundTaskStore:
                 "tools_used",
                 "actions",
                 "guidance",
+                "compaction",
                 "result",
                 "error",
             )
@@ -379,6 +380,38 @@ class BackgroundTaskStore:
             return None
 
         return self._mutate(update)
+
+    def compact_context(
+        self,
+        task_id: str,
+        owner: str,
+        *,
+        messages: list[dict[str, Any]],
+        receipt: Mapping[str, Any],
+        lease_s: float = 60.0,
+    ) -> dict[str, Any] | None:
+        """Atomically replace a claimed task's renewable transcript.
+
+        Compaction is control-plane maintenance, not task progress. It therefore
+        refreshes the lease without incrementing the task round or manufacturing
+        a progress entry.
+        """
+
+        def compact(value: dict[str, Any]) -> dict[str, Any] | None:
+            for item in value.get("tasks", []):
+                if item.get("task_id") != task_id or item.get("owner") != owner:
+                    continue
+                if item.get("status") != "running":
+                    return self._public(item)
+                now = time.time()
+                item["messages"] = copy.deepcopy(messages)
+                item["compaction"] = copy.deepcopy(dict(receipt))
+                item["updated_at"] = now
+                item["lease_until"] = now + max(5.0, lease_s)
+                return self._public(item)
+            return None
+
+        return self._mutate(compact)
 
     def record_action(
         self,

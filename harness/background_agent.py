@@ -25,7 +25,9 @@ from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 logger = logging.getLogger(__name__)
 
-MAX_TASK_CONTEXT_BYTES = 256 * 1024
+MAX_TASK_CONTEXT_MESSAGES = 28
+MAX_TASK_CONTEXT_BYTES = 96 * 1024
+MAX_RETAINED_TASK_MESSAGES = 12
 MAX_TOOL_RESULT_CHARS = 24_000
 MAX_CHECKPOINT_REPORT_CHARS = 1_000
 MAX_ACTION_ARGUMENT_CHARS = 2_000
@@ -72,6 +74,7 @@ def _task_system_prompt(task: Mapping[str, Any]) -> str:
 
 
 TASK_CHECKPOINT_TOOL = context_value("control_tools", "task_checkpoint")
+TASK_COMPACT_TOOL = context_value("control_tools", "task_compact")
 TASK_RECOVERY_TOOL = context_value("control_tools", "task_recovery")
 
 
@@ -215,17 +218,28 @@ def _seen_tool_fingerprints(messages: list[dict[str, Any]]) -> set[str]:
 
 
 def _compact_task_messages(
-    messages: list[dict[str, Any]], task: Mapping[str, Any]
+    messages: list[dict[str, Any]],
+    task: Mapping[str, Any],
+    *,
+    force: bool = False,
 ) -> list[dict[str, Any]]:
     """Turn a long transcript into a fresh chain with its durable state intact."""
 
     serialized_bytes = len(
         json.dumps(messages, ensure_ascii=False, default=str).encode("utf-8")
     )
-    if len(messages) <= 48 and serialized_bytes <= MAX_TASK_CONTEXT_BYTES:
+    if len(messages) <= 3 or (
+        force
+        and len(messages) <= MAX_RETAINED_TASK_MESSAGES + 3
+        and serialized_bytes <= MAX_TASK_CONTEXT_BYTES // 2
+    ) or (
+        not force
+        and len(messages) <= MAX_TASK_CONTEXT_MESSAGES
+        and serialized_bytes <= MAX_TASK_CONTEXT_BYTES
+    ):
         return messages
     head = copy.deepcopy(messages[:2])
-    tail_start = max(2, len(messages) - 12)
+    tail_start = max(2, len(messages) - MAX_RETAINED_TASK_MESSAGES)
     if (
         tail_start > 2
         and messages[tail_start].get("role") == "tool"
@@ -248,6 +262,21 @@ def _compact_task_messages(
         ]
     tools = task.get("tools_used")
     tool_names = ", ".join(str(item) for item in tools) if isinstance(tools, list) else ""
+    actions = task.get("actions")
+    action_lines: list[str] = []
+    if isinstance(actions, list):
+        for action in actions[-10:]:
+            if not isinstance(action, Mapping):
+                continue
+            outcome = " ".join(str(action.get("outcome") or "").split())[:280]
+            action_lines.append(
+                "- "
+                + str(action.get("call_id") or "unknown")[:80]
+                + " | "
+                + str(action.get("tool") or "unknown")[:80]
+                + (" | succeeded" if action.get("ok") is True else " | failed")
+                + (f" | {outcome}" if outcome else "")
+            )
     sections = [
         "<retained_checkpoint>",
         "Older detailed reasoning/tool rounds were compacted. Continue from the objective "
@@ -259,6 +288,14 @@ def _compact_task_messages(
         sections.extend(["Spoken guidance that remains authoritative:", *guidance_lines])
     if tool_names:
         sections.append(f"Tools already used: {tool_names}")
+    if action_lines:
+        sections.extend(
+            [
+                "Recent durable action receipts (orientation only; reverify any "
+                "terminal criterion with fresh tool evidence):",
+                *action_lines,
+            ]
+        )
     sections.append("</retained_checkpoint>")
     checkpoint = {"role": "user", "content": "\n".join(sections)}
     tail = copy.deepcopy(messages[tail_start:])
@@ -273,6 +310,50 @@ def _compact_task_messages(
             _bounded_tool_result(value), ensure_ascii=False, default=str
         )
     return [*head, checkpoint, *tail]
+
+
+def _context_metrics(messages: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "messages": len(messages),
+        "bytes": len(
+            json.dumps(messages, ensure_ascii=False, default=str).encode("utf-8")
+        ),
+    }
+
+
+def _compaction_available(messages: list[dict[str, Any]]) -> bool:
+    metrics = _context_metrics(messages)
+    return (
+        metrics["messages"] > MAX_RETAINED_TASK_MESSAGES + 3
+        or metrics["bytes"] > MAX_TASK_CONTEXT_BYTES // 2
+    )
+
+
+def _compaction_receipt(
+    before: list[dict[str, Any]],
+    after: list[dict[str, Any]],
+    task: Mapping[str, Any],
+    *,
+    reason: str,
+) -> dict[str, Any]:
+    evidence_ids = list(_tool_evidence(after))[-16:]
+    guidance = task.get("guidance")
+    return {
+        "schema": "robit.omni.task-compaction.v1",
+        "reason": reason,
+        "before": _context_metrics(before),
+        "after": _context_metrics(after),
+        "retained": {
+            "objective": bool(str(task.get("objective") or "").strip()),
+            "completion_criteria": bool(
+                str(task.get("completion_criteria") or "").strip()
+            ),
+            "latest_guidance_count": min(
+                8, len(guidance) if isinstance(guidance, list) else 0
+            ),
+            "fresh_evidence_ids": evidence_ids,
+        },
+    }
 
 
 def _result_digest(name: str, result: Any) -> str:
@@ -366,6 +447,7 @@ def _tool_evidence(messages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         if not evidence_id or not name or name in {
             "tool_search",
             "task_checkpoint",
+            "task_compact",
             "task_recovery",
         }:
             continue
@@ -745,7 +827,12 @@ class BackgroundAgent:
 
     def _post(self, path: str, payload: Mapping[str, Any]) -> httpx.Response:
         if self.memory_governor is not None:
-            self.memory_governor.require(f"background tool {path.rsplit('/', 2)[-2]}")
+            # The portal owns per-tool admission and emergency cancellation.
+            # Reaching that control point is itself bounded and must remain
+            # possible inside the soft-to-hard safety band.
+            self.memory_governor.require_hard_floor(
+                f"background tool control {path.rsplit('/', 2)[-2]}"
+            )
         response = self._client.post(
             f"{self.portal_url}{path}", json=dict(payload), headers=self._headers()
         )
@@ -778,9 +865,16 @@ class BackgroundAgent:
                     if image_turn
                     else None
                 )
-                self.memory_governor.require(
-                    "background inference", reserve_gib=reserve
-                )
+                if image_turn:
+                    self.memory_governor.require(
+                        "background inference", reserve_gib=reserve
+                    )
+                else:
+                    # A compacted text continuation reuses the resident trunk.
+                    # Its watchdog still cancels at the hard floor.
+                    self.memory_governor.require_hard_floor(
+                        "background inference continuation"
+                    )
             with self._client.stream(
                 "POST",
                 f"{self.portal_url}/api/chat/stream",
@@ -911,7 +1005,12 @@ class BackgroundAgent:
                 continue
             if self.memory_governor is not None:
                 try:
-                    self.memory_governor.require("background scheduler")
+                    # Claiming and compacting are bounded control work. Using
+                    # the soft floor here made compaction unreachable precisely
+                    # when it was needed.
+                    self.memory_governor.require_hard_floor(
+                        "background scheduler control"
+                    )
                 except MemoryPressure as error:
                     capacity_deferrals += 1
                     delay = min(
@@ -942,6 +1041,45 @@ class BackgroundAgent:
             logger.info("background task %s started: %s", task_id, task["objective"])
             self.active.set()
             try:
+                available = (
+                    self.memory_governor.available_gib()
+                    if self.memory_governor is not None
+                    else float("inf")
+                )
+                constrained = bool(
+                    self.memory_governor is not None
+                    and available < self.memory_governor.required_gib()
+                )
+                retained = copy.deepcopy(task.get("messages") or [])
+                compacted = _compact_task_messages(
+                    retained,
+                    task,
+                    force=constrained,
+                )
+                if compacted != retained:
+                    receipt = _compaction_receipt(
+                        retained,
+                        compacted,
+                        task,
+                        reason=(
+                            "memory_pressure_pre_admission"
+                            if constrained
+                            else "proactive_context_limit"
+                        ),
+                    )
+                    self.store.compact_context(
+                        task_id,
+                        self.owner,
+                        messages=compacted,
+                        receipt=receipt,
+                    )
+                    task["messages"] = compacted
+                    task["compaction"] = receipt
+                    logger.info(
+                        "background task %s compacted before admission: %s",
+                        task_id,
+                        json.dumps(receipt, sort_keys=True),
+                    )
                 if self.await_language is not None:
                     self.store.update_stage(
                         task_id,
@@ -950,7 +1088,9 @@ class BackgroundAgent:
                     )
                     self.await_language()
                 if self.memory_governor is not None:
-                    self.memory_governor.require("background task")
+                    self.memory_governor.require_hard_floor(
+                        "background task continuation"
+                    )
                 self._execute(task)
                 self._failures.pop(task_id, None)
                 self._resource_deferrals.pop(task_id, None)
@@ -1193,6 +1333,11 @@ class BackgroundAgent:
                 if recovery_required
                 else [
                     *(
+                        [copy.deepcopy(TASK_COMPACT_TOOL)]
+                        if _compaction_available(messages)
+                        else []
+                    ),
+                    *(
                         [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
                         if can_checkpoint
                         else []
@@ -1223,6 +1368,10 @@ class BackgroundAgent:
                 # copied into the durable task transcript.
                 "think": not action_after_discovery,
                 "options": {"num_predict": self.step_token_limit},
+                # Background rounds are independently checkpointed. Reusing a
+                # llama.cpp prompt slot keeps discarded history resident and
+                # defeats transcript compaction on unified-memory Jetsons.
+                "cache_prompt": False,
                 "tools": schemas,
                 # A background worker exists to act. Before a concrete tool
                 # result exists, checkpointing is unavailable; afterwards a
@@ -1373,6 +1522,44 @@ class BackgroundAgent:
                 )
                 arguments = _arguments(call)
                 call_id = str(call.get("id") or secrets.token_hex(6))
+                if name == "task_compact":
+                    latest = self.store.get(task_id) or task
+                    before = copy.deepcopy(messages)
+                    compacted = _compact_task_messages(
+                        messages,
+                        latest,
+                        force=True,
+                    )
+                    receipt = _compaction_receipt(
+                        before,
+                        compacted,
+                        latest,
+                        reason="agent_requested",
+                    )
+                    messages = compacted
+                    compact_result = {
+                        **receipt,
+                        "compacted": compacted != before,
+                    }
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_name": name,
+                            "tool_call_id": call_id,
+                            "content": json.dumps(compact_result),
+                        }
+                    )
+                    self._record_action(
+                        task_id, call_id, name, arguments, compact_result
+                    )
+                    self.store.compact_context(
+                        task_id,
+                        self.owner,
+                        messages=messages,
+                        receipt=receipt,
+                    )
+                    stalls = 0
+                    continue
                 if name == "task_recovery":
                     evidence_id = str(arguments.get("evidence_id") or "").strip()
                     failure_scope = str(arguments.get("failure_scope") or "").strip()

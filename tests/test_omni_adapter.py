@@ -822,13 +822,18 @@ def test_reference_server_separates_tagged_reasoning(think: bool) -> None:
         assert "thinking" not in result["message"]
 
 
-def test_language_backend_override_preserves_logical_model_identity() -> None:
+def test_language_backend_override_preserves_logical_model_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     logical_model = "robit/combined-omni:q4km"
     core_model = "robit/core-language:27b"
+    monkeypatch.setenv("OMNI_AGENT_NAME", "bench-agent")
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         assert body["model"] == core_model
+        assert 'name="bench-agent"' in body["messages"][0]["content"]
+        assert "runtime service account" in body["messages"][0]["content"]
         return httpx.Response(
             200,
             json={
@@ -1025,6 +1030,7 @@ def test_stream_exposes_only_tagged_input_transcript_to_clients() -> None:
         if request.url.host == "language":
             body = json.loads(request.content)
             assert body["think"] is False
+            assert body["cache_prompt"] is False
             assert len(body["messages"]) == 2
             assert body["messages"][0]["role"] == "system"
             assert "natural participant" in body["messages"][0]["content"]

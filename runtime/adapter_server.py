@@ -43,6 +43,7 @@ from qwen_omni_adapters.context import (
     context_text,
     rank_tool_names,
     retained_tool_names,
+    runtime_identity_context,
 )
 from qwen_omni_adapters.contract import (
     ADAPTER_SCHEMA,
@@ -1426,6 +1427,23 @@ def build_language_payload(
             "stream": False,
         }
     )
+    if _is_live_spoken_turn(parsed):
+        # Each live turn carries its bounded role-preserving history in full.
+        # Reusing a llama.cpp slot here can pin the prior generated reply and,
+        # on the single-trunk Tegra route, has produced verbatim replay on a
+        # new unrelated utterance. Fresh prompt evaluation is authoritative
+        # conversation state and also lets discarded KV pages be reclaimed.
+        payload["cache_prompt"] = False
+    identity = runtime_identity_context()
+    messages = payload["messages"]
+    if messages and messages[0].get("role") == "system":
+        messages[0]["content"] = (
+            str(messages[0].get("content") or "").rstrip()
+            + "\n\n"
+            + identity
+        )
+    else:
+        messages.insert(0, {"role": "system", "content": identity})
     if parsed.tool_routing == "relevant":
         tools = payload.get("tools")
         if isinstance(tools, list):

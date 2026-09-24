@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import getpass
 import json
 import os
 import re
@@ -92,6 +93,34 @@ def context_value(section: str, name: str) -> Any:
     if item is None:
         raise ContextConfigError(f"missing context value {section}.{name}")
     return copy.deepcopy(item)
+
+
+def runtime_agent_name() -> str:
+    """Resolve the conversational identity from configuration or OS account."""
+
+    configured = os.environ.get("OMNI_AGENT_NAME", "").strip()
+    if configured:
+        raw = configured
+    else:
+        try:
+            import pwd
+
+            raw = pwd.getpwuid(os.getuid()).pw_name
+        except (ImportError, KeyError, OSError):
+            raw = getpass.getuser()
+    # This value becomes prompt text. Keep a human-readable account label, but
+    # never allow control characters or an environment value to add policy.
+    normalized = " ".join(str(raw).split())
+    normalized = re.sub(r"[^\w .@+-]", "", normalized, flags=re.UNICODE)[:64]
+    return normalized or "local-agent"
+
+
+def runtime_identity_context() -> str:
+    """Return bounded self-state grounding for the language system prompt."""
+
+    return context_text("directives", "runtime_identity").format(
+        agent_name=runtime_agent_name()
+    )
 
 
 def configured_tools() -> list[dict[str, Any]]:

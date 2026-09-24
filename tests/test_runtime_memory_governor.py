@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import threading
 import time
@@ -78,14 +79,21 @@ def test_declarative_tool_admission_distinguishes_new_bounded_and_executor_work(
     )
 
     browser = harness.execute("session", "browser_interact", {"action": "snapshot"})
-    shell = harness.execute("session", "shell", {"command": "printf should-not-run"})
+    shell = harness.execute("session", "shell", {"command": "printf admitted"})
     math_result = harness.execute("session", "safe_math_eval", {"expression": "2 + 2"})
 
     assert browser == {"rendered": True}
     assert harness.browser.calls == 1
-    assert shell["error"] == "resource_pressure"
-    assert shell["retryable"] is True
+    assert shell["exit_code"] == 0
+    assert shell["stdout"] == "admitted"
     assert math_result["result"] == 4
+
+    pressured = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        memory_governor=MemoryGovernor(_policy(), sampler=lambda: 2.4),
+    ).execute("session", "shell", {"command": "printf should-not-run"})
+    assert pressured["error"] == "resource_pressure"
+    assert pressured["retryable"] is True
 
 
 def test_task_control_remains_available_at_the_memory_floor(tmp_path: Path) -> None:
@@ -192,6 +200,96 @@ def test_resource_pressure_never_becomes_task_evidence_or_a_blocker(
     persisted = (tmp_path / "tasks.json").read_text(encoding="utf-8").lower()
     assert "memory headroom" not in persisted
     assert '"messages": []' in persisted
+
+
+def test_background_compacts_before_soft_floor_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Build the exact requested app.", "A fresh HTTP probe passes.")
+    claimed = store.claim_next("seed")
+    assert claimed is not None
+    messages = [
+        {"role": "system", "content": "old policy"},
+        {"role": "user", "content": "exact objective"},
+    ]
+    for index in range(24):
+        messages.extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": f"call-{index}",
+                            "function": {
+                                "name": "shell",
+                                "arguments": {"command": f"step-{index}"},
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_name": "shell",
+                    "tool_call_id": f"call-{index}",
+                    "content": '{"exit_code": 0}',
+                },
+            ]
+        )
+    store.checkpoint(
+        task["task_id"],
+        "seed",
+        messages=messages,
+        progress="The workspace exists.",
+        status="pending",
+    )
+
+    stop = threading.Event()
+    governor = MemoryGovernor(_policy(), sampler=lambda: 2.5)
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _request: (_ for _ in ()).throw(
+                AssertionError("this test stops before network inference")
+            )
+        )
+    )
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=stop,
+        memory_governor=governor,
+        client=client,
+    )
+    executed: list[dict[str, object]] = []
+
+    def execute(compacted_task: dict[str, object]) -> None:
+        executed.append(compacted_task)
+        stop.set()
+
+    monkeypatch.setattr(agent, "_execute", execute)
+    agent.start()
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline and not executed:
+        time.sleep(0.01)
+    agent.close()
+    client.close()
+
+    assert executed
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["compaction"]["reason"] == "memory_pressure_pre_admission"
+    assert current["compaction"]["before"]["messages"] == len(messages)
+    assert current["compaction"]["after"]["messages"] < 20
+    assert current["round"] == 1
+    persisted = json.loads((tmp_path / "tasks.json").read_text(encoding="utf-8"))
+    retained = persisted["tasks"][0]["messages"]
+    assert retained[1]["content"] == "exact objective"
+    assert "The workspace exists" in retained[2]["content"]
 
 
 def test_idle_background_scheduler_does_not_poll_memory_or_log_pressure(

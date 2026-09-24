@@ -980,18 +980,8 @@ class CallSession:
             self._history = self._history[-limit:]
             self._history_times = self._history_times[-limit:]
 
-    @staticmethod
-    def _history_age(age_s: float) -> str:
-        if age_s < 120:
-            return ""
-        if age_s < 3600:
-            return f"about {max(2, round(age_s / 60))} minutes ago"
-        if age_s < 86400:
-            return f"about {max(1, round(age_s / 3600))} hours ago"
-        return f"about {max(1, round(age_s / 86400))} days ago"
-
     def _history_for_prompt(self, now: float | None = None) -> list[dict[str, Any]]:
-        """Recent continuity, with a smaller window after a longer silence."""
+        """Recent role-preserving continuity with no model-copyable age labels."""
 
         if not self._history:
             return []
@@ -1009,22 +999,10 @@ class CallSession:
         elif newest_age > 300:
             maximum = min(maximum, 8)
 
-        selected = zip(
-            self._history[-maximum:],
-            self._history_times[-maximum:],
-            strict=True,
-        )
-        rendered: list[dict[str, Any]] = []
-        for message, happened_at in selected:
-            age = max(0.0, now - happened_at)
-            if age > 86400:
-                continue
-            label = self._history_age(age)
-            content = str(message["content"])
-            if label:
-                content = f"[Earlier in this conversation, {label}] {content}"
-            rendered.append({"role": message["role"], "content": content})
-        return rendered
+        return [
+            {"role": message["role"], "content": str(message["content"])}
+            for message in self._history[-maximum:]
+        ]
 
     def _mark_interrupted(self, reply: str, spoke_seconds: float) -> None:
         """Record that generated text was not necessarily heard in full."""

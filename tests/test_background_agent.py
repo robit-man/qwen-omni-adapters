@@ -15,12 +15,14 @@ from harness.background_agent import (
     MAX_CHECKPOINT_REPORT_CHARS,
     MAX_TOOL_RESULT_CHARS,
     TASK_CHECKPOINT_TOOL,
+    TASK_COMPACT_TOOL,
     TASK_RECOVERY_TOOL,
     BackgroundAgent,
     _audit_json,
     _bounded_tool_result,
     _checkpoint_available,
     _compact_task_messages,
+    _compaction_receipt,
     _freshest_evidence_id,
     _MalformedToolCall,
     _NonRetryableBackgroundError,
@@ -94,6 +96,7 @@ def test_checkpoint_schema_stays_below_llama_grammar_repetition_limit() -> None:
     assert criteria["maxLength"] == MAX_CHECKPOINT_REPORT_CHARS
     assert MAX_CHECKPOINT_REPORT_CHARS < 2_000
     assert TASK_RECOVERY_TOOL["function"]["name"] == "task_recovery"
+    assert TASK_COMPACT_TOOL["function"]["name"] == "task_compact"
 
 
 def test_deterministic_client_error_is_not_retryable() -> None:
@@ -193,6 +196,36 @@ def test_background_task_store_checkpoints_and_recovers_expired_work(
     # A second instance sees the same cross-process checkpoint.
     reopened = BackgroundTaskStore(tmp_path / "tasks.json")
     assert reopened.get(created["task_id"])["round"] == 1  # type: ignore[index]
+
+
+def test_background_task_store_compaction_is_control_not_progress(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Keep the objective exact.", "Verify the artifact.")
+    claimed = store.claim_next("worker")
+    assert claimed is not None
+
+    compacted = store.compact_context(
+        created["task_id"],
+        "worker",
+        messages=[
+            {"role": "system", "content": "current policy"},
+            {"role": "user", "content": "exact objective"},
+        ],
+        receipt={
+            "schema": "robit.omni.task-compaction.v1",
+            "before": {"messages": 40, "bytes": 90000},
+            "after": {"messages": 2, "bytes": 1000},
+        },
+    )
+
+    assert compacted is not None
+    assert compacted["round"] == 0
+    assert compacted["progress"] == ["Accepted from the live conversation."]
+    assert compacted["compaction"]["before"]["messages"] == 40
+    raw = json.loads((tmp_path / "tasks.json").read_text(encoding="utf-8"))
+    assert raw["tasks"][0]["messages"][1]["content"] == "exact objective"
 
 
 def test_background_task_blocks_after_three_expired_worker_leases(
@@ -386,9 +419,25 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
             ]
         )
     task = {
+        "objective": "Build the requested artifact.",
+        "completion_criteria": "The final probe passes.",
         "progress": ["Created the workspace.", "Verified the latest artifact."],
         "guidance": [{"content": "Make the final version blue."}],
         "tools_used": ["shell"],
+        "actions": [
+            {
+                "call_id": "failed-write",
+                "tool": "shell",
+                "ok": False,
+                "outcome": "directory missing",
+            },
+            {
+                "call_id": "fixed-write",
+                "tool": "shell",
+                "ok": True,
+                "outcome": "file written and read back",
+            },
+        ],
     }
 
     seen = _seen_tool_fingerprints(messages)  # type: ignore[arg-type]
@@ -400,8 +449,22 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
     checkpoint = compacted[2]["content"]
     assert "Verified the latest artifact" in checkpoint
     assert "Make the final version blue" in checkpoint
+    assert "failed-write | shell | failed" in checkpoint
+    assert "fixed-write | shell | succeeded" in checkpoint
     assert compacted[3]["role"] == "assistant"
     assert compacted[4]["role"] == "tool"
+
+    receipt = _compaction_receipt(  # type: ignore[arg-type]
+        messages,
+        compacted,
+        task,
+        reason="memory_pressure_pre_admission",
+    )
+    assert receipt["before"]["messages"] == len(messages)
+    assert receipt["after"]["messages"] == len(compacted)
+    assert receipt["retained"]["objective"] is True
+    assert receipt["retained"]["completion_criteria"] is True
+    assert receipt["retained"]["latest_guidance_count"] == 1
 
 
 def test_a_single_tool_result_cannot_balloon_the_durable_task_context() -> None:
@@ -418,6 +481,111 @@ def test_a_single_tool_result_cannot_balloon_the_durable_task_context() -> None:
     assert bounded["exit_code"] == 0
     assert bounded["truncated"] is True
     assert len(bounded["original_sha256"]) == 64
+
+
+def test_background_agent_can_invoke_deterministic_compaction(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Continue the exact task.", "Verify the final state.")
+    seeded = store.claim_next("seed")
+    assert seeded is not None
+    messages: list[dict[str, object]] = [
+        {"role": "system", "content": "policy"},
+        {"role": "user", "content": "exact task"},
+    ]
+    for index in range(8):
+        messages.extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": f"evidence-{index}",
+                            "function": {
+                                "name": "shell",
+                                "arguments": {"command": f"step-{index}"},
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_name": "shell",
+                    "tool_call_id": f"evidence-{index}",
+                    "content": '{"exit_code": 0}',
+                },
+            ]
+        )
+    store.checkpoint(
+        task["task_id"],
+        "seed",
+        messages=messages,  # type: ignore[arg-type]
+        progress="Eight concrete steps ran.",
+        status="pending",
+    )
+
+    stop = threading.Event()
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _request: (_ for _ in ()).throw(
+                AssertionError("the compaction control is local")
+            )
+        )
+    )
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=stop,
+        client=client,
+    )
+    claimed = store.claim_next(agent.owner)
+    assert claimed is not None
+    seen_tools: list[str] = []
+    persist_compaction = store.compact_context
+
+    def persist_and_stop(*args, **kwargs):
+        result = persist_compaction(*args, **kwargs)
+        stop.set()
+        return result
+
+    store.compact_context = persist_and_stop  # type: ignore[method-assign]
+
+    def compact(payload: dict[str, object]) -> dict[str, object]:
+        seen_tools.extend(
+            item["function"]["name"]  # type: ignore[index]
+            for item in payload["tools"]  # type: ignore[union-attr]
+        )
+        return {
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "compact-1",
+                        "function": {
+                            "name": "task_compact",
+                            "arguments": {"reason": "context_noise"},
+                        },
+                    }
+                ],
+            }
+        }
+
+    agent._chat = compact  # type: ignore[method-assign]
+    agent._execute(claimed)
+    client.close()
+
+    assert "task_compact" in seen_tools
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["compaction"]["reason"] == "agent_requested"
+    assert current["compaction"]["after"]["messages"] < len(messages)
+    assert current["actions"][-1]["tool"] == "task_compact"
 
 
 def test_terminal_announcement_survives_restart_until_marked_spoken(

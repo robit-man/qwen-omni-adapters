@@ -169,6 +169,10 @@ def _run_shell(
         stdin_data = stdin.encode("utf-8")
         if len(stdin_data) > 65_536:
             raise ToolInputError("stdin exceeds 65536 UTF-8 bytes")
+    if memory_governor is not None:
+        memory_governor.require_capacity(
+            "shell", _TOOL_MEMORY_RESERVE_GIB.get("shell", 0.5)
+        )
     try:
         process = subprocess.Popen(
             ["/bin/bash", "-lc", source],
