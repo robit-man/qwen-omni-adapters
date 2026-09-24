@@ -172,6 +172,23 @@ def test_natural_live_reply_fails_closed_when_only_boilerplate_remains(
         _natural_live_reply(reply, "Tell me the result.")
 
 
+def test_natural_live_reply_bounds_ordinary_speech_but_preserves_requested_detail() -> None:
+    reply = "First point. Second point. Third point. Fourth point."
+
+    assert _natural_live_reply(reply, "What happened?") == (
+        "First point. Second point."
+    )
+    assert _natural_live_reply(reply, "Explain in detail what happened.") == reply
+
+
+def test_natural_live_reply_drops_unrequested_heading_and_dangling_list_teaser() -> None:
+    reply = "# Analysis\nThe direct answer is seven. A few more points:\n- First\n- Second"
+
+    assert _natural_live_reply(reply, "What is the direct answer?") == (
+        "The direct answer is seven."
+    )
+
+
 def test_live_spoken_reply_has_a_block_circuit_breaker(monkeypatch) -> None:
     monkeypatch.setenv("OMNI_TTS_BLOCK_CHARS", "80")
     parsed = parse_adapter_request(
@@ -2103,6 +2120,43 @@ def test_native_think_true_still_enables_reasoning_on_the_openai_path() -> None:
 
     assert payload["chat_template_kwargs"] == {"enable_thinking": True}
     assert "reasoning_format" not in payload
+
+
+def test_ornith_profile_explicitly_disables_hidden_reasoning_for_think_false() -> None:
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(messages=[{"role": "user", "content": "Hello."}], think=False)
+    )
+    config = _adapter_config(
+        language_api="openai",
+        language_disable_thinking=True,
+    )
+
+    payload = adapter_server.build_language_payload(
+        parsed, None, "ornith", "openai", config
+    )
+
+    assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+    assert "/no_think" not in json.dumps(payload["messages"])
+
+
+def test_explicit_think_true_overrides_the_ornith_no_thinking_profile() -> None:
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(messages=[{"role": "user", "content": "Hello."}], think=True)
+    )
+    config = _adapter_config(
+        language_api="openai",
+        language_disable_thinking=True,
+    )
+
+    payload = adapter_server.build_language_payload(
+        parsed, None, "ornith", "openai", config
+    )
+
+    assert payload["chat_template_kwargs"] == {"enable_thinking": True}
 
 
 def test_comprehension_does_not_set_the_thinking_flag() -> None:

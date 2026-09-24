@@ -72,13 +72,15 @@ class Config:
     comprehension_context_file: str | None = None
     comprehension_max_output_tokens: int = 2_048
     language_max_output_tokens: int = 4_096
-    spoken_language_max_output_tokens: int = 256
+    spoken_language_max_output_tokens: int = 512
+    language_disable_thinking: bool = False
     # Trained audio bridges are optimized against the target trunk's native
     # no-thinking prefill. Stock Qwen3-Omni is not: its explicit false branch
     # is known to degenerate, so this stays opt-in per deployment profile.
     comprehension_disable_thinking: bool = False
     comprehension_repeat_penalty: float = 1.0
     tts_stream_frames: int = 8
+    spoken_max_sentences: int = 2
     spoken_max_tts_blocks: int = 4
     spoken_max_audio_seconds: float = 24.0
 
@@ -117,7 +119,10 @@ class Config:
                 os.environ.get("OMNI_LANGUAGE_MAX_OUTPUT_TOKENS", "4096")
             ),
             spoken_language_max_output_tokens=int(
-                os.environ.get("OMNI_SPOKEN_LANGUAGE_MAX_OUTPUT_TOKENS", "256")
+                os.environ.get("OMNI_SPOKEN_LANGUAGE_MAX_OUTPUT_TOKENS", "512")
+            ),
+            language_disable_thinking=(
+                os.environ.get("OMNI_LANGUAGE_DISABLE_THINKING", "0") == "1"
             ),
             comprehension_disable_thinking=(
                 os.environ.get("OMNI_COMPREHENSION_DISABLE_THINKING", "0") == "1"
@@ -126,6 +131,9 @@ class Config:
                 os.environ.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.0")
             ),
             tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
+            spoken_max_sentences=int(
+                os.environ.get("OMNI_SPOKEN_MAX_SENTENCES", "2")
+            ),
             spoken_max_tts_blocks=int(
                 os.environ.get("OMNI_SPOKEN_MAX_TTS_BLOCKS", "4")
             ),
@@ -181,6 +189,13 @@ _TRANSPORT_BOILERPLATE = re.compile(
 )
 _TRANSPORT_REQUEST = re.compile(
     r"\b(?:mic|microphone|audio|sound|hear|heard|listen|recording|transcript)\b",
+    re.IGNORECASE,
+)
+_DETAILED_RESPONSE_REQUEST = re.compile(
+    r"\b(?:in detail|detailed|thorough|comprehensive|step[- ]by[- ]step|"
+    r"walk me through|expand|long(?:er)?|essay|report|list|options|ways|examples|"
+    r"recommendations|compare|pros and cons|write|draft|compose|"
+    r"(?:give|show|name) me (?:\d+|three|four|five|six|seven|eight|nine|ten))\b",
     re.IGNORECASE,
 )
 SPEECH_TRANSCRIPT_BLOCK = re.compile(
@@ -309,7 +324,9 @@ def _current_user_text(
     return latest.strip()
 
 
-def _natural_live_reply(text: str, user_text: str) -> str:
+def _natural_live_reply(
+    text: str, user_text: str, *, max_sentences: int = 2
+) -> str:
     """Remove pretrained support-agent filler from a completed spoken reply.
 
     This is deliberately a narrow final boundary, not a general answer rewriter.
@@ -368,6 +385,21 @@ def _natural_live_reply(text: str, user_text: str) -> str:
             if terminal and preserved[-1] not in ".!?":
                 preserved += terminal
             retained.append(preserved)
+    if not _DETAILED_RESPONSE_REQUEST.search(user_text):
+        compact: list[str] = []
+        for unit in retained:
+            if re.match(r"^#{1,6}\s+", unit):
+                continue
+            if unit.endswith(":"):
+                if compact:
+                    break
+                continue
+            spoken_unit = re.sub(r"^(?:[-*•]|\d+[.)])\s+", "", unit).strip()
+            if spoken_unit:
+                compact.append(spoken_unit)
+            if len(compact) >= max(1, max_sentences):
+                break
+        retained = compact
     result = " ".join(retained).strip()
     if not result:
         raise AdapterStageError(
@@ -1268,6 +1300,8 @@ def build_language_payload(
         # prompt: both alter the request and violate the native-think contract.
         if thinking_requested:
             payload["chat_template_kwargs"] = {"enable_thinking": True}
+        elif config is not None and config.language_disable_thinking:
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
         # Stop at the turn boundary. Without this the model occasionally runs
         # past its own end-of-turn and begins writing the next one, and the
         # reply arrives as the bare role header -- "user", or "user\nHello".
@@ -1375,7 +1409,7 @@ def _language_output_maximum(
     general = config.language_max_output_tokens if config is not None else 4_096
     maximum = max(1, general)
     if _is_live_spoken_turn(parsed):
-        spoken = config.spoken_language_max_output_tokens if config is not None else 256
+        spoken = config.spoken_language_max_output_tokens if config is not None else 512
         maximum = min(maximum, max(1, spoken))
     return maximum
 
@@ -1588,6 +1622,7 @@ def _finish_response(
         message["content"] = _natural_live_reply(
             str(message.get("content") or ""),
             _current_user_text(parsed, observation),
+            max_sentences=config.spoken_max_sentences,
         )
     wants_tts = (
         parsed.synthesize
@@ -1923,6 +1958,7 @@ def execute_stream(
                 content = _natural_live_reply(
                     content,
                     _current_user_text(parsed, observation),
+                    max_sentences=config.spoken_max_sentences,
                 )
             if content:
                 yield _stream_event(

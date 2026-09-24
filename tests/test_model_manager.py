@@ -37,6 +37,12 @@ def test_catalog_contains_compact_and_legacy_models_but_not_rejected_ornith() ->
         262_144,
         262_144,
     ]
+    assert [model.language_disable_thinking for model in MANAGED_MODELS] == [
+        True,
+        False,
+        True,
+        False,
+    ]
 
 
 def test_ollama_tables_are_parsed_as_exact_tags() -> None:

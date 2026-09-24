@@ -246,6 +246,9 @@ block. Live `require_speech` chat additionally defaults to a four-block and
 24-second decoded-audio circuit breaker so a degenerate language/codec turn
 cannot play indefinitely. These limits do not change the encoder, codec, voice
 reference, persistent worker, or `OMNI_TTS_STREAM_FRAMES` decode window.
+Ordinary live replies are also bounded to two completed sentences after
+generation; explicit requests for detail, lists, comparisons, writing, or
+multiple examples keep their requested expansion.
 
 For media `chat`, comprehension is perception-only: it cannot answer the user.
 Its output uses `<speech_transcript>`, `<audio_observation>`, and

@@ -42,10 +42,20 @@ or the audio path remain answerable. A reply containing only disallowed filler
 fails closed rather than sending the filler to Qwen3-TTS. Text-only API calls
 are not rewritten by this live-only guard.
 
-The same live boundary applies a smaller generation ceiling plus maximum TTS
-block and decoded-audio-duration limits. These are runaway-response circuit
-breakers; they do not change the trained audio encoder, codec graph, shipped
-voice reference, persistent worker protocol, or PCM decode window.
+The same live boundary applies an ordinary two-sentence limit, a generation
+ceiling that still leaves room for tool-call arguments, plus maximum TTS block
+and decoded-audio-duration limits. Explicit detail, list, comparison, drafting,
+and multi-example requests retain their requested expansion. These are
+runaway-response circuit breakers; they do not change the trained audio
+encoder, codec graph, shipped voice reference, persistent worker protocol, or
+PCM decode window.
+
+Language-template behavior is model-profile-specific. Standard Ornith 1.5 uses
+its native explicit no-thinking template when the request has `think:false`;
+otherwise it can consume the entire live output budget in hidden reasoning and
+return no speakable answer. Qwen3.8 retains the omission path required by its
+template. A real `think:true` request overrides either profile and keeps the
+reasoning channel separate.
 
 Tool discovery is also context-bounded. Once `tool_search` selects concrete
 capabilities, its follow-up exposes those contracts instead of retaining the

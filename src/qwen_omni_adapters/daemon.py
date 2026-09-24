@@ -26,6 +26,7 @@ from qwen_omni_adapters.accelerator import (
     process_is_gpu_resident,
     residency_backend,
 )
+from qwen_omni_adapters.model_catalog import MODEL_BY_TAG
 from qwen_omni_adapters.ollama_sidecar import (
     prepare_ollama_sidecar,
     resolve_ollama_sidecar,
@@ -863,6 +864,10 @@ class OmniDaemon:
         self._wait_http(tts, f"http://127.0.0.1:{self.config.tts_port}/healthz", 60)
 
         language_api, language_url, language_model = self._language_route()
+        managed_language = MODEL_BY_TAG.get(language_model)
+        default_disable_language_thinking = bool(
+            managed_language and managed_language.language_disable_thinking
+        )
         adapter_env = {
             **common,
             # An empty URL is how the adapter reports comprehension as
@@ -883,6 +888,10 @@ class OmniDaemon:
             "OMNI_LANGUAGE_API": language_api,
             "OMNI_LANGUAGE_URL": language_url,
             "OMNI_LANGUAGE_MODEL": language_model,
+            "OMNI_LANGUAGE_DISABLE_THINKING": os.environ.get(
+                "OMNI_LANGUAGE_DISABLE_THINKING",
+                "1" if default_disable_language_thinking else "0",
+            ),
             "OMNI_TTS_URL": f"http://127.0.0.1:{self.config.tts_port}/synthesize",
             "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames),
             "OMNI_ADAPTER_HOST": "127.0.0.1",

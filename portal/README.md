@@ -442,13 +442,15 @@ continue through broker-owned GPU lanes.
 | `OMNI_COMPREHENSION_CONTEXT_TOKENS` | `65536` | Native comprehension worker context; propagated to the adapter |
 | `OMNI_COMPREHENSION_PARALLEL` | `1` | llama-server slots; Tegra KV admission charges this exact count |
 | `OMNI_LANGUAGE_MAX_OUTPUT_TOKENS` | `4096` | Hard per-turn language output ceiling applied by the adapter |
-| `OMNI_SPOKEN_LANGUAGE_MAX_OUTPUT_TOKENS` | `256` | Smaller language ceiling for live `require_speech` chat turns only |
+| `OMNI_SPOKEN_LANGUAGE_MAX_OUTPUT_TOKENS` | `512` | Language ceiling for live `require_speech` turns, including internal reasoning and tool-call arguments |
+| `OMNI_LANGUAGE_DISABLE_THINKING` | model profile | Explicit native no-thinking template; enabled for Ornith and disabled for Qwen3.8 |
 | `OMNI_PORTAL_TOKEN` | generated | At least 24 characters |
 | `OMNI_VOICE_PROFILE` | `portal/voice-profile.json` | Validated server-side Qwen3-TTS profile |
 | `OMNI_TTS_STREAM_FRAMES` | `8` | Stable codec frames per live PCM decode window; this does not alter the trained encoder |
 | `OMNI_TTS_PERSISTENT` | `1` | Keep a matching Qwen3-TTS profile resident between turns |
 | `OMNI_SPOKEN_MAX_TTS_BLOCKS` | `4` | Maximum sequential TTS blocks in a live `require_speech` chat turn |
 | `OMNI_SPOKEN_MAX_AUDIO_SECONDS` | `24` | Hard decoded-audio duration circuit breaker for a live `require_speech` chat turn |
+| `OMNI_SPOKEN_MAX_SENTENCES` | `2` | Ordinary live-turn sentence limit; explicit detail/list requests are exempt |
 | `OMNI_TTS_WARM_SPEAKER_FILE` | bundled default voice | Profile warmed at service startup |
 | `OMNI_TTS_BROKER_TRANSITION_TIMEOUT_S` | `330` | Maximum wait for scoped prepare/ready transitions |
 | `OMNI_KEEP_CACHE` | `0` | Keep materialized views after stop |

@@ -12,6 +12,7 @@ class ManagedModel:
     size_gib: float
     generation: str
     max_context_tokens: int
+    language_disable_thinking: bool
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -28,6 +29,7 @@ MANAGED_MODELS: tuple[ManagedModel, ...] = (
         size_gib=8.15,
         generation="compact",
         max_context_tokens=262_144,
+        language_disable_thinking=True,
     ),
     ManagedModel(
         key="qwen38",
@@ -36,6 +38,7 @@ MANAGED_MODELS: tuple[ManagedModel, ...] = (
         size_gib=18.33,
         generation="compact",
         max_context_tokens=262_144,
+        language_disable_thinking=False,
     ),
     ManagedModel(
         key="ornith15_full",
@@ -44,6 +47,7 @@ MANAGED_MODELS: tuple[ManagedModel, ...] = (
         size_gib=32.1,
         generation="legacy-full",
         max_context_tokens=65_536,
+        language_disable_thinking=True,
     ),
     ManagedModel(
         key="qwen38_full",
@@ -52,6 +56,7 @@ MANAGED_MODELS: tuple[ManagedModel, ...] = (
         size_gib=52.5,
         generation="legacy-full",
         max_context_tokens=65_536,
+        language_disable_thinking=False,
     ),
 )
 
