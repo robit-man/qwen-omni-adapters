@@ -32,8 +32,8 @@ egress rejection, session memory/web-index isolation, and structured
 multi-round tool execution. The tool gate proves both synchronous and NDJSON
 chains continue past the former 50-call boundary, stops exact duplicate
 no-progress loops, and verifies isolated session-scoped sub-agent delegation.
-It also includes local-browser result and
-redirect parsing, provider-challenge fail-closed behavior, network-free session
+It also includes DuckDuckGo HTML redirect/snippet parsing, fetch receipts,
+network-free session
 recall, search→fetch, textual-call compatibility, live bounded receipts, and
 memory-write→memory-search→final chains while ensuring tools remain off without
 explicit client opt-in and unresolved calls never reach TTS.

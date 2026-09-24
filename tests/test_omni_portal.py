@@ -189,7 +189,7 @@ def test_browser_admit_refuses_a_second_live_window() -> None:
     try:
         store._admit_single_window()
     except BrowserAutomationError as error:
-        assert "single visible browser window" in str(error)
+        assert "single rendered browser" in str(error)
     else:
         raise AssertionError("expected a BrowserAutomationError")
 
@@ -231,6 +231,15 @@ def test_browser_and_gui_tools_expose_drag_recovery_actions() -> None:
     assert {"x", "y", "to_x", "to_y"} <= set(
         schemas["gui_interact"]["properties"]
     )
+    assert schemas["web_fetch"]["properties"]["format"]["enum"] == [
+        "text",
+        "raw_html",
+    ]
+    assert schemas["web_crawl"]["properties"]["extract"]["enum"] == [
+        "text",
+        "links",
+        "all",
+    ]
 
 
 def test_portal_defers_perceptual_laya_routing_until_after_comprehension() -> None:
@@ -799,7 +808,7 @@ def test_portal_status_probes_all_internal_stages() -> None:
         "tasks": 0,
     }
     assert response.json["web"] == {
-        "discovery": "local_chromium",
+        "discovery": "duckduckgo_html",
         "search_api": False,
         "index_scope": "browser_session",
         "indexed_pages": 0,
@@ -905,6 +914,17 @@ def test_portal_indexes_documents_and_sends_only_retrieved_text() -> None:
 
 def test_safe_tools_search_fetch_memory_and_block_private_networks() -> None:
     def web_handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "html.duckduckgo.com":
+            destination = "https://example.com/guide"
+            redirect = f"https://duckduckgo.com/l/?uddg={quote_plus(destination)}"
+            return httpx.Response(
+                200,
+                text=(
+                    f'<a class="result__a" href="{redirect}">Example guide</a>'
+                    f'<a class="result__snippet" href="{redirect}">Copper guide.</a>'
+                ),
+                headers={"content-type": "text/html"},
+            )
         if request.url == "https://example.com/redirect":
             return httpx.Response(302, headers={"location": "http://127.0.0.1/admin"})
         assert request.url == "https://example.com/guide"
@@ -919,15 +939,11 @@ def test_safe_tools_search_fetch_memory_and_block_private_networks() -> None:
         documents,
         web_client=httpx.Client(transport=httpx.MockTransport(web_handler)),
         resolver=lambda _hostname: ["93.184.216.34"],
-        browser_runner=lambda _url, _timeout: (
-            '<html><body><a href="https://example.com/guide">Example guide</a>'
-            '<a href="https://search.brave.com/settings">Settings</a></body></html>'
-        ),
-        search_url_template="https://search.example/?q={query}",
     )
 
     search = harness.execute("one", "web_search", {"query": "example guide"})
-    assert search["provider"] == "local_chromium"
+    assert search["provider"] == "duckduckgo"
+    assert search["transport"] == "direct_html"
     assert search["provenance"]["authority"] == "discovery_only"
     assert search["provenance"]["citation_ready"] is False
     assert search["results"][0]["url"] == "https://example.com/guide"
@@ -1295,6 +1311,11 @@ def test_web_crawl_is_bounded_same_origin_and_indexed() -> None:
     result = harness.execute("one", "web_crawl", {"url": "https://example.com/", "max_pages": 2, "max_depth": 1})
     recalled = harness.execute("one", "web_search", {"query": "orchid evidence", "mode": "session"})
     assert result["pages_fetched"] == 2
+    assert result["strategy"] == "direct_http"
+    assert result["pages"][0]["links"] == [
+        {"url": "https://example.com/guide", "text": "Guide"}
+    ]
+    assert result["pages"][0]["receipt"]["link_status"] == "retrieved"
     assert requested == ["https://example.com/", "https://example.com/guide"]
     assert recalled["results"][0]["url"] == "https://example.com/guide"
 
@@ -1680,103 +1701,130 @@ def test_bundled_voice_presets_are_metadata_free_pcm() -> None:
             assert 500 <= duration_ms <= 30000
 
 
-def test_local_browser_search_decodes_result_redirects_and_fails_closed() -> None:
+def test_omnius_derived_search_uses_duckduckgo_html_and_decodes_results() -> None:
     destination = "https://example.com/guide"
     redirect = f"https://duckduckgo.com/l/?uddg={quote_plus(destination)}"
     result_html = (
         '<a href="https://duckduckgo.com/settings">Settings</a>'
         f'<a class="result__a" href="{redirect}">Example guide title</a>'
+        f'<a class="result__snippet" href="{redirect}">A useful guide snippet.</a>'
+        '<a class="result__a" href="http://127.0.0.1/private">Private</a>'
+        '<a class="result__a" href="https://user:pass@example.com/secret">Secret</a>'
     )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "html.duckduckgo.com"
+        assert request.url.path == "/html/"
+        assert request.url.params["q"] == "example guide"
+        return httpx.Response(
+            200,
+            text=result_html,
+            headers={"content-type": "text/html; charset=UTF-8"},
+        )
+
     harness = PortalToolHarness(
         SessionDocumentStore(ttl_s=300),
+        web_client=httpx.Client(transport=httpx.MockTransport(handler)),
         resolver=lambda _hostname: ["93.184.216.34"],
-        browser_runner=lambda _url, _timeout: result_html,
     )
 
     result = harness.execute("one", "web_search", {"query": "example guide"})
-    assert result["results"] == [
-        {"title": "Example guide title", "url": destination, "snippet": ""}
-    ]
-
-    challenged = PortalToolHarness(
-        SessionDocumentStore(ttl_s=300),
-        resolver=lambda _hostname: ["93.184.216.34"],
-        browser_runner=lambda _url, _timeout: (
-            "<html><body>Verify you're not a bot before continuing.</body></html>"
-        ),
-    ).execute("one", "web_search", {"query": "example guide"})
-    assert challenged["error"] == "provider_challenge"
-    assert "provider challenge" in challenged["message"]
-    assert challenged["retryable"] is False
-    assert challenged["disposition"] == "change_capability"
-    assert challenged["task_blocked"] is False
-    assert challenged["alternative_tools"] == ["browser_interact", "gui_interact"]
-    assert "visible gui browser" in challenged["next_action"].lower()
-
-
-def test_local_browser_search_fails_over_after_a_provider_challenge() -> None:
-    attempted: list[str] = []
-
-    def browser(url: str, _timeout: float) -> str:
-        attempted.append(url)
-        if "duckduckgo.com" in url:
-            return "<html><body>Verify you're not a bot before continuing.</body></html>"
-        return '<a href="https://example.com/current">Current source</a>'
-
-    harness = PortalToolHarness(
-        SessionDocumentStore(ttl_s=300),
-        resolver=lambda _hostname: ["93.184.216.34"],
-        browser_runner=browser,
-    )
-
-    result = harness.execute("one", "web_search", {"query": "current topic"})
-
-    assert result["search_provider"] == "search.brave.com"
+    assert result["provider"] == "duckduckgo"
+    assert result["transport"] == "direct_html"
     assert result["results"] == [
         {
-            "title": "Current source",
-            "url": "https://example.com/current",
-            "snippet": "",
+            "title": "Example guide title",
+            "url": destination,
+            "snippet": "A useful guide snippet.",
+            "link_status": "unverified_search_result",
         }
     ]
-    assert result["provider_attempts"] == [
-        {"provider": "duckduckgo.com", "status": "challenge"},
-        {"provider": "search.brave.com", "status": "results"},
-    ]
-    assert len(attempted) == 2
 
+def test_web_search_has_no_browser_or_provider_fallback() -> None:
+    requested: list[str] = []
 
-def test_local_browser_search_rejects_brave_slider_captcha_as_evidence() -> None:
-    def browser(url: str, _timeout: float) -> str:
-        if "duckduckgo.com" in url:
-            return "<html><body>Verify you're not a bot before continuing.</body></html>"
-        return (
-            "<html><head><title>Captcha - Brave Search</title></head><body>"
-            "Verifying you're not a bot. Drag the slider. "
-            '<a href="https://tb-manual.torproject.org/security-settings/#safest">'
-            "safest</a></body></html>"
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        return httpx.Response(
+            200,
+            text="<html><body>No matching results.</body></html>",
+            headers={"content-type": "text/html"},
         )
 
     result = PortalToolHarness(
         SessionDocumentStore(ttl_s=300),
+        web_client=httpx.Client(transport=httpx.MockTransport(handler)),
         resolver=lambda _hostname: ["93.184.216.34"],
-        browser_runner=browser,
-    ).execute("one", "web_search", {"query": "current weather"})
+    ).execute("one", "web_search", {"query": "unlikely query"})
 
-    assert result["error"] == "provider_challenge"
-    assert result["task_blocked"] is False
-    assert result["alternative_tools"] == ["browser_interact", "gui_interact"]
+    assert result["results"] == []
+    assert len(requested) == 1
+    assert requested[0].startswith("https://html.duckduckgo.com/html/")
 
 
-def test_foreground_challenge_requires_gui_browser_recovery(monkeypatch) -> None:
+def test_web_fetch_returns_receipt_raw_html_cache_and_binary_refusal() -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        if request.url.path == "/binary":
+            return httpx.Response(
+                200,
+                content=b"%PDF-1.7\n",
+                headers={"content-type": "text/plain"},
+            )
+        return httpx.Response(
+            200,
+            text=(
+                '<html><head><title>Endpoint clues</title></head><body>'
+                '<form action="/search"></form>'
+                '<script>fetch("/views/ajax")</script><p>Visible text.</p></body></html>'
+            ),
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        web_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        resolver=lambda _hostname: ["93.184.216.34"],
+    )
+    raw = harness.execute(
+        "one",
+        "web_fetch",
+        {"url": "https://example.com/page", "format": "raw_html"},
+    )
+    cached_text = harness.execute(
+        "one",
+        "web_fetch",
+        {"url": "https://example.com/page", "format": "text"},
+    )
+    binary = harness.execute(
+        "one", "web_fetch", {"url": "https://example.com/binary"}
+    )
+
+    assert raw["format"] == "raw_html"
+    assert '<form action="/search">' in raw["content"]
+    assert 'fetch("/views/ajax")' in raw["content"]
+    assert raw["receipt"]["schema"] == "robit.omni.web-fetch-receipt.v1"
+    assert raw["receipt"]["response_sha256"]
+    assert cached_text["cached"] is True
+    assert "Visible text." in cached_text["content"]
+    assert "fetch(" not in cached_text["content"]
+    assert len(calls) == 2
+    assert binary["error"] == "ToolInputError"
+    assert "PDF document" in binary["message"]
+
+
+def test_foreground_static_fetch_handoff_requires_rendered_browser_recovery(
+    monkeypatch,
+) -> None:
     requests: list[dict[str, Any]] = []
     original_execute = PortalToolHarness.execute
 
     def execute(self, session_id, name, arguments):
         if name == "web_search":
             return {
-                "error": "provider_challenge",
-                "challenge": True,
+                "error": "rendered_page_required",
                 "retryable": False,
                 "failure_scope": "capability",
                 "task_blocked": False,
@@ -1848,7 +1896,7 @@ def test_foreground_challenge_requires_gui_browser_recovery(monkeypatch) -> None
                 json={
                     "message": {
                         "role": "assistant",
-                        "content": "I cannot continue because search was challenged.",
+                        "content": "I cannot continue because the page needs rendering.",
                     }
                 },
             )

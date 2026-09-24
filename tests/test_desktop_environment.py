@@ -5,9 +5,9 @@ import socket
 import subprocess
 from pathlib import Path
 
+from harness import location as location_module
 from portal import browser as browser_module
 from portal import gui as gui_module
-from portal import tools as tools_module
 from portal.desktop import desktop_subprocess_environment
 
 
@@ -61,30 +61,6 @@ def test_desktop_environment_recovers_one_x11_display(tmp_path: Path) -> None:
     assert environment["DISPLAY"] == ":0"
 
 
-def test_headless_browser_receives_recovered_desktop_environment(
-    monkeypatch,
-) -> None:
-    captured: dict[str, object] = {}
-
-    def run(command, **kwargs):
-        captured["command"] = command
-        captured.update(kwargs)
-        return subprocess.CompletedProcess(command, 0, "<html>ready</html>", "")
-
-    monkeypatch.setattr(tools_module, "_find_browser", lambda: "/usr/bin/chromium")
-    monkeypatch.setattr(
-        tools_module,
-        "desktop_subprocess_environment",
-        lambda: {"DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"},
-    )
-    monkeypatch.setattr(tools_module.subprocess, "run", run)
-
-    assert "ready" in tools_module._run_local_browser("https://example.test", 5)
-    assert captured["env"] == {
-        "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"
-    }
-
-
 def test_gui_commands_receive_recovered_desktop_environment(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
@@ -106,6 +82,31 @@ def test_gui_commands_receive_recovered_desktop_environment(monkeypatch) -> None
     assert captured["env"] == {
         "DISPLAY": ":0",
         "DBUS_SESSION_BUS_ADDRESS": "unix:path=/bus",
+    }
+
+
+def test_location_browser_is_isolated_from_web_search(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def run(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(command, 0, "<html>{}</html>", "")
+
+    monkeypatch.setattr(
+        location_module, "_find_location_browser", lambda: "/usr/bin/chromium"
+    )
+    monkeypatch.setattr(
+        location_module,
+        "desktop_subprocess_environment",
+        lambda: {"DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"},
+    )
+    monkeypatch.setattr(location_module.subprocess, "run", run)
+
+    assert "{}" in location_module._run_location_browser("https://example.test", 5)
+    assert "--headless=new" in captured["command"]
+    assert captured["env"] == {
+        "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"
     }
 
 
@@ -140,9 +141,48 @@ def test_visible_browser_uses_the_recovered_display(monkeypatch) -> None:
 
     session = store._launch()
     try:
+        assert "--headless=new" not in captured["command"]
+        assert session.visible_on_desktop is True
         assert captured["env"] == {
             "WAYLAND_DISPLAY": "wayland-0",
             "XDG_RUNTIME_DIR": "/run/user/1000",
         }
+    finally:
+        shutil.rmtree(session.profile, ignore_errors=True)
+
+
+def test_rendered_browser_falls_back_to_headless_without_a_display(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class Process:
+        pid = 4242
+
+        @staticmethod
+        def poll() -> None:
+            return None
+
+    def popen(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return Process()
+
+    monkeypatch.setattr(browser_module.shutil, "which", lambda _binary: "/chromium")
+    monkeypatch.setattr(
+        browser_module,
+        "desktop_subprocess_environment",
+        lambda: {"DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"},
+    )
+    monkeypatch.setattr(browser_module.subprocess, "Popen", popen)
+    monkeypatch.setattr(
+        browser_module.BrowserAutomationStore,
+        "_page_socket",
+        lambda _self, _port: "ws://127.0.0.1/devtools/page/one",
+    )
+    store = browser_module.BrowserAutomationStore(chromium_bin="/chromium")
+
+    session = store._launch()
+    try:
+        assert "--headless=new" in captured["command"]
+        assert session.visible_on_desktop is False
     finally:
         shutil.rmtree(session.profile, ignore_errors=True)

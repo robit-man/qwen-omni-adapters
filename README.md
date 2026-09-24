@@ -480,7 +480,7 @@ the unsupported `nvidia-smi` process table.
 |---|---|---|
 | Text and Markdown, including responsive GFM tables | Selected Qwen3.8/Ornith Ollama base or configured Qwen3-Omni language worker | Yes |
 | Structured tools | Selected language backend + portal executor | Yes |
-| Portal web/document/session-memory tools | Explicit opt-in allowlisted portal loop with local-browser discovery | Yes |
+| Portal web/document/session-memory tools | Explicit opt-in allowlisted portal loop with no-key DuckDuckGo HTML discovery | Yes |
 | Visible Chromium interaction | Persistent rendered browser, screenshot + element evidence, click/type/scroll/back | Yes |
 | Full desktop computer use | Fresh whole-desktop screenshots + coordinate/keyboard/scroll input | Yes |
 | Trusted local shell | Unrestricted execution in the checkpointed voice-task worker; bounded output and timeout | Yes |

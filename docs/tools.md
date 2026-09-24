@@ -22,8 +22,8 @@ owns the schemas and implementations.
 | `get_system_snapshot` | Fresh bounded platform, CPU/load, RAM, NVIDIA GPU, network-counter, date, and time snapshot | Read-only portal-host metadata; no hostnames, addresses, processes, credentials, or session content |
 | `get_user_location` | Return coarse IP-derived city/region/country, rounded coordinates, and timezone for location-dependent requests | Browser performs the HTTPS lookup; sanitized result is isolated to the current session; raw IP is never sent to or retained by the portal |
 | `get_portal_capabilities` | Report model, media, document, and safe-tool capabilities | Read-only runtime metadata |
-| `web_search` | Discover public result links in a locally launched Chromium/Chrome process, or search this session's local page index | Public search page for `discover`; no network for `session` |
-| `web_fetch` | Fetch and extract bounded text from one source URL | Public HTTP(S) only |
+| `web_search` | Discover public result links and snippets through the no-key DuckDuckGo HTML page, or search this session's local page index | Public search page for `discover`; no network for `session` |
+| `web_fetch` | Fetch one source URL with a retrieval receipt and bounded text or raw HTML | Public HTTP(S) only |
 | `document_search` | Search already attached PDF, DOCX, text, or code chunks | Current browser session only |
 | `memory_write` | Store a compact temporary fact or research note | Current browser session only |
 | `memory_read` | Read an exact temporary topic/key | Current browser session only |
@@ -210,57 +210,53 @@ portal retains the pieces appropriate to a small public demonstration:
 - native structured calls with a strict textual compatibility parser;
 - uncapped progress-checked multi-round execution and `role="tool"` observations;
 - dependent chaining, duplicate suppression, and read-only batching guidance;
-- local browser discovery separated from direct page retrieval and bounded crawl;
+- no-key DuckDuckGo HTML discovery separated from verified page retrieval and bounded crawl;
 - per-session fetched-page indexing and lexical term/bigram recall;
 - attachment-scoped structured reads and OCR, pure AST math, session working
   state, and technical media probes;
 - compact, collapsible running/completed tool receipts; and
 - URL, DNS, redirect, media-type, size, session, and TTL boundaries.
 
-The portal does not expose Omnius's general browser-action surface. Its crawl
-is read-only, same-origin, and bounded to eight pages at depth two. It cannot
-click arbitrary DOM nodes, submit forms, or reuse an authenticated browser
-profile. This deployment does expose the separately discoverable unrestricted
-`shell` tool at the operator's request; it is raw host authority, not a sandbox,
-and retrieved text remains untrusted data rather than command authority.
+The portal does not copy Omnius's full Playwright validation surface. It does
+expose a smaller persistent Chromium interaction tool with fresh screenshots
+and bounded visible elements. Its crawl remains read-only, same-origin, and
+bounded to eight pages at depth two. This deployment also exposes the
+separately discoverable unrestricted `shell` tool at the operator's request;
+it is raw host authority, not a sandbox, and retrieved text remains untrusted
+data rather than command authority.
 
 ## Web safety and limits
 
-There is no hosted/keyless search API, API SDK, or API credential in this
-harness. `web_search(mode=discover)` starts an installed Chromium/Chrome binary
-with an ephemeral local profile and reads links from normal public search
-result pages. Discovery starts with DuckDuckGo and, when that page is
-challenged, empty, or fails, makes one bounded attempt with Brave Search.
-A public primary page can be selected with a template containing
-`{query}` via `OMNI_WEB_SEARCH_URL_TEMPLATE`; the same bounded fallbacks remain
-available. `OMNI_WEB_BROWSER` pins the local browser executable. Linux, macOS,
-and Windows browser locations are discovered when no override is present.
-Every challenge page fails closed instead of becoming evidence. If all
-providers challenge, the result exposes visible `browser_interact` and
-whole-desktop `gui_interact` as first-class next capabilities. The tool loop
-must continue through the rendered GUI rather than claiming the task is
-blocked, while still withholding any factual claim until a clean results or
-source page is observed. Both browser and desktop interaction support drag
-gestures for sliders, and rendered `<summary>` controls remain clickable so
-reasoning and tool evidence panels can be inspected through the same loop.
+There is no search API, API SDK, credential, provider fan-out, or browser scrape
+in ordinary discovery. `web_search(mode=discover)` ports Omnius's production
+`WebSearchTool`: it sends one bounded GET to DuckDuckGo's public no-key HTML
+results page and extracts only result links, titles, and snippets. Search
+metadata remains unverified until `web_fetch` retrieves the exact selected URL.
+Interactive and JavaScript-heavy work is a separate `browser_interact` path,
+visible on an attached desktop and rendered headlessly when a system service
+cannot join one. Browser and desktop interaction support drag gestures, and
+rendered `<summary>` controls are clickable for reasoning/tool inspection.
 
 Discovery indexes at most 48 result/fetched pages and 128,000 characters for
 the opaque browser session. `web_search(mode=session)` ranks that local index
 with a deterministic lexical term/bigram scorer and performs no network call.
-`web_fetch` separately retrieves one chosen page with a direct bounded HTTP
-client. `web_crawl` applies the same checks to at most eight same-origin pages,
-depth two, and 20,000 returned characters. This split applies the portal's
+`web_fetch` separately retrieves one chosen page, issues a content hash and
+source receipt, caches the full bounded response for 60 seconds, and can return
+plain text or bounded raw HTML. `web_crawl` applies the same checks and receipts
+to at most eight same-origin pages, depth two, and 20,000 returned characters.
+This split applies the portal's
 public-tunnel constraints:
 
 - only absolute HTTP(S) URLs are accepted;
 - URL credentials, localhost, `.local`, metadata endpoints, and every
   non-global resolved IPv4/IPv6 address are blocked;
 - every redirect is revalidated, with at most four redirects;
-- response bodies are capped at 2 MiB and extracted output at 12,000
+- response bodies are capped at 5 MiB and fetched output at 12,000
   characters;
-- only text, HTML, JSON, XML, RSS, and Atom responses are accepted;
-- scripts and styles are stripped from fetched evidence; the search page may
-  execute only inside its disposable local browser profile;
+- only textual MIME types are accepted, and known binary signatures are
+  rejected even when a server labels them as text;
+- scripts and styles are stripped from normal fetched evidence; `raw_html`
+  exposes bounded untrusted source only when explicitly requested;
 - page fetching does not support authentication, cookies, forms, downloads, or
   arbitrary browser automation;
 - fetched pages and search snippets are labelled untrusted data and cannot
@@ -304,9 +300,10 @@ group. Credentialed browser automation remains excluded.
 Unit gates cover:
 
 - structured multi-round `memory_write -> memory_search -> final` streaming;
-- local-browser result parsing/redirect decoding followed by page fetch;
-- fail-closed browser-challenge handling and network-free session-index recall;
-- script/style removal, response bounding, and private-address rejection;
+- DuckDuckGo HTML result/snippet parsing and redirect decoding followed by page fetch;
+- network-free session-index recall and absence of browser/provider fallback;
+- fetch receipts, raw-HTML/text cache reuse, binary refusal, script/style
+  removal, response bounding, and private-address rejection;
 - browser-session memory and document isolation;
 - allowlisted tool discovery and forbidden math-expression rejection;
 - raw shell stdout/stderr/exit-context return and bounded capture;

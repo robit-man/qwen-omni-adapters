@@ -255,14 +255,15 @@ sanitized value with the request. Raw IP, ISP/connection, security, and currency
 metadata never reach the portal or model. The result is session-scoped,
 approximate, VPN/carrier-sensitive, and cleared by Trash or five-minute expiry.
 
-Web discovery uses an ephemeral locally launched Chromium/Chrome process and a
-normal public search-results page—there is no external search API client, key,
-or SDK. A separate bounded fetch step permits only public HTTP(S),
+Web discovery uses Omnius's direct no-key DuckDuckGo HTML results path—there is
+no search API client, key, provider fallback, or browser dependency. A separate
+bounded fetch step permits only public HTTP(S), emits a source/hash receipt,
 revalidates redirects and DNS destinations, blocks local/private/metadata
-addresses, limits bodies to 2 MiB and extracted content to 12,000 characters,
+addresses, limits bodies to 5 MiB and extracted content to 12,000 characters,
 and treats every result as untrusted evidence. It does not execute JavaScript
-from fetched pages or support authentication, forms, downloads, or arbitrary
-browser automation. Discovery/fetched text is indexed per browser session, so
+from fetched pages or support authentication, forms, or downloads. Explicit
+`raw_html` supports bounded endpoint inspection, while `browser_interact`
+handles interactive or JavaScript-rendered pages. Discovery/fetched text is indexed per browser session, so
 `web_search(mode=session)` can recall it without another network request.
 
 Memory is in-process and isolated by the opaque browser session. It is limited
@@ -382,10 +383,11 @@ The command:
 7. starts Cloudflared last when available and protects the authenticated URL in
    the daemon status record.
 
-The core portal does not require a browser executable on the host. The optional
-`web_search(mode=discover)` tool does: install Chromium or Chrome, or set
-`OMNI_WEB_BROWSER` to its executable. If no local browser is available, that
-tool returns a bounded error while the rest of the allowlist continues to work.
+The core portal and `web_search(mode=discover)` do not require a browser
+executable. Search uses Omnius's no-key DuckDuckGo HTML result path. Chromium
+is used only for explicitly requested interactive or JavaScript-rendered work;
+that tool is visible on an attached desktop and falls back to rendered headless
+operation when a supervised service has no graphical session.
 
 The URL has this form:
 
@@ -450,8 +452,7 @@ continue through broker-owned GPU lanes.
 | `OMNI_PORTAL_MAX_INFLIGHT_REQUESTS` | `4` | Active plus queued portal requests before a bounded 503 response |
 | `OMNI_PORTAL_SESSION_LOG_DIR` | runtime `session-logs` | Content-redacted, per-session timing journals |
 | `OMNI_PORTAL_SESSION_LOG_TTL_S` | `300` | Inactive-session diagnostic retention; five minutes by default |
-| `OMNI_WEB_BROWSER` | auto-detected Chromium/Chrome | Local executable used only for public search-page discovery |
-| `OMNI_WEB_SEARCH_URL_TEMPLATE` | DuckDuckGo browser results page | Public browser URL containing the literal `{query}` placeholder; no search API endpoint |
+| `OMNI_CHROMIUM_BIN` | `/usr/local/bin/chromium` | Chromium executable for interactive/JavaScript-rendered `browser_interact` work |
 
 Ports `8901`, `8892`, `8910`, and `8920` are loopback-only. The Cloudflare
 metrics endpoint defaults to loopback port `49312`.

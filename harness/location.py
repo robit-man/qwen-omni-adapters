@@ -6,19 +6,98 @@ import html
 import json
 import logging
 import math
+import os
 import re
+import shutil
+import subprocess
+import tempfile
 import threading
 import time
 from collections.abc import Callable, Mapping
+from pathlib import Path
 from typing import Any
 
-from portal.tools import _run_local_browser
+from portal.desktop import desktop_subprocess_environment
 
 logger = logging.getLogger(__name__)
 
 LOCATION_ENDPOINT = "https://ipwho.is/"
 LOCATION_TTL_S = 240.0
 LOCATION_RETRY_S = 30.0
+
+
+def _browser_candidates() -> list[str]:
+    candidates = [
+        os.environ.get("OMNI_CHROMIUM_BIN", ""),
+        "chromium",
+        "chromium-browser",
+        "google-chrome",
+        "google-chrome-stable",
+        "chrome",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    ]
+    for root_name in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"):
+        root = os.environ.get(root_name)
+        if root:
+            candidates.extend(
+                [
+                    str(Path(root) / "Google/Chrome/Application/chrome.exe"),
+                    str(Path(root) / "Chromium/Application/chrome.exe"),
+                ]
+            )
+    return [candidate for candidate in candidates if candidate]
+
+
+def _find_location_browser() -> str:
+    for candidate in _browser_candidates():
+        resolved = (
+            shutil.which(candidate) if not Path(candidate).is_absolute() else candidate
+        )
+        if resolved and Path(resolved).is_file():
+            return str(Path(resolved))
+    raise RuntimeError(
+        "local Chromium/Chrome is unavailable for the voice location lookup"
+    )
+
+
+def _run_location_browser(url: str, timeout_s: float) -> str:
+    """Run only the local-client IP-location lookup in an isolated browser."""
+
+    browser = _find_location_browser()
+    with tempfile.TemporaryDirectory(prefix="robit-omni-location-") as profile:
+        command = [
+            browser,
+            "--headless=new",
+            "--disable-gpu",
+            "--disable-extensions",
+            "--disable-background-networking",
+            "--disable-component-update",
+            "--disable-default-apps",
+            "--disable-sync",
+            "--metrics-recording-only",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--virtual-time-budget=3000",
+            f"--user-data-dir={profile}",
+            "--dump-dom",
+            url,
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+                env=desktop_subprocess_environment(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("local voice location lookup timed out") from exc
+    if completed.returncode != 0 or not completed.stdout.strip():
+        detail = completed.stderr.strip().splitlines()[-1:] or ["no DOM returned"]
+        raise RuntimeError(f"local voice location lookup failed: {detail[0][:300]}")
+    return completed.stdout
 
 
 def _text(value: Any, maximum: int = 120) -> str:
@@ -90,7 +169,7 @@ class BrowserLocationProvider:
         ttl_s: float = LOCATION_TTL_S,
         retry_s: float = LOCATION_RETRY_S,
     ) -> None:
-        self._runner = runner or _run_local_browser
+        self._runner = runner or _run_location_browser
         self._ttl_s = max(30.0, float(ttl_s))
         self._retry_s = max(5.0, float(retry_s))
         self._lock = threading.Lock()

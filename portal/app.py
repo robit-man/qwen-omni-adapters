@@ -1335,7 +1335,6 @@ def create_app(
     config: PortalConfig | None = None,
     client: httpx.Client | None = None,
     web_client: httpx.Client | None = None,
-    web_browser_runner: Any | None = None,
     decision_plane: DecisionPlane | None = None,
 ) -> Flask:
     root = Path(__file__).resolve().parent
@@ -1576,7 +1575,6 @@ def create_app(
         documents,
         ttl_s=runtime.session_log_ttl_s,
         web_client=web_client,
-        browser_runner=web_browser_runner,
         subagent_runner=run_subagent,
         background_tasks=(
             BackgroundTaskStore(runtime.background_task_path)
@@ -1857,7 +1855,7 @@ def create_app(
                     **tool_harness.memory_stats(session_id),
                 },
                 "web": {
-                    "discovery": "local_chromium",
+                    "discovery": "duckduckgo_html",
                     "search_api": False,
                     "index_scope": "browser_session",
                     **tool_harness.web_stats(session_id),

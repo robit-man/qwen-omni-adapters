@@ -90,7 +90,7 @@ tool step, or service event as noted.
 | Detect exact duplicate calls/results | stable hash/digest sets | <1 ms/call | A | No | medium | Keep exact |
 | Admit a proposed action as goal-consistent/non-duplicate | currently only prompt plus exact duplicate block | part of LLM round | C | Yes, wave 2 | medium | Shadow; high confidence can admit only policy-permitted typed actions |
 | Validate public URL/redirect/DNS target | URL parser, resolver, public-IP checks | network-dependent | A/E | No | high | Fail closed deterministically |
-| Detect web challenge / unsupported interactive flow | markers and rendered state | <1 ms after fetch | A for markers, C for semantics | Shadow semantics only | medium | Deterministic marker wins; ambiguous state goes to LLM |
+| Detect unsupported interactive flow | fetch result and rendered state | <1 ms after fetch | A for explicit state, C for semantics | Shadow semantics only | medium | Deterministic fetch state wins; ambiguous state goes to LLM |
 | Choose browser operation from current candidates | language model sees bounded DOM/screenshots | 1 LLM round/action | C/D | Yes only for closed operations/targets | medium | Jev-style bounded candidate wave; novel URLs/text remain LLM |
 | Generate arbitrary GUI coordinates | visual language model | 1 LLM round/action | D | No | high | Laya has no visual grounding input |
 | Determine whether tool result made progress | coarse deterministic heuristic foreground; LLM background | <1 ms foreground, 1 LLM round/background | A for exact failures; C otherwise | Yes, wave 3 | medium | Deterministic failure markers first; calibrated Laya; LLM on ambiguity |

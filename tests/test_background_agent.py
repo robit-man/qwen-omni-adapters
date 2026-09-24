@@ -665,8 +665,7 @@ def test_capability_failure_triggers_generic_recovery_and_headed_browser(
                 200,
                 json={
                     "result": {
-                        "error": "provider_challenge",
-                        "challenge": True,
+                        "error": "rendered_page_required",
                         "retryable": False,
                         "failure_scope": "capability",
                         "task_blocked": False,

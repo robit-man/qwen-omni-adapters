@@ -1,7 +1,9 @@
-"""Persistent, visible Chromium automation backed by its native DevTools protocol.
+"""Persistent Chromium automation backed by its native DevTools protocol.
 
-The browser is deliberately *not* headless: it opens on the signed-in desktop so
-the person beside the machine can see and, when useful, take over the same page.
+The browser opens on the signed-in desktop when one is available so the person
+beside the machine can see and take over the same page. Like Omnius's canonical
+Playwright tool, it falls back to a rendered headless session when a supervised
+system service cannot join a graphical desktop.
 CDP is used instead of ChromeDriver because the Flatpak Chromium build and the
 distribution chromedriver are not version locked on the target Jetson.
 """
@@ -200,6 +202,7 @@ class _BrowserSession:
     profile: Path
     port: int
     page_socket: str
+    visible_on_desktop: bool
     last_seen: float = field(default_factory=time.monotonic)
     elements: dict[str, dict[str, Any]] = field(default_factory=dict)
 
@@ -244,7 +247,7 @@ _SNAPSHOT_SCRIPT = r"""
 
 
 class BrowserAutomationStore:
-    """One user-visible Chromium window per authenticated portal session."""
+    """One persistent rendered Chromium session per authenticated portal session."""
 
     def __init__(
         self,
@@ -273,7 +276,7 @@ class BrowserAutomationStore:
         ]
         if live:
             raise BrowserAutomationError(
-                "another portal session already owns the single visible browser window on "
+                "another portal session already owns the single rendered browser on "
                 "this constrained runtime"
             )
 
@@ -342,8 +345,9 @@ class BrowserAutomationStore:
         if not shutil.which(self.chromium_bin):
             raise BrowserAutomationError(f"Chromium is unavailable at {self.chromium_bin}")
         environment = desktop_subprocess_environment()
-        if not environment.get("DISPLAY") and not environment.get("WAYLAND_DISPLAY"):
-            raise BrowserAutomationError("No active desktop display is available")
+        visible_on_desktop = bool(
+            environment.get("DISPLAY") or environment.get("WAYLAND_DISPLAY")
+        )
         self._admit_single_window()
         if self.memory_governor is not None:
             if self.launch_reserve_gib is None:
@@ -369,6 +373,8 @@ class BrowserAutomationStore:
             "--window-size=1280,800",
             "about:blank",
         ]
+        if not visible_on_desktop:
+            command.insert(1, "--headless=new")
         process = subprocess.Popen(  # noqa: S603
             command,
             stdin=subprocess.DEVNULL,
@@ -382,14 +388,26 @@ class BrowserAutomationStore:
         while time.monotonic() < deadline and process.poll() is None:
             try:
                 socket_url = self._page_socket(port)
-                return _BrowserSession(process, profile, port, socket_url)
+                return _BrowserSession(
+                    process,
+                    profile,
+                    port,
+                    socket_url,
+                    visible_on_desktop,
+                )
             except (BrowserAutomationError, OSError, URLError, ValueError) as exc:
                 last_error = exc
                 time.sleep(0.1)
-        session = _BrowserSession(process, profile, port, "")
+        session = _BrowserSession(
+            process,
+            profile,
+            port,
+            "",
+            visible_on_desktop,
+        )
         self._terminate(session)
         raise BrowserAutomationError(
-            f"Visible Chromium did not become controllable: {last_error or 'process exited'}"
+            f"Chromium did not become controllable: {last_error or 'process exited'}"
         )
 
     def _session_locked(self, session_id: str) -> _BrowserSession:
@@ -445,7 +463,7 @@ class BrowserAutomationStore:
             raise BrowserAutomationError("Chromium produced no screenshot")
         return {
             "rendered": True,
-            "browser_visible_on_desktop": True,
+            "browser_visible_on_desktop": session.visible_on_desktop,
             "title": str(raw.get("title") or "")[:500],
             "url": str(raw.get("url") or "")[:4096],
             "ready_state": str(raw.get("ready_state") or ""),

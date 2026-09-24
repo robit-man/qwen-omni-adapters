@@ -44,9 +44,9 @@ Do not restart or stop an existing deployment unless the user asked for it.
   minutes after page leave, and is deleted by trash. Restored media is
   display-only.
 - Portal web/document/memory tools are a server-pinned, explicit-opt-in
-  allowlist. Preserve local-browser discovery without a search API,
-  public-only fetch validation, untrusted-result labels, challenge fail-closed
-  behavior, 50-round/call bounds, per-session memory/web indexes, live bounded
+  allowlist. Preserve the no-key DuckDuckGo HTML discovery path derived from
+  Omnius, public-only fetch validation and receipts, untrusted-result labels,
+  50-round/call bounds, per-session memory/web indexes, live bounded
   traces, and Trash/TTL cleanup. Direct adapter tools remain client-owned and
   must not be auto-executed by the adapter.
 - Runtime environment awareness is an explicit `get_system_snapshot` tool, not
@@ -159,8 +159,8 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
   repeated matching-profile prompts reuse one resident worker PID, and an
   A → B → A synthesize/transcribe gate returns A → B → A without one-turn lag.
 - Browser cache restore/expiry/clear and runtime-environment privacy tests pass.
-- Structured streaming completes memory-write→memory-search→final; local-browser
-  result redirects decode, challenges fail closed, session-index recall avoids
+- Structured streaming completes memory-write→memory-search→final; DuckDuckGo
+  HTML result redirects and snippets decode, session-index recall avoids
   another network search, web fetch blocks private/local destinations, and
   another session retrieves no web, memory, or document excerpts.
 - CUDA PIDs are resident only on the leased UUID; on Tegra, every CUDA worker

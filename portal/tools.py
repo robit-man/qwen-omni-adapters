@@ -1,12 +1,11 @@
 """Allowlisted tool harness for the authenticated Omni demonstration portal.
 
-The schemas, chained execution model, local browser discovery, fetch cache,
-and lexical memory ranking are distilled from the adjacent Omnius runtime.
-Unlike Omnius's legacy DuckDuckGo HTML search class, this harness does not call
-a hosted search API or scrape its API-like HTML endpoint: discovery is driven
-by a locally launched browser and fetched pages are indexed for session-local
-recall. Web/document results remain untrusted and every stateful object is
-partitioned by the opaque portal session rather than model-global state.
+The schemas, chained execution model, no-key DuckDuckGo HTML search, verified
+fetch receipts, bounded crawl, and lexical memory ranking are derived from the
+adjacent Omnius runtime. Interactive/JavaScript browsing remains a separate
+rendered Chromium capability. Web/document results stay untrusted and every
+stateful object is partitioned by opaque portal session rather than model-global
+state.
 """
 
 from __future__ import annotations
@@ -21,7 +20,6 @@ import json
 import math
 import os
 import re
-import shutil
 import signal
 import socket
 import subprocess
@@ -44,32 +42,26 @@ from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 try:
     from portal.background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
     from portal.browser import BrowserAutomationError, BrowserAutomationStore
-    from portal.desktop import desktop_subprocess_environment
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import runtime_environment_snapshot
     from portal.gui import GuiAutomation, GuiAutomationError
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
     from browser import BrowserAutomationError, BrowserAutomationStore
-    from desktop import desktop_subprocess_environment
     from documents import DocumentError, SessionDocumentStore
     from environment import runtime_environment_snapshot
     from gui import GuiAutomation, GuiAutomationError
 
 MAX_SEARCH_RESULTS = 8
 MAX_SEARCH_QUERY_CHARS = 500
-MAX_FETCH_BYTES = 2 * 1024 * 1024
+MAX_SEARCH_BYTES = 2 * 1024 * 1024
+MAX_FETCH_BYTES = 5 * 1024 * 1024
 MAX_FETCH_CHARS = 12_000
 MAX_REDIRECTS = 4
 FETCH_CACHE_TTL_S = 60.0
 MAX_WEB_INDEX_ENTRIES = 48
 MAX_WEB_INDEX_CHARS = 128_000
-LOCAL_BROWSER_TIMEOUT_S = 20.0
-DEFAULT_SEARCH_URL_TEMPLATES = (
-    "https://duckduckgo.com/?ia=web&q={query}",
-    "https://search.brave.com/search?q={query}&source=web",
-)
-DEFAULT_SEARCH_URL_TEMPLATE = DEFAULT_SEARCH_URL_TEMPLATES[0]
+DUCKDUCKGO_HTML_URL = "https://html.duckduckgo.com/html/"
 MAX_MEMORY_ENTRIES = 64
 MAX_MEMORY_ENTRY_CHARS = 4_096
 MAX_MEMORY_SESSION_CHARS = 32_768
@@ -119,10 +111,6 @@ def tool_schemas(names: Sequence[str]) -> list[dict[str, Any]]:
 
 class ToolInputError(ValueError):
     """A bounded error safe to return to the model as a tool result."""
-
-
-class ProviderChallenge(RuntimeError):
-    """A discovery provider refused automation; inputs were still valid."""
 
 
 def _bounded_text(value: Any, name: str, maximum: int) -> str:
@@ -653,9 +641,50 @@ class _WebIndexEntry:
     indexed_at: float
 
 
+@dataclass(frozen=True)
+class _FetchReceipt:
+    requested_url: str
+    final_url: str
+    status: int
+    content_type: str
+    response_bytes: int
+    response_sha256: str
+    fetched_at: str
+
+    def export(self) -> dict[str, Any]:
+        return {
+            "schema": "robit.omni.web-fetch-receipt.v1",
+            "requested_url": self.requested_url,
+            "final_url": self.final_url,
+            "status": self.status,
+            "content_type": self.content_type,
+            "response_bytes": self.response_bytes,
+            "response_sha256": self.response_sha256,
+            "fetched_at": self.fetched_at,
+            "link_status": "retrieved",
+        }
+
+
+@dataclass(frozen=True)
+class _FetchedPage:
+    receipt: _FetchReceipt
+    mime_type: str
+    body: bytes
+
+
+@dataclass(frozen=True)
+class _WebFetchCacheEntry:
+    saved_at: float
+    title: str
+    text: str
+    raw_html: str
+    is_html: bool
+    receipt: _FetchReceipt
+
+
 @dataclass
 class _WebSession:
-    fetch_cache: dict[str, tuple[float, str, str, str]] = field(default_factory=dict)
+    fetch_cache: dict[str, _WebFetchCacheEntry] = field(default_factory=dict)
     index: dict[str, _WebIndexEntry] = field(default_factory=dict)
     last_seen: float = field(default_factory=time.monotonic)
 
@@ -694,81 +723,47 @@ class _AnchorCollector(HTMLParser):
         self._attrs = {}
 
 
-def _browser_candidates() -> list[str]:
-    configured = str(os.environ.get("OMNI_WEB_BROWSER") or "").strip()
-    candidates = [
-        configured,
-        "chromium",
-        "chromium-browser",
-        "google-chrome",
-        "google-chrome-stable",
-        "chrome",
-        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-        "/Applications/Chromium.app/Contents/MacOS/Chromium",
-    ]
-    for root_name in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"):
-        root = os.environ.get(root_name)
-        if root:
-            candidates.extend(
-                [
-                    str(Path(root) / "Google/Chrome/Application/chrome.exe"),
-                    str(Path(root) / "Chromium/Application/chrome.exe"),
-                ]
-            )
-    return [candidate for candidate in candidates if candidate]
+def _binary_payload_kind(body: bytes, mime_type: str) -> str | None:
+    """Classify known binary bytes before they can enter model context."""
 
-
-def _find_browser() -> str:
-    for candidate in _browser_candidates():
-        resolved = shutil.which(candidate) if not Path(candidate).is_absolute() else candidate
-        if resolved and Path(resolved).is_file():
-            # Keep launcher symlinks intact (for example /snap/bin/chromium);
-            # resolving them can turn the executable into the generic snap CLI.
-            return str(Path(resolved))
-    raise ToolInputError(
-        "local Chromium/Chrome is unavailable; install it or set OMNI_WEB_BROWSER"
+    signatures = (
+        (b"%PDF-", "PDF document"),
+        (b"PK\x03\x04", "ZIP archive"),
+        (b"PK\x05\x06", "ZIP archive"),
+        (b"PK\x07\x08", "ZIP archive"),
+        (b"SQLite format 3\x00", "SQLite database"),
+        (b"\x1f\x8b", "gzip archive"),
+        (b"BZh", "bzip2 archive"),
+        (b"\xfd7zXZ\x00", "xz archive"),
+        (b"7z\xbc\xaf'\x1c", "7-Zip archive"),
+        (b"\x7fELF", "ELF executable"),
+        (b"\x89PNG", "PNG image"),
+        (b"\xff\xd8\xff", "JPEG image"),
+        (b"GIF8", "GIF image"),
     )
-
-
-def _run_local_browser(url: str, timeout_s: float) -> str:
-    browser = _find_browser()
-    with tempfile.TemporaryDirectory(prefix="robit-omni-web-") as profile:
-        command = [
-            browser,
-            "--headless=new",
-            "--disable-gpu",
-            "--disable-extensions",
-            "--disable-background-networking",
-            "--disable-component-update",
-            "--disable-default-apps",
-            "--disable-sync",
-            "--metrics-recording-only",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--virtual-time-budget=3000",
-            f"--user-data-dir={profile}",
-            "--dump-dom",
-            url,
-        ]
-        try:
-            completed = subprocess.run(
-                command,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=timeout_s,
-                env=desktop_subprocess_environment(),
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise ToolInputError("local browser search timed out") from exc
-    if completed.returncode != 0 or not completed.stdout.strip():
-        detail = completed.stderr.strip().splitlines()[-1:] or ["no DOM returned"]
-        raise ToolInputError(f"local browser search failed: {detail[0][:300]}")
-    return completed.stdout
+    for signature, label in signatures:
+        if body.startswith(signature):
+            return label
+    if mime_type.startswith("image/"):
+        return "image"
+    if mime_type.startswith("audio/"):
+        return "audio file"
+    if mime_type.startswith("video/"):
+        return "video file"
+    if mime_type.startswith("font/"):
+        return "font file"
+    if mime_type in {
+        "application/octet-stream",
+        "application/pdf",
+        "application/zip",
+        "application/x-zip-compressed",
+    }:
+        return "binary file"
+    return None
 
 
 class WebToolSuite:
-    """Locally controlled discovery, public-only fetch, and session web recall."""
+    """Omnius-derived public search/fetch/crawl with session-local recall."""
 
     def __init__(
         self,
@@ -776,23 +771,10 @@ class WebToolSuite:
         ttl_s: float = 300.0,
         client: httpx.Client | None = None,
         resolver: Callable[[str], Sequence[str]] | None = None,
-        browser_runner: Callable[[str, float], str] | None = None,
-        search_url_template: str | None = None,
     ) -> None:
         self.ttl_s = max(1.0, ttl_s)
         self.client = client or httpx.Client(timeout=15.0, follow_redirects=False)
         self.resolver = resolver or _default_resolver
-        self.browser_runner = browser_runner or _run_local_browser
-        self.search_url_template = str(
-            search_url_template
-            or os.environ.get("OMNI_WEB_SEARCH_URL_TEMPLATE")
-            or DEFAULT_SEARCH_URL_TEMPLATE
-        )
-        if "{query}" not in self.search_url_template:
-            raise ValueError("OMNI_WEB_SEARCH_URL_TEMPLATE must contain {query}")
-        self.search_url_templates = tuple(
-            dict.fromkeys((self.search_url_template, *DEFAULT_SEARCH_URL_TEMPLATES))
-        )
         self._lock = threading.Lock()
         self._sessions: dict[str, _WebSession] = {}
 
@@ -827,8 +809,11 @@ class WebToolSuite:
                 "indexed_chars": sum(len(item.content) for item in session.index.values()),
             }
 
-    def _request(self, raw_url: str) -> tuple[str, str, str]:
-        current = _validate_public_url(raw_url, self.resolver)
+    def _request(
+        self, raw_url: str, *, max_bytes: int = MAX_FETCH_BYTES
+    ) -> _FetchedPage:
+        requested = _validate_public_url(raw_url, self.resolver)
+        current = requested
         for redirect in range(MAX_REDIRECTS + 1):
             with self.client.stream(
                 "GET",
@@ -848,32 +833,64 @@ class WebToolSuite:
                     continue
                 if response.status_code >= 400:
                     raise ToolInputError(f"web request returned HTTP {response.status_code}")
-                content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                content_type = response.headers.get("content-type", "").strip()
+                mime_type = content_type.split(";", 1)[0].strip().lower()
                 allowed = (
-                    content_type.startswith("text/")
-                    or content_type
+                    mime_type.startswith("text/")
+                    or mime_type
                     in {
                         "application/json",
+                        "application/ld+json",
+                        "application/problem+json",
                         "application/xml",
                         "application/xhtml+xml",
                         "application/rss+xml",
                         "application/atom+xml",
+                        "application/javascript",
+                        "application/x-javascript",
+                        "application/graphql",
+                        "application/yaml",
+                        "application/x-yaml",
+                        "application/x-www-form-urlencoded",
                     }
-                    or not content_type
+                    or mime_type.endswith(("+json", "+xml"))
+                    or not mime_type
                 )
                 if not allowed:
-                    raise ToolInputError(f"unsupported web content type: {content_type}")
+                    raise ToolInputError(f"unsupported web content type: {mime_type}")
                 declared = response.headers.get("content-length")
-                if declared and declared.isdigit() and int(declared) > MAX_FETCH_BYTES:
-                    raise ToolInputError("web response exceeds the 2 MiB limit")
+                if declared and declared.isdigit() and int(declared) > max_bytes:
+                    raise ToolInputError("web response exceeds its size limit")
                 body = bytearray()
                 for chunk in response.iter_bytes():
                     body.extend(chunk)
-                    if len(body) > MAX_FETCH_BYTES:
-                        raise ToolInputError("web response exceeds the 2 MiB limit")
-                if b"\x00" in body[:8_192]:
-                    raise ToolInputError("web response appears to be binary")
-                return current, content_type, bytes(body).decode("utf-8", errors="replace")
+                    if len(body) > max_bytes:
+                        raise ToolInputError("web response exceeds its size limit")
+                raw_body = bytes(body)
+                binary_kind = _binary_payload_kind(raw_body, mime_type)
+                if binary_kind:
+                    raise ToolInputError(
+                        f"web response is a {binary_kind}, not textual page content"
+                    )
+                try:
+                    raw_body.decode("utf-8")
+                except UnicodeDecodeError as exc:
+                    raise ToolInputError("web response is not valid UTF-8 text") from exc
+                return _FetchedPage(
+                    receipt=_FetchReceipt(
+                        requested_url=requested,
+                        final_url=current,
+                        status=response.status_code,
+                        content_type=content_type or "unknown",
+                        response_bytes=len(raw_body),
+                        response_sha256=hashlib.sha256(raw_body).hexdigest(),
+                        fetched_at=datetime.now().astimezone().isoformat(
+                            timespec="seconds"
+                        ),
+                    ),
+                    mime_type=mime_type,
+                    body=raw_body,
+                )
         raise ToolInputError("web request exceeded the redirect limit")
 
     @staticmethod
@@ -910,98 +927,60 @@ class WebToolSuite:
             hostname = (parsed.hostname or "").rstrip(".").lower()
             if parsed.scheme not in {"http", "https"} or not hostname:
                 return ""
+            if parsed.username or parsed.password:
+                return ""
         if hostname == "localhost" or hostname.endswith((".localhost", ".local")):
             return ""
         if _is_ip(hostname) and not ipaddress.ip_address(hostname).is_global:
             return ""
         return candidate
 
-    def _browser_discover_provider(
-        self, template: str, query: str, limit: int
-    ) -> tuple[list[dict[str, str]], str]:
-        search_url = template.format(query=quote_plus(query))
-        search_host = (urlsplit(search_url).hostname or "").lower()
-        _validate_public_url(search_url, self.resolver)
-        dom = self.browser_runner(search_url, LOCAL_BROWSER_TIMEOUT_S)
-        challenge_text = re.sub(r"\s+", " ", _strip_html(dom[:200_000])).lower()
-        if any(
-            marker in challenge_text
-            for marker in (
-                "verify you're not a bot",
-                "verifying you're not a bot",
-                "unusual traffic from your computer network",
-                "complete the following challenge",
-                "select all squares containing a duck",
-                "captcha - brave search",
-                "drag the slider",
-            )
-        ):
-            raise ProviderChallenge(
-                f"local browser search at {search_host or 'the provider'} was "
-                "interrupted by a provider challenge"
-            )
+    def _search_duckduckgo(
+        self, query: str, limit: int
+    ) -> list[dict[str, str]]:
+        """Port of Omnius WebSearchTool's no-key DuckDuckGo HTML path."""
+
+        search_url = f"{DUCKDUCKGO_HTML_URL}?q={quote_plus(query)}"
+        page = self._request(search_url, max_bytes=MAX_SEARCH_BYTES)
+        dom = page.body.decode("utf-8")
         collector = _AnchorCollector()
-        collector.feed(dom[:MAX_FETCH_BYTES])
-        duckduckgo_results = (
-            search_host == "duckduckgo.com"
-            or search_host.endswith(".duckduckgo.com")
-        )
+        collector.feed(dom)
         results: list[dict[str, str]] = []
+        by_url: dict[str, dict[str, str]] = {}
         seen: set[str] = set()
         for raw_url, raw_title, attrs in collector.links:
-            if duckduckgo_results and not (
-                "result__a" in attrs.get("class", "").split()
-                or attrs.get("data-testid") == "result-title-a"
-            ):
+            classes = attrs.get("class", "").split()
+            if "result__snippet" in classes:
+                snippet_url = self._result_url(
+                    raw_url, search_url, "html.duckduckgo.com"
+                )
+                if snippet_url in by_url:
+                    by_url[snippet_url]["snippet"] = re.sub(
+                        r"\s+", " ", html.unescape(raw_title)
+                    ).strip()[:1_200]
                 continue
-            url = self._result_url(raw_url, search_url, search_host)
+            if "result__a" not in classes:
+                continue
+            url = self._result_url(
+                raw_url, search_url, "html.duckduckgo.com"
+            )
             title = re.sub(r"\s+", " ", html.unescape(raw_title)).strip()
             if not url or len(title) < 3 or url in seen:
                 continue
             seen.add(url)
-            results.append({"title": title[:300], "url": url, "snippet": ""})
+            result = {
+                "title": title[:300],
+                "url": url,
+                "snippet": "",
+                "link_status": "unverified_search_result",
+            }
+            results.append(result)
+            by_url[url] = result
             if len(results) >= limit:
-                break
-        return results, search_host
-
-    def _browser_discover(
-        self, query: str, limit: int
-    ) -> tuple[list[dict[str, str]], str, list[dict[str, str]]]:
-        attempts: list[dict[str, str]] = []
-        challenges: list[str] = []
-        failures: list[str] = []
-        last_provider = ""
-        for template in self.search_url_templates:
-            provider = (urlsplit(template).hostname or "unknown").lower()
-            last_provider = provider
-            try:
-                results, provider = self._browser_discover_provider(
-                    template, query, limit
-                )
-            except ProviderChallenge:
-                attempts.append({"provider": provider, "status": "challenge"})
-                challenges.append(provider)
+                # Keep consuming only until the matching result's following
+                # snippet has had a chance to appear.
                 continue
-            except ToolInputError as exc:
-                attempts.append({"provider": provider, "status": "failed"})
-                failures.append(f"{provider}: {str(exc)[:160]}")
-                continue
-            if results:
-                attempts.append({"provider": provider, "status": "results"})
-                return results, provider, attempts
-            attempts.append({"provider": provider, "status": "empty"})
-
-        if challenges and len(challenges) == len(attempts):
-            raise ProviderChallenge(
-                "every local-browser search provider returned a provider challenge "
-                f"({', '.join(challenges)})"
-            )
-        if failures and len(failures) + len(challenges) == len(attempts):
-            raise ToolInputError(
-                "no local-browser search provider completed: "
-                + "; ".join(failures)
-            )
-        return [], last_provider, attempts
+        return results[:limit]
 
     def _index_entries(self, session_id: str, entries: Sequence[_WebIndexEntry]) -> None:
         now = time.monotonic()
@@ -1038,9 +1017,7 @@ class WebToolSuite:
         if normalized_mode not in {"discover", "session"}:
             raise ToolInputError("mode must be discover or session")
         if normalized_mode == "discover":
-            results, search_provider, attempts = self._browser_discover(
-                normalized_query, limit
-            )
+            results = self._search_duckduckgo(normalized_query, limit)
             indexed_at = time.monotonic()
             self._index_entries(
                 session_id,
@@ -1057,9 +1034,8 @@ class WebToolSuite:
             )
             return {
                 "trust": "untrusted_web_results",
-                "provider": "local_chromium",
-                "search_provider": search_provider,
-                "provider_attempts": attempts,
+                "provider": "duckduckgo",
+                "transport": "direct_html",
                 "mode": "discover",
                 "query": normalized_query,
                 "provenance": {
@@ -1110,56 +1086,90 @@ class WebToolSuite:
             ],
         }
 
-    def fetch(self, session_id: str, url: Any, max_length: Any = None) -> dict[str, Any]:
+    def fetch(
+        self,
+        session_id: str,
+        url: Any,
+        max_length: Any = None,
+        response_format: Any = None,
+    ) -> dict[str, Any]:
         normalized_url = _bounded_text(url, "url", 4_096)
         limit = _bounded_integer(max_length, default=6_000, minimum=500, maximum=MAX_FETCH_CHARS)
+        normalized_format = str(response_format or "text").strip().lower()
+        if normalized_format not in {"text", "raw_html"}:
+            raise ToolInputError("format must be text or raw_html")
         now = time.monotonic()
         with self._lock:
             session = self._session_locked(session_id, now)
-            for cached_url, (saved_at, _final_url, _text, _title) in list(
-                session.fetch_cache.items()
-            ):
-                if now - saved_at >= FETCH_CACHE_TTL_S:
+            for cached_url, entry in list(session.fetch_cache.items()):
+                if now - entry.saved_at >= FETCH_CACHE_TTL_S:
                     session.fetch_cache.pop(cached_url, None)
             cached = session.fetch_cache.get(normalized_url)
-        title = ""
         if cached:
-            _saved_at, final_url, text, title = cached
+            entry = cached
             from_cache = True
         else:
-            final_url, content_type, page = self._request(normalized_url)
-            if "html" in content_type or "<html" in page[:500].lower():
-                title_match = re.search(r"<title[^>]*>([\s\S]*?)</title>", page, re.IGNORECASE)
+            page = self._request(normalized_url)
+            raw_text = page.body.decode("utf-8")
+            is_html = page.mime_type in {"text/html", "application/xhtml+xml"} or (
+                "<html" in raw_text[:500].lower()
+            )
+            title = ""
+            if is_html:
+                title_match = re.search(
+                    r"<title[^>]*>([\s\S]*?)</title>", raw_text, re.IGNORECASE
+                )
                 title = _strip_html(title_match.group(1))[:300] if title_match else ""
-                text = _strip_html(page)
+                text = _strip_html(raw_text)
             else:
-                text = page.strip()
+                text = raw_text
+            entry = _WebFetchCacheEntry(
+                saved_at=now,
+                title=title,
+                text=text,
+                raw_html=raw_text,
+                is_html=is_html,
+                receipt=page.receipt,
+            )
             with self._lock:
                 session = self._session_locked(session_id, now)
                 if len(session.fetch_cache) >= 16:
-                    oldest_url = min(session.fetch_cache, key=lambda item: session.fetch_cache[item][0])
+                    oldest_url = min(
+                        session.fetch_cache,
+                        key=lambda item: session.fetch_cache[item].saved_at,
+                    )
                     session.fetch_cache.pop(oldest_url, None)
-                session.fetch_cache[normalized_url] = (now, final_url, text, title)
+                session.fetch_cache[normalized_url] = entry
             from_cache = False
+        content = (
+            entry.raw_html
+            if normalized_format == "raw_html" and entry.is_html
+            else entry.text
+        )
+        format_used = (
+            "raw_html"
+            if normalized_format == "raw_html" and entry.is_html
+            else "text"
+        )
         self._index_entries(
             session_id,
             [
                 _WebIndexEntry(
-                    url=final_url,
-                    title=title or final_url,
-                    snippet=text[:800],
-                    content=text[:MAX_FETCH_CHARS],
+                    url=entry.receipt.final_url,
+                    title=entry.title or entry.receipt.final_url,
+                    snippet=entry.text[:800],
+                    content=entry.text[:MAX_FETCH_CHARS],
                     indexed_at=now,
                 )
             ],
         )
         return {
             "trust": "untrusted_web_content",
-            "url": final_url,
+            "url": entry.receipt.final_url,
             "provenance": {
                 "tool": "web_fetch",
                 "source_type": "retrieved_public_page",
-                "source_url": final_url,
+                "source_url": entry.receipt.final_url,
                 "evidence_type": "tool_data_not_visual_perception",
                 "authority": "page_content_only",
                 "citation_ready": True,
@@ -1168,9 +1178,17 @@ class WebToolSuite:
                 "Attribute material claims to source_url; the page does not prove "
                 "the user's location, current surroundings, or anything visually observed."
             ),
+            "receipt": entry.receipt.export(),
             "cached": from_cache,
-            "content": text[:limit],
-            "truncated": len(text) > limit,
+            "format": format_used,
+            "content": content[:limit],
+            "truncated": len(content) > limit,
+            "rendering_hint": (
+                "The extracted HTML text is very short; use browser_interact for "
+                "JavaScript-rendered content."
+                if format_used == "text" and entry.is_html and len(entry.text) < 200
+                else ""
+            ),
             "indexed_for_session_recall": True,
         }
 
@@ -1181,11 +1199,15 @@ class WebToolSuite:
         max_pages: Any = None,
         max_depth: Any = None,
         max_length: Any = None,
+        extract: Any = None,
     ) -> dict[str, Any]:
         start_url = _validate_public_url(url, self.resolver)
         page_limit = _bounded_integer(max_pages, default=3, minimum=1, maximum=8)
         depth_limit = _bounded_integer(max_depth, default=1, minimum=0, maximum=2)
         char_limit = _bounded_integer(max_length, default=12_000, minimum=1_000, maximum=20_000)
+        extract_mode = str(extract or "all").strip().lower()
+        if extract_mode not in {"text", "links", "all"}:
+            raise ToolInputError("extract must be text, links, or all")
         origin = (urlsplit(start_url).hostname or "").rstrip(".").lower()
         queue: list[tuple[str, int]] = [(start_url, 0)]
         queued = {start_url}
@@ -1194,30 +1216,69 @@ class WebToolSuite:
         used_chars = 0
         while queue and len(pages) < page_limit and used_chars < char_limit:
             current, depth = queue.pop(0)
-            final_url, content_type, page = self._request(current)
+            fetched = self._request(current)
+            final_url = fetched.receipt.final_url
+            final_origin = (urlsplit(final_url).hostname or "").rstrip(".").lower()
+            if final_origin != origin:
+                raise ToolInputError(
+                    "web crawl redirected outside its same-origin boundary"
+                )
+            raw_text = fetched.body.decode("utf-8")
+            is_html = fetched.mime_type in {
+                "text/html",
+                "application/xhtml+xml",
+            } or "<html" in raw_text[:500].lower()
             title = ""
-            if "html" in content_type or "<html" in page[:500].lower():
-                title_match = re.search(r"<title[^>]*>([\s\S]*?)</title>", page, re.IGNORECASE)
-                title = _strip_html(title_match.group(1))[:300] if title_match else ""
-                text = _strip_html(page)
-            else:
-                text = page.strip()
-            remaining = char_limit - used_chars
-            excerpt = text[:remaining]
-            used_chars += len(excerpt)
-            pages.append({"url": final_url, "title": title or final_url, "depth": depth, "content": excerpt, "truncated": len(text) > len(excerpt)})
-            indexed.append(_WebIndexEntry(url=final_url, title=title or final_url, snippet=text[:800], content=text[:MAX_FETCH_CHARS], indexed_at=time.monotonic()))
-            if depth >= depth_limit or "html" not in content_type:
-                continue
             collector = _AnchorCollector()
-            collector.feed(page[:MAX_FETCH_BYTES])
-            for raw_link, _title, _attrs in collector.links:
+            if is_html:
+                title_match = re.search(
+                    r"<title[^>]*>([\s\S]*?)</title>", raw_text, re.IGNORECASE
+                )
+                title = _strip_html(title_match.group(1))[:300] if title_match else ""
+                text = _strip_html(raw_text)
+                collector.feed(raw_text)
+            else:
+                text = raw_text
+            remaining = char_limit - used_chars
+            excerpt = text[:remaining] if extract_mode in {"text", "all"} else ""
+            used_chars += len(excerpt)
+            public_links: list[dict[str, str]] = []
+            for raw_link, raw_title, _attrs in collector.links:
                 candidate = urljoin(final_url, html.unescape(raw_link).strip())
                 parsed = urlsplit(candidate)
                 hostname = (parsed.hostname or "").rstrip(".").lower()
-                if parsed.scheme not in {"http", "https"} or hostname != origin or parsed.username or parsed.password:
+                if (
+                    parsed.scheme not in {"http", "https"}
+                    or hostname != origin
+                    or parsed.username
+                    or parsed.password
+                ):
                     continue
                 candidate = parsed._replace(fragment="").geturl()
+                public_links.append(
+                    {
+                        "url": candidate,
+                        "text": re.sub(r"\s+", " ", raw_title).strip()[:300],
+                    }
+                )
+            page_result: dict[str, Any] = {
+                "url": final_url,
+                "title": title or final_url,
+                "depth": depth,
+                "receipt": fetched.receipt.export(),
+            }
+            if extract_mode in {"text", "all"}:
+                page_result.update(
+                    {"content": excerpt, "truncated": len(text) > len(excerpt)}
+                )
+            if extract_mode in {"links", "all"}:
+                page_result["links"] = public_links[:50]
+            pages.append(page_result)
+            indexed.append(_WebIndexEntry(url=final_url, title=title or final_url, snippet=text[:800], content=text[:MAX_FETCH_CHARS], indexed_at=time.monotonic()))
+            if depth >= depth_limit or not is_html:
+                continue
+            for link in public_links:
+                candidate = link["url"]
                 if candidate in queued:
                     continue
                 queued.add(candidate)
@@ -1235,6 +1296,8 @@ class WebToolSuite:
                 "citation_ready": True,
             },
             "same_origin": origin,
+            "strategy": "direct_http",
+            "extract": extract_mode,
             "pages": pages,
             "pages_fetched": len(pages),
             "characters": used_chars,
@@ -1772,8 +1835,6 @@ class PortalToolHarness:
         ttl_s: float = 300.0,
         web_client: httpx.Client | None = None,
         resolver: Callable[[str], Sequence[str]] | None = None,
-        browser_runner: Callable[[str, float], str] | None = None,
-        search_url_template: str | None = None,
         media_runner: Callable[[bytes, str, str], Mapping[str, Any]] | None = None,
         subagent_runner: Callable[[str, str, str], Mapping[str, Any]] | None = None,
         background_tasks: BackgroundTaskStore | None = None,
@@ -1787,8 +1848,6 @@ class PortalToolHarness:
             ttl_s=ttl_s,
             client=web_client,
             resolver=resolver,
-            browser_runner=browser_runner,
-            search_url_template=search_url_template,
         )
         self.workspace = SessionWorkspaceStore(ttl_s=ttl_s, media_runner=media_runner)
         self.subagents = SessionSubagentStore(ttl_s=ttl_s, runner=subagent_runner)
@@ -1880,7 +1939,7 @@ class PortalToolHarness:
                     "tasks": ["chat", "transcribe", "describe", "synthesize"],
                     "safe_tools": [item["function"]["name"] for item in SAFE_TOOLS],
                     "memory_scope": "browser_session",
-                    "web_access": "local_chromium_discovery_and_session_index",
+                    "web_access": "duckduckgo_html_discovery_fetch_crawl_and_session_index",
                 }
             elif name == "request_camera_view":
                 mode = str(arguments.get("mode") or "still").strip()
@@ -1916,13 +1975,25 @@ class PortalToolHarness:
                     arguments.get("mode"),
                 )
             elif name == "web_fetch":
-                result = self.web.fetch(session_id, arguments.get("url"), arguments.get("max_length"))
+                result = self.web.fetch(
+                    session_id,
+                    arguments.get("url"),
+                    arguments.get("max_length"),
+                    arguments.get("format"),
+                )
             elif name == "browser_interact":
                 result = self.browser.act(session_id, dict(arguments))
             elif name == "gui_interact":
                 result = self.gui.act(session_id, dict(arguments))
             elif name == "web_crawl":
-                result = self.web.crawl(session_id, arguments.get("url"), arguments.get("max_pages"), arguments.get("max_depth"), arguments.get("max_length"))
+                result = self.web.crawl(
+                    session_id,
+                    arguments.get("url"),
+                    arguments.get("max_pages"),
+                    arguments.get("max_depth"),
+                    arguments.get("max_length"),
+                    arguments.get("extract"),
+                )
             elif name == "document_search":
                 result = {
                     "trust": "untrusted_document_content",
@@ -2087,26 +2158,6 @@ class PortalToolHarness:
                 "error": "resource_pressure",
                 "retryable": True,
                 "message": "The runtime deferred this operation to preserve memory headroom.",
-            }
-        except ProviderChallenge as exc:
-            result = {
-                "error": "provider_challenge",
-                "message": str(exc)[:500],
-                "challenge": True,
-                "retryable": False,
-                "failure_scope": "capability",
-                "task_blocked": False,
-                "disposition": "change_capability",
-                "constraint": (
-                    "Do not retry the same challenged provider by varying the query."
-                ),
-                "alternative_tools": ["browser_interact", "gui_interact"],
-                "next_action": (
-                    "Continue in the visible GUI browser with browser_interact, "
-                    "using gui_interact only when page-level controls cannot operate "
-                    "the challenge. Treat the challenge page as non-evidence until "
-                    "a clean rendered results page is observed."
-                ),
             }
         except (
             ToolInputError,
