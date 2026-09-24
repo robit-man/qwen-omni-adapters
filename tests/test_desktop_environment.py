@@ -225,3 +225,21 @@ def test_browser_desktop_failure_requests_gui_capability() -> None:
     assert result["disposition"] == "change_capability"
     assert result["task_blocked"] is False
     assert result["alternative_tools"] == ["gui_interact"]
+
+
+def test_browser_profile_process_discovery_is_exact(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    proc.mkdir()
+    owned_profile = Path("/tmp/omni-visible-chromium-owned")
+    other_profile = Path("/tmp/omni-visible-chromium-other")
+    for pid, arguments in {
+        "101": [b"/app/chromium/chrome", f"--user-data-dir={owned_profile}".encode()],
+        "102": [b"bwrap", f"--user-data-dir={other_profile}".encode()],
+        "103": [b"python", f"text mentioning --user-data-dir={owned_profile}".encode()],
+    }.items():
+        process = proc / pid
+        process.mkdir()
+        (process / "cmdline").write_bytes(b"\0".join(arguments) + b"\0")
+
+    assert browser_module._profile_process_ids(owned_profile, proc) == [101]
+    assert browser_module._profile_process_ids(Path("/tmp/unowned"), proc) == []

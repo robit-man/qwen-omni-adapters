@@ -59,6 +59,29 @@ def _free_loopback_port() -> int:
         return int(listener.getsockname()[1])
 
 
+def _profile_process_ids(profile: Path, proc_root: Path = Path("/proc")) -> list[int]:
+    """Return processes carrying this store-created Chromium profile argument."""
+
+    if not profile.name.startswith("omni-visible-chromium-"):
+        return []
+    needle = f"--user-data-dir={profile}".encode()
+    matches: list[int] = []
+    try:
+        entries = list(proc_root.iterdir())
+    except OSError:
+        return matches
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        try:
+            arguments = (entry / "cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        if needle in arguments:
+            matches.append(int(entry.name))
+    return matches
+
+
 def _read_exact(connection: socket.socket, length: int) -> bytes:
     output = bytearray()
     while len(output) < length:
@@ -294,6 +317,26 @@ class BrowserAutomationStore:
                     os.killpg(session.process.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+        # Flatpak's launcher may place bwrap/Chromium outside the wrapper's
+        # process group. The random store-owned profile is present as one exact
+        # argv item on every such child, so it is a safer ownership boundary
+        # than executable-name matching. Close those escaped children before
+        # removing their profile.
+        profile_pids = _profile_process_ids(session.profile)
+        for pid in profile_pids:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+        deadline = time.monotonic() + 3
+        while profile_pids and time.monotonic() < deadline:
+            time.sleep(0.05)
+            profile_pids = _profile_process_ids(session.profile)
+        for pid in profile_pids:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
         shutil.rmtree(session.profile, ignore_errors=True)
 
     def _expire_locked(self) -> None:
