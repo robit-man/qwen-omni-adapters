@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 CAPTURE_RATE_HZ = 16_000
 PLAYBACK_RATE_HZ = 24_000
+PLAYBACK_STREAM_NAME = "Omni conversational voice"
 
 
 def require_tools() -> None:
@@ -168,6 +169,7 @@ class SpeakerStream:
         self._played_bytes = 0
         self._gain = 1.0
         self._sink_input: str | None = None
+        self._gain_control_warned = False
         self._paused = False
         self._fade_serial = 0
         self._pcm_queue: queue.Queue[tuple[bytes, float] | None] | None = None
@@ -235,7 +237,7 @@ class SpeakerStream:
             "--format=s16le",
             f"--rate={self.rate_hz}",
             "--channels=1",
-            "--stream-name=Omni conversational voice",
+            f"--stream-name={PLAYBACK_STREAM_NAME}",
         ]
         if self.device:
             command.append(f"--device={self.device}")
@@ -246,6 +248,7 @@ class SpeakerStream:
             self._played_bytes = 0
             self._gain = 1.0
             self._sink_input = None
+            self._gain_control_warned = False
             self._paused = False
             self._fade_serial += 1
             self._process = None
@@ -382,6 +385,7 @@ class SpeakerStream:
             return None
         if not isinstance(items, list):
             return None
+        named: list[str] = []
         for item in items:
             if not isinstance(item, dict):
                 continue
@@ -390,16 +394,25 @@ class SpeakerStream:
                 continue
             if str(properties.get("application.process.id") or "") == str(process.pid):
                 return str(item.get("index"))
-        return None
+            if (
+                str(properties.get("media.name") or "") == PLAYBACK_STREAM_NAME
+                and str(properties.get("application.name") or "") == "paplay"
+            ):
+                named.append(str(item.get("index")))
+        # PipeWire's Pulse compatibility layer does not always retain the
+        # client PID. The exact stream name is ours, but fail closed if stale
+        # and current paplay streams somehow coexist rather than fading an
+        # unrelated application.
+        return named[0] if len(named) == 1 else None
 
-    def _set_gain(self, value: float) -> None:
+    def _set_gain(self, value: float) -> bool:
         value = max(0.0, min(1.0, value))
         with self._lock:
             process = self._process
             self._gain = value
             sink_input = self._sink_input
         if process is None or process.poll() is not None:
-            return
+            return False
         if sink_input is None:
             sink_input = self._find_sink_input(process)
             if sink_input is not None:
@@ -407,14 +420,23 @@ class SpeakerStream:
                     if self._process is process:
                         self._sink_input = sink_input
         if sink_input is None:
-            return
+            with self._lock:
+                warn = value < 0.999 and not self._gain_control_warned
+                if warn:
+                    self._gain_control_warned = True
+            if warn:
+                logger.warning(
+                    "could not locate the live playback stream; new PCM is attenuated "
+                    "but Pulse-buffered speech cannot be ducked"
+                )
+            return False
         try:
-            subprocess.run(
+            completed = subprocess.run(
                 [
                     "pactl",
                     "set-sink-input-volume",
                     sink_input,
-                    str(round(value * 65536)),
+                    f"{value * 100:.1f}%",
                 ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -422,6 +444,16 @@ class SpeakerStream:
             )
         except (OSError, subprocess.TimeoutExpired):
             logger.debug("could not change the live playback volume", exc_info=True)
+            completed = None
+        if completed is not None and completed.returncode == 0:
+            return True
+        # Pulse indexes are short lived. Clear a stale cached index so the next
+        # fade step discovers the replacement instead of failing for the rest
+        # of this sentence.
+        with self._lock:
+            if self._process is process and self._sink_input == sink_input:
+                self._sink_input = None
+        return False
 
     def _fade_to(
         self,
@@ -543,21 +575,13 @@ class SpeakerStream:
         """Close the input and let whatever is queued finish playing."""
 
         with self._lock:
-            # A late duck/pause callback must not SIGSTOP a process we are
-            # already waiting on at the natural end of the sentence.
-            self._fade_serial += 1
-            process = self._process
-            paused = self._paused
-            self._paused = False
             pcm_queue = self._pcm_queue
             writer = self._writer
             self._accepting = False
-        self._set_gain(1.0)
-        if paused and process is not None:
-            try:
-                process.send_signal(signal.SIGCONT)
-            except OSError:
-                pass
+        # End-of-generation is not end-of-playback: Pulse may still hold
+        # seconds of queued audio. Keep a live duck/pause envelope intact so a
+        # person is not abruptly talked over when the final decoder packet
+        # arrives. VAD rejection calls resume(); a real utterance calls stop().
         if pcm_queue is not None:
             pcm_queue.put(None)
         if writer is not None:

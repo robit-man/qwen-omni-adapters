@@ -1225,6 +1225,169 @@ def test_require_speech_stops_after_sound_only_comprehension() -> None:
     assert "audio" not in final["message"]
 
 
+def test_require_speech_rejects_encoder_meta_commentary_as_silence() -> None:
+    requested_hosts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_hosts.append(str(request.url.host))
+        assert request.url.host == "comprehension"
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                "<speech_transcript>The user is asking me to analyze an "
+                                "audio file, but I don't actually have access to any audio "
+                                "content in this conversation. Without the actual audio input, "
+                                "I cannot produce a speech transcript because there is nothing "
+                                "for me to perceive.</speech_transcript>"
+                                "<audio_observation>No audio was received. No sound content is "
+                                "available for analysis.</audio_observation>"
+                            )
+                        }
+                    }
+                ]
+            },
+        )
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Live call audio.",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+            },
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+            think=False,
+        )
+    )
+    events = [
+        json.loads(chunk)
+        for chunk in execute_stream(
+            parsed,
+            _adapter_config(),
+            httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+    ]
+
+    assert requested_hosts == ["comprehension"]
+    observation = events[1]
+    assert observation["type"] == "observation"
+    assert "transcript" not in observation
+    assert "audio_observation" not in observation
+    final = events[-1]["response"]
+    assert final["adapter"]["tts_skipped_reason"] == "required_speech_not_found"
+    assert "input_transcript" not in final["adapter"]
+    assert "audio_observation" not in final["adapter"]
+
+
+def test_live_model_may_observe_addressed_elsewhere_speech_without_tts() -> None:
+    requested_hosts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_hosts.append(str(request.url.host))
+        if request.url.host == "comprehension":
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    "<speech_transcript>Maya, I'll call you tomorrow."
+                                    "</speech_transcript>"
+                                )
+                            }
+                        }
+                    ]
+                },
+            )
+        if request.url.host == "language":
+            return httpx.Response(
+                200,
+                content=b'{"message":{"role":"assistant","content":""},"done":true}\n',
+            )
+        raise AssertionError(f"unexpected backend {request.url.host}")
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "The attached audio contains the current room speech.",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+            },
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+            think=False,
+        )
+    )
+
+    events = [
+        json.loads(chunk)
+        for chunk in execute_stream(
+            parsed,
+            _adapter_config(),
+            httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+    ]
+
+    assert requested_hosts == ["comprehension", "language"]
+    assert not any(event.get("type") == "audio_delta" for event in events)
+    final = events[-1]["response"]
+    assert final["message"]["content"] == ""
+    assert final["adapter"]["tts_skipped_reason"] == "empty_assistant_response"
+
+
+def test_ambiguous_live_room_speech_keeps_camera_optional_without_forcing_it() -> None:
+    from runtime import adapter_server
+
+    tools = [entry["schema"] for entry in configured_tools()]
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[{"role": "user", "content": "Live room audio."}],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+                "tool_routing": "relevant",
+            },
+            tools=tools,
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+            think=False,
+        )
+    )
+
+    payload = adapter_server.build_language_payload(
+        parsed,
+        "<speech_transcript>Maya, I'll call you tomorrow.</speech_transcript>",
+        "language",
+        config=_adapter_config(),
+    )
+
+    assert "request_camera_view" in {
+        item["function"]["name"] for item in payload["tools"]
+    }
+    assert payload.get("tool_choice") != "required"
+
+
 def test_video_context_overflow_retries_with_lower_frame_cap(monkeypatch) -> None:
     # These fixtures stand in for a streamable clip; the pipe-probe is exercised
     # by its own tests rather than by shelling out to ffmpeg here.
@@ -1930,7 +2093,7 @@ def test_language_output_gets_a_server_default_when_the_client_omits_one() -> No
     assert ollama["options"]["num_predict"] == 1536
 
 
-def test_relevant_tool_routing_uses_recovered_speech_and_keeps_gateways() -> None:
+def test_relevant_tool_routing_uses_recovered_speech_and_narrows_to_leaf_tools() -> None:
     from runtime import adapter_server
 
     tools = [entry["schema"] for entry in configured_tools()]
@@ -1960,11 +2123,7 @@ def test_relevant_tool_routing_uses_recovered_speech_and_keeps_gateways() -> Non
     )
     names = {item["function"]["name"] for item in payload["tools"]}
 
-    assert "browser_interact" in names
-    assert "tool_search" in names
-    assert "background_task" in names
-    assert "shell" not in names
-    assert len(names) <= 5
+    assert names == {"browser_interact"}
     assert payload["tool_choice"] == "required"
 
     laya_selected = adapter_server.build_language_payload(
@@ -1977,12 +2136,7 @@ def test_relevant_tool_routing_uses_recovered_speech_and_keeps_gateways() -> Non
     laya_names = {
         item["function"]["name"] for item in laya_selected["tools"]
     }
-    assert laya_names == {
-        "tool_search",
-        "background_task",
-        "browser_interact",
-        "gui_interact",
-    }
+    assert laya_names == {"browser_interact", "gui_interact"}
     assert "web_search" not in laya_names
 
 
@@ -2017,8 +2171,120 @@ def test_live_camera_request_exposes_a_required_relevant_tool_contract() -> None
     assert "request_camera_view" in {
         item["function"]["name"] for item in payload["tools"]
     }
+    assert [item["function"]["name"] for item in payload["tools"]] == [
+        "request_camera_view"
+    ]
     assert "<required_tool_action>" in payload["messages"][0]["content"]
     assert "<audio_observation>" not in payload["messages"][-1]["content"]
+
+
+def test_live_camera_refusal_is_hidden_and_retried_as_a_native_tool_call() -> None:
+    language_requests: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "comprehension":
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    "<speech_transcript>What are you seeing on your "
+                                    "cameras?</speech_transcript>"
+                                    "<audio_observation>No non-speech sounds "
+                                    "detected.</audio_observation>"
+                                )
+                            }
+                        }
+                    ]
+                },
+            )
+        if request.url.host == "language":
+            body = json.loads(request.content)
+            language_requests.append(body)
+            assert [item["function"]["name"] for item in body["tools"]] == [
+                "request_camera_view"
+            ]
+            if len(language_requests) == 1:
+                assert body["stream"] is True
+                return httpx.Response(
+                    200,
+                    content=(
+                        b'{"message":{"role":"assistant","content":"I do not have '
+                        b'camera access."},"done":true}\n'
+                    ),
+                )
+            assert body["stream"] is False
+            assert "adapter_execution_context" in body["messages"][-1]["content"]
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "request_camera_view",
+                                    "arguments": {"mode": "still"},
+                                }
+                            }
+                        ],
+                    }
+                },
+            )
+        raise AssertionError(f"unexpected backend {request.url.host}")
+
+    camera_schema = next(
+        entry["schema"]
+        for entry in configured_tools()
+        if entry["schema"]["function"]["name"] == "request_camera_view"
+    )
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "The attached audio contains the current request.",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+                "tool_routing": "relevant",
+            },
+            tools=[camera_schema],
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+            think=False,
+        )
+    )
+
+    events = [
+        json.loads(chunk)
+        for chunk in execute_stream(
+            parsed,
+            _adapter_config(),
+            httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+    ]
+
+    visible = "".join(
+        str(event.get("message", {}).get("content") or "")
+        for event in events
+        if event.get("type") == "delta"
+    )
+    assert "camera access" not in visible
+    final = events[-1]["response"]
+    assert final["message"]["tool_calls"][0]["function"] == {
+        "name": "request_camera_view",
+        "arguments": {"mode": "still"},
+    }
+    assert "audio" not in final["message"]
+    assert len(language_requests) == 2
 
 
 def test_fresh_visual_evidence_cannot_request_the_same_camera_bridge_again() -> None:

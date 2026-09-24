@@ -149,6 +149,60 @@ class TurnResult:
     total_ms: float = 0.0
 
 
+@dataclass
+class BargeInState:
+    """Reconsider near-end speech after playback's echo-safe grace window."""
+
+    started_at: float | None = None
+    ducked_at: float | None = None
+    paused: bool = False
+
+    @property
+    def active(self) -> bool:
+        return self.started_at is not None
+
+    def reset(self) -> None:
+        self.started_at = None
+        self.ducked_at = None
+        self.paused = False
+
+    def observe(
+        self,
+        event: str,
+        *,
+        now: float,
+        reply_started_at: float,
+        grace_s: float,
+        pause_s: float,
+    ) -> tuple[str, ...]:
+        """Return the duck/pause/resume transitions for one VAD event."""
+
+        if event == "start" or (event == "active" and self.started_at is None):
+            self.started_at = now
+            self.ducked_at = None
+            self.paused = False
+
+        if event in {"start", "active"} and self.started_at is not None:
+            actions: list[str] = []
+            if self.ducked_at is None and now - reply_started_at >= grace_s:
+                self.ducked_at = now
+                actions.append("duck")
+            if (
+                self.ducked_at is not None
+                and not self.paused
+                and now - self.started_at >= pause_s
+            ):
+                self.paused = True
+                actions.append("pause")
+            return tuple(actions)
+
+        if event == "rejected":
+            actions = ("resume",) if self.ducked_at is not None else ()
+            self.reset()
+            return actions
+        return ()
+
+
 class _PortalError(RuntimeError):
     """An HTTP failure from the portal, with its status kept for retry logic."""
 
@@ -1245,8 +1299,7 @@ def run_call_loop(
     frame_ms = microphone.frame_ms
     now_ms = 0.0
     settle_until: float | None = None
-    barge_started_at: float | None = None
-    barge_paused = False
+    barge = BargeInState()
     try:
         with microphone:
             listening_announced = False
@@ -1279,34 +1332,38 @@ def run_call_loop(
                     near_end_active.set()
                     # Still talking, so nothing is finished being said.
                     settle_until = None
-                    if verdict.event == "start":
-                        if not busy.is_set():
-                            notify("hearing", "")
-                        elif (
-                            can_barge
-                            and speaking_since is not None
-                            and now - speaking_since >= config.barge_in_grace_s
-                        ):
-                            logger.info("possible interruption; ducking reply")
-                            barge_started_at = now
-                            barge_paused = False
-                            session.request_duck()
-                    elif (
-                        verdict.event == "active"
-                        and barge_started_at is not None
-                        and not barge_paused
-                        and now - barge_started_at >= config.barge_in_pause_s
+                    if verdict.event == "start" and not busy.is_set():
+                        notify("hearing", "")
+                    if (
+                        verdict.event in {"start", "active"}
+                        and can_barge
+                        and speaking_since is not None
                     ):
-                        logger.info("sustained interruption; pausing reply")
-                        barge_paused = True
-                        session.request_pause()
+                        for action in barge.observe(
+                            verdict.event,
+                            now=now,
+                            reply_started_at=speaking_since,
+                            grace_s=config.barge_in_grace_s,
+                            pause_s=config.barge_in_pause_s,
+                        ):
+                            if action == "duck":
+                                logger.info("possible interruption; ducking reply")
+                                session.request_duck()
+                            elif action == "pause":
+                                logger.info("sustained interruption; pausing reply")
+                                session.request_pause()
                 elif verdict.event == "rejected":
                     near_end_active.clear()
-                    if barge_started_at is not None:
-                        logger.info("interruption rejected; resuming reply")
-                        session.resume_reply()
-                        barge_started_at = None
-                        barge_paused = False
+                    for action in barge.observe(
+                        "rejected",
+                        now=now,
+                        reply_started_at=speaking_since or now,
+                        grace_s=config.barge_in_grace_s,
+                        pause_s=config.barge_in_pause_s,
+                    ):
+                        if action == "resume":
+                            logger.info("interruption rejected; resuming reply")
+                            session.resume_reply()
                     if not busy.is_set():
                         notify("listening", "")
                         foreground_active.clear()
@@ -1332,19 +1389,15 @@ def run_call_loop(
                         # A person always wins over a background announcement.
                         # Foreground work is interrupted only after its reply
                         # has actually started streaming to the speaker.
+                        if barge.active:
+                            logger.info("interruption confirmed; yielding to speaker")
                         session.request_barge()
                     elif busy.is_set() and speaking_since is None:
                         logger.info(
                             "accepted audio queued while the current foreground "
                             "reply is not yet audible"
                         )
-                    if barge_started_at is not None:
-                        if not barge_paused:
-                            session.request_pause()
-                        logger.info("interruption confirmed; yielding to speaker")
-                        session.request_barge()
-                        barge_started_at = None
-                        barge_paused = False
+                    barge.reset()
                     with lock:
                         waiting.add(
                             verdict.utterance.samples(),

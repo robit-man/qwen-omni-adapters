@@ -2808,6 +2808,22 @@
         }
         return;
       }
+      const silentObservation = (
+        String((data.adapter || {}).tts_skipped_reason || "") === "empty_assistant_response"
+        && !String(reply.content || "").trim()
+      );
+      if (silentObservation) {
+        turn.historyQueued = true;
+        call.completedHistory.set(turn.sequence, {
+          frame: Boolean(frame),
+          transcript: historyContent,
+          reply: "",
+        });
+        flushCallHistory(call);
+        if (assistant.node.isConnected) removeMessage(assistant);
+        setComposerStatus("Call · observation retained · listening");
+        return;
+      }
       if (!(reply.audio && reply.audio.data)) throw new Error("Voice call reply contained no audio");
       revealMessage(assistant);
       updateMessage(assistant, {

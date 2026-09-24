@@ -23,11 +23,13 @@ import httpx
 from harness.audio import probe_audio_server, require_tools
 from harness.call import CallConfig, TurnResult, run_call_loop
 from harness.camera import CameraSet
+from harness.camera_view import CameraLiveView
 from harness.indicator import ThreadedIndicator, build_indicator, probe_indicator
 from harness.location import BrowserLocationProvider
 from harness.models import IndicatorModelManager
 from harness.residency import SpeechResidency
 from harness.respeaker import find_source
+from harness.update import RepositoryUpdateManager
 from portal.background_tasks import BackgroundTaskStore
 
 logger = logging.getLogger("omni.harness")
@@ -359,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
     model_switch_requested = threading.Event()
     muted = threading.Event()
     cameras = CameraSet.discover(args.camera_device if args.camera_device_only else None)
+    camera_view = CameraLiveView(cameras, enabled=lambda: config.camera_enabled)
+    indicator_holder: dict[str, Any] = {}
 
     def set_tools(value: bool) -> None:
         config.tools_enabled = value
@@ -381,6 +385,15 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("indicator requested a clean voice-service reload")
         reload_requested.set()
         stop.set()
+        live_indicator = indicator_holder.get("value")
+        if live_indicator is not None:
+            live_indicator.stop()
+
+    update_manager = (
+        RepositoryUpdateManager(repo_root, on_installed=request_reload)
+        if not args.no_indicator
+        else None
+    )
 
     model_manager = IndicatorModelManager(repo_root, model)
 
@@ -438,6 +451,22 @@ def main(argv: list[str] | None = None) -> int:
         except OSError as error:
             logger.warning("could not open task archive %s: %s", task_archive, error)
 
+    def open_camera_view() -> tuple[bool, str]:
+        if not config.camera_enabled:
+            return False, "Enable cameras before opening the live view"
+        try:
+            url = camera_view.start()
+            subprocess.Popen(  # noqa: S603 - fixed local desktop opener
+                ["xdg-open", url],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except OSError as error:
+            return False, f"Could not open camera view: {error}"
+        return True, "Opened stitched live camera view"
+
     indicator = (
         build_indicator(
             on_mute=lambda value: muted.set() if value else muted.clear(),
@@ -450,6 +479,7 @@ def main(argv: list[str] | None = None) -> int:
             on_tools=set_tools,
             on_reasoning=set_reasoning,
             on_camera=set_camera,
+            on_open_camera_view=open_camera_view,
             tools_enabled=config.tools_enabled,
             reasoning_enabled=config.reasoning_enabled,
             camera_enabled=config.camera_enabled,
@@ -457,11 +487,15 @@ def main(argv: list[str] | None = None) -> int:
             tasks=indicator_task_store.list if indicator_task_store is not None else None,
             models=model_manager.views,
             on_model_action=model_action,
+            updates=update_manager.view if update_manager is not None else None,
+            on_update=update_manager.install if update_manager is not None else None,
             required=indicator_required,
         )
         if not args.no_indicator
         else None
     )
+    if indicator is not None:
+        indicator_holder["value"] = indicator
 
     indicator_backend = (
         str(getattr(indicator, "backend", "unknown")) if indicator is not None else "disabled"
@@ -534,6 +568,9 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         stop.set()
         runner.join()
+        camera_view.close()
+        if update_manager is not None:
+            update_manager.close()
         _write_harness_status(
             repo_root,
             state="stopped",

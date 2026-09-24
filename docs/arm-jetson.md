@@ -92,6 +92,12 @@ deployment requires its real AppIndicator backend, a reachable
 desktop audio server, and a captured microphone frame. Camera nodes are not
 opened during this startup:
 FFmpeg first touches them only after a structured camera-view request.
+The indicator can explicitly open a loopback browser view; every discovered
+camera is composed in one left-to-right row rather than a grid. It also polls
+`origin/main` and offers a click-to-install fast-forward update. Automatic
+updates preserve untracked files and fail closed for tracked edits, a non-main
+checkout, or diverged history; use `./deploy.sh` for those cases or for changes
+that require reinstalling privileged system-unit definitions.
 
 An upgrade is a controlled handoff. The deployer resolves the live owners of
 ports 8892, 8901, 8910, 8920, and 8930 from procfs and refuses an unknown

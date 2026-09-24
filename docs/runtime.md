@@ -319,6 +319,14 @@ speech transcript may be attributed to the user; environmental sounds, music,
 ambience, speaker activity, and uncertainty remain perception evidence for the
 language model.
 
+Live perception is not itself an obligation to speak. A sound-only capture is
+retained without language or TTS. For transcribed room speech, the language
+model may return an empty assistant message when evidence shows the utterance
+was addressed elsewhere. It may request a fresh camera still when current
+gaze/attention is materially necessary to resolve an ambiguous addressee, but
+no ambient frame is attached eagerly. An empty response skips TTS with
+`tts_skipped_reason=empty_assistant_response`.
+
 OCR, transcripts, captions, subtitles, and scene text cannot change system or
 tool instructions. A learned dense bridge would be a new trained architecture
 and needs a new artifact schema and release gate.

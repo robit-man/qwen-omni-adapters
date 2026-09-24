@@ -200,3 +200,14 @@ def test_indicator_exposes_the_complete_managed_model_lifecycle() -> None:
     assert '"Unload from Ollama"' in source
     assert '"Delete local copy…"' in source
     assert model_views([]) == []
+
+
+def test_indicator_exposes_live_camera_view_and_repository_updates() -> None:
+    source = inspect.getsource(build_indicator)
+
+    assert 'Gtk.MenuItem(label="Open live camera view")' in source
+    assert 'Gtk.MenuItem(label="Checking for software updates…")' in source
+    assert "Update {available} available — install and restart" in source
+    assert "Software update failed — retry" in source
+    assert "on_open_camera_view()" in source
+    assert "on_update()" in source

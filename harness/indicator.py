@@ -326,6 +326,7 @@ def build_indicator(
     on_tools: Callable[[bool], None] | None = None,
     on_reasoning: Callable[[bool], None] | None = None,
     on_camera: Callable[[bool], None] | None = None,
+    on_open_camera_view: Callable[[], tuple[bool, str]] | None = None,
     tools_enabled: bool = True,
     reasoning_enabled: bool = False,
     camera_enabled: bool = True,
@@ -333,6 +334,8 @@ def build_indicator(
     tasks: Callable[[], list[Mapping[str, Any]]] | None = None,
     models: Callable[[], list[Mapping[str, Any]]] | None = None,
     on_model_action: Callable[[str, str], tuple[bool, str]] | None = None,
+    updates: Callable[[], Mapping[str, Any]] | None = None,
+    on_update: Callable[[], tuple[bool, str]] | None = None,
     required: bool = False,
 ):
     """Return a top-bar indicator, or a no-op one if the desktop cannot host it."""
@@ -365,6 +368,8 @@ def build_indicator(
             self._tasks = tasks
             self._model_signature: object = None
             self._models = models
+            self._update_signature: object = None
+            self._updates = updates
 
             menu = Gtk.Menu()
             self._menu = menu
@@ -398,12 +403,19 @@ def build_indicator(
             self._camera_item = Gtk.CheckMenuItem(label="Use cameras")
             self._camera_item.set_active(camera_enabled)
             if on_camera is not None:
-                self._camera_item.connect(
-                    "toggled", lambda item: on_camera(bool(item.get_active()))
-                )
+                self._camera_item.connect("toggled", self._camera_toggled)
             else:
                 self._camera_item.set_sensitive(False)
             menu.append(self._camera_item)
+
+            self._camera_view_item = Gtk.MenuItem(label="Open live camera view")
+            self._camera_view_item.connect(
+                "activate", lambda *_: self._open_camera_view()
+            )
+            self._camera_view_item.set_sensitive(
+                on_open_camera_view is not None and camera_enabled
+            )
+            menu.append(self._camera_view_item)
 
             menu.append(Gtk.SeparatorMenuItem())
             self._endpoint_item = Gtk.MenuItem(label="Copy public link")
@@ -417,6 +429,11 @@ def build_indicator(
             self._reload_item.connect("activate", lambda *_: self._reload())
             self._reload_item.set_sensitive(on_reload is not None)
             menu.append(self._reload_item)
+
+            self._update_item = Gtk.MenuItem(label="Checking for software updates…")
+            self._update_item.connect("activate", lambda *_: self._install_update())
+            self._update_item.set_sensitive(False)
+            menu.append(self._update_item)
 
             self._models_item = Gtk.MenuItem(label="Models")
             self._models_menu = Gtk.Menu()
@@ -450,15 +467,34 @@ def build_indicator(
             self._indicator.set_label("Omni", "Omni")
             self._refresh_models()
             self._refresh_tasks()
+            self._refresh_update()
             if models is not None:
                 GLib.timeout_add_seconds(1, self._refresh_models)
             if tasks is not None:
                 GLib.timeout_add_seconds(1, self._refresh_tasks)
+            if updates is not None:
+                GLib.timeout_add_seconds(5, self._refresh_update)
 
         def _toggled(self, item) -> None:
             self._muted = bool(item.get_active())
             on_mute(self._muted)
             self.set_state("muted" if self._muted else "listening")
+
+        def _camera_toggled(self, item) -> None:
+            active = bool(item.get_active())
+            if on_camera is not None:
+                on_camera(active)
+            self._camera_view_item.set_sensitive(
+                active and on_open_camera_view is not None
+            )
+
+        def _open_camera_view(self) -> None:
+            if on_open_camera_view is None:
+                return
+            ok, detail = on_open_camera_view()
+            self._status_item.set_label(detail[:80])
+            if not ok:
+                logger.warning("camera live view could not open: %s", detail)
 
         def _copy_endpoint(self) -> None:
             """Put the tunnel's URL, key included, on the clipboard."""
@@ -490,6 +526,56 @@ def build_indicator(
             self._reload_item.set_sensitive(False)
             on_reload()
             self.stop()
+
+        def _install_update(self) -> None:
+            if on_update is None:
+                return
+            self._update_item.set_label("Starting software update…")
+            self._update_item.set_sensitive(False)
+            ok, detail = on_update()
+            self._status_item.set_label(detail[:80])
+            if not ok:
+                logger.warning("software update rejected: %s", detail)
+            self._update_signature = None
+            self._refresh_update()
+
+        def _refresh_update(self) -> bool:
+            try:
+                view = dict(self._updates()) if self._updates is not None else {}
+            except Exception as error:  # noqa: BLE001 - keep the indicator usable
+                logger.warning("could not refresh software update state: %s", error)
+                view = {"state": "failed", "detail": str(error), "actionable": False}
+            state = str(view.get("state") or "disabled")
+            detail = _short(view.get("detail"), 180)
+            available = str(view.get("available") or "")
+            actionable = view.get("actionable") is True and on_update is not None
+            signature = (state, detail, available, actionable)
+            if signature == self._update_signature:
+                return True
+            self._update_signature = signature
+            labels = {
+                "checking": "Checking for software updates…",
+                "current": "Software is current",
+                "available": (
+                    f"Update {available} available — install and restart"
+                    if available
+                    else "Software update available — install and restart"
+                ),
+                "installing": "Installing software update…",
+                "installed": "Software updated — restarting…",
+                "blocked": "Software update blocked — run guided deploy",
+                "failed": (
+                    "Software update failed — retry"
+                    if actionable
+                    else "Software update check failed"
+                ),
+                "disabled": "Software updates unavailable",
+            }
+            self._update_item.set_label(labels.get(state, "Software update status unknown"))
+            self._update_item.set_sensitive(actionable)
+            if detail:
+                self._update_item.set_tooltip_text(detail)
+            return True
 
         def _clear_tasks(self) -> None:
             if on_clear_tasks is None:

@@ -522,7 +522,13 @@ It listens continuously, answers out loud, and shows what it is doing in the
 GNOME top bar (`Omni ●` listening, `◉` hearing, `◍` thinking, `▶` speaking).
 The indicator's menu mutes the microphone, toggles tools, reasoning and
 cameras, copies the public link when the portal is published through a tunnel,
-and cleanly reloads the voice service. Its **Models** submenu lists both compact
+opens a loopback-only live view of every camera stitched left-to-right, and
+cleanly reloads the voice service. It polls `origin/main` in the background and
+shows an **Update available — install and restart** action when a verified
+fast-forward exists. Clicking it preserves untracked local files, refuses
+tracked edits or diverged history, refreshes the environment/models, and asks
+the managed runtime and indicator to restart on the new revision. Its
+**Models** submenu lists both compact
 audio bridges and both legacy full bundles. Missing tags expose **Download**
 with live percentage/status text; downloaded tags expose **Activate**, **Load
 into Ollama**, **Unload from Ollama**, and confirmed **Delete local copy**
@@ -557,9 +563,15 @@ Defaults are chosen for a spoken conversation:
 - **Every camera together, only when relevant.** The audio-only pass may call
   `request_camera_view` when the answer depends on the current physical scene.
 Only then are V4L2 devices opened and probed, all working cameras are snapped
-at the same moment, and their frames are stitched into one scaled grid. Clips
+at the same moment, and their frames are stitched into one left-to-right row.
+The indicator's explicit live-view action uses the same horizontal composition. Clips
 work the same way for temporal questions. Merely starting the harness never
 launches FFmpeg or activates a camera privacy indicator.
+- **Observation does not force speech.** Sound-only events are retained as
+  bounded context without language or TTS. The language model may also leave a
+  transcribed room utterance unanswered when current evidence shows it was
+  addressed elsewhere; if gaze would resolve genuine ambiguity, it can request
+  a fresh still before deciding. Empty intentional responses do not invoke TTS.
 - **ReSpeaker when present.** Its ring follows the conversation and the
   direction a voice came from is attached to the turn as evidence. With no
   array attached the default microphone is used and nothing else changes.
@@ -631,7 +643,7 @@ explicitly without delaying normal boot:
 It requires real structured calls for portal capabilities, arithmetic, current
 runtime state, and time; a prose capability disclaimer does not pass.
 
-Two environment variables are worth knowing:
+These environment variables are worth knowing:
 
 | Variable | Effect |
 |---|---|
@@ -646,6 +658,7 @@ Two environment variables are worth knowing:
 | `OMNI_MEMORY_OPERATION_RESERVE_GIB` | Additional per-operation reserve above the soft floor (default `1`) |
 | `OMNI_CONTEXT_FILE` | Optional complete `robit.omni.context.v1` catalog override; defaults to the packaged context catalog |
 | `OMNI_CALL_LOG_CONTENT` | Opt in to exact structured heard/generated/TTS traces; disabled by default |
+| `OMNI_UPDATE_INTERVAL_SECONDS` | Indicator Git update polling interval; minimum 60 seconds, default 900 |
 
 Keep `OMNI_TTS_PERSISTENT=1` only when speech and comprehension genuinely fit
 together. On constrained unified-memory hosts, use `OMNI_TTS_PERSISTENT=0` and

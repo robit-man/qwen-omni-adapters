@@ -2,7 +2,7 @@
 
 A machine with several cameras sees several places at once, and a question
 like "what am I holding" should not have to say which one to look at. Every
-camera is snapped at the same moment, the frames are stitched into one grid and
+camera is snapped at the same moment, the frames are stitched left-to-right and
 scaled down, and the model is handed a single image.
 
 Stitching rather than attaching several images is deliberate: one image costs
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import base64
 import logging
-import math
 import shutil
 import subprocess
 import tempfile
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,6 +43,7 @@ class CameraSet:
     # Remembered so a later look can repeat the same search.
     _explicit: str | None = None
     _candidates: list[str] = field(default_factory=list)
+    _capture_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @classmethod
     def discover(cls, explicit: str | None = None) -> CameraSet:
@@ -93,50 +94,58 @@ class CameraSet:
     def snapshot(self) -> dict[str, Any] | None:
         """One image of everything the machine can see, right now."""
 
-        if shutil.which("ffmpeg") is None or not self.ensure_devices():
-            return None
-        with ThreadPoolExecutor(max_workers=max(1, len(self.devices))) as pool:
-            frames = [
-                frame
-                for frame in pool.map(_grab_frame, self.devices)
-                if frame is not None
-            ]
-        if not frames:
-            return None
-        stitched = frames[0] if len(frames) == 1 else _stitch(frames, self.stitch_width)
-        if stitched is None:
-            return None
-        return {
-            "mime_type": "image/jpeg",
-            "encoding": "base64",
-            "data": base64.b64encode(stitched).decode("ascii"),
-        }
+        with self._capture_lock:
+            if shutil.which("ffmpeg") is None or not self.ensure_devices():
+                return None
+            with ThreadPoolExecutor(max_workers=max(1, len(self.devices))) as pool:
+                frames = [
+                    frame
+                    for frame in pool.map(_grab_frame, self.devices)
+                    if frame is not None
+                ]
+            if not frames:
+                return None
+            stitched = (
+                frames[0]
+                if len(frames) == 1
+                else _stitch(frames, self.stitch_width)
+            )
+            if stitched is None:
+                return None
+            return {
+                "mime_type": "image/jpeg",
+                "encoding": "base64",
+                "data": base64.b64encode(stitched).decode("ascii"),
+            }
 
     def clip(self, seconds: float = CLIP_SECONDS) -> dict[str, Any] | None:
         """A few seconds from every camera, stitched into one clip."""
 
-        if shutil.which("ffmpeg") is None or not self.ensure_devices():
-            return None
-        with tempfile.TemporaryDirectory(prefix="omni-clip-") as workspace:
-            root = Path(workspace)
-            with ThreadPoolExecutor(max_workers=max(1, len(self.devices))) as pool:
-                paths = [
-                    path
-                    for path in pool.map(
-                        lambda item: _grab_clip(item[1], root / f"{item[0]}.mp4", seconds),
-                        enumerate(self.devices),
-                    )
-                    if path is not None
-                ]
-            if not paths:
+        with self._capture_lock:
+            if shutil.which("ffmpeg") is None or not self.ensure_devices():
                 return None
-            merged = root / "stitched.mp4"
-            if not _stitch_clips(paths, merged):
-                return None
-            try:
-                data = merged.read_bytes()
-            except OSError:
-                return None
+            with tempfile.TemporaryDirectory(prefix="omni-clip-") as workspace:
+                root = Path(workspace)
+                with ThreadPoolExecutor(max_workers=max(1, len(self.devices))) as pool:
+                    paths = [
+                        path
+                        for path in pool.map(
+                            lambda item: _grab_clip(
+                                item[1], root / f"{item[0]}.mp4", seconds
+                            ),
+                            enumerate(self.devices),
+                        )
+                        if path is not None
+                    ]
+                if not paths:
+                    return None
+                merged = root / "stitched.mp4"
+                if not _stitch_clips(paths, merged):
+                    return None
+                try:
+                    data = merged.read_bytes()
+                except OSError:
+                    return None
         return {
             "mime_type": "video/mp4",
             "encoding": "base64",
@@ -189,19 +198,10 @@ def _grab_clip(device: str, target: Path, seconds: float) -> Path | None:
     return target if completed.returncode == 0 and target.exists() else None
 
 
-def _grid(count: int) -> tuple[int, int]:
-    """Columns and rows for ``count`` tiles, kept as square as possible."""
-
-    columns = math.ceil(math.sqrt(count))
-    rows = math.ceil(count / columns)
-    return columns, rows
-
-
 def _stitch(frames: list[bytes], width: int) -> bytes | None:
-    """Lay frames out in a grid with ffmpeg's xstack."""
+    """Lay every frame out in one stable left-to-right row."""
 
-    columns, rows = _grid(len(frames))
-    tile_width = max(160, width // columns)
+    tile_width = max(160, width // len(frames))
     with tempfile.TemporaryDirectory(prefix="omni-stitch-") as workspace:
         root = Path(workspace)
         inputs: list[str] = []
@@ -214,11 +214,8 @@ def _stitch(frames: list[bytes], width: int) -> bytes | None:
             f"[{index}:v]scale={tile_width}:-2,pad={tile_width}:ceil(ih/2)*2[v{index}];"
             for index in range(len(frames))
         )
-        # xstack places each tile by naming the widths and heights that come
-        # before it, so a grid is expressed as sums of earlier tiles.
         layout = "|".join(
-            "+".join(["0"] + [f"w{i}" for i in range(index % columns)]) + "_"
-            + "+".join(["0"] + [f"h{i}" for i in range(index // columns)])
+            "+".join(["0"] + [f"w{i}" for i in range(index)]) + "_0"
             for index in range(len(frames))
         )
         chain = (
@@ -254,13 +251,11 @@ def _stitch_clips(paths: list[Path], target: Path) -> bool:
             return True
         except OSError:
             return False
-    columns, rows = _grid(len(paths))
     inputs: list[str] = []
     for path in paths:
         inputs += ["-i", str(path)]
     layout = "|".join(
-        "+".join(["0"] + [f"w{i}" for i in range(index % columns)]) + "_"
-        + "+".join(["0"] + [f"h{i}" for i in range(index // columns)])
+        "+".join(["0"] + [f"w{i}" for i in range(index)]) + "_0"
         for index in range(len(paths))
     )
     chain = (

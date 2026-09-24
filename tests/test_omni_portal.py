@@ -515,6 +515,8 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert "callQueue.classifyObservation" in javascript
     assert "require_speech: true" in javascript
     assert 'content: frame ? "Camera audio context" : "Audio context"' in javascript
+    assert '=== "empty_assistant_response"' in javascript
+    assert 'Call · observation retained · listening' in javascript
     assert "CALL_PENDING_MAX_SECONDS = 45" in javascript
     assert "A submitted turn is immutable" in javascript
     assert "function abortActiveCallTurns" not in javascript

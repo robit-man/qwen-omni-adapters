@@ -287,8 +287,28 @@ def _observation_transcript(observation: str | None) -> str | None:
         match.group(1).strip()
         for match in SPEECH_TRANSCRIPT_BLOCK.finditer(observation)
         if match.group(1).strip()
+        and not _is_encoder_meta_transcript(match.group(1))
     ]
     return "\n".join(transcripts) or None
+
+
+def _is_encoder_meta_transcript(value: str) -> bool:
+    """Reject a media model's refusal/explanation masquerading as ASR."""
+
+    folded = " ".join(value.casefold().split())
+    signatures = (
+        "the user is asking me to",
+        "i don't actually have access to any audio",
+        "i do not actually have access to any audio",
+        "no audio file attached",
+        "no audio file is attached",
+        "no audio content in this conversation",
+        "without the actual audio input",
+        "cannot produce a speech transcript",
+        "can't produce a speech transcript",
+        "nothing for me to perceive",
+    )
+    return sum(signature in folded for signature in signatures) >= 2
 
 
 def _observation_audio(observation: str | None) -> str | None:
@@ -300,8 +320,25 @@ def _observation_audio(observation: str | None) -> str | None:
         match.group(1).strip()
         for match in AUDIO_OBSERVATION_BLOCK.finditer(observation)
         if match.group(1).strip()
+        and not _is_empty_audio_meta(match.group(1))
     ]
     return "\n".join(observations) or None
+
+
+def _is_empty_audio_meta(value: str) -> bool:
+    """Drop encoder diagnostics that contain no acoustic evidence."""
+
+    folded = " ".join(value.casefold().split())
+    return any(
+        signature in folded
+        for signature in (
+            "no audio was received",
+            "no audio content was received",
+            "no sound content is available",
+            "no audio input was provided",
+            "no audio file was provided",
+        )
+    )
 
 
 def _audio_observation_for_language(observation: str | None) -> str | None:
@@ -1400,7 +1437,8 @@ def build_language_payload(
             query = transcript or (
                 latest_user.content.strip() if latest_user is not None else ""
             )
-            keep = retained_tool_names(tools)
+            gateways = retained_tool_names(tools)
+            selected: set[str]
             if decision_tool_names:
                 supplied = {
                     str(tool.get("function", {}).get("name") or "")
@@ -1408,9 +1446,32 @@ def build_language_payload(
                     if isinstance(tool, Mapping)
                     and isinstance(tool.get("function"), Mapping)
                 }
-                keep.update(name for name in decision_tool_names if name in supplied)
+                selected = {
+                    name for name in decision_tool_names if name in supplied
+                }
             else:
-                keep.update(rank_tool_names(query, tools, limit=3))
+                selected = set(rank_tool_names(query, tools, limit=3))
+            keep = gateways | selected
+            supplied_names = {
+                str(tool.get("function", {}).get("name") or "")
+                for tool in tools
+                if isinstance(tool, Mapping)
+                and isinstance(tool.get("function"), Mapping)
+            }
+            if (
+                _is_live_spoken_turn(parsed)
+                and "request_camera_view" in supplied_names
+                and not any(
+                    kind in {"image", "video"} for kind in parsed.input_modalities
+                )
+            ):
+                # Keep the camera bridge optional even when lexical routing did
+                # not select it. The model may need fresh gaze/attention
+                # evidence to decide whether ambiguous room speech addresses
+                # the embodied client. No image is attached unless the model
+                # explicitly requests it, and this optional schema does not
+                # make an otherwise conversational turn tool-required.
+                keep.add("request_camera_view")
             if any(kind in {"image", "video"} for kind in parsed.input_modalities):
                 # A fresh visual attachment fulfills the bridge request. Do
                 # not let the answer pass ask for another capture instead of
@@ -1423,17 +1484,20 @@ def build_language_payload(
                 and isinstance(tool.get("function"), Mapping)
                 and str(tool["function"].get("name") or "") in keep
             ]
-            concrete = {
-                str(tool["function"].get("name") or "")
-                for tool in payload["tools"]
-                if isinstance(tool, Mapping)
-                and isinstance(tool.get("function"), Mapping)
-            } - retained_tool_names(payload["tools"])
+            concrete = selected - gateways
             if concrete:
                 # Relevant routing is used after recovering a spoken request.
                 # A concrete deterministic match is an evidence/action turn,
-                # so require the trained trunk to select a tool instead of
-                # emitting a generic "I cannot" answer.
+                # Keep only those bounded candidates. Generic discovery and
+                # background gateways are useful when no leaf contract is
+                # known, but beside an exact match they dilute the decision and
+                # have caused small trunks to answer with a learned capability
+                # disclaimer instead of selecting the executable schema.
+                payload["tools"] = [
+                    tool
+                    for tool in payload["tools"]
+                    if str(tool.get("function", {}).get("name") or "") in concrete
+                ]
                 payload["tool_choice"] = "required"
                 directive = context_text("directives", "required_tool_action").format(
                     tool_names=", ".join(sorted(concrete))
@@ -1453,6 +1517,62 @@ def build_language_payload(
     if config is not None:
         _fit_language_context(payload, config)
     return payload
+
+
+def _required_tool_call_missing(
+    payload: Mapping[str, Any], result: Mapping[str, Any]
+) -> bool:
+    """Return whether a backend ignored a request-scoped required tool choice."""
+
+    if payload.get("tool_choice") != "required":
+        return False
+    message = result.get("message")
+    return not (
+        isinstance(message, Mapping)
+        and isinstance(message.get("tool_calls"), list)
+        and bool(message["tool_calls"])
+    )
+
+
+def _required_tool_retry_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Make one model-selected retry with action context beside the request."""
+
+    retry = copy.deepcopy(dict(payload))
+    retry["stream"] = False
+    names = [
+        str(tool.get("function", {}).get("name") or "")
+        for tool in retry.get("tools", [])
+        if isinstance(tool, Mapping) and isinstance(tool.get("function"), Mapping)
+    ]
+    directive = context_text("directives", "required_tool_retry").format(
+        tool_names=", ".join(name for name in names if name)
+    )
+    messages = retry.get("messages")
+    if isinstance(messages, list):
+        for message in reversed(messages):
+            if isinstance(message, dict) and message.get("role") == "user":
+                current = str(message.get("content") or "").strip()
+                message["content"] = f"{directive}\n\n{current}".strip()
+                break
+    return retry
+
+
+def _retry_required_tool_call(
+    client: httpx.Client,
+    url: str,
+    payload: Mapping[str, Any],
+    config: Config,
+) -> dict[str, Any]:
+    """Retry once through the model; never synthesize a capability refusal."""
+
+    retry = _required_tool_retry_payload(payload)
+    response = _post_language_with_context_retries(client, url, retry)
+    result = _language_result(_json_response(response, "language"), config.language_api)
+    if _required_tool_call_missing(retry, result):
+        raise AdapterStageError(
+            "language model returned prose twice instead of the required structured tool call"
+        )
+    return result
 
 
 def _language_output_maximum(
@@ -1676,11 +1796,13 @@ def _finish_response(
             _current_user_text(parsed, observation),
             max_sentences=config.spoken_max_sentences,
         )
+    assistant_text = str(message.get("content") or "").strip()
     wants_tts = (
         parsed.synthesize
         and not suppress_tts
         and not tool_calls
         and "tts" not in executed
+        and bool(assistant_text)
     )
     tts_blocks = 0
     tts_skipped_reason: str | None = None
@@ -1688,12 +1810,13 @@ def _finish_response(
         tts_skipped_reason = "required_speech_not_found"
     elif parsed.synthesize and tool_calls:
         tts_skipped_reason = "unresolved_tool_calls"
+    elif parsed.synthesize and not assistant_text:
+        tts_skipped_reason = "empty_assistant_response"
     if wants_tts:
-        text = str(message.get("content") or "").strip()
-        if not text:
-            raise AdapterStageError("tts route has no assistant text to synthesize")
-        wav, tts_blocks = _synthesize_wav_blocks(text, parsed, config, client)
-        message["audio"] = encode_audio_response(wav, transcript=text)
+        wav, tts_blocks = _synthesize_wav_blocks(
+            assistant_text, parsed, config, client
+        )
+        message["audio"] = encode_audio_response(wav, transcript=assistant_text)
         executed.append("tts")
 
     result["adapter"] = {
@@ -1773,19 +1896,25 @@ def execute(
         last_user = next(message for message in reversed(parsed.messages) if message.role == "user")
         result = _direct_response(parsed.model, last_user.content.strip())
     else:
+        language_payload = build_language_payload(
+            parsed,
+            observation,
+            config.language_model,
+            config.language_api,
+            config,
+            decision_tool_names,
+        )
+        language_url = language_request_url(config)
         response = _post_language_with_context_retries(
             client,
-            language_request_url(config),
-            build_language_payload(
-                parsed,
-                observation,
-                config.language_model,
-                config.language_api,
-                config,
-                decision_tool_names,
-            ),
+            language_url,
+            language_payload,
         )
         result = _language_result(_json_response(response, "language"), config.language_api)
+        if _required_tool_call_missing(language_payload, result):
+            result = _retry_required_tool_call(
+                client, language_url, language_payload, config
+            )
         # Keep the external response pinned to the logical combined tag even
         # when the language graph is loaded through its equivalent core tag.
         result["model"] = parsed.model
@@ -2002,6 +2131,25 @@ def execute_stream(
                     thinking += tagged_piece
                     delta["thinking"] = tagged_piece
                 yield _stream_event("delta", message=delta)
+        provisional = {
+            "message": {
+                "role": "assistant",
+                "content": deferred_content or content,
+                **({"tool_calls": tool_calls} if tool_calls else {}),
+            }
+        }
+        if _required_tool_call_missing(payload, provisional):
+            retry_result = _retry_required_tool_call(
+                client, language_request_url(config), payload, config
+            )
+            retry_message = retry_result.get("message")
+            if not isinstance(retry_message, Mapping):
+                raise AdapterStageError("required tool retry returned no message")
+            result = dict(retry_result)
+            deferred_content = str(retry_message.get("content") or "")
+            content = ""
+            tool_calls = retry_message.get("tool_calls")
+            thinking = str(retry_message.get("thinking") or "")
         if defer_visible_content:
             sanitized = {"content": deferred_content}
             _normalize_reasoning(sanitized, enabled=False)
@@ -2036,10 +2184,12 @@ def execute_stream(
     message = result.get("message")
     if not isinstance(message, dict):
         raise AdapterStageError("result contains no Ollama message object")
-    if parsed.synthesize and not message.get("tool_calls"):
+    if (
+        parsed.synthesize
+        and not message.get("tool_calls")
+        and str(message.get("content") or "").strip()
+    ):
         text = str(message.get("content") or "").strip()
-        if not text:
-            raise AdapterStageError("tts route has no assistant text to synthesize")
         text_blocks = _tts_blocks_for_request(text, parsed, config)
         tts_block_count = len(text_blocks)
         yield _stream_event("stage", stage="tts", blocks=tts_block_count)

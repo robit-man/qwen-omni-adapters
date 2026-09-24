@@ -88,6 +88,14 @@ evidence is still returned in the observation/final adapter metadata, but a
 sound-only capture cannot consume the language or TTS stages. Leave it false
 for explicit environmental-audio questions.
 
+A live language stage may intentionally return empty assistant content when
+the observed speech was not addressed to the client. In that case the adapter
+does not call TTS and reports
+`adapter.tts_skipped_reason=empty_assistant_response`; clients should retain the
+user transcript for continuity without rendering an assistant bubble or audio
+failure. This differs from sound-only `require_speech`, which stops before the
+language stage and reports `required_speech_not_found`.
+
 `tool_routing=relevant` is a reversible context optimization for clients that
 supply a larger allowlisted catalog with media input. The adapter waits for the
 current transcript/observation, ranks only the client-supplied schemas, keeps

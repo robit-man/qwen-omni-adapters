@@ -25,6 +25,7 @@ from harness.audio import (  # noqa: E402
 )
 from harness.call import (  # noqa: E402
     LIVE_CALL_SYSTEM_PROMPT,
+    BargeInState,
     CallConfig,
     CallSession,
     TurnResult,
@@ -1256,6 +1257,36 @@ def test_a_barge_ducks_pauses_resumes_or_commits_without_a_hard_cut() -> None:
     assert actions == ["duck", "pause", "resume", ("stop", 0.12)]
 
 
+def test_barge_started_inside_grace_is_reconsidered_then_ducked_and_paused() -> None:
+    barge = BargeInState()
+
+    assert barge.observe(
+        "start", now=0.30, reply_started_at=0.0, grace_s=0.6, pause_s=0.45
+    ) == ()
+    assert barge.active is True
+    assert barge.observe(
+        "active", now=0.62, reply_started_at=0.0, grace_s=0.6, pause_s=0.45
+    ) == ("duck",)
+    assert barge.observe(
+        "active", now=0.76, reply_started_at=0.0, grace_s=0.6, pause_s=0.45
+    ) == ("pause",)
+    assert barge.observe(
+        "rejected", now=0.90, reply_started_at=0.0, grace_s=0.6, pause_s=0.45
+    ) == ("resume",)
+    assert barge.active is False
+
+
+def test_active_speech_that_predates_playback_is_ducked_after_grace() -> None:
+    barge = BargeInState()
+
+    assert barge.observe(
+        "active", now=5.20, reply_started_at=5.0, grace_s=0.6, pause_s=0.45
+    ) == ()
+    assert barge.observe(
+        "active", now=5.61, reply_started_at=5.0, grace_s=0.6, pause_s=0.45
+    ) == ("duck",)
+
+
 def test_an_accepted_utterance_during_speech_preparation_cancels_the_announcement() -> None:
     restored: list[bool] = []
     call = CallSession(
@@ -1375,6 +1406,76 @@ def test_streamed_pcm_blocks_are_written_byte_exactly_to_one_timeline(monkeypatc
     speaker.finish()
     assert process.stdin.getvalue() == first + second
     assert speaker.played_seconds == 0.02
+
+
+def test_pulse_stream_fallback_uses_unique_owned_stream_name(monkeypatch) -> None:
+    class Process:
+        pid = 123
+
+    payload = [
+        {
+            "index": 77,
+            "properties": {
+                "media.name": "Omni conversational voice",
+                "application.name": "paplay",
+                "application.process.binary": "pacat",
+            },
+        }
+    ]
+    monkeypatch.setattr(
+        "harness.audio.subprocess.run",
+        lambda *_args, **_kwargs: type(
+            "Completed", (), {"returncode": 0, "stdout": json.dumps(payload)}
+        )(),
+    )
+
+    assert SpeakerStream._find_sink_input(Process()) == "77"  # type: ignore[arg-type]
+
+
+def test_pulse_stream_fallback_fails_closed_when_ambiguous(monkeypatch) -> None:
+    class Process:
+        pid = 123
+
+    properties = {
+        "media.name": "Omni conversational voice",
+        "application.name": "paplay",
+    }
+    payload = [
+        {"index": 77, "properties": properties},
+        {"index": 78, "properties": properties},
+    ]
+    monkeypatch.setattr(
+        "harness.audio.subprocess.run",
+        lambda *_args, **_kwargs: type(
+            "Completed", (), {"returncode": 0, "stdout": json.dumps(payload)}
+        )(),
+    )
+
+    assert SpeakerStream._find_sink_input(Process()) is None  # type: ignore[arg-type]
+
+
+def test_finish_preserves_a_live_interruption_pause() -> None:
+    class Process:
+        stdin = None
+        signals: list[int] = []
+
+        def poll(self):
+            return None
+
+        def send_signal(self, value: int) -> None:
+            self.signals.append(value)
+
+    speaker = SpeakerStream()
+    process = Process()
+    speaker._process = process  # type: ignore[assignment]
+    speaker._paused = True
+    speaker._gain = 0.0
+
+    speaker.finish(timeout=0.0)
+
+    assert process.signals == []
+    assert speaker._paused is True
+    assert speaker._gain == 0.0
 
 
 def test_speech_during_a_turn_is_kept_rather_than_dropped() -> None:
