@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import assert from "node:assert/strict";
-import { createRequire } from "node:module";
+import assertModule from "assert";
+import { createRequire } from "module";
 
+const assert = assertModule.strict;
 const require = createRequire(import.meta.url);
 const queue = require("./static/call_queue.js");
 const pending = queue.createState({ sampleRate: 1000, maxSeconds: 2, gapMs: 100 });
@@ -22,7 +23,8 @@ queue.enqueue(bounded, [new Float32Array(8).fill(2)], 800);
 const latestWindow = queue.take(bounded);
 assert.equal(latestWindow.sampleCount, 10);
 assert.equal(latestWindow.truncated, true);
-assert.equal(latestWindow.chunks.at(-1).at(-1), 2);
+const lastChunk = latestWindow.chunks[latestWindow.chunks.length - 1];
+assert.equal(lastChunk[lastChunk.length - 1], 2);
 
 // Once samples have been submitted, only later capture segments may enter the
 // pending turn. This mirrors live-call single-flight scheduling and prevents a
@@ -51,7 +53,7 @@ for (let index = 0; index < 8; index += 1) {
 }
 assert.equal(audioContexts.length, 6);
 assert.equal(audioContexts[0], "ambient sound 2");
-assert.equal(audioContexts.at(-1), "ambient sound 7");
+assert.equal(audioContexts[audioContexts.length - 1], "ambient sound 7");
 console.log(JSON.stringify({
   status: "passed",
   consolidated_segments: consolidated.segmentCount,

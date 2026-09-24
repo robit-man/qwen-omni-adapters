@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import assert from "node:assert/strict";
-import { createRequire } from "node:module";
+import assertModule from "assert";
+import { createRequire } from "module";
 
+const assert = assertModule.strict;
 const require = createRequire(import.meta.url);
 const { createState, processFrame } = require("./static/call_vad.js");
 const frameMs = 20;
