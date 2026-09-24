@@ -30,6 +30,9 @@ def test_linux_desktop_harness_requires_a_real_indicator_and_audio_stack() -> No
         line for line in template.splitlines() if line.startswith(("Wants=", "After="))
     )
     assert "probe_indicator" in installer
+    assert "systemd-run --user --wait --pipe" in installer
+    assert '--working-directory="$REPO_ROOT"' in installer
+    assert "SSH_CONNECTION" in installer
     assert "systemctl --user import-environment" in installer
     assert "DBUS_SESSION_BUS_ADDRESS" in installer
     assert "XDG_RUNTIME_DIR" in installer

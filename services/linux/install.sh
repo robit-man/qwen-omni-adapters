@@ -89,11 +89,16 @@ if ((HARNESS)); then
       exit 1
     }
   done
-  "$REPO_ROOT/.venv/bin/python" - <<'PY' >/dev/null || {
-from harness.indicator import probe_indicator
-print(probe_indicator())
-PY
-    printf 'The venv cannot initialize a desktop AppIndicator; rerun scripts/bootstrap.sh --with-harness from the graphical login.\n' >&2
+  # Probe in the user manager, which is also where the persistent harness runs.
+  # An SSH installer normally has no DISPLAY and an X-forwarded DISPLAY would
+  # disappear when SSH exits; neither describes the logged-in desktop session.
+  systemd-run --user --wait --pipe --quiet --collect --service-type=exec \
+    --unit="qwen-omni-indicator-probe-$$" \
+    --working-directory="$REPO_ROOT" \
+    "$REPO_ROOT/.venv/bin/python" -c \
+    'from harness.indicator import probe_indicator; print(probe_indicator())' \
+    >/dev/null || {
+    printf 'The graphical user service cannot initialize a desktop AppIndicator; log into the desktop and rerun the deployment.\n' >&2
     exit 1
   }
   harness_unit="$HOME/.config/systemd/user/omni-call-harness.service"
@@ -105,14 +110,16 @@ PY
     "$SCRIPT_DIR/omni-call-harness.service.in" >"$harness_tmp"
   install -m 0644 "$harness_tmp" "$harness_unit"
   unlink "$harness_tmp" 2>/dev/null || true
-  desktop_variables=()
-  for variable in \
-    DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP \
-    DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR; do
-    [[ -n ${!variable:-} ]] && desktop_variables+=("$variable")
-  done
-  if ((${#desktop_variables[@]})); then
-    systemctl --user import-environment "${desktop_variables[@]}"
+  if [[ -z ${SSH_CONNECTION:-} ]]; then
+    desktop_variables=()
+    for variable in \
+      DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP \
+      DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR; do
+      [[ -n ${!variable:-} ]] && desktop_variables+=("$variable")
+    done
+    if ((${#desktop_variables[@]})); then
+      systemctl --user import-environment "${desktop_variables[@]}"
+    fi
   fi
   systemctl --user daemon-reload
   if ((ENABLE)); then
