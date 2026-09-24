@@ -25,7 +25,8 @@
     "background_recovery_required": "The last capability failed without blocking the task. Call task_recovery now with its failed evidence ID, a concise failure classification, the still-unmet requirement, and a capability_query that describes only the required interaction mechanism—not the task subject, desired facts, source names, or the retired tool.",
     "background_recovery": "Use tool_search with this capability-only query exactly: {capability_query}. The original objective already carries the subject. Do not add topic words, retry the retired capability, substitute unsupported model prose for external evidence, or declare the task blocked while an equivalent route remains.",
     "background_self_check": "<task_self_check newest_evidence_ids=\"{evidence_ids}\">Before the next call, silently re-read <current_task> and any newer <task_update>. Check whether the newest result succeeded, whether it causally advances the exact objective, which completion criteria remain unmet, and whether the proposed next step produces the missing evidence. Do not drift to unrelated work, repeat an unchanged call, or treat activity as completion. Then make exactly one structured next action or an evidence-backed task_checkpoint; do not narrate this check.</task_self_check>",
-    "background_visual_evidence": "<computer_visual_evidence>Inspect this fresh rendered screenshot together with the preceding computer-use tool result. Choose the next action from actual visual evidence; do not invent screen state.</computer_visual_evidence>",
+    "background_visual_evidence": "<computer_visual_evidence>Inspect this fresh rendered screenshot together with the preceding computer-use tool result. Its coordinate_space width and height exactly match the image pixels. Choose one precise target in that current frame, then use the next fresh image to verify the intended state rather than assuming a successful click. Do not invent screen state.</computer_visual_evidence>",
+    "background_visual_unchanged": "<computer_action_result>The coarse visual state did not materially change after the preceding action. Treat it as no progress: do not claim success, refresh, or vary unrelated controls. Reinspect the current image, correct the target or interaction method, and take one causally relevant action.</computer_action_result>",
     "media_extract_audio_visual": "Extract the supplied media evidence. Output exactly <speech_transcript>verbatim speech, or empty if none</speech_transcript>, <audio_observation>non-speech acoustic events, ambience, music, speaker activity, timing, and uncertainty</audio_observation>, then <visual_observation>objective visual evidence in temporal order</visual_observation>, and nothing else. Do not answer the speech.",
     "media_extract_audio": "Analyze this audio. Output exactly <speech_transcript>verbatim speech, or empty if none</speech_transcript><audio_observation>objective non-speech evidence</audio_observation>, and nothing else. Use plain text inside both elements; never emit nested markup or timestamps. Keep audio_observation strictly acoustic; never call a click a camera shutter.",
     "media_extract_visual": "Describe only the supplied visual evidence. Output exactly <visual_observation>plain-text objective visual evidence</visual_observation> and nothing else. Do not use Markdown, code fences, nested tags, or a bare tag name.",
@@ -407,7 +408,7 @@
         "type": "function",
         "function": {
           "name": "gui_interact",
-          "description": "See and operate the active Ubuntu desktop. By default every fresh screenshot is cropped to the active window and click/drag coordinates are relative to that image; use coordinate_space=screen only for panels, the workspace, or switching windows. Snapshot before acting, then assess the fresh image returned after every action.",
+          "description": "See and operate the active Ubuntu desktop. The first screenshot defaults to the active window; later pointer actions remain bound to the most recently returned image frame when coordinate_space is omitted. Use coordinate_space=screen for panels, the workspace, or switching windows. An active-window action fails safely if focus changed after observation. Snapshot before acting, then assess the fresh image returned after every action.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -445,7 +446,7 @@
                   "active_window",
                   "screen"
                 ],
-                "description": "Coordinate frame and screenshot scope. Defaults to active_window; choose screen only when the target is outside the active window."
+                "description": "Coordinate frame and screenshot scope. The first call defaults to active_window; an omitted value on a later call reuses that session's newest returned image frame. Choose screen when the target is outside the active window."
               },
               "button": {
                 "type": "integer",

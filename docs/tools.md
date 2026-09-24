@@ -238,11 +238,17 @@ desktop it returns an explicit capability handoff instead of silently launching
 headless Chromium. Browser and desktop interaction support drag gestures, and
 rendered `<summary>` controls are clickable for reasoning/tool inspection.
 `gui_interact` returns an active-window crop by default and interprets its
-coordinates relative to that returned image. This keeps the immediate motor
-step grounded in one stable visual frame. The model must explicitly select the
-full-screen coordinate space when operating a panel, workspace, or another
-window; each result identifies the coordinate frame and the active window's
-screen bounds.
+coordinates relative to that returned image. The crop comes from the root-window
+capture using the same X11 bounds used to translate input, including window-manager
+decorations; its declared width and height therefore match its pixels exactly.
+This keeps the immediate motor step grounded in one stable visual frame. The model
+selects the full-screen coordinate space when operating a panel, workspace, or
+another window. If a later action omits the space, the runtime reuses the newest
+returned frame rather than silently changing its meaning. An active-window action
+is rejected when focus changed after its observation. Each result identifies the
+coordinate frame, the active window's screen bounds, and whether the coarse frame
+materially changed since the preceding GUI result; that change signal is evidence
+of causality, not proof that the requested state succeeded.
 
 Discovery indexes at most 48 result/fetched pages and 128,000 characters for
 the opaque browser session. `web_search(mode=session)` ranks that local index

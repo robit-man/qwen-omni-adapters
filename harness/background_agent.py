@@ -425,6 +425,7 @@ def _computer_action_state(task: Mapping[str, Any]) -> str:
                             "title",
                             "rendered",
                             "challenge",
+                            "visual_change",
                             "error",
                             "message",
                         }
@@ -2219,12 +2220,23 @@ class BackgroundAgent:
                         }
                     )
                 if isinstance(screenshot, Mapping) and screenshot.get("data"):
+                    visual_directive = context_text(
+                        "directives", "background_visual_evidence"
+                    )
+                    if (
+                        name == "gui_interact"
+                        and str(arguments.get("action") or "") != "snapshot"
+                        and isinstance(result, Mapping)
+                        and isinstance(result.get("visual_change"), Mapping)
+                        and result["visual_change"].get("materially_changed") is False
+                    ):
+                        visual_directive += "\n" + context_text(
+                            "directives", "background_visual_unchanged"
+                        )
                     messages.append(
                         {
                             "role": "user",
-                            "content": context_text(
-                                "directives", "background_visual_evidence"
-                            ),
+                            "content": visual_directive,
                             "images": [dict(screenshot)],
                         }
                     )

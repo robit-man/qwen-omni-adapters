@@ -422,7 +422,13 @@ returns both a screenshot and a bounded accessibility/element map, performs
 real pointer/keyboard input, then observes the changed page. `gui_interact`
 extends the same screenshot → action → screenshot loop to Ubuntu. Its
 default screenshot is the active window and its coordinates are relative to
-that image; full-screen mode is explicit for panels and workspace navigation.
+that image. The runtime captures root-window pixels and crops them to the exact
+X11 geometry used for pointer translation, so window-manager decorations cannot
+offset clicks. Full-screen mode is explicit for panels and workspace navigation;
+when a later pointer call omits its coordinate space, it remains bound to the
+newest returned frame. Active-window clicks fail safely if focus changed after
+observation. Every result also reports whether the coarse visual state materially
+changed, which lets the worker reject a missed click as non-progress.
 Screenshot bytes are shown to the multimodal model for one reasoning
 pass and then removed from the durable transcript so long tasks retain visual
 grounding without filling their context with base64. Local HTTP pages and all

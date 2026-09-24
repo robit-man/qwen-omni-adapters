@@ -13,6 +13,8 @@ from typing import Any
 from urllib.parse import quote_plus
 
 import httpx
+import pytest
+from PIL import Image
 
 from portal.app import (
     DEFAULT_MODEL,
@@ -26,7 +28,7 @@ from portal.browser import (
     BrowserAutomationStore,
 )
 from portal.documents import SessionDocumentStore, extract_document
-from portal.gui import GuiAutomation
+from portal.gui import GuiAutomation, GuiAutomationError
 from portal.tools import (
     DISCOVERY_TOOLS,
     SAFE_TOOLS,
@@ -141,7 +143,15 @@ def test_gui_drag_uses_one_bounded_xdotool_gesture() -> None:
 
         def _snapshot(self, coordinate_space: str = "active_window") -> dict[str, Any]:
             assert coordinate_space == "active_window"
-            return {"rendered": True}
+            return {
+                "rendered": True,
+                "coordinate_space": {
+                    "name": "active_window",
+                    "width": 1000,
+                    "height": 700,
+                },
+                "active_window": {"id": "42"},
+            }
 
     gui = Gui()
     result = gui.act(
@@ -149,7 +159,8 @@ def test_gui_drag_uses_one_bounded_xdotool_gesture() -> None:
         {"action": "drag", "x": 100, "y": 200, "to_x": 500, "to_y": 205},
     )
 
-    assert result == {"rendered": True}
+    assert result["rendered"] is True
+    assert result["visual_change"]["comparable"] is False
     assert gui.commands == [
         [
             "xdotool",
@@ -194,7 +205,15 @@ def test_gui_screen_coordinates_remain_absolute() -> None:
 
         def _snapshot(self, coordinate_space: str = "active_window") -> dict[str, Any]:
             assert coordinate_space == "screen"
-            return {"rendered": True}
+            return {
+                "rendered": True,
+                "coordinate_space": {
+                    "name": "screen",
+                    "width": 1920,
+                    "height": 1080,
+                },
+                "active_window": {"id": "42"},
+            }
 
     gui = Gui()
     gui.act(
@@ -211,6 +230,76 @@ def test_gui_screen_coordinates_remain_absolute() -> None:
     assert gui.commands == [
         ["xdotool", "mousemove", "--sync", "100", "200", "click", "1"]
     ]
+
+
+def test_gui_omitted_space_reuses_the_last_screen_snapshot() -> None:
+    class Gui(GuiAutomation):
+        def __init__(self) -> None:
+            super().__init__()
+            self.commands: list[list[str]] = []
+
+        def _run(self, command: list[str]) -> str:
+            self.commands.append(command)
+            return ""
+
+        def _desktop_state(self) -> tuple[int, int, dict[str, Any]]:
+            return (
+                1920,
+                1080,
+                {
+                    "id": "42",
+                    "title": "Browser",
+                    "bounds": {"x": 50, "y": 30, "width": 1000, "height": 700},
+                },
+            )
+
+        def _snapshot(self, coordinate_space: str = "active_window") -> dict[str, Any]:
+            return {
+                "rendered": True,
+                "coordinate_space": {
+                    "name": coordinate_space,
+                    "width": 1920,
+                    "height": 1080,
+                },
+                "active_window": {"id": "42"},
+                "visual_fingerprint": self._visual_fingerprint(
+                    Image.new("RGB", (32, 32), "white")
+                ),
+            }
+
+    gui = Gui()
+    gui.act("session", {"action": "snapshot", "coordinate_space": "screen"})
+    gui.act("session", {"action": "click", "x": 380, "y": 62, "wait_ms": 0})
+
+    assert [
+        "xdotool",
+        "mousemove",
+        "--sync",
+        "380",
+        "62",
+        "click",
+        "1",
+    ] in gui.commands
+
+
+def test_gui_rejects_stale_active_window_coordinates_after_focus_changes() -> None:
+    gui = GuiAutomation()
+    gui._visual_states["session"] = {
+        "identity": ("seen-window", "active_window", 1000, 700),
+        "sample": b"\0" * 1024,
+    }
+    gui._desktop_state = lambda: (  # type: ignore[method-assign]
+        1920,
+        1080,
+        {
+            "id": "different-window",
+            "title": "Terminal",
+            "bounds": {"x": 0, "y": 0, "width": 900, "height": 600},
+        },
+    )
+
+    with pytest.raises(GuiAutomationError, match="active window changed"):
+        gui.act("session", {"action": "click", "x": 100, "y": 100})
 
 
 def test_gui_snapshot_crops_to_active_window_and_reports_its_frame(
@@ -241,14 +330,14 @@ def test_gui_snapshot_crops_to_active_window_and_reports_its_frame(
         def _run(self, command: list[str]) -> str:
             self.commands.append(command)
             if command[0] == "gnome-screenshot":
-                Path(command[-1]).write_bytes(b"png")
+                Image.new("RGB", (1920, 1080), "white").save(command[-1])
             return ""
 
     monkeypatch.setattr("portal.gui.shutil.which", lambda _name: "/usr/bin/tool")
     gui = Gui()
     result = gui._snapshot()
 
-    assert gui.commands == [["gnome-screenshot", "-w", "-f", gui.commands[0][-1]]]
+    assert gui.commands == [["gnome-screenshot", "-f", gui.commands[0][-1]]]
     assert result["coordinate_space"] == {
         "name": "active_window",
         "origin_x": 54,
@@ -257,7 +346,43 @@ def test_gui_snapshot_crops_to_active_window_and_reports_its_frame(
         "height": 800,
     }
     assert result["active_window"]["bounds"]["x"] == 54
-    assert base64.b64decode(result["screenshot"]["data"]) == b"png"
+    with Image.open(io.BytesIO(base64.b64decode(result["screenshot"]["data"]))) as image:
+        assert image.size == (1042, 800)
+
+
+def test_gui_reports_when_an_action_does_not_materially_change_the_frame() -> None:
+    gui = GuiAutomation()
+    frame = Image.new("RGB", (100, 80), "white")
+
+    def result(image: Image.Image) -> dict[str, Any]:
+        return {
+            "coordinate_space": {
+                "name": "active_window",
+                "width": image.width,
+                "height": image.height,
+            },
+            "active_window": {"id": "42"},
+            "visual_fingerprint": gui._visual_fingerprint(image),
+        }
+
+    first = gui._annotate_visual_change("session", result(frame))
+    unchanged = gui._annotate_visual_change("session", result(frame.copy()))
+    changed_frame = frame.copy()
+    for x in range(50):
+        for y in range(40):
+            changed_frame.putpixel((x, y), (0, 0, 0))
+    changed = gui._annotate_visual_change("session", result(changed_frame))
+
+    assert first["visual_change"] == {
+        "comparable": False,
+        "materially_changed": None,
+    }
+    assert unchanged["visual_change"] == {
+        "comparable": True,
+        "changed_sample_fraction": 0.0,
+        "materially_changed": False,
+    }
+    assert changed["visual_change"]["materially_changed"] is True
 
 
 def test_existing_browser_executor_is_not_readmitted_at_the_soft_floor() -> None:
