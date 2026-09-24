@@ -217,6 +217,37 @@ def _seen_tool_fingerprints(messages: list[dict[str, Any]]) -> set[str]:
     return seen
 
 
+def _latest_tool_fingerprint(messages: list[dict[str, Any]]) -> str:
+    """Return the most recent external attempt for immediate-loop protection.
+
+    A fingerprint is not a permanent prohibition. The same verification command
+    is often exactly what should run after a repair changes the target state.
+    Only an unchanged, immediately repeated external call is rejected; any
+    intervening concrete attempt gives the worker a new causal state to assess.
+    """
+
+    for message in reversed(messages):
+        calls = message.get("tool_calls")
+        if message.get("role") != "assistant" or not isinstance(calls, list):
+            continue
+        for call in reversed(calls):
+            if not isinstance(call, Mapping):
+                continue
+            function = call.get("function")
+            name = (
+                str(function.get("name") or "")
+                if isinstance(function, Mapping)
+                else ""
+            )
+            if name and name not in {
+                "task_checkpoint",
+                "task_compact",
+                "task_recovery",
+            }:
+                return _call_fingerprint(name, _arguments(call))
+    return ""
+
+
 def _compact_task_messages(
     messages: list[dict[str, Any]],
     task: Mapping[str, Any],
@@ -1214,6 +1245,7 @@ class BackgroundAgent:
             *_seen_tool_fingerprints(messages),
             *(str(value) for value in task.get("tool_fingerprints", []) if value),
         }
+        last_tool_fingerprint = _latest_tool_fingerprint(messages)
         result_digests = {
             str(value) for value in task.get("result_digests", []) if value
         }
@@ -1813,10 +1845,15 @@ class BackgroundAgent:
                         self.on_complete(completed)
                     return
                 fingerprint = _call_fingerprint(name, arguments)
-                if fingerprint in seen:
+                if fingerprint == last_tool_fingerprint:
                     result: Any = {
                         "error": "duplicate_tool_call",
-                        "message": "This exact call already ran; assess its result and choose a different next step.",
+                        "message": (
+                            "This exact call was the immediately preceding external "
+                            "attempt; assess its result and change the next step. It may "
+                            "be run again after a materially different intervening action "
+                            "changes or newly inspects relevant state."
+                        ),
                     }
                     if name == "tool_search":
                         suppress_discovery = True
@@ -1825,6 +1862,7 @@ class BackgroundAgent:
                     stalls += 1
                 else:
                     seen.add(fingerprint)
+                    last_tool_fingerprint = fingerprint
                     slice_tool_calls += 1
                     self.store.update_stage(
                         task_id,

@@ -20,10 +20,12 @@ from harness.background_agent import (
     BackgroundAgent,
     _audit_json,
     _bounded_tool_result,
+    _call_fingerprint,
     _checkpoint_available,
     _compact_task_messages,
     _compaction_receipt,
     _freshest_evidence_id,
+    _latest_tool_fingerprint,
     _MalformedToolCall,
     _NonRetryableBackgroundError,
     _seen_tool_fingerprints,
@@ -467,6 +469,58 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
     assert receipt["retained"]["latest_guidance_count"] == 1
 
 
+def test_duplicate_guard_is_scoped_to_the_immediately_preceding_external_call() -> None:
+    build = {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "build-1",
+                "function": {
+                    "name": "shell",
+                    "arguments": {"command": "npm run build"},
+                },
+            }
+        ],
+    }
+    repair = {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "repair-1",
+                "function": {
+                    "name": "shell",
+                    "arguments": {"command": "sed -i s/bad/good/ app.js"},
+                },
+            }
+        ],
+    }
+
+    build_fingerprint = _call_fingerprint("shell", {"command": "npm run build"})
+    assert _latest_tool_fingerprint([build]) == build_fingerprint
+    assert _latest_tool_fingerprint([build, repair]) != build_fingerprint
+    assert _latest_tool_fingerprint(
+        [
+            build,
+            repair,
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "checkpoint-1",
+                        "function": {
+                            "name": "task_checkpoint",
+                            "arguments": {"action": "progress"},
+                        },
+                    }
+                ],
+            },
+        ]
+    ) == _latest_tool_fingerprint([build, repair])
+
+
 def test_a_single_tool_result_cannot_balloon_the_durable_task_context() -> None:
     result = {
         "exit_code": 0,
@@ -817,6 +871,101 @@ def test_background_agent_yields_between_inference_and_tool_steps(
         "/api/chat/stream",
     ]
     assert completed[0]["task_id"] == task["task_id"]
+
+
+def test_background_agent_repeats_verification_after_an_intervening_repair(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Repair the application and verify its production build.")
+    seeded = store.claim_next("seed")
+    assert seeded is not None
+    store.checkpoint(
+        task["task_id"],
+        "seed",
+        active_tools=["shell"],
+        status="pending",
+    )
+    chat_round = 0
+    commands: list[str] = []
+
+    def call(call_id: str, command: str) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "function": {
+                                "name": "shell",
+                                "arguments": {"command": command},
+                            },
+                        }
+                    ],
+                }
+            },
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        body = json.loads(request.content)
+        if request.url.path == "/api/tools/shell/call":
+            command = body["arguments"]["command"]
+            commands.append(command)
+            if command == "npm run build" and commands.count(command) == 1:
+                return httpx.Response(
+                    200,
+                    json={"result": {"exit_code": 1, "stderr": "bad import"}},
+                )
+            return httpx.Response(200, json={"result": {"exit_code": 0}})
+        chat_round += 1
+        if chat_round == 1:
+            return call("build-before", "npm run build")
+        if chat_round == 2:
+            return call("repair", "sed -i s/bad/good/ app.js")
+        if chat_round == 3:
+            return call("build-after", "npm run build")
+        return _checkpoint_response(
+            "complete",
+            "I repaired the application and verified its production build.",
+            ["build-after"],
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.02)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert commands == [
+        "npm run build",
+        "sed -i s/bad/good/ app.js",
+        "npm run build",
+    ]
+    assert not any(
+        "duplicate_tool_call" in str(item.get("outcome"))
+        for item in current["actions"]
+    )
 
 
 def test_capability_failure_triggers_generic_recovery_and_headed_browser(
