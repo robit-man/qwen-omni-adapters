@@ -39,6 +39,21 @@ def test_camera_is_first_opened_only_when_a_structured_capture_runs(monkeypatch)
     assert events == [("probe", "/dev/video0"), ("frame", "/dev/video0")]
 
 
+def test_camera_discovery_retries_a_transient_v4l2_miss(monkeypatch) -> None:
+    attempts: dict[str, int] = {}
+    cameras = camera.CameraSet(_candidates=["/dev/video0", "/dev/video1"])
+
+    def capture(device: str) -> bool:
+        attempts[device] = attempts.get(device, 0) + 1
+        return device == "/dev/video0" or attempts[device] > 1
+
+    monkeypatch.setattr(camera, "_can_capture", capture)
+
+    assert cameras.ensure_devices() is True
+    assert cameras.devices == ["/dev/video0", "/dev/video1"]
+    assert attempts == {"/dev/video0": 1, "/dev/video1": 2}
+
+
 def test_four_camera_still_is_one_left_to_right_row(monkeypatch) -> None:
     commands: list[list[str]] = []
 

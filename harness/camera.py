@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,6 +45,7 @@ class CameraSet:
     _explicit: str | None = None
     _candidates: list[str] = field(default_factory=list)
     _capture_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    _last_discovery_at: float = 0.0
 
     @classmethod
     def discover(cls, explicit: str | None = None) -> CameraSet:
@@ -77,7 +79,8 @@ class CameraSet:
         Vision is asked for rarely, so it costs nothing to look again.
         """
 
-        if self.devices:
+        now = time.monotonic()
+        if self.devices and now - self._last_discovery_at < 10.0:
             return True
         candidates = self._candidates
         if not candidates:
@@ -88,7 +91,18 @@ class CameraSet:
             )
         # This is the first operation that opens a camera. It is reached only
         # after the model emitted a structured camera tool request.
-        self.devices = [device for device in candidates if _can_capture(device)]
+        missing = [device for device in candidates if device not in self.devices]
+        with ThreadPoolExecutor(max_workers=max(1, len(missing))) as pool:
+            recovered = [
+                device
+                for device, available in zip(
+                    missing, pool.map(_can_capture_with_retry, missing), strict=True
+                )
+                if available
+            ]
+        known = set(self.devices) | set(recovered)
+        self.devices = [device for device in candidates if device in known]
+        self._last_discovery_at = now
         return bool(self.devices)
 
     def snapshot(self) -> dict[str, Any] | None:
@@ -155,6 +169,15 @@ class CameraSet:
 
 def _can_capture(device: str) -> bool:
     return _grab_frame(device, width=64) is not None
+
+
+def _can_capture_with_retry(device: str) -> bool:
+    """Tolerate one transient V4L2 open/startup miss during discovery."""
+
+    if _can_capture(device):
+        return True
+    time.sleep(0.15)
+    return _can_capture(device)
 
 
 def _grab_frame(device: str, width: int = 640) -> bytes | None:

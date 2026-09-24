@@ -1287,6 +1287,24 @@ def test_active_speech_that_predates_playback_is_ducked_after_grace() -> None:
     ) == ("duck",)
 
 
+def test_fresh_camera_payload_forbids_a_visual_capability_disclaimer() -> None:
+    call = CallSession(
+        CallConfig(token="t", model="m", camera_enabled=True),
+        frame_grabber=lambda: None,
+    )
+
+    payload = call._build_payload(
+        b"wav",
+        1,
+        {"mime_type": "image/jpeg", "encoding": "base64", "data": "eA=="},
+        with_tools=False,
+    )
+
+    latest = payload["messages"][-1]
+    assert "real current visual evidence" in latest["content"]
+    assert "without disclaiming camera access" in latest["content"]
+
+
 def test_an_accepted_utterance_during_speech_preparation_cancels_the_announcement() -> None:
     restored: list[bool] = []
     call = CallSession(

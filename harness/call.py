@@ -413,7 +413,10 @@ class CallSession:
             " and the attached image is a fresh ambient view from the embodied "
             "client's cameras. Use it only when it materially helps answer the "
             "speaker's request; otherwise ignore it. Never inventory or mention "
-            "the scene merely because the view is present."
+            "the scene merely because the view is present. This is real current "
+            "visual evidence from the camera capture you requested: when the "
+            "request is visual, answer from it directly without disclaiming "
+            "camera access, sight, or permission to describe relevant details."
             if frame
             else ". Continue the live conversation by answering the combined "
             "intent directly and use later words to resolve self-corrections."
