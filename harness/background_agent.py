@@ -354,10 +354,34 @@ def _context_metrics(messages: list[dict[str, Any]]) -> dict[str, int]:
 
 def _compaction_available(messages: list[dict[str, Any]]) -> bool:
     metrics = _context_metrics(messages)
-    return (
+    large_enough = (
         metrics["messages"] > MAX_RETAINED_TASK_MESSAGES + 3
         or metrics["bytes"] > MAX_TASK_CONTEXT_BYTES // 2
     )
+    if not large_enough:
+        return False
+
+    # Hysteresis: a compaction receipt and the control messages around it can
+    # leave the fresh chain just over the low-water message threshold. Do not
+    # offer compaction again until a real external action has added new
+    # evidence. Otherwise a small deterministic model can select the visible
+    # maintenance tool forever instead of returning to the task.
+    latest_compaction = -1
+    latest_external_result = -1
+    for index, message in enumerate(messages):
+        if message.get("role") != "tool":
+            continue
+        name = str(message.get("tool_name") or "")
+        if name == "task_compact":
+            latest_compaction = index
+        elif name not in {
+            "",
+            "task_checkpoint",
+            "task_recovery",
+            "tool_search",
+        } and not _is_duplicate_tool_result(message):
+            latest_external_result = index
+    return latest_compaction <= latest_external_result
 
 
 def _compaction_receipt(

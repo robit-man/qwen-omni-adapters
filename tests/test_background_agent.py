@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from harness.background_agent import (
     AGENT_SYSTEM_PROMPT,
     MAX_CHECKPOINT_REPORT_CHARS,
+    MAX_RETAINED_TASK_MESSAGES,
     MAX_TOOL_RESULT_CHARS,
     TASK_CHECKPOINT_TOOL,
     TASK_COMPACT_TOOL,
@@ -23,6 +24,7 @@ from harness.background_agent import (
     _call_fingerprint,
     _checkpoint_available,
     _compact_task_messages,
+    _compaction_available,
     _compaction_receipt,
     _freshest_evidence_id,
     _latest_tool_fingerprint,
@@ -536,6 +538,34 @@ def test_a_single_tool_result_cannot_balloon_the_durable_task_context() -> None:
     assert bounded["exit_code"] == 0
     assert bounded["truncated"] is True
     assert len(bounded["original_sha256"]) == 64
+
+
+def test_compaction_control_waits_for_new_external_evidence_after_receipt() -> None:
+    messages = [
+        {"role": "user", "content": f"retained-{index}"}
+        for index in range(MAX_RETAINED_TASK_MESSAGES + 4)
+    ]
+    assert _compaction_available(messages) is True
+
+    messages.append(
+        {
+            "role": "tool",
+            "tool_name": "task_compact",
+            "tool_call_id": "compact-1",
+            "content": '{"compacted": true}',
+        }
+    )
+    assert _compaction_available(messages) is False
+
+    messages.append(
+        {
+            "role": "tool",
+            "tool_name": "shell",
+            "tool_call_id": "verify-1",
+            "content": '{"exit_code": 0}',
+        }
+    )
+    assert _compaction_available(messages) is True
 
 
 def test_background_agent_can_invoke_deterministic_compaction(
