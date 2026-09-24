@@ -148,8 +148,10 @@ direct Jetson daemon runs `runtime/comprehension_launcher.py`, derives KV bytes
 per token from the selected GGUF, samples current `MemAvailable`, and selects
 the largest standard tier that leaves the shared runtime reserve. The selected
 value is published in daemon status as `comprehension_context_tokens`; the
-ceiling is `comprehension_context_ceiling`. An explicit
-`OMNI_COMPREHENSION_CONTEXT_TOKENS` still overrides the ceiling.
+ceiling is `comprehension_context_ceiling`. The published
+`comprehension_parallel_slots` matches llama-server's `--parallel` value; the
+default is one so the planner cannot undercount four implicit KV slots. An
+explicit `OMNI_COMPREHENSION_CONTEXT_TOKENS` still overrides the ceiling.
 
 Note that `-ngl 99` does not increase the footprint here the way it does on a
 discrete card: there is one pool, so offloading layers changes which engine

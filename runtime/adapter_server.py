@@ -71,6 +71,7 @@ class Config:
     comprehension_context_tokens: int = 65_536
     comprehension_context_file: str | None = None
     comprehension_max_output_tokens: int = 2_048
+    language_max_output_tokens: int = 4_096
     # Trained audio bridges are optimized against the target trunk's native
     # no-thinking prefill. Stock Qwen3-Omni is not: its explicit false branch
     # is known to degenerate, so this stays opt-in per deployment profile.
@@ -108,6 +109,9 @@ class Config:
             ),
             comprehension_max_output_tokens=int(
                 os.environ.get("OMNI_COMPREHENSION_MAX_OUTPUT_TOKENS", "2048")
+            ),
+            language_max_output_tokens=int(
+                os.environ.get("OMNI_LANGUAGE_MAX_OUTPUT_TOKENS", "4096")
             ),
             comprehension_disable_thinking=(
                 os.environ.get("OMNI_COMPREHENSION_DISABLE_THINKING", "0") == "1"
@@ -1159,6 +1163,36 @@ def build_language_payload(
             ):
                 if options.get(source) is not None:
                     payload[target] = options[source]
+        requested = payload.get("max_tokens")
+        maximum = max(
+            1,
+            config.language_max_output_tokens if config is not None else 4_096,
+        )
+        payload["max_tokens"] = (
+            min(requested, maximum)
+            if isinstance(requested, int)
+            and not isinstance(requested, bool)
+            and requested > 0
+            else maximum
+        )
+    else:
+        native_options = payload.get("options")
+        native_options = (
+            dict(native_options) if isinstance(native_options, Mapping) else {}
+        )
+        requested = native_options.get("num_predict")
+        maximum = max(
+            1,
+            config.language_max_output_tokens if config is not None else 4_096,
+        )
+        native_options["num_predict"] = (
+            min(requested, maximum)
+            if isinstance(requested, int)
+            and not isinstance(requested, bool)
+            and requested > 0
+            else maximum
+        )
+        payload["options"] = native_options
     payload.update(
         {
             "model": language_model or parsed.model,

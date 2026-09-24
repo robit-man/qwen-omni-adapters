@@ -188,6 +188,32 @@ def test_background_task_store_checkpoints_and_recovers_expired_work(
     assert reopened.get(created["task_id"])["round"] == 1  # type: ignore[index]
 
 
+def test_background_task_blocks_after_three_expired_worker_leases(
+    tmp_path: Path,
+) -> None:
+    task_path = tmp_path / "tasks.json"
+    store = BackgroundTaskStore(task_path)
+    created = store.create("Finish one durable task.")
+    assert store.claim_next("initial") is not None
+
+    for attempt in range(1, 4):
+        state = json.loads(task_path.read_text(encoding="utf-8"))
+        state["tasks"][0]["lease_until"] = 0
+        task_path.write_text(json.dumps(state), encoding="utf-8")
+        claimed = store.claim_next(f"worker-{attempt}")
+        if attempt < 3:
+            assert claimed is not None
+            assert claimed["resume_count"] == attempt
+        else:
+            assert claimed is None
+
+    blocked = store.get(created["task_id"])
+    assert blocked is not None
+    assert blocked["status"] == "blocked"
+    assert blocked["resume_count"] == 3
+    assert "three expired worker leases" in blocked["progress"][-1]
+
+
 def test_background_task_claims_rotate_between_pending_work(tmp_path: Path) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
     first = store.create("First task")

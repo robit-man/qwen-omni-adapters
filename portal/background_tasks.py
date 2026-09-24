@@ -24,6 +24,7 @@ from typing import Any
 from qwen_omni_adapters.context import context_text
 
 TERMINAL_STATUSES = {"completed", "blocked", "cancelled"}
+MAX_EXPIRED_RESUMES = 3
 
 
 class BackgroundTaskStore:
@@ -94,6 +95,7 @@ class BackgroundTaskStore:
                 "created_at",
                 "updated_at",
                 "round",
+                "resume_count",
                 "progress",
                 "current_stage",
                 "tools_used",
@@ -253,6 +255,24 @@ class BackgroundTaskStore:
                     status == "running"
                     and float(item.get("lease_until") or 0) < now
                 )
+                if expired:
+                    resume_count = int(item.get("resume_count") or 0) + 1
+                    item["resume_count"] = resume_count
+                    if resume_count >= MAX_EXPIRED_RESUMES:
+                        item["status"] = "blocked"
+                        item["updated_at"] = now
+                        item["error"] = (
+                            "The background worker stopped repeatedly before the "
+                            "task could reach another verified checkpoint."
+                        )
+                        item.setdefault("progress", []).append(
+                            "Stopped after three expired worker leases; manual review is required."
+                        )
+                        item["progress"] = item["progress"][-32:]
+                        item["announcement_pending"] = True
+                        item.pop("lease_until", None)
+                        item.pop("owner", None)
+                        continue
                 if status == "pending" or expired:
                     candidates.append((item, expired))
             if not candidates:

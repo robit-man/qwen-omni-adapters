@@ -39,7 +39,7 @@ pair:
   -m "$CACHE/comprehension-model.gguf" \
   --mmproj "$CACHE/comprehension-projector.gguf" \
   --host 127.0.0.1 --port 8901 \
-  --jinja -ngl 99 -c 65536
+  --jinja -ngl 99 -c 65536 --parallel 1
 ```
 
 On a broker-managed CUDA host, do not run that command anonymously. First run
@@ -56,8 +56,11 @@ For video with sound, `server.py` also demuxes the first audio stream using
 ffmpeg and submits 16 kHz mono PCM16 WAV as a separate audio part.
 The comprehension GGUF declares a 65,536-token context. The reference runtime
 clamps sampling to 32 frames and 2 fps, then retries a context-overflow response
-with progressively smaller frame caps. `OMNI_COMPREHENSION_CONTEXT_TOKENS` and
-`OMNI_COMPREHENSION_MAX_OUTPUT_TOKENS` tell the adapter the deployed limits.
+with progressively smaller frame caps. `OMNI_COMPREHENSION_CONTEXT_TOKENS`,
+`OMNI_COMPREHENSION_PARALLEL`, and
+`OMNI_COMPREHENSION_MAX_OUTPUT_TOKENS` describe the deployed limits. The
+default is one llama-server slot so Tegra KV admission and actual allocation
+agree.
 
 ## 3. Start TTS
 

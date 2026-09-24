@@ -154,11 +154,11 @@ configuration, and assembled into one complete replay WAV. This prevents the
 former approximately 40-second truncation; the final adapter trace exposes the
 number of generated `tts_blocks`.
 
-The portal does not send Ollama `num_predict` overrides for typed chat or live
-calls. Language generation therefore follows the model/server stop conditions
-and available context instead of a frontend token ceiling. TTS retains only its
-required per-invocation codec-frame boundary and chains an unbounded number of
-blocks for the completed reply.
+The frontend does not choose `num_predict` for typed chat or live calls. The
+adapter applies the server-owned `OMNI_LANGUAGE_MAX_OUTPUT_TOKENS` ceiling
+(4,096 by default) to every backend, including clients that omit a limit or ask
+for an unsafe one. TTS retains only its required per-invocation codec-frame
+boundary and chains as many bounded blocks as the completed reply requires.
 
 Assistant replies use a safe DOM-based GitHub-Flavored Markdown subset. Pipe
 tables with a header delimiter row render as responsive, horizontally scrollable
@@ -440,6 +440,8 @@ continue through broker-owned GPU lanes.
 | `OMNI_COMPREHENSION_GPU_UUID` | broker-selected | Explicit approved GPU override |
 | `OMNI_COMPREHENSION_VRAM_MIB` | `45000` | Shared comprehension/TTS scoped reservation |
 | `OMNI_COMPREHENSION_CONTEXT_TOKENS` | `65536` | Native comprehension worker context; propagated to the adapter |
+| `OMNI_COMPREHENSION_PARALLEL` | `1` | llama-server slots; Tegra KV admission charges this exact count |
+| `OMNI_LANGUAGE_MAX_OUTPUT_TOKENS` | `4096` | Hard per-turn language output ceiling applied by the adapter |
 | `OMNI_PORTAL_TOKEN` | generated | At least 24 characters |
 | `OMNI_VOICE_PROFILE` | `portal/voice-profile.json` | Validated server-side Qwen3-TTS profile |
 | `OMNI_TTS_STREAM_FRAMES` | `2` | Codec frames per live PCM decode window; two is about 160 ms and balances first-audio latency with smooth playback |

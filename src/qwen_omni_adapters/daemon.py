@@ -107,6 +107,7 @@ class DaemonConfig:
     portal_port: int = 8920
     decision_port: int = 8930
     context_tokens: int = 65_536
+    comprehension_parallel_slots: int = 1
     tts_stream_frames: int = 8
     portal_token: str = ""
     cloudflare: bool = True
@@ -178,6 +179,9 @@ class DaemonConfig:
                     # fund while retaining the shared runtime reserve.
                     default_context,
                 )
+            ),
+            comprehension_parallel_slots=max(
+                1, int(os.environ.get("OMNI_COMPREHENSION_PARALLEL", "1"))
             ),
             tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
             portal_token=os.environ.get("OMNI_PORTAL_TOKEN", "").strip(),
@@ -790,6 +794,12 @@ class OmniDaemon:
                 "99",
                 "-c",
                 "{context}" if is_tegra() else str(self.config.context_tokens),
+                "--parallel",
+                (
+                    "{parallel}"
+                    if is_tegra()
+                    else str(self.config.comprehension_parallel_slots)
+                ),
                 *self._speculative_args(),
             ]
             command = server_command
@@ -803,6 +813,8 @@ class OmniDaemon:
                     str(self.state_dir / "comprehension-memory.json"),
                     "--max-context",
                     str(self.config.context_tokens),
+                    "--parallel-slots",
+                    str(self.config.comprehension_parallel_slots),
                     "--health-url",
                     f"http://127.0.0.1:{self.config.comprehension_port}/health",
                     "--child-pid-file",
@@ -1050,6 +1062,7 @@ class OmniDaemon:
                 startup_smoke=self.config.startup_smoke,
                 comprehension_context_tokens=self._active_context_tokens(),
                 comprehension_context_ceiling=self.config.context_tokens,
+                comprehension_parallel_slots=self.config.comprehension_parallel_slots,
                 children=[
                     {
                         "name": child.name,

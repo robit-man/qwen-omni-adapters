@@ -1633,8 +1633,49 @@ def test_the_ollama_backend_keeps_its_native_fields() -> None:
     payload = adapter_server.build_language_payload(parsed, None, "ornith", "ollama")
 
     assert payload["keep_alive"] == "30m"
-    assert payload["options"] == {"temperature": 0.2}
+    assert payload["options"] == {"temperature": 0.2, "num_predict": 4096}
     assert "max_tokens" not in payload
+
+
+def test_language_output_is_bounded_for_both_backends() -> None:
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[{"role": "user", "content": "Keep this bounded."}],
+            options={"num_predict": 999_999},
+        )
+    )
+    config = _adapter_config(language_max_output_tokens=2048)
+
+    openai = adapter_server.build_language_payload(
+        parsed, None, "local", "openai", config
+    )
+    ollama = adapter_server.build_language_payload(
+        parsed, None, "local", "ollama", config
+    )
+
+    assert openai["max_tokens"] == 2048
+    assert ollama["options"]["num_predict"] == 2048
+
+
+def test_language_output_gets_a_server_default_when_the_client_omits_one() -> None:
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(messages=[{"role": "user", "content": "Hello."}])
+    )
+    config = _adapter_config(language_max_output_tokens=1536)
+
+    openai = adapter_server.build_language_payload(
+        parsed, None, "local", "openai", config
+    )
+    ollama = adapter_server.build_language_payload(
+        parsed, None, "local", "ollama", config
+    )
+
+    assert openai["max_tokens"] == 1536
+    assert ollama["options"]["num_predict"] == 1536
 
 
 def test_relevant_tool_routing_uses_recovered_speech_and_keeps_gateways() -> None:

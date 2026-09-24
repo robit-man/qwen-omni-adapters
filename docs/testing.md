@@ -178,6 +178,8 @@ result. Do not commit large or restricted media.
 - camera-enabled nonvisual turns capturing or mentioning an ambient scene;
 - background checkpoints omitting a criteria assessment or citing stale
   evidence after a newer concrete result;
+- omitted or excessive language output limits filling the context, and three
+  expired worker leases resuming forever;
 - runtime snapshots exposing hostnames, addresses, processes, or credentials.
 
 Errors must be typed and must not echo raw media, secrets, thinking, or tool
