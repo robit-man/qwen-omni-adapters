@@ -236,10 +236,14 @@ def test_browser_profile_process_discovery_is_exact(tmp_path: Path) -> None:
         "101": [b"/app/chromium/chrome", f"--user-data-dir={owned_profile}".encode()],
         "102": [b"bwrap", f"--user-data-dir={other_profile}".encode()],
         "103": [b"python", f"text mentioning --user-data-dir={owned_profile}".encode()],
+        "104": [
+            b"/app/chromium/chrome --no-sandbox "
+            + f"--user-data-dir={owned_profile} about:blank".encode()
+        ],
     }.items():
         process = proc / pid
         process.mkdir()
         (process / "cmdline").write_bytes(b"\0".join(arguments) + b"\0")
 
-    assert browser_module._profile_process_ids(owned_profile, proc) == [101]
+    assert browser_module._profile_process_ids(owned_profile, proc) == [101, 104]
     assert browser_module._profile_process_ids(Path("/tmp/unowned"), proc) == []

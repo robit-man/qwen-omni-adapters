@@ -77,9 +77,14 @@ def _profile_process_ids(profile: Path, proc_root: Path = Path("/proc")) -> list
             arguments = (entry / "cmdline").read_bytes().split(b"\0")
         except OSError:
             continue
-        if needle in arguments:
+        executable = arguments[0].split(b" ", 1)[0].rsplit(b"/", 1)[-1]
+        if executable not in {b"bwrap", b"chrome", b"chromium", b"chromium-browser"}:
+            continue
+        # Chromium inside Flatpak can expose its complete command as one
+        # space-delimited argv[0] instead of ordinary NUL-delimited arguments.
+        if any(needle in argument.split() for argument in arguments):
             matches.append(int(entry.name))
-    return matches
+    return sorted(matches)
 
 
 def _read_exact(connection: socket.socket, length: int) -> bytes:
