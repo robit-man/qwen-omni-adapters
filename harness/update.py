@@ -54,7 +54,7 @@ class RepositoryUpdateManager:
             install_command
             or (
                 str(self.repo_root / "scripts/bootstrap.sh"),
-                "--refresh-models",
+                "--skip-models",
                 "--with-harness",
             )
         )

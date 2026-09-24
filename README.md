@@ -526,8 +526,9 @@ opens a loopback-only live view of every camera stitched left-to-right, and
 cleanly reloads the voice service. It polls `origin/main` in the background and
 shows an **Update available — install and restart** action when a verified
 fast-forward exists. Clicking it preserves untracked local files, refuses
-tracked edits or diverged history, refreshes the environment/models, and asks
-the managed runtime and indicator to restart on the new revision. Its
+tracked edits or diverged history, refreshes the runtime environment without
+implicitly downloading or changing model weights, and asks the managed runtime
+and indicator to restart on the new revision. Its
 **Models** submenu lists both compact
 audio bridges and both legacy full bundles. Missing tags expose **Download**
 with live percentage/status text; downloaded tags expose **Activate**, **Load
