@@ -14,6 +14,7 @@ import pytest
 
 from clients.python_client import printable_response
 from qwen_omni_adapters.audio import decode_wav_payload
+from qwen_omni_adapters.context import configured_tools
 from qwen_omni_adapters.contract import (
     ADAPTER_SCHEMA,
     MediaItem,
@@ -32,6 +33,7 @@ from runtime.adapter_server import (
     _tts_text_blocks,
     _video_audio,
     build_comprehension_payload,
+    build_language_payload,
     execute,
     execute_stream,
 )
@@ -1929,7 +1931,6 @@ def test_language_output_gets_a_server_default_when_the_client_omits_one() -> No
 
 
 def test_relevant_tool_routing_uses_recovered_speech_and_keeps_gateways() -> None:
-    from qwen_omni_adapters.context import configured_tools
     from runtime import adapter_server
 
     tools = [entry["schema"] for entry in configured_tools()]
@@ -1983,6 +1984,73 @@ def test_relevant_tool_routing_uses_recovered_speech_and_keeps_gateways() -> Non
         "gui_interact",
     }
     assert "web_search" not in laya_names
+
+
+def test_live_camera_request_exposes_a_required_relevant_tool_contract() -> None:
+    tools = [entry["schema"] for entry in configured_tools()]
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "The attached audio contains the current request.",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+                "tool_routing": "relevant",
+            },
+            tools=tools,
+        )
+    )
+    observation = (
+        "<speech_transcript>I'm talking to my buddy; if you look at the camera "
+        "you can see.</speech_transcript>"
+        "<audio_observation>No non-speech sounds detected.</audio_observation>"
+    )
+
+    payload = build_language_payload(parsed, observation, "ornith", "ollama")
+    assert payload["tool_choice"] == "required"
+    assert "request_camera_view" in {
+        item["function"]["name"] for item in payload["tools"]
+    }
+    assert "<required_tool_action>" in payload["messages"][0]["content"]
+    assert "<audio_observation>" not in payload["messages"][-1]["content"]
+
+
+def test_fresh_visual_evidence_cannot_request_the_same_camera_bridge_again() -> None:
+    tools = [entry["schema"] for entry in configured_tools()]
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "What can you see?",
+                    "images": [_encoded(b"\x89PNG\r\n\x1a\nexample")],
+                }
+            ],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "tool_routing": "relevant",
+            },
+            tools=tools,
+        )
+    )
+
+    payload = build_language_payload(
+        parsed,
+        "<visual_observation>A red mug is on the desk.</visual_observation>",
+        "ornith",
+        "ollama",
+    )
+
+    assert "request_camera_view" not in {
+        item["function"]["name"] for item in payload["tools"]
+    }
 
 
 def test_client_tool_routing_preserves_supplied_contract() -> None:

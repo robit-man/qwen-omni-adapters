@@ -18,6 +18,7 @@
     "background_no_call": "Continue with a concrete tool call, or call task_checkpoint with evidence IDs for a verified progress, complete, or blocked state. Plain prose does not change task state.",
     "background_duplicate_call": "That call was rejected because it exactly repeated an earlier call. Reassess the latest evidence and make a materially different next call; change the action, arguments, capability, or assumption. Repeating it cannot advance or finish the task.",
     "foreground_recovery_required": "<tool_recovery>The last tool result failed one capability but explicitly did not block the request. Do not give up, apologize, or answer from unsupported memory. Continue through the newly exposed visible browser tool, using whole-desktop GUI control only if page-level browser controls cannot proceed. Inspect each fresh rendered result and treat any challenge page as non-evidence until navigation reaches a clean results or source page.</tool_recovery>",
+    "required_tool_action": "<required_tool_action>\nThe recovered current request has a concrete matching execution tool: {tool_names}. Make one native structured tool call now. Do not answer in prose, discuss access, or claim the capability is unavailable before that call returns evidence.\n</required_tool_action>",
     "background_recovery_required": "The last capability failed without blocking the task. Call task_recovery now with its failed evidence ID, a concise failure classification, the still-unmet requirement, and a capability_query that describes only the required interaction mechanism—not the task subject, desired facts, source names, or the retired tool.",
     "background_recovery": "Use tool_search with this capability-only query exactly: {capability_query}. The original objective already carries the subject. Do not add topic words, retry the retired capability, substitute unsupported model prose for external evidence, or declare the task blocked while an equivalent route remains.",
     "background_self_check": "<task_self_check newest_evidence_ids=\"{evidence_ids}\">Before the next call, silently re-read <current_task> and any newer <task_update>. Check whether the newest result succeeded, whether it causally advances the exact objective, which completion criteria remain unmet, and whether the proposed next step produces the missing evidence. Do not drift to unrelated work, repeat an unchanged call, or treat activity as completion. Then make exactly one structured next action or an evidence-backed task_checkpoint; do not narrate this check.</task_self_check>",
@@ -162,7 +163,7 @@
           }
         }
       },
-      "discovery_hints": "host runtime system cpu gpu ram memory load resources",
+      "discovery_hints": "host runtime system configuration config settings cpu gpu ram memory load resources",
       "memory_admission": "bounded"
     },
     {
@@ -194,7 +195,7 @@
           }
         }
       },
-      "discovery_hints": "portal capabilities features abilities available actions media input output inventory",
+      "discovery_hints": "portal capabilities features abilities available actions media input output inventory camera vision visual comprehension support access",
       "memory_admission": "bounded"
     },
     {
@@ -917,7 +918,7 @@
           }
         }
       },
-      "discovery_hints": "shell bash terminal command execute run script host filesystem process system create write edit file folder directory ffmpeg encode media probe"
+      "discovery_hints": "shell bash terminal command execute run script host filesystem process system sudo systemctl system c t l service restart jtop jet top create write edit file folder directory ffmpeg encode media probe"
     },
     {
       "schema": {

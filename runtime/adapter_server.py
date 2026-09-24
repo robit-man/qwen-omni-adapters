@@ -39,7 +39,11 @@ from qwen_omni_adapters.audio import (
     decode_wav_payload,
     encode_audio_response,
 )
-from qwen_omni_adapters.context import context_text, rank_tool_names, retained_tool_names
+from qwen_omni_adapters.context import (
+    context_text,
+    rank_tool_names,
+    retained_tool_names,
+)
 from qwen_omni_adapters.contract import (
     ADAPTER_SCHEMA,
     AdapterMessage,
@@ -298,6 +302,36 @@ def _observation_audio(observation: str | None) -> str | None:
         if match.group(1).strip()
     ]
     return "\n".join(observations) or None
+
+
+def _audio_observation_for_language(observation: str | None) -> str | None:
+    """Exclude negative encoder boilerplate from a valid spoken request.
+
+    The full observation remains in the adapter response for diagnostics. This
+    only prevents a small language trunk from interpreting "no non-speech
+    sounds" as "no speech" and contradicting the tagged transcript.
+    """
+
+    value = _observation_audio(observation)
+    if not value:
+        return None
+    folded = " ".join(value.casefold().split())
+    if folded.startswith(
+        (
+            "no non-speech sound",
+            "no intelligible speech is present",
+            "there is no intelligible speech",
+        )
+    ):
+        return None
+    if "contains only intelligible speech" in folded:
+        return None
+    if (
+        ("single human voice" in folded or "continuous human voice" in folded)
+        and ("no background" in folded or "no ambient" in folded)
+    ):
+        return None
+    return value
 
 
 def _thinking_requested(parsed: ParsedAdapterRequest) -> bool:
@@ -1228,6 +1262,8 @@ def _language_messages(
                 # noise cannot outrank or duplicate the spoken request.
                 content = transcript
                 evidence = SPEECH_TRANSCRIPT_BLOCK.sub("", observation).strip()
+                if _audio_observation_for_language(observation) is None:
+                    evidence = AUDIO_OBSERVATION_BLOCK.sub("", evidence).strip()
             if evidence:
                 wrapped = (
                     '<adapter_observation source="current_attached_media" '
@@ -1375,6 +1411,11 @@ def build_language_payload(
                 keep.update(name for name in decision_tool_names if name in supplied)
             else:
                 keep.update(rank_tool_names(query, tools, limit=3))
+            if any(kind in {"image", "video"} for kind in parsed.input_modalities):
+                # A fresh visual attachment fulfills the bridge request. Do
+                # not let the answer pass ask for another capture instead of
+                # examining the evidence it already has.
+                keep.discard("request_camera_view")
             payload["tools"] = [
                 tool
                 for tool in tools
@@ -1394,6 +1435,17 @@ def build_language_payload(
                 # so require the trained trunk to select a tool instead of
                 # emitting a generic "I cannot" answer.
                 payload["tool_choice"] = "required"
+                directive = context_text("directives", "required_tool_action").format(
+                    tool_names=", ".join(sorted(concrete))
+                )
+                for message in payload.get("messages", []):
+                    if isinstance(message, dict) and message.get("role") == "system":
+                        message["content"] = (
+                            str(message.get("content") or "").rstrip()
+                            + "\n\n"
+                            + directive
+                        )
+                        break
     # Sized here rather than at each call site: the non-streaming
     # route did not do it, and that is the one the portal uses, so a
     # tool-using turn failed with "request (4179 tokens) exceeds the

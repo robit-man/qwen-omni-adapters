@@ -92,8 +92,10 @@ for explicit environmental-audio questions.
 supply a larger allowlisted catalog with media input. The adapter waits for the
 current transcript/observation, ranks only the client-supplied schemas, keeps
 configured discovery/execution gateways, and sends the bounded result to the
-language model. It never adds a client-owned capability, selects arguments, or
-authorizes execution. Tool follow-up rounds return to `client` routing because
+language model. When that result contains a concrete schema, the adapter adds a
+compact required-action instruction naming the retained candidates; the model
+still selects the tool and constructs its arguments. The adapter never adds a
+client-owned capability, selects arguments, or authorizes execution. Tool follow-up rounds return to `client` routing because
 the model's concrete call and tool result are then more authoritative than the
 original media transport sentence.
 

@@ -342,7 +342,9 @@ details hidden behind the adapter.
    language and TTS when no speech was found.
 3. The configured language backend receives the recognized speech as the latest
    user message, with bounded text history and non-speech observations as
-   secondary tagged evidence. Visual evidence is added only after a structured
+   secondary tagged evidence. Empty negative acoustic boilerplate such as “no
+   non-speech sounds” remains available in adapter diagnostics but is omitted
+   from the language prompt so it cannot contradict a valid transcript. Visual evidence is added only after a structured
    camera request, or when the client explicitly attached media. The
    local voice harness enables the portal's real tool allowlist on every turn
    without a separate classification pass: the model either answers
@@ -356,7 +358,9 @@ details hidden behind the adapter.
    not attach an ambient still unless the request needs current physical-scene
    evidence; web and other current-information requests complete a real tool
    call in the pass. No answer is eligible for speech before the work it claims
-   has actually completed.
+   has actually completed. Once transcript-aware routing finds concrete matching
+   schemas, the language trunk receives their names in a compact required-action
+   context and still chooses the tool and arguments itself.
 5. Only final answer text is sent to TTS. PCM is played as decoder windows
    arrive, with one small initial lead to absorb packet jitter rather than
    waiting for the complete WAV.
@@ -378,7 +382,8 @@ harness then captures every configured V4L2 camera at the same moment, stitches
 and downscales them, and performs a grounded multimodal follow-up. A motion
 request captures a bounded clip. Internet uses of words such as “look up” are
 therefore routed by the model to web tools rather than intercepted by a local
-keyword list.
+keyword list. The grounded follow-up carries the fresh visual evidence but no
+second camera bridge, preventing a recapture loop.
 
 ### Tools and long-horizon work
 

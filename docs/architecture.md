@@ -39,7 +39,9 @@ non-speech acoustics, and visual observations use distinct tags. For a
 VAD-driven live-call request that requires speech, the adapter validates the
 tagged transcript and promotes only those verbatim words to the latest user
 message; the remaining acoustic and visual output stays wrapped as untrusted
-evidence. Ordinary uploaded-media analysis keeps every encoder tag as evidence.
+evidence. Negative non-speech boilerplate that adds no acoustic event is kept
+in response metadata but omitted from the language prompt when a valid
+transcript exists. Ordinary uploaded-media analysis keeps every encoder tag as evidence.
 This prevents room noise, OCR, or an encoder's suggested answer from outranking
 the speaker's actual request or changing tool/system policy.
 

@@ -602,7 +602,7 @@ def test_an_embodied_turn_keeps_camera_bridge_for_capture_or_motion() -> None:
         1,
         {"mime_type": "image/jpeg", "encoding": "base64", "data": "eA=="},
     )
-    assert payload_with_evidence["portal_camera_bridge"] is True
+    assert payload_with_evidence["portal_camera_bridge"] is False
 
     payload_with_motion = call._build_payload(
         b"wav",
@@ -1070,6 +1070,24 @@ def test_explicit_camera_tool_requests_the_right_capture_mode() -> None:
     assert result.followup == "The box fell over."
     assert "images" not in payloads[0]["messages"][-1]  # type: ignore[operator]
     assert payloads[1]["messages"][-1]["videos"] == [clip]  # type: ignore[index]
+
+
+def test_failed_camera_capture_reports_only_the_attempt_failure() -> None:
+    call = CallSession(
+        CallConfig(token="t", model="m", tools_enabled=True, camera_enabled=True),
+        frame_grabber=lambda **_kwargs: None,  # type: ignore[arg-type]
+    )
+    call._run = lambda _payload, **_kwargs: TurnResult(  # type: ignore[method-assign]
+        transcript="look through the camera",
+        tools_used=["request_camera_view"],
+        camera_requested=True,
+    )
+
+    result = call.take_turn(np.zeros(RATE, dtype=np.float32))
+
+    assert result.followup == "The camera capture failed just now."
+    assert "camera" in result.followup
+    assert "access" not in result.followup
 
 
 # -- compact ordinary context ---------------------------------------------

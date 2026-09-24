@@ -429,10 +429,7 @@ class CallSession:
                 with_tools
                 and self.config.camera_enabled
                 and self._frame_grabber is not None
-                and (
-                    frame is None
-                    or str(frame.get("mime_type") or "").startswith("image/")
-                )
+                and frame is None
             ),
             # Host execution belongs to the checkpointed worker. Giving the
             # foreground both shell and background_task let a small model pick
@@ -558,28 +555,34 @@ class CallSession:
             # is spoken; only this grounded answer reaches TTS.
             self._state("thinking", "looking")
             frame = self._frame_grabber(motion=result.camera_motion)
-
-            follow = self._run(
-                self._build_payload(
-                    audio,
-                    segments,
-                    frame,
-                    with_tools=self.config.tools_enabled,
-                ),
-            )
-            if follow.reply.strip() and not follow.error:
-                result.followup = follow.reply.strip()
-                result.tools_used = list(
-                    dict.fromkeys([*result.tools_used, *follow.tools_used])
+            if frame is None:
+                # This is an evidence-backed capture failure, not a broad
+                # capability denial. It is safe to speak only after the
+                # structured request actually tried the camera path.
+                result.followup = "The camera capture failed just now."
+                self._append_history("assistant", result.followup)
+            else:
+                follow = self._run(
+                    self._build_payload(
+                        audio,
+                        segments,
+                        frame,
+                        with_tools=self.config.tools_enabled,
+                    ),
                 )
-                result.spoke_seconds += follow.spoke_seconds
-                self._append_history("assistant", follow.reply.strip())
-                self._note_spoken(follow.reply, follow.spoke_seconds)
-            if follow.interrupted:
-                self._mark_interrupted(follow.reply, follow.spoke_seconds)
-                return result
-            if follow.error:
-                return result
+                if follow.reply.strip() and not follow.error:
+                    result.followup = follow.reply.strip()
+                    result.tools_used = list(
+                        dict.fromkeys([*result.tools_used, *follow.tools_used])
+                    )
+                    result.spoke_seconds += follow.spoke_seconds
+                    self._append_history("assistant", follow.reply.strip())
+                    self._note_spoken(follow.reply, follow.spoke_seconds)
+                if follow.interrupted:
+                    self._mark_interrupted(follow.reply, follow.spoke_seconds)
+                    return result
+                if follow.error:
+                    return result
 
         if self.config.prepare_speech is not None:
             speech = self._speak_finished(result.followup or result.reply)
