@@ -725,6 +725,19 @@ def _checkpoint_available(messages: list[dict[str, Any]]) -> bool:
     return latest_action > latest_control
 
 
+def _direct_alternative_tools(result: Mapping[str, Any]) -> list[str]:
+    alternatives = result.get("alternative_tools")
+    if not isinstance(alternatives, list):
+        return []
+    return list(
+        dict.fromkeys(
+            str(item)
+            for item in alternatives
+            if str(item) != "background_task" and tool_schemas([str(item)])
+        )
+    )[:3]
+
+
 def _recovery_required(messages: list[dict[str, Any]]) -> bool:
     """Whether a capability failure still needs a typed recovery transition."""
 
@@ -746,7 +759,7 @@ def _recovery_required(messages: list[dict[str, Any]]) -> bool:
             and result.get("disposition") == "change_capability"
             and result.get("task_blocked") is False
         ):
-            pending = True
+            pending = not bool(_direct_alternative_tools(result))
     return pending
 
 
@@ -2144,9 +2157,19 @@ class BackgroundAgent:
                     and result.get("disposition") == "change_capability"
                 )
                 if change_capability:
-                    active_tools = []
-                    suppress_discovery = False
-                    recovery_required = True
+                    direct_alternatives = _direct_alternative_tools(result)
+                    if direct_alternatives:
+                        # The local executor has already supplied a concrete,
+                        # allowlisted equivalent capability. Expose it immediately;
+                        # another classification and discovery pair only adds two
+                        # generative rounds and lets small models retry a dead path.
+                        active_tools = direct_alternatives
+                        suppress_discovery = True
+                        recovery_required = False
+                    else:
+                        active_tools = []
+                        suppress_discovery = False
+                        recovery_required = True
                 elif name == "tool_search" and isinstance(result, Mapping):
                     available = result.get("available_tools")
                     if isinstance(available, list):

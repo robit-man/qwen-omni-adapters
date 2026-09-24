@@ -235,12 +235,27 @@ def run(args: argparse.Namespace) -> int:
             for action in actions
             if isinstance(action, dict)
         }.intersection({"shell", "web_fetch", "web_search"})
+        invalid_browser_actions = []
+        for action in actions:
+            if not isinstance(action, dict) or action.get("tool") != "browser_interact":
+                continue
+            try:
+                browser_arguments = json.loads(str(action.get("arguments") or "{}"))
+            except ValueError:
+                browser_arguments = {}
+            if browser_arguments.get("action") != "navigate":
+                invalid_browser_actions.append(browser_arguments.get("action"))
         if task.get("status") != "complete":
             raise RuntimeError(f"GUI task ended with status {task.get('status')}")
         if not challenge["complete"] or challenge["marker"] != state.marker:
             raise RuntimeError("The task completed without passing the canvas hit gates")
         if forbidden:
             raise RuntimeError(f"GUI task bypassed visual execution with {sorted(forbidden)}")
+        if invalid_browser_actions:
+            raise RuntimeError(
+                "GUI task attempted non-navigation browser actions: "
+                f"{invalid_browser_actions}"
+            )
         if len([hit for hit in challenge["hits"] if hit["accepted"]]) != 3:
             raise RuntimeError("The challenge did not record exactly three accepted hits")
         print(

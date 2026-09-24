@@ -28,12 +28,14 @@ from harness.background_agent import (
     _compaction_available,
     _compaction_receipt,
     _computer_action_messages,
+    _direct_alternative_tools,
     _ForegroundPreempted,
     _freshest_evidence_id,
     _inference_diagnostics,
     _latest_tool_fingerprint,
     _MalformedToolCall,
     _NonRetryableBackgroundError,
+    _recovery_required,
     _seen_tool_fingerprints,
     _stream_error,
     _task_system_prompt,
@@ -185,6 +187,24 @@ def test_computer_action_scope_is_disabled_while_capability_recovery_is_required
         )
         is messages
     )
+
+
+def test_allowlisted_executor_alternative_skips_generative_rediscovery() -> None:
+    result = {
+        "disposition": "change_capability",
+        "task_blocked": False,
+        "alternative_tools": ["gui_interact", "rm_rf", "gui_interact"],
+    }
+    messages = [
+        {
+            "role": "tool",
+            "tool_name": "browser_interact",
+            "content": json.dumps(result),
+        }
+    ]
+
+    assert _direct_alternative_tools(result) == ["gui_interact"]
+    assert _recovery_required(messages) is False
 
 
 def test_foreground_preemption_releases_a_blocked_stream_reader_promptly(

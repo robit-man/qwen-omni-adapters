@@ -287,3 +287,14 @@ def test_browser_challenge_hands_the_visible_window_to_gui() -> None:
     assert metadata["disposition"] == "change_capability"
     assert metadata["task_blocked"] is False
     assert metadata["alternative_tools"] == ["gui_interact"]
+
+
+def test_visual_only_browser_page_hands_pixels_to_gui() -> None:
+    metadata = browser_module._visual_only_metadata("", [])
+
+    assert metadata["visual_only"] is True
+    assert metadata["disposition"] == "change_capability"
+    assert metadata["task_blocked"] is False
+    assert metadata["alternative_tools"] == ["gui_interact"]
+    assert browser_module._visual_only_metadata("Readable article", []) == {}
+    assert browser_module._visual_only_metadata("", [{"id": "e1"}]) == {}

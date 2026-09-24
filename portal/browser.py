@@ -115,6 +115,26 @@ def _challenge_metadata(title: str, url: str, visible_text: str) -> dict[str, An
     return {}
 
 
+def _visual_only_metadata(
+    visible_text: str, elements: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Hand rendered-only pages to the pixel-capable desktop executor."""
+
+    if visible_text.strip() or elements:
+        return {}
+    return {
+        "visual_only": True,
+        "failure_scope": "interaction_representation",
+        "task_blocked": False,
+        "disposition": "change_capability",
+        "alternative_tools": ["gui_interact"],
+        "next_action": (
+            "The page rendered no actionable DOM elements or text. Continue on the "
+            "same visible Chromium window with gui_interact and its fresh pixels."
+        ),
+    }
+
+
 def _read_exact(connection: socket.socket, length: int) -> bytes:
     output = bytearray()
     while len(output) < length:
@@ -575,6 +595,7 @@ class BrowserAutomationStore:
                 "data": shot,
             },
         }
+        result.update(_visual_only_metadata(visible_text, list(session.elements.values())))
         result.update(_challenge_metadata(title, url, visible_text))
         return result
 
