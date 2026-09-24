@@ -120,6 +120,41 @@ def _tool_calls(response: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [dict(item) for item in calls if isinstance(item, Mapping)]
 
 
+def _inference_diagnostics(
+    response: Mapping[str, Any], step_token_limit: int
+) -> dict[str, Any]:
+    """Return useful planner telemetry without retaining private reasoning text."""
+
+    message = response.get("message")
+    if not isinstance(message, Mapping):
+        message = {}
+    thinking_chars = len(str(message.get("thinking") or ""))
+    content_chars = len(str(message.get("content") or ""))
+    tool_call_count = len(_tool_calls(response))
+    try:
+        eval_count = max(0, int(response.get("eval_count") or 0))
+    except (TypeError, ValueError):
+        eval_count = 0
+    if tool_call_count:
+        classification = "structured_action"
+    elif eval_count >= step_token_limit:
+        classification = "output_budget_exhausted_without_action"
+    elif thinking_chars and not content_chars:
+        classification = "thinking_only_without_action"
+    else:
+        classification = "required_action_missing"
+    return {
+        "classification": classification,
+        "done_reason": str(response.get("done_reason") or "")[:80],
+        "prompt_eval_count": max(0, int(response.get("prompt_eval_count") or 0)),
+        "eval_count": eval_count,
+        "step_token_limit": step_token_limit,
+        "thinking_chars": thinking_chars,
+        "content_chars": content_chars,
+        "tool_call_count": tool_call_count,
+    }
+
+
 def _arguments(call: Mapping[str, Any]) -> dict[str, Any]:
     function = call.get("function")
     if not isinstance(function, Mapping):
@@ -1402,15 +1437,18 @@ class BackgroundAgent:
                     *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
                 ]
             )
-            # A discovery result already chose the capability. Disabling the
-            # private thinking channel for that one handoff prevents a small
-            # model from spending thousands of tokens reconsidering tools
-            # instead of invoking the newly exposed contract.
+            # A discovery result already chose the capability. Once a concrete
+            # contract is active, every round is an action/checkpoint round,
+            # not an open-ended deliberation round. Keep native thinking for
+            # initial planning only; otherwise a small model can consume the
+            # entire output ceiling in the private channel without ever
+            # emitting the required structured call.
             action_after_discovery = bool(
                 messages
                 and messages[-1].get("role") == "tool"
                 and messages[-1].get("tool_name") == "tool_search"
             )
+            structured_action_phase = action_after_discovery or bool(active_tools)
             payload = {
                 "model": self.model,
                 "messages": messages,
@@ -1422,7 +1460,7 @@ class BackgroundAgent:
                 # waste far more time than deliberation costs. Native thinking
                 # remains a separate backend channel and is never spoken or
                 # copied into the durable task transcript.
-                "think": not action_after_discovery,
+                "think": not structured_action_phase,
                 "options": {"num_predict": self.step_token_limit},
                 # Background rounds are independently checkpointed. Reusing a
                 # llama.cpp prompt slot keeps discarded history resident and
@@ -1483,6 +1521,14 @@ class BackgroundAgent:
             message = data.get("message")
             if not isinstance(message, Mapping):
                 raise RuntimeError("background inference returned no assistant message")
+            logger.info(
+                "background task %s inference diagnostics: %s",
+                task_id,
+                json.dumps(
+                    _inference_diagnostics(data, self.step_token_limit),
+                    sort_keys=True,
+                ),
+            )
             assistant = {
                 key: copy.deepcopy(value)
                 for key, value in message.items()

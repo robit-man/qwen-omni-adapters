@@ -27,6 +27,7 @@ from harness.background_agent import (
     _compaction_available,
     _compaction_receipt,
     _freshest_evidence_id,
+    _inference_diagnostics,
     _latest_tool_fingerprint,
     _MalformedToolCall,
     _NonRetryableBackgroundError,
@@ -58,6 +59,34 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
     assert "Ignore unrelated topics" in prompt
     assert "every qualifier in the completion criteria as a constraint" in prompt
     assert prompt.endswith(AGENT_SYSTEM_PROMPT)
+
+
+def test_background_inference_diagnostics_report_budget_without_reasoning_text() -> None:
+    diagnostic = _inference_diagnostics(
+        {
+            "done_reason": "length",
+            "prompt_eval_count": 7916,
+            "eval_count": 768,
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "thinking": "private reasoning that must not enter logs",
+            },
+        },
+        768,
+    )
+
+    assert diagnostic == {
+        "classification": "output_budget_exhausted_without_action",
+        "done_reason": "length",
+        "prompt_eval_count": 7916,
+        "eval_count": 768,
+        "step_token_limit": 768,
+        "thinking_chars": 42,
+        "content_chars": 0,
+        "tool_call_count": 0,
+    }
+    assert "private reasoning" not in json.dumps(diagnostic)
 
 
 def _checkpoint_response(
@@ -820,12 +849,12 @@ def test_background_agent_yields_between_inference_and_tool_steps(
         requests.append(request.url.path)
         if request.url.path == "/api/chat/stream":
             payload = json.loads(request.content)
-            assert payload["think"] is True
             assert payload["tool_choice"] == "required"
             tool_results = [
                 item for item in payload["messages"] if item.get("role") == "tool"
             ]
             if not tool_results:
+                assert payload["think"] is True
                 return httpx.Response(
                     200,
                     json={
@@ -847,6 +876,7 @@ def test_background_agent_yields_between_inference_and_tool_steps(
                         }
                     },
                 )
+            assert payload["think"] is False
             assert any(
                 "<task_self_check" in str(item.get("content") or "")
                 and "write-1" in str(item.get("content") or "")
@@ -1198,6 +1228,7 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
             call_name = "browser_interact"
             arguments = {"action": "navigate", "url": "http://example.test/"}
         else:
+            assert payload["think"] is False
             assert tool_names == [
                 "task_checkpoint",
                 "tool_search",
