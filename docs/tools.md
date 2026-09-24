@@ -232,9 +232,10 @@ in ordinary discovery. `web_search(mode=discover)` ports Omnius's production
 `WebSearchTool`: it sends one bounded GET to DuckDuckGo's public no-key HTML
 results page and extracts only result links, titles, and snippets. Search
 metadata remains unverified until `web_fetch` retrieves the exact selected URL.
-Interactive and JavaScript-heavy work is a separate `browser_interact` path,
-visible on an attached desktop and rendered headlessly when a system service
-cannot join one. Browser and desktop interaction support drag gestures, and
+Interactive and JavaScript-heavy work is a separate `browser_interact` path
+that always opens on the attached desktop. If the service cannot join that
+desktop it returns an explicit capability handoff instead of silently launching
+headless Chromium. Browser and desktop interaction support drag gestures, and
 rendered `<summary>` controls are clickable for reasoning/tool inspection.
 
 Discovery indexes at most 48 result/fetched pages and 128,000 characters for

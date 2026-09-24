@@ -41,13 +41,21 @@ from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 try:
     from portal.background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
-    from portal.browser import BrowserAutomationError, BrowserAutomationStore
+    from portal.browser import (
+        BrowserAutomationError,
+        BrowserAutomationStore,
+        BrowserDesktopUnavailable,
+    )
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import runtime_environment_snapshot
     from portal.gui import GuiAutomation, GuiAutomationError
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
-    from browser import BrowserAutomationError, BrowserAutomationStore
+    from browser import (
+        BrowserAutomationError,
+        BrowserAutomationStore,
+        BrowserDesktopUnavailable,
+    )
     from documents import DocumentError, SessionDocumentStore
     from environment import runtime_environment_snapshot
     from gui import GuiAutomation, GuiAutomationError
@@ -2168,6 +2176,15 @@ class PortalToolHarness:
                 "error": "resource_pressure",
                 "retryable": True,
                 "message": "The runtime deferred this operation to preserve memory headroom.",
+            }
+        except BrowserDesktopUnavailable as exc:
+            result = {
+                "error": type(exc).__name__,
+                "message": str(exc)[:500],
+                "failure_scope": "capability",
+                "task_blocked": False,
+                "disposition": "change_capability",
+                "alternative_tools": ["gui_interact"],
             }
         except (
             ToolInputError,

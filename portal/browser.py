@@ -1,9 +1,9 @@
 """Persistent Chromium automation backed by its native DevTools protocol.
 
-The browser opens on the signed-in desktop when one is available so the person
-beside the machine can see and take over the same page. Like Omnius's canonical
-Playwright tool, it falls back to a rendered headless session when a supervised
-system service cannot join a graphical desktop.
+The browser opens on the signed-in desktop so the person beside the machine can
+see and take over the same page. It never silently substitutes a headless
+session: GUI browser work without an attached graphical desktop is an explicit
+capability failure.
 CDP is used instead of ChromeDriver because the Flatpak Chromium build and the
 distribution chromedriver are not version locked on the target Jetson.
 """
@@ -43,6 +43,10 @@ logger = logging.getLogger(__name__)
 
 class BrowserAutomationError(RuntimeError):
     """A visible-browser action could not be completed."""
+
+
+class BrowserDesktopUnavailable(BrowserAutomationError):
+    """The service could not join the signed-in graphical desktop."""
 
 
 def _session_key(session_id: str) -> str:
@@ -247,7 +251,7 @@ _SNAPSHOT_SCRIPT = r"""
 
 
 class BrowserAutomationStore:
-    """One persistent rendered Chromium session per authenticated portal session."""
+    """One persistent visible Chromium session per authenticated portal session."""
 
     def __init__(
         self,
@@ -348,6 +352,11 @@ class BrowserAutomationStore:
         visible_on_desktop = bool(
             environment.get("DISPLAY") or environment.get("WAYLAND_DISPLAY")
         )
+        if not visible_on_desktop:
+            raise BrowserDesktopUnavailable(
+                "No signed-in graphical desktop is available for visible Chromium; "
+                "browser_interact did not launch a headless substitute."
+            )
         self._admit_single_window()
         if self.memory_governor is not None:
             if self.launch_reserve_gib is None:
@@ -373,8 +382,6 @@ class BrowserAutomationStore:
             "--window-size=1280,800",
             "about:blank",
         ]
-        if not visible_on_desktop:
-            command.insert(1, "--headless=new")
         process = subprocess.Popen(  # noqa: S603
             command,
             stdin=subprocess.DEVNULL,

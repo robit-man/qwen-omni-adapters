@@ -11,8 +11,11 @@ from __future__ import annotations
 
 import os
 import stat
+import subprocess
 from collections.abc import Mapping
 from pathlib import Path
+
+_USER_MANAGER_DESKTOP_KEYS = ("DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY")
 
 
 def _unix_sockets(directory: Path, pattern: str) -> list[Path]:
@@ -28,6 +31,34 @@ def _unix_sockets(directory: Path, pattern: str) -> list[Path]:
         except OSError:
             continue
     return sockets
+
+
+def _systemd_user_desktop_environment(
+    environment: Mapping[str, str], runtime_dir: Path
+) -> dict[str, str]:
+    """Read only graphical-session fields from this uid's user manager."""
+
+    if runtime_dir != Path("/run/user") / str(os.getuid()):
+        return {}
+    try:
+        completed = subprocess.run(  # noqa: S603
+            ["systemctl", "--user", "show-environment"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            env=dict(environment),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    if completed.returncode != 0:
+        return {}
+    manager_environment = {}
+    for line in completed.stdout.splitlines():
+        key, separator, value = line.partition("=")
+        if separator and key in _USER_MANAGER_DESKTOP_KEYS and value:
+            manager_environment[key] = value
+    return manager_environment
 
 
 def desktop_subprocess_environment(
@@ -67,6 +98,21 @@ def desktop_subprocess_environment(
             environment.setdefault(
                 "DBUS_SESSION_BUS_ADDRESS", f"unix:path={bus}"
             )
+
+        # A graphical login exports the authoritative display selection to its
+        # per-user systemd manager. Prefer those allowlisted values over socket
+        # guessing: GNOME commonly leaves both the real X display (for example
+        # X0) and an auxiliary Xwayland/GDM socket (for example X1001), which is
+        # ambiguous by directory inspection alone. Only query the real runtime
+        # directory for this uid so tests, chroots, and caller-supplied runtime
+        # directories never contact an unrelated user manager.
+        if bus_available:
+            manager_environment = _systemd_user_desktop_environment(
+                environment, resolved_runtime
+            )
+            for key in _USER_MANAGER_DESKTOP_KEYS:
+                if manager_environment.get(key):
+                    environment.setdefault(key, manager_environment[key])
 
         if not environment.get("WAYLAND_DISPLAY"):
             wayland = _unix_sockets(resolved_runtime, "wayland-*")

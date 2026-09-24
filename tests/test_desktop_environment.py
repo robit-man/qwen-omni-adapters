@@ -7,6 +7,7 @@ from pathlib import Path
 
 from harness import location as location_module
 from portal import browser as browser_module
+from portal import desktop as desktop_module
 from portal import gui as gui_module
 from portal.desktop import desktop_subprocess_environment
 
@@ -59,6 +60,40 @@ def test_desktop_environment_recovers_one_x11_display(tmp_path: Path) -> None:
         )
 
     assert environment["DISPLAY"] == ":0"
+
+
+def test_desktop_environment_prefers_signed_in_user_manager_display(
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def run(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            "DISPLAY=:0\nXAUTHORITY=/run/user/4242/gdm/Xauthority\n"
+            "UNRELATED_SECRET=never-copy-this\n",
+            "",
+        )
+
+    monkeypatch.setattr(desktop_module.os, "getuid", lambda: 4242)
+    monkeypatch.setattr(desktop_module.subprocess, "run", run)
+
+    manager = desktop_module._systemd_user_desktop_environment(
+        {
+            "XDG_RUNTIME_DIR": "/run/user/4242",
+            "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/4242/bus",
+        },
+        Path("/run/user/4242"),
+    )
+
+    assert manager == {
+        "DISPLAY": ":0",
+        "XAUTHORITY": "/run/user/4242/gdm/Xauthority",
+    }
+    assert captured["command"] == ["systemctl", "--user", "show-environment"]
 
 
 def test_gui_commands_receive_recovered_desktop_environment(monkeypatch) -> None:
@@ -151,38 +186,42 @@ def test_visible_browser_uses_the_recovered_display(monkeypatch) -> None:
         shutil.rmtree(session.profile, ignore_errors=True)
 
 
-def test_rendered_browser_falls_back_to_headless_without_a_display(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-
-    class Process:
-        pid = 4242
-
-        @staticmethod
-        def poll() -> None:
-            return None
-
-    def popen(command, **kwargs):
-        captured["command"] = command
-        captured.update(kwargs)
-        return Process()
-
+def test_visible_browser_refuses_to_fall_back_to_headless_without_a_display(
+    monkeypatch,
+) -> None:
     monkeypatch.setattr(browser_module.shutil, "which", lambda _binary: "/chromium")
     monkeypatch.setattr(
         browser_module,
         "desktop_subprocess_environment",
         lambda: {"DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"},
     )
-    monkeypatch.setattr(browser_module.subprocess, "Popen", popen)
-    monkeypatch.setattr(
-        browser_module.BrowserAutomationStore,
-        "_page_socket",
-        lambda _self, _port: "ws://127.0.0.1/devtools/page/one",
-    )
     store = browser_module.BrowserAutomationStore(chromium_bin="/chromium")
 
-    session = store._launch()
     try:
-        assert "--headless=new" in captured["command"]
-        assert session.visible_on_desktop is False
-    finally:
-        shutil.rmtree(session.profile, ignore_errors=True)
+        store._launch()
+    except browser_module.BrowserDesktopUnavailable as error:
+        assert "did not launch a headless substitute" in str(error)
+    else:
+        raise AssertionError("expected visible browser desktop requirement")
+
+
+def test_browser_desktop_failure_requests_gui_capability() -> None:
+    class MissingDesktop:
+        def act(self, _session_id, _arguments):
+            raise browser_module.BrowserDesktopUnavailable("no desktop")
+
+        def clear(self, _session_id):
+            pass
+
+    from portal.documents import SessionDocumentStore
+    from portal.tools import PortalToolHarness
+
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300), browser_automation=MissingDesktop()
+    )
+    result = harness.execute("session", "browser_interact", {"action": "snapshot"})
+
+    assert result["error"] == "BrowserDesktopUnavailable"
+    assert result["disposition"] == "change_capability"
+    assert result["task_blocked"] is False
+    assert result["alternative_tools"] == ["gui_interact"]
