@@ -83,6 +83,10 @@ class _NonRetryableBackgroundError(RuntimeError):
     """A request is invalid and cannot improve by resending the same payload."""
 
 
+class _MalformedToolCall(RuntimeError):
+    """The model emitted invalid structured arguments and must replan smaller."""
+
+
 _HTTP_STATUS_PATTERN = re.compile(r"\bHTTP\s+([45]\d\d)\b", re.IGNORECASE)
 _TRANSIENT_CLIENT_STATUSES = {408, 409, 425, 429}
 
@@ -90,6 +94,11 @@ _TRANSIENT_CLIENT_STATUSES = {408, 409, 425, 429}
 def _stream_error(message: str) -> RuntimeError:
     """Classify an upstream error without coupling to backend-specific prose."""
 
+    lowered = message.casefold()
+    if "parse tool call arguments as json" in lowered or (
+        "tool call arguments" in lowered and "parse error" in lowered
+    ):
+        return _MalformedToolCall(message)
     match = _HTTP_STATUS_PATTERN.search(message)
     if match is not None:
         status = int(match.group(1))
@@ -1171,7 +1180,44 @@ class BackgroundAgent:
                 "portal_auto_tools": False,
                 "stream": False,
             }
-            data = self._chat(payload)
+            try:
+                data = self._chat(payload)
+            except _MalformedToolCall as error:
+                # Replaying identical state makes a deterministic small model
+                # reproduce the same oversized/truncated JSON forever. Persist
+                # a task-neutral repair instruction and replan inside this
+                # slice; the rejected generation never becomes task evidence.
+                slice_rounds += 1
+                stalls += 1
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": context_text(
+                            "directives", "background_malformed_tool_call"
+                        ),
+                    }
+                )
+                checkpoint = self.store.checkpoint(
+                    task_id,
+                    self.owner,
+                    messages=messages,
+                    active_tools=active_tools,
+                    tools_used=tools_used,
+                    applied_guidance_ids=list(seen_guidance),
+                    tool_fingerprints=list(seen),
+                    result_digests=list(result_digests),
+                    current_stage=context_text("task_stages", "replanning"),
+                    status="running",
+                )
+                if checkpoint is None or checkpoint.get("status") == "cancelled":
+                    return
+                logger.warning(
+                    "background task %s rejected malformed structured arguments; "
+                    "replanning with a smaller-call constraint: %s",
+                    task_id,
+                    error,
+                )
+                continue
             slice_rounds += 1
             # Browser screenshots are one-pass perception evidence. Once the
             # model has inspected one, retain the DOM/tool summary but never

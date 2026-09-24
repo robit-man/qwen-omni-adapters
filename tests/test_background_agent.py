@@ -22,6 +22,7 @@ from harness.background_agent import (
     _checkpoint_available,
     _compact_task_messages,
     _freshest_evidence_id,
+    _MalformedToolCall,
     _NonRetryableBackgroundError,
     _seen_tool_fingerprints,
     _stream_error,
@@ -99,6 +100,12 @@ def test_deterministic_client_error_is_not_retryable() -> None:
     error = _stream_error("language returned HTTP 400: invalid grammar")
 
     assert isinstance(error, _NonRetryableBackgroundError)
+    assert isinstance(
+        _stream_error(
+            "language returned HTTP 500: Failed to parse tool call arguments as JSON"
+        ),
+        _MalformedToolCall,
+    )
     assert type(_stream_error("language returned HTTP 429: busy")) is RuntimeError
     assert type(_stream_error("language returned HTTP 503: unavailable")) is RuntimeError
 
@@ -960,6 +967,117 @@ def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
     assert current["status"] == "completed"
     assert current["tools_used"] == ["shell"]
     assert not any("transient failure" in item for item in current["progress"])
+
+
+def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Create and verify a small application.", "The marker exists.")
+    chat_round = 0
+    repair_seen = False
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round, repair_seen
+        if request.url.path == "/api/tools/shell/call":
+            return httpx.Response(200, json={"result": {"exit_code": 0}})
+        chat_round += 1
+        body = json.loads(request.content)
+        if chat_round == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "inspect",
+                                "function": {
+                                    "name": "shell",
+                                    "arguments": {"command": "node --version"},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        if chat_round == 2:
+            return httpx.Response(
+                200,
+                content=(
+                    json.dumps(
+                        {
+                            "type": "error",
+                            "error": (
+                                "language returned HTTP 500: Failed to parse tool "
+                                "call arguments as JSON: missing closing quote"
+                            ),
+                        }
+                    )
+                    + "\n"
+                ),
+                headers={"content-type": "application/x-ndjson"},
+            )
+        if chat_round == 3:
+            repair_seen = any(
+                "split large inline file contents" in str(message.get("content") or "")
+                for message in body["messages"]
+            )
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "recovered-action",
+                                "function": {
+                                    "name": "shell",
+                                    "arguments": {"command": "touch marker"},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        return _checkpoint_response(
+            "complete", "Created and verified the marker.", ["recovered-action"]
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        retry_initial_s=0.01,
+        retry_max_s=0.02,
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.01)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert repair_seen is True
+    assert chat_round == 4
+    assert [item["tool"] for item in current["actions"]] == [
+        "shell",
+        "shell",
+        "task_checkpoint",
+    ]
 
 
 def test_browser_screenshot_is_seen_once_but_not_persisted_as_base64(
