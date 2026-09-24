@@ -66,6 +66,16 @@ def test_tts_stream_window_has_measured_default_and_environment_override(
     assert daemon.DaemonConfig.from_environment(cloudflare=False).tts_stream_frames == 12
 
 
+def test_language_thinking_policy_uses_the_logical_model_not_the_runtime_alias() -> None:
+    assert daemon._language_disable_thinking_default(
+        "robit/ornith-1.5-omni-audio-bridge:q4km"
+    ) is True
+    assert daemon._language_disable_thinking_default(
+        "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+    ) is False
+    assert daemon._language_disable_thinking_default("local-audio-bridge") is False
+
+
 def test_status_with_the_capability_url_is_owner_readable_only(tmp_path: Path) -> None:
     supervisor = daemon.OmniDaemon(_config(tmp_path))
     supervisor.state_dir.mkdir(parents=True)

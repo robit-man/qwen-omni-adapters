@@ -60,6 +60,11 @@ def _load_env_file(root: Path) -> None:
             os.environ.setdefault(key, value.strip().strip('"').strip("'"))
 
 
+def _language_disable_thinking_default(logical_model: str) -> bool:
+    managed = MODEL_BY_TAG.get(logical_model)
+    return bool(managed and managed.language_disable_thinking)
+
+
 def _binary(root: Path, name: str) -> Path:
     candidates = [
         root / "vendor" / "llama.cpp" / "build" / "bin" / name,
@@ -864,9 +869,11 @@ class OmniDaemon:
         self._wait_http(tts, f"http://127.0.0.1:{self.config.tts_port}/healthz", 60)
 
         language_api, language_url, language_model = self._language_route()
-        managed_language = MODEL_BY_TAG.get(language_model)
-        default_disable_language_thinking = bool(
-            managed_language and managed_language.language_disable_thinking
+        # The direct llama.cpp route intentionally uses the runtime alias
+        # ``local-audio-bridge``. Template policy belongs to the logical model
+        # profile, not that transport alias.
+        default_disable_language_thinking = _language_disable_thinking_default(
+            self.config.model
         )
         adapter_env = {
             **common,
