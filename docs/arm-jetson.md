@@ -194,7 +194,11 @@ At worker start, the context launcher performs the finer-grained KV admission.
 Its first load can select the largest tier justified by complete component
 bytes instead of waiting through multiple restarts at 4K/8K/16K. A live sample
 then calibrates actual residency; an abnormal exit or insufficient post-load
-reserve caps the next attempt below that failed tier.
+reserve caps the next attempt below that failed tier. Sampling continues after
+readiness so lazily committed KV/CUDA pages are included: sustained pressure,
+not a brief inference transient, triggers a controlled one-tier downshift. A
+future start can expand again only when live capacity has grown by at least the
+KV cost of the failed tier.
 
 `qwen-omni doctor` reports the accelerator, and omits the broker tooling
 (`docker`, `jq`, `ss`) that does not apply:

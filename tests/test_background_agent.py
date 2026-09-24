@@ -5,6 +5,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -26,6 +27,7 @@ from harness.background_agent import (
     _compact_task_messages,
     _compaction_available,
     _compaction_receipt,
+    _computer_action_messages,
     _freshest_evidence_id,
     _inference_diagnostics,
     _latest_tool_fingerprint,
@@ -87,6 +89,101 @@ def test_background_inference_diagnostics_report_budget_without_reasoning_text()
         "tool_call_count": 0,
     }
     assert "private reasoning" not in json.dumps(diagnostic)
+
+
+def test_computer_action_scope_keeps_durable_state_and_two_fresh_motor_cycles() -> None:
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": "task policy"},
+        {"role": "user", "content": "long-horizon objective"},
+    ]
+    for index in range(3):
+        messages.extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": f"gui-{index}",
+                            "function": {
+                                "name": "gui_interact",
+                                "arguments": {"action": "snapshot"},
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_name": "gui_interact",
+                    "tool_call_id": f"gui-{index}",
+                    "content": json.dumps(
+                        {
+                            "rendered": True,
+                            "coordinate_space": {"name": "active_window"},
+                            "marker": f"result-{index}",
+                        }
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"visual-{index}",
+                    "images": [
+                        {
+                            "mime_type": "image/png",
+                            "encoding": "base64",
+                            "data": f"image-{index}",
+                        }
+                    ],
+                },
+            ]
+        )
+    original = json.loads(json.dumps(messages))
+    scoped = _computer_action_messages(
+        messages,
+        {
+            "progress": ["Reached the site."],
+            "actions": [
+                {
+                    "call_id": "gui-2",
+                    "tool": "gui_interact",
+                    "arguments": '{"action":"click","x":730,"y":527}',
+                    "outcome": '{"rendered":true}',
+                    "ok": True,
+                }
+            ],
+        },
+        ["gui_interact"],
+        recovery_required=False,
+    )
+
+    rendered = json.dumps(scoped)
+    assert messages == original
+    assert scoped[:2] == messages[:2]
+    assert "<computer_action_state>" in scoped[2]["content"]
+    assert "Reached the site" in scoped[2]["content"]
+    assert '"x":730' not in scoped[2]["content"]
+    assert "action=click" in scoped[2]["content"]
+    assert "gui-0" not in rendered
+    assert "image-0" not in rendered
+    assert "gui-1" in rendered and "gui-2" in rendered
+    assert "image-1" not in rendered and "image-2" in rendered
+
+
+def test_computer_action_scope_is_disabled_while_capability_recovery_is_required() -> None:
+    messages = [
+        {"role": "system", "content": "task policy"},
+        {"role": "user", "content": "objective"},
+    ]
+
+    assert (
+        _computer_action_messages(
+            messages,
+            {},
+            ["gui_interact"],
+            recovery_required=True,
+        )
+        is messages
+    )
 
 
 def _checkpoint_response(

@@ -420,8 +420,10 @@ Rendered computer work is not reduced to a fetched-text corpus. The
 `browser_interact` tool launches a real Chromium window on the active desktop,
 returns both a screenshot and a bounded accessibility/element map, performs
 real pointer/keyboard input, then observes the changed page. `gui_interact`
-extends the same screenshot → action → screenshot loop to the full Ubuntu
-workspace. Screenshot bytes are shown to the multimodal model for one reasoning
+extends the same screenshot → action → screenshot loop to Ubuntu. Its
+default screenshot is the active window and its coordinates are relative to
+that image; full-screen mode is explicit for panels and workspace navigation.
+Screenshot bytes are shown to the multimodal model for one reasoning
 pass and then removed from the durable transcript so long tasks retain visual
 grounding without filling their context with base64. Local HTTP pages and all
 desktop/file tools remain usable offline; public sites naturally require a
@@ -453,7 +455,9 @@ advertise their 262,144-token native ceiling, but that ceiling is never
 allocated blindly. First load uses the conservative complete component-byte
 footprint; later loads also use measured residency. It records before/after
 residency and automatically caps the next load below a tier that exits or
-leaves too little memory. The
+leaves too little memory. It keeps sampling after readiness and downshifts only
+after a continuous low-headroom interval, catching KV/CUDA pages committed by
+real inference without reacting to a momentary spike. The
 adapter reads the chosen window per request and sheds old history/tool evidence
 before llama.cpp can reject an oversized prompt.
 
@@ -491,7 +495,7 @@ the unsupported `nvidia-smi` process table.
 | Structured tools | Selected language backend + portal executor | Yes |
 | Portal web/document/session-memory tools | Explicit opt-in allowlisted portal loop with no-key DuckDuckGo HTML discovery | Yes |
 | Visible Chromium interaction | Persistent rendered browser, screenshot + element evidence, click/type/scroll/back | Yes |
-| Full desktop computer use | Fresh whole-desktop screenshots + coordinate/keyboard/scroll input | Yes |
+| Full desktop computer use | Fresh active-window screenshots with image-relative input; explicit full-screen workspace mode | Yes |
 | Trusted local shell | Unrestricted execution in the checkpointed voice-task worker; bounded output and timeout | Yes |
 | Persistent background tasks | Checkpointed long-horizon worker with status/update/cancel, sparse spoken milestones, durable terminal speech, and restart recovery | Yes |
 | Passive semantic voice memory | Idle-only encoder worker + SQLite; never gates a foreground turn | Yes |

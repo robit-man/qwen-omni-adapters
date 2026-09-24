@@ -16,6 +16,7 @@ from comprehension_launcher import (  # noqa: E402
     _component_window_fits,
     _effective_context_maximum,
     _live_calibrated_base,
+    _pressure_started_at,
     _probe_backed_off,
     _record_failed_context,
     _record_live_sample,
@@ -109,6 +110,14 @@ def test_context_reserve_is_derived_from_the_adjacent_kv_tier() -> None:
     assert context_headroom_gib(
         65_536, windows=windows, kv_gib_per_token=kv
     ) == 3.0
+
+
+def test_runtime_pressure_requires_one_continuous_low_memory_interval() -> None:
+    started = _pressure_started_at(2.5, 4.0, None, now=10.0)
+    assert started == 10.0
+    assert _pressure_started_at(2.0, 4.0, started, now=14.0) == 10.0
+    assert _pressure_started_at(4.1, 4.0, started, now=15.0) is None
+    assert _pressure_started_at(3.9, 4.0, None, now=16.0) == 16.0
 
 
 def test_configured_non_power_of_two_ceiling_is_considered() -> None:

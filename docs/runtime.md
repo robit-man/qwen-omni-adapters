@@ -178,6 +178,14 @@ round/call/stall-bounded slices. Configure the policy with
 `OMNI_MEMORY_GOVERNOR`, `OMNI_MEMORY_SOFT_FLOOR_GIB`,
 `OMNI_MEMORY_HARD_FLOOR_GIB`, and `OMNI_MEMORY_OPERATION_RESERVE_GIB`.
 
+The launcher continues sampling after readiness because CUDA and KV pages can
+be committed lazily by the first large image or text request. A short dip is
+ignored, but availability below the model-derived adjacent-tier reserve for a
+continuous grace interval causes a controlled one-tier restart. The failed
+tier remains capped until a later start has enough additional live capacity to
+fund its measured KV increment; this avoids repeatedly selecting a window that
+only fit before its pages were touched.
+
 The soft floor admits work that can establish new residency; the hard floor
 is the emergency boundary for tightly bounded work and continuation of an
 already-resident executor. Tool entries declare `memory_admission` as

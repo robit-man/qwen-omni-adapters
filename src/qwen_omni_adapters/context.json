@@ -407,7 +407,7 @@
         "type": "function",
         "function": {
           "name": "gui_interact",
-          "description": "See and operate the active Ubuntu desktop from fresh full-screen screenshots. Use this for applications or browser chrome outside webpage content: snapshot, then click or drag between screen coordinates, type, press a key/chord, or scroll. Every action returns a new screenshot so work can be assessed visually.",
+          "description": "See and operate the active Ubuntu desktop. By default every fresh screenshot is cropped to the active window and click/drag coordinates are relative to that image; use coordinate_space=screen only for panels, the workspace, or switching windows. Snapshot before acting, then assess the fresh image returned after every action.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -425,19 +425,27 @@
               },
               "x": {
                 "type": "integer",
-                "description": "Screen x coordinate for click."
+                "description": "x coordinate in the returned active-window image by default, or on the full screen when coordinate_space=screen."
               },
               "y": {
                 "type": "integer",
-                "description": "Screen y coordinate for click or drag start."
+                "description": "y coordinate in the returned active-window image by default, or on the full screen when coordinate_space=screen."
               },
               "to_x": {
                 "type": "integer",
-                "description": "Destination screen x coordinate for drag."
+                "description": "Destination x coordinate in the selected coordinate space for drag."
               },
               "to_y": {
                 "type": "integer",
-                "description": "Destination screen y coordinate for drag."
+                "description": "Destination y coordinate in the selected coordinate space for drag."
+              },
+              "coordinate_space": {
+                "type": "string",
+                "enum": [
+                  "active_window",
+                  "screen"
+                ],
+                "description": "Coordinate frame and screenshot scope. Defaults to active_window; choose screen only when the target is outside the active window."
               },
               "button": {
                 "type": "integer",

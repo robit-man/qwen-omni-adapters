@@ -128,7 +128,19 @@ def test_gui_drag_uses_one_bounded_xdotool_gesture() -> None:
             self.commands.append(command)
             return ""
 
-        def _snapshot(self) -> dict[str, Any]:
+        def _desktop_state(self) -> tuple[int, int, dict[str, Any]]:
+            return (
+                1920,
+                1080,
+                {
+                    "id": "42",
+                    "title": "Browser",
+                    "bounds": {"x": 50, "y": 30, "width": 1000, "height": 700},
+                },
+            )
+
+        def _snapshot(self, coordinate_space: str = "active_window") -> dict[str, Any]:
+            assert coordinate_space == "active_window"
             return {"rendered": True}
 
     gui = Gui()
@@ -143,20 +155,109 @@ def test_gui_drag_uses_one_bounded_xdotool_gesture() -> None:
             "xdotool",
             "mousemove",
             "--sync",
-            "100",
-            "200",
+            "150",
+            "230",
             "mousedown",
             "1",
             "mousemove",
             "--sync",
             "--duration",
             "600",
-            "500",
-            "205",
+            "550",
+            "235",
             "mouseup",
             "1",
         ]
     ]
+
+
+def test_gui_screen_coordinates_remain_absolute() -> None:
+    class Gui(GuiAutomation):
+        def __init__(self) -> None:
+            super().__init__()
+            self.commands: list[list[str]] = []
+
+        def _run(self, command: list[str]) -> str:
+            self.commands.append(command)
+            return ""
+
+        def _desktop_state(self) -> tuple[int, int, dict[str, Any]]:
+            return (
+                1920,
+                1080,
+                {
+                    "id": "42",
+                    "title": "Browser",
+                    "bounds": {"x": 50, "y": 30, "width": 1000, "height": 700},
+                },
+            )
+
+        def _snapshot(self, coordinate_space: str = "active_window") -> dict[str, Any]:
+            assert coordinate_space == "screen"
+            return {"rendered": True}
+
+    gui = Gui()
+    gui.act(
+        "session",
+        {
+            "action": "click",
+            "x": 100,
+            "y": 200,
+            "coordinate_space": "screen",
+            "wait_ms": 0,
+        },
+    )
+
+    assert gui.commands == [
+        ["xdotool", "mousemove", "--sync", "100", "200", "click", "1"]
+    ]
+
+
+def test_gui_snapshot_crops_to_active_window_and_reports_its_frame(
+    monkeypatch: Any,
+) -> None:
+    class Gui(GuiAutomation):
+        def __init__(self) -> None:
+            super().__init__()
+            self.commands: list[list[str]] = []
+
+        def _desktop_state(self) -> tuple[int, int, dict[str, Any]]:
+            return (
+                1920,
+                1080,
+                {
+                    "id": "42",
+                    "title": "Browser",
+                    "bounds": {
+                        "x": 54,
+                        "y": 37,
+                        "width": 1042,
+                        "height": 800,
+                        "screen": 0,
+                    },
+                },
+            )
+
+        def _run(self, command: list[str]) -> str:
+            self.commands.append(command)
+            if command[0] == "gnome-screenshot":
+                Path(command[-1]).write_bytes(b"png")
+            return ""
+
+    monkeypatch.setattr("portal.gui.shutil.which", lambda _name: "/usr/bin/tool")
+    gui = Gui()
+    result = gui._snapshot()
+
+    assert gui.commands == [["gnome-screenshot", "-w", "-f", gui.commands[0][-1]]]
+    assert result["coordinate_space"] == {
+        "name": "active_window",
+        "origin_x": 54,
+        "origin_y": 37,
+        "width": 1042,
+        "height": 800,
+    }
+    assert result["active_window"]["bounds"]["x"] == 54
+    assert base64.b64decode(result["screenshot"]["data"]) == b"png"
 
 
 def test_existing_browser_executor_is_not_readmitted_at_the_soft_floor() -> None:
@@ -231,6 +332,10 @@ def test_browser_and_gui_tools_expose_drag_recovery_actions() -> None:
     assert {"x", "y", "to_x", "to_y"} <= set(
         schemas["gui_interact"]["properties"]
     )
+    assert schemas["gui_interact"]["properties"]["coordinate_space"]["enum"] == [
+        "active_window",
+        "screen",
+    ]
     assert schemas["web_fetch"]["properties"]["format"]["enum"] == [
         "text",
         "raw_html",

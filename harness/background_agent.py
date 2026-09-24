@@ -32,6 +32,7 @@ MAX_TOOL_RESULT_CHARS = 24_000
 MAX_CHECKPOINT_REPORT_CHARS = 1_000
 MAX_ACTION_ARGUMENT_CHARS = 2_000
 MAX_ACTION_OUTCOME_CHARS = 1_200
+COMPUTER_ACTION_TOOLS = {"browser_interact", "gui_interact"}
 
 _SENSITIVE_AUDIT_KEY = re.compile(
     r"(?:authorization|cookie|credential|password|secret|token|api[_-]?key)",
@@ -376,6 +377,132 @@ def _compact_task_messages(
             _bounded_tool_result(value), ensure_ascii=False, default=str
         )
     return [*head, checkpoint, *tail]
+
+
+def _computer_action_state(task: Mapping[str, Any]) -> str:
+    """Render durable orientation without replaying the whole motor transcript."""
+
+    sections = [
+        "<computer_action_state>",
+        "This is a compact orientation summary, not current visual evidence. "
+        "Ground the next pointer action only in the newest returned screenshot and "
+        "its coordinate_space metadata; old coordinates are not reusable.",
+    ]
+    progress = task.get("progress")
+    if isinstance(progress, list) and progress:
+        sections.append("Recent durable progress:")
+        sections.extend(
+            f"- {' '.join(str(item).split())[:500]}" for item in progress[-4:]
+        )
+    actions = task.get("actions")
+    if isinstance(actions, list) and actions:
+        sections.append("Recent action receipts:")
+        for action in actions[-6:]:
+            if not isinstance(action, Mapping):
+                continue
+            tool_name = str(action.get("tool") or "unknown")[:80]
+            arguments = " ".join(str(action.get("arguments") or "").split())[:500]
+            outcome = " ".join(str(action.get("outcome") or "").split())[:500]
+            if tool_name in COMPUTER_ACTION_TOOLS:
+                # Exact coordinates and element IDs expire with their image.
+                # Durable orientation needs the kind of action and page/window
+                # identity, not stale motor targets.
+                try:
+                    parsed_arguments = json.loads(arguments)
+                except (TypeError, ValueError):
+                    parsed_arguments = {}
+                arguments = f"action={str(parsed_arguments.get('action') or 'unknown')[:80]}"
+                try:
+                    parsed_outcome = json.loads(outcome)
+                except (TypeError, ValueError):
+                    parsed_outcome = {}
+                if isinstance(parsed_outcome, Mapping):
+                    orientation = {
+                        key: parsed_outcome[key]
+                        for key in {
+                            "url",
+                            "title",
+                            "rendered",
+                            "challenge",
+                            "error",
+                            "message",
+                        }
+                        if key in parsed_outcome
+                    }
+                    outcome = json.dumps(orientation, ensure_ascii=False)[:500]
+            sections.append(
+                "- "
+                + str(action.get("call_id") or "unknown")[:80]
+                + " | "
+                + tool_name
+                + (" | succeeded" if action.get("ok") is True else " | failed")
+                + (f" | args={arguments}" if arguments else "")
+                + (f" | result={outcome}" if outcome else "")
+            )
+    sections.append("</computer_action_state>")
+    return "\n".join(sections)
+
+
+def _computer_action_messages(
+    messages: list[dict[str, Any]],
+    task: Mapping[str, Any],
+    active_tools: list[str],
+    *,
+    recovery_required: bool,
+) -> list[dict[str, Any]]:
+    """Build a short visual-motor request while preserving durable task state.
+
+    The task transcript remains authoritative and is still checkpointed in full.
+    Only the inference view is narrowed: objective/policy, a bounded receipt
+    summary, and at most the two newest computer-use cycles. This prevents a
+    miss several screenshots ago from competing with the current coordinate
+    frame without discarding long-horizon progress.
+    """
+
+    if recovery_required or not COMPUTER_ACTION_TOOLS.intersection(active_tools):
+        return messages
+    motor_rounds: list[int] = []
+    discovery_rounds: list[int] = []
+    for index, message in enumerate(messages):
+        if message.get("role") != "assistant":
+            continue
+        calls = message.get("tool_calls")
+        if not isinstance(calls, list):
+            continue
+        names: set[str] = set()
+        for call in calls:
+            if not isinstance(call, Mapping):
+                continue
+            function = call.get("function")
+            if isinstance(function, Mapping):
+                names.add(str(function.get("name") or ""))
+        if names.intersection(COMPUTER_ACTION_TOOLS):
+            motor_rounds.append(index)
+        elif "tool_search" in names:
+            discovery_rounds.append(index)
+    if motor_rounds:
+        tail_start = motor_rounds[-2] if len(motor_rounds) > 1 else motor_rounds[-1]
+    elif discovery_rounds:
+        tail_start = discovery_rounds[-1]
+    else:
+        return messages
+    head = copy.deepcopy(messages[:2])
+    state = {"role": "user", "content": _computer_action_state(task)}
+    scoped = [*head, state, *copy.deepcopy(messages[tail_start:])]
+    newest_image_retained = False
+    for message in reversed(scoped):
+        images = message.get("images")
+        if not isinstance(images, list) or not images:
+            continue
+        if not newest_image_retained:
+            newest_image_retained = True
+            continue
+        message.pop("images", None)
+        message["content"] = (
+            str(message.get("content") or "")
+            + "\n[An older screenshot was superseded by the newest visual evidence.]"
+        ).strip()
+    return scoped
 
 
 def _context_metrics(messages: list[dict[str, Any]]) -> dict[str, int]:
@@ -1449,9 +1576,27 @@ class BackgroundAgent:
                 and messages[-1].get("tool_name") == "tool_search"
             )
             structured_action_phase = action_after_discovery or bool(active_tools)
+            inference_messages = _computer_action_messages(
+                messages,
+                current,
+                active_tools,
+                recovery_required=recovery_required,
+            )
+            if inference_messages is not messages:
+                durable_metrics = _context_metrics(messages)
+                scoped_metrics = _context_metrics(inference_messages)
+                logger.info(
+                    "background task %s computer-action scope: "
+                    "messages=%d->%d bytes=%d->%d",
+                    task_id,
+                    durable_metrics["messages"],
+                    scoped_metrics["messages"],
+                    durable_metrics["bytes"],
+                    scoped_metrics["bytes"],
+                )
             payload = {
                 "model": self.model,
-                "messages": messages,
+                "messages": inference_messages,
                 "omni": {"schema": "robit.ollama.omni-adapter.v1", "task": "chat"},
                 "response_modalities": ["text"],
                 "speech_mode": "never",

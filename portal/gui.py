@@ -61,35 +61,128 @@ class GuiAutomation:
             raise GuiAutomationError(f"{name} must be between {minimum} and {maximum}")
         return result
 
-    def _snapshot(self) -> dict[str, Any]:
+    def _active_window(self) -> dict[str, Any] | None:
+        """Return one stable coordinate frame for the currently focused window."""
+
+        try:
+            window_id = self._run(["xdotool", "getactivewindow"])
+            title = self._run(["xdotool", "getwindowname", window_id])
+            geometry = self._run(
+                ["xdotool", "getwindowgeometry", "--shell", window_id]
+            )
+        except GuiAutomationError:
+            return None
+        fields: dict[str, int] = {}
+        for line in geometry.splitlines():
+            key, separator, raw = line.partition("=")
+            if not separator or key not in {"X", "Y", "WIDTH", "HEIGHT", "SCREEN"}:
+                continue
+            try:
+                fields[key] = int(raw)
+            except ValueError:
+                return None
+        if fields.get("WIDTH", 0) <= 0 or fields.get("HEIGHT", 0) <= 0:
+            return None
+        return {
+            "id": window_id,
+            "title": title[:500],
+            "bounds": {
+                "x": fields.get("X", 0),
+                "y": fields.get("Y", 0),
+                "width": fields["WIDTH"],
+                "height": fields["HEIGHT"],
+                "screen": fields.get("SCREEN", 0),
+            },
+        }
+
+    @staticmethod
+    def _space_name(arguments: dict[str, Any]) -> str:
+        name = str(arguments.get("coordinate_space") or "active_window").strip().lower()
+        if name not in {"active_window", "screen"}:
+            raise GuiAutomationError(
+                "coordinate_space must be active_window or screen"
+            )
+        return name
+
+    def _point(
+        self,
+        arguments: dict[str, Any],
+        x_name: str,
+        y_name: str,
+        *,
+        coordinate_space: str,
+        active_window: dict[str, Any] | None,
+        display_width: int,
+        display_height: int,
+    ) -> tuple[int, int]:
+        if coordinate_space == "active_window":
+            if active_window is None:
+                raise GuiAutomationError(
+                    "No active window is available for window-relative coordinates; "
+                    "take a screen snapshot or use coordinate_space=screen."
+                )
+            bounds = active_window["bounds"]
+            x = self._integer(arguments.get(x_name), x_name, 0, bounds["width"] - 1)
+            y = self._integer(arguments.get(y_name), y_name, 0, bounds["height"] - 1)
+            return bounds["x"] + x, bounds["y"] + y
+        x_max = max(0, display_width - 1) if display_width else 16_384
+        y_max = max(0, display_height - 1) if display_height else 16_384
+        return (
+            self._integer(arguments.get(x_name), x_name, 0, x_max),
+            self._integer(arguments.get(y_name), y_name, 0, y_max),
+        )
+
+    def _desktop_state(self) -> tuple[int, int, dict[str, Any] | None]:
+        if not shutil.which("xdotool"):
+            raise GuiAutomationError("xdotool is not installed")
+        geometry = self._run(["xdotool", "getdisplaygeometry"]).split()
+        width = int(geometry[0]) if len(geometry) >= 2 else 0
+        height = int(geometry[1]) if len(geometry) >= 2 else 0
+        return width, height, self._active_window()
+
+    def _snapshot(self, coordinate_space: str = "active_window") -> dict[str, Any]:
         if not shutil.which("xdotool"):
             raise GuiAutomationError("xdotool is not installed")
         if not shutil.which("gnome-screenshot"):
             raise GuiAutomationError("gnome-screenshot is not installed")
-        geometry = self._run(["xdotool", "getdisplaygeometry"]).split()
-        width = int(geometry[0]) if len(geometry) >= 2 else 0
-        height = int(geometry[1]) if len(geometry) >= 2 else 0
-        try:
-            active_window = self._run(["xdotool", "getactivewindow"])
-            active_title = self._run(
-                ["xdotool", "getwindowname", active_window]
-            )
-        except GuiAutomationError:
-            active_window, active_title = "", ""
+        width, height, active_window = self._desktop_state()
+        window_crop = coordinate_space == "active_window" and active_window is not None
         with tempfile.NamedTemporaryFile(
             prefix="omni-desktop-", suffix=".png", delete=False
         ) as temporary:
             path = Path(temporary.name)
         try:
-            self._run(["gnome-screenshot", "-f", str(path)])
+            command = ["gnome-screenshot"]
+            if window_crop:
+                command.append("-w")
+            command.extend(["-f", str(path)])
+            self._run(command)
             encoded = base64.b64encode(path.read_bytes()).decode("ascii")
         finally:
             path.unlink(missing_ok=True)
+        if window_crop:
+            bounds = active_window["bounds"]
+            frame = {
+                "name": "active_window",
+                "origin_x": bounds["x"],
+                "origin_y": bounds["y"],
+                "width": bounds["width"],
+                "height": bounds["height"],
+            }
+        else:
+            frame = {
+                "name": "screen",
+                "origin_x": 0,
+                "origin_y": 0,
+                "width": width,
+                "height": height,
+            }
         return {
             "rendered": True,
             "desktop_visible_to_user": True,
             "display": {"width": width, "height": height},
-            "active_window": {"id": active_window, "title": active_title[:500]},
+            "active_window": active_window or {"id": "", "title": ""},
+            "coordinate_space": frame,
             "screenshot": {
                 "mime_type": "image/png",
                 "encoding": "base64",
@@ -111,9 +204,21 @@ class GuiAutomation:
             raise GuiAutomationError(
                 "action must be snapshot, click, drag, type, key, hotkey, or scroll"
             )
+        coordinate_space = self._space_name(arguments)
+        display_width = display_height = 0
+        active_window: dict[str, Any] | None = None
+        if action in {"click", "drag"}:
+            display_width, display_height, active_window = self._desktop_state()
         if action == "click":
-            x = self._integer(arguments.get("x"), "x", 0, 16_384)
-            y = self._integer(arguments.get("y"), "y", 0, 16_384)
+            x, y = self._point(
+                arguments,
+                "x",
+                "y",
+                coordinate_space=coordinate_space,
+                active_window=active_window,
+                display_width=display_width,
+                display_height=display_height,
+            )
             button = self._integer(arguments.get("button", 1), "button", 1, 5)
             self._run(
                 [
@@ -127,10 +232,24 @@ class GuiAutomation:
                 ]
             )
         elif action == "drag":
-            x = self._integer(arguments.get("x"), "x", 0, 16_384)
-            y = self._integer(arguments.get("y"), "y", 0, 16_384)
-            to_x = self._integer(arguments.get("to_x"), "to_x", 0, 16_384)
-            to_y = self._integer(arguments.get("to_y"), "to_y", 0, 16_384)
+            x, y = self._point(
+                arguments,
+                "x",
+                "y",
+                coordinate_space=coordinate_space,
+                active_window=active_window,
+                display_width=display_width,
+                display_height=display_height,
+            )
+            to_x, to_y = self._point(
+                arguments,
+                "to_x",
+                "to_y",
+                coordinate_space=coordinate_space,
+                active_window=active_window,
+                display_width=display_width,
+                display_height=display_height,
+            )
             button = self._integer(arguments.get("button", 1), "button", 1, 5)
             if x == to_x and y == to_y:
                 raise GuiAutomationError("drag start and destination must differ")
@@ -171,4 +290,4 @@ class GuiAutomation:
         wait_ms = self._integer(arguments.get("wait_ms", 250), "wait_ms", 0, 5000)
         if wait_ms:
             time.sleep(wait_ms / 1000.0)
-        return self._snapshot()
+        return self._snapshot(coordinate_space)

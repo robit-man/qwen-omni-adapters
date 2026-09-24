@@ -546,6 +546,20 @@ def _probe_backed_off(calibration: Mapping[str, Any]) -> bool:
     return isinstance(until, (int, float)) and time.time() < until
 
 
+def _pressure_started_at(
+    available_gib: float,
+    required_gib: float,
+    started_at: float | None,
+    *,
+    now: float,
+) -> float | None:
+    """Track continuous pressure while ignoring short inference transients."""
+
+    if available_gib >= required_gib:
+        return None
+    return now if started_at is None else started_at
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -727,6 +741,12 @@ def main(argv: list[str] | None = None) -> int:
         _write_selected_context(args.child_pid_file, process.pid)
     sampled = False
     pressure_downshift = False
+    pressure_started_at: float | None = None
+    runtime_required_headroom = 0.0
+    pressure_grace_s = max(
+        1.0,
+        float(os.environ.get("OMNI_COMPREHENSION_PRESSURE_GRACE_SECONDS", "8")),
+    )
     stopping = False
 
     def request_stop(_signum: int, _frame: Any) -> None:
@@ -751,6 +771,7 @@ def main(argv: list[str] | None = None) -> int:
                         parallel_slots=args.parallel_slots,
                     ),
                 )
+                runtime_required_headroom = required_headroom
                 _record_live_sample(
                     args.calibration_file,
                     calibration,
@@ -780,6 +801,41 @@ def main(argv: list[str] | None = None) -> int:
                         context_tokens=selected,
                         minimum=args.min_context,
                         maximum=args.max_context,
+                        available_gib=available,
+                    )
+                    pressure_downshift = True
+                    process.terminate()
+            elif sampled and runtime_required_headroom > 0:
+                current_available = available_memory_gib()
+                now = time.monotonic()
+                pressure_started_at = _pressure_started_at(
+                    current_available,
+                    runtime_required_headroom,
+                    pressure_started_at,
+                    now=now,
+                )
+                if (
+                    pressure_started_at is not None
+                    and now - pressure_started_at >= pressure_grace_s
+                ):
+                    print(
+                        "controlled comprehension downshift after sustained runtime "
+                        f"pressure: {current_available:.2f} GiB available remained "
+                        f"below the {runtime_required_headroom:.2f} GiB reserve for "
+                        f"{pressure_grace_s:.1f}s",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    _record_failed_context(
+                        args.calibration_file,
+                        calibration,
+                        context_tokens=selected,
+                        minimum=args.min_context,
+                        maximum=args.max_context,
+                        # The next-tier retry threshold is anchored to the
+                        # pre-load capacity. Recording the transient low point
+                        # would immediately reselect the unsafe tier after the
+                        # old process released its pages.
                         available_gib=available,
                     )
                     pressure_downshift = True
