@@ -970,8 +970,29 @@ def test_live_context_requires_tools_and_grounded_alternatives() -> None:
 # -- current vision is normalized; motion upgrades stay model-driven -------
 
 
-def test_camera_intent_comes_from_the_structured_tool_event() -> None:
+def test_camera_intent_comes_from_the_structured_tool_event(monkeypatch) -> None:
+    playback: list[str] = []
+    traced: list[tuple[str, str]] = []
+
+    class SilentSpeaker:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def start(self) -> None:
+            playback.append("start")
+
+        def write(self, _chunk: bytes) -> bool:
+            playback.append("write")
+            return True
+
+        def stop(self, **_kwargs) -> None:
+            playback.append("stop")
+
+    monkeypatch.setattr("harness.call.SpeakerStream", SilentSpeaker)
     call = session()
+    call.config.content_trace = lambda event, text, _details: traced.append(
+        (event, text)
+    )
     call._events = lambda _payload: iter(  # type: ignore[method-assign]
         [
             {"type": "observation", "transcript": "what happened over there"},
@@ -986,6 +1007,10 @@ def test_camera_intent_comes_from_the_structured_tool_event() -> None:
                 ],
             },
             {
+                "type": "audio_delta",
+                "audio": {"data": "AAAA", "block": "0", "blocks": 1},
+            },
+            {
                 "type": "final",
                 "response": {"message": {"content": "I need a fresh view."}},
             },
@@ -997,6 +1022,8 @@ def test_camera_intent_comes_from_the_structured_tool_event() -> None:
     assert result.tools_used == ["request_camera_view"]
     assert result.camera_requested is True
     assert result.camera_motion is True
+    assert playback == ["stop"]
+    assert not any(event == "generated" for event, _text in traced)
 
 
 def test_unrelated_spoken_turn_does_not_capture_or_attach_an_ambient_still() -> None:
@@ -1068,12 +1095,18 @@ def test_explicit_camera_tool_requests_the_right_capture_mode() -> None:
     result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
     assert captured == [True]
-    assert result.followup == "The box fell over."
+    assert result.reply == "The box fell over."
+    assert result.followup == ""
+    assert call._history == [
+        {"role": "user", "content": "what just happened"},
+        {"role": "assistant", "content": "The box fell over."},
+    ]
     assert "images" not in payloads[0]["messages"][-1]  # type: ignore[operator]
     assert payloads[1]["messages"][-1]["videos"] == [clip]  # type: ignore[index]
 
 
 def test_failed_camera_capture_reports_only_the_attempt_failure() -> None:
+    spoken: list[str] = []
     call = CallSession(
         CallConfig(token="t", model="m", tools_enabled=True, camera_enabled=True),
         frame_grabber=lambda **_kwargs: None,  # type: ignore[arg-type]
@@ -1083,12 +1116,17 @@ def test_failed_camera_capture_reports_only_the_attempt_failure() -> None:
         tools_used=["request_camera_view"],
         camera_requested=True,
     )
+    call._speak_finished = lambda text: (  # type: ignore[method-assign]
+        spoken.append(text) or TurnResult(spoke_seconds=0.5)
+    )
 
     result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
-    assert result.followup == "The camera capture failed just now."
-    assert "camera" in result.followup
-    assert "access" not in result.followup
+    assert result.reply == "The camera capture failed just now."
+    assert result.followup == ""
+    assert "camera" in result.reply
+    assert "access" not in result.reply
+    assert spoken == ["The camera capture failed just now."]
 
 
 # -- compact ordinary context ---------------------------------------------
@@ -1302,7 +1340,10 @@ def test_fresh_camera_payload_forbids_a_visual_capability_disclaimer() -> None:
 
     latest = payload["messages"][-1]
     assert "real current visual evidence" in latest["content"]
-    assert "without disclaiming camera access" in latest["content"]
+    assert "same scope as the question" in latest["content"]
+    assert "one item or feature" in latest["content"]
+    assert "do not inventory unrelated objects" in latest["content"]
+    assert "disclaim camera access" in latest["content"]
 
 
 def test_an_accepted_utterance_during_speech_preparation_cancels_the_announcement() -> None:

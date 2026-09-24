@@ -383,7 +383,11 @@ and downscales them, and performs a grounded multimodal follow-up. A motion
 request captures a bounded clip. Internet uses of words such as “look up” are
 therefore routed by the model to web tools rather than intercepted by a local
 keyword list. The grounded follow-up carries the fresh visual evidence but no
-second camera bridge, preventing a recapture loop.
+second camera bridge, preventing a recapture loop. The pre-capture placeholder
+is never spoken, logged as generated dialogue, or kept in conversation history;
+the grounded pass is the sole answer. Broad casual questions get a short casual
+overview, while questions about a particular item or feature stay focused on
+that target instead of inventorying the rest of the scene.
 
 ### Tools and long-horizon work
 

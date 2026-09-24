@@ -414,9 +414,12 @@ class CallSession:
             "client's cameras. Use it only when it materially helps answer the "
             "speaker's request; otherwise ignore it. Never inventory or mention "
             "the scene merely because the view is present. This is real current "
-            "visual evidence from the camera capture you requested: when the "
-            "request is visual, answer from it directly without disclaiming "
-            "camera access, sight, or permission to describe relevant details."
+            "visual evidence from the camera capture you requested: answer with "
+            "the same scope as the question. Give a casual one-sentence overview "
+            "for a broad casual question; when asked about one item or feature, "
+            "focus on it at the requested detail and do not inventory unrelated "
+            "objects or make a list unless asked. Never narrate the frame or "
+            "disclaim camera access, sight, or permission to describe it."
             if frame
             else ". Continue the live conversation by answering the combined "
             "intent directly and use later words to resolve self-corrections."
@@ -586,12 +589,8 @@ class CallSession:
         if result.interrupted:
             return result
 
-        self._note_spoken(result.reply, result.spoke_seconds)
-        self._remember(result)
-        if result.interrupted:
-            self._mark_interrupted(result.reply, result.spoke_seconds)
-            return result
         if result.error:
+            self._remember(result)
             self._note_failure(
                 result.error,
                 transcript=result.transcript or result.audio_observation,
@@ -606,6 +605,7 @@ class CallSession:
             and self._frame_grabber is not None
             and result.camera_requested
         )
+        capture_failed = False
         if looking:
             # A second pass, this time with the evidence the model requested.
             # In split-speech mode neither provisional text nor a tool request
@@ -616,8 +616,11 @@ class CallSession:
                 # This is an evidence-backed capture failure, not a broad
                 # capability denial. It is safe to speak only after the
                 # structured request actually tried the camera path.
-                result.followup = "The camera capture failed just now."
-                self._append_history("assistant", result.followup)
+                capture_failed = True
+                result.reply = "The camera capture failed just now."
+                result.followup = ""
+                result.spoke_seconds = 0.0
+                result.first_audio_ms = None
             else:
                 follow = self._run(
                     self._build_payload(
@@ -627,35 +630,41 @@ class CallSession:
                         with_tools=self.config.tools_enabled,
                     ),
                 )
-                if follow.reply.strip() and not follow.error:
-                    result.followup = follow.reply.strip()
-                    result.tools_used = list(
-                        dict.fromkeys([*result.tools_used, *follow.tools_used])
-                    )
-                    result.spoke_seconds += follow.spoke_seconds
-                    self._append_history("assistant", follow.reply.strip())
-                    self._note_spoken(follow.reply, follow.spoke_seconds)
+                result.tools_used = list(
+                    dict.fromkeys([*result.tools_used, *follow.tools_used])
+                )
+                result.reply = follow.reply.strip()
+                result.followup = ""
+                result.spoke_seconds = follow.spoke_seconds
+                result.first_audio_ms = follow.first_audio_ms
+                result.total_ms += follow.total_ms
+                result.error = follow.error
                 if follow.interrupted:
-                    self._mark_interrupted(follow.reply, follow.spoke_seconds)
+                    result.interrupted = True
+                    self._remember(result)
+                    self._mark_interrupted(result.reply, result.spoke_seconds)
                     return result
                 if follow.error:
+                    self._remember(result)
                     return result
 
-        if self.config.prepare_speech is not None:
-            speech = self._speak_finished(result.followup or result.reply)
+        if self.config.prepare_speech is not None or capture_failed:
+            speech = self._speak_finished(result.reply)
             result.spoke_seconds += speech.spoke_seconds
             result.first_audio_ms = speech.first_audio_ms
             result.total_ms += speech.total_ms
             result.interrupted = speech.interrupted
             result.error = speech.error
-            self._note_spoken(result.followup or result.reply, speech.spoke_seconds)
             if speech.interrupted:
-                self._mark_interrupted(
-                    result.followup or result.reply, result.spoke_seconds
-                )
+                self._remember(result)
+                self._mark_interrupted(result.reply, result.spoke_seconds)
                 return result
             if speech.error:
+                self._remember(result)
                 return result
+
+        self._note_spoken(result.reply, result.spoke_seconds)
+        self._remember(result)
 
         # Scheduling the daemon worker is the final operation. It can never
         # overlap comprehension, tool use, TTS, or comprehension restoration.
@@ -875,6 +884,12 @@ class CallSession:
                         )
                     last_audio_at = arrived
                     last_audio_block = block
+                    if result.camera_requested:
+                        # request_camera_view is a client-side bridge. Any
+                        # language/TTS produced after its placeholder result is
+                        # provisional until the harness attaches the requested
+                        # frame in a second pass.
+                        continue
                     if speak_only_if_useful and not result.tools_used:
                         # Nothing was looked up, so this pass has nothing the
                         # first answer did not already say. Collect the text
@@ -944,7 +959,7 @@ class CallSession:
         result.total_ms = (time.monotonic() - started) * 1000
         omni = payload.get("omni")
         task = str(omni.get("task") or "") if isinstance(omni, dict) else ""
-        if task != "synthesize" and result.reply.strip():
+        if task != "synthesize" and result.reply.strip() and not result.camera_requested:
             self._trace_content(
                 "generated",
                 result.reply.strip(),
