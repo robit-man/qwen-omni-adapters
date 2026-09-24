@@ -53,6 +53,22 @@ def test_foreground_gateway_is_described_as_execution_capability() -> None:
     assert "execution gateway" in background["description"]
 
 
+def test_live_context_forbids_support_boilerplate_and_unsolicited_transport_meta() -> None:
+    catalog = context_catalog()
+    default = catalog["prompts"]["default_language_system"]
+    live = catalog["prompts"]["live_call_system"]
+    portal = catalog["prompts"]["portal_behavior_system"]
+
+    assert "natural participant" in default
+    assert "never as a support agent" in live
+    assert "Never announce your role, availability, or readiness" in live
+    assert "I'm here to help" in live
+    assert "How can I assist?" in live
+    assert "Do not mention message delivery, the microphone" in live
+    assert "unless the speaker explicitly asks about it" in live
+    assert "not as a support agent" in portal
+
+
 def test_mutable_or_explicitly_verified_facts_require_fresh_tool_evidence() -> None:
     tool_policy = context_catalog()["directives"]["tool_use"]
 

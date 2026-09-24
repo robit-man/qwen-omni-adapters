@@ -25,7 +25,10 @@ from runtime.adapter_server import (
     TRAINED_AUDIO_PROMPT_SHA256,
     TRAINED_AUDIO_SUFFIX_PROMPT,
     TRAINED_AUDIO_SYSTEM_PROMPT,
+    AdapterStageError,
     Config,
+    _natural_live_reply,
+    _tts_blocks_for_request,
     _tts_text_blocks,
     _video_audio,
     build_comprehension_payload,
@@ -115,6 +118,82 @@ def test_tts_text_blocks_have_no_aggregate_reply_ceiling() -> None:
 
     assert len(blocks) == 40
     assert " ".join(blocks) == text
+
+
+@pytest.mark.parametrize(
+    ("reply", "user_text", "expected"),
+    [
+        (
+            "The result is seven. I'm here to help with anything else.",
+            "What is three plus four?",
+            "The result is seven.",
+        ),
+        (
+            "Your message came through. The result is seven.",
+            "What is three plus four?",
+            "The result is seven.",
+        ),
+        (
+            "The result is seven, and I'm here to help.",
+            "What is three plus four?",
+            "The result is seven.",
+        ),
+        (
+            "Your microphone was silent.",
+            "Was my microphone silent?",
+            "Your microphone was silent.",
+        ),
+        (
+            "The phrase 'I'm here to help' sounds canned.",
+            "Why does 'I'm here to help' sound canned?",
+            "The phrase 'I'm here to help' sounds canned.",
+        ),
+        ("That tracks.", "Does that make sense?", "That tracks."),
+    ],
+)
+def test_natural_live_reply_filters_only_unsolicited_assistant_filler(
+    reply: str, user_text: str, expected: str
+) -> None:
+    assert _natural_live_reply(reply, user_text) == expected
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "I'm here to help.",
+        "How can I assist you today?",
+        "I didn't hear anything. Please say that again.",
+    ],
+)
+def test_natural_live_reply_fails_closed_when_only_boilerplate_remains(
+    reply: str,
+) -> None:
+    with pytest.raises(AdapterStageError, match="only disallowed assistant boilerplate"):
+        _natural_live_reply(reply, "Tell me the result.")
+
+
+def test_live_spoken_reply_has_a_block_circuit_breaker(monkeypatch) -> None:
+    monkeypatch.setenv("OMNI_TTS_BLOCK_CHARS", "80")
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[{"role": "user", "content": "Explain it."}],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+            },
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+        )
+    )
+    text = " ".join(f"Sentence {index} {'x' * 70}." for index in range(5))
+
+    with pytest.raises(AdapterStageError, match="TTS block limit"):
+        _tts_blocks_for_request(
+            text,
+            parsed,
+            _adapter_config(spoken_max_tts_blocks=2),
+        )
 
 
 def test_persistent_tts_worker_reuses_one_process_and_streams_framed_pcm(
@@ -697,7 +776,7 @@ def test_reference_server_separates_tagged_reasoning(think: bool) -> None:
         if request.url.host == "language":
             assert payload["think"] is think
             assert payload["messages"][0]["role"] == "system"
-            assert "concise voice assistant" in payload["messages"][0]["content"]
+            assert "natural participant" in payload["messages"][0]["content"]
             assert payload["messages"][1] == {"role": "user", "content": "What happened?"}
             return httpx.Response(
                 200,
@@ -929,7 +1008,7 @@ def test_stream_exposes_only_tagged_input_transcript_to_clients() -> None:
             assert body["think"] is False
             assert len(body["messages"]) == 2
             assert body["messages"][0]["role"] == "system"
-            assert "concise voice assistant" in body["messages"][0]["content"]
+            assert "natural participant" in body["messages"][0]["content"]
             assert body["messages"][1]["role"] == "user"
             current = body["messages"][-1]["content"]
             assert current.startswith("Haha, same, just vibing.\n\n")
@@ -1264,7 +1343,7 @@ def test_disabled_stream_suppresses_orphaned_closing_think_tag() -> None:
         payload = json.loads(request.content)
         assert payload["think"] is False
         assert payload["messages"][0]["role"] == "system"
-        assert "concise voice assistant" in payload["messages"][0]["content"]
+        assert "natural participant" in payload["messages"][0]["content"]
         assert payload["messages"][1] == {"role": "user", "content": "What happened?"}
         return httpx.Response(
             200,
@@ -1393,6 +1472,109 @@ def test_reference_server_streams_pcm_and_keeps_final_wav_envelope() -> None:
     assert decoded.frames == 3
     assert final["adapter"]["audio_streamed"] is True
     assert final["adapter"]["route"] == ["language", "tts"]
+
+
+def test_live_stream_filters_boilerplate_before_display_and_tts() -> None:
+    pcm = b"\x01\x00\x02\x00"
+    tts_batches: list[list[str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "language":
+            return httpx.Response(
+                200,
+                content=(
+                    b'{"message":{"role":"assistant","thinking":"brief private thought",'
+                    b'"content":"The answer is four. "}}\n'
+                    b'{"message":{"role":"assistant","content":"I am here to help."},'
+                    b'"done":true}\n'
+                ),
+            )
+        if request.url.host == "tts":
+            tts_batches.append(json.loads(request.content)["blocks"])
+            return httpx.Response(
+                200,
+                content=pcm,
+                headers={"x-audio-codec": "pcm_s16le"},
+            )
+        return httpx.Response(404)
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[{"role": "user", "content": "What is two plus two?"}],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+            },
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+            think=True,
+        )
+    )
+    events = [
+        json.loads(chunk)
+        for chunk in execute_stream(
+            parsed,
+            _adapter_config(),
+            httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+    ]
+
+    visible = "".join(
+        str(event.get("message", {}).get("content") or "")
+        for event in events
+        if event["type"] == "delta"
+    )
+    assert visible == "The answer is four."
+    assert tts_batches == [["The answer is four."]]
+    final = events[-1]["response"]
+    assert final["message"]["content"] == "The answer is four."
+    assert final["message"]["thinking"] == "brief private thought"
+
+
+def test_live_stream_stops_runaway_decoded_audio_without_changing_codec_window() -> None:
+    oversized_pcm = b"\x01\x00" * 48_001
+    seen_tts_payload: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "language":
+            return httpx.Response(
+                200,
+                content=b'{"message":{"role":"assistant","content":"A short answer."}}\n',
+            )
+        if request.url.host == "tts":
+            seen_tts_payload.update(json.loads(request.content))
+            return httpx.Response(
+                200,
+                content=oversized_pcm,
+                headers={"x-audio-codec": "pcm_s16le"},
+            )
+        return httpx.Response(404)
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[{"role": "user", "content": "Answer briefly."}],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+            },
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+            think=False,
+        )
+    )
+
+    with pytest.raises(AdapterStageError, match="audio duration limit"):
+        list(
+            execute_stream(
+                parsed,
+                _adapter_config(spoken_max_audio_seconds=2.0),
+                httpx.Client(transport=httpx.MockTransport(handler)),
+            )
+        )
+
+    assert seen_tts_payload["stream_frames"] == 8
 
 
 def test_long_tts_stream_uses_multiple_blocks_and_one_complete_wav(
@@ -1657,6 +1839,57 @@ def test_language_output_is_bounded_for_both_backends() -> None:
 
     assert openai["max_tokens"] == 2048
     assert ollama["options"]["num_predict"] == 2048
+
+
+def test_live_spoken_language_uses_the_smaller_output_bound_for_both_backends() -> None:
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[{"role": "user", "content": "Give me the short answer."}],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+            },
+            options={"num_predict": 999_999},
+        )
+    )
+    config = _adapter_config(
+        language_max_output_tokens=2048,
+        spoken_language_max_output_tokens=192,
+    )
+
+    openai = adapter_server.build_language_payload(
+        parsed, None, "local", "openai", config
+    )
+    ollama = adapter_server.build_language_payload(
+        parsed, None, "local", "ollama", config
+    )
+
+    assert openai["max_tokens"] == 192
+    assert ollama["options"]["num_predict"] == 192
+
+
+def test_text_chat_is_not_constrained_by_the_live_spoken_output_bound() -> None:
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[{"role": "user", "content": "Write a detailed analysis."}],
+            options={"num_predict": 999_999},
+        )
+    )
+    config = _adapter_config(
+        language_max_output_tokens=2048,
+        spoken_language_max_output_tokens=192,
+    )
+
+    payload = adapter_server.build_language_payload(
+        parsed, None, "local", "openai", config
+    )
+
+    assert payload["max_tokens"] == 2048
 
 
 def test_language_output_gets_a_server_default_when_the_client_omits_one() -> None:

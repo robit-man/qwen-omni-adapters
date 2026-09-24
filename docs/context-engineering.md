@@ -32,6 +32,21 @@ browser prompt values from the catalog into the page, and JavaScript fails
 closed if either is absent. This keeps browser calls and the local microphone
 harness aligned.
 
+Live speech is also protected at the completed-answer boundary. The catalog
+instructs the language trunk to speak as a participant rather than announce an
+assistant role, availability, readiness, or a generic offer. Before a live
+`require_speech` answer is exposed or synthesized, the adapter removes complete
+sentences that consist of known support-agent closings or unsolicited
+microphone/message-delivery commentary. Explicit questions about those phrases
+or the audio path remain answerable. A reply containing only disallowed filler
+fails closed rather than sending the filler to Qwen3-TTS. Text-only API calls
+are not rewritten by this live-only guard.
+
+The same live boundary applies a smaller generation ceiling plus maximum TTS
+block and decoded-audio-duration limits. These are runaway-response circuit
+breakers; they do not change the trained audio encoder, codec graph, shipped
+voice reference, persistent worker protocol, or PCM decode window.
+
 Tool discovery is also context-bounded. Once `tool_search` selects concrete
 capabilities, its follow-up exposes those contracts instead of retaining the
 unrelated initial bridge schemas. The adapter estimates the fully rendered

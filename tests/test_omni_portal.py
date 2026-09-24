@@ -3159,7 +3159,7 @@ def test_mock_live_call_stream_defaults_native_reasoning_off() -> None:
     environment = seen[0]["messages"][0]
     assert environment["role"] == "system"
     assert "<runtime_environment>" not in environment["content"]
-    assert "conversational multimodal assistant" in environment["content"]
+    assert "natural participant" in environment["content"]
     assert "explicit system-snapshot tool" in environment["content"]
     assert "fact that can change after training" in environment["content"]
     assert "explicitly asks you to check or verify" in environment["content"]
@@ -3286,7 +3286,7 @@ def test_compact_system_policy_merges_without_eager_host_snapshot() -> None:
     assert [item["role"] for item in messages] == ["system", "user"]
     assert messages[0]["content"].startswith("Answer naturally.")
     assert "<runtime_environment>" not in messages[0]["content"]
-    assert "conversational multimodal assistant" in messages[0]["content"]
+    assert "natural participant" in messages[0]["content"]
     assert "Tool results" in messages[0]["content"]
     assert "untrusted data" in messages[0]["content"]
     assert "<portal_tools>" not in messages[0]["content"]

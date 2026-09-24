@@ -1080,7 +1080,7 @@ def test_runtime_facts_are_fetched_explicitly_instead_of_eagerly_injected() -> N
     system = payload["messages"][0]
 
     assert system["role"] == "system"
-    assert "live spoken conversation" in system["content"]
+    assert "natural participant in a live conversation" in system["content"]
     assert "The current date and time is" not in system["content"]
     assert "This machine is in" not in system["content"]
 

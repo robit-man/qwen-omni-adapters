@@ -72,12 +72,15 @@ class Config:
     comprehension_context_file: str | None = None
     comprehension_max_output_tokens: int = 2_048
     language_max_output_tokens: int = 4_096
+    spoken_language_max_output_tokens: int = 256
     # Trained audio bridges are optimized against the target trunk's native
     # no-thinking prefill. Stock Qwen3-Omni is not: its explicit false branch
     # is known to degenerate, so this stays opt-in per deployment profile.
     comprehension_disable_thinking: bool = False
     comprehension_repeat_penalty: float = 1.0
     tts_stream_frames: int = 8
+    spoken_max_tts_blocks: int = 4
+    spoken_max_audio_seconds: float = 24.0
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -113,6 +116,9 @@ class Config:
             language_max_output_tokens=int(
                 os.environ.get("OMNI_LANGUAGE_MAX_OUTPUT_TOKENS", "4096")
             ),
+            spoken_language_max_output_tokens=int(
+                os.environ.get("OMNI_SPOKEN_LANGUAGE_MAX_OUTPUT_TOKENS", "256")
+            ),
             comprehension_disable_thinking=(
                 os.environ.get("OMNI_COMPREHENSION_DISABLE_THINKING", "0") == "1"
             ),
@@ -120,6 +126,12 @@ class Config:
                 os.environ.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.0")
             ),
             tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
+            spoken_max_tts_blocks=int(
+                os.environ.get("OMNI_SPOKEN_MAX_TTS_BLOCKS", "4")
+            ),
+            spoken_max_audio_seconds=float(
+                os.environ.get("OMNI_SPOKEN_MAX_AUDIO_SECONDS", "24")
+            ),
         )
 
 
@@ -143,6 +155,33 @@ THINK_CLOSE_TAGS = (THINK_CLOSE, "<|end_thinking|>")
 THINK_BLOCK = re.compile(
     r"(?:<think>|<\|thinking\|>)(.*?)(?:</think>|<\|end_thinking\|>)",
     re.IGNORECASE | re.DOTALL,
+)
+
+_CANNED_ASSISTANT_PATTERNS = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"\b(?:i am|i['’]?m)\s+(?:here|ready|available)\s+to\s+(?:help|assist)\b",
+        r"\b(?:i am|i['’]?m)\s+here\s+if\s+you\b",
+        r"\b(?:(?:i am|i['’]?m)\s+)?happy\s+to\s+help\b",
+        r"\bi\s+can\s+help\s+(?:with|you)\b",
+        r"\bhow can i\s+(?:help|assist)(?:\s+you)?(?:\s+today)?\b",
+        r"\banything else\s+(?:i can|you(?:'d| would) like me to|you want me to)\b",
+        r"\blet me know\s+(?:if|what|whenever)\b",
+        r"\bfeel free to\s+(?:ask|reach out)\b",
+        r"\b(?:i am|i['’]?m)\s+all ears\b",
+        r"\bwe can\s+(?:also\s+)?(?:just\s+)?chat\b",
+    )
+)
+_TRANSPORT_BOILERPLATE = re.compile(
+    r"\b(?:your\s+)?(?:message|text)\s+(?:came|got)\s+through\b|"
+    r"\b(?:mic|microphone)\b.*\b(?:silence|silent|nothing|again|try|hear|heard)\b|"
+    r"\b(?:did not|didn't|could not|couldn't)\s+(?:hear|catch)\s+"
+    r"(?:anything|that|you)\b|\bplease\s+(?:say|try)(?:\s+that)?\s+again\b",
+    re.IGNORECASE,
+)
+_TRANSPORT_REQUEST = re.compile(
+    r"\b(?:mic|microphone|audio|sound|hear|heard|listen|recording|transcript)\b",
+    re.IGNORECASE,
 )
 SPEECH_TRANSCRIPT_BLOCK = re.compile(
     r"<speech_transcript\b[^>]*>(.*?)</speech_transcript\s*>",
@@ -249,6 +288,92 @@ def _observation_audio(observation: str | None) -> str | None:
 def _thinking_requested(parsed: ParsedAdapterRequest) -> bool:
     value = parsed.passthrough.get("think", False)
     return value is True or isinstance(value, str)
+
+
+def _is_live_spoken_turn(parsed: ParsedAdapterRequest) -> bool:
+    """Return whether the request is a speech-attributed conversational turn."""
+
+    return parsed.task == "chat" and parsed.require_speech
+
+
+def _current_user_text(
+    parsed: ParsedAdapterRequest, observation: str | None = None
+) -> str:
+    transcript = _observation_transcript(observation)
+    if transcript:
+        return transcript
+    latest = next(
+        (message.content for message in reversed(parsed.messages) if message.role == "user"),
+        "",
+    )
+    return latest.strip()
+
+
+def _natural_live_reply(text: str, user_text: str) -> str:
+    """Remove pretrained support-agent filler from a completed spoken reply.
+
+    This is deliberately a narrow final boundary, not a general answer rewriter.
+    It filters complete sentence/line units only and therefore never fabricates a
+    replacement answer. If the model produced nothing except boilerplate, the
+    turn fails closed before that filler can reach playback.
+    """
+
+    normalized = text.strip()
+    if not normalized:
+        return ""
+    allow_canned_quote = any(
+        pattern.search(user_text) for pattern in _CANNED_ASSISTANT_PATTERNS
+    )
+    allow_transport = bool(_TRANSPORT_REQUEST.search(user_text))
+    units = [
+        unit.strip()
+        for unit in re.split(r"(?<=[.!?])\s+|\n+", normalized)
+        if unit.strip()
+    ]
+    retained: list[str] = []
+    for unit in units:
+        banned = (
+            not allow_canned_quote
+            and any(pattern.search(unit) for pattern in _CANNED_ASSISTANT_PATTERNS)
+        ) or (not allow_transport and _TRANSPORT_BOILERPLATE.search(unit))
+        if not banned:
+            retained.append(unit)
+            continue
+        # Preserve a substantive clause when the model glues a canned closing
+        # onto it. Never synthesize replacement prose; retain only model text.
+        clauses = [
+            clause.strip()
+            for clause in re.split(
+                r"\s*(?:[,;]|[—–]|\s+-\s+)\s*|"
+                r"\s+(?:and|but)\s+(?=(?:i\b|let\b|feel\b|how\b|anything\b|we\b))",
+                unit,
+                flags=re.IGNORECASE,
+            )
+            if clause.strip()
+        ]
+        safe_clauses = [
+            clause
+            for clause in clauses
+            if (
+                allow_canned_quote
+                or not any(
+                    pattern.search(clause) for pattern in _CANNED_ASSISTANT_PATTERNS
+                )
+            )
+            and (allow_transport or not _TRANSPORT_BOILERPLATE.search(clause))
+        ]
+        if safe_clauses:
+            preserved = ", ".join(safe_clauses)
+            terminal = unit[-1] if unit[-1] in ".!?" else ""
+            if terminal and preserved[-1] not in ".!?":
+                preserved += terminal
+            retained.append(preserved)
+    result = " ".join(retained).strip()
+    if not result:
+        raise AdapterStageError(
+            "language returned only disallowed assistant boilerplate"
+        )
+    return result
 
 
 def _normalize_reasoning(message: dict[str, Any], *, enabled: bool) -> None:
@@ -1164,10 +1289,7 @@ def build_language_payload(
                 if options.get(source) is not None:
                     payload[target] = options[source]
         requested = payload.get("max_tokens")
-        maximum = max(
-            1,
-            config.language_max_output_tokens if config is not None else 4_096,
-        )
+        maximum = _language_output_maximum(parsed, config)
         payload["max_tokens"] = (
             min(requested, maximum)
             if isinstance(requested, int)
@@ -1181,10 +1303,7 @@ def build_language_payload(
             dict(native_options) if isinstance(native_options, Mapping) else {}
         )
         requested = native_options.get("num_predict")
-        maximum = max(
-            1,
-            config.language_max_output_tokens if config is not None else 4_096,
-        )
+        maximum = _language_output_maximum(parsed, config)
         native_options["num_predict"] = (
             min(requested, maximum)
             if isinstance(requested, int)
@@ -1248,6 +1367,17 @@ def build_language_payload(
     if config is not None:
         _fit_language_context(payload, config)
     return payload
+
+
+def _language_output_maximum(
+    parsed: ParsedAdapterRequest, config: Config | None
+) -> int:
+    general = config.language_max_output_tokens if config is not None else 4_096
+    maximum = max(1, general)
+    if _is_live_spoken_turn(parsed):
+        spoken = config.spoken_language_max_output_tokens if config is not None else 256
+        maximum = min(maximum, max(1, spoken))
+    return maximum
 
 
 def _language_result(data: Mapping[str, Any], language_api: str) -> dict[str, Any]:
@@ -1386,6 +1516,17 @@ def _tts_text_blocks(text: str, speech: Mapping[str, Any]) -> list[str]:
     return blocks
 
 
+def _tts_blocks_for_request(
+    text: str, parsed: ParsedAdapterRequest, config: Config
+) -> list[str]:
+    blocks = _tts_text_blocks(text, parsed.speech)
+    if _is_live_spoken_turn(parsed) and len(blocks) > max(1, config.spoken_max_tts_blocks):
+        raise AdapterStageError(
+            "live spoken reply exceeds the configured TTS block limit"
+        )
+    return blocks
+
+
 def _wav_pcm(wav_bytes: bytes) -> bytes:
     try:
         with wave.open(io.BytesIO(wav_bytes), "rb") as wav:
@@ -1409,8 +1550,9 @@ def _synthesize_wav_blocks(
     config: Config,
     client: httpx.Client,
 ) -> tuple[bytes, int]:
-    blocks = _tts_text_blocks(text, parsed.speech)
+    blocks = _tts_blocks_for_request(text, parsed, config)
     pcm_parts: list[bytes] = []
+    maximum_pcm_bytes = max(1, round(config.spoken_max_audio_seconds * 48_000))
     for block in blocks:
         tts_payload = {
             "text": block,
@@ -1418,6 +1560,10 @@ def _synthesize_wav_blocks(
             **dict(parsed.speech),
         }
         pcm_parts.append(_wav_pcm(_tts_wav(client.post(config.tts_url, json=tts_payload))))
+        if _is_live_spoken_turn(parsed) and sum(map(len, pcm_parts)) > maximum_pcm_bytes:
+            raise AdapterStageError(
+                "live spoken reply exceeds the configured audio duration limit"
+            )
     return _pcm16_wav(b"".join(pcm_parts)), len(blocks)
 
 
@@ -1438,6 +1584,11 @@ def _finish_response(
         raise AdapterStageError("result contains no Ollama message object")
     _normalize_reasoning(message, enabled=_thinking_requested(parsed))
     tool_calls = message.get("tool_calls")
+    if _is_live_spoken_turn(parsed) and not tool_calls:
+        message["content"] = _natural_live_reply(
+            str(message.get("content") or ""),
+            _current_user_text(parsed, observation),
+        )
     wants_tts = (
         parsed.synthesize
         and not suppress_tts
@@ -1660,6 +1811,7 @@ def execute_stream(
         deferred_content = ""
         thinking = ""
         thinking_enabled = _thinking_requested(parsed)
+        defer_visible_content = not thinking_enabled or _is_live_spoken_turn(parsed)
         tag_stream = _ThinkingTagStream(enabled=thinking_enabled)
         tool_calls: Any = None
         openai_tool_calls: dict[int, dict[str, Any]] = {}
@@ -1720,8 +1872,11 @@ def execute_stream(
                     if thinking_enabled:
                         visible_piece, tagged_piece = tag_stream.feed(piece)
                         if visible_piece:
-                            content += visible_piece
-                            delta["content"] = visible_piece
+                            if defer_visible_content:
+                                deferred_content += visible_piece
+                            else:
+                                content += visible_piece
+                                delta["content"] = visible_piece
                         if tagged_piece:
                             thinking += tagged_piece
                             delta["thinking"] = tagged_piece
@@ -1751,16 +1906,24 @@ def execute_stream(
             if visible_piece or tagged_piece:
                 delta = {"role": "assistant"}
                 if visible_piece:
-                    content += visible_piece
-                    delta["content"] = visible_piece
+                    if defer_visible_content:
+                        deferred_content += visible_piece
+                    else:
+                        content += visible_piece
+                        delta["content"] = visible_piece
                 if tagged_piece:
                     thinking += tagged_piece
                     delta["thinking"] = tagged_piece
                 yield _stream_event("delta", message=delta)
-        else:
+        if defer_visible_content:
             sanitized = {"content": deferred_content}
             _normalize_reasoning(sanitized, enabled=False)
             content = str(sanitized.get("content") or "")
+            if _is_live_spoken_turn(parsed) and not tool_calls:
+                content = _natural_live_reply(
+                    content,
+                    _current_user_text(parsed, observation),
+                )
             if content:
                 yield _stream_event(
                     "delta",
@@ -1789,7 +1952,7 @@ def execute_stream(
         text = str(message.get("content") or "").strip()
         if not text:
             raise AdapterStageError("tts route has no assistant text to synthesize")
-        text_blocks = _tts_text_blocks(text, parsed.speech)
+        text_blocks = _tts_blocks_for_request(text, parsed, config)
         tts_block_count = len(text_blocks)
         yield _stream_event("stage", stage="tts", blocks=tts_block_count)
         chunks: list[bytes] = []
@@ -1801,6 +1964,8 @@ def execute_stream(
             **dict(parsed.speech),
         }
         pending = b""
+        maximum_pcm_bytes = max(1, round(config.spoken_max_audio_seconds * 48_000))
+        decoded_pcm_bytes = 0
         with client.stream(
             "POST",
             config.tts_url.rstrip("/") + "/stream/batch",
@@ -1821,6 +1986,14 @@ def execute_stream(
                 chunk = data[:complete]
                 if not chunk:
                     continue
+                decoded_pcm_bytes += len(chunk)
+                if (
+                    _is_live_spoken_turn(parsed)
+                    and decoded_pcm_bytes > maximum_pcm_bytes
+                ):
+                    raise AdapterStageError(
+                        "live spoken reply exceeds the configured audio duration limit"
+                    )
                 if not audio_streamed:
                     yield _stream_event(
                         "audio_start",
