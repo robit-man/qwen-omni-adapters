@@ -308,8 +308,8 @@ def _scenarios() -> tuple[BenchmarkScenario, ...]:
             "code_dependency",
             "Trace function `send_frame` through `validate_frame` to error `ChecksumMismatch`, including the relevant test and timeout constant.",
             (
-                "def send_frame",
-                "def validate_frame",
+                "send_frame",
+                "validate_frame",
                 "ChecksumMismatch",
                 "test_send_frame_rejects_bad_checksum",
                 "CAN_TIMEOUT_MS = 275",

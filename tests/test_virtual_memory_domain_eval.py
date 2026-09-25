@@ -132,7 +132,7 @@ def test_domain_score_ignores_presentation_whitespace_around_assignments() -> No
 
     score = score_domain_answer(
         scenario,
-        "NUM_ATLAS_W = 17, NUM_BOREAL_W=23, NUM_CYGNUS_W  =  31; total 71",
+        "**NUM_ATLAS_W** = 17, `NUM_BOREAL_W`=23, NUM_CYGNUS_W  =  31; total 71",
     )
 
     assert score["required_recall"] == 1.0

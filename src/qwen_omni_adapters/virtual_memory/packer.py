@@ -389,10 +389,19 @@ class WorkingContextPacker:
                 if set(hit.channels)
                 & {"oracle", "oracle_reference_location", "memory_conflict"}
                 or any(
-                    term in hit.chunk.original_text.casefold() for term in focus_terms
+                    self._contains_focus_term(
+                        hit.chunk.original_text,
+                        term,
+                        identifier_components=self._code_like(hit.chunk),
+                    )
+                    for term in focus_terms
                 )
                 or any(
-                    term in hit.chunk.original_text.casefold()
+                    self._contains_focus_term(
+                        hit.chunk.original_text,
+                        term,
+                        identifier_components=self._code_like(hit.chunk),
+                    )
                     for term in root_focus_terms
                 )
             ]
@@ -466,6 +475,35 @@ class WorkingContextPacker:
                 eviction_priority=self._evidence_priority(query, hit),
             )
         return selected
+
+    @staticmethod
+    def _code_like(chunk: object) -> bool:
+        return getattr(chunk, "parent_kind", None) in {
+            "class",
+            "function",
+            "module_block",
+            "module_gap",
+            "module_preamble",
+            "module_tail",
+            "symbol_block",
+        }
+
+    @staticmethod
+    def _contains_focus_term(
+        text: str,
+        term: str,
+        *,
+        identifier_components: bool = False,
+    ) -> bool:
+        """Match an address anchor without conflating identifier prefixes."""
+
+        normalized = str(term or "").strip().casefold()
+        if not normalized:
+            return False
+        identifier_class = "A-Za-z0-9" if identifier_components else "A-Za-z0-9_"
+        left = rf"(?<![{identifier_class}])" if normalized[0].isalnum() or normalized[0] == "_" else ""
+        right = rf"(?![{identifier_class}])" if normalized[-1].isalnum() or normalized[-1] == "_" else ""
+        return bool(re.search(f"{left}{re.escape(normalized)}{right}", text.casefold()))
 
     @staticmethod
     def _matched_query_terms(query: str, text: str) -> set[str]:

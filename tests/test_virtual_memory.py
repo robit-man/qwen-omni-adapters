@@ -1053,6 +1053,36 @@ def test_packer_reserves_live_tool_and_transport_envelope(tmp_path: Path) -> Non
     store.close()
 
 
+def test_packer_focus_does_not_conflate_identifier_prefix_decoys(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "focus-boundary.sqlite3")
+    target = store.ingest("Dropbear uses left_leg.", source="graph.txt")[0]
+    decoy = store.ingest(
+        "dropbear_left_controller is DBL-DECOY-991.",
+        source="decoy.txt",
+    )[0]
+    hits = [
+        RetrievalHit(target, 1.0, ("graph",), {"graph": 1.0}),
+        RetrievalHit(decoy, 0.9, ("bm25",), {"bm25": 0.9}),
+    ]
+
+    packed = WorkingContextPacker(token_counter=word_tokens).pack(
+        "What does Dropbear use?",
+        system_contract="Use exact evidence.",
+        evidence=hits,
+    )
+
+    assert "Dropbear uses left_leg" in packed.text
+    assert "DBL-DECOY-991" not in packed.text
+    assert any(
+        event["operation"] == "EVICT"
+        and event["detail"].get("reason") == "dependency_focus"
+        for event in packed.trace
+    )
+    store.close()
+
+
 def test_constraint_survives_over_100k_intervening_tokens(tmp_path: Path) -> None:
     store = ImmutableEvidenceStore(
         tmp_path / "virtual.sqlite3",

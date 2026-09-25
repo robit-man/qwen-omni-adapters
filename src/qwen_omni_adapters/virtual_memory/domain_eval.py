@@ -91,9 +91,10 @@ def score_domain_answer(
 
     def canonical(value: str) -> str:
         # Preserve exact identifiers and values while treating presentation
-        # whitespace around assignment operators as insignificant. A model
-        # rendering ``KEY = 17`` has not lost fidelity relative to ``KEY=17``.
-        return re.sub(r"\s*=\s*", "=", str(value or "").casefold())
+        # whitespace and Markdown emphasis as insignificant. A model rendering
+        # ``**KEY** = 17`` has not lost fidelity relative to ``KEY=17``.
+        rendered = str(value or "").casefold().replace("*", "").replace("`", "")
+        return re.sub(r"\s*=\s*", "=", rendered)
 
     folded = canonical(prediction)
     required_matches = {
