@@ -186,12 +186,15 @@ class RecursiveMemoryController:
                     else "No stronger evidence found; working evidence was frozen."
                 ),
             )
-            score = self._sufficiency(query, ranked)
+            score = self.evidence_sufficiency_score(query, ranked)
             sufficient = (
                 len(ranked) >= self.config.minimum_evidence
                 and score >= self.config.sufficiency_threshold
             )
-            if sufficient and self._has_terminal_graph_path(ranked):
+            if sufficient and (
+                self._has_terminal_graph_path(ranked)
+                or self._has_terminal_relation_path(query, ranked)
+            ):
                 additions = []
             else:
                 additions = (
@@ -285,7 +288,86 @@ class RecursiveMemoryController:
             and terminal_relation
         )
 
-    def _sufficiency(self, query: str, evidence: Sequence[RetrievalHit]) -> float:
+    @staticmethod
+    def _has_terminal_relation_path(
+        query: str,
+        evidence: Sequence[RetrievalHit],
+    ) -> bool:
+        """Recognize a retrieved textual relation chain without graph metadata."""
+
+        text = "\n".join(hit.chunk.original_text for hit in evidence)
+        edges: list[tuple[str, str]] = []
+        for match in re.finditer(
+            r"\b([A-Za-z_$][\w.$:-]{1,79})\s+"
+            r"(?:calls|imports|inherits|extends|uses|references|depends\s+on|"
+            r"communicates\s+through)\s+"
+            r"([A-Za-z_$][\w.$:-]{1,79})",
+            text,
+            re.IGNORECASE,
+        ):
+            edges.append(
+                (
+                    match.group(1).casefold().strip(".$:-"),
+                    match.group(2).casefold().strip(".$:-"),
+                )
+            )
+        if len(edges) < 2:
+            return False
+        query_nodes = {
+            value.casefold().strip(".$:-")
+            for value in re.findall(r"[A-Za-z_$][\w.$:-]{1,79}", query)
+        }
+        connected = {
+            node
+            for edge in edges
+            for node in edge
+            if node in query_nodes
+        }
+        if not connected:
+            return False
+        changed = True
+        while changed:
+            changed = False
+            for source, target in edges:
+                if source in connected and target not in connected:
+                    connected.add(target)
+                    changed = True
+        for hit in evidence:
+            # A weak dense near-neighbor is a retrieval lead, not yet a
+            # verified terminal page. A focused follow-up supplies exact,
+            # entity, symbol, or graph authority before early stop.
+            if not set(hit.channels) & {
+                "code_graph",
+                "entity_exact",
+                "exact",
+                "graph",
+                "symbol",
+            }:
+                continue
+            for line in hit.chunk.original_text.splitlines():
+                if not re.search(
+                    r"\b[A-Za-z_][\w.:-]{2,}\s*(?:=|:)\s*[A-Za-z0-9_.:-]+",
+                    line,
+                ):
+                    continue
+                folded = line.casefold()
+                if any(
+                    re.search(
+                        rf"(?<![A-Za-z0-9_]){re.escape(node)}(?![A-Za-z0-9_])",
+                        folded,
+                    )
+                    for node in connected
+                ):
+                    return True
+        return False
+
+    def evidence_sufficiency_score(
+        self,
+        query: str,
+        evidence: Sequence[RetrievalHit],
+    ) -> float:
+        """Score an evidence set, including a final post-packing working set."""
+
         if self.sufficiency_judge is not None:
             return max(0.0, min(1.0, float(self.sufficiency_judge(query, evidence))))
         if not evidence:
@@ -385,7 +467,10 @@ class RecursiveMemoryController:
         # multi-hop path, and its terminal page contains an exact relation,
         # treat that path as sufficient without guessing the relation value.
         if (
-            self._has_terminal_graph_path(evidence)
+            (
+                self._has_terminal_graph_path(evidence)
+                or self._has_terminal_relation_path(query, evidence)
+            )
             and anchor_coverage >= 1.0
         ):
             score = max(score, 0.82)

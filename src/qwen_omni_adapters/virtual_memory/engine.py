@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from qwen_omni_adapters.virtual_memory.compilation import QueryEvidenceCompiler
@@ -247,7 +247,42 @@ class VirtualContextEngine:
             reserved_tokens=reserved_tokens,
             trace=trace,
         )
-        evidence_sufficient = controller_result.sufficient or compilation.complete
+        resident_ids = set(context.evidence_chunk_ids)
+        resident_evidence = [
+            hit
+            for chunk_id, hit in combined_evidence.items()
+            if chunk_id in resident_ids
+        ]
+        final_score = self.controller.evidence_sufficiency_score(
+            query,
+            resident_evidence,
+        )
+        resident_controller_sufficient = (
+            controller_result.sufficient
+            and len(resident_evidence) >= self.controller.config.minimum_evidence
+            and final_score >= self.controller.config.sufficiency_threshold
+        )
+        packed_memory_ids = {item.item_id for item in context.items}
+        packed_relevant_constraint = any(
+            memory.memory_class is MemoryClass.CONSTRAINT
+            and memory.verified
+            and memory.memory_id in packed_memory_ids
+            for memory in memories
+        )
+        evidence_sufficient = compilation.complete or (
+            controller_result.sufficient
+            and (resident_controller_sufficient or packed_relevant_constraint)
+        )
+        trace.record(
+            "final_evidence_sufficiency",
+            sufficient=evidence_sufficient,
+            score=final_score,
+            resident_chunk_ids=sorted(resident_ids),
+            dropped_chunk_ids=sorted(set(combined_evidence) - resident_ids),
+            compilation_complete=compilation.complete,
+            packed_relevant_constraint=packed_relevant_constraint,
+        )
+        context = replace(context, trace=trace.export())
         return PreparedTurn(
             context=context,
             controller=controller_result,
@@ -258,7 +293,11 @@ class VirtualContextEngine:
                 else (
                     None
                     if evidence_sufficient
-                    else "retrieval budget exhausted before evidence sufficiency"
+                    else (
+                        "final working set lost sufficient evidence during packing"
+                        if controller_result.sufficient
+                        else "retrieval budget exhausted before evidence sufficiency"
+                    )
                 )
             ),
         )

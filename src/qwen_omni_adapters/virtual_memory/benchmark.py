@@ -191,7 +191,7 @@ def _documents() -> list[BenchmarkDocument]:
         ),
         BenchmarkDocument(
             "graph://dropbear/3",
-            "AS5600 communicates through CAN_42 at CAN42_BITRATE_BPS=1000000.",
+            "AS5600 -> CAN_42; CAN42_BITRATE_BPS=1000000.",
             0.48,
             entities=("AS5600", "CAN_42"),
             relationships=(("AS5600", "communicates_through", "CAN_42"),),
@@ -301,7 +301,7 @@ def _scenarios() -> tuple[BenchmarkScenario, ...]:
             "multi_hop",
             "What exact numeric setting does Dropbear ultimately use through its left_leg sensor path?",
             ("left_leg", "AS5600", "CAN_42", "CAN42_BITRATE_BPS=1000000"),
-            ("Dropbear uses", "left_leg uses", "AS5600 communicates", "CAN42_BITRATE"),
+            ("Dropbear uses", "left_leg uses", "AS5600 -> CAN_42", "CAN42_BITRATE"),
         ),
         BenchmarkScenario(
             "cross_file_symbol_trace",

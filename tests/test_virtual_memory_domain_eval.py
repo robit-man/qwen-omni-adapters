@@ -124,11 +124,21 @@ def test_entity_graph_pages_terminal_fact_in_one_controller_round(
         retrieval_profile="hybrid-no-graph",
     ) as harness:
         without_graph = harness.prepare(scenario, baseline="hybrid")
+    with DomainVirtualContextHarness(
+        corpus,
+        database=tmp_path / "without-graph-recursive.sqlite3",
+        physical_context_tokens=4_096,
+        controller_rounds=6,
+        retrieval_profile="hybrid-no-graph",
+    ) as harness:
+        without_graph_recursive = harness.prepare(scenario, baseline="hybrid")
 
     assert "CAN42_BITRATE_BPS=1000000" in with_graph.prompt
     assert "CAN42_BITRATE_BPS=1000000" not in without_graph.prompt
     assert with_graph.answer_allowed is True
     assert without_graph.answer_allowed is False
+    assert "CAN42_BITRATE_BPS=1000000" in without_graph_recursive.prompt
+    assert without_graph_recursive.answer_allowed is True
 
 
 def test_domain_score_requires_all_exact_terms_and_rejects_decoys() -> None:

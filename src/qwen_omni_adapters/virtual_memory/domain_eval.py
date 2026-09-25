@@ -292,6 +292,8 @@ class DomainVirtualContextHarness:
 
         trace = TraceCollector()
         compilation = None
+        controller: RecursiveMemoryController | None = None
+        controller_sufficient = False
         if selected == "oracle":
             hits = _oracle_hits(self.store, scenario.oracle_terms)
             retrieval_queries = ("oracle_source_pages", *scenario.oracle_terms)
@@ -302,13 +304,15 @@ class DomainVirtualContextHarness:
                 chunk_ids=[hit.chunk.chunk_id for hit in hits],
             )
         else:
-            result = RecursiveMemoryController(
+            controller = RecursiveMemoryController(
                 self.retriever,
                 config=ControllerConfig(max_rounds=self.controller_rounds),
-            ).gather(scenario.query, trace=trace)
+            )
+            result = controller.gather(scenario.query, trace=trace)
             hits = list(result.evidence)
             retrieval_queries = result.queries
             sufficient = result.sufficient
+            controller_sufficient = result.sufficient
             if self.compilation_enabled:
                 compilation = QueryEvidenceCompiler(self.store).compile(
                     scenario.query,
@@ -346,6 +350,40 @@ class DomainVirtualContextHarness:
             memories=memories,
             trace=trace,
         )
+        resident_ids = set(context.evidence_chunk_ids)
+        resident_hits = [
+            hit for hit in hits if hit.chunk.chunk_id in resident_ids
+        ]
+        if selected == "oracle":
+            required_ids = {hit.chunk.chunk_id for hit in hits}
+            sufficient = bool(required_ids) and required_ids <= resident_ids
+            final_score = None
+        elif compilation is not None and compilation.complete:
+            sufficient = True
+            final_score = None
+        else:
+            if controller is None:  # pragma: no cover - exhaustive baseline branch
+                raise AssertionError("hybrid preparation requires a controller")
+            final_score = controller.evidence_sufficiency_score(
+                scenario.query,
+                resident_hits,
+            )
+            sufficient = (
+                controller_sufficient
+                and len(resident_hits) >= controller.config.minimum_evidence
+                and final_score >= controller.config.sufficiency_threshold
+            )
+        trace.record(
+            "final_evidence_sufficiency",
+            sufficient=sufficient,
+            score=final_score,
+            resident_chunk_ids=sorted(resident_ids),
+            dropped_chunk_ids=sorted(
+                {hit.chunk.chunk_id for hit in hits} - resident_ids
+            ),
+            compilation_complete=bool(compilation and compilation.complete),
+            baseline=selected,
+        )
         resident = context.total_tokens - self.budget.output_headroom
         exact_provenance = self._exact_provenance(context)
         return PreparedDomainScenario(
@@ -358,7 +396,7 @@ class DomainVirtualContextHarness:
             retrieval_queries=tuple(retrieval_queries),
             sufficient=sufficient,
             preparation_seconds=time.perf_counter() - started,
-            trace=context.trace,
+            trace=trace.export(),
             retrieval_profile=self.retrieval_profile,
             controller_rounds=self.controller_rounds,
             compilation_enabled=self.compilation_enabled,

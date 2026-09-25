@@ -173,6 +173,11 @@ def test_active_mode_recalls_early_fact_beyond_physical_history_window(
     assert prepared.context.evidence_chunk_ids
     assert prepared.context.total_tokens <= prepared.context.max_tokens
     assert prepared.context.text.count("irrelevant padding") < 100
+    assert any(
+        event["operation"] == "final_evidence_sufficiency"
+        and event["detail"]["sufficient"] is True
+        for event in prepared.context.trace
+    )
     assert len(payload["messages"]) == 2
     assert payload["messages"][1]["images"][0]["data"] == "current-frame"
 
