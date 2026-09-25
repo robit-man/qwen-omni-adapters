@@ -934,7 +934,9 @@ class OmniDaemon:
         tts: Child | None = None
         if is_tegra():
             tts = self._start_tts(common)
-            self._wait_resident_tts(tts)
+            # Publish the actual persistent cloned-voice worker, not its small
+            # HTTP supervisor, in daemon status and residency diagnostics.
+            tts.resident_pid = self._wait_resident_tts(tts)
         comprehension_model, comprehension_projector = self._comprehension_artifacts()
         comprehension: Child | None = None
         if self.config.enable_comprehension:

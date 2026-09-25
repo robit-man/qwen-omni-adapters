@@ -357,7 +357,9 @@ def test_tegra_prewarms_resident_tts_before_comprehension_admission() -> None:
     prewarm = source.index("if is_tegra():\n            tts = self._start_tts(common)")
     comprehension = source.index("comprehension_model, comprehension_projector")
     assert prewarm < comprehension
-    assert "self._wait_resident_tts(tts)" in source[prewarm:comprehension]
+    assert "tts.resident_pid = self._wait_resident_tts(tts)" in source[
+        prewarm:comprehension
+    ]
 
 
 def test_daemon_resolves_the_shipped_default_clone_reference(tmp_path: Path) -> None:
