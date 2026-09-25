@@ -203,6 +203,57 @@ def test_live_tool_envelope_is_reserved_from_physical_context(tmp_path: Path) ->
     assert reserve > 96
 
 
+def test_live_resident_context_state_resizes_existing_session_budget(
+    tmp_path: Path,
+) -> None:
+    state = tmp_path / "comprehension-context-tokens"
+    state.write_text("8192\n", encoding="utf-8")
+    manager = SessionVirtualContext(
+        tmp_path / "virtual",
+        mode="active",
+        physical_context_tokens=16_384,
+        physical_context_state_file=state,
+    )
+    messages = [
+        {"role": "user", "content": "The bus token is heliotrope-7319."},
+        {"role": "assistant", "content": "Recorded."},
+        {"role": "assistant", "content": "distractor " * 10_000},
+        {"role": "user", "content": "What is the bus token?"},
+    ]
+    manager.observe_messages("dynamic-window", messages)
+
+    first = manager.prepare(
+        "dynamic-window", messages, system_contract="Answer from exact evidence."
+    )
+    state.write_text("4096\n", encoding="utf-8")
+    second = manager.prepare(
+        "dynamic-window", messages, system_contract="Answer from exact evidence."
+    )
+
+    assert first.context.max_tokens == 8192
+    assert first.context.total_tokens <= 8192
+    assert second.context.max_tokens == 4096
+    assert second.context.total_tokens <= 4096
+    assert manager.stats("dynamic-window")["physical_context_tokens"] == 4096
+    assert manager.stats("dynamic-window")["configured_physical_context_tokens"] == 16_384
+
+
+def test_missing_resident_context_state_fails_closed_to_supported_floor(
+    tmp_path: Path,
+) -> None:
+    manager = SessionVirtualContext(
+        tmp_path / "virtual",
+        mode="shadow",
+        physical_context_tokens=16_384,
+        physical_context_state_file=tmp_path / "not-written-yet",
+    )
+
+    status = manager.stats("unused")
+
+    assert status["physical_context_tokens"] == 4096
+    assert status["physical_context_source"] == "resident_state_fallback"
+
+
 def test_document_text_is_indexed_and_trash_destroys_the_session_corpus(
     tmp_path: Path,
 ) -> None:

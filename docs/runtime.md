@@ -21,6 +21,10 @@ Guided Jetson deployment also points `OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL` at the
 resident llama.cpp worker. The packer counts the active tool/control envelope,
 chat-template reserve, output headroom, pinned state, and evidence against the
 same physical budget on every request and tool-loop follow-up.
+When `OMNI_COMPREHENSION_CONTEXT_FILE` is present, the portal rereads that
+launcher-owned state before every pack and caps the working set to the resident
+KV window. A configured 16K ceiling therefore cannot emit a 16K prompt while
+the unified-memory governor has selected an 8K worker.
 Current user media remains attached only to the newest user message. Deleting
 portal session diagnostics/Trash also deletes that session's complete virtual
 corpus, WAL, and shared-memory files.

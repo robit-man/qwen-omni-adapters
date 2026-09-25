@@ -286,6 +286,7 @@ class PortalConfig:
     virtual_context_root: Path | None = None
     virtual_context_physical_tokens: int = 16_384
     virtual_context_tokenize_url: str | None = None
+    virtual_context_state_file: Path | None = None
 
     @classmethod
     def from_environment(cls) -> PortalConfig:
@@ -370,6 +371,11 @@ class PortalConfig:
             ),
             virtual_context_tokenize_url=(
                 os.environ.get("OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL", "").strip() or None
+            ),
+            virtual_context_state_file=(
+                Path(os.environ["OMNI_COMPREHENSION_CONTEXT_FILE"]).expanduser()
+                if os.environ.get("OMNI_COMPREHENSION_CONTEXT_FILE", "").strip()
+                else None
             ),
         )
 
@@ -1395,6 +1401,7 @@ def create_app(
         mode=runtime.virtual_context_mode,
         physical_context_tokens=runtime.virtual_context_physical_tokens,
         token_counter=virtual_token_counter,
+        physical_context_state_file=runtime.virtual_context_state_file,
     )
     plane = decision_plane
     if plane is None and runtime.decision_plane_enabled:

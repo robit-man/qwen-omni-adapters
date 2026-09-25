@@ -124,6 +124,20 @@ def _default_tokenize_endpoint(endpoint: str | None, endpoint_style: str) -> str
     return None
 
 
+def _resident_physical_context(configured: int, state_file: Path) -> int:
+    """Resolve a live worker window while retaining the CLI ceiling."""
+
+    try:
+        selected = int(state_file.read_text(encoding="utf-8").strip())
+    except OSError as exc:
+        raise ValueError(f"cannot read physical-context state file: {state_file}") from exc
+    except ValueError as exc:
+        raise ValueError(f"invalid physical-context state file: {state_file}") from exc
+    if selected < 4096:
+        raise ValueError("resident physical context must be at least 4096 tokens")
+    return min(configured, selected)
+
+
 def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
@@ -150,6 +164,11 @@ def main() -> int:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--baseline", choices=sorted(VALID_BASELINES), default="hybrid")
     parser.add_argument("--physical-context", type=int, default=16_384)
+    parser.add_argument(
+        "--physical-context-state-file",
+        type=Path,
+        help="read the live worker KV window and cap --physical-context to it",
+    )
     parser.add_argument("--limit", type=int)
     parser.add_argument("--endpoint")
     parser.add_argument("--endpoint-style", choices=("openai", "ollama"), default="openai")
@@ -177,6 +196,15 @@ def main() -> int:
     arguments = parser.parse_args()
     if arguments.physical_context < 4096:
         parser.error("--physical-context must be at least 4096")
+    configured_physical_context = arguments.physical_context
+    if arguments.physical_context_state_file is not None:
+        try:
+            arguments.physical_context = _resident_physical_context(
+                configured_physical_context,
+                arguments.physical_context_state_file,
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
     if arguments.endpoint and not arguments.model:
         parser.error("--model is required with --endpoint")
     files = _input_files(arguments.inputs)
@@ -269,6 +297,12 @@ def main() -> int:
         "schema": "robit.ruler-virtual-context-run.v1",
         "baseline": arguments.baseline,
         "physical_context_tokens": arguments.physical_context,
+        "configured_physical_context_tokens": configured_physical_context,
+        "physical_context_source": (
+            "resident_state"
+            if arguments.physical_context_state_file is not None
+            else "configured"
+        ),
         "think": arguments.think,
         "tokenizer": "exact_endpoint" if token_counter is not None else "conservative_fallback",
         "scoring": "Run NVIDIA RULER's official evaluate.py over output files.",

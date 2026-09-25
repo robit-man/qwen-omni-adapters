@@ -89,6 +89,7 @@ class SessionVirtualContext:
         mode: str = "off",
         physical_context_tokens: int = 16_384,
         token_counter: Callable[[str], int] | None = None,
+        physical_context_state_file: Path | None = None,
     ) -> None:
         normalized_mode = str(mode or "off").strip().lower()
         if normalized_mode not in VALID_MODES:
@@ -97,6 +98,11 @@ class SessionVirtualContext:
         self.mode = normalized_mode
         self.physical_context_tokens = max(4096, physical_context_tokens)
         self.token_counter = token_counter
+        self.physical_context_state_file = (
+            Path(physical_context_state_file).expanduser()
+            if physical_context_state_file is not None
+            else None
+        )
         self._lock = threading.RLock()
         self._sessions: dict[str, _SessionEngine] = {}
 
@@ -111,6 +117,40 @@ class SessionVirtualContext:
     def _path(self, session_id: str) -> Path:
         return self.root / f"{self._key(session_id)}.sqlite3"
 
+    def _resident_context_tokens(self) -> tuple[int, str]:
+        """Return the live KV window without ever exceeding the configured cap."""
+
+        if self.physical_context_state_file is None:
+            return self.physical_context_tokens, "configured"
+        try:
+            selected = int(
+                self.physical_context_state_file.read_text(encoding="utf-8").strip()
+            )
+        except (OSError, ValueError):
+            # A configured-but-unavailable live state is not permission to
+            # assume the largest window. Fail closed at the supported floor.
+            return min(4096, self.physical_context_tokens), "resident_state_fallback"
+        return (
+            max(4096, min(self.physical_context_tokens, selected)),
+            "resident_state",
+        )
+
+    def _refresh_budget(self, session: _SessionEngine) -> int:
+        selected, _source = self._resident_context_tokens()
+        current = session.engine.packer.budget
+        if current.max_tokens != selected:
+            session.engine.packer.budget = ContextBudget(
+                max_tokens=selected,
+                output_headroom=min(current.output_headroom, selected - 512),
+                system_target=current.system_target,
+                pinned_target=current.pinned_target,
+                structured_target=current.structured_target,
+                recent_target=current.recent_target,
+                evidence_target=current.evidence_target,
+            )
+            session.engine.packer.budget.validate()
+        return selected
+
     def _session(self, session_id: str) -> _SessionEngine:
         key = self._key(session_id)
         with self._lock:
@@ -118,12 +158,13 @@ class SessionVirtualContext:
             if current is not None:
                 return current
             self.root.mkdir(parents=True, exist_ok=True)
+            resident_tokens, _source = self._resident_context_tokens()
             embedder = HashingEmbedder()
             store = ImmutableEvidenceStore(self._path(session_id), embedder=embedder)
             retriever = HybridRetriever(store, query_embedder=embedder)
             controller = RecursiveMemoryController(retriever)
             packer = WorkingContextPacker(
-                budget=ContextBudget(max_tokens=self.physical_context_tokens),
+                budget=ContextBudget(max_tokens=resident_tokens),
                 **({"token_counter": self.token_counter} if self.token_counter else {}),
             )
             current = _SessionEngine(
@@ -239,7 +280,9 @@ class SessionVirtualContext:
                 if chunk.original_text.strip() == query
                 and str(chunk.metadata.get("role") or "").lower() == "user"
             )
-        return self._session(session_id).engine.prepare_turn(
+        session = self._session(session_id)
+        self._refresh_budget(session)
+        return session.engine.prepare_turn(
             query,
             system_contract=system_contract,
             recent_context=recent if query_override is not None else recent[:-1],
@@ -315,9 +358,12 @@ class SessionVirtualContext:
     def stats(self, session_id: str) -> dict[str, Any]:
         if not self.enabled:
             return {"mode": "off"}
+        resident_tokens, context_source = self._resident_context_tokens()
         base = {
             "mode": self.mode,
-            "physical_context_tokens": self.physical_context_tokens,
+            "physical_context_tokens": resident_tokens,
+            "configured_physical_context_tokens": self.physical_context_tokens,
+            "physical_context_source": context_source,
             "tokenizer": "exact_endpoint" if self.token_counter else "conservative_fallback",
         }
         key = self._key(session_id)
@@ -365,5 +411,10 @@ class SessionVirtualContext:
             mode=os.environ.get("OMNI_VIRTUAL_CONTEXT_MODE", "off"),
             physical_context_tokens=int(
                 os.environ.get("OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS", "16384")
+            ),
+            physical_context_state_file=(
+                Path(os.environ["OMNI_COMPREHENSION_CONTEXT_FILE"])
+                if os.environ.get("OMNI_COMPREHENSION_CONTEXT_FILE", "").strip()
+                else None
             ),
         )

@@ -15,7 +15,11 @@ from qwen_omni_adapters.virtual_memory.ruler import (
     sample_from_record,
     split_ruler_prompt,
 )
-from scripts.run_virtual_context_ruler import EndpointResponder, _default_tokenize_endpoint
+from scripts.run_virtual_context_ruler import (
+    EndpointResponder,
+    _default_tokenize_endpoint,
+    _resident_physical_context,
+)
 
 
 def _record() -> dict[str, object]:
@@ -235,6 +239,14 @@ def test_endpoint_runner_derives_the_active_llama_tokenizer_route() -> None:
         == "http://127.0.0.1:8901/tokenize"
     )
     assert _default_tokenize_endpoint("http://127.0.0.1:11434/api/chat", "ollama") is None
+
+
+def test_endpoint_runner_caps_configured_budget_to_live_worker_state(tmp_path: Path) -> None:
+    state = tmp_path / "comprehension-context-tokens"
+    state.write_text("8192\n", encoding="utf-8")
+
+    assert _resident_physical_context(16_384, state) == 8192
+    assert _resident_physical_context(4096, state) == 4096
 
 
 def test_endpoint_runner_captures_usage_without_changing_the_prediction() -> None:

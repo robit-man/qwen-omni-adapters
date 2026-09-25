@@ -67,6 +67,9 @@ Production injects the active llama.cpp model's `/tokenize` endpoint through
 `OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL`; guided Jetson deployment configures the local
 comprehension worker automatically. The built-in conservative counter remains an
 offline/test fallback and cannot guarantee byte-identical counts for every tokenizer.
+On Jetson, the packer also rereads the comprehension launcher's selected-context
+state on every turn. The environment value is a ceiling, not an assumption about
+the currently resident KV allocation.
 
 ## Benchmark
 
