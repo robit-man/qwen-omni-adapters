@@ -1,0 +1,31 @@
+{
+  "schema": "robit.virtual-context-domain-seal.v1",
+  "sealed_at": "2026-09-25T09:18:00-07:00",
+  "generator_revision": "8b99dac45bd9e569ca65dfbaca164ce21091d88e",
+  "selection_policy": "Three consecutive seeds selected and committed before any endpoint inference. No seed may be replaced or omitted after observing a model answer.",
+  "physical_context_target_tokens": 4096,
+  "fixtures": [
+    {
+      "seed": 26092501,
+      "source_tokens": 256000,
+      "source_sha256": "aa38028a32148ce3d716d459e5fda64aaacededb74d2e21b3d74f1d737e5b929",
+      "documents": 168,
+      "scenarios": 10
+    },
+    {
+      "seed": 26092502,
+      "source_tokens": 256000,
+      "source_sha256": "45e0487681ddfb4c5935e2071d073e1d82c6de8d1365d9b02e178f28aad2ef99",
+      "documents": 170,
+      "scenarios": 10
+    },
+    {
+      "seed": 26092503,
+      "source_tokens": 256000,
+      "source_sha256": "3ee8481211bdd9afe72d507f46b5bae4652101e269a7eb23f3da395bd7e918f5",
+      "documents": 167,
+      "scenarios": 10
+    }
+  ],
+  "status": "sealed_pending_execution"
+}
