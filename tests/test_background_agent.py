@@ -60,12 +60,20 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
                 {"content": "Use the desktop session."},
                 {"content": "Verify the active window."},
             ],
+            "progress": [
+                "Ran tool_search and retained its result.",
+                "The target folder is verified; research is the next unmet milestone.",
+            ],
         }
     )
 
     assert prompt.startswith("<current_task>\nObjective: Open the requested application.")
     assert "Completion criteria: Its window is visible." in prompt
     assert "- Verify the active window." in prompt
+    assert "<current_plan_state>" in prompt
+    assert "research is the next unmet milestone" in prompt
+    assert "Ran tool_search" not in prompt
+    assert "Do not restart a completed step" in prompt
     assert "Ignore unrelated topics" in prompt
     assert "every qualifier in the completion criteria as a constraint" in prompt
     assert prompt.endswith(AGENT_SYSTEM_PROMPT)
@@ -812,7 +820,11 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
     task = {
         "objective": "Build the requested artifact.",
         "completion_criteria": "The final probe passes.",
-        "progress": ["Created the workspace.", "Verified the latest artifact."],
+        "progress": [
+            "Ran tool_search and retained its result.",
+            "Created the workspace.",
+            "Verified the latest artifact.",
+        ],
         "guidance": [{"content": "Make the final version blue."}],
         "tools_used": ["shell"],
         "actions": [
@@ -828,6 +840,12 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
                 "ok": True,
                 "outcome": "file written and read back",
             },
+            {
+                "call_id": "compact-control",
+                "tool": "task_compact",
+                "ok": True,
+                "outcome": "context compacted",
+            },
         ],
     }
 
@@ -842,6 +860,8 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
     assert "Make the final version blue" in checkpoint
     assert "failed-write | shell | failed" in checkpoint
     assert "fixed-write | shell | succeeded" in checkpoint
+    assert "Ran tool_search" not in checkpoint
+    assert "compact-control" not in checkpoint
     assert compacted[3]["role"] == "assistant"
     assert compacted[4]["role"] == "tool"
 

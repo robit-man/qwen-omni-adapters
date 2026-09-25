@@ -53,6 +53,37 @@ TASK_START_REQUEST = (
 MAX_VIRTUAL_QUERY_CHARS = 1_200
 
 
+def _durable_progress_lines(task: Mapping[str, Any], *, limit: int = 4) -> list[str]:
+    """Prefer accepted milestone reports over low-signal executor bookkeeping."""
+
+    progress = task.get("progress")
+    if not isinstance(progress, list):
+        return []
+    normalized = [
+        " ".join(str(item).split())[:500]
+        for item in progress
+        if str(item).strip()
+    ]
+    milestones = [
+        item
+        for item in normalized
+        if not item.startswith("Ran ")
+        and not item.startswith("Resumed after ")
+    ]
+    selected = milestones or normalized
+    deduplicated: list[str] = []
+    seen: set[str] = set()
+    for item in reversed(selected):
+        key = item.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduplicated.append(item)
+        if len(deduplicated) >= max(1, limit):
+            break
+    return list(reversed(deduplicated))
+
+
 def _task_virtual_query(task: Mapping[str, Any]) -> str:
     """Keep paging anchored to the durable task, not a compaction artifact."""
 
@@ -96,6 +127,19 @@ def _task_system_prompt(task: Mapping[str, Any]) -> str:
         if directions:
             contract.append("Later user directions, oldest to newest:")
             contract.extend(f"- {direction}" for direction in directions)
+    progress_lines = _durable_progress_lines(task)
+    if progress_lines:
+        contract.extend(
+            [
+                "<current_plan_state>",
+                "Accepted durable milestones, oldest to newest:",
+                *(f"- {line}" for line in progress_lines),
+                "Continue after these milestones. Do not restart a completed step unless "
+                "new evidence shows that its state changed; act on the earliest unmet "
+                "completion requirement.",
+                "</current_plan_state>",
+            ]
+        )
     contract.extend(
         [
             "Keep every action causally relevant to this task. Ignore unrelated topics "
@@ -424,12 +468,7 @@ def _compact_task_messages(
         and messages[tail_start - 1].get("role") == "assistant"
     ):
         tail_start -= 1
-    progress = task.get("progress")
-    progress_lines = (
-        [f"- {str(item)[:500]}" for item in progress[-10:]]
-        if isinstance(progress, list)
-        else []
-    )
+    progress_lines = [f"- {item}" for item in _durable_progress_lines(task)]
     guidance = task.get("guidance")
     guidance_lines = []
     if isinstance(guidance, list):
@@ -443,7 +482,14 @@ def _compact_task_messages(
     actions = task.get("actions")
     action_lines: list[str] = []
     if isinstance(actions, list):
-        for action in actions[-10:]:
+        external_actions = [
+            action
+            for action in actions
+            if isinstance(action, Mapping)
+            and str(action.get("tool") or "")
+            not in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}
+        ]
+        for action in external_actions[-6:]:
             if not isinstance(action, Mapping):
                 continue
             outcome = " ".join(str(action.get("outcome") or "").split())[:280]
@@ -1778,6 +1824,14 @@ class BackgroundAgent:
             if current is None or current.get("status") == "cancelled":
                 logger.info("background task %s cancelled", task_id)
                 return
+            # The objective is stable, but accepted milestones and user
+            # directions evolve across a long task. Keep that current plan in
+            # the pinned system contract instead of hoping semantic retrieval
+            # will recover it from an old compacted turn.
+            messages[0] = {
+                "role": "system",
+                "content": _task_system_prompt(current),
+            }
             added_guidance = _append_guidance(messages, current, seen_guidance)
             if added_guidance:
                 active_tools = []
