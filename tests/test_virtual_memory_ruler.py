@@ -177,6 +177,7 @@ def test_frequency_task_uses_reference_free_provenance_bearing_aggregation() -> 
     sample = sample_from_record(record, task="fwe", ordinal=0)
 
     prepared = RulerVirtualContextHarness().prepare(sample, baseline="hybrid")
+    oracle = RulerVirtualContextHarness().prepare(sample, baseline="oracle")
 
     assert prepared.sufficient is True
     assert "SECRET_WRONG_REFERENCE" not in prepared.prompt
@@ -184,6 +185,10 @@ def test_frequency_task_uses_reference_free_provenance_bearing_aggregation() -> 
     assert "term=beta count=2" in prepared.prompt
     assert 'source_count="1"' in prepared.prompt
     assert any(event["operation"] == "AGGREGATE" for event in prepared.trace)
+    assert oracle.sufficient is True
+    assert "SECRET_WRONG_REFERENCE" not in oracle.prompt
+    assert "oracle_reference_location" not in oracle.retrieval_queries
+    assert any(event["operation"] == "AGGREGATE" for event in oracle.trace)
 
 
 def test_ruler_string_match_scoring_matches_all_and_qa_part_semantics() -> None:

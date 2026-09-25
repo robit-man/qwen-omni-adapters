@@ -337,7 +337,16 @@ class RulerVirtualContextHarness:
                     # high-information reference strings only add exact source
                     # locations. Answers are never written into the prompt.
                     support = controller.gather(sample.query)
-                    oracle_hits = _oracle_hits(store, sample.references)
+                    # The deterministic aggregation is already a verified,
+                    # provenance-bearing view over the whole corpus. Expanding
+                    # every literal occurrence of its frequent output terms is
+                    # redundant and can turn a bounded oracle into hundreds of
+                    # equivalent chunks.
+                    oracle_hits = (
+                        []
+                        if aggregation is not None
+                        else _oracle_hits(store, sample.references)
+                    )
                     hits = _merge_hits(support.evidence, oracle_hits)
                     sufficient = (
                         support.sufficient
