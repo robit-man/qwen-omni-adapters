@@ -565,8 +565,8 @@ class BrowserAutomationStore:
             "revision": str(result.get("revision") or "")[:80],
         }
 
-    def _verify_snapshot_frame(self, result: dict[str, Any]) -> None:
-        """Attach durable semantic evidence for an explicit no-action snapshot."""
+    def _attach_verified_frame_observation(self, result: dict[str, Any]) -> None:
+        """Attach durable semantic evidence for the exact returned frame."""
 
         screenshot = result.get("screenshot")
         encoded = screenshot.get("data") if isinstance(screenshot, dict) else None
@@ -1425,10 +1425,23 @@ class BrowserAutomationStore:
                     self._evaluate(cdp, "history.back(); true")
                 self._wait_rendered(cdp, wait_ms)
                 result = self._snapshot(session, cdp)
-                if action == "snapshot" and self.pointing_url:
-                    self._verify_snapshot_frame(result)
+                verify_returned_frame = action == "snapshot" or (
+                    action == "visual_click" and visual_click_outcome == "clicked"
+                )
+                if verify_returned_frame and self.pointing_url:
+                    self._attach_verified_frame_observation(result)
                 if session.visual_grounding:
-                    result["visual_grounding"] = dict(session.visual_grounding)
+                    grounding = dict(session.visual_grounding)
+                    result["visual_grounding"] = grounding
+                    # Keep the model's next-step context and eventual report tied
+                    # to what the executor actually grounded, not a fresh guess
+                    # from the changed post-action screenshot.
+                    result["action_receipt"] = {
+                        "action": "visual_click",
+                        "target": str(grounding.get("target") or "")[:240],
+                        "executed": grounding.get("executed"),
+                        "coordinate_unit": "normalized_1000",
+                    }
                     session.visual_grounding = {}
                 if visual_click_outcome == "refine":
                     result = self._refine_visual_result(

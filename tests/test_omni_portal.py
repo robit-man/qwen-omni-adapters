@@ -291,7 +291,7 @@ def test_browser_visual_observer_reads_the_exact_full_frame(
         }
     }
 
-    store._verify_snapshot_frame(result)
+    store._attach_verified_frame_observation(result)
 
     assert captured == {
         "url": "http://127.0.0.1:8940/observe",
@@ -371,6 +371,80 @@ def test_browser_dedicated_point_head_executes_full_viewport_target_directly() -
     assert events[0]["y"] == pytest.approx(272.61)
     assert session.visual_grounding["source"] == "dedicated_point_head"
     assert session.visual_grounding["frame_changed_during_inference"] == 0
+
+
+def test_completed_visual_click_returns_observation_and_exact_action_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Cdp:
+        def __init__(self, _url: str, _timeout_s: float) -> None:
+            pass
+
+        def call(self, _method: str, _arguments=None) -> dict[str, Any]:
+            return {}
+
+        def close(self) -> None:
+            pass
+
+    class Store(BrowserAutomationStore):
+        def __init__(self) -> None:
+            super().__init__(pointing_url="http://127.0.0.1:8940")
+            self.session = SimpleNamespace(
+                port=9222,
+                target_id="page",
+                page_socket="ws://127.0.0.1/page/page",
+                visual_grounding={},
+            )
+            self.observed = False
+
+        def _session_locked(self, _session_id: str):
+            return self.session
+
+        def _page_socket(self, _port: int, _target_id: str = "") -> str:
+            return "ws://127.0.0.1/page/page"
+
+        def _visual_click(self, session, _cdp, _arguments):
+            session.visual_grounding = {
+                "source": "dedicated_point_head",
+                "target": "BLUE TRIANGLE",
+                "executed": {"x": 734, "y": 468},
+            }
+            return "clicked"
+
+        def _wait_rendered(self, _cdp, _wait_ms: int) -> None:
+            pass
+
+        def _snapshot(self, _session, _cdp):
+            return {"screenshot": {"data": "current-frame"}}
+
+        def _attach_verified_frame_observation(self, result):
+            self.observed = True
+            result["verified_visual_observation"] = {
+                "provenance": "current_browser_snapshot_visual_model",
+                "observation": "Stage 2 of 3",
+            }
+
+    monkeypatch.setattr("portal.browser._Cdp", Cdp)
+    store = Store()
+
+    result = store.act(
+        "session",
+        {
+            "action": "visual_click",
+            "target": "BLUE TRIANGLE",
+            "x": 800,
+            "y": 470,
+        },
+    )
+
+    assert store.observed is True
+    assert result["verified_visual_observation"]["observation"] == "Stage 2 of 3"
+    assert result["action_receipt"] == {
+        "action": "visual_click",
+        "target": "BLUE TRIANGLE",
+        "executed": {"x": 734, "y": 468},
+        "coordinate_unit": "normalized_1000",
+    }
 
 
 def test_browser_refinement_crop_preserves_parent_viewport_transform() -> None:

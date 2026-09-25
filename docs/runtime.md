@@ -191,9 +191,10 @@ executing. A material pixel change rejects the action. This isolates semantic
 planning from motor grounding without trusting stale coordinates or broadening
 the synthetic gate's acceptance radius.
 The worker also accepts a bounded image-only verification request with a fixed
-server-side prompt. Explicit browser snapshots use it to retain visible status
-text and exact identifiers as tagged current-frame evidence; clients cannot
-supply arbitrary visual questions.
+server-side prompt. Explicit browser snapshots and completed visual clicks use
+it to retain visible status text and exact identifiers as tagged current-frame
+evidence. The click result separately retains the exact grounded target as an
+action receipt; clients cannot supply arbitrary visual questions.
 
 The launcher continues sampling after readiness because CUDA and KV pages can
 be committed lazily by the first large image or text request. A short dip is

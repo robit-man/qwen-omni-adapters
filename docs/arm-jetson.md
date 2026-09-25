@@ -132,9 +132,10 @@ device handles. Set `OMNI_ENABLE_POINTING=0` only to deliberately restore the
 slower two-pass crop fallback. There is no CPU fallback. JetPack 6.0's official
 Torch 2.4 lacks the later `enable_gqa` SDPA argument, so the worker applies the
 equivalent K/V-head repetition before loading the checkpoint.
-Explicit browser verification snapshots reuse this resident worker for a fixed,
-bounded current-frame reading, avoiding another model load and preserving exact
-visible completion text after screenshot bytes leave the durable task context.
+Explicit browser verification snapshots and completed visual clicks reuse this
+resident worker for a fixed, bounded current-frame reading, avoiding another
+model load and preserving exact visible completion text after screenshot bytes
+leave the durable task context.
 
 As a service:
 
