@@ -40,6 +40,7 @@ from harness.background_agent import (
     _ground_visual_click,
     _guard_repeated_unchanged_result,
     _inference_diagnostics,
+    _latest_external_result_digest,
     _latest_tool_fingerprint,
     _MalformedToolCall,
     _NonRetryableBackgroundError,
@@ -1156,6 +1157,98 @@ def test_unchanged_fetch_result_routes_back_to_discovery() -> None:
     assert second["error"] == "repeated_unchanged_result"
     assert second["disposition"] == "change_capability"
     assert second["alternative_tools"] == ["web_search", "browser_interact"]
+
+
+def test_shell_failure_guard_ignores_cosmetic_argument_and_stream_changes() -> None:
+    first_result = {
+        "command": "cd /missing && python3 --version",
+        "cwd": "/repo",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "/bin/bash: line 1: cd: /missing: No such file or directory\n",
+        "timed_out": False,
+    }
+    retry_result = {
+        "command": "cd /missing 2>&1 && python3 --version",
+        "cwd": "/repo",
+        "exit_code": 1,
+        "stdout": "/bin/bash: line 1: cd: /missing: No such file or directory\n",
+        "stderr": "",
+        "timed_out": False,
+        "stdin_bytes": 85,
+    }
+
+    _, last_digest, _, repeated = _guard_repeated_unchanged_result(
+        "shell", {"command": first_result["command"]}, first_result, ""
+    )
+    guarded, retained, retry_digest, repeated_retry = _guard_repeated_unchanged_result(
+        "shell",
+        {"command": retry_result["command"], "timeout_seconds": 60},
+        retry_result,
+        last_digest,
+    )
+
+    assert repeated is False
+    assert repeated_retry is True
+    assert retry_digest == last_digest
+    assert retained == last_digest
+    assert guarded["error"] == "repeated_unchanged_result"
+
+
+def test_causal_result_boundary_survives_discovery_and_worker_restart() -> None:
+    result = {
+        "command": "cd /missing && ls",
+        "cwd": "/repo",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "cd: /missing: No such file or directory",
+        "timed_out": False,
+    }
+    messages = [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "shell-1",
+                    "function": {
+                        "name": "shell",
+                        "arguments": {"command": "cd /missing && ls"},
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_name": "shell",
+            "tool_call_id": "shell-1",
+            "content": json.dumps(result),
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "search-1",
+                    "function": {
+                        "name": "tool_search",
+                        "arguments": {"query": "run a shell command"},
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_name": "tool_search",
+            "tool_call_id": "search-1",
+            "content": json.dumps({"available_tools": ["shell"]}),
+        },
+    ]
+
+    expected = _guard_repeated_unchanged_result(
+        "shell", {"command": "cd /missing && ls"}, result, ""
+    )[1]
+    assert _latest_external_result_digest(messages) == expected
 
 
 def test_query_results_transition_without_pinning_the_completed_query_tool() -> None:

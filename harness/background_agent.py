@@ -911,6 +911,75 @@ def _result_digest(name: str, result: Any) -> str:
     return hashlib.sha256(f"{name}\0{rendered}".encode()).hexdigest()
 
 
+def _unchanged_result_digest(
+    name: str, arguments: Mapping[str, Any], result: Any
+) -> str:
+    """Fingerprint causal outcomes without rewarding cosmetic retry changes."""
+
+    if name == "shell" and _result_failed_or_blocked(result) and isinstance(result, Mapping):
+        # Shell commonly reports the same failure on either stream depending on
+        # redirection. The command text, cwd echo, timeout, and supplied stdin are
+        # attempted remedies, not changes to the observed external state.
+        diagnostic = " ".join(
+            " ".join(str(result.get(field) or "").casefold().split())
+            for field in ("stdout", "stderr", "message", "error")
+            if str(result.get(field) or "").strip()
+        )
+        causal = {
+            "exit_code": result.get("exit_code"),
+            "timed_out": result.get("timed_out") is True,
+            "diagnostic": diagnostic,
+        }
+        rendered = json.dumps(causal, ensure_ascii=False, sort_keys=True, default=str)
+        return hashlib.sha256(f"{name}\0failed\0{rendered}".encode()).hexdigest()
+    return hashlib.sha256(
+        f"{_call_fingerprint(name, arguments)}\0{_result_digest(name, result)}".encode()
+    ).hexdigest()
+
+
+def _latest_external_result_digest(messages: list[dict[str, Any]]) -> str:
+    """Restore the last causal result boundary from durable task messages."""
+
+    calls: dict[str, tuple[str, dict[str, Any]]] = {}
+    last_digest = ""
+    for message in messages:
+        if message.get("role") == "assistant":
+            for call in message.get("tool_calls") or []:
+                if not isinstance(call, Mapping):
+                    continue
+                function = call.get("function")
+                if not isinstance(function, Mapping):
+                    continue
+                call_id = str(call.get("id") or "")
+                name = str(function.get("name") or "")
+                if call_id and name:
+                    calls[call_id] = (name, _arguments(call))
+            continue
+        if message.get("role") != "tool":
+            continue
+        name = str(message.get("tool_name") or "")
+        if (
+            not name
+            or name == "tool_search"
+            or name in LOCAL_CONTROL_TOOL_NAMES
+            or name in COMPUTER_ACTION_TOOLS
+        ):
+            continue
+        try:
+            result = json.loads(str(message.get("content") or "{}"))
+        except ValueError:
+            continue
+        if isinstance(result, Mapping) and result.get("error") in {
+            "duplicate_tool_call",
+            "repeated_unchanged_result",
+        }:
+            continue
+        call_id = str(message.get("tool_call_id") or "")
+        call_name, arguments = calls.get(call_id, (name, {}))
+        last_digest = _unchanged_result_digest(call_name or name, arguments, result)
+    return last_digest
+
+
 def _guard_repeated_unchanged_result(
     name: str,
     arguments: Mapping[str, Any],
@@ -919,9 +988,7 @@ def _guard_repeated_unchanged_result(
 ) -> tuple[Any, str, str, bool]:
     """Require a causal boundary between identical non-visual tool results."""
 
-    digest = hashlib.sha256(
-        f"{_call_fingerprint(name, arguments)}\0{_result_digest(name, result)}".encode()
-    ).hexdigest()
+    digest = _unchanged_result_digest(name, arguments, result)
     if (
         not name
         or name == "tool_search"
@@ -1999,7 +2066,7 @@ class BackgroundAgent:
         result_digests = {
             str(value) for value in task.get("result_digests", []) if value
         }
-        last_external_result_digest = ""
+        last_external_result_digest = _latest_external_result_digest(messages)
         phase_action_count = _uncheckpointed_action_count(task)
         active_tools = [
             name
