@@ -173,6 +173,42 @@ def _arguments(call: Mapping[str, Any]) -> dict[str, Any]:
     return {}
 
 
+_STRICT_VISUAL_TARGET = re.compile(
+    r"target=(?P<label>[^<\n]{1,160}?)\s+"
+    r"point=\(\s*(?P<x>\d{1,4})\s*,\s*(?P<y>\d{1,4})\s*\)\s+"
+    r"bbox=\(\s*\d{1,4}\s*,\s*\d{1,4}\s*,\s*\d{1,4}\s*,\s*\d{1,4}\s*\)",
+    re.IGNORECASE,
+)
+
+
+def _ground_visual_click(
+    arguments: Mapping[str, Any], observation: str
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Admit one unambiguous current-frame perception point directly."""
+
+    grounded = dict(arguments)
+    if (
+        str(grounded.get("action") or "") != "visual_click"
+        or str(grounded.get("coordinate_unit") or "") != "normalized_1000"
+    ):
+        return grounded, None
+    matches = list(_STRICT_VISUAL_TARGET.finditer(observation))
+    if len(matches) != 1:
+        return grounded, None
+    match = matches[0]
+    x, y = int(match.group("x")), int(match.group("y"))
+    if not 0 <= x <= 1000 or not 0 <= y <= 1000:
+        return grounded, None
+    proposed = {"x": grounded.get("x"), "y": grounded.get("y")}
+    grounded.update({"x": x, "y": y})
+    return grounded, {
+        "source": "strict_current_visual_observation",
+        "target": " ".join(match.group("label").split())[:160],
+        "proposed": proposed,
+        "executed": {"x": x, "y": y},
+    }
+
+
 def _repair_malformed_tool_history(messages: list[dict[str, Any]]) -> int:
     """Make retained rejected calls parseable without turning them into evidence."""
 
@@ -1805,6 +1841,11 @@ class BackgroundAgent:
                     else ""
                 )
                 arguments = _arguments(call)
+                grounding_receipt = None
+                if name == "browser_interact":
+                    arguments, grounding_receipt = _ground_visual_click(
+                        arguments, round_visual_observation
+                    )
                 call_id = str(call.get("id") or secrets.token_hex(6))
                 if name == "task_compact":
                     latest = self.store.get(task_id) or task
@@ -2140,6 +2181,11 @@ class BackgroundAgent:
                         )
                         raise
                     result = response.get("result", response)
+                    if grounding_receipt is not None and isinstance(result, Mapping):
+                        result = {
+                            **result,
+                            "visual_grounding": grounding_receipt,
+                        }
                     if (
                         isinstance(result, Mapping)
                         and result.get("error") == "resource_pressure"

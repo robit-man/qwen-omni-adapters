@@ -244,13 +244,23 @@ refreshes its current viewport box, verifies visibility and enabled state, and
 confirms that the center hit-test is not occluded. Canvas, challenge, image-map, and
 other non-DOM targets stay in the exact CDP viewport screenshot instead of switching
 to a whole-window or desktop frame. Their `visual_click` points use Qwen's normalized
-0–1000 coordinate convention. The first point on a full viewport is treated as a
+0–1000 coordinate convention. When perception emits exactly one strict current-frame
+`target`, `point`, and `bbox`, the executor admits that point directly and records both
+the language proposal and executed coordinates; ambiguous or multi-target frames remain
+with language reasoning. The first point on a full viewport is treated as a
 region proposal rather than a click: the executor returns a bounded 400×300 target crop,
-the model re-grounds within that higher-resolution region, and the second point is
+passes the target identity—but no parent-frame coordinates—into the crop perception
+pass, and the second point is
 deterministically mapped through the crop into current viewport CSS coordinates. The
 executor rejects a crop whose pixels changed while the model was deciding. Every
 browser action returns a new screenshot and visual change receipt; a changed frame is
 causal evidence, not proof that the intended state was reached.
+
+The visible browser is globally single-instance for this runtime. A cancelled or timed-out
+GUI fixture closes its stable voice-agent browser session in `finally`; before another
+launch, the store reaps only orphan processes carrying an exact runtime-owned
+`omni-visible-chromium-*` temporary profile. This prevents failed gates and portal
+restarts from accumulating Chrome windows without using broad executable-name kills.
 
 `gui_interact` is reserved for controls outside the browser viewport. It returns an
 active-window crop by default and interprets its coordinates relative to that returned

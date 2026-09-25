@@ -31,6 +31,7 @@ from harness.background_agent import (
     _direct_alternative_tools,
     _ForegroundPreempted,
     _freshest_evidence_id,
+    _ground_visual_click,
     _inference_diagnostics,
     _latest_tool_fingerprint,
     _MalformedToolCall,
@@ -92,6 +93,45 @@ def test_background_inference_diagnostics_report_budget_without_reasoning_text()
         "tool_call_count": 0,
     }
     assert "private reasoning" not in json.dumps(diagnostic)
+
+
+def test_strict_current_visual_target_overrides_language_coordinate_guess() -> None:
+    arguments, receipt = _ground_visual_click(
+        {
+            "action": "visual_click",
+            "coordinate_unit": "normalized_1000",
+            "x": 163,
+            "y": 119,
+        },
+        (
+            "<visual_observation>target=blue triangle point=(818,494) "
+            "bbox=(768,444,868,544)</visual_observation>"
+        ),
+    )
+
+    assert arguments["x"] == 818
+    assert arguments["y"] == 494
+    assert receipt == {
+        "source": "strict_current_visual_observation",
+        "target": "blue triangle",
+        "proposed": {"x": 163, "y": 119},
+        "executed": {"x": 818, "y": 494},
+    }
+
+
+def test_ambiguous_visual_targets_stay_with_language_reasoning() -> None:
+    proposed = {
+        "action": "visual_click",
+        "coordinate_unit": "normalized_1000",
+        "x": 400,
+        "y": 500,
+    }
+    observation = (
+        "<visual_observation>target=first point=(100,200) bbox=(50,150,150,250); "
+        "target=second point=(700,800) bbox=(650,750,750,850)</visual_observation>"
+    )
+
+    assert _ground_visual_click(proposed, observation) == (proposed, None)
 
 
 def test_computer_action_scope_keeps_durable_state_and_two_fresh_motor_cycles() -> None:
