@@ -1476,6 +1476,15 @@ def _direct_alternative_tools(result: Mapping[str, Any]) -> list[str]:
 def _successor_tools(name: str, result: Any) -> list[str]:
     """Keep only capabilities that remain causally useful after this result."""
 
+    if isinstance(result, Mapping) and result.get("error") in {
+        "duplicate_tool_call",
+        "repeated_unchanged_result",
+    }:
+        # A locally rejected/no-change call performed no external action. Do
+        # not immediately restore the same sticky capability after the caller
+        # removed it for looping; the next round must return to discovery and
+        # select a materially different action space.
+        return []
     alternatives = (
         _direct_alternative_tools(result) if isinstance(result, Mapping) else []
     )

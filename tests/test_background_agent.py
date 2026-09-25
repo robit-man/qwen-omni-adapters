@@ -1557,6 +1557,12 @@ def test_query_results_transition_without_pinning_the_completed_query_tool() -> 
     assert _successor_tools("web_fetch", {"content": "fetched"}) == []
     assert _successor_tools("get_portal_capabilities", {"output": ["text"]}) == []
     assert _successor_tools("shell", {"exit_code": 0}) == ["shell"]
+    assert _successor_tools(
+        "workspace_file", {"error": "duplicate_tool_call"}
+    ) == []
+    assert _successor_tools(
+        "workspace_file", {"error": "repeated_unchanged_result"}
+    ) == []
 
 
 def test_native_thinking_is_not_reenabled_when_a_query_tool_becomes_non_sticky() -> None:
