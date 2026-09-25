@@ -14,28 +14,41 @@ _SUFFICIENCY_STOP_WORDS = {
     "a",
     "all",
     "and",
+    "answer",
     "are",
     "be",
     "can",
     "did",
     "does",
+    "exact",
+    "exactly",
     "for",
     "from",
+    "give",
     "how",
+    "identify",
     "including",
     "into",
     "is",
     "it",
+    "list",
     "of",
     "only",
+    "please",
+    "provide",
     "question",
+    "recall",
+    "reply",
+    "respond",
     "return",
+    "show",
     "so",
     "that",
     "the",
     "their",
     "then",
     "through",
+    "tell",
     "to",
     "use",
     "using",
@@ -67,6 +80,20 @@ class ControllerResult:
     trace: tuple[dict[str, object], ...]
 
 
+def _lexical_terms(value: str, *, omit_stop_words: bool = False) -> set[str]:
+    """Tokenize sufficiency terms without treating terminal punctuation as data."""
+
+    terms = set()
+    for raw in re.findall(r"[A-Za-z0-9_.$:-]{3,}", value):
+        normalized = raw.strip(".$:-").casefold()
+        if len(normalized) < 3:
+            continue
+        if omit_stop_words and normalized in _SUFFICIENCY_STOP_WORDS:
+            continue
+        terms.add(normalized)
+    return terms
+
+
 class RecursiveMemoryController:
     """Training-free controller with optional model planning and sufficiency hooks."""
 
@@ -75,9 +102,7 @@ class RecursiveMemoryController:
         retriever: HybridRetriever,
         *,
         config: ControllerConfig | None = None,
-        dependency_planner: Callable[
-            [str, Sequence[RetrievalHit], Sequence[str]], Sequence[str]
-        ]
+        dependency_planner: Callable[[str, Sequence[RetrievalHit], Sequence[str]], Sequence[str]]
         | None = None,
         sufficiency_judge: Callable[[str, Sequence[RetrievalHit]], float] | None = None,
     ) -> None:
@@ -226,32 +251,23 @@ class RecursiveMemoryController:
             return max(0.0, min(1.0, float(self.sufficiency_judge(query, evidence))))
         if not evidence:
             return 0.0
-        query_terms = {
-            term.casefold()
-            for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", query)
-            if term.casefold() not in _SUFFICIENCY_STOP_WORDS
-        }
-        evidence_terms = {
-            term.casefold()
-            for hit in evidence
-            for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", hit.chunk.original_text)
-        }
+        query_terms = _lexical_terms(query, omit_stop_words=True)
+        evidence_terms = _lexical_terms("\n".join(hit.chunk.original_text for hit in evidence))
         coverage = len(query_terms & evidence_terms) / max(1, len(query_terms))
         # Exact strings, code symbols, identifiers, and ID-like values carry
         # much more evidentiary weight than conversational glue.  This is a
         # query-derived signal: no expected answer or hidden benchmark label is
         # available to the controller.
-        anchors = {
-            value.casefold()
-            for value in re.findall(r"[`'\"]([^`'\"]{2,200})[`'\"]", query)
-        }
+        anchors = {value.casefold() for value in re.findall(r"[`'\"]([^`'\"]{2,200})[`'\"]", query)}
         anchors.update(
             term.casefold()
             for term in re.findall(r"\b[A-Za-z][A-Za-z0-9]*(?:[_.$:-][A-Za-z0-9]+)+\b", query)
         )
         try:
             anchors.update(
-                entity.casefold() for entity in self.retriever.plan(query).entities
+                entity.casefold()
+                for entity in self.retriever.plan(query).entities
+                if entity.casefold() not in _SUFFICIENCY_STOP_WORDS
             )
         except (AttributeError, ValueError):
             # Custom retrievers used by clients/tests may expose only retrieve().
@@ -278,7 +294,9 @@ class RecursiveMemoryController:
         # provenance-bearing constraint with substantive lexical overlap is
         # sufficient evidence to let the answer stage apply it.
         has_constraint = any(
-            re.search(r"\b(?:MUST(?:\s+NOT)?|NEVER|ALWAYS|DO\s+NOT)\b", hit.chunk.original_text, re.I)
+            re.search(
+                r"\b(?:MUST(?:\s+NOT)?|NEVER|ALWAYS|DO\s+NOT)\b", hit.chunk.original_text, re.I
+            )
             for hit in evidence
         )
         if has_constraint and coverage >= 0.3:
@@ -286,13 +304,22 @@ class RecursiveMemoryController:
         # Likewise, a temporal question is supported when the subject is
         # anchored and the exact evidence retains both sides of an update.
         temporal_query = bool(
-            re.search(r"\b(?:current|before|after|previous|replace|supersed|timeline)\w*\b", query, re.I)
+            re.search(
+                r"\b(?:current|before|after|previous|replace|supersed|timeline)\w*\b", query, re.I
+            )
         )
         temporal_evidence = bool(
             re.search(r"\b(?:changed\s+from|replaced|superseded|previously)\b", evidence_text, re.I)
         )
         if temporal_query and temporal_evidence and anchor_coverage >= 1.0:
             score = max(score, 0.82)
+        # A previously asked but unanswered question can have perfect lexical
+        # overlap with a new question.  It is not evidence for its own answer.
+        # Current-query chunks are excluded by the portal, while this guard
+        # covers older interrogative-only turns and direct engine clients.
+        question_only = all(hit.chunk.original_text.strip().endswith("?") for hit in evidence)
+        if question_only:
+            score = min(score, 0.55)
         return min(1.0, score)
 
     @staticmethod
@@ -317,9 +344,7 @@ class RecursiveMemoryController:
         )
         for pattern in relation_patterns:
             for match in re.finditer(pattern, known, re.IGNORECASE):
-                left, right = (
-                    value.strip("`'\".,:;[]{}") for value in match.groups()
-                )
+                left, right = (value.strip("`'\".,:;[]{}") for value in match.groups())
                 if left and right:
                     relationships.append((left, right))
         # Only traverse the relationship component anchored in the current
@@ -346,9 +371,7 @@ class RecursiveMemoryController:
                     changed = True
         result = []
         seen_identifiers: set[str] = set()
-        for identifier in (
-            value for relationship in relationships for value in relationship
-        ):
+        for identifier in (value for relationship in relationships for value in relationship):
             cleaned = identifier.strip("`'\".,:;[]{}")
             if not 2 <= len(cleaned) <= 80:
                 continue

@@ -57,9 +57,7 @@ def test_python_chunks_preserve_exact_offsets_and_symbols() -> None:
         "def shutdown() -> None:\n"
         "    pass\n"
     )
-    chunks = StructureAwareChunker(
-        target_tokens=64, max_tokens=128, overlap_tokens=8
-    ).chunk(
+    chunks = StructureAwareChunker(target_tokens=64, max_tokens=128, overlap_tokens=8).chunk(
         source, source="motor.py"
     )
 
@@ -105,9 +103,7 @@ def test_python_code_topology_finds_callers_callees_imports_and_inheritance(
     topology = store.code_search("calibrate_motor", max_hops=2)
     topology_names = {chunk.parent_name for chunk, _distance, _edges in topology}
     predicates = {
-        predicate
-        for _chunk, _distance, edge_types in topology
-        for predicate in edge_types
+        predicate for _chunk, _distance, edge_types in topology for predicate in edge_types
     }
 
     assert {"MotorController", "calibrate_motor"} <= topology_names
@@ -192,9 +188,7 @@ def test_query_plan_promotes_bare_identifiers_and_cleans_question_entities(
     # query-aware reranking cannot recover a support chunk excluded here.
     assert retriever.candidate_limit == 200
 
-    plan = retriever.plan(
-        "Were Scott Derrickson and Ed Wood using controller_id-42?"
-    )
+    plan = retriever.plan("Were Scott Derrickson and Ed Wood using controller_id-42?")
 
     assert "controller_id-42" in plan.exact_strings
     assert "Scott Derrickson" in plan.entities
@@ -253,8 +247,7 @@ def test_structured_extractor_promotes_constraints_and_explicit_supersession(
     store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
     extractor = StructuredMemoryExtractor(store)
     first = store.ingest(
-        "MUST NOT replace the golden controller.\n"
-        "I decided to use motor_controller.\n",
+        "MUST NOT replace the golden controller.\nI decided to use motor_controller.\n",
         source="conversation:user",
     )
     created = extractor.extract(first, authority="user")
@@ -265,12 +258,8 @@ def test_structured_extractor_promotes_constraints_and_explicit_supersession(
     )
     updated = extractor.extract(second, authority="user")
 
-    constraint = next(
-        memory for memory in created if memory.memory_class is MemoryClass.CONSTRAINT
-    )
-    old_decision = next(
-        memory for memory in created if memory.memory_class is MemoryClass.DECISION
-    )
+    constraint = next(memory for memory in created if memory.memory_class is MemoryClass.CONSTRAINT)
+    old_decision = next(memory for memory in created if memory.memory_class is MemoryClass.DECISION)
     new_decision = updated[0]
     assert constraint.importance == 1.0
     assert constraint.ttl_seconds is None
@@ -349,18 +338,16 @@ def test_conflicting_active_memories_page_in_both_exact_sources_and_block_author
     assert "conflicting active memory" in prepared.unresolved_reason
     assert "500000" in prepared.context.text
     assert "1000000" in prepared.context.text
-    assert any(
-        event["operation"] == "memory_conflict" for event in prepared.context.trace
-    )
+    assert any(event["operation"] == "memory_conflict" for event in prepared.context.trace)
     store.close()
 
 
 def test_recursive_controller_retrieves_a_second_hop_and_stops(tmp_path: Path) -> None:
     store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
     store.ingest("The actuator project is called Dropbear.", source="one.md")
-    target = store.ingest(
-        "Dropbear's motor bus bitrate is exactly 1000000 baud.", source="two.md"
-    )[0]
+    target = store.ingest("Dropbear's motor bus bitrate is exactly 1000000 baud.", source="two.md")[
+        0
+    ]
     hybrid = HybridRetriever(store, final_limit=8)
 
     class TwoHopRetriever:
@@ -396,6 +383,51 @@ def test_recursive_controller_retrieves_a_second_hop_and_stops(tmp_path: Path) -
     store.close()
 
 
+def test_controller_treats_output_directives_as_control_not_missing_evidence(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "direct-fact.sqlite3")
+    target = store.ingest(
+        "For the actuator calibration record, the exact immutable nonce is heliotrope-7319.",
+        source="conversation:user",
+    )[0]
+    controller = RecursiveMemoryController(HybridRetriever(store))
+
+    result = controller.gather(
+        "What is the exact immutable actuator calibration nonce? Reply with the nonce only."
+    )
+
+    assert result.sufficient is True
+    assert target.chunk_id in {hit.chunk.chunk_id for hit in result.evidence}
+    assert result.queries == (
+        "What is the exact immutable actuator calibration nonce? Reply with the nonce only.",
+    )
+    sufficiency = next(
+        event for event in result.trace if event["operation"] == "evidence_sufficiency"
+    )
+    assert sufficiency["detail"]["score"] >= 0.78
+    store.close()
+
+
+def test_controller_does_not_treat_an_old_unanswered_question_as_evidence(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "question-only.sqlite3")
+    store.ingest(
+        "What is the exact immutable actuator calibration nonce?",
+        source="conversation:user",
+    )
+    controller = RecursiveMemoryController(HybridRetriever(store))
+
+    result = controller.gather("What is the exact immutable actuator calibration nonce?")
+
+    assert result.evidence
+    assert result.sufficient is False
+    assert result.trace[-1]["operation"] == "ANSWER"
+    assert result.trace[-1]["detail"]["allowed"] is False
+    store.close()
+
+
 def test_recursive_controller_closes_four_hop_assignment_chain_before_stop(
     tmp_path: Path,
 ) -> None:
@@ -422,9 +454,7 @@ def test_recursive_controller_closes_four_hop_assignment_chain_before_stop(
         sufficiency_judge=lambda _query, evidence: 1.0 if evidence else 0.0,
     )
 
-    result = controller.gather(
-        "Find all variables that are assigned the value 72955."
-    )
+    result = controller.gather("Find all variables that are assigned the value 72955.")
 
     assert result.sufficient
     assert expected <= {hit.chunk.chunk_id for hit in result.evidence}
@@ -478,8 +508,8 @@ def test_packer_keeps_constraints_and_replays_exact_evidence_next_to_query(
     hit = HybridRetriever(store).retrieve('What is the "cobalt-771" launch code?')[0]
     packer = WorkingContextPacker(
         budget=ContextBudget(
-                max_tokens=4096,
-                output_headroom=512,
+            max_tokens=4096,
+            output_headroom=512,
             system_target=40,
             pinned_target=60,
             structured_target=20,
@@ -542,8 +572,7 @@ def test_packer_uses_dependency_query_for_exact_line_replay(tmp_path: Path) -> N
     assert "VAR FRHPM = VAR RQMUC" in packed.text
     assert "VAR SIT = 74925" not in packed.text
     assert any(
-        event["operation"] == "EVICT"
-        and event["detail"].get("reason") == "dependency_focus"
+        event["operation"] == "EVICT" and event["detail"].get("reason") == "dependency_focus"
         for event in packed.trace
     )
     evidence_item = next(item for item in packed.items if item.category == "exact_evidence")
@@ -561,15 +590,10 @@ def test_packer_replays_multiple_disjoint_exact_spans_from_one_chunk(
 ) -> None:
     store = ImmutableEvidenceStore(
         tmp_path / "multi-span.sqlite3",
-        chunker=StructureAwareChunker(
-            target_tokens=2048, max_tokens=4096, overlap_tokens=0
-        ),
+        chunker=StructureAwareChunker(target_tokens=2048, max_tokens=4096, overlap_tokens=0),
     )
     chunk = store.ingest(
-        "needle_key = value-111\n"
-        + "noise " * 900
-        + "needle_key = value-222\n"
-        + "noise " * 900,
+        "needle_key = value-111\n" + "noise " * 900 + "needle_key = value-222\n" + "noise " * 900,
         source="single-large-chunk.txt",
     )[0]
     hit = RetrievalHit(
@@ -691,9 +715,7 @@ def test_constraint_survives_over_100k_intervening_tokens(tmp_path: Path) -> Non
         MemoryClass.CONSTRAINT,
         "controller configuration",
         "MUST NOT replace the golden controller configuration.",
-        provenance=[
-            ProvenancePointer(invariant.chunk_id, 0, len(invariant.original_text))
-        ],
+        provenance=[ProvenancePointer(invariant.chunk_id, 0, len(invariant.original_text))],
         importance=1.0,
     )
     packed = WorkingContextPacker(token_counter=word_tokens).pack(
@@ -716,19 +738,13 @@ def test_recurrent_memory_budget_frontier_keeps_raw_sources_recoverable(
 ) -> None:
     store = ImmutableEvidenceStore(tmp_path / f"memory-{memory_tokens}-{chunk_tokens}.sqlite3")
     chunks = [
-        store.ingest(
-            "Project Zephyr uses the Copperfinch bus.", source="segment-1.txt"
-        )[0],
-        store.ingest(
-            "Copperfinch operates at exactly 833333 baud.", source="segment-2.txt"
-        )[0],
+        store.ingest("Project Zephyr uses the Copperfinch bus.", source="segment-1.txt")[0],
+        store.ingest("Copperfinch operates at exactly 833333 baud.", source="segment-2.txt")[0],
     ]
 
     def writer(request):
         return " ".join(
-            part
-            for part in (request.previous_memory, request.chunk.original_text)
-            if part
+            part for part in (request.previous_memory, request.chunk.original_text) if part
         )
 
     result = RecurrentMemoryBuilder(
@@ -814,9 +830,7 @@ def test_explicit_hierarchy_operations_are_observable_and_pins_are_protected(
         MemoryClass.DECISION,
         "controller",
         "Use amber.",
-        provenance=[
-            ProvenancePointer(first_chunk.chunk_id, 0, len(first_chunk.original_text))
-        ],
+        provenance=[ProvenancePointer(first_chunk.chunk_id, 0, len(first_chunk.original_text))],
     )
     hierarchy = MemoryHierarchy(store)
     hierarchy.page_in(first_chunk.chunk_id, level="L3", tokens=4, pinned=True)
@@ -828,9 +842,7 @@ def test_explicit_hierarchy_operations_are_observable_and_pins_are_protected(
     replacement = hierarchy.supersede(
         first.memory_id,
         content="Use violet.",
-        provenance=[
-            ProvenancePointer(second_chunk.chunk_id, 0, len(second_chunk.original_text))
-        ],
+        provenance=[ProvenancePointer(second_chunk.chunk_id, 0, len(second_chunk.original_text))],
     )
     assert hierarchy.reconstruct(replacement.memory_id)[0][1] == "controller = violet"
     operations = [event["operation"] for event in hierarchy.trace.export()]

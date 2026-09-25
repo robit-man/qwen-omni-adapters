@@ -20,13 +20,25 @@ CODE_SYMBOL_RE = re.compile(
 )
 TEMPORAL_RE = re.compile(r"\b(?:latest|recent|before|after|previous|current|when|timeline)\b", re.I)
 ENTITY_LEADING_STOP_WORDS = {
+    "answer",
     "are",
     "did",
     "do",
     "does",
+    "find",
+    "give",
+    "identify",
     "in",
     "is",
+    "list",
+    "provide",
     "question",
+    "recall",
+    "reply",
+    "respond",
+    "return",
+    "show",
+    "tell",
     "was",
     "were",
     "what",
@@ -102,8 +114,7 @@ class HybridRetriever:
         exact = tuple(dict.fromkeys(exact_values))
         symbols = list(match.group(1) for match in CODE_SYMBOL_RE.finditer(query))
         symbols.extend(
-            term.strip("`")
-            for term in re.findall(r"`([A-Za-z_$][\w.$:-]{1,120})`", query)
+            term.strip("`") for term in re.findall(r"`([A-Za-z_$][\w.$:-]{1,120})`", query)
         )
         # Clausal decomposition is deterministic and intentionally conservative;
         # a model planner may add dependency queries in the recursive controller.
@@ -156,9 +167,7 @@ class HybridRetriever:
 
         def add(chunk: EvidenceChunk, channel: str, score: float) -> None:
             candidates[chunk.chunk_id] = chunk
-            scores[chunk.chunk_id][channel] = max(
-                score, scores[chunk.chunk_id].get(channel, 0.0)
-            )
+            scores[chunk.chunk_id][channel] = max(score, scores[chunk.chunk_id].get(channel, 0.0))
 
         for exact in selected_plan.exact_strings:
             for rank, chunk in enumerate(
@@ -175,24 +184,16 @@ class HybridRetriever:
             ):
                 add(chunk, "code_graph", 0.9 / (1.0 + distance * 0.4))
                 if predicates:
-                    scores[chunk.chunk_id]["code_graph"] += min(
-                        0.08, len(predicates) * 0.02
-                    )
+                    scores[chunk.chunk_id]["code_graph"] += min(0.08, len(predicates) * 0.02)
         for subquery in selected_plan.subqueries:
-            for chunk, score in self.store.lexical_search(
-                subquery, limit=self.candidate_limit
-            ):
+            for chunk, score in self.store.lexical_search(subquery, limit=self.candidate_limit):
                 add(chunk, "bm25", score)
             if self.query_embedder is not None:
                 vector = self.query_embedder(subquery)
                 if vector:
-                    for chunk, score in self.store.dense_search(
-                        vector, limit=self.candidate_limit
-                    ):
+                    for chunk, score in self.store.dense_search(vector, limit=self.candidate_limit):
                         add(chunk, "dense", max(0.0, score) * 0.85)
-            for chunk in self.store.entity_search(
-                subquery, limit=self.candidate_limit
-            ):
+            for chunk in self.store.entity_search(subquery, limit=self.candidate_limit):
                 add(chunk, "entity", 0.68)
             for chunk, distance in self.store.graph_search(
                 subquery, max_hops=3, limit=self.candidate_limit
@@ -223,7 +224,10 @@ class HybridRetriever:
             ordered = sorted(channel_scores.values(), reverse=True)
             combined = (ordered[0] if ordered else 0.0) + sum(ordered[1:]) * 0.18
             combined += lexical_overlap * 0.22
-            if chunk.parent_name and chunk.parent_name.casefold() in selected_plan.original.casefold():
+            if (
+                chunk.parent_name
+                and chunk.parent_name.casefold() in selected_plan.original.casefold()
+            ):
                 combined += 0.18
             lines = [line.strip() for line in chunk.original_text.splitlines() if line.strip()]
             title = lines[1] if len(lines) > 1 and lines[0].lower().startswith("document ") else ""
@@ -292,7 +296,10 @@ class HybridRetriever:
                 if source_counts[hit.chunk.source] >= self.source_cap:
                     continue
                 redundancy = max(
-                    (_jaccard(hit.chunk.original_text, item.chunk.original_text) for item in selected),
+                    (
+                        _jaccard(hit.chunk.original_text, item.chunk.original_text)
+                        for item in selected
+                    ),
                     default=0.0,
                 )
                 mmr = self.mmr_lambda * hit.score - (1.0 - self.mmr_lambda) * redundancy
