@@ -54,6 +54,10 @@ class EndpointResponder:
                 {
                     "temperature": 0.0,
                     "max_tokens": self.max_tokens,
+                    # Benchmark baselines must not inherit slot KV state from
+                    # the preceding condition. This also preserves the runtime
+                    # invariant used for fresh multimodal evidence.
+                    "cache_prompt": False,
                     # llama.cpp exposes the Qwen native switch through the
                     # chat-template arguments rather than Ollama's top-level
                     # ``think`` field. Keep answer tokens out of a hidden

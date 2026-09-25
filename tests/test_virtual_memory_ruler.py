@@ -220,6 +220,7 @@ def test_endpoint_runner_explicitly_disables_hidden_thinking_by_default() -> Non
         assert openai._payload("question")["chat_template_kwargs"] == {
             "enable_thinking": False
         }
+        assert openai._payload("question")["cache_prompt"] is False
         assert ollama._payload("question")["think"] is False
     finally:
         openai.close()
