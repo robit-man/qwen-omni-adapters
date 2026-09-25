@@ -15,6 +15,7 @@ import threading
 import time
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -35,6 +36,11 @@ logger = logging.getLogger(__name__)
 MAX_TASK_CONTEXT_MESSAGES = 28
 MAX_TASK_CONTEXT_BYTES = 96 * 1024
 MAX_RETAINED_TASK_MESSAGES = 12
+MIN_TASK_CONTEXT_BYTES = 32 * 1024
+MIN_RETAINED_TASK_MESSAGES = 4
+MAX_FOCUS_MEMORY_CHARS = 8_000
+MIN_FOCUS_MEMORY_CHARS = 2_400
+DEFAULT_RESIDENT_CONTEXT_TOKENS = 16_384
 MAX_TOOL_RESULT_CHARS = 24_000
 MAX_CHECKPOINT_REPORT_CHARS = 1_000
 MAX_ACTION_ARGUMENT_CHARS = 2_000
@@ -57,6 +63,82 @@ TASK_START_REQUEST = (
 )
 MAX_VIRTUAL_QUERY_CHARS = 1_200
 MAX_PHASE_ACTIONS = 8
+
+
+def _resident_task_context_tokens() -> int:
+    """Read the live language window used by the background controller.
+
+    Jetson can resize its resident KV window after the harness has started.
+    The task controller therefore cannot size L1/L2 state from a model-card
+    maximum or a process-start snapshot. Use the same live state file as the
+    portal and fail closed at the supported 4K floor when it is unavailable.
+    """
+
+    try:
+        configured = int(
+            os.environ.get(
+                "OMNI_COMPREHENSION_CONTEXT_TOKENS",
+                str(DEFAULT_RESIDENT_CONTEXT_TOKENS),
+            )
+        )
+    except ValueError:
+        configured = DEFAULT_RESIDENT_CONTEXT_TOKENS
+    configured = max(4_096, configured)
+    candidates: list[Path] = []
+    explicit = os.environ.get("OMNI_COMPREHENSION_CONTEXT_FILE", "").strip()
+    if explicit:
+        candidates.append(Path(explicit).expanduser())
+    repo_root = os.environ.get("OMNI_REPO_ROOT", "").strip()
+    if repo_root:
+        candidates.append(
+            Path(repo_root).expanduser()
+            / "runtime-data/state/comprehension-context-tokens"
+        )
+    for path in candidates:
+        try:
+            selected = int(path.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            continue
+        return max(4_096, min(configured, selected))
+    if candidates:
+        return min(4_096, configured)
+    return min(configured, DEFAULT_RESIDENT_CONTEXT_TOKENS)
+
+
+def _task_context_limits(
+    resident_context_tokens: int | None = None,
+) -> dict[str, int]:
+    """Derive task-chain and pinned-focus limits from the live KV tier."""
+
+    resident = max(
+        4_096,
+        int(
+            resident_context_tokens
+            if resident_context_tokens is not None
+            else _resident_task_context_tokens()
+        ),
+    )
+    return {
+        "resident_context_tokens": resident,
+        # The raw chain is virtual-memory input, not the final prompt. Keep it
+        # broad enough for high-recall ingestion while bounding recurrent JSON
+        # and checkpoint churn more tightly when Tegra downshifts to 4K.
+        "context_bytes": min(
+            MAX_TASK_CONTEXT_BYTES,
+            max(MIN_TASK_CONTEXT_BYTES, resident * 8),
+        ),
+        "retained_messages": max(
+            MIN_RETAINED_TASK_MESSAGES,
+            min(MAX_RETAINED_TASK_MESSAGES, resident // 1_365),
+        ),
+        # At the 4K floor this leaves room for the immutable objective,
+        # completion contract, current query, and output headroom. Larger KV
+        # tiers can page in a broader frontier without changing raw storage.
+        "focus_chars": min(
+            MAX_FOCUS_MEMORY_CHARS,
+            max(MIN_FOCUS_MEMORY_CHARS, (resident * 3) // 4),
+        ),
+    }
 
 
 def _uncheckpointed_action_count(task: Mapping[str, Any]) -> int:
@@ -146,7 +228,12 @@ def _task_virtual_query(task: Mapping[str, Any]) -> str:
     )
 
 
-def _task_system_prompt(task: Mapping[str, Any]) -> str:
+def _task_system_prompt(
+    task: Mapping[str, Any],
+    *,
+    resident_context_tokens: int | None = None,
+    expand_available: bool | None = None,
+) -> str:
     """Pin the durable task contract ahead of all renewable worker context."""
 
     objective = " ".join(str(task.get("objective") or "").split())
@@ -167,7 +254,12 @@ def _task_system_prompt(task: Mapping[str, Any]) -> str:
         if directions:
             contract.append("Later user directions, oldest to newest:")
             contract.extend(f"- {direction}" for direction in directions)
-    focus_memory = _focus_memory(task)
+    limits = _task_context_limits(resident_context_tokens)
+    focus_memory = _focus_memory(
+        task,
+        expand_available=expand_available,
+        max_chars=limits["focus_chars"],
+    )
     if focus_memory:
         # This is L1 pinned working state, not merely a post-compaction note.
         # A successful source or artifact must remain conspicuous on the very
@@ -504,85 +596,53 @@ def _compact_task_messages(
     task: Mapping[str, Any],
     *,
     force: bool = False,
+    resident_context_tokens: int | None = None,
 ) -> list[dict[str, Any]]:
     """Turn a long transcript into a fresh chain with its durable state intact."""
 
+    limits = _task_context_limits(resident_context_tokens)
+    retained_messages = limits["retained_messages"]
+    context_bytes = limits["context_bytes"]
     serialized_bytes = len(
         json.dumps(messages, ensure_ascii=False, default=str).encode("utf-8")
     )
     if len(messages) <= 3 or (
         force
-        and len(messages) <= MAX_RETAINED_TASK_MESSAGES + 3
-        and serialized_bytes <= MAX_TASK_CONTEXT_BYTES // 2
+        and len(messages) <= retained_messages + 3
+        and serialized_bytes <= context_bytes // 2
     ) or (
         not force
         and len(messages) <= MAX_TASK_CONTEXT_MESSAGES
-        and serialized_bytes <= MAX_TASK_CONTEXT_BYTES
+        and serialized_bytes <= context_bytes
     ):
         return messages
     head = copy.deepcopy(messages[:2])
-    tail_start = max(2, len(messages) - MAX_RETAINED_TASK_MESSAGES)
+    if head and head[0].get("role") == "system":
+        # A compacted chain gets exactly one current L1 frontier. Previously
+        # the old system prompt and a second full focus ledger were both kept,
+        # so a 4K resident model received >5K tokens of pinned state alone.
+        head[0] = {
+            "role": "system",
+            "content": _task_system_prompt(
+                task,
+                resident_context_tokens=limits["resident_context_tokens"],
+                expand_available=True,
+            ),
+        }
+    tail_start = max(2, len(messages) - retained_messages)
     if (
         tail_start > 2
         and messages[tail_start].get("role") == "tool"
         and messages[tail_start - 1].get("role") == "assistant"
     ):
         tail_start -= 1
-    guidance = task.get("guidance")
-    guidance_lines = []
-    if isinstance(guidance, list):
-        guidance_lines = [
-            f"- {str(item.get('content') or '')[:500]}"
-            for item in guidance[-8:]
-            if isinstance(item, Mapping) and str(item.get("content") or "").strip()
-        ]
-    tools = task.get("tools_used")
-    tool_names = ", ".join(str(item) for item in tools) if isinstance(tools, list) else ""
-    actions = task.get("actions")
-    action_lines: list[str] = []
-    if isinstance(actions, list):
-        external_actions = [
-            action
-            for action in actions
-            if isinstance(action, Mapping)
-            and str(action.get("tool") or "")
-            not in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}
-        ]
-        for action in external_actions[-6:]:
-            if not isinstance(action, Mapping):
-                continue
-            outcome = " ".join(str(action.get("outcome") or "").split())[:280]
-            action_lines.append(
-                "- "
-                + str(action.get("call_id") or "unknown")[:80]
-                + " | "
-                + str(action.get("tool") or "unknown")[:80]
-                + (" | succeeded" if action.get("ok") is True else " | failed")
-                + (f" | {outcome}" if outcome else "")
-            )
     sections = [
-        "<retained_checkpoint>",
-        "Older detailed reasoning/tool rounds were compacted. Continue from the objective "
-        "and the retained concrete state below; do not repeat completed or failed calls.",
+        '<retained_checkpoint schema="robit.omni.task-page.v2">',
+        "Older rounds were paged out losslessly. The current system contract contains "
+        "the sole resident typed frontier; exact receipts remain recoverable by its "
+        "task_expand evidence pointers or exact-text query. Continue from the newest "
+        "native tool cycle.",
     ]
-    # This is the post-compaction checkpoint. Expose typed page-in pointers
-    # immediately even though the store writes its compaction receipt only
-    # after this message has been constructed.
-    focus_memory = _focus_memory(task, expand_available=True)
-    if focus_memory:
-        sections.append(focus_memory)
-    if guidance_lines:
-        sections.extend(["Spoken guidance that remains authoritative:", *guidance_lines])
-    if tool_names:
-        sections.append(f"Tools already used: {tool_names}")
-    if action_lines:
-        sections.extend(
-            [
-                "Recent durable action receipts (orientation only; reverify any "
-                "terminal criterion with fresh tool evidence):",
-                *action_lines,
-            ]
-        )
     sections.append("</retained_checkpoint>")
     checkpoint = {"role": "user", "content": "\n".join(sections)}
     tail = copy.deepcopy(messages[tail_start:])
@@ -872,11 +932,16 @@ def _context_metrics(messages: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
-def _compaction_available(messages: list[dict[str, Any]]) -> bool:
+def _compaction_available(
+    messages: list[dict[str, Any]],
+    *,
+    resident_context_tokens: int | None = None,
+) -> bool:
+    limits = _task_context_limits(resident_context_tokens)
     metrics = _context_metrics(messages)
     large_enough = (
-        metrics["messages"] > MAX_RETAINED_TASK_MESSAGES + 3
-        or metrics["bytes"] > MAX_TASK_CONTEXT_BYTES // 2
+        metrics["messages"] > limits["retained_messages"] + 3
+        or metrics["bytes"] > limits["context_bytes"] // 2
     )
     if not large_enough:
         return False
@@ -923,11 +988,18 @@ def _compaction_receipt(
 ) -> dict[str, Any]:
     evidence_ids = list(_tool_evidence(after))[-16:]
     guidance = task.get("guidance")
+    limits = _task_context_limits()
     return {
         "schema": "robit.omni.task-compaction.v1",
         "reason": reason,
         "before": _context_metrics(before),
         "after": _context_metrics(after),
+        "resident_context_tokens": limits["resident_context_tokens"],
+        "working_set_limits": {
+            "context_bytes": limits["context_bytes"],
+            "retained_messages": limits["retained_messages"],
+            "focus_chars": limits["focus_chars"],
+        },
         "retained": {
             "objective": bool(str(task.get("objective") or "").strip()),
             "completion_criteria": bool(
@@ -1153,7 +1225,10 @@ def _web_fetch_preflight(
 
 
 def _focus_memory(
-    task: Mapping[str, Any], *, expand_available: bool | None = None
+    task: Mapping[str, Any],
+    *,
+    expand_available: bool | None = None,
+    max_chars: int = MAX_FOCUS_MEMORY_CHARS,
 ) -> str:
     """Render durable, typed focus records instead of another prose summary."""
 
@@ -1163,23 +1238,17 @@ def _focus_memory(
     def expansion_pointer(call_id: str) -> dict[str, Any]:
         if not expand_available:
             return {}
-        return {
-            "page_in": {
-                "tool": "task_expand",
-                "arguments": {"evidence_ids": [call_id]},
-            }
-        }
+        return {"page_in_evidence_id": call_id}
 
     actions = task.get("actions")
     if not isinstance(actions, list):
         return ""
-    sources: list[dict[str, Any]] = []
-    artifacts: list[dict[str, Any]] = []
-    inspections: list[dict[str, Any]] = []
+    sources_by_url: dict[str, dict[str, Any]] = {}
+    artifacts_by_path: dict[str, dict[str, Any]] = {}
+    inspections_by_target: dict[tuple[str, str], dict[str, Any]] = {}
     checkpoints: list[dict[str, Any]] = []
-    failures: list[dict[str, Any]] = []
-    seen_sources: set[str] = set()
-    seen_artifacts: set[str] = set()
+    failures_by_target: dict[tuple[str, str, str], dict[str, Any]] = {}
+    other_successes: list[dict[str, Any]] = []
     for action in actions:
         if not isinstance(action, Mapping):
             continue
@@ -1189,45 +1258,45 @@ def _focus_memory(
         arguments = _audit_mapping(action.get("arguments"))
         outcome = _audit_mapping(action.get("outcome"))
         if tool == "web_fetch" and ok:
-            url = str(arguments.get("url") or "").strip()
-            if url and url not in seen_sources:
-                seen_sources.add(url)
-                sources.append(
-                    {
-                        "evidence_id": call_id,
-                        "status": "acquired",
-                        "source_url": url,
-                        **expansion_pointer(call_id),
-                    }
-                )
+            url = str(arguments.get("url") or "").strip()[:500]
+            if url:
+                # Re-fetching a mutable URL supersedes its resident pointer;
+                # every version remains immutable in evidence_records.
+                sources_by_url.pop(url, None)
+                sources_by_url[url] = {
+                    "evidence_id": call_id,
+                    "status": "acquired",
+                    "source_url": url,
+                    **expansion_pointer(call_id),
+                }
         elif tool == "workspace_file" and ok:
-            path = str(outcome.get("path") or arguments.get("path") or "").strip()
+            path = str(
+                outcome.get("path") or arguments.get("path") or ""
+            ).strip()[:500]
             action = str(
                 outcome.get("action") or arguments.get("action") or "changed"
             )
-            if path and action in {"mkdir", "write", "replace"} and path not in seen_artifacts:
-                seen_artifacts.add(path)
-                artifacts.append(
-                    {
-                        "evidence_id": call_id,
-                        "status": action,
-                        "path": path,
-                        "sha256": str(outcome.get("sha256") or ""),
-                        "validation": str(outcome.get("validation") or ""),
-                        **expansion_pointer(call_id),
-                    }
-                )
+            if path and action in {"mkdir", "write", "replace"}:
+                artifacts_by_path.pop(path, None)
+                artifacts_by_path[path] = {
+                    "evidence_id": call_id,
+                    "status": action,
+                    "path": path,
+                    "sha256": str(outcome.get("sha256") or "")[:128],
+                    "validation": str(outcome.get("validation") or "")[:120],
+                    **expansion_pointer(call_id),
+                }
             elif path and action in {"list", "read"}:
-                inspections.append(
-                    {
-                        "evidence_id": call_id,
-                        "status": action,
-                        "path": path,
-                        "sha256": str(outcome.get("sha256") or ""),
-                        "task_progress": False,
-                        **expansion_pointer(call_id),
-                    }
-                )
+                key = (action, path)
+                inspections_by_target.pop(key, None)
+                inspections_by_target[key] = {
+                    "evidence_id": call_id,
+                    "status": action,
+                    "path": path,
+                    "sha256": str(outcome.get("sha256") or "")[:128],
+                    "task_progress": False,
+                    **expansion_pointer(call_id),
+                }
         elif tool == "task_checkpoint" and ok:
             accepted = outcome.get("accepted") is True
             if accepted:
@@ -1239,18 +1308,52 @@ def _focus_memory(
                         "authority": "model_checkpoint_control_not_task_evidence",
                     }
                 )
-        if not ok and tool not in LOCAL_CONTROL_TOOL_NAMES and tool != "tool_search":
-            failures.append(
+        elif ok and tool not in LOCAL_CONTROL_TOOL_NAMES and tool != "tool_search":
+            target = str(
+                arguments.get("path")
+                or arguments.get("url")
+                or arguments.get("command")
+                or ""
+            ).strip()[:300]
+            other_successes.append(
                 {
                     "evidence_id": call_id,
                     "tool": tool,
-                    "diagnostic": " ".join(
+                    "target": target,
+                    "result": " ".join(
                         str(action.get("outcome") or "").split()
-                    )[:500],
+                    )[:180],
                     **expansion_pointer(call_id),
                 }
             )
-    if not any((sources, artifacts, inspections, checkpoints, failures)):
+        if not ok and tool not in LOCAL_CONTROL_TOOL_NAMES and tool != "tool_search":
+            target = str(
+                arguments.get("path")
+                or arguments.get("url")
+                or arguments.get("command")
+                or ""
+            ).strip()[:300]
+            error = str(
+                outcome.get("error") or outcome.get("message") or "failed"
+            )[:120]
+            key = (tool, target, error)
+            failures_by_target.pop(key, None)
+            failures_by_target[key] = {
+                "evidence_id": call_id,
+                "tool": tool,
+                "target": target,
+                "diagnostic": " ".join(
+                    str(action.get("outcome") or "").split()
+                )[:220],
+                **expansion_pointer(call_id),
+            }
+    sources = list(sources_by_url.values())
+    artifacts = list(artifacts_by_path.values())
+    inspections = list(inspections_by_target.values())
+    failures = list(failures_by_target.values())
+    if not any(
+        (sources, artifacts, inspections, checkpoints, failures, other_successes)
+    ):
         return ""
 
     def tagged(name: str, records: list[dict[str, Any]]) -> list[str]:
@@ -1261,7 +1364,13 @@ def _focus_memory(
             *(
                 f'<focus_item id="{html.escape(str(record.get("evidence_id") or record.get("checkpoint_id") or ""))}">'
                 + html.escape(
-                    json.dumps(record, ensure_ascii=False, sort_keys=True, default=str)
+                    json.dumps(
+                        record,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        default=str,
+                        separators=(",", ":"),
+                    )
                 )
                 + "</focus_item>"
                 for record in records
@@ -1272,35 +1381,94 @@ def _focus_memory(
     paging_contract = (
         "Some detailed receipts have left active context. To recover a missing "
         "detail, invoke the separate task_expand control tool with "
-        '{"evidence_ids":["the-evidence-id"]}. task_expand is never an action '
+        '{"evidence_ids":["the page_in_evidence_id"]}. task_expand is never an action '
         "or argument of workspace_file or another external tool. Expansion is "
-        "paging, not new progress. "
+        "paging, not new progress. If the needed nonresident record is not listed, "
+        'invoke task_expand with {"query":"an exact path, URL, symbol, or error"}. '
         if expand_available
         else "Detailed recent receipts remain in the active tool transcript; no "
         "paging control is available or needed. "
     )
-    sections = [
-        '<focus_memory schema="robit.omni.background-focus.v1">',
-        "<focus_contract>These typed records remain authoritative across compaction. "
-        "Do not redo an acquired source or artifact merely because its original turn is "
-        "not resident. "
-        + paging_contract
-        + "Read/list inspections "
-        "are observations, never completed work: use them to choose the next action and "
-        "do not repeat an equivalent inspection unless causal state changed or a missing "
-        "detail requires a different bounded page. Phase checkpoints are control "
-        "boundaries, not proof, and their model-authored prose is intentionally absent. "
-        "Recompute "
-        "task state from the pinned completion contract and typed source, artifact, "
-        "inspection, and failure records.</focus_contract>",
-        *tagged("phase_checkpoints", checkpoints[-8:]),
-        *tagged("acquired_sources", sources[-24:]),
-        *tagged("artifacts", artifacts[-32:]),
-        *tagged("inspections", inspections[-12:]),
-        *tagged("failed_attempts", failures[-8:]),
-        "</focus_memory>",
-    ]
-    return "\n".join(sections)
+    selected = {
+        "phase_checkpoints": checkpoints[-2:],
+        "acquired_sources": sources[-8:],
+        "artifacts": artifacts[-12:],
+        "other_successes": other_successes[-4:],
+        "failed_attempts": failures[-4:],
+        "inspections": inspections[-2:],
+    }
+
+    def render() -> str:
+        omitted = {
+            "checkpoints": max(
+                0, len(checkpoints) - len(selected["phase_checkpoints"])
+            ),
+            "sources": max(0, len(sources) - len(selected["acquired_sources"])),
+            "artifacts": max(0, len(artifacts) - len(selected["artifacts"])),
+            "successes": max(
+                0, len(other_successes) - len(selected["other_successes"])
+            ),
+            "failures": max(0, len(failures) - len(selected["failed_attempts"])),
+            "inspections": max(0, len(inspections) - len(selected["inspections"])),
+        }
+        sections = [
+            '<focus_memory schema="robit.omni.background-focus.v2" '
+            + " ".join(
+                f'omitted_{key}="{value}"' for key, value in omitted.items()
+            )
+            + ">",
+            "<focus_contract>These typed records remain authoritative across compaction. "
+            "Do not redo an acquired source or artifact merely because its original "
+            "turn is not resident. "
+            + paging_contract
+            + "Read/list inspections are observations, never completed work. Do not "
+            "repeat an equivalent inspection unless causal state changed. Phase "
+            "checkpoints are control boundaries, not proof. Recompute task state from "
+            "the pinned completion contract and typed records. Omitted residents remain "
+            "lossless in external evidence storage.</focus_contract>",
+            *tagged("phase_checkpoints", selected["phase_checkpoints"]),
+            *tagged("acquired_sources", selected["acquired_sources"]),
+            *tagged("artifacts", selected["artifacts"]),
+            *tagged("other_successes", selected["other_successes"]),
+            *tagged("failed_attempts", selected["failed_attempts"]),
+            *tagged("inspections", selected["inspections"]),
+            "</focus_memory>",
+        ]
+        return "\n".join(sections)
+
+    # Evict low-authority/recoverable residents until L1 fits. Raw evidence
+    # and action receipts are append-only in the store, so this changes only
+    # the working set and reports exactly how many records are nonresident.
+    eviction_order = (
+        "inspections",
+        "phase_checkpoints",
+        "other_successes",
+        "failed_attempts",
+        "artifacts",
+        "acquired_sources",
+    )
+    minimum = {
+        "inspections": 0,
+        "phase_checkpoints": 0,
+        "other_successes": 0,
+        "failed_attempts": 0,
+        "artifacts": 0,
+        "acquired_sources": 0,
+    }
+    rendered = render()
+    bounded_max = max(MIN_FOCUS_MEMORY_CHARS, int(max_chars))
+    while len(rendered) > bounded_max:
+        removed = False
+        for name in eviction_order:
+            records = selected[name]
+            if len(records) > minimum[name]:
+                records.pop(0)
+                removed = True
+                break
+        if not removed:
+            break
+        rendered = render()
+    return rendered
 
 
 def _compaction_evidence_records(
@@ -1350,6 +1518,50 @@ def _compaction_evidence_records(
             }
         )
     return records
+
+
+def _search_task_evidence(
+    task: Mapping[str, Any], query: str, *, limit: int = 8
+) -> list[dict[str, Any]]:
+    """Locate immutable task receipts that are not resident in the focus ledger.
+
+    This is a bounded exact/lexical page-table lookup, not model-authored
+    summarization. The global virtual-context store still performs hybrid and
+    recursive retrieval; this local path guarantees that a known file, URL,
+    symbol, or diagnostic can recover its exact task receipt without first
+    knowing an evicted evidence ID.
+    """
+
+    normalized = " ".join(str(query).casefold().split())[:500]
+    terms = tuple(
+        dict.fromkeys(
+            token
+            for token in re.findall(r"[a-z0-9_./:@+-]{2,}", normalized)
+            if token
+        )
+    )
+    records = task.get("evidence_records")
+    if not normalized or not isinstance(records, list):
+        return []
+    scored: list[tuple[float, int, dict[str, Any]]] = []
+    for index, record in enumerate(records):
+        if not isinstance(record, Mapping):
+            continue
+        candidate = copy.deepcopy(dict(record))
+        rendered = json.dumps(
+            candidate, ensure_ascii=False, sort_keys=True, default=str
+        ).casefold()
+        exact = normalized in rendered
+        matched = sum(1 for term in terms if term in rendered)
+        if not exact and matched == 0:
+            continue
+        # Exact distinctive spans dominate; token coverage breaks partial
+        # matches, and recency resolves otherwise equivalent versions.
+        coverage = matched / max(1, len(terms))
+        score = (10.0 if exact else 0.0) + coverage * 4.0
+        scored.append((score, index, candidate))
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [record for _score, _index, record in scored[: max(1, min(8, limit))]]
 
 
 def _guard_repeated_unchanged_result(
@@ -2614,7 +2826,9 @@ class BackgroundAgent:
                     )
                     messages[0] = {
                         "role": "system",
-                        "content": _task_system_prompt(current),
+                        "content": _task_system_prompt(
+                            current, expand_available=True
+                        ),
                     }
                     logger.info(
                         "background task %s compacted automatically before inference: %s",
@@ -3003,7 +3217,19 @@ class BackgroundAgent:
                         if isinstance(raw_ids, list)
                         else []
                     )
+                    query = " ".join(str(arguments.get("query") or "").split())[:500]
                     records = self.store.expand_evidence(task_id, evidence_ids)
+                    if query:
+                        latest_task = self.store.get(task_id) or current
+                        records.extend(_search_task_evidence(latest_task, query, limit=8))
+                    records = list(
+                        {
+                            str(record.get("evidence_id") or ""): record
+                            for record in records
+                            if isinstance(record, Mapping)
+                            and str(record.get("evidence_id") or "")
+                        }.values()
+                    )[:8]
                     found = {str(record.get("evidence_id") or "") for record in records}
                     expand_result = (
                         {
@@ -3011,14 +3237,19 @@ class BackgroundAgent:
                             "missing_evidence_ids": [
                                 value for value in evidence_ids if value not in found
                             ],
+                            "matched_query": query,
                             "authority": "retained_pre_compaction_tool_receipts",
                             "task_progress": False,
                         }
-                        if evidence_ids and records
+                        if (evidence_ids or query) and records
                         else {
                             "error": "evidence_not_found",
-                            "message": "Use evidence IDs present in tagged focus items.",
+                            "message": (
+                                "Use evidence IDs present in tagged focus items or query "
+                                "with an exact path, URL, symbol, or diagnostic from the task."
+                            ),
                             "requested_evidence_ids": evidence_ids,
+                            "query": query,
                         }
                     )
                     messages.append(

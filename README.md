@@ -415,7 +415,16 @@ including a final race check so stale completion cannot beat a new instruction.
 Typed focus records advertise no paging operation while their detailed receipts
 are still resident. After compaction they gain structured pointers to the
 separate `task_expand` control function; that control name is never presented as
-an action or argument of `workspace_file` or another external tool.
+an action or argument of `workspace_file` or another external tool. The focus
+ledger is a live working set, not another copy of history: its size follows the
+currently resident comprehension window, repeated inspections and failures are
+coalesced, a changed artifact supersedes its older resident version, and omitted
+record counts remain visible. Exact receipts and every superseded version remain
+append-only in task evidence storage. A compacted request carries this ledger
+once in the pinned system contract rather than duplicating it in a recurrent
+checkpoint. If an omitted record's evidence ID is no longer resident,
+`task_expand` also accepts a distinctive exact path, URL, symbol, error, or
+other query and returns the highest-scoring immutable receipts.
 Background web fetches are provenance-bound as well: a target must appear in
 the accepted task/user input or prior search, browser, crawl, or fetch evidence.
 An invented address is rejected before network access and returned beside the

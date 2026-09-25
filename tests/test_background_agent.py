@@ -52,10 +52,12 @@ from harness.background_agent import (
     _normalize_progress_evidence,
     _recovery_required,
     _sanitize_checkpoint_history,
+    _search_task_evidence,
     _seen_tool_fingerprints,
     _stream_error,
     _structured_action_phase,
     _successor_tools,
+    _task_context_limits,
     _task_system_prompt,
     _task_virtual_query,
     _tool_evidence,
@@ -65,6 +67,7 @@ from harness.background_agent import (
 from portal.background_tasks import BackgroundTaskStore
 from portal.documents import SessionDocumentStore
 from portal.tools import PortalToolHarness
+from qwen_omni_adapters.virtual_memory.packer import conservative_token_estimate
 
 
 def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
@@ -100,7 +103,7 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
     assert "<current_plan_state>" not in prompt
     assert "research is the next unmet milestone" not in prompt
     assert "Ran tool_search" not in prompt
-    assert '<focus_memory schema="robit.omni.background-focus.v1">' in prompt
+    assert '<focus_memory schema="robit.omni.background-focus.v2"' in prompt
     assert "https://example.test/field-service" in prompt
     assert "task_expand" not in prompt
     assert "no paging control is available or needed" in prompt
@@ -126,6 +129,34 @@ def test_task_virtual_query_reserves_space_for_latest_direction() -> None:
     assert query.startswith("Advance and verify the pinned task. Objective: ")
     assert f"Latest user direction: {latest_direction}" in query
     assert len(query) <= 1_200
+
+
+def test_task_context_limits_follow_the_live_resident_window(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    state = tmp_path / "resident-context"
+    state.write_text("4096\n", encoding="utf-8")
+    monkeypatch.setenv("OMNI_COMPREHENSION_CONTEXT_TOKENS", "65536")
+    monkeypatch.setenv("OMNI_COMPREHENSION_CONTEXT_FILE", str(state))
+    monkeypatch.delenv("OMNI_REPO_ROOT", raising=False)
+
+    constrained = _task_context_limits()
+    assert constrained == {
+        "resident_context_tokens": 4_096,
+        "context_bytes": 32 * 1_024,
+        "retained_messages": 4,
+        "focus_chars": 3_072,
+    }
+
+    state.write_text("8192\n", encoding="utf-8")
+    expanded = _task_context_limits()
+    assert expanded["resident_context_tokens"] == 8_192
+    assert expanded["context_bytes"] == 65_536
+    assert expanded["retained_messages"] == 6
+    assert expanded["focus_chars"] == 6_144
+
+    monkeypatch.setenv("OMNI_COMPREHENSION_CONTEXT_FILE", str(tmp_path / "missing"))
+    assert _task_context_limits()["resident_context_tokens"] == 4_096
 
 
 def test_web_fetch_preflight_allows_a_user_supplied_url_but_not_self_authorization() -> None:
@@ -1196,22 +1227,32 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
     }
 
     seen = _seen_tool_fingerprints(messages)  # type: ignore[arg-type]
-    compacted = _compact_task_messages(messages, task)  # type: ignore[arg-type]
+    compacted = _compact_task_messages(  # type: ignore[arg-type]
+        messages, task, resident_context_tokens=4_096
+    )
 
     assert len(seen) == 80
-    assert len(compacted) < 20
-    assert compacted[:2] == [{"role": "system", "content": "rules"}, objective]
+    assert len(compacted) <= 8
+    assert compacted[0]["role"] == "system"
+    assert compacted[1] == objective
+    system = compacted[0]["content"]
+    assert "Make the final version blue" in system
+    assert "failed-write" in system
+    assert "fixed-write" in system
+    assert system.count("<focus_memory") == 1
     checkpoint = compacted[2]["content"]
     assert "Verified the latest artifact" not in checkpoint
-    assert "Make the final version blue" in checkpoint
-    assert "failed-write | shell | failed" in checkpoint
-    assert "fixed-write | shell | succeeded" in checkpoint
+    assert "Make the final version blue" not in checkpoint
+    assert "failed-write" not in checkpoint
+    assert "fixed-write" not in checkpoint
     assert "Ran tool_search" not in checkpoint
     assert "compact-control" not in checkpoint
-    assert "task_expand is never an action" in checkpoint
-    assert "&quot;tool&quot;: &quot;task_expand&quot;" in checkpoint
+    assert "task_expand evidence pointers" in checkpoint
+    assert "task_expand is never an action" in system
+    assert "page_in_evidence_id" in system
     assert compacted[3]["role"] == "assistant"
     assert compacted[4]["role"] == "tool"
+    assert _context_metrics(compacted)["bytes"] < _context_metrics(messages)["bytes"]
 
     receipt = _compaction_receipt(  # type: ignore[arg-type]
         messages,
@@ -1337,14 +1378,14 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
 
     focus = _focus_memory(task, expand_available=True)
 
-    assert 'schema="robit.omni.background-focus.v1"' in focus
+    assert 'schema="robit.omni.background-focus.v2"' in focus
     assert "<phase_checkpoints>" in focus
     assert "<acquired_sources>" in focus
     assert "<artifacts>" in focus
     assert "<inspections>" in focus
     assert "https://example.test/field-service" in focus
     assert "/tmp/project/docs/research.md" in focus
-    assert "&quot;task_progress&quot;: false" in focus
+    assert "&quot;task_progress&quot;:false" in focus
     assert "list-1" not in focus.split("<artifacts>", 1)[1].split(
         "</artifacts>", 1
     )[0]
@@ -1358,9 +1399,130 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
     assert "Phase checkpoints are control boundaries, not proof" in focus
     assert "task_expand(source-1)" not in focus
     assert "task_expand is never an action" in focus
-    assert "&quot;tool&quot;: &quot;task_expand&quot;" in focus
-    assert "&quot;evidence_ids&quot;: [&quot;source-1&quot;]" in focus
+    assert "&quot;page_in_evidence_id&quot;:&quot;source-1&quot;" in focus
     assert "Do not redo an acquired source" in focus
+
+
+def test_focus_memory_is_bounded_and_keeps_latest_artifact_versions() -> None:
+    actions: list[dict[str, object]] = []
+    for index in range(20):
+        path = f"/tmp/app/file-{index}.py"
+        actions.append(
+            {
+                "call_id": f"file-{index}",
+                "tool": "workspace_file",
+                "arguments": json.dumps({"action": "write", "path": path}),
+                "outcome": json.dumps(
+                    {"action": "write", "path": path, "sha256": f"hash-{index}"}
+                ),
+                "ok": True,
+            }
+        )
+    for index in range(10):
+        path = f"/tmp/app/missing-{index}.py"
+        actions.append(
+            {
+                "call_id": f"missing-{index}",
+                "tool": "workspace_file",
+                "arguments": json.dumps({"action": "read", "path": path}),
+                "outcome": json.dumps(
+                    {
+                        "error": "ToolInputError",
+                        "message": f"path is not a file: {path}",
+                    }
+                ),
+                "ok": False,
+            }
+        )
+    actions.extend(
+        [
+            {
+                "call_id": "shared-old",
+                "tool": "workspace_file",
+                "arguments": json.dumps(
+                    {"action": "write", "path": "/tmp/app/shared.py"}
+                ),
+                "outcome": json.dumps(
+                    {
+                        "action": "write",
+                        "path": "/tmp/app/shared.py",
+                        "sha256": "old-hash",
+                    }
+                ),
+                "ok": True,
+            },
+            {
+                "call_id": "shared-new",
+                "tool": "workspace_file",
+                "arguments": json.dumps(
+                    {"action": "replace", "path": "/tmp/app/shared.py"}
+                ),
+                "outcome": json.dumps(
+                    {
+                        "action": "replace",
+                        "path": "/tmp/app/shared.py",
+                        "sha256": "new-hash",
+                    }
+                ),
+                "ok": True,
+            },
+        ]
+    )
+    task = {
+        "objective": "Build and validate the application.",
+        "completion_criteria": "Research, plan, implementation, and tests pass.",
+        "actions": actions,
+        "compaction": {"schema": "robit.omni.task-compaction.v1"},
+    }
+
+    focus = _focus_memory(task, expand_available=True, max_chars=2_400)
+    system = _task_system_prompt(
+        task, resident_context_tokens=4_096, expand_available=True
+    )
+
+    assert len(focus) <= 2_400
+    assert 'omitted_artifacts="0"' not in focus
+    assert 'omitted_failures="0"' not in focus
+    assert "shared-new" in focus
+    assert "new-hash" in focus
+    assert "shared-old" not in focus
+    assert "old-hash" not in focus
+    assert system.count("<focus_memory") == 1
+    # A 4K tier reserves 768 tokens for output and still has ample room for
+    # the current query/tool schema after pinning this system contract.
+    assert conservative_token_estimate(system) < 2_200
+
+
+def test_nonresident_task_evidence_can_be_found_without_an_evidence_id() -> None:
+    task = {
+        "evidence_records": [
+            {
+                "evidence_id": "old-plan",
+                "tool": "workspace_file",
+                "arguments": '{"path":"/tmp/app/docs/plan.md"}',
+                "result": '{"sha256":"old"}',
+            },
+            {
+                "evidence_id": "auth-test",
+                "tool": "shell",
+                "arguments": '{"command":"pytest tests/test_auth.py"}',
+                "result": '{"exit_code":0,"stdout":"4 passed"}',
+            },
+            {
+                "evidence_id": "new-plan",
+                "tool": "workspace_file",
+                "arguments": '{"path":"/tmp/app/docs/plan.md"}',
+                "result": '{"sha256":"new"}',
+            },
+        ]
+    }
+
+    plan = _search_task_evidence(task, "/tmp/app/docs/plan.md")
+    auth = _search_task_evidence(task, "test_auth.py 4 passed")
+
+    assert [item["evidence_id"] for item in plan] == ["new-plan", "old-plan"]
+    assert [item["evidence_id"] for item in auth] == ["auth-test"]
+    assert _search_task_evidence(task, "unrelated missing phrase") == []
 
 
 def test_checkpoint_prose_is_removed_from_recurrent_and_durable_history() -> None:
@@ -1651,6 +1813,16 @@ def test_query_results_transition_without_pinning_the_completed_query_tool() -> 
     ) == []
     assert _successor_tools(
         "browser_interact", {"error": "browser_navigation_error"}
+    ) == []
+    assert _successor_tools(
+        "web_fetch", {"error": "undiscovered_url", "allowed_urls": []}
+    ) == []
+    assert _successor_tools(
+        "web_fetch",
+        {
+            "error": "undiscovered_url",
+            "allowed_urls": ["https://example.test/discovered"],
+        },
     ) == []
 
 

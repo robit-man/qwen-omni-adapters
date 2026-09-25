@@ -139,7 +139,7 @@
       "type": "function",
       "function": {
         "name": "task_expand",
-        "description": "Page exact retained tool receipts back into working context by evidence ID after compaction. Use only when a tagged focus item is relevant but its compact record lacks a detail needed for the next action. Expansion restores evidence; it is not new progress and must not be cited as a fresh external result.",
+        "description": "Page exact retained tool receipts back into working context after compaction. Use evidence_ids for a tagged resident item, or query to locate omitted immutable evidence by exact path, URL, symbol, error, or other distinctive text. Expansion restores evidence; it is not new progress and must not be cited as a fresh external result.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -150,9 +150,18 @@
               },
               "minItems": 1,
               "maxItems": 8
+            },
+            "query": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 500,
+              "description": "Distinctive exact text used to locate nonresident task evidence when its evidence ID is not in the current focus ledger."
             }
           },
-          "required": ["evidence_ids"],
+          "anyOf": [
+            {"required": ["evidence_ids"]},
+            {"required": ["query"]}
+          ],
           "additionalProperties": false
         }
       }

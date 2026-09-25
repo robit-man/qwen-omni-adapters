@@ -110,14 +110,24 @@ available at the memory floor. Shell declares a bounded peak reserve and owns a
 runtime pressure watcher, while browser work and other substantive tools retain
 their declared admission policies.
 
-Background transcripts compact proactively before they exceed 28 messages or
-96 KiB, and are compacted before admission whenever host memory is inside the
-safety band. The deterministic retained checkpoint keeps the original
-objective and completion criteria, the newest spoken directions, durable
-progress, recent success and failure receipts, and the freshest concrete tool
-evidence. Older private reasoning and bulk tool output are discarded. The
-worker can also invoke `task_compact` when the transcript is noisy; its receipt
-reports before/after message and byte counts plus the retained evidence IDs.
+Background transcript limits are derived from the live resident comprehension
+window on every turn. At the 4K floor the raw recurrent chain is bounded to a
+32 KiB high-water mark, keeps four newest native messages after compaction, and
+allocates roughly 3 KiB of text to the pinned typed frontier; the limits expand
+at larger KV tiers up to 96 KiB, twelve messages, and an 8 KiB frontier. This is
+working-set eviction only. Exact bounded tool receipts are archived append-only
+before their turns leave L0 and remain recoverable with `task_expand`.
+
+The deterministic compacted chain contains one current system contract, one
+small page marker, and the newest native tool cycles. It never duplicates the
+focus ledger in both the system and checkpoint messages. The ledger coalesces
+repeated inspections/failures, keeps the newest resident version of a changed
+artifact, exposes counts of nonresident records, and retains exact evidence IDs
+for page-in. Omitted receipts can be located without a pre-known ID through the
+exact/lexical `task_expand` query path, then replayed verbatim. `task_compact`
+receipts report the live resident token tier, working-set limits, before/after
+message and byte counts, and retained evidence IDs so budget movement is
+observable rather than inferred.
 
 Every concrete background call is retained as a bounded audit record containing
 call ID, exact tool name, bounded/redacted arguments, outcome, and success
