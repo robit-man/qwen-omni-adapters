@@ -89,9 +89,10 @@ sound-only capture cannot consume the language or TTS stages. Leave it false
 for explicit environmental-audio questions.
 
 A live turn may intentionally return empty assistant content when the observed
-speech was not addressed to the client. An explicit sentence-initial different
-named addressee is resolved before language or tools and reports
-`adapter.tts_skipped_reason=speech_addressed_elsewhere`. Ambiguous speech still
+speech was not addressed to the client. A bounded closed-set semantic preflight
+resolves direct-address evidence before answer generation or tools and records
+`adapter.speech_addressee=self|other|ambiguous`. A different human addressee
+reports `adapter.tts_skipped_reason=speech_addressed_elsewhere`. Ambiguous speech still
 reaches the language stage, whose `<observe_only/>` control is removed and
 reported as `empty_assistant_response`. In both cases clients should retain the
 user transcript for continuity without rendering an assistant bubble or audio

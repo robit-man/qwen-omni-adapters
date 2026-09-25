@@ -28,7 +28,7 @@ from runtime.adapter_server import (
     TRAINED_AUDIO_SYSTEM_PROMPT,
     AdapterStageError,
     Config,
-    _explicit_other_addressee,
+    _live_addressee_messages,
     _natural_live_reply,
     _tts_blocks_for_request,
     _tts_text_blocks,
@@ -98,6 +98,7 @@ def test_adapter_contract_separates_wire_schema_from_bundle_schema() -> None:
     assert contract["compatibility"]["message_extensions"] == ["audios", "videos"]
     assert contract["media"]["video"]["max_items"] == 4
     assert "environmental" in contract["response"]["adapter"]["audio_observation"]
+    assert "ambiguous" in contract["response"]["adapter"]["speech_addressee"]
     assert "speech_addressed_elsewhere" in contract["response"]["adapter"][
         "tts_skipped_reason"
     ]
@@ -167,27 +168,26 @@ def test_natural_live_reply_converts_structured_observation_control_to_silence()
     assert _natural_live_reply("  <observe_only/>\n", "Maya, I will call tomorrow.") == ""
 
 
-@pytest.mark.parametrize(
-    ("transcript", "expected"),
-    [
-        ("Mia, what is 2 plus 3?", True),
-        ("Hey, Mia: what is 2 plus 3?", True),
-        ("MIA! What is 2 plus 3?", True),
-        ("Workshop-unit, what is 2 plus 3?", False),
-        ("workshop-unit, what is 2 plus 3?", False),
-        ("Mia is calling, what now?", False),
-        ("Haha, same, just vibing.", False),
-        ("Please, tell me the result.", False),
-        ("python, explain this error.", False),
-    ],
-)
-def test_explicit_other_addressee_is_a_narrow_runtime_identity_boundary(
-    transcript: str, expected: bool
+def test_live_addressee_gate_uses_identity_and_contrastive_semantics(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    assert (
-        _explicit_other_addressee(transcript, agent_name="workshop-unit")
-        is expected
-    )
+    monkeypatch.setenv("OMNI_AGENT_NAME", "workshop-unit")
+
+    messages = _live_addressee_messages("Mia what is two plus three.")
+
+    assert "agent named workshop-unit" in messages[0]["content"]
+    assert messages[-1] == {
+        "role": "user",
+        "content": "Mia what is two plus three.",
+    }
+    examples = {
+        messages[index]["content"]: messages[index + 1]["content"]
+        for index in range(1, len(messages) - 1, 2)
+    }
+    assert examples["Jordan what time is it?"] == "OTHER"
+    assert examples["Jordan is calling what now?"] == "AMBIGUOUS"
+    assert examples["Python explain this error."] == "AMBIGUOUS"
+    assert examples["workshop-unit what time is it?"] == "SELF"
 
 
 @pytest.mark.parametrize(
@@ -1456,6 +1456,17 @@ def test_live_model_may_observe_addressed_elsewhere_speech_without_tts() -> None
                     ]
                 },
             )
+        if request.url.host == "language":
+            body = json.loads(request.content)
+            assert "route live ASR turns" in body["messages"][0]["content"]
+            assert "tools" not in body
+            return httpx.Response(
+                200,
+                json={
+                    "message": {"role": "assistant", "content": "OTHER"},
+                    "done": True,
+                },
+            )
         raise AssertionError(f"unexpected backend {request.url.host}")
 
     parsed = parse_adapter_request(
@@ -1482,16 +1493,17 @@ def test_live_model_may_observe_addressed_elsewhere_speech_without_tts() -> None
         json.loads(chunk)
         for chunk in execute_stream(
             parsed,
-            _adapter_config(),
+            _adapter_config(live_addressee_gate=True),
             httpx.Client(transport=httpx.MockTransport(handler)),
         )
     ]
 
-    assert requested_hosts == ["comprehension"]
+    assert requested_hosts == ["comprehension", "language"]
     assert not any(event.get("type") == "audio_delta" for event in events)
     final = events[-1]["response"]
     assert final["message"]["content"] == ""
     assert final["adapter"]["input_transcript"] == "Maya, I'll call you tomorrow."
+    assert final["adapter"]["speech_addressee"] == "other"
     assert final["adapter"]["tts_skipped_reason"] == "speech_addressed_elsewhere"
 
 
@@ -1517,6 +1529,18 @@ def test_live_model_control_may_silence_ambiguous_room_speech() -> None:
                 },
             )
         if request.url.host == "language":
+            body = json.loads(request.content)
+            if "route live ASR turns" in body["messages"][0]["content"]:
+                return httpx.Response(
+                    200,
+                    json={
+                        "message": {
+                            "role": "assistant",
+                            "content": "AMBIGUOUS",
+                        },
+                        "done": True,
+                    },
+                )
             return httpx.Response(
                 200,
                 content=(
@@ -1550,15 +1574,16 @@ def test_live_model_control_may_silence_ambiguous_room_speech() -> None:
         json.loads(chunk)
         for chunk in execute_stream(
             parsed,
-            _adapter_config(),
+            _adapter_config(live_addressee_gate=True),
             httpx.Client(transport=httpx.MockTransport(handler)),
         )
     ]
 
-    assert requested_hosts == ["comprehension", "language"]
+    assert requested_hosts == ["comprehension", "language", "language"]
     assert not any(event.get("type") == "audio_delta" for event in events)
     final = events[-1]["response"]
     assert final["message"]["content"] == ""
+    assert final["adapter"]["speech_addressee"] == "ambiguous"
     assert final["adapter"]["tts_skipped_reason"] == "empty_assistant_response"
 
 
@@ -2121,6 +2146,16 @@ def _adapter_config(**overrides):
     }
     values.update(overrides)
     return Config(**values)
+
+
+def test_deployed_adapter_enables_semantic_live_addressee_gate_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OMNI_LIVE_ADDRESSEE_GATE", raising=False)
+    assert Config.from_environment().live_addressee_gate is True
+
+    monkeypatch.setenv("OMNI_LIVE_ADDRESSEE_GATE", "0")
+    assert Config.from_environment().live_addressee_gate is False
 
 
 # -- optional comprehension worker ---------------------------------------

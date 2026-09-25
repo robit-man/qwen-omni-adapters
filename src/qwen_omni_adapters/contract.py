@@ -242,6 +242,7 @@ def adapter_contract() -> dict[str, Any]:
                 "audio_observation": (
                     "tagged environmental and non-speech acoustic evidence when available"
                 ),
+                "speech_addressee": "self | other | ambiguous when the live gate ran",
                 "tts_skipped_reason": (
                     "required_speech_not_found | speech_addressed_elsewhere | "
                     "unresolved_tool_calls | empty_assistant_response"

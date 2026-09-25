@@ -90,6 +90,10 @@ class Config:
     spoken_max_sentences: int = 2
     spoken_max_tts_blocks: int = 4
     spoken_max_audio_seconds: float = 24.0
+    # Keep this false for direct test/programmatic construction so a caller
+    # does not acquire an unexpected extra backend request. Deployed adapters
+    # enable it by default in ``from_environment`` below.
+    live_addressee_gate: bool = False
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -146,6 +150,9 @@ class Config:
             ),
             spoken_max_audio_seconds=float(
                 os.environ.get("OMNI_SPOKEN_MAX_AUDIO_SECONDS", "24")
+            ),
+            live_addressee_gate=(
+                os.environ.get("OMNI_LIVE_ADDRESSEE_GATE", "1") == "1"
             ),
         )
 
@@ -386,73 +393,100 @@ def _is_live_spoken_turn(parsed: ParsedAdapterRequest) -> bool:
     return parsed.task == "chat" and parsed.require_speech
 
 
-_LIVE_GREETING_PREFIX = re.compile(r"^\s*(?:hey|hi|hello)\b[\s,]*", re.IGNORECASE)
-_LIVE_VOCATIVE_PREFIX = re.compile(
-    r"^\s*(?P<name>[^\W\d_][\w'’.-]*(?:\s+[^\W\d_][\w'’.-]*){0,2})"
-    r"\s*[,!:]\s*(?=\S)",
-    re.UNICODE,
+_LIVE_ADDRESSEE_SYSTEM = (
+    "You route live ASR turns for the agent named {agent_name}. Output exactly "
+    "SELF, OTHER, or AMBIGUOUS and nothing else. OTHER only for grammatical "
+    "direct address to a different human. SELF only for direct address to "
+    "{agent_name}. A name used as a subject or object, a topic, product, "
+    "technology word, interjection, or speech with no explicit addressee is "
+    "AMBIGUOUS. ASR often omits vocative commas."
 )
-_LIVE_NON_NAME_VOCATIVES = {
-    "actually",
-    "anyway",
-    "ha",
-    "haha",
-    "hmm",
-    "hm",
-    "listen",
-    "look",
-    "no",
-    "oh",
-    "okay",
-    "ok",
-    "please",
-    "right",
-    "so",
-    "sorry",
-    "sure",
-    "thanks",
-    "thank you",
-    "uh",
-    "um",
-    "wait",
-    "well",
-    "wow",
-    "yes",
-}
+_LIVE_ADDRESSEE_EXAMPLES = (
+    ("Jordan what time is it?", "OTHER"),
+    ("{agent_name} what time is it?", "SELF"),
+    ("Jordan is calling what now?", "AMBIGUOUS"),
+    ("Python explain this error.", "AMBIGUOUS"),
+    ("Actually tell me the result.", "AMBIGUOUS"),
+    ("What time is it?", "AMBIGUOUS"),
+)
+_LIVE_ADDRESSEE_VALUES = {"SELF", "OTHER", "AMBIGUOUS"}
 
 
-def _canonical_spoken_name(value: str) -> str:
-    """Normalize a spoken/display name without treating it as prompt text."""
+def _live_addressee_messages(transcript: str) -> list[dict[str, str]]:
+    """Build a bounded semantic turn-routing prompt from runtime identity."""
 
-    return " ".join(re.findall(r"[^\W\d_]+", value.casefold(), re.UNICODE))
+    agent_name = runtime_agent_name()
+    messages = [
+        {
+            "role": "system",
+            "content": _LIVE_ADDRESSEE_SYSTEM.format(agent_name=agent_name),
+        }
+    ]
+    for example, disposition in _LIVE_ADDRESSEE_EXAMPLES:
+        messages.extend(
+            (
+                {
+                    "role": "user",
+                    "content": example.format(agent_name=agent_name),
+                },
+                {"role": "assistant", "content": disposition},
+            )
+        )
+    messages.append({"role": "user", "content": transcript})
+    return messages
 
 
-def _explicit_other_addressee(
-    transcript: str, *, agent_name: str | None = None
-) -> bool:
-    """Detect only a high-confidence sentence-initial named vocative.
+def _classify_live_addressee(
+    transcript: str,
+    parsed: ParsedAdapterRequest,
+    config: Config,
+    client: httpx.Client,
+) -> str | None:
+    """Resolve live turn ownership without exposing tools or answer generation.
 
-    This boundary intentionally covers a much narrower case than general
-    addressee inference. Ambiguous room speech, gaze, conversational
-    continuation, and ordinary leading discourse words remain language/vision
-    decisions. A capitalized proper-name phrase followed by vocative
-    punctuation is strong enough to prevent an unrelated live utterance from
-    reaching tools or TTS.
+    The gate is semantic because ASR commonly drops vocative punctuation. It
+    shares the resident language trunk, emits one closed-set token, and fails
+    open to the normal multimodal path on any backend or format failure.
     """
 
-    candidate = _LIVE_GREETING_PREFIX.sub("", transcript, count=1)
-    match = _LIVE_VOCATIVE_PREFIX.match(candidate)
-    if match is None:
-        return False
-    displayed_name = match.group("name").strip()
-    words = displayed_name.split()
-    if not words or any(not word[0].isupper() for word in words):
-        return False
-    canonical = _canonical_spoken_name(displayed_name)
-    if not canonical or canonical in _LIVE_NON_NAME_VOCATIVES:
-        return False
-    own_name = _canonical_spoken_name(agent_name or runtime_agent_name())
-    return bool(own_name and canonical != own_name)
+    if not config.live_addressee_gate:
+        return None
+    messages = _live_addressee_messages(transcript)
+    if config.language_api == "openai":
+        payload: dict[str, Any] = {
+            "model": config.language_model or parsed.model,
+            "messages": messages,
+            "stream": False,
+            "temperature": 0,
+            "max_tokens": 8,
+            "cache_prompt": False,
+            "chat_template_kwargs": {"enable_thinking": False},
+            "stop": ["<|im_start|>", "<|im_end|>"],
+        }
+    else:
+        payload = {
+            "model": config.language_model or parsed.model,
+            "messages": messages,
+            "stream": False,
+            "think": False,
+            "cache_prompt": False,
+            "options": {"temperature": 0, "num_predict": 8},
+        }
+    try:
+        response = client.post(language_request_url(config), json=payload)
+        result = _language_result(
+            _json_response(response, "live addressee gate"), config.language_api
+        )
+        message = result.get("message")
+        if not isinstance(message, Mapping):
+            return "AMBIGUOUS"
+        value = str(message.get("content") or "").strip().upper()
+        return value if value in _LIVE_ADDRESSEE_VALUES else "AMBIGUOUS"
+    except (AdapterStageError, httpx.HTTPError, ValueError, TypeError) as exc:
+        logging.getLogger("omni.adapter").warning(
+            "live addressee gate failed open: %s", exc
+        )
+        return "AMBIGUOUS"
 
 
 def _current_user_text(
@@ -1922,6 +1956,7 @@ def _finish_response(
     audio_streamed: bool = False,
     suppress_tts: bool = False,
     suppress_tts_reason: str | None = None,
+    speech_addressee: str | None = None,
 ) -> dict[str, Any]:
     message = result.get("message")
     if not isinstance(message, dict):
@@ -1995,6 +2030,8 @@ def _finish_response(
         result["adapter"]["language_backend_model"] = config.language_model
     if tts_skipped_reason:
         result["adapter"]["tts_skipped_reason"] = tts_skipped_reason
+    if speech_addressee:
+        result["adapter"]["speech_addressee"] = speech_addressee.casefold()
     return result
 
 
@@ -2028,11 +2065,12 @@ def execute(
         )
 
     transcript = _observation_transcript(observation)
-    if (
-        _is_live_spoken_turn(parsed)
-        and transcript
-        and _explicit_other_addressee(transcript)
-    ):
+    speech_addressee = (
+        _classify_live_addressee(transcript, parsed, config, client)
+        if _is_live_spoken_turn(parsed) and transcript
+        else None
+    )
+    if speech_addressee == "OTHER":
         return _finish_response(
             _direct_response(parsed.model, ""),
             parsed,
@@ -2041,6 +2079,7 @@ def execute(
             observation=observation,
             executed=executed,
             suppress_tts_reason="speech_addressed_elsewhere",
+            speech_addressee=speech_addressee,
         )
 
     decision_tool_names = (
@@ -2084,6 +2123,7 @@ def execute(
         client,
         observation=observation,
         executed=executed,
+        speech_addressee=speech_addressee,
     )
 
 
@@ -2123,6 +2163,7 @@ def execute_stream(
 
     observation: str | None = None
     executed: list[str] = []
+    speech_addressee: str | None = None
 
     if "comprehension" in parsed.route:
         _require_comprehension(config)
@@ -2151,11 +2192,11 @@ def execute_stream(
             yield _stream_event("final", response=result)
             return
 
-        if (
-            _is_live_spoken_turn(parsed)
-            and transcript
-            and _explicit_other_addressee(transcript)
-        ):
+        if _is_live_spoken_turn(parsed) and transcript:
+            speech_addressee = _classify_live_addressee(
+                transcript, parsed, config, client
+            )
+        if speech_addressee == "OTHER":
             result = _finish_response(
                 _direct_response(parsed.model, ""),
                 parsed,
@@ -2164,6 +2205,7 @@ def execute_stream(
                 observation=observation,
                 executed=executed,
                 suppress_tts_reason="speech_addressed_elsewhere",
+                speech_addressee=speech_addressee,
             )
             yield _stream_event("final", response=result)
             return
@@ -2451,6 +2493,7 @@ def execute_stream(
         executed=executed,
         text_streamed=True,
         audio_streamed=audio_streamed,
+        speech_addressee=speech_addressee,
     )
     if tts_block_count:
         result["adapter"]["tts_blocks"] = tts_block_count

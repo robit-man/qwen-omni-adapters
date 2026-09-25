@@ -419,8 +419,10 @@ ambience, speaker activity, and uncertainty remain perception evidence for the
 language model.
 
 Live perception is not itself an obligation to speak. A sound-only capture is
-retained without language or TTS. A high-confidence sentence-initial different
-named addressee stops before language, tools, and TTS with
+retained without language or TTS. A closed-set semantic preflight uses the
+runtime-derived self name and ASR transcript before answer generation or tools.
+It records `speech_addressee=self|other|ambiguous`; a different human addressee
+stops before answer generation, tools, and TTS with
 `tts_skipped_reason=speech_addressed_elsewhere`. Ambiguous transcribed room
 speech remains a language decision; the model may return `<observe_only/>`,
 which is removed before history and TTS and reported as
