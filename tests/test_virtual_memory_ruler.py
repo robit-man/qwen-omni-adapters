@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import httpx
+
 from qwen_omni_adapters.virtual_memory.ruler import (
     RulerVirtualContextHarness,
     read_ruler_jsonl,
@@ -82,6 +84,8 @@ def test_hybrid_never_exposes_reference_field_to_responder() -> None:
     assert "SECRET_REFERENCE_NOT_IN_SOURCE" not in prompts[0]
     assert results[0]["pred"] == "answer"
     assert results[0]["outputs"] == ["SECRET_REFERENCE_NOT_IN_SOURCE"]
+    assert results[0]["virtual_context"]["inference_seconds"] is not None
+    assert results[0]["virtual_context"]["inference"] == {}
 
 
 def test_oracle_adds_reference_location_to_recursive_support() -> None:
@@ -225,3 +229,37 @@ def test_endpoint_runner_derives_the_active_llama_tokenizer_route() -> None:
         == "http://127.0.0.1:8901/tokenize"
     )
     assert _default_tokenize_endpoint("http://127.0.0.1:11434/api/chat", "ollama") is None
+
+
+def test_endpoint_runner_captures_usage_without_changing_the_prediction() -> None:
+    responder = EndpointResponder(
+        endpoint="http://llama/v1/chat/completions",
+        endpoint_style="openai",
+        model="model",
+        api_key=None,
+        timeout=1,
+        max_tokens=32,
+        think=False,
+    )
+    responder.client.close()
+    responder.client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _request: httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": "answer"}, "finish_reason": "stop"}
+                    ],
+                    "usage": {"prompt_tokens": 19, "completion_tokens": 2},
+                },
+            )
+        )
+    )
+    try:
+        assert responder("question") == "answer"
+        assert responder.last_metadata == {
+            "usage": {"prompt_tokens": 19, "completion_tokens": 2},
+            "finish_reason": "stop",
+        }
+    finally:
+        responder.close()

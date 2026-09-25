@@ -398,6 +398,8 @@ def prediction_record(
     *,
     prediction: str,
     baseline: str,
+    inference_seconds: float | None = None,
+    inference: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Preserve official fields and attach namespaced diagnostic metadata."""
 
@@ -408,6 +410,8 @@ def prediction_record(
         "ruler_v1_revision": RULER_V1_REVISION,
         "baseline": baseline,
         "answer_prefix_reattached": bool(sample.answer_prefix),
+        "inference_seconds": inference_seconds,
+        "inference": dict(inference or {}),
         **{
             key: value
             for key, value in asdict(prepared).items()
@@ -430,14 +434,23 @@ def run_samples(
     for sample in samples:
         prepared = harness.prepare(sample, baseline=baseline)
         prediction = ""
+        inference_seconds = None
+        inference: Mapping[str, Any] | None = None
         if responder is not None and (prepared.answer_allowed or allow_insufficient):
+            inference_started = time.perf_counter()
             prediction = str(responder(prepared.prompt)).strip()
+            inference_seconds = time.perf_counter() - inference_started
+            metadata = getattr(responder, "last_metadata", None)
+            if isinstance(metadata, Mapping):
+                inference = metadata
         records.append(
             prediction_record(
                 sample,
                 prepared,
                 prediction=prediction,
                 baseline=baseline,
+                inference_seconds=inference_seconds,
+                inference=inference,
             )
         )
     return records

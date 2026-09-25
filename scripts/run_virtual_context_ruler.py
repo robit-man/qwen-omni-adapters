@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,7 @@ class EndpointResponder:
         self.model = model
         self.max_tokens = max_tokens
         self.think = think
+        self.last_metadata: dict[str, Any] = {}
 
     def _payload(self, prompt: str) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -77,7 +79,19 @@ class EndpointResponder:
             ) from exc
         body = response.json()
         if self.endpoint_style == "openai":
-            return str(body["choices"][0]["message"]["content"])
+            choice = body["choices"][0]
+            self.last_metadata = {
+                "usage": body.get("usage") if isinstance(body.get("usage"), dict) else {},
+                "finish_reason": choice.get("finish_reason"),
+            }
+            return str(choice["message"]["content"])
+        self.last_metadata = {
+            "usage": {
+                "prompt_tokens": body.get("prompt_eval_count"),
+                "completion_tokens": body.get("eval_count"),
+            },
+            "finish_reason": body.get("done_reason"),
+        }
         return str(body["message"]["content"])
 
     def close(self) -> None:
@@ -111,6 +125,14 @@ def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         for record in records:
             handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def _percentile(values: list[float], quantile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = max(0, math.ceil(len(ordered) * quantile) - 1)
+    return ordered[index]
 
 
 def main() -> int:
@@ -182,6 +204,9 @@ def main() -> int:
         **({"token_counter": token_counter} if token_counter is not None else {}),
     )
     summaries = []
+    all_inference_seconds: list[float] = []
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
     try:
         for input_path in files:
             samples = read_ruler_jsonl(input_path, limit=arguments.limit)
@@ -197,6 +222,17 @@ def main() -> int:
                 parser.error(f"refusing to overwrite existing output: {output_path}")
             _write_jsonl(output_path, records)
             contexts = [record["virtual_context"] for record in records]
+            inference_seconds = [
+                float(item["inference_seconds"])
+                for item in contexts
+                if item.get("inference_seconds") is not None
+            ]
+            all_inference_seconds.extend(inference_seconds)
+            for item in contexts:
+                usage = item.get("inference", {}).get("usage", {})
+                if isinstance(usage, dict):
+                    total_prompt_tokens += int(usage.get("prompt_tokens") or 0)
+                    total_completion_tokens += int(usage.get("completion_tokens") or 0)
             scores = [
                 ruler_string_match_score(sample.task, record["pred"], sample.references)
                 for sample, record in zip(samples, records, strict=True)
@@ -211,6 +247,8 @@ def main() -> int:
                     "score": (
                         sum(scores) / max(1, len(scores)) if responder is not None else None
                     ),
+                    "p50_inference_seconds": _percentile(inference_seconds, 0.5),
+                    "p95_inference_seconds": _percentile(inference_seconds, 0.95),
                     "sufficient": sum(bool(item["sufficient"]) for item in contexts),
                     "mean_compression_ratio": (
                         sum(float(item["compression_ratio"]) for item in contexts)
@@ -236,6 +274,10 @@ def main() -> int:
             if responder is not None
             else None
         ),
+        "p50_inference_seconds": _percentile(all_inference_seconds, 0.5),
+        "p95_inference_seconds": _percentile(all_inference_seconds, 0.95),
+        "prompt_tokens": total_prompt_tokens,
+        "completion_tokens": total_completion_tokens,
     }
     arguments.output_dir.mkdir(parents=True, exist_ok=True)
     report_path = arguments.output_dir / "virtual-context-run.json"
