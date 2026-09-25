@@ -963,6 +963,18 @@ def test_compaction_control_waits_for_new_external_evidence_after_receipt() -> N
     )
     assert _compaction_available(messages) is False
 
+    messages.insert(
+        -1,
+        {
+            "role": "tool",
+            "tool_name": "shell",
+            "tool_call_id": "real-evidence",
+            "content": '{"exit_code": 0, "stdout": "verified"}',
+        },
+    )
+    assert _freshest_evidence_id(messages) == "real-evidence"
+    assert _checkpoint_available(messages) is True
+
     messages.append(
         {
             "role": "tool",

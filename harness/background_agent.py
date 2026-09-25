@@ -946,6 +946,7 @@ def _freshest_evidence_id(messages: list[dict[str, Any]]) -> str:
             "",
             "tool_search",
             "task_checkpoint",
+            "task_compact",
             "task_recovery",
         }:
             continue
@@ -970,6 +971,11 @@ def _checkpoint_available(messages: list[dict[str, Any]]) -> bool:
         name = str(message.get("tool_name") or "")
         if name in {"task_checkpoint", "task_recovery"}:
             latest_control = index
+        elif name == "task_compact":
+            # Compaction changes only the representation of already observed
+            # state. It is neither task evidence nor a reason to invalidate a
+            # checkpoint against the newest real external result.
+            continue
         elif _is_duplicate_tool_result(message):
             # A locally rejected replay performed no external action and cannot
             # invalidate the preceding successful evidence. Keep checkpointing
