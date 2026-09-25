@@ -129,8 +129,10 @@ def test_guided_bridge_disables_legacy_eviction_and_blocking_smoke() -> None:
     assert "OMNI_CALL_SPEECH_EVICT_UNIT" in install_body
     assert "OMNI_ENABLE_COMPREHENSION=1" in install_body
     assert "OMNI_COMPREHENSION_CONTEXT_TOKENS=16384" in install_body
-    assert "OMNI_COMPREHENSION_CACHE_TYPE_K=f16" in install_body
-    assert "OMNI_COMPREHENSION_CACHE_TYPE_V=f16" in install_body
+    assert "if [[ $PROFILE == ornith15 ]] && is_tegra" in install_body
+    assert "cache_type=q8_0" in install_body
+    assert "OMNI_COMPREHENSION_CACHE_TYPE_K=%s" in install_body
+    assert "OMNI_COMPREHENSION_CACHE_TYPE_V=%s" in install_body
     assert "OMNI_VIRTUAL_CONTEXT_MODE=active" in install_body
     assert "OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=16384" in install_body
     assert "OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL=http://127.0.0.1:8901/tokenize" in install_body

@@ -222,8 +222,9 @@ round/call/stall-bounded slices. Configure the policy with
 
 KV storage precision is independently configurable with
 `OMNI_COMPREHENSION_CACHE_TYPE_K` and
-`OMNI_COMPREHENSION_CACHE_TYPE_V`. The production default remains `f16`.
-The pinned llama.cpp build also exposes `q8_0`, `q4_0`, `q4_1`, `iq4_nl`,
+`OMNI_COMPREHENSION_CACHE_TYPE_V`. The general production default remains
+`f16`; guided Tegra deployment selects the separately qualified `q8_0` profile
+for the Ornith audio bridge. The pinned llama.cpp build also exposes `q8_0`, `q4_0`, `q4_1`, `iq4_nl`,
 `q5_0`, and `q5_1`; the launcher accounts for their exact block storage when
 choosing a context tier and invalidates live calibration when either format
 changes. This is a physical L0 optimization, not semantic memory. Quantized

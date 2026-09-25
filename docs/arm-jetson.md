@@ -191,8 +191,13 @@ controlled benchmarks, but larger values are not the supported Jetson default.
 
 `OMNI_COMPREHENSION_CACHE_TYPE_K` and
 `OMNI_COMPREHENSION_CACHE_TYPE_V` separately control the llama.cpp L0 KV
-formats. Both default to `f16`; `q8_0` and `q4_0` are experimental until the
-selected bridge passes answer-level fidelity and long-run memory gates. The
+formats. The guided 32 GB Tegra deployment uses `q8_0` for the qualified Ornith
+audio bridge; other model/platform pairs retain the general `f16` default until
+they pass equivalent live gates. The qualified q8 run held a 16,384-token worker
+through sealed 256K domain answers, text/audio/image comprehension, resident
+cloned and streamed TTS, post-TTS ASR, and structured tools without a restart or
+governor downshift. `q4_0` remains experimental: its sealed domain answers passed,
+but the live tool gate selected an incorrect GUI route and was rejected. The
 launcher derives its admission slope from exact block bytes and resets its
 calibration when the format contract changes. The pinned build has no 2-bit KV
 format, so q4 testing is only a lower-precision cache ablation inspired by the

@@ -1,0 +1,162 @@
+{
+  "schema": "robit.virtual-context-kv-ablation-jetson.v1",
+  "generated_at": "2026-09-25T10:22:40-07:00",
+  "runtime_revision": "0ad914a4953211fc01cd5b25b77a5128a9cd09fe",
+  "runtime": {
+    "host_class": "NVIDIA Jetson AGX Orin 32 GB",
+    "architecture": "aarch64",
+    "jetpack_l4t": "R36.3.0",
+    "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+    "configured_context_ceiling": 16384,
+    "parallel_slots": 1,
+    "persistent_tts": true,
+    "pointing_worker_resident": true,
+    "cache_prompt": false
+  },
+  "cache_storage": {
+    "f16": {
+      "kv_gib_per_token": 0.0001220703125,
+      "relative_bytes": 1.0
+    },
+    "q8_0": {
+      "kv_gib_per_token": 0.000064849853515625,
+      "relative_bytes": 0.53125,
+      "reduction_from_f16": 0.46875
+    },
+    "q4_0": {
+      "kv_gib_per_token": 0.000034332275390625,
+      "relative_bytes": 0.28125,
+      "reduction_from_f16": 0.71875
+    },
+    "measurement_basis": "Exact llama.cpp GGUF block bytes for key and value caches; this is L0 KV storage, not model-weight quantization.",
+    "kivi_claim": false,
+    "kivi_note": "The pinned backend exposes no 2-bit KV format. q4_0 is a lower-precision cache ablation, not a KIVI reproduction."
+  },
+  "f16_branch": {
+    "outcome": "rejected_for_16k_on_this_stack",
+    "initial_context_tokens": 16384,
+    "initial_available_before_gib": 16.18572235107422,
+    "initial_available_after_gib": 7.84456,
+    "failure": "The comprehension worker exited nonzero after the heavy multimodal/tool workload; the launcher recorded the failed 16K tier.",
+    "next_supervised_context_tokens": 8192,
+    "post_recovery_available_before_gib": 16.147579193115234,
+    "post_recovery_available_after_gib": 8.274101257324219,
+    "functional_gate_before_recovery": "pass",
+    "qualification": false
+  },
+  "q8_branch": {
+    "sealed_domain": {
+      "seed": 26092509,
+      "source_tokens": 256000,
+      "source_sha256": "2b8085daab368d76b8bd7b71ce8b0f28033434fc7c918b11cd2d68043deaa1cc",
+      "preparation_report_sha256": "19d4ea46982b9f492f50300279e2fb27d87ecf4270895384a7593b161c85407c",
+      "live_report_sha256": "d9c25109aacb3ef3f923412716a941b8c4137f1bf1b603fbab763bdf1ba44a60",
+      "scenarios": 10,
+      "answered": 10,
+      "passed": 10,
+      "sufficient": 10,
+      "exact_provenance": 10,
+      "prompt_tokens": 5678,
+      "completion_tokens": 1107,
+      "p50_inference_seconds": 6.672915968003508,
+      "p95_inference_seconds": 24.739444599996204
+    },
+    "pre_fix_pressure_diagnostic": {
+      "functional_gate": "pass",
+      "context_tokens_after_gate": 16384,
+      "deferred_next_start_cap": 8192,
+      "root_cause": "A GUI tool result could serialize a base64 screenshot into role=tool text, inflating prompt work and retained memory.",
+      "disposition": "The pressure result was retained and the protocol defect was fixed before qualification."
+    },
+    "post_fix_combined_gate": {
+      "revision": "0ad914a4953211fc01cd5b25b77a5128a9cd09fe",
+      "pre_state_sha256": "d6220c043c3facaee7cc3b09a62ae8dbbd2fae79944bae12871e8f2f6fd0fb42",
+      "smoke_report_sha256": "be7ed4dd662f8d316a7c2a6a21a13765ef5a6e1887b79b91f01d2b95ea72ea2d",
+      "elapsed_seconds": 132.67,
+      "checks": {
+        "status": "pass",
+        "text": "pass",
+        "audio": "pass",
+        "audio_tts": "pass",
+        "image": "pass",
+        "tts": "pass",
+        "tts_stream": "pass",
+        "post_tts_asr": "pass",
+        "tool_capabilities": "pass",
+        "tool_arithmetic": "pass",
+        "tool_runtime": "pass",
+        "tool_clock": "pass"
+      },
+      "daemon_pid_unchanged": true,
+      "systemd_restarts": 0,
+      "harness_active": true,
+      "harness_restarts": 0,
+      "resident_context_tokens_after_gate": 16384,
+      "context_cap_after_gate": null,
+      "last_failure_after_gate": null,
+      "available_before_load_gib": 16.450260162353516,
+      "available_after_load_gib": 8.192543029785156,
+      "final_mem_available_gib": 4.48
+    },
+    "qualification": true,
+    "qualified_scope": "Ornith 1.5 audio bridge on the tested 32 GB AGX Orin, pinned llama.cpp revision and JetPack/L4T release."
+  },
+  "q4_branch": {
+    "sealed_domain": {
+      "seed": 26092510,
+      "source_tokens": 256000,
+      "source_sha256": "96bc277e22847db04306f34894a3418667f1e254ee07d31d9262eaab66e1d5f0",
+      "preparation_report_sha256": "bc97fcae03f37b2a2bcd7583d4b8b4739d59c8bca651ecd07afd1c8dab824cc7",
+      "live_report_sha256": "2e40c2722fa195ea324eff266de3cb40db3ec74c8c7bb14ff7d05204cc5f555b",
+      "scenarios": 10,
+      "answered": 10,
+      "passed": 10,
+      "sufficient": 10,
+      "exact_provenance": 10,
+      "prompt_tokens": 5558,
+      "completion_tokens": 950,
+      "p50_inference_seconds": 4.486778842998319,
+      "p95_inference_seconds": 18.45131510899955
+    },
+    "combined_gate": {
+      "outcome": "fail",
+      "failure_stage": "tool_arithmetic",
+      "observed_route": [
+        "tool_search",
+        "gui_interact"
+      ],
+      "expected_concrete_tool": "safe_math_eval",
+      "http_status": 502,
+      "memory_failure": false,
+      "context_tokens_after_failure": 16384,
+      "context_cap_after_failure": null,
+      "systemd_restarts": 0
+    },
+    "qualification": false,
+    "rejection_reason": "Passing sparse/topological answer tasks did not preserve structured tool-selection capability; no reroll was used to convert the failure into a pass."
+  },
+  "selected_profile": {
+    "cache_type_k": "q8_0",
+    "cache_type_v": "q8_0",
+    "deployment_scope": "guided Ornith bridge deployment on Tegra",
+    "fallback_for_unqualified_profiles": "f16",
+    "physical_context_tokens": 16384,
+    "raw_history_policy": "append-only immutable external evidence; physical KV remains an ephemeral L0 working set"
+  },
+  "anti_reward_hacking": {
+    "fresh_seeds_selected_and_prepared_before_each_quantized_run": true,
+    "f16_failure_retained": true,
+    "q8_pre_fix_pressure_result_retained": true,
+    "q4_domain_pass_and_tool_failure_both_retained": true,
+    "q4_not_rerun_for_a_favorable_tool_sample": true,
+    "full_multimodal_voice_and_tool_gate_required": true,
+    "post_gate_service_and_memory_state_audited": true,
+    "scope_caveat": "This qualifies one model/platform/backend combination. It does not establish universal q8 fidelity, q4 safety, native 256K attention equivalence, or a 2-bit KIVI result."
+  },
+  "privacy": {
+    "access_token_retained": false,
+    "capability_url_retained": false,
+    "hostname_or_network_address_retained": false,
+    "user_conversation_retained": false
+  }
+}

@@ -479,6 +479,9 @@ GGUF, derives KV bytes per token, samples live available memory, and chooses the
 largest context tier that fits with the runtime memory reserve. Compact models
 may have a 262,144-token native positional range, but the managed compact
 profiles intentionally expose a 16,384-token resident working-set ceiling.
+The guided Ornith-on-Tegra profile uses its live-qualified q8 KV cache; other
+model/platform pairs retain f16 until they pass the same answer, multimodal,
+voice, tool, and memory-pressure gates.
 Longer history is paged through the lossless virtual-context layer instead of
 preallocating a nominal 256K KV cache. First load uses the conservative complete
 component-byte footprint; later loads also use measured residency. It records

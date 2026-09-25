@@ -1,0 +1,86 @@
+schema: https://www.w3.org/TR/prov-o/
+record_id: urn:aiwg:provenance:virtual-context-kv-ablation-jetson
+generated_at: "2026-09-25T10:22:40-07:00"
+
+entities:
+  - id: urn:aiwg:artifact:.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
+    type: evidence_record
+    path: .aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
+    sha256: 9636cc381e27fb023c38b91b29b799ad0b7f2c95bfdedea8b85e08cb62dd480a
+    schema: robit.virtual-context-kv-ablation-jetson.v1
+  - id: urn:aiwg:artifact:.aiwg/research/reports/long-context-virtualization-findings.md
+    type: research_synthesis
+    path: .aiwg/research/reports/long-context-virtualization-findings.md
+  - id: urn:git:qwen-omni-adapters:0ad914a4953211fc01cd5b25b77a5128a9cd09fe
+    type: software_revision
+    revision: 0ad914a4953211fc01cd5b25b77a5128a9cd09fe
+  - id: urn:aiwg:runtime-report:q8-domain-26092509
+    type: sealed_live_report
+    sha256: d9c25109aacb3ef3f923412716a941b8c4137f1bf1b603fbab763bdf1ba44a60
+  - id: urn:aiwg:runtime-report:q4-domain-26092510
+    type: sealed_live_report
+    sha256: 2e40c2722fa195ea324eff266de3cb40db3ec74c8c7bb14ff7d05204cc5f555b
+  - id: urn:aiwg:runtime-report:q8-combined-smoke
+    type: live_validation_report
+    sha256: be7ed4dd662f8d316a7c2a6a21a13765ef5a6e1887b79b91f01d2b95ea72ea2d
+
+activities:
+  - id: urn:aiwg:activity:kv-precision-ablation-2026-09-25
+    type: generation
+    started_at: "2026-09-25T00:00:00-07:00"
+    ended_at: "2026-09-25T10:22:40-07:00"
+    used:
+      - urn:git:qwen-omni-adapters:0ad914a4953211fc01cd5b25b77a5128a9cd09fe
+      - urn:aiwg:runtime-report:q8-domain-26092509
+      - urn:aiwg:runtime-report:q4-domain-26092510
+      - urn:aiwg:runtime-report:q8-combined-smoke
+    generated:
+      - urn:aiwg:artifact:.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
+  - id: urn:aiwg:activity:kv-evidence-validation-2026-09-25
+    type: validation
+    ended_at: "2026-09-25T10:22:40-07:00"
+    used:
+      - urn:aiwg:artifact:.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
+      - urn:aiwg:artifact:.aiwg/research/reports/long-context-virtualization-findings.md
+
+agents:
+  - id: urn:aiwg:agent:codex
+    type: software_agent
+    role: investigator
+  - id: urn:aiwg:agent:jetson-agx-orin
+    type: hardware_agent
+    role: live_test_target
+    attributes:
+      architecture: aarch64
+      l4t_release: R36.3.0
+      memory_class_gib: 32
+
+relations:
+  wasGeneratedBy:
+    - entity: urn:aiwg:artifact:.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
+      activity: urn:aiwg:activity:kv-precision-ablation-2026-09-25
+  wasDerivedFrom:
+    - generated: urn:aiwg:artifact:.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
+      source: urn:git:qwen-omni-adapters:0ad914a4953211fc01cd5b25b77a5128a9cd09fe
+    - generated: urn:aiwg:artifact:.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
+      source: urn:aiwg:runtime-report:q8-domain-26092509
+    - generated: urn:aiwg:artifact:.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
+      source: urn:aiwg:runtime-report:q4-domain-26092510
+    - generated: urn:aiwg:artifact:.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
+      source: urn:aiwg:runtime-report:q8-combined-smoke
+  wasAssociatedWith:
+    - activity: urn:aiwg:activity:kv-precision-ablation-2026-09-25
+      agent: urn:aiwg:agent:codex
+    - activity: urn:aiwg:activity:kv-precision-ablation-2026-09-25
+      agent: urn:aiwg:agent:jetson-agx-orin
+  wasAttributedTo:
+    - entity: urn:aiwg:artifact:.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
+      agent: urn:aiwg:agent:codex
+
+validation:
+  evidence_policy: retain_positive_and_negative_branches
+  privacy_scrubbed: true
+  access_tokens_retained: false
+  capability_urls_retained: false
+  user_conversation_retained: false
+  qualification_scope: Ornith 1.5 audio bridge on the tested 32 GB AGX Orin and pinned backend

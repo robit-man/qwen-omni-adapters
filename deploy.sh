@@ -383,7 +383,15 @@ backup_service_unit() {
 }
 
 install_environment() {
-  local temporary
+  local temporary cache_type=f16
+  # The Ornith bridge's q8 KV profile is qualified on the 32 GB AGX Orin:
+  # sealed 256K domain answers, text/audio/image, cloned streaming TTS,
+  # post-TTS ASR, and structured tool routing all pass while the same 16K
+  # worker stays resident above the runtime reserve. Keep f16 everywhere else
+  # until the exact model/platform pair has equivalent live evidence.
+  if [[ $PROFILE == ornith15 ]] && is_tegra; then
+    cache_type=q8_0
+  fi
   temporary=$(mktemp "$REPO_ROOT/.env.deploy.XXXXXX")
   if [[ -f "$REPO_ROOT/.env" ]]; then
     awk '!/^OMNI_PROFILE=/ && !/^OMNI_MODEL=/ && !/^OMNI_LANGUAGE_MODEL=/ \
@@ -407,11 +415,8 @@ install_environment() {
     # the lossless virtual-context hierarchy rather than an oversized Tegra KV
     # allocation that competes with vision, TTS, and the desktop.
     printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=16384\n'
-    # Keep exact fp16 cache behavior as the production default. q8_0/q4_0 are
-    # explicit experimental profiles until their answer-level fidelity gates
-    # pass for the selected model and JetPack/llama.cpp revision.
-    printf 'OMNI_COMPREHENSION_CACHE_TYPE_K=f16\n'
-    printf 'OMNI_COMPREHENSION_CACHE_TYPE_V=f16\n'
+    printf 'OMNI_COMPREHENSION_CACHE_TYPE_K=%s\n' "$cache_type"
+    printf 'OMNI_COMPREHENSION_CACHE_TYPE_V=%s\n' "$cache_type"
     # The 16K/256K live RULER gate is accepted: use the lossless hierarchy as
     # the production working-set allocator. Operators can still explicitly
     # select shadow/off in .env for diagnostic comparison.

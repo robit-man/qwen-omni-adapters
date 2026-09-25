@@ -536,6 +536,39 @@ destroyed afterward, and both core and indicator remained active with zero resta
 The sanitized runtime record is
 `.aiwg/testing/evidence/virtual-context-recurrent-live-jetson.json`.
 
+### Physical KV precision ablation on the live Orin
+
+The L0 cache experiment was kept separate from semantic memory. Exact llama.cpp block
+storage gives combined key/value slopes of 0.0001220703125 GiB/token for f16,
+0.000064849853515625 for q8_0, and 0.000034332275390625 for q4_0. Thus q8_0 uses
+53.125% of f16 KV bytes and q4_0 uses 28.125%; neither changes the immutable corpus,
+retrieval logic, or model weights. The backend has no 2-bit KV format, so this does
+not reproduce KIVI.
+
+The f16 Ornith profile initially admitted 16,384 tokens but exited nonzero after the
+heavy multimodal/tool workload and correctly capped the next supervised start at
+8,192. A pre-fix q8 run passed the functional gate but also recorded low headroom.
+Diagnosis found that a rendered GUI tool result could serialize PNG base64 inside
+`role=tool` text. That made image bytes consume language tokens and model work. The
+fixed protocol carries the newest screenshot as a native one-turn image attachment,
+keeps only bounded metadata/digest in the tool receipt, and projects binary media out
+of the textual context charge.
+
+After that root fix, q8_0 passed a pre-sealed ten-family 256K domain run 10/10 with
+exact provenance, then passed text, ASR, image comprehension, direct ASR-to-cloned
+TTS, streamed TTS, post-TTS ASR, and all capability/arithmetic/runtime/clock tool
+routes. The same 16,384-token worker and daemon PID remained resident, both managed
+services had zero restarts, the governor recorded no cap or failure, and 4.48 GiB
+remained available at the final audit. This qualifies q8_0 only for the tested Ornith
+bridge/32 GB Orin/backend revision; the guided deployer retains f16 elsewhere.
+
+q4_0 also passed a separately pre-sealed 256K domain seed 10/10, but its combined
+gate selected `gui_interact` after calculator discovery instead of `safe_math_eval`
+and ended with a 502. The service and 16K tier remained healthy, proving this was a
+capability failure rather than OOM. q4 was rejected without rerolling the stochastic
+tool case. The complete negative and positive ledger is retained in
+`.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json`.
+
 ## Required next experiments
 
 - Repeat the completed 16K–1M domain curve with additional independent sealed seeds;
