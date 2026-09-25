@@ -184,6 +184,32 @@ _STRICT_VISUAL_TARGET = re.compile(
     re.IGNORECASE,
 )
 
+_VISUAL_REFERRING_EXPRESSIONS = (
+    re.compile(
+        r"\bclick\s+(?:on\s+)?(?:the\s+)?(?P<label>[\w][^\"“”<>\n]{0,120}?)"
+        r"(?=\s*(?:[\"”.;,]|\bat\b|\bin\b|\bnear\b|\blocated\b|$))",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\btarget\s+(?:is\s+|[-—:]\s*)(?:the\s+)?"
+        r"(?P<label>[\w][^\"“”<>\n]{0,120}?)"
+        r"(?=\s*(?:[\"”.;,]|\bat\b|\bin\b|\bnear\b|\blocated\b|$))",
+        re.IGNORECASE,
+    ),
+)
+
+
+def _visual_referring_expression(observation: str) -> str:
+    """Return one unambiguous natural-language target from current evidence."""
+
+    labels: dict[str, str] = {}
+    for pattern in _VISUAL_REFERRING_EXPRESSIONS:
+        for match in pattern.finditer(observation):
+            label = " ".join(match.group("label").split()).strip(" -—:,.\"")
+            if label:
+                labels.setdefault(label.casefold(), label[:160])
+    return next(iter(labels.values())) if len(labels) == 1 else ""
+
 
 def _ground_visual_click(
     arguments: Mapping[str, Any], observation: str
@@ -197,20 +223,30 @@ def _ground_visual_click(
     ):
         return grounded, None
     matches = list(_STRICT_VISUAL_TARGET.finditer(observation))
-    if len(matches) != 1:
-        return grounded, None
-    match = matches[0]
-    x, y = int(match.group("x")), int(match.group("y"))
-    if not 0 <= x <= 1000 or not 0 <= y <= 1000:
-        return grounded, None
-    label = " ".join(match.group("label").split())[:160]
     proposed = {"x": grounded.get("x"), "y": grounded.get("y")}
-    grounded.update({"x": x, "y": y, "target": label})
+    if len(matches) == 1:
+        match = matches[0]
+        x, y = int(match.group("x")), int(match.group("y"))
+        if not 0 <= x <= 1000 or not 0 <= y <= 1000:
+            return grounded, None
+        label = " ".join(match.group("label").split())[:160]
+        grounded.update({"x": x, "y": y, "target": label})
+        return grounded, {
+            "source": "strict_current_visual_observation",
+            "target": label,
+            "proposed": proposed,
+            "executed": {"x": x, "y": y},
+        }
+    if matches:
+        return grounded, None
+    label = _visual_referring_expression(observation)
+    if not label:
+        return grounded, None
+    grounded["target"] = label
     return grounded, {
-        "source": "strict_current_visual_observation",
+        "source": "current_visual_referring_expression",
         "target": label,
         "proposed": proposed,
-        "executed": {"x": x, "y": y},
     }
 
 
@@ -2187,10 +2223,15 @@ class BackgroundAgent:
                         raise
                     result = response.get("result", response)
                     if grounding_receipt is not None and isinstance(result, Mapping):
-                        result = {
-                            **result,
-                            "visual_grounding": grounding_receipt,
-                        }
+                        existing_grounding = result.get("visual_grounding")
+                        result = dict(result)
+                        if isinstance(existing_grounding, Mapping):
+                            result["visual_grounding"] = {
+                                **existing_grounding,
+                                "semantic_source": grounding_receipt,
+                            }
+                        else:
+                            result["visual_grounding"] = grounding_receipt
                     if (
                         isinstance(result, Mapping)
                         and result.get("error") == "resource_pressure"

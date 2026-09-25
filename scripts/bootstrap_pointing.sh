@@ -32,9 +32,11 @@ l4t_release=$(sed -n 's/^# R\([0-9][0-9]*\) (release), REVISION: \([0-9][0-9.]*\
 case $l4t_release in
   R36.2*|R36.3*)
     torch_wheel='https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl'
+    torch_version_prefix='2.4.0a0+07cecf4168.nv24.'
     ;;
   R36.4*|R36.5*|R36.6*)
     torch_wheel='https://developer.download.nvidia.com/compute/redist/jp/v61/pytorch/torch-2.5.0a0+872d972e41.nv24.08.17622132-cp310-cp310-linux_aarch64.whl'
+    torch_version_prefix='2.5.0a0+872d972e41.nv24.'
     ;;
   *)
     printf 'Unsupported or unknown JetPack 6 L4T release: %s\n' "${l4t_release:-unknown}" >&2
@@ -44,7 +46,20 @@ esac
 
 "$PYTHON" -m venv "$POINTING_VENV"
 "$POINTING_VENV/bin/python" -m pip install --upgrade pip setuptools wheel
-"$POINTING_VENV/bin/python" -m pip install 'numpy<2' "$torch_wheel"
+"$POINTING_VENV/bin/python" -m pip install 'numpy<2'
+if ! "$POINTING_VENV/bin/python" - "$torch_version_prefix" <<'PY'
+import importlib.metadata
+import sys
+
+try:
+    installed = importlib.metadata.version("torch")
+except importlib.metadata.PackageNotFoundError:
+    installed = ""
+raise SystemExit(0 if installed.startswith(sys.argv[1]) else 1)
+PY
+then
+  "$POINTING_VENV/bin/python" -m pip install "$torch_wheel"
+fi
 "$POINTING_VENV/bin/python" -m pip install \
   'transformers==4.51.3' 'accelerate==1.10.1' 'Pillow>=11.0.0'
 

@@ -135,6 +135,29 @@ def test_ambiguous_visual_targets_stay_with_language_reasoning() -> None:
     assert _ground_visual_click(proposed, observation) == (proposed, None)
 
 
+def test_natural_current_visual_instruction_supplies_point_head_referent() -> None:
+    proposed = {
+        "action": "visual_click",
+        "coordinate_unit": "normalized_1000",
+        "x": 840,
+        "y": 366,
+    }
+    observation = (
+        '<visual_observation>Screen shows a game titled "Stage 1 of 3 — click '
+        'the BLUE TRIANGLE". The instruction identifies one target — the blue '
+        "triangle at row 2, column 4.</visual_observation>"
+    )
+
+    grounded, receipt = _ground_visual_click(proposed, observation)
+
+    assert grounded == {**proposed, "target": "BLUE TRIANGLE"}
+    assert receipt == {
+        "source": "current_visual_referring_expression",
+        "target": "BLUE TRIANGLE",
+        "proposed": {"x": 840, "y": 366},
+    }
+
+
 def test_computer_action_scope_keeps_durable_state_and_two_fresh_motor_cycles() -> None:
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": "task policy"},
