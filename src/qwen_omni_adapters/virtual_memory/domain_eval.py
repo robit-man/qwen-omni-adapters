@@ -159,6 +159,20 @@ def _oracle_hits(
 ) -> list[RetrievalHit]:
     """Locate labelled source pages; the model still receives raw evidence."""
 
+    def source_contains(term: str, text: str) -> bool:
+        normalized = str(term or "").strip()
+        if not normalized:
+            return False
+        left = r"(?<![A-Za-z0-9_])" if normalized[0].isalnum() or normalized[0] == "_" else ""
+        right = r"(?![A-Za-z0-9_])" if normalized[-1].isalnum() or normalized[-1] == "_" else ""
+        return bool(
+            re.search(
+                f"{left}{re.escape(normalized)}{right}",
+                text,
+                re.IGNORECASE,
+            )
+        )
+
     return _dedupe_hits(
         RetrievalHit(
             chunk=chunk,
@@ -168,7 +182,7 @@ def _oracle_hits(
         )
         for term in terms
         for chunk in store.exact_search(term, limit=200)
-        if term.casefold() in chunk.original_text.casefold()
+        if source_contains(term, chunk.original_text)
     )
 
 

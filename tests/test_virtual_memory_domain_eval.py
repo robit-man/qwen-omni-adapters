@@ -133,6 +133,34 @@ def test_domain_oracle_is_labelled_and_fifo_is_physically_bounded(
     assert fifo.exact_provenance is False
 
 
+def test_seeded_oracle_uses_boundary_exact_labels_not_prefix_decoys(
+    tmp_path: Path,
+) -> None:
+    corpus = build_adversarial_corpus(16_000, seed=91_308)
+    selected = [
+        scenario
+        for scenario in corpus.scenarios
+        if scenario.name in {"single_needle", "exact_log_string"}
+    ]
+    with DomainVirtualContextHarness(
+        corpus,
+        database=tmp_path / "seeded-oracle.sqlite3",
+        physical_context_tokens=4_096,
+    ) as harness:
+        prepared = [harness.prepare(scenario, baseline="oracle") for scenario in selected]
+
+    for scenario, item in zip(selected, prepared, strict=True):
+        assert item.answer_allowed is True
+        assert all(
+            term.casefold() in item.prompt.casefold()
+            for term in scenario.required_terms
+        )
+        assert all(
+            term.casefold() not in item.prompt.casefold()
+            for term in scenario.forbidden_terms
+        )
+
+
 def test_entity_graph_pages_terminal_fact_in_one_controller_round(
     tmp_path: Path,
 ) -> None:
