@@ -518,6 +518,24 @@ storage/index/retrieval work rather than L0 context—but only for sparse and to
 tasks in one seed. It does not establish all-token attention equivalence or population
 confidence across arbitrary corpora.
 
+The MemAgent-style bounded recurrent view is now integrated into the production
+controller as an L4-to-L2 query-time cache rather than a source representation. It
+scans a bounded set of recent immutable chunks, repeatedly rewrites a configurable
+working slot, and retains exact provenance for every surviving line. Packing gives
+exact replay priority and places recurrent text before the final evidence block;
+post-pack sufficiency ignores recurrent-only support. Thus recurrence can improve
+continuity without acquiring authority or creating summary-of-summary source loss.
+
+On the live Jetson, revision `761cb4d` passed 674 remote tests and deployed without a
+service restart loop. An authenticated portal fixture under the runtime-selected
+4,096-token physical cap produced two `MERGE` events, a 40-token/two-line recurrent
+view, two exact evidence pages, and a 3,371-token total working set. The resident model
+returned the exact requested value in 2.14 seconds. The recurrent view was reported as
+`derived_unverified`, exact evidence authorized the answer, the isolated session was
+destroyed afterward, and both core and indicator remained active with zero restarts.
+The sanitized runtime record is
+`.aiwg/testing/evidence/virtual-context-recurrent-live-jetson.json`.
+
 ## Required next experiments
 
 - Repeat the completed 16K–1M domain curve with additional independent sealed seeds;

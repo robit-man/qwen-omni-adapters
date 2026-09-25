@@ -381,6 +381,19 @@ that policy remains in the system role while retrieved memory, exact evidence, a
 real current query are presented together in the user working set. Evidence is recorded
 in `.aiwg/testing/evidence/virtual-context-portal-4k-jetson.json`.
 
+The bounded recurrent L2 view was then enabled in the same production path. A fresh
+deployment of revision `761cb4d` passed all 674 remote gates before cutover. The live
+portal used its runtime-selected 4,096-token physical window, not the configured
+16,384-token ceiling, and answered an isolated exact-value fixture correctly in 2.14
+seconds. It replayed two exact evidence chunks and constructed a 40-token query-aware
+recurrent view through two observable `MERGE` operations. Each retained recurrent line
+carried a source-chunk provenance pointer and remained explicitly
+`derived_unverified`; the final answer was authorized by exact resident evidence, not
+by recurrent text. The complete working allocation was 3,371 tokens, the synthetic
+session was deleted through the normal Trash route, and both core and indicator
+services remained active with zero restarts. Evidence is recorded in
+`.aiwg/testing/evidence/virtual-context-recurrent-live-jetson.json`.
+
 ## Authority rules
 
 - Raw source is authoritative and immutable inside its corpus.

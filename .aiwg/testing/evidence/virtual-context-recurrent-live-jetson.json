@@ -1,0 +1,83 @@
+{
+  "schema": "robit.virtual-context-recurrent-live-jetson.v1",
+  "generated_at": "2026-09-25T09:11:27-07:00",
+  "repository_revision": "761cb4d70bd4436e37a125aa284c663568c1ebd5",
+  "runtime": {
+    "host_class": "NVIDIA Jetson AGX Orin 32 GB",
+    "architecture": "aarch64",
+    "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+    "virtual_context_mode": "active",
+    "configured_physical_context_tokens": 16384,
+    "resident_physical_context_tokens": 4096,
+    "recurrent_memory_ceiling_tokens": 512,
+    "recurrent_source_chunk_ceiling": 200,
+    "tokenizer": "resident llama.cpp endpoint"
+  },
+  "fixture": {
+    "kind": "authenticated production portal conversation",
+    "messages": 3,
+    "synthetic_exact_value": "ZC-9482-OMEGA",
+    "current_query_excluded_from_retrieval": true,
+    "portal_auto_tools": false,
+    "speech_mode": "never"
+  },
+  "result": {
+    "http_status": 200,
+    "elapsed_seconds": 2.14,
+    "answer": "ZC-9482-OMEGA",
+    "answer_exact": true,
+    "answer_allowed": true,
+    "unresolved_reason": null,
+    "working_tokens": 3371,
+    "evidence_chunks_replayed": 2,
+    "retrieval_rounds": 1,
+    "recurrent_merge_events": 2,
+    "recurrent_retained_lines": 2,
+    "recurrent_resident_tokens": 40,
+    "recurrent_authority": "derived_unverified",
+    "recurrent_provenance_resolved": true,
+    "exact_evidence_authorized_answer": true,
+    "trace_operations": [
+      "PRETHINK",
+      "RETRIEVE",
+      "query_decomposition",
+      "retrieval_candidates",
+      "EVICT",
+      "WRITE",
+      "evidence_sufficiency",
+      "STOP",
+      "ANSWER",
+      "MERGE",
+      "MERGE",
+      "PAGE_IN",
+      "PIN",
+      "token_allocation",
+      "final_evidence_sufficiency"
+    ],
+    "session_cleanup_http_status": 204
+  },
+  "deployment": {
+    "remote_regression_tests_passed": 674,
+    "remote_regression_elapsed_seconds": 71.68,
+    "core_service": "active/running",
+    "core_service_restarts": 0,
+    "desktop_harness": "active/running",
+    "desktop_harness_restarts": 0,
+    "daemon_state": "ready",
+    "generation_smoke_enabled": false
+  },
+  "authority_checks": {
+    "recurrent_view_is_not_source_of_truth": true,
+    "recurrent_only_content_cannot_authorize_an_answer": true,
+    "exact_source_replay_remains_adjacent_to_query": true,
+    "immutable_source_retained_until_explicit_session_cleanup": true,
+    "session_cleanup_removed_synthetic_corpus": true
+  },
+  "notes": [
+    "The request traversed the live authenticated loopback portal and resident Ornith inference service.",
+    "The recurrent view was constructed at query time from immutable L4 chunks and retained exact provenance pointers.",
+    "The recurrent view was marked derived/unverified and was packed before exact evidence so it could not displace or outrank exact replay.",
+    "The runtime-selected 4096-token physical context, rather than the configured 16384-token ceiling, governed packing.",
+    "No access token, capability URL, hostname, network address, or user conversation is retained in this artifact."
+  ]
+}
