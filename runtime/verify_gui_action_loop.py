@@ -17,6 +17,23 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 
 ACTIVE_TASK_STATUSES = {"pending", "running", "waiting", "paused"}
+_FIXTURE_OBJECTIVE_MARKER = (
+    "Complete all three instructions drawn inside its canvas using fresh "
+    "browser_interact viewport screenshots"
+)
+
+
+def _is_stale_gui_fixture(task: dict[str, Any]) -> bool:
+    """Identify only this script's abandoned durable tasks."""
+
+    objective = str(task.get("objective") or "")
+    criteria = str(task.get("completion_criteria") or "")
+    return (
+        task.get("status") in ACTIVE_TASK_STATUSES
+        and objective.startswith("Open http://127.0.0.1:")
+        and _FIXTURE_OBJECTIVE_MARKER in objective
+        and "GUI-ACTION-PASS-" in criteria
+    )
 
 
 class ChallengeState:
@@ -182,6 +199,20 @@ def run(args: argparse.Namespace) -> int:
             for task in listed.get("tasks", [])
             if isinstance(task, dict) and task.get("status") in ACTIVE_TASK_STATUSES
         ]
+        stale_fixtures = [task for task in active if _is_stale_gui_fixture(task)]
+        for stale in stale_fixtures:
+            stale_id = str(stale.get("task_id") or "")
+            if stale_id:
+                _tool(
+                    client,
+                    args.portal,
+                    token,
+                    "background_task",
+                    {"action": "cancel", "task_id": stale_id},
+                )
+        if stale_fixtures:
+            _tool(client, args.portal, token, "browser_interact", {"action": "close"})
+        active = [task for task in active if task not in stale_fixtures]
         if active and not args.allow_concurrent:
             raise RuntimeError(
                 "An unfinished background task already owns the desktop; finish or "

@@ -9,7 +9,30 @@ import pytest
 from PIL import Image, ImageDraw
 
 from portal.gui import GuiAutomation
-from runtime.verify_gui_action_loop import ChallengeState, _page
+from runtime.verify_gui_action_loop import ChallengeState, _is_stale_gui_fixture, _page
+
+
+def test_gui_fixture_reclaims_only_its_own_stale_task() -> None:
+    fixture = {
+        "status": "running",
+        "objective": (
+            "Open http://127.0.0.1:36867/ in the visible Chromium window. "
+            "Complete all three instructions drawn inside its canvas using fresh "
+            "browser_interact viewport screenshots and normalized_1000 visual_click "
+            "actions."
+        ),
+        "completion_criteria": "The canvas shows GUI-ACTION-PASS-AB89BFE9.",
+    }
+
+    assert _is_stale_gui_fixture(fixture) is True
+    assert _is_stale_gui_fixture({**fixture, "status": "completed"}) is False
+    assert _is_stale_gui_fixture(
+        {
+            "status": "running",
+            "objective": "Open a real customer page in Chromium.",
+            "completion_criteria": "Submit the requested form.",
+        }
+    ) is False
 
 
 def _decoded_image(result: dict[str, Any]) -> Image.Image:
