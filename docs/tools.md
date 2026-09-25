@@ -116,6 +116,13 @@ envelopes are removed from follow-up rounds; tagged observations, retrieved
 text, and prior dialogue remain as bounded text context. TTS is deferred while
 a tool call is unresolved and runs only for the final answer.
 
+A successful `tool_search` resolves an action address but is not evidence that
+the requested action occurred. When discovery exposes one or more bounded leaf
+schemas and no concrete tool ran in that round, the following model-selected
+leaf call is required. Normal final-answer behavior resumes immediately after
+that concrete result; this prevents stochastic prose completion between
+discovery and execution without hard-coding a task-specific tool choice.
+
 The portal's NDJSON stream adds `type: "tool"` start/completion events between
 normal adapter events. Start events identify running calls; completion events
 carry their success state and a bounded result preview. The authoritative final

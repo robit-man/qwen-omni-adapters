@@ -2247,6 +2247,85 @@ def test_actionable_text_match_requires_a_structured_tool_call() -> None:
     assert response.json["message"]["content"] == "Capabilities ready."
 
 
+def test_successful_discovery_requires_a_concrete_leaf_before_final_answer() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "discover-calculator",
+                                "type": "function",
+                                "function": {
+                                    "name": "tool_search",
+                                    "arguments": {"query": "calculator arithmetic"},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        if len(requests) == 2:
+            assert body["tool_choice"] == "required"
+            names = {item["function"]["name"] for item in body["tools"]}
+            assert "safe_math_eval" in names
+            assert body["messages"][-1]["role"] == "tool"
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "calculate",
+                                "type": "function",
+                                "function": {
+                                    "name": "safe_math_eval",
+                                    "arguments": {"expression": "173 * 419"},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        assert "tool_choice" not in body
+        assert body["messages"][-1]["role"] == "tool"
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "72487"}},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Use a calculator to compute 173 multiplied by 419.",
+                }
+            ],
+            portal_auto_tools=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json["message"]["content"] == "72487"
+    assert [
+        item["name"] for item in response.json["portal"]["safe_tools_executed"]
+    ] == ["tool_search", "safe_math_eval"]
+
+
 def test_rendered_browser_tool_is_discoverable_and_session_scoped() -> None:
     calls: list[tuple[str, dict[str, Any]]] = []
     cleared: list[str] = []

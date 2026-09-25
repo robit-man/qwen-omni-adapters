@@ -1170,6 +1170,15 @@ def _tool_followup(
     followup["tools"] = copy.deepcopy(
         [*DISCOVERY_TOOLS, *tool_schemas(concrete)]
     )
+    if discovered and not active and concrete:
+        # Discovery is an address-resolution step, not task evidence. The
+        # model already decided that an absent capability was necessary and
+        # tool_search just exposed its bounded schemas. Require one concrete
+        # selection on the next round so a small/stochastic trunk cannot turn
+        # that successful lookup into an unsupported prose answer. The
+        # adapter owns the standard one-retry enforcement when a backend
+        # ignores a required tool choice.
+        followup["tool_choice"] = "required"
     return followup, executed, made_progress
 
 
