@@ -100,6 +100,8 @@ def test_domain_expected_terms_never_become_production_retrieval_input(
         )
 
     assert "SECRET_EVALUATOR_ONLY_VALUE" not in prompts[0]
+    assert "put every requested value, symbol, or relationship" in prompts[0]
+    assert "Do not mention rejected alternatives" in prompts[0]
     assert records[0]["expected"]["required_terms"] == [
         "SECRET_EVALUATOR_ONLY_VALUE"
     ]

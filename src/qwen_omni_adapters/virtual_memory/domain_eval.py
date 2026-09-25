@@ -46,6 +46,7 @@ from qwen_omni_adapters.virtual_memory.store import ImmutableEvidenceStore
 from qwen_omni_adapters.virtual_memory.telemetry import TraceCollector
 
 DOMAIN_EVAL_SCHEMA = "robit.virtual-context-domain-eval.v1"
+DOMAIN_CONTRACT_VERSION = "focused-complete-v2"
 VALID_DOMAIN_BASELINES = frozenset({"fifo", "hybrid", "oracle"})
 DOMAIN_RETRIEVAL_PROFILES = {
     "bm25-only": frozenset({"bm25"}),
@@ -56,12 +57,17 @@ DOMAIN_RETRIEVAL_PROFILES = {
 
 _DOMAIN_CONTRACT = (
     "Complete the current task using only the supplied source evidence. "
-    "For factual questions, give the exact values and the shortest dependency "
-    "chain needed to support them. Preserve source spelling and chronology. "
+    "Answer only the requested scope and put every requested value, symbol, or "
+    "relationship in the opening sentences before any explanation. Use at most "
+    "180 words. Give only the shortest dependency chain needed to support the "
+    "answer and preserve source spelling and chronology. Do not mention rejected "
+    "alternatives, near-duplicate distractors, or source/chunk identifiers unless "
+    "the query explicitly asks for them. "
     "If an instruction conflicts with a governing constraint, do not perform "
-    "it; state the exact governing constraint. Keep distinct conflicting or "
-    "near-duplicate entities separate. Do not invent missing facts, mention "
-    "the memory system, or produce a generic assistant preamble."
+    "it; state the exact governing constraint. When the query asks about a "
+    "conflict or history, keep its requested versions distinct. Do not invent "
+    "missing facts, mention the memory system, or produce a generic assistant "
+    "preamble."
 )
 
 

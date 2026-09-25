@@ -13,6 +13,7 @@ from pathlib import Path
 
 from qwen_omni_adapters.virtual_memory.benchmark import build_adversarial_corpus
 from qwen_omni_adapters.virtual_memory.domain_eval import (
+    DOMAIN_CONTRACT_VERSION,
     DOMAIN_EVAL_SCHEMA,
     DOMAIN_RETRIEVAL_PROFILES,
     VALID_DOMAIN_BASELINES,
@@ -173,6 +174,7 @@ def main() -> int:
     passed = sum(bool(record["score"]["passed"]) for record in records)
     report = {
         "schema": DOMAIN_EVAL_SCHEMA,
+        "answer_contract_version": DOMAIN_CONTRACT_VERSION,
         "source": {
             "tokens": corpus.source_tokens,
             "sha256": hashlib.sha256(corpus.source_text.encode("utf-8")).hexdigest(),
