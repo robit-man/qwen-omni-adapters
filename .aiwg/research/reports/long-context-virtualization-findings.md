@@ -426,17 +426,32 @@ This result provides better position and example coverage than the first milesto
 but three samples per task from one seed still do not establish population-level
 confidence or broad domain generalization.
 
+A one-sample-per-task causal matrix over that sealed fixture then isolated the V1
+components. Full V1 scored 100%; removing graph channels also scored 100%; one-pass
+full V1 scored 95.38%; removing aggregation scored 84.62%; removing exact-relation
+compilation scored 87.69%; recursive raw hybrid replay scored 72.31%; one-pass raw
+hybrid scored 69.23%; BM25-only scored 61.54%; and hashing-dense-only scored 23.08%.
+Insufficient conditions were left unanswered. On this slice, recursive control adds a
+smaller but real variable-tracking gain, while query-time aggregation and relation
+compilation explain the large gap between ordinary hybrid RAG and the full system.
+Graph retrieval needs a topology-rich benchmark, and the current hashing embedder is
+not suitable as a standalone semantic retriever. Exact settings and report hashes are
+preserved in
+`.aiwg/testing/evidence/ruler-v1-256k-ablation-seed9137-jetson.json`.
+
 ## Required next experiments
 
 - Repeat the 16K–1M model-answer curve with additional independent sealed seeds and
   randomized evidence positions; the completed 256K run covers only one seed with
   three samples per RULER task class.
-- Expand the completed 1M FIFO/hybrid/oracle comparison into BM25-only, dense-only,
-  no-graph, no-recursion, no-replay, and fixed-budget ablations.
+- Extend the completed BM25/dense/graph/recursion/aggregation/compiler ablations to
+  all three sealed samples per task, additional seeds and lengths, no-replay and
+  fixed-budget conditions, plus topology-rich code/entity suites.
 - Continue using oracle-context answers to distinguish model faults from retrieval faults.
 - Add answer-quality curves to the completed 512/1K/2K/4K recurrent-memory by
   2K/4K/8K chunk-budget integrity matrix.
-- Compare BM25, dense, hybrid, graph, recursion, replay, and adaptive allocation ablations.
+- Replace the weak hashing-dense lane with a production-quality embedding model and
+  rerun dense/hybrid ablations without changing the immutable corpus.
 - Extend the implemented code topology, chronology, supersession, contradictions, and
   100K+ constraint fixtures into model-answer and adversarial held-out evaluations.
 - Measure latency, inference tokens, RAM/VRAM, SQLite/index size, and evidence tokens.

@@ -1,0 +1,187 @@
+{
+  "schema": "robit.ruler-virtual-context-ablation.v1",
+  "generated_at": "2026-09-25T06:54:30-07:00",
+  "repository_revision": "4822d406968fb85003f4c58aff2e3a9050d4cc1b",
+  "fixture": {
+    "benchmark": "NVIDIA RULER v1",
+    "runtime_adapter_revision": "e8bbff677ca2c239640dc90f93310dcf32408c93",
+    "generator_revision": "dac2a4057d0fcd7d98ac18eaae72db825023bd3e",
+    "generation_seed": 9137,
+    "source_length_tokens": 262144,
+    "selection": "the first sealed sample from each of all 13 task classes",
+    "samples_per_task": 1,
+    "total_samples": 13,
+    "fixture_archive_sha256": "5317fe7ac443fc07f80e41e542058e5d697b28cbcdfe05cbd759e2eca7983c1b"
+  },
+  "runtime": {
+    "host": "NVIDIA Jetson AGX Orin 32 GB",
+    "architecture": "aarch64",
+    "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+    "configured_physical_context_tokens": 16384,
+    "resident_physical_context_tokens": 4096,
+    "physical_context_source": "resident_state",
+    "tokenizer": "exact_endpoint",
+    "think": false,
+    "cache_prompt": false,
+    "core_service_restarts_during_runs": 0,
+    "harness_restarts_during_runs": 0
+  },
+  "scoring": {
+    "method": "RULER task-native all-match and QA partial-match metrics",
+    "insufficient_policy": "Evidence-insufficient samples remain unanswered and score zero; inference was not forced with allow-insufficient.",
+    "scope_caveat": "This is a causal diagnostic over 13 samples, not a confidence estimate. The separate 39-sample headline run was independently scored by NVIDIA's pinned evaluator."
+  },
+  "conditions": {
+    "full_v1": {
+      "retrieval_profile": "hybrid",
+      "controller_rounds": 6,
+      "aggregation_enabled": true,
+      "compilation_enabled": true,
+      "mean_task_score": 100.0,
+      "answered": 13,
+      "sufficient": 13,
+      "prompt_tokens": 13848,
+      "p50_inference_seconds": 2.8731414579960983,
+      "p95_inference_seconds": 4.17552440000145,
+      "report_sha256": "a1c914557ced8f24eea9fc0b8b01103b961d55472fed5e1dc34b877e2192fbc5"
+    },
+    "hybrid_no_graph": {
+      "retrieval_profile": "hybrid-no-graph",
+      "controller_rounds": 6,
+      "aggregation_enabled": true,
+      "compilation_enabled": true,
+      "mean_task_score": 100.0,
+      "answered": 13,
+      "sufficient": 13,
+      "prompt_tokens": 13849,
+      "p50_inference_seconds": 2.847192200999416,
+      "p95_inference_seconds": 4.229641806996369,
+      "report_sha256": "38f5ac413204389c57c5ea4b1625c3ffc7817dfd0bc70728872304baaefff930"
+    },
+    "hybrid_onepass_full": {
+      "retrieval_profile": "hybrid",
+      "controller_rounds": 1,
+      "aggregation_enabled": true,
+      "compilation_enabled": true,
+      "mean_task_score": 95.38461538461539,
+      "answered": 13,
+      "sufficient": 13,
+      "prompt_tokens": 13712,
+      "p50_inference_seconds": 2.8349338109983364,
+      "p95_inference_seconds": 4.134510245996353,
+      "nonperfect_task_scores": {
+        "vt": 40.0
+      },
+      "report_sha256": "d6f4ca9f5ec90510431abf523d2e4fba63b9fb876f8b45b932973a7b08610831"
+    },
+    "hybrid_noaggregation": {
+      "retrieval_profile": "hybrid",
+      "controller_rounds": 6,
+      "aggregation_enabled": false,
+      "compilation_enabled": true,
+      "mean_task_score": 84.61538461538461,
+      "answered": 12,
+      "sufficient": 12,
+      "prompt_tokens": 14432,
+      "p50_inference_seconds": 2.884389717997692,
+      "p95_inference_seconds": 3.868207605002681,
+      "nonperfect_task_scores": {
+        "cwe": 0.0,
+        "fwe": 0.0
+      },
+      "report_sha256": "a9b70c76f00a121f9318297177c7b510bf177fed4b7239fe5d378a1b008056ce"
+    },
+    "hybrid_nocompilation": {
+      "retrieval_profile": "hybrid",
+      "controller_rounds": 6,
+      "aggregation_enabled": true,
+      "compilation_enabled": false,
+      "mean_task_score": 87.6923076923077,
+      "answered": 13,
+      "sufficient": 13,
+      "prompt_tokens": 17568,
+      "p50_inference_seconds": 3.3827525950036943,
+      "p95_inference_seconds": 5.690165093001269,
+      "nonperfect_task_scores": {
+        "niah_multiquery": 50.0,
+        "niah_multivalue": 50.0,
+        "vt": 40.0
+      },
+      "report_sha256": "82f9c83509cd0a1f3872a69808827628408f9406acbf9c2e07da607b04f036df"
+    },
+    "hybrid_recursive_raw": {
+      "retrieval_profile": "hybrid",
+      "controller_rounds": 6,
+      "aggregation_enabled": false,
+      "compilation_enabled": false,
+      "mean_task_score": 72.3076923076923,
+      "answered": 12,
+      "sufficient": 12,
+      "prompt_tokens": 18163,
+      "p50_inference_seconds": 3.340349801001139,
+      "p95_inference_seconds": 5.655919014003302,
+      "nonperfect_task_scores": {
+        "cwe": 0.0,
+        "fwe": 0.0,
+        "niah_multiquery": 50.0,
+        "niah_multivalue": 50.0,
+        "vt": 40.0
+      },
+      "report_sha256": "6ee72911d40586fb0ae899a77f051f94dc5f695632eb94c427196383c5c1763f"
+    },
+    "hybrid_onepass_raw": {
+      "retrieval_profile": "hybrid",
+      "controller_rounds": 1,
+      "aggregation_enabled": false,
+      "compilation_enabled": false,
+      "mean_task_score": 69.23076923076923,
+      "answered": 11,
+      "sufficient": 11,
+      "prompt_tokens": 16507,
+      "p50_inference_seconds": 3.2557216589993914,
+      "p95_inference_seconds": 5.626290088999667,
+      "report_sha256": "f6c1d8650700495ad5fd7b7f8b1bb469bb70d21c386aa63d8e55ee2f3f9e9055"
+    },
+    "bm25_onepass_raw": {
+      "retrieval_profile": "bm25-only",
+      "controller_rounds": 1,
+      "aggregation_enabled": false,
+      "compilation_enabled": false,
+      "mean_task_score": 61.53846153846154,
+      "answered": 10,
+      "sufficient": 10,
+      "prompt_tokens": 15308,
+      "p50_inference_seconds": 3.390978763000021,
+      "p95_inference_seconds": 5.6324114259987255,
+      "report_sha256": "62ea86df6ecab92c9c0294b2610de661ebe013e63295a1def46520269745fb90"
+    },
+    "dense_onepass_raw": {
+      "retrieval_profile": "dense-only",
+      "controller_rounds": 1,
+      "aggregation_enabled": false,
+      "compilation_enabled": false,
+      "mean_task_score": 23.076923076923077,
+      "answered": 8,
+      "sufficient": 8,
+      "prompt_tokens": 9668,
+      "p50_inference_seconds": 3.14837586300564,
+      "p95_inference_seconds": 5.670249410002725,
+      "report_sha256": "5bbb9be01cca23975bf6f51b69003e002a61055b940266516a14ada95c710e15"
+    }
+  },
+  "interpretation": {
+    "graph": "Removing graph and code-graph channels changed neither score nor meaningful token/latency cost on this RULER slice; graph value must be measured on code/entity topology suites.",
+    "recursion": "Reducing the full system from six rounds to one lowered mean task score by 4.62 points, entirely visible in variable tracking on this sample set.",
+    "aggregation": "Disabling whole-corpus frequency aggregation removed 15.38 points and failed both frequency tasks.",
+    "compilation": "Disabling exact-relation compilation removed 12.31 points and degraded multi-query, multi-value, and variable-tracking tasks.",
+    "retrieval": "Raw hybrid one-pass exceeded BM25-only by 7.69 points and dense-only by 46.15 points. The current hashing-dense implementation is an auxiliary recall channel, not a competitive standalone semantic retriever.",
+    "derived_operators": "Recursive raw retrieval reached 72.31%; the complete query-time V1 reached 100%, demonstrating that aggregation and exact relation compilation are substantive components rather than telemetry-only additions."
+  },
+  "anti_reward_hacking": {
+    "same_sealed_inputs_for_every_condition": true,
+    "expected_answers_not_available_to_hybrid_retrieval": true,
+    "insufficient_samples_not_forced_to_answer": true,
+    "only_declared_subsystem_switches_changed_between_conditions": true,
+    "non_claim": "One sample per task can identify large causal failures but cannot establish stable effect sizes or broad generalization."
+  }
+}

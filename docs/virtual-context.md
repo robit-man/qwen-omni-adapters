@@ -211,6 +211,31 @@ This adds held-out positions and more examples but is still one seed with only t
 samples per class. More independent seeds, length sweeps, domain suites, and ablations
 remain necessary.
 
+The same sealed fixture now supports explicit causal ablations. A diagnostic run used
+the first sample from every task, kept the physical window at 4,096 tokens, and left
+evidence-insufficient cases unanswered:
+
+| condition | mean task score | answered / sufficient | prompt tokens |
+|---|---:|---:|---:|
+| full V1 | 100% | 13 / 13 | 13,848 |
+| full V1, no graph channels | 100% | 13 / 13 | 13,849 |
+| full V1, one controller round | 95.38% | 13 / 13 | 13,712 |
+| no frequency aggregation | 84.62% | 12 / 12 | 14,432 |
+| no exact-relation compilation | 87.69% | 13 / 13 | 17,568 |
+| recursive hybrid raw replay | 72.31% | 12 / 12 | 18,163 |
+| one-pass hybrid raw replay | 69.23% | 11 / 11 | 16,507 |
+| one-pass BM25 raw replay | 61.54% | 10 / 10 | 15,308 |
+| one-pass hashing-dense raw replay | 23.08% | 8 / 8 | 9,668 |
+
+On this slice, recursion contributes 4.62 points to the otherwise complete system,
+aggregation owns the two frequency tasks, and exact-relation compilation owns most of
+the multi-value/query and variable-chain gap. Removing graph channels has no effect;
+their value must be measured on code and entity-topology suites rather than inferred
+from RULER. The current hashing embedder is an auxiliary recall channel, not a viable
+standalone dense retriever. Exact condition manifests, non-perfect task scores, and
+report hashes are recorded in
+`.aiwg/testing/evidence/ruler-v1-256k-ablation-seed9137-jetson.json`.
+
 The production portal was separately exercised after enabling the fully co-resident
 TTS and pointing stack. Its launcher selected a stricter 4,096-token physical window.
 An authenticated 1,748,926-character conversation with three exact values buried among
