@@ -51,6 +51,18 @@ def test_ruler_jsonl_preserves_official_record_and_reattaches_prefix(tmp_path: P
     assert prepared.source_tokens > 0
 
 
+def test_ruler_prefers_generator_reported_length_for_compression_measurement() -> None:
+    record = _record()
+    record["length"] = 256_000
+    sample = sample_from_record(record, task="niah_single_1", ordinal=0)
+
+    prepared = RulerVirtualContextHarness().prepare(sample, baseline="hybrid")
+
+    assert sample.reported_tokens == 256_000
+    assert prepared.source_tokens == 256_000
+    assert prepared.compression_ratio == 256_000 / prepared.resident_tokens
+
+
 def test_hybrid_never_exposes_reference_field_to_responder() -> None:
     record = _record()
     record["outputs"] = ["SECRET_REFERENCE_NOT_IN_SOURCE"]
@@ -77,7 +89,10 @@ def test_oracle_uses_reference_only_to_locate_source_chunk() -> None:
     assert prepared.answer_allowed is True
     assert "7319042" in prepared.prompt
     assert prepared.evidence_chunk_ids
-    assert prepared.retrieval_queries == ("oracle_reference_location",)
+    assert prepared.retrieval_queries == (
+        "oracle_reference_location",
+        "7319042",
+    )
 
 
 def test_fifo_baseline_is_hard_bounded() -> None:

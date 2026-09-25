@@ -2,15 +2,16 @@
 
 - Date: 2026-09-25
 - Physical context budget: 16,384 tokens
-- Scope: deterministic storage, retrieval, controller, and packing behavior
-- Non-claim: this is not a model-answer score or proof of native long-context
-  equivalence
+- Scope: deterministic storage, retrieval, controller, packing behavior, and
+  a bounded live-model sparse-recall smoke
+- Non-claim: this is not a complete RULER model-answer score or proof of native
+  long-context equivalence
 
 ## Repository validation
 
 Command: `./scripts/validate.sh`
 
-Result: 621 tests passed in 23.09 seconds. Source, contract, VAD, call-queue,
+Result: 625 tests passed in 24.20 seconds. Source, contract, VAD, call-queue,
 browser-cache, and unit validation gates passed.
 
 ## Synthetic source-length ladder
@@ -45,6 +46,45 @@ The final-16K FIFO baseline found the value only at the 16K source length. The
 hashed dense channel did not put the target in its selected set at 256K and 1M;
 exact/BM25 retrieval recovered it. This is retained as an ablation signal, not
 hidden or converted into a dense-retrieval success claim.
+
+## Official RULER 256K preparation gate
+
+NVIDIA RULER's `variable_tracking.py` generated one four-hop sample at a
+reported 255,984-token length using its `cl100k_base` accounting. The question
+requires reconstructing five assignment edges and is preceded by a separate
+few-shot assignment graph that acts as a hard distractor.
+
+| Condition | Required edges replayed | Resident tokens | Compression | Retrieval queries | Sufficient |
+|---|---:|---:|---:|---:|---:|
+| FIFO | 0/5 | 14,000 | 18.28x | 1 | baseline-only |
+| Hybrid | 5/5 | 7,451 | 34.36x | 6 | yes |
+| Reference-location oracle | 5/5 | 7,238 | 35.37x | 6 | yes |
+
+This gate initially found two real failures: the controller stopped after only
+2/5 dependency edges, and the packer later evicted one recovered edge. The
+regressions now require anchored relationship closure before STOP, fail closed
+when the dependency budget expires, ignore the unrelated few-shot graph, and
+use dependency-aware exact line replay when a full chunk does not fit.
+
+This is preparation/replay evidence, not an answer-accuracy score. The complete
+13-task FIFO/hybrid/oracle model run remains a release gate.
+
+## Live Jetson sparse-recall smoke
+
+The Jetson AGX Orin service was deployed with a hard 16,384-token comprehension
+ceiling and shadow virtual memory. A live request against its resident Ornith
+worker used 254,822 source tokens with the target fact in the middle:
+
+- FIFO retained 14,000 tokens, replayed no evidence, and returned no answer.
+- Hybrid retained 5,386 tokens (47.31x), replayed two exact evidence chunks,
+  and returned `Q7M-441-PLUTO` exactly in 7.35 seconds with a 256-token output
+  allowance.
+- A diagnostic 64-token allowance had returned only `Q7M`; this was not counted
+  as a pass. Direct exact-copy probes confirmed the model could reproduce
+  hyphenated, underscored, and numeric values, isolating that result to output
+  headroom rather than retrieval corruption.
+- Comprehension, TTS, and pointing workers simultaneously held Tegra GPU device
+  handles after the run; no comprehension-weight eviction was used.
 
 ## Covered invariants
 

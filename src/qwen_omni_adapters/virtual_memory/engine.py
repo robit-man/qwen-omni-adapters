@@ -124,6 +124,7 @@ class VirtualContextEngine:
             evidence=sorted(
                 combined_evidence.values(), key=lambda hit: hit.score, reverse=True
             ),
+            retrieval_queries=controller_result.queries,
             memories=memories,
             recent_context=recent_context,
             recurrent_memory=recurrent_memory,

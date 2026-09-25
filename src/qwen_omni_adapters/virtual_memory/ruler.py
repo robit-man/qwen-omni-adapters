@@ -49,6 +49,7 @@ class RulerSample:
     answer_prefix: str
     references: tuple[str, ...]
     record: dict[str, Any]
+    reported_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,15 @@ def sample_from_record(record: Mapping[str, Any], *, task: str, ordinal: int) ->
     others = record.get("others")
     other_id = others.get("id", "") if isinstance(others, Mapping) else ""
     sample_id = str(record.get("index") or other_id or ordinal)
+    reported_tokens = None
+    for field in ("length_w_model_temp", "length"):
+        try:
+            candidate = int(record.get(field, 0))
+        except (TypeError, ValueError):
+            continue
+        if candidate > 0:
+            reported_tokens = candidate
+            break
     return RulerSample(
         task=task,
         sample_id=sample_id,
@@ -106,6 +116,7 @@ def sample_from_record(record: Mapping[str, Any], *, task: str, ordinal: int) ->
         answer_prefix=str(record.get("answer_prefix") or ""),
         references=references,
         record=dict(record),
+        reported_tokens=reported_tokens,
     )
 
 
@@ -192,7 +203,9 @@ class RulerVirtualContextHarness:
             "Answer the current query using only replayed source evidence. "
             "Do not infer missing facts. Return only the requested answer."
         )
-        source_tokens = conservative_token_estimate(sample.source_text)
+        source_tokens = sample.reported_tokens or conservative_token_estimate(
+            sample.source_text
+        )
         if selected == "fifo":
             def render(candidate: str) -> str:
                 return (
@@ -239,12 +252,15 @@ class RulerVirtualContextHarness:
                 if selected == "oracle":
                     hits = _oracle_hits(store, sample.references)
                     sufficient = bool(hits)
-                    retrieval_queries = ("oracle_reference_location",)
+                    retrieval_queries = (
+                        "oracle_reference_location",
+                        *sample.references,
+                    )
                     trace: tuple[dict[str, Any], ...] = ()
                 else:
                     controller = RecursiveMemoryController(
                         retriever,
-                        config=ControllerConfig(max_rounds=4),
+                        config=ControllerConfig(max_rounds=6),
                     )
                     result = controller.gather(sample.query)
                     hits = list(result.evidence)
@@ -255,6 +271,7 @@ class RulerVirtualContextHarness:
                     question,
                     system_contract=contract,
                     evidence=hits,
+                    retrieval_queries=retrieval_queries,
                 )
             finally:
                 store.close()

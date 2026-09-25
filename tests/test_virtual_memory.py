@@ -373,6 +373,70 @@ def test_recursive_controller_retrieves_a_second_hop_and_stops(tmp_path: Path) -
     store.close()
 
 
+def test_recursive_controller_closes_four_hop_assignment_chain_before_stop(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "assignment-chain.sqlite3")
+    assignments = (
+        "VAR IWSHA = 72955",
+        "VAR YCSMT = VAR IWSHA",
+        "VAR RQMUC = VAR YCSMT",
+        "VAR FRHPM = VAR RQMUC",
+        "VAR NLTIS = VAR FRHPM",
+    )
+    expected = {
+        store.ingest(
+            f"The grass is green. {assignment}. Here we go.",
+            source=f"chain-{index}.txt",
+        )[0].chunk_id
+        for index, assignment in enumerate(assignments)
+    }
+    controller = RecursiveMemoryController(
+        HybridRetriever(store, final_limit=12),
+        config=ControllerConfig(max_rounds=6, sufficiency_threshold=0.5),
+        # Deliberately overconfident: dependency closure must still prevent an
+        # early stop after the first matching value.
+        sufficiency_judge=lambda _query, evidence: 1.0 if evidence else 0.0,
+    )
+
+    result = controller.gather(
+        "Find all variables that are assigned the value 72955."
+    )
+
+    assert result.sufficient
+    assert expected <= {hit.chunk.chunk_id for hit in result.evidence}
+    assert len(result.queries) == 6
+    assert not any('"The"' in query or '"Here"' in query for query in result.queries)
+    sufficiency_events = [
+        event for event in result.trace if event["operation"] == "evidence_sufficiency"
+    ]
+    assert sufficiency_events[0]["detail"]["unresolved_dependencies"]
+    assert sufficiency_events[-1]["detail"]["unresolved_dependencies"] == []
+    assert [event["operation"] for event in result.trace][-2:] == ["STOP", "ANSWER"]
+    store.close()
+
+
+def test_recursive_controller_fails_closed_when_dependency_budget_expires(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "bounded-chain.sqlite3")
+    store.ingest("VAR ROOT = 72955", source="root.txt")
+    store.ingest("VAR NEXT = VAR ROOT", source="next.txt")
+    controller = RecursiveMemoryController(
+        HybridRetriever(store),
+        config=ControllerConfig(max_rounds=1, sufficiency_threshold=0.5),
+        sufficiency_judge=lambda _query, evidence: 1.0 if evidence else 0.0,
+    )
+
+    result = controller.gather("Find all variables assigned the value 72955.")
+
+    assert result.sufficient is False
+    assert result.trace[-2]["operation"] == "STOP"
+    assert result.trace[-2]["detail"]["reason"] == "retrieval_budget_exhausted"
+    assert result.trace[-1]["detail"]["allowed"] is False
+    store.close()
+
+
 def test_packer_keeps_constraints_and_replays_exact_evidence_next_to_query(
     tmp_path: Path,
 ) -> None:
@@ -418,6 +482,42 @@ def test_packer_keeps_constraints_and_replays_exact_evidence_next_to_query(
     assert packed.text.rfind("<exact_evidence") < packed.text.rfind("<current_query>")
     assert packed.items[-2].category == "exact_evidence"
     assert any(event["operation"] == "EVICT" for event in packed.trace)
+    store.close()
+
+
+def test_packer_uses_dependency_query_for_exact_line_replay(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "line-replay.sqlite3")
+    source = (
+        "routine archive noise\n" * 300
+        + "VAR FRHPM = VAR RQMUC\n"
+        + "routine archive noise\n" * 300
+    )
+    store.ingest(source, source="events.log", kind="log")
+    hit = HybridRetriever(store).retrieve('Trace dependency "RQMUC"')[0]
+    packer = WorkingContextPacker(
+        budget=ContextBudget(
+            max_tokens=4096,
+            output_headroom=512,
+            evidence_target=40,
+        ),
+        token_counter=word_tokens,
+    )
+
+    packed = packer.pack(
+        "Find all variables assigned the value 72955.",
+        system_contract="Use exact evidence.",
+        evidence=[hit],
+        retrieval_queries=['Trace dependency "RQMUC"'],
+    )
+
+    assert "VAR FRHPM = VAR RQMUC" in packed.text
+    evidence_item = next(item for item in packed.items if item.category == "exact_evidence")
+    pointer = evidence_item.provenance[0]
+    chunk = store.get_chunk(pointer.chunk_id)
+    assert chunk is not None
+    replayed = chunk.original_text[pointer.char_start : pointer.char_end]
+    assert replayed in evidence_item.text
+    assert len(replayed) < len(chunk.original_text)
     store.close()
 
 

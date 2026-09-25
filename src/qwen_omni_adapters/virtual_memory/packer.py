@@ -34,7 +34,7 @@ class ContextBudget:
     pinned_target: int = 1_800
     structured_target: int = 1_400
     recent_target: int = 2_200
-    evidence_target: int = 7_000
+    evidence_target: int = 8_000
 
     @property
     def input_ceiling(self) -> int:
@@ -87,6 +87,7 @@ class WorkingContextPacker:
         *,
         system_contract: str,
         evidence: Sequence[RetrievalHit],
+        retrieval_queries: Sequence[str] = (),
         memories: Sequence[MemoryRecord] = (),
         recent_context: Sequence[str] = (),
         recurrent_memory: str = "",
@@ -130,7 +131,13 @@ class WorkingContextPacker:
         # Exact evidence has higher authority than recent dialogue or a derived
         # recurrent state.  It is packed before those recoverable conveniences.
         evidence_cap = min(self.budget.evidence_target, available)
-        evidence_items = self._select_evidence(query, evidence, evidence_cap, collector)
+        evidence_query = " ".join((query, *retrieval_queries))
+        evidence_items = self._select_evidence(
+            evidence_query,
+            evidence,
+            evidence_cap,
+            collector,
+        )
         available -= sum(item.tokens for item in evidence_items)
 
         structured_cap = min(self.budget.structured_target, available)
@@ -391,7 +398,13 @@ class WorkingContextPacker:
 
         authority = 0.0
         channels = set(hit.channels)
-        if channels & {"exact", "symbol", "memory_conflict", "oracle"}:
+        if channels & {
+            "exact",
+            "symbol",
+            "memory_conflict",
+            "oracle",
+            "oracle_reference_location",
+        }:
             authority += 0.4
         if channels & {"code_graph", "graph"}:
             authority += 0.18
@@ -469,18 +482,34 @@ class WorkingContextPacker:
             term.casefold()
             for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", query)
         }
-        paragraphs = []
+        candidates: set[tuple[int, int]] = set()
         start = 0
         for match in re.finditer(r"\n\s*\n", text):
             end = match.start()
             if end > start:
-                paragraph = text[start:end]
-                overlap = len(terms & {term.casefold() for term in re.findall(r"[\w.$:-]+", paragraph)})
-                paragraphs.append((overlap, start, end))
+                candidates.add((start, end))
             start = match.end()
         if start < len(text):
-            paragraph = text[start:]
-            overlap = len(terms & {term.casefold() for term in re.findall(r"[\w.$:-]+", paragraph)})
-            paragraphs.append((overlap, start, len(text)))
-        paragraphs.sort(key=lambda item: (item[0], item[2] - item[1]), reverse=True)
-        return [(start, end) for _score, start, end in paragraphs]
+            candidates.add((start, len(text)))
+        # Logs, generated benchmarks, and compact source often use one event or
+        # relationship per line without blank paragraph separators.  Preserve
+        # the exact line and a bounded neighboring window as replay options.
+        for match in re.finditer(r"[^\r\n]+", text):
+            line_start, line_end = match.span()
+            candidates.add((line_start, line_end))
+            candidates.add((max(0, line_start - 512), min(len(text), line_end + 512)))
+
+        ranked = []
+        for span_start, span_end in candidates:
+            span = text[span_start:span_end]
+            span_terms = {
+                term.casefold() for term in re.findall(r"[\w.$:-]+", span)
+            }
+            overlap = len(terms & span_terms)
+            if overlap <= 0:
+                continue
+            length = max(1, span_end - span_start)
+            density = overlap / max(1, len(span_terms))
+            ranked.append((overlap, density, -length, span_start, span_end))
+        ranked.sort(reverse=True)
+        return [(span_start, span_end) for _overlap, _density, _length, span_start, span_end in ranked]
