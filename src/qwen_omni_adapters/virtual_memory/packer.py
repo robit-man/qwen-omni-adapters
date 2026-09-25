@@ -139,12 +139,14 @@ class WorkingContextPacker:
                 for term in re.findall(r'["\']([^"\']{2,200})["\']', retrieval_query)
             )
         )
+        root_focus_terms = self._root_focus_terms(query)
         evidence_items = self._select_evidence(
             evidence_query,
             evidence,
             evidence_cap,
             collector,
             focus_terms=focus_terms,
+            root_focus_terms=root_focus_terms,
         )
         available -= sum(item.tokens for item in evidence_items)
 
@@ -361,16 +363,21 @@ class WorkingContextPacker:
         collector: TraceCollector,
         *,
         focus_terms: Sequence[str] = (),
+        root_focus_terms: Sequence[str] = (),
     ) -> list[ContextItem]:
         selected = []
         used = 0
         candidates = list(evidence)
-        if focus_terms:
+        if focus_terms or root_focus_terms:
             focused = [
                 hit
                 for hit in candidates
                 if any(
                     term in hit.chunk.original_text.casefold() for term in focus_terms
+                )
+                or any(
+                    term in hit.chunk.original_text.casefold()
+                    for term in root_focus_terms
                 )
             ]
             if focused:
@@ -422,6 +429,52 @@ class WorkingContextPacker:
                 eviction_priority=self._evidence_priority(query, hit),
             )
         return selected
+
+    @staticmethod
+    def _root_focus_terms(query: str) -> tuple[str, ...]:
+        """Distinctive root-query anchors that keep terminal dependency facts.
+
+        Recursive retrieval queries quote intermediate nodes.  Restricting the
+        evidence pack to those nodes removes disconnected retrieval noise, but
+        a terminal fact can be phrased in terms of the requested property
+        (for example ``bitrate``) rather than the last quoted node.  Preserve
+        high-information root terms as a second, query-derived inclusion path.
+        """
+
+        stop = {
+            "answer",
+            "all",
+            "are",
+            "does",
+            "from",
+            "have",
+            "including",
+            "into",
+            "only",
+            "return",
+            "special",
+            "that",
+            "the",
+            "their",
+            "then",
+            "through",
+            "using",
+            "what",
+            "when",
+            "where",
+            "which",
+            "with",
+            # Generic syntax keywords are not dependency identities.
+            "var",
+            "variables",
+        }
+        return tuple(
+            dict.fromkeys(
+                term.casefold().strip(".$:-")
+                for term in re.findall(r"[A-Za-z0-9_.$:-]{4,}", query)
+                if term.casefold().strip(".$:-") not in stop
+            )
+        )
 
     @staticmethod
     def _evidence_priority(query: str, hit: RetrievalHit) -> float:

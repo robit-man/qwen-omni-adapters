@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -28,6 +29,68 @@ class PreparedTurn:
     controller: ControllerResult
     answer_allowed: bool
     unresolved_reason: str | None
+
+
+_MEMORY_SCOPE_STOP_WORDS = {
+    "and",
+    "are",
+    "current",
+    "did",
+    "does",
+    "for",
+    "from",
+    "how",
+    "into",
+    "that",
+    "the",
+    "their",
+    "then",
+    "this",
+    "through",
+    "using",
+    "what",
+    "when",
+    "where",
+    "which",
+    "with",
+}
+
+
+def select_relevant_memories(
+    memories: Sequence[MemoryRecord],
+    query: str,
+    *,
+    active_subjects: Sequence[str] = (),
+) -> list[MemoryRecord]:
+    """Deterministically scope derived memory without similarity-only recall.
+
+    Constraints and the current execution plan remain hard pins.  Other memory
+    classes must be explicitly active or share a stable subject identifier with
+    the current request.  Raw evidence is unaffected and remains recoverable.
+    """
+
+    selected_subjects = {subject.casefold() for subject in active_subjects}
+    query_folded = query.casefold()
+    query_terms = {
+        term.casefold()
+        for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", query)
+        if term.casefold() not in _MEMORY_SCOPE_STOP_WORDS
+    }
+    selected = []
+    for memory in memories:
+        if memory.memory_class in {MemoryClass.CONSTRAINT, MemoryClass.CURRENT_PLAN}:
+            selected.append(memory)
+            continue
+        subject = memory.subject.casefold()
+        subject_terms = {
+            term.casefold()
+            for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", memory.subject)
+        }
+        explicitly_active = subject in selected_subjects
+        subject_mentioned = subject in query_folded or bool(subject_terms & query_terms)
+        if explicitly_active or subject_mentioned:
+            selected.append(memory)
+    return selected
 
 
 class VirtualContextEngine:
@@ -92,7 +155,7 @@ class VirtualContextEngine:
     ) -> PreparedTurn:
         trace = TraceCollector()
         controller_result = self.controller.gather(query, trace=trace)
-        memories = self._active_memories(active_subjects)
+        memories = self._active_memories(query, active_subjects)
         conflicts = self._conflicts(memories)
         conflict_hits: list[RetrievalHit] = []
         for key, competing in conflicts.items():
@@ -168,17 +231,12 @@ class VirtualContextEngine:
         )
         return recovered
 
-    def _active_memories(self, subjects: Sequence[str]) -> list[MemoryRecord]:
-        memories = self.store.active_memories()
-        if not subjects:
-            return memories
-        selected = {subject.casefold() for subject in subjects}
-        return [
-            memory
-            for memory in memories
-            if memory.memory_class in {MemoryClass.CONSTRAINT, MemoryClass.CURRENT_PLAN}
-            or memory.subject.casefold() in selected
-        ]
+    def _active_memories(
+        self, query: str, subjects: Sequence[str]
+    ) -> list[MemoryRecord]:
+        return select_relevant_memories(
+            self.store.active_memories(), query, active_subjects=subjects
+        )
 
     @staticmethod
     def _conflicts(

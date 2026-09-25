@@ -11,7 +11,7 @@
 
 Command: `./scripts/validate.sh`
 
-Result: 625 tests passed in 24.20 seconds. Source, contract, VAD, call-queue,
+Result: 629 tests passed in 30.00 seconds. Source, contract, VAD, call-queue,
 browser-cache, and unit validation gates passed.
 
 ## Synthetic source-length ladder
@@ -46,6 +46,57 @@ The final-16K FIFO baseline found the value only at the 16K source length. The
 hashed dense channel did not put the target in its selected set at 256K and 1M;
 exact/BM25 retrieval recovered it. This is retained as an ablation signal, not
 hidden or converted into a dense-retrieval success claim.
+
+## Adversarial 16K-to-1M matrix
+
+Command:
+
+```bash
+.venv/bin/python scripts/benchmark_virtual_context_matrix.py \
+  --lengths 16000,32000,64000,128000,256000,512000,1000000 \
+  --output /tmp/virtual-context-adversarial-matrix.json
+```
+
+The matrix contains ten scenario families at each length and eight baselines,
+for 560 preparation cases. It scores the evidence made resident; it does not
+use expected answers in production queries and does not claim downstream model
+answer correctness.
+
+| Baseline | Pass rate | Evidence recall | Replay recall | Exact provenance |
+|---|---:|---:|---:|---:|
+| final-window FIFO | 15.7% | 0.000 | 0.281 | 0.000 |
+| dense-only RAG | 90.0% | 0.980 | 0.980 | 0.980 |
+| lexical-only RAG | 100% | 1.000 | 1.000 | 1.000 |
+| hybrid RAG | 100% | 1.000 | 1.000 | 1.000 |
+| bounded recurrent text | 80.0% | 0.900 | 0.880 | 0.000 |
+| recursive exact replay | 100% | 1.000 | 1.000 | 1.000 |
+| structured exact replay | 100% | 1.000 | 1.000 | 1.000 |
+| reference-location oracle | 100% | 1.000 | 1.000 | 1.000 |
+
+| Source tokens | Ingest s | Index bytes | Peak process RSS MiB | Maximum production resident input | Minimum production ratio |
+|---:|---:|---:|---:|---:|---:|
+| 16,000 | 0.339 | 626,688 | 28.7 | 713 | 22.44x |
+| 32,000 | 0.362 | 827,392 | 30.7 | 713 | 44.88x |
+| 64,000 | 0.415 | 1,294,336 | 34.0 | 713 | 89.76x |
+| 128,000 | 0.582 | 2,146,304 | 40.2 | 716 | 178.77x |
+| 256,000 | 0.915 | 4,173,824 | 48.8 | 716 | 357.54x |
+| 512,000 | 1.732 | 8,089,600 | 66.3 | 716 | 715.08x |
+| 1,000,000 | 3.206 | 15,605,760 | 101.9 | 719 | 1,390.82x |
+
+All 63 provenance spans reconstructed byte-for-byte from immutable chunks.
+The structured replay path excluded both forbidden near-duplicate controller
+values at every length. Peak RSS is the process high-water mark from one
+sequential run, and the very high ratios reflect sparse evidence needs; they
+must not be generalized to dense-evidence tasks.
+
+The first matrix run exposed two non-benchmark-specific defects. Controller
+sufficiency treated conversational filler as evidence anchors and rejected
+complete retrievals. Separately, every active fact/decision was being injected
+when no explicit subject scope was supplied. The current implementation weights
+query-derived exact identifiers, retains terminal dependency facts, keeps
+constraints/current-plan records deterministic, and subject-scopes other
+derived memories. The strengthened adversarial gate now fails on forbidden
+near-duplicate replay.
 
 ## Official RULER 256K preparation gate
 
@@ -137,7 +188,8 @@ worker used 254,822 source tokens with the target fact in the middle:
    and reference-location oracle conditions.
 2. Report answer accuracy, oracle gap, inference tokens, rounds, p50/p95 latency,
    peak RAM/VRAM, and context-envelope use.
-3. Run realistic long conversation, document, and code-agent workloads with
-   adversarial revisions, distractors, and conflicting entities.
+3. Run realistic long conversation, document, and code-agent workloads; the
+   deterministic adversarial fixtures above are necessary regression evidence,
+   not a substitute for those live task distributions.
 4. Keep learned gates, latent compilation, reversible memories, and KV
    compression/paging behind independent reconstruction and ablation gates.

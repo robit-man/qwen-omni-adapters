@@ -66,16 +66,40 @@ offline/test fallback and cannot guarantee byte-identical counts for every token
 
 ## Benchmark
 
-Run the deterministic sparse retrieval ladder:
+Run the deterministic adversarial matrix first:
+
+```bash
+.venv/bin/python scripts/benchmark_virtual_context_matrix.py \
+  --output /tmp/virtual-context-matrix.json
+```
+
+It holds the resident transformer budget at 16,384 while testing 16K, 32K,
+64K, 128K, 256K, 512K, and 1M source-token fixtures. Ten scenario families
+cover sparse and multiple needles, supersession/chronology, numerical evidence,
+multi-hop entity traversal, cross-file code topology, a buried constraint,
+user decisions, exact log strings/citations, and adversarial near-duplicate
+entities. The report compares FIFO, dense-only RAG, lexical-only RAG, hybrid
+RAG, bounded recurrent text, recursive exact replay, structured replay, and a
+labelled oracle. Expected terms locate oracle chunks and score completed packs;
+they are never added to production retrieval queries.
+
+The matrix is a memory-preparation gate. It measures evidence recall, replay
+recall, exact provenance, forbidden distractor replay, controller sufficiency,
+resident tokens, retrieval rounds/latency, index/RAM growth, compression ratio,
+and reconstruction fidelity. It does not award numerical reasoning or model
+answer accuracy merely because operands reached the prompt. Use official RULER
+and task-level model evaluation for those downstream claims.
+
+The older one-fact sparse ladder remains useful as a fast diagnostic:
 
 ```bash
 .venv/bin/python scripts/benchmark_virtual_context.py
 .venv/bin/python scripts/benchmark_virtual_context.py --lengths 512000,1000000
 ```
 
-The report compares a final-16K FIFO baseline, hybrid retrieval, and an oracle evidence
-pack at 16K, 32K, 64K, 128K, and 256K source lengths. It measures memory-subsystem
-fidelity only; it does not substitute for model-answer evaluation or RULER.
+It compares a final-16K FIFO baseline, hybrid retrieval, and an oracle evidence
+pack. It measures memory-subsystem fidelity only and does not substitute for the
+adversarial matrix, model-answer evaluation, or RULER.
 
 For model-answer evaluation, generate official RULER v1 JSONL with the upstream
 tooling, then prepare or execute predictions without loading the full source into the

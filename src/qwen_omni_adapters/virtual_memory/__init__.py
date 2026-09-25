@@ -11,7 +11,11 @@ from qwen_omni_adapters.virtual_memory.controller import (
     RecursiveMemoryController,
 )
 from qwen_omni_adapters.virtual_memory.embedding import HashingEmbedder, validate_embedding
-from qwen_omni_adapters.virtual_memory.engine import PreparedTurn, VirtualContextEngine
+from qwen_omni_adapters.virtual_memory.engine import (
+    PreparedTurn,
+    VirtualContextEngine,
+    select_relevant_memories,
+)
 from qwen_omni_adapters.virtual_memory.extractor import (
     ExtractedCandidate,
     StructuredMemoryExtractor,
@@ -72,4 +76,5 @@ __all__ = [
     "WorkingContext",
     "WorkingContextPacker",
     "validate_embedding",
+    "select_relevant_memories",
 ]

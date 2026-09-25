@@ -10,6 +10,44 @@ from qwen_omni_adapters.virtual_memory.models import ControllerAction, Retrieval
 from qwen_omni_adapters.virtual_memory.retrieval import HybridRetriever
 from qwen_omni_adapters.virtual_memory.telemetry import TraceCollector
 
+_SUFFICIENCY_STOP_WORDS = {
+    "a",
+    "all",
+    "and",
+    "are",
+    "be",
+    "can",
+    "did",
+    "does",
+    "for",
+    "from",
+    "how",
+    "including",
+    "into",
+    "is",
+    "it",
+    "of",
+    "only",
+    "return",
+    "so",
+    "that",
+    "the",
+    "their",
+    "then",
+    "through",
+    "to",
+    "use",
+    "using",
+    "value",
+    "values",
+    "was",
+    "what",
+    "when",
+    "where",
+    "which",
+    "with",
+}
+
 
 @dataclass(frozen=True)
 class ControllerConfig:
@@ -174,20 +212,63 @@ class RecursiveMemoryController:
             return 0.0
         query_terms = {
             term.casefold()
-            for term in query.replace("?", " ").split()
-            if len(term.strip(".,:;()[]")) > 2
+            for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", query)
+            if term.casefold() not in _SUFFICIENCY_STOP_WORDS
         }
         evidence_terms = {
-            term.casefold().strip(".,:;()[]")
+            term.casefold()
             for hit in evidence
-            for term in hit.chunk.original_text.split()
+            for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", hit.chunk.original_text)
         }
         coverage = len(query_terms & evidence_terms) / max(1, len(query_terms))
-        channel_bonus = min(
-            0.25,
-            len({channel for hit in evidence for channel in hit.channels}) * 0.04,
+        # Exact strings, code symbols, identifiers, and ID-like values carry
+        # much more evidentiary weight than conversational glue.  This is a
+        # query-derived signal: no expected answer or hidden benchmark label is
+        # available to the controller.
+        anchors = {
+            value.casefold()
+            for value in re.findall(r"[`'\"]([^`'\"]{2,200})[`'\"]", query)
+        }
+        anchors.update(
+            term.casefold()
+            for term in re.findall(r"\b[A-Za-z][A-Za-z0-9]*(?:[_.$:-][A-Za-z0-9]+)+\b", query)
         )
-        return min(1.0, coverage * 0.7 + max(hit.score for hit in evidence) * 0.2 + channel_bonus)
+        evidence_text = "\n".join(hit.chunk.original_text for hit in evidence).casefold()
+        anchor_coverage = (
+            sum(anchor in evidence_text for anchor in anchors) / len(anchors)
+            if anchors
+            else coverage
+        )
+        channels = {channel for hit in evidence for channel in hit.channels}
+        channel_strength = min(1.0, len(channels) / 3.0)
+        breadth = min(1.0, len(evidence) / 3.0)
+        score = (
+            coverage * 0.35
+            + anchor_coverage * 0.35
+            + channel_strength * 0.2
+            + breadth * 0.1
+        )
+        # Imperative requests often retrieve the governing negative constraint,
+        # whose MUST/NEVER wording is necessarily absent from the request.  A
+        # provenance-bearing constraint with substantive lexical overlap is
+        # sufficient evidence to let the answer stage apply it.
+        has_constraint = any(
+            re.search(r"\b(?:MUST(?:\s+NOT)?|NEVER|ALWAYS|DO\s+NOT)\b", hit.chunk.original_text, re.I)
+            for hit in evidence
+        )
+        if has_constraint and coverage >= 0.3:
+            score = max(score, 0.82)
+        # Likewise, a temporal question is supported when the subject is
+        # anchored and the exact evidence retains both sides of an update.
+        temporal_query = bool(
+            re.search(r"\b(?:current|before|after|previous|replace|supersed|timeline)\w*\b", query, re.I)
+        )
+        temporal_evidence = bool(
+            re.search(r"\b(?:changed\s+from|replaced|superseded|previously)\b", evidence_text, re.I)
+        )
+        if temporal_query and temporal_evidence and anchor_coverage >= 1.0:
+            score = max(score, 0.82)
+        return min(1.0, score)
 
     @staticmethod
     def _dependency_queries(
