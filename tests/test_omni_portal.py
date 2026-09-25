@@ -198,6 +198,59 @@ def test_browser_first_visual_point_returns_a_refinement_crop_without_clicking()
     assert outcome == "refine"
 
 
+def test_browser_point_head_maps_bounded_region_back_to_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self, _limit: int) -> bytes:
+            return json.dumps(
+                {
+                    "points": [{"x": 0.25, "y": 0.5}],
+                    "model": "point-test",
+                    "revision": "pinned",
+                }
+            ).encode()
+
+    def open_request(request, **_kwargs):
+        payload = json.loads(request.data)
+        point_image = Image.open(
+            io.BytesIO(base64.b64decode(payload["image"]))
+        )
+        captured["size"] = point_image.size
+        captured["target"] = payload["target"]
+        return Response()
+
+    monkeypatch.setattr("portal.browser.urlopen", open_request)
+
+    x, y, receipt = BrowserAutomationStore(
+        pointing_url="http://127.0.0.1:8940"
+    )._point_target(
+        Image.new("RGB", (1000, 700), "white"),
+        "blue triangle",
+        800,
+        300,
+    )
+
+    assert captured == {"size": (400, 300), "target": "blue triangle"}
+    assert (x, y) == (699, 300)
+    assert receipt["grounding_region"] == {
+        "origin_x": 599,
+        "origin_y": 60,
+        "width": 400,
+        "height": 300,
+        "parent_width": 1000,
+        "parent_height": 700,
+    }
+
+
 def test_browser_dedicated_point_head_executes_full_viewport_target_directly() -> None:
     class Store(BrowserAutomationStore):
         def _evaluate(self, _cdp, _expression):

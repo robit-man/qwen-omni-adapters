@@ -428,8 +428,30 @@ class BrowserAutomationStore:
             raise BrowserAutomationError("structured visual pointing is unavailable")
         if len(normalized_target) > 240:
             raise BrowserAutomationError("visual target description is too long")
+        # The conversational vision model supplies a coarse region proposal,
+        # not executable pixels. Pointing inside that bounded region both
+        # magnifies small targets and removes distant duplicate labels (for
+        # example, instruction text naming the object to click).
+        crop_width = min(image.width, 400)
+        crop_height = min(image.height, 300)
+        center_x = round(proposed_x * max(0, image.width - 1) / 1000)
+        center_y = round(proposed_y * max(0, image.height - 1) / 1000)
+        crop_left = max(
+            0, min(image.width - crop_width, center_x - crop_width // 2)
+        )
+        crop_top = max(
+            0, min(image.height - crop_height, center_y - crop_height // 2)
+        )
+        point_image = image.crop(
+            (
+                crop_left,
+                crop_top,
+                crop_left + crop_width,
+                crop_top + crop_height,
+            )
+        )
         buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
+        point_image.save(buffer, format="PNG")
         payload = json.dumps(
             {
                 "image": base64.b64encode(buffer.getvalue()).decode("ascii"),
@@ -461,10 +483,16 @@ class BrowserAutomationStore:
                 if not isinstance(point, dict):
                     continue
                 try:
-                    x = round(float(point["x"]) * 1000)
-                    y = round(float(point["y"]) * 1000)
+                    local_x = float(point["x"])
+                    local_y = float(point["y"])
                 except (KeyError, TypeError, ValueError):
                     continue
+                if not 0.0 <= local_x <= 1.0 or not 0.0 <= local_y <= 1.0:
+                    continue
+                pixel_x = crop_left + local_x * max(0, crop_width - 1)
+                pixel_y = crop_top + local_y * max(0, crop_height - 1)
+                x = round(pixel_x * 1000 / max(1, image.width - 1))
+                y = round(pixel_y * 1000 / max(1, image.height - 1))
                 if 0 <= x <= 1000 and 0 <= y <= 1000:
                     candidates.append((x, y))
         if not candidates:
@@ -486,6 +514,14 @@ class BrowserAutomationStore:
             "target": normalized_target,
             "candidate_count": len(candidates),
             "planner_prior": {"x": proposed_x, "y": proposed_y},
+            "grounding_region": {
+                "origin_x": crop_left,
+                "origin_y": crop_top,
+                "width": crop_width,
+                "height": crop_height,
+                "parent_width": image.width,
+                "parent_height": image.height,
+            },
             "executed": {"x": selected_x, "y": selected_y},
         }
 
