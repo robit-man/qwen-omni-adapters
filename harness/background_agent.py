@@ -929,6 +929,15 @@ def _unchanged_result_digest(
 ) -> str:
     """Fingerprint causal outcomes without rewarding cosmetic retry changes."""
 
+    if (
+        name == "workspace_file"
+        and str(arguments.get("action") or "") in {"list", "read"}
+    ):
+        # Read-only probes do not change filesystem state. Supplying an
+        # explicit default depth, page size, or another cosmetic argument
+        # cannot make the same returned observation new evidence.
+        rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, default=str)
+        return hashlib.sha256(f"{name}\0observed\0{rendered}".encode()).hexdigest()
     if name == "shell" and _result_failed_or_blocked(result) and isinstance(result, Mapping):
         # Shell commonly reports the same failure on either stream depending on
         # redirection. The command text, cwd echo, timeout, and supplied stdin are
@@ -1011,6 +1020,7 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
         return ""
     sources: list[dict[str, Any]] = []
     artifacts: list[dict[str, Any]] = []
+    inspections: list[dict[str, Any]] = []
     checkpoints: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     seen_sources: set[str] = set()
@@ -1037,15 +1047,29 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
                 )
         elif tool == "workspace_file" and ok:
             path = str(outcome.get("path") or arguments.get("path") or "").strip()
-            if path and path not in seen_artifacts:
+            action = str(
+                outcome.get("action") or arguments.get("action") or "changed"
+            )
+            if path and action in {"mkdir", "write", "replace"} and path not in seen_artifacts:
                 seen_artifacts.add(path)
                 artifacts.append(
                     {
                         "evidence_id": call_id,
-                        "status": str(outcome.get("action") or arguments.get("action") or "changed"),
+                        "status": action,
                         "path": path,
                         "sha256": str(outcome.get("sha256") or ""),
                         "validation": str(outcome.get("validation") or ""),
+                        "expand": f"task_expand({call_id})",
+                    }
+                )
+            elif path and action in {"list", "read"}:
+                inspections.append(
+                    {
+                        "evidence_id": call_id,
+                        "status": action,
+                        "path": path,
+                        "sha256": str(outcome.get("sha256") or ""),
+                        "task_progress": False,
                         "expand": f"task_expand({call_id})",
                     }
                 )
@@ -1074,7 +1098,7 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
                     "expand": f"task_expand({call_id})",
                 }
             )
-    if not any((sources, artifacts, checkpoints, failures)):
+    if not any((sources, artifacts, inspections, checkpoints, failures)):
         return ""
 
     def tagged(name: str, records: list[dict[str, Any]]) -> list[str]:
@@ -1098,10 +1122,14 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
         "<focus_contract>These typed records remain authoritative across compaction. "
         "Do not redo an acquired source or artifact merely because its original turn is "
         "not resident. If a relevant record lacks a needed detail, call task_expand with "
-        "its evidence_id; expansion is paging, not new progress.</focus_contract>",
+        "its evidence_id; expansion is paging, not new progress. Read/list inspections "
+        "are observations, never completed work: use them to choose the next action and "
+        "do not repeat an equivalent inspection unless causal state changed or a missing "
+        "detail requires a different bounded page.</focus_contract>",
         *tagged("phase_checkpoints", checkpoints[-8:]),
         *tagged("acquired_sources", sources[-24:]),
         *tagged("artifacts", artifacts[-32:]),
+        *tagged("inspections", inspections[-12:]),
         *tagged("failed_attempts", failures[-8:]),
         "</focus_memory>",
     ]

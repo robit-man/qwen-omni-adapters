@@ -1188,6 +1188,17 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
                 "ok": True,
             },
             {
+                "call_id": "list-1",
+                "tool": "workspace_file",
+                "arguments": json.dumps(
+                    {"action": "list", "path": "/tmp/project"}
+                ),
+                "outcome": json.dumps(
+                    {"action": "list", "path": "/tmp/project", "entries": []}
+                ),
+                "ok": True,
+            },
+            {
                 "call_id": "file-1",
                 "tool": "workspace_file",
                 "arguments": json.dumps(
@@ -1226,8 +1237,16 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
     assert "<phase_checkpoints>" in focus
     assert "<acquired_sources>" in focus
     assert "<artifacts>" in focus
+    assert "<inspections>" in focus
     assert "https://example.test/field-service" in focus
     assert "/tmp/project/docs/research.md" in focus
+    assert "&quot;task_progress&quot;: false" in focus
+    assert "list-1" not in focus.split("<artifacts>", 1)[1].split(
+        "</artifacts>", 1
+    )[0]
+    assert "list-1" in focus.split("<inspections>", 1)[1].split(
+        "</inspections>", 1
+    )[0]
     assert "Research satisfied; plan remains." in focus
     assert "task_expand(source-1)" in focus
     assert "Do not redo an acquired source" in focus
@@ -1374,6 +1393,37 @@ def test_shell_failure_guard_ignores_cosmetic_argument_and_stream_changes() -> N
     )
 
     assert repeated is False
+    assert repeated_retry is True
+    assert retry_digest == last_digest
+    assert retained == last_digest
+    assert guarded["error"] == "repeated_unchanged_result"
+
+
+def test_workspace_inspection_guard_ignores_cosmetic_defaults() -> None:
+    result = {
+        "action": "list",
+        "path": "/tmp/project",
+        "depth": 2,
+        "entries": [],
+        "truncated": False,
+    }
+    _first, last_digest, _digest, repeated = _guard_repeated_unchanged_result(
+        "workspace_file",
+        {"action": "list", "path": "/tmp/project"},
+        result,
+        "",
+    )
+    assert repeated is False
+
+    guarded, retained, retry_digest, repeated_retry = (
+        _guard_repeated_unchanged_result(
+            "workspace_file",
+            {"action": "list", "path": "/tmp/project", "depth": 2},
+            result,
+            last_digest,
+        )
+    )
+
     assert repeated_retry is True
     assert retry_digest == last_digest
     assert retained == last_digest
