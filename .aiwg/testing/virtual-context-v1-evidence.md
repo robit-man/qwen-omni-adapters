@@ -57,7 +57,7 @@ few-shot assignment graph that acts as a hard distractor.
 | Condition | Required edges replayed | Resident tokens | Compression | Retrieval queries | Sufficient |
 |---|---:|---:|---:|---:|---:|
 | FIFO | 0/5 | 14,000 | 18.28x | 1 | baseline-only |
-| Hybrid | 5/5 | 7,451 | 34.36x | 6 | yes |
+| Hybrid | 5/5 | 7,238 | 35.37x | 6 | yes |
 | Reference-location oracle | 5/5 | 7,238 | 35.37x | 6 | yes |
 
 This gate initially found two real failures: the controller stopped after only
@@ -68,6 +68,33 @@ use dependency-aware exact line replay when a full chunk does not fit.
 
 This is preparation/replay evidence, not an answer-accuracy score. The complete
 13-task FIFO/hybrid/oracle model run remains a release gate.
+
+## Live official RULER model-answer gate
+
+The same official four-hop sample was then evaluated against the resident
+Ornith worker on the Jetson, still hard-capped at 16,384 physical tokens. The
+score below applies NVIDIA RULER's `variable_tracking` `string_match_all`
+metric: the fraction of the five reference variables present in the answer.
+
+| Condition | Output allowance | Resident tokens | Compression | Score |
+|---|---:|---:|---:|---:|
+| FIFO | 256 | 14,000 | 18.28x | 0 |
+| Hybrid before dependency-focus eviction | 256 | 7,487 | 34.19x | 0 |
+| Hybrid before dependency-focus eviction | 512 | 7,487 | 34.19x | 20 |
+| Hybrid after dependency-focus eviction | 256 | 7,264 | 35.24x | 100 |
+| Reference-location oracle | 256 | 7,264 | 35.24x | 100 |
+
+The failed hybrid conditions are retained because they exposed that a
+high-scoring but disconnected few-shot assignment graph was still being paged
+into residual evidence capacity. Query-time compression now focuses replay on
+chunks containing the dependency identifiers discovered by the controller and
+logs other recoverable candidates as `dependency_focus` evictions. The focused
+hybrid answer and oracle answer were identical:
+`IWSHA, YCSMT, RQMUC, FRHPM, and NLTIS.`
+
+This is one official RULER sample, not a statistically meaningful task score.
+It establishes the first milestone path end to end; it does not replace the
+complete task/length matrix.
 
 ## Live Jetson sparse-recall smoke
 
