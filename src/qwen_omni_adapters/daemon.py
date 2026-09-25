@@ -803,6 +803,12 @@ class OmniDaemon:
                 "--port",
                 str(self.config.comprehension_port),
                 "--jinja",
+                # Qwen-VL's own llama.cpp loader warns that grounding quality
+                # is not reliable below 1024 dynamic image tokens. Browser
+                # coordinates are a first-class action input, so do not accept
+                # the smaller model-default image budget here.
+                "--image-min-tokens",
+                "1024",
                 "-ngl",
                 "99",
                 "-c",

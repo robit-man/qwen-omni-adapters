@@ -226,6 +226,8 @@ def test_tegra_direct_daemon_uses_dynamic_context_launcher() -> None:
     assert '"{context}" if is_tegra()' in source
     assert '"--parallel-slots"' in source
     assert '"{parallel}"' in source
+    assert '"--image-min-tokens"' in source
+    assert '"1024"' in source
 
 
 def test_an_openai_language_backend_is_not_pulled_from_ollama(monkeypatch, tmp_path):

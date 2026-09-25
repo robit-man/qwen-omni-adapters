@@ -178,6 +178,11 @@ round/call/stall-bounded slices. Configure the policy with
 `OMNI_MEMORY_GOVERNOR`, `OMNI_MEMORY_SOFT_FLOOR_GIB`,
 `OMNI_MEMORY_HARD_FLOOR_GIB`, and `OMNI_MEMORY_OPERATION_RESERVE_GIB`.
 
+The comprehension server reserves at least 1,024 dynamic tokens for each image.
+This is the Qwen-VL/llama.cpp minimum for reliable grounding; allowing the smaller
+model-default image budget saves prompt work but materially degrades browser point
+selection. Exact DOM targets still bypass visual pointing through live CDP geometry.
+
 The launcher continues sampling after readiness because CUDA and KV pages can
 be committed lazily by the first large image or text request. A short dip is
 ignored, but availability below the model-derived adjacent-tier reserve for a
