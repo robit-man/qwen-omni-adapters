@@ -233,6 +233,16 @@ def _accepted_utterance_preempts(
     )
 
 
+def _foreground_lane_still_owned(
+    *,
+    accepted_audio_waiting: bool,
+    queued_turn: bool,
+) -> bool:
+    """Keep the model lane only for accepted speech, never a raw VAD candidate."""
+
+    return accepted_audio_waiting or queued_turn
+
+
 class CallSession:
     """One continuous conversation: history, transport, and the turn itself."""
 
@@ -1277,7 +1287,12 @@ def run_call_loop(
                     if isinstance(acknowledged, threading.Event):
                         acknowledged.set()
                 busy.clear()
-                if not near_end_active.is_set():
+                with lock:
+                    accepted_audio_waiting = bool(waiting)
+                if not _foreground_lane_still_owned(
+                    accepted_audio_waiting=accepted_audio_waiting,
+                    queued_turn=not work.empty(),
+                ):
                     foreground_active.clear()
                 if session.background_agent is not None:
                     session.background_agent.wake()

@@ -30,6 +30,7 @@ from harness.call import (  # noqa: E402
     CallSession,
     TurnResult,
     _accepted_utterance_preempts,
+    _foreground_lane_still_owned,
 )
 from harness.location import BrowserLocationProvider  # noqa: E402
 from harness.vad import Vad, VadConfig  # noqa: E402
@@ -1583,6 +1584,29 @@ def test_only_audible_foreground_replies_or_background_announcements_preempt(
             reply_started=reply_started,
             can_barge=can_barge,
             background_announcement=announcement,
+        )
+        is expected
+    )
+
+
+@pytest.mark.parametrize(
+    ("accepted_audio_waiting", "queued_turn", "expected"),
+    [
+        (False, False, False),
+        (True, False, True),
+        (False, True, True),
+        (True, True, True),
+    ],
+)
+def test_foreground_lane_survives_only_accepted_or_queued_turns(
+    accepted_audio_waiting: bool,
+    queued_turn: bool,
+    expected: bool,
+) -> None:
+    assert (
+        _foreground_lane_still_owned(
+            accepted_audio_waiting=accepted_audio_waiting,
+            queued_turn=queued_turn,
         )
         is expected
     )
