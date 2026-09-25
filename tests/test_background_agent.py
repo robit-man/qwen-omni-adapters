@@ -37,6 +37,7 @@ from harness.background_agent import (
     _context_metrics,
     _direct_alternative_tools,
     _discard_visual_frames,
+    _durable_task_messages,
     _evidence_authority,
     _focus_memory,
     _ForegroundPreempted,
@@ -50,6 +51,7 @@ from harness.background_agent import (
     _NonRetryableBackgroundError,
     _normalize_progress_evidence,
     _recovery_required,
+    _sanitize_checkpoint_history,
     _seen_tool_fingerprints,
     _stream_error,
     _structured_action_phase,
@@ -1307,12 +1309,50 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
         "</inspections>", 1
     )[0]
     assert "Research satisfied; plan remains." not in focus
-    assert "declared_remaining_requirements" in focus
-    assert "Write docs/plan.md." in focus
+    assert "declared_remaining_requirements" not in focus
+    assert "Write docs/plan.md." not in focus
     assert "model_checkpoint_control_not_task_evidence" in focus
     assert "Phase checkpoints are control boundaries, not proof" in focus
     assert "task_expand(source-1)" in focus
     assert "Do not redo an acquired source" in focus
+
+
+def test_checkpoint_prose_is_removed_from_recurrent_and_durable_history() -> None:
+    messages = [
+        {
+            "role": "assistant",
+            "content": "I have definitely created every file and passed every test.",
+            "tool_calls": [
+                {
+                    "id": "checkpoint-1",
+                    "function": {
+                        "name": "task_checkpoint",
+                        "arguments": {
+                            "action": "progress",
+                            "report": "All application files exist.",
+                            "criteria_assessment": "Seven criteria are complete.",
+                            "remaining_requirements": ["Only open the browser."],
+                            "evidence_ids": ["real-1"],
+                        },
+                    },
+                }
+            ],
+        }
+    ]
+
+    durable = _durable_task_messages(messages)
+
+    assert "All application files exist" in json.dumps(messages)
+    assert _sanitize_checkpoint_history(durable) == 1
+    rendered = json.dumps(durable)
+    assert "definitely created" not in rendered
+    assert "All application files exist" not in rendered
+    assert "Seven criteria" not in rendered
+    assert "Only open the browser" not in rendered
+    assert durable[0]["tool_calls"][0]["function"]["arguments"] == {
+        "action": "progress",
+        "evidence_ids": ["real-1"],
+    }
 
 
 def test_compaction_archives_model_visible_evidence_for_expansion() -> None:
@@ -2993,6 +3033,10 @@ def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
         elif chat_round == 3:
             payload = json.loads(request.content)
             assert '"accepted": true' in str(payload["messages"][-1]).lower()
+            assert "I created the artifact" not in json.dumps(payload["messages"])
+            assert "further required work remains" not in json.dumps(
+                payload["messages"]
+            )
             content = "test -f artifact"
         else:
             return _checkpoint_response(
@@ -3084,6 +3128,7 @@ def test_background_agent_rejects_completion_after_latest_action_failed(
         elif chat_round == 4:
             payload = json.loads(request.content)
             assert "unsupported_checkpoint" in str(payload["messages"][-1])
+            assert "I finished it." not in json.dumps(payload["messages"])
             command = "different successful verification"
         else:
             return _checkpoint_response(

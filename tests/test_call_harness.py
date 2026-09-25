@@ -30,6 +30,7 @@ from harness.call import (  # noqa: E402
     CallSession,
     TurnResult,
     _accepted_utterance_preempts,
+    _background_announcement_text,
     _foreground_lane_still_owned,
 )
 from harness.location import BrowserLocationProvider  # noqa: E402
@@ -1396,6 +1397,28 @@ def test_an_accepted_utterance_during_speech_preparation_cancels_the_announcemen
 
     assert result.interrupted is True
     assert restored == [True]
+
+
+def test_background_speech_never_reads_internal_worker_reports_verbatim() -> None:
+    internal = (
+        "Cannot verify actual application state; inspect evidence IDs and "
+        "re-evaluate the completion criteria."
+    )
+
+    completed = _background_announcement_text(
+        {"_kind": "terminal", "status": "completed", "result": internal}
+    )
+    blocked = _background_announcement_text(
+        {"_kind": "terminal", "status": "blocked", "result": internal}
+    )
+    progress = _background_announcement_text(
+        {"_kind": "progress", "status": "running", "result": internal}
+    )
+
+    assert completed == "That task is finished."
+    assert blocked == "That task hit a blocker."
+    assert progress == "I'm still working on that."
+    assert internal not in {completed, blocked, progress}
 
 
 def test_speaker_lets_pulse_keep_one_continuous_adaptive_stream(monkeypatch) -> None:

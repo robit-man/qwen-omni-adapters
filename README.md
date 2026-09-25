@@ -412,9 +412,11 @@ long task it may pause after a meaningful verified milestone, speak a short
 progress explanation, then resume with the same task context. A later spoken
 update is appended as authoritative task guidance before the next step,
 including a final race check so stale completion cannot beat a new instruction.
-Completed or blocked work ends with a natural spoken handoff only when the live
-conversation is idle. Its pending-delivery flag survives a harness restart,
-and the speech can be interrupted like any other reply.
+Completed or blocked work ends with a brief natural spoken status only when the
+live conversation is idle. Detailed reports, evidence IDs, paths, and worker
+self-assessment stay in the indicator and task archive and are never passed
+verbatim to TTS. The pending-delivery flag survives a harness restart, and the
+speech can be interrupted like any other reply.
 
 Rendered computer work is not reduced to a fetched-text corpus. The
 `browser_interact` tool launches a real Chromium window on the active desktop,

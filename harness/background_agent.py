@@ -756,12 +756,67 @@ def _discard_visual_frames(
     return discarded
 
 
+def _sanitize_checkpoint_history(
+    messages: list[dict[str, Any]],
+    *,
+    call_id: str = "",
+) -> int:
+    """Keep model-authored checkpoint claims out of recurrent task context.
+
+    ``task_checkpoint`` is a control request, not evidence.  Its free-form
+    report, criteria assessment, remaining-work list, and adjacent assistant
+    prose are useful to the validator and terminal task record once, but
+    replaying them on the next round lets an unsupported claim become apparent
+    history.  Retain only the action and provenance pointers needed to pair the
+    call with its authoritative tool result.
+    """
+
+    sanitized = 0
+    for message in messages:
+        calls = message.get("tool_calls")
+        if message.get("role") != "assistant" or not isinstance(calls, list):
+            continue
+        changed = False
+        for call in calls:
+            if not isinstance(call, dict):
+                continue
+            function = call.get("function")
+            if not isinstance(function, Mapping):
+                continue
+            if str(function.get("name") or "") != "task_checkpoint":
+                continue
+            if call_id and str(call.get("id") or "") != call_id:
+                continue
+            arguments = _arguments(call)
+            evidence = arguments.get("evidence_ids")
+            safe_arguments = {
+                "action": str(arguments.get("action") or ""),
+                "evidence_ids": (
+                    [str(value) for value in evidence if str(value)][:16]
+                    if isinstance(evidence, list)
+                    else []
+                ),
+            }
+            call["function"] = {
+                **dict(function),
+                "arguments": safe_arguments,
+            }
+            sanitized += 1
+            changed = True
+        if changed:
+            # Narrative beside a checkpoint is another unvalidated claim about
+            # task state.  The following tool result is the sole authority.
+            message["content"] = ""
+    return sanitized
+
+
 def _durable_task_messages(
     messages: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Return the crash-safe transcript without embedding screenshot payloads."""
+    """Return a crash-safe transcript without screenshots or checkpoint claims."""
 
     durable = copy.deepcopy(messages)
+    _sanitize_checkpoint_history(durable)
     _discard_visual_frames(
         durable,
         replacement_note=(
@@ -1035,13 +1090,6 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
                         "checkpoint_id": call_id,
                         "action": str(arguments.get("action") or "progress"),
                         "evidence_ids": list(arguments.get("evidence_ids") or [])[:16],
-                        "declared_remaining_requirements": [
-                            str(value)[:300]
-                            for value in (
-                                arguments.get("remaining_requirements") or []
-                            )
-                            if str(value).strip()
-                        ][:8],
                         "authority": "model_checkpoint_control_not_task_evidence",
                     }
                 )
@@ -1084,8 +1132,8 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
         "are observations, never completed work: use them to choose the next action and "
         "do not repeat an equivalent inspection unless causal state changed or a missing "
         "detail requires a different bounded page. Phase checkpoints are control "
-        "boundaries, not proof: their declared remaining requirements may orient the "
-        "next step but never establish that omitted criteria were completed. Recompute "
+        "boundaries, not proof, and their model-authored prose is intentionally absent. "
+        "Recompute "
         "task state from the pinned completion contract and typed source, artifact, "
         "inspection, and failure records.</focus_contract>",
         *tagged("phase_checkpoints", checkpoints[-8:]),
@@ -2266,6 +2314,10 @@ class BackgroundAgent:
         task_started_at = time.monotonic()
         last_progress_at: float | None = None
         messages = copy.deepcopy(task.get("messages") or [])
+        # Older tasks can contain free-form checkpoint reports from a previous
+        # runtime.  Strip those claims before either restoring the audit or
+        # presenting the retained transcript to the model.
+        _sanitize_checkpoint_history(messages)
         if not messages:
             messages = [
                 {"role": "system", "content": _task_system_prompt(task)},
@@ -2895,6 +2947,12 @@ class BackgroundAgent:
                         stalls += 1
                     continue
                 if name == "task_checkpoint":
+                    # The validator below already holds a private parsed copy
+                    # of these arguments.  Remove the model-authored prose from
+                    # the recurrent transcript before any rejection, progress
+                    # continuation, compaction, or persistence can replay it as
+                    # if it were established task history.
+                    _sanitize_checkpoint_history(messages, call_id=call_id)
                     latest = self.store.get(task_id)
                     if latest is not None and _append_guidance(
                         messages, latest, seen_guidance

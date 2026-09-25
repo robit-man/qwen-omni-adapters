@@ -252,6 +252,26 @@ def _foreground_lane_still_owned(
     return accepted_audio_waiting or queued_turn
 
 
+def _background_announcement_text(announcement: Mapping[str, Any]) -> str:
+    """Return a brief spoken status, never the worker's internal task report.
+
+    The detailed, provenance-bearing report belongs in the indicator and task
+    archive.  It can contain validation language, paths, evidence IDs, and
+    model-authored self-assessment that is useful for inspection but sounds
+    like leaked meta-analysis when synthesized verbatim.
+    """
+
+    kind = str(announcement.get("_kind") or "terminal")
+    if kind == "progress":
+        return "I'm still working on that."
+    status = str(announcement.get("status") or "")
+    if status == "completed":
+        return "That task is finished."
+    if status == "blocked":
+        return "That task hit a blocker."
+    return "That task has an update."
+
+
 class CallSession:
     """One continuous conversation: history, transport, and the turn itself."""
 
@@ -1271,8 +1291,8 @@ def run_call_loop(
                         on_turn(result)
                 elif announcement is not None:
                     task_id = str(announcement.get("task_id") or "")
-                    report = str(announcement.get("result") or "").strip()
                     kind = str(announcement.get("_kind") or "terminal")
+                    report = _background_announcement_text(announcement)
                     if report:
                         logger.info("announcing %s background task %s", kind, task_id)
                         result = session.announce(report)
