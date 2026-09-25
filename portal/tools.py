@@ -1933,10 +1933,18 @@ class PortalToolHarness:
             # can be inspected or cancelled under pressure.
             memory_admission = _TOOL_MEMORY_ADMISSION.get(name, "standard")
             task_control = memory_admission == "control"
+            # Teardown must remain callable at the memory floor: closing the
+            # rendered browser is itself a pressure-relief operation.  Treat
+            # it like task cancellation rather than replacing its successful
+            # receipt with a retryable resource-pressure error afterwards.
+            release_only = (
+                name == "browser_interact"
+                and str(arguments.get("action") or "").strip().lower() == "close"
+            )
             if self.memory_governor is not None:
-                if memory_admission == "standard":
+                if memory_admission == "standard" and not release_only:
                     self.memory_governor.require(f"tool {name}")
-                elif memory_admission == "bounded":
+                elif memory_admission == "bounded" and not release_only:
                     self.memory_governor.require_hard_floor(f"tool {name}")
             if name == "get_current_time":
                 now = datetime.now().astimezone()
@@ -2164,6 +2172,7 @@ class PortalToolHarness:
             if (
                 self.memory_governor is not None
                 and not task_control
+                and not release_only
                 and self.memory_governor.under_hard_pressure()
             ):
                 raise MemoryPressure(

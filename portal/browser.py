@@ -761,6 +761,15 @@ class BrowserAutomationStore:
             session = self._sessions.pop(_session_key(session_id), None)
             if session is not None:
                 self._terminate(session)
+            else:
+                # A portal restart can lose the in-memory session map while a
+                # Flatpak Chromium child survives its launcher.  ``close`` is
+                # also the cleanup operation used before each live fixture, so
+                # reap only profiles carrying our exact private prefix when no
+                # current session object can own them.  Tracked sessions from
+                # other browser clients remain protected by the reaper's
+                # current-profile set.
+                self._reap_orphan_browsers()
 
     def close(self) -> None:
         with self._lock:

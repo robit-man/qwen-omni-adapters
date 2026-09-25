@@ -1110,6 +1110,46 @@ def test_existing_browser_executor_is_not_readmitted_at_the_soft_floor() -> None
     assert browser.calls == 1
 
 
+def test_browser_close_remains_available_below_the_hard_memory_floor() -> None:
+    class ExistingBrowser:
+        calls = 0
+
+        def act(self, _session_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
+            self.calls += 1
+            assert arguments == {"action": "close"}
+            return {"closed": True, "rendered": False}
+
+        def clear(self, _session_id: str) -> None:
+            pass
+
+    browser = ExistingBrowser()
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        browser_automation=browser,
+        memory_governor=_memory_governor(0.5),
+    )
+
+    result = harness.execute("session", "browser_interact", {"action": "close"})
+
+    assert result == {"closed": True, "rendered": False}
+    assert browser.calls == 1
+
+
+def test_browser_close_reaps_lost_runtime_profile() -> None:
+    class Store(BrowserAutomationStore):
+        reaped = 0
+
+        def _reap_orphan_browsers(self) -> None:
+            self.reaped += 1
+
+    store = Store()
+
+    result = store.act("missing-session", {"action": "close"})
+
+    assert result == {"closed": True, "rendered": False}
+    assert store.reaped == 1
+
+
 def test_browser_admit_refuses_a_second_live_window() -> None:
     store = BrowserAutomationStore()
     store._sessions["a"] = _FakeSession()  # type: ignore[assignment]
