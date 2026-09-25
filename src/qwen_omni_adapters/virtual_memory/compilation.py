@@ -28,6 +28,10 @@ _VALUE_QUERY_RE = re.compile(
     r"\b(?:number|value|code|identifier|id)s?\b",
     re.IGNORECASE,
 )
+_EXHAUSTIVE_VALUE_QUERY_RE = re.compile(
+    r"\b(?:all|every)\b|\b(?:numbers|values|codes|identifiers|ids)\b",
+    re.IGNORECASE,
+)
 _RELATION_VALUE_RE = re.compile(
     r"(?:\bis\b|\bequals?\b|=|:)\s*:?[\s`'\"]*"
     r"(?P<value>[+-]?\d+(?:[._-]\d+)*)",
@@ -100,14 +104,47 @@ class QueryEvidenceCompiler:
             return None
         anchors = HybridRetriever(self.store).plan(query).exact_strings
         # A single exact value is already the ideal replay unit. Compilation
-        # earns its complexity when several independent addresses must be
-        # preserved and compared in one small working set.
-        if len(anchors) < 2:
+        # earns its complexity when several independent addresses, or every
+        # occurrence of one explicit address, must be preserved in one small
+        # working set.  The latter must scan the immutable corpus rather than
+        # assume a top-k retrieval result is an exhaustive set.
+        exhaustive_single_anchor = (
+            len(anchors) == 1 and _EXHAUSTIVE_VALUE_QUERY_RE.search(query) is not None
+        )
+        if len(anchors) < 2 and not exhaustive_single_anchor:
             return None
+        candidate_hits = list(evidence)
+        corpus_scan_limit = 201
+        exact_scan_chunk_count = 0
+        if exhaustive_single_anchor:
+            exact_chunks = self.store.exact_search(anchors[0], limit=corpus_scan_limit)
+            exact_scan_chunk_count = len(exact_chunks)
+            # Claiming "all" is unsafe when the bounded scan itself saturated.
+            if len(exact_chunks) >= corpus_scan_limit:
+                trace.record(
+                    "COMPILE_RELATIONS",
+                    operator="exact_value_lookup",
+                    complete=False,
+                    requested_anchors=list(anchors),
+                    reason="exact_anchor_scan_saturated",
+                    exact_anchor_scan_limit=corpus_scan_limit - 1,
+                )
+                return None
+            seen_chunks = {hit.chunk.chunk_id for hit in candidate_hits}
+            candidate_hits.extend(
+                RetrievalHit(
+                    chunk=chunk,
+                    score=1.0,
+                    channels=("exact_corpus_scan",),
+                    channel_scores={"exact_corpus_scan": 1.0},
+                )
+                for chunk in exact_chunks
+                if chunk.chunk_id not in seen_chunks
+            )
         found: dict[str, list[tuple[str, ProvenancePointer]]] = {
             anchor: [] for anchor in anchors
         }
-        for hit in evidence:
+        for hit in candidate_hits:
             text = hit.chunk.original_text
             folded = text.casefold()
             for anchor in anchors:
@@ -165,6 +202,8 @@ class QueryEvidenceCompiler:
                 anchor: [value for value, _pointer in found[anchor]]
                 for anchor in anchors
             },
+            exhaustive_single_anchor=exhaustive_single_anchor,
+            exact_anchor_scan_chunks=exact_scan_chunk_count,
             source_chunk_ids=list(dict.fromkeys(pointer.chunk_id for pointer in pointers)),
             exact_source_preserved=True,
         )

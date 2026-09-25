@@ -98,7 +98,12 @@ def test_oracle_adds_reference_location_to_recursive_support() -> None:
 
     assert prepared.answer_allowed is True
     assert "7319042" in prepared.prompt
-    assert prepared.evidence_chunk_ids
+    compilation = next(
+        event for event in prepared.trace if event["operation"] == "COMPILE_RELATIONS"
+    )
+    assert compilation["detail"]["complete"] is True
+    assert compilation["detail"]["exact_source_preserved"] is True
+    assert compilation["detail"]["source_chunk_ids"]
     assert prepared.retrieval_queries[0] == "oracle_assisted_recursive_retrieval"
     assert sample.query in prepared.retrieval_queries
     assert "oracle_reference_location" in prepared.retrieval_queries

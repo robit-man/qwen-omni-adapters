@@ -62,6 +62,19 @@ _SUFFICIENCY_STOP_WORDS = {
     "with",
 }
 
+_INDIRECT_RELATION_QUERY_RE = re.compile(
+    r"\b(?:who|whose|which|that)\b.*\b"
+    r"(?:authored|created|directed|founded|held|played|portrayed|starring|written)\b",
+    re.IGNORECASE | re.DOTALL,
+)
+_PROPER_NAME_RE = re.compile(
+    r"\b[A-Z][A-Za-z0-9'’.-]{1,50}(?:[ \t]+[A-Z][A-Za-z0-9'’.-]{1,50}){1,4}\b"
+)
+_BRIDGE_EVIDENCE_RE = re.compile(
+    r"\b(?:authored|created|directed|founded|played|portrayed|served|stars?|starring|written)\b",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True)
 class ControllerConfig:
@@ -413,4 +426,65 @@ class RecursiveMemoryController:
                 result.append(candidate)
             if len(result) >= 8:
                 break
+        # Natural-language multi-hop questions often expose a bridge entity in
+        # the first source without an explicit graph verb understood above:
+        # e.g. a film passage identifies an actor, while a separate biography
+        # contains the requested office.  Extract only proper names from
+        # source sentences that overlap the root query, then issue a focused
+        # follow-up.  This stays query/evidence driven and never sees a target
+        # answer or benchmark reference.
+        if _INDIRECT_RELATION_QUERY_RE.search(query) and len(history) == 1:
+            query_terms = _lexical_terms(query, omit_stop_words=True)
+            query_folded = query.casefold()
+            inspected_folded = inspected.casefold()
+            candidates: list[tuple[int, int, int, str]] = []
+            for hit_index, hit in enumerate(evidence):
+                segments = re.split(
+                    r"(?<=[.!?])\s+|(?=\bDocument\s+\d+\s*:)",
+                    hit.chunk.original_text,
+                )
+                for segment_index, segment in enumerate(segments):
+                    bridge_positions = [
+                        match.start() for match in _BRIDGE_EVIDENCE_RE.finditer(segment)
+                    ]
+                    if not bridge_positions:
+                        continue
+                    overlap = len(
+                        query_terms
+                        & _lexical_terms(segment, omit_stop_words=True)
+                    )
+                    if overlap < 2:
+                        continue
+                    for match in _PROPER_NAME_RE.finditer(segment):
+                        name = match.group(0).strip()
+                        folded = name.casefold()
+                        if (
+                            folded in query_folded
+                            or folded in inspected_folded
+                            or folded.startswith("document ")
+                        ):
+                            continue
+                        bridge_distance = min(
+                            abs(match.start() - position) for position in bridge_positions
+                        )
+                        candidates.append(
+                            (
+                                -overlap,
+                                bridge_distance,
+                                hit_index * 10_000 + segment_index,
+                                name,
+                            )
+                        )
+            natural_added = 0
+            for _neg_overlap, _bridge_distance, _source_order, name in sorted(candidates):
+                folded = name.casefold()
+                if folded in seen_identifiers:
+                    continue
+                seen_identifiers.add(folded)
+                candidate = f'{query} "{name}"'
+                if candidate not in history:
+                    result.append(candidate)
+                    natural_added += 1
+                if len(result) >= 8 or natural_added >= 2:
+                    break
         return result

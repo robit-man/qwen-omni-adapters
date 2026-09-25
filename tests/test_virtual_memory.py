@@ -298,6 +298,37 @@ def test_query_compiler_builds_complete_multi_key_values_with_exact_provenance(
     store.close()
 
 
+def test_query_compiler_exhausts_one_explicit_key_across_raw_corpus(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "compiled-multi-value.sqlite3")
+    for index, value in enumerate(("5491659", "4689178", "5944302", "4647549")):
+        store.ingest(
+            f"One of the immutable numbers for learned-boom is: {value}.",
+            source=f"record-{index}.txt",
+            document_id=f"record-{index}",
+        )
+    query = "What are all the numbers for learned-boom?"
+    # Deliberately provide only one retrieved page.  Exhaustive compilation
+    # must recover every exact occurrence from append-only raw evidence.
+    evidence = HybridRetriever(store, final_limit=1).retrieve(query)[:1]
+
+    compiled = QueryEvidenceCompiler(store).compile(query, evidence)
+
+    assert compiled.complete is True
+    assert compiled.consume_evidence is True
+    content = compiled.memories[0].content
+    for value in ("5491659", "4689178", "5944302", "4647549"):
+        assert value in content
+    assert len(store.reconstruct(compiled.memories[0].memory_id)) == 4
+    relation_event = next(
+        event for event in compiled.trace if event["operation"] == "COMPILE_RELATIONS"
+    )
+    assert relation_event["detail"]["exhaustive_single_anchor"] is True
+    assert relation_event["detail"]["exact_source_preserved"] is True
+    store.close()
+
+
 def test_query_compiler_resolves_assignment_graph_and_ignores_other_target(
     tmp_path: Path,
 ) -> None:
@@ -517,6 +548,42 @@ def test_recursive_controller_retrieves_a_second_hop_and_stops(tmp_path: Path) -
     operations = [event["operation"] for event in result.trace]
     assert operations.count("PRETHINK") == 2
     assert operations[-2:] == ["STOP", "ANSWER"]
+    store.close()
+
+
+def test_recursive_controller_follows_natural_language_bridge_entity(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "natural-bridge.sqlite3")
+    first = store.ingest(
+        "Kiss and Tell stars Shirley Temple as Corliss Archer.",
+        source="film.txt",
+    )[0]
+    target = store.ingest(
+        "Shirley Temple served as Chief of Protocol of the United States.",
+        source="biography.txt",
+    )[0]
+
+    class TwoHopRetriever:
+        def retrieve(self, query, *, trace=None):
+            chunk = target if '"Shirley Temple"' in query else first
+            return [RetrievalHit(chunk, 1.0, ("exact",), {"exact": 1.0})]
+
+    controller = RecursiveMemoryController(
+        TwoHopRetriever(),  # type: ignore[arg-type]
+        config=ControllerConfig(max_rounds=3, sufficiency_threshold=0.5),
+        sufficiency_judge=lambda _query, evidence: 1.0 if evidence else 0.0,
+    )
+
+    result = controller.gather(
+        "What government position was held by the woman who portrayed "
+        "Corliss Archer in Kiss and Tell?"
+    )
+
+    assert result.sufficient is True
+    assert target.chunk_id in {hit.chunk.chunk_id for hit in result.evidence}
+    assert any('"Shirley Temple"' in query for query in result.queries)
+    assert [event["operation"] for event in result.trace][-2:] == ["STOP", "ANSWER"]
     store.close()
 
 
