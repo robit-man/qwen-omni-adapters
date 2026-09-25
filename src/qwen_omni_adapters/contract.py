@@ -242,6 +242,10 @@ def adapter_contract() -> dict[str, Any]:
                 "audio_observation": (
                     "tagged environmental and non-speech acoustic evidence when available"
                 ),
+                "tts_skipped_reason": (
+                    "required_speech_not_found | speech_addressed_elsewhere | "
+                    "unresolved_tool_calls | empty_assistant_response"
+                ),
                 "evidence_provenance": {
                     "current_media_modalities": ["audio | image | video"],
                     "current_visual_input": "boolean",

@@ -2808,8 +2808,12 @@
         }
         return;
       }
+      const silentObservationReasons = new Set([
+        "empty_assistant_response",
+        "speech_addressed_elsewhere",
+      ]);
       const silentObservation = (
-        String((data.adapter || {}).tts_skipped_reason || "") === "empty_assistant_response"
+        silentObservationReasons.has(String((data.adapter || {}).tts_skipped_reason || ""))
         && !String(reply.content || "").trim()
       );
       if (silentObservation) {

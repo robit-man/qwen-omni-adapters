@@ -48,7 +48,10 @@
         "observation": {"type": "string"},
         "input_transcript": {"type": "string"},
         "audio_observation": {"type": "string"},
-        "tts_skipped_reason": {"type": "string"}
+        "tts_skipped_reason": {
+          "type": "string",
+          "description": "Machine-readable reason requested speech was not synthesized, including required_speech_not_found, speech_addressed_elsewhere, unresolved_tool_calls, or empty_assistant_response."
+        }
       },
       "additionalProperties": true
     },

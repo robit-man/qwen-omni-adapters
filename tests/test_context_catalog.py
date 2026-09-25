@@ -77,16 +77,12 @@ def test_runtime_identity_uses_configured_or_os_account_not_a_fixed_name(
     assert "\n" not in runtime_agent_name()
 
 
-def test_live_call_prompt_includes_dynamic_self_identity(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("OMNI_AGENT_NAME", "workshop-unit")
-
+def test_live_call_prompt_includes_machine_only_response_control_once() -> None:
     from qwen_omni_adapters.context import live_call_system_prompt
 
     prompt = live_call_system_prompt()
-    assert '<self_state name="workshop-unit">' in prompt
     assert "different named person" in prompt
+    assert "<self_state" not in prompt
 
 
 def test_foreground_gateway_is_described_as_execution_capability() -> None:

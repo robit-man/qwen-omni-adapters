@@ -43,6 +43,7 @@ from qwen_omni_adapters.context import (
     context_text,
     rank_tool_names,
     retained_tool_names,
+    runtime_agent_name,
     runtime_identity_context,
     without_parent_frame_coordinates,
 )
@@ -383,6 +384,75 @@ def _is_live_spoken_turn(parsed: ParsedAdapterRequest) -> bool:
     """Return whether the request is a speech-attributed conversational turn."""
 
     return parsed.task == "chat" and parsed.require_speech
+
+
+_LIVE_GREETING_PREFIX = re.compile(r"^\s*(?:hey|hi|hello)\b[\s,]*", re.IGNORECASE)
+_LIVE_VOCATIVE_PREFIX = re.compile(
+    r"^\s*(?P<name>[^\W\d_][\w'’.-]*(?:\s+[^\W\d_][\w'’.-]*){0,2})"
+    r"\s*[,!:]\s*(?=\S)",
+    re.UNICODE,
+)
+_LIVE_NON_NAME_VOCATIVES = {
+    "actually",
+    "anyway",
+    "ha",
+    "haha",
+    "hmm",
+    "hm",
+    "listen",
+    "look",
+    "no",
+    "oh",
+    "okay",
+    "ok",
+    "please",
+    "right",
+    "so",
+    "sorry",
+    "sure",
+    "thanks",
+    "thank you",
+    "uh",
+    "um",
+    "wait",
+    "well",
+    "wow",
+    "yes",
+}
+
+
+def _canonical_spoken_name(value: str) -> str:
+    """Normalize a spoken/display name without treating it as prompt text."""
+
+    return " ".join(re.findall(r"[^\W\d_]+", value.casefold(), re.UNICODE))
+
+
+def _explicit_other_addressee(
+    transcript: str, *, agent_name: str | None = None
+) -> bool:
+    """Detect only a high-confidence sentence-initial named vocative.
+
+    This boundary intentionally covers a much narrower case than general
+    addressee inference. Ambiguous room speech, gaze, conversational
+    continuation, and ordinary leading discourse words remain language/vision
+    decisions. A capitalized proper-name phrase followed by vocative
+    punctuation is strong enough to prevent an unrelated live utterance from
+    reaching tools or TTS.
+    """
+
+    candidate = _LIVE_GREETING_PREFIX.sub("", transcript, count=1)
+    match = _LIVE_VOCATIVE_PREFIX.match(candidate)
+    if match is None:
+        return False
+    displayed_name = match.group("name").strip()
+    words = displayed_name.split()
+    if not words or any(not word[0].isupper() for word in words):
+        return False
+    canonical = _canonical_spoken_name(displayed_name)
+    if not canonical or canonical in _LIVE_NON_NAME_VOCATIVES:
+        return False
+    own_name = _canonical_spoken_name(agent_name or runtime_agent_name())
+    return bool(own_name and canonical != own_name)
 
 
 def _current_user_text(
@@ -1851,6 +1921,7 @@ def _finish_response(
     text_streamed: bool = False,
     audio_streamed: bool = False,
     suppress_tts: bool = False,
+    suppress_tts_reason: str | None = None,
 ) -> dict[str, Any]:
     message = result.get("message")
     if not isinstance(message, dict):
@@ -1867,13 +1938,16 @@ def _finish_response(
     wants_tts = (
         parsed.synthesize
         and not suppress_tts
+        and suppress_tts_reason is None
         and not tool_calls
         and "tts" not in executed
         and bool(assistant_text)
     )
     tts_blocks = 0
     tts_skipped_reason: str | None = None
-    if suppress_tts and parsed.synthesize:
+    if suppress_tts_reason is not None and parsed.synthesize:
+        tts_skipped_reason = suppress_tts_reason
+    elif suppress_tts and parsed.synthesize:
         tts_skipped_reason = "required_speech_not_found"
     elif parsed.synthesize and tool_calls:
         tts_skipped_reason = "unresolved_tool_calls"
@@ -1951,6 +2025,22 @@ def execute(
             observation=observation,
             executed=executed,
             suppress_tts=True,
+        )
+
+    transcript = _observation_transcript(observation)
+    if (
+        _is_live_spoken_turn(parsed)
+        and transcript
+        and _explicit_other_addressee(transcript)
+    ):
+        return _finish_response(
+            _direct_response(parsed.model, ""),
+            parsed,
+            config,
+            client,
+            observation=observation,
+            executed=executed,
+            suppress_tts_reason="speech_addressed_elsewhere",
         )
 
     decision_tool_names = (
@@ -2057,6 +2147,23 @@ def execute_stream(
                 observation=observation,
                 executed=executed,
                 suppress_tts=True,
+            )
+            yield _stream_event("final", response=result)
+            return
+
+        if (
+            _is_live_spoken_turn(parsed)
+            and transcript
+            and _explicit_other_addressee(transcript)
+        ):
+            result = _finish_response(
+                _direct_response(parsed.model, ""),
+                parsed,
+                config,
+                client,
+                observation=observation,
+                executed=executed,
+                suppress_tts_reason="speech_addressed_elsewhere",
             )
             yield _stream_event("final", response=result)
             return

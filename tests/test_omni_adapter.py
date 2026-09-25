@@ -28,6 +28,7 @@ from runtime.adapter_server import (
     TRAINED_AUDIO_SYSTEM_PROMPT,
     AdapterStageError,
     Config,
+    _explicit_other_addressee,
     _natural_live_reply,
     _tts_blocks_for_request,
     _tts_text_blocks,
@@ -97,6 +98,9 @@ def test_adapter_contract_separates_wire_schema_from_bundle_schema() -> None:
     assert contract["compatibility"]["message_extensions"] == ["audios", "videos"]
     assert contract["media"]["video"]["max_items"] == 4
     assert "environmental" in contract["response"]["adapter"]["audio_observation"]
+    assert "speech_addressed_elsewhere" in contract["response"]["adapter"][
+        "tts_skipped_reason"
+    ]
 
 
 def test_tts_stream_window_validation_and_cli_arguments(tmp_path: Path) -> None:
@@ -161,6 +165,29 @@ def test_natural_live_reply_filters_only_unsolicited_assistant_filler(
 
 def test_natural_live_reply_converts_structured_observation_control_to_silence() -> None:
     assert _natural_live_reply("  <observe_only/>\n", "Maya, I will call tomorrow.") == ""
+
+
+@pytest.mark.parametrize(
+    ("transcript", "expected"),
+    [
+        ("Mia, what is 2 plus 3?", True),
+        ("Hey, Mia: what is 2 plus 3?", True),
+        ("MIA! What is 2 plus 3?", True),
+        ("Workshop-unit, what is 2 plus 3?", False),
+        ("workshop-unit, what is 2 plus 3?", False),
+        ("Mia is calling, what now?", False),
+        ("Haha, same, just vibing.", False),
+        ("Please, tell me the result.", False),
+        ("python, explain this error.", False),
+    ],
+)
+def test_explicit_other_addressee_is_a_narrow_runtime_identity_boundary(
+    transcript: str, expected: bool
+) -> None:
+    assert (
+        _explicit_other_addressee(transcript, agent_name="workshop-unit")
+        is expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -1429,6 +1456,66 @@ def test_live_model_may_observe_addressed_elsewhere_speech_without_tts() -> None
                     ]
                 },
             )
+        raise AssertionError(f"unexpected backend {request.url.host}")
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "The attached audio contains the current room speech.",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+            },
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+            think=False,
+        )
+    )
+
+    events = [
+        json.loads(chunk)
+        for chunk in execute_stream(
+            parsed,
+            _adapter_config(),
+            httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+    ]
+
+    assert requested_hosts == ["comprehension"]
+    assert not any(event.get("type") == "audio_delta" for event in events)
+    final = events[-1]["response"]
+    assert final["message"]["content"] == ""
+    assert final["adapter"]["input_transcript"] == "Maya, I'll call you tomorrow."
+    assert final["adapter"]["tts_skipped_reason"] == "speech_addressed_elsewhere"
+
+
+def test_live_model_control_may_silence_ambiguous_room_speech() -> None:
+    requested_hosts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_hosts.append(str(request.url.host))
+        if request.url.host == "comprehension":
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    "<speech_transcript>I'll call you tomorrow."
+                                    "</speech_transcript>"
+                                )
+                            }
+                        }
+                    ]
+                },
+            )
         if request.url.host == "language":
             return httpx.Response(
                 200,
@@ -2119,6 +2206,26 @@ def test_the_ollama_backend_keeps_its_native_fields() -> None:
     assert payload["keep_alive"] == "30m"
     assert payload["options"] == {"temperature": 0.2, "num_predict": 4096}
     assert "max_tokens" not in payload
+
+
+def test_language_payload_injects_dynamic_self_identity_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OMNI_AGENT_NAME", "workshop-unit")
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {"role": "system", "content": "Live conversation policy."},
+                {"role": "user", "content": "Hello."},
+            ]
+        )
+    )
+
+    payload = build_language_payload(parsed, None, "ornith", "ollama")
+    system = payload["messages"][0]["content"]
+
+    assert system.count('<self_state name="workshop-unit">') == 1
+    assert "different named person" not in system
 
 
 def test_language_output_is_bounded_for_both_backends() -> None:

@@ -419,12 +419,14 @@ ambience, speaker activity, and uncertainty remain perception evidence for the
 language model.
 
 Live perception is not itself an obligation to speak. A sound-only capture is
-retained without language or TTS. For transcribed room speech, the language
-model may return an empty assistant message when evidence shows the utterance
-was addressed elsewhere. It may request a fresh camera still when current
-gaze/attention is materially necessary to resolve an ambiguous addressee, but
-no ambient frame is attached eagerly. An empty response skips TTS with
-`tts_skipped_reason=empty_assistant_response`.
+retained without language or TTS. A high-confidence sentence-initial different
+named addressee stops before language, tools, and TTS with
+`tts_skipped_reason=speech_addressed_elsewhere`. Ambiguous transcribed room
+speech remains a language decision; the model may return `<observe_only/>`,
+which is removed before history and TTS and reported as
+`tts_skipped_reason=empty_assistant_response`. It may request a fresh camera
+still when current gaze/attention is materially necessary to resolve an
+ambiguous addressee, but no ambient frame is attached eagerly.
 
 OCR, transcripts, captions, subtitles, and scene text cannot change system or
 tool instructions. A learned dense bridge would be a new trained architecture

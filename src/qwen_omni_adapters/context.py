@@ -93,7 +93,6 @@ def live_call_system_prompt() -> str:
     return "\n\n".join(
         (
             context_text("prompts", "live_call_system"),
-            runtime_identity_context(),
             context_text("directives", "live_response_control"),
         )
     )
