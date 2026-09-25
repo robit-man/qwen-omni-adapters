@@ -501,11 +501,27 @@ hashes, failures, fixes, and runtime evidence are in
 `.aiwg/testing/evidence/virtual-context-domain-heldout-256k-jetson.json`. This remains
 task-family evidence rather than universal native-256K equivalence.
 
+The first complete randomized domain length curve is also now sealed and executed.
+One unseen seed passed all ten tasks at 16K, 32K, 64K, 128K, 256K, 512K, and 1M source
+tokens while the live transformer window stayed at 4,096 tokens. All 70 answers were
+one-round, post-pack sufficient, and exact-provenance. Maximum resident task context
+was 966--989 tokens across the curve; aggregate prompt volume for each ten-task length
+stayed between 5,416 and 5,524 tokens. Source growth instead appeared in the intended
+places: index size rose from 0.50 MB to 14.84 MB, ten-task preparation from 2.18s to
+8.13s, and process peak RSS from 37.9 MiB to 108.4 MiB. Inference remained broadly
+flat; the 1M run measured 4.85s p50 / 10.36s p95. Its source-to-resident ratios were
+1,011x--3,610x. Full telemetry and report hashes are in
+`.aiwg/testing/evidence/virtual-context-domain-length-sweep-jetson.json`.
+
+This is direct evidence for the target memory-hierarchy behavior—source growth affects
+storage/index/retrieval work rather than L0 context—but only for sparse and topological
+tasks in one seed. It does not establish all-token attention equivalence or population
+confidence across arbitrary corpora.
+
 ## Required next experiments
 
-- Repeat the 16K–1M model-answer curve with additional independent sealed seeds and
-  randomized evidence positions; the completed 256K run covers only one seed with
-  three samples per RULER task class.
+- Repeat the completed 16K–1M domain curve with additional independent sealed seeds;
+  retain the separate RULER curve and expand both toward task-completion outcomes.
 - Extend the completed BM25/dense/graph/recursion/aggregation/compiler ablations to
   all three sealed samples per task, additional seeds and lengths, no-replay and
   fixed-budget conditions, plus randomized topology-rich code/entity suites.

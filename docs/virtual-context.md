@@ -341,6 +341,33 @@ This is held-out evidence for ten randomized domain task families, not a claim t
 source-length curves through 1M, and codebase-scale task-completion suites remain
 required.
 
+A separate seed was then hash-sealed at every declared source length before inference.
+The same randomized facts and ten task shapes were evaluated while only indexed noise
+and source placement scaled; the live physical context remained 4,096 tokens:
+
+| source tokens | passed | resident-token range | index size | preparation total | inference p50 / p95 |
+|---:|---:|---:|---:|---:|---:|
+| 16K | 10 / 10 | 272--966 | 0.50 MB | 2.18s | 4.70s / 13.75s |
+| 32K | 10 / 10 | 275--971 | 0.57 MB | 3.39s | 5.68s / 13.08s |
+| 64K | 10 / 10 | 272--966 | 0.69 MB | 4.71s | 4.39s / 14.23s |
+| 128K | 10 / 10 | 277--979 | 1.59 MB | 5.87s | 5.11s / 12.05s |
+| 256K | 10 / 10 | 274--971 | 3.81 MB | 7.10s | 5.20s / 13.77s |
+| 512K | 10 / 10 | 275--989 | 7.43 MB | 7.75s | 4.76s / 10.54s |
+| 1M | 10 / 10 | 277--989 | 14.84 MB | 8.13s | 4.85s / 10.36s |
+
+All 70 tasks were sufficient, exact-provenance, post-pack-validated, and completed in
+one retrieval round. Aggregate prompt volume per ten-task length stayed nearly flat
+(5,416--5,524 tokens), while storage and retrieval preparation—not transformer
+residency—absorbed source growth. At 1M, source-to-resident ratios spanned
+1,011x--3,610x and process peak RSS was 108.4 MiB. The manifest, raw-report hashes,
+per-length telemetry, and caveats are in
+`.aiwg/testing/evidence/virtual-context-domain-length-sweep-jetson.json`.
+
+This curve is intentionally a sparse/topological effective-context test. It does not
+show that every token in a million-token corpus is mutually attended, and it remains
+one seed. The next fidelity step is additional independent seeds and whole-codebase
+task-completion evaluation rather than a larger advertised sequence length.
+
 The production portal was separately exercised after enabling the fully co-resident
 TTS and pointing stack. Its launcher selected a stricter 4,096-token physical window.
 An authenticated 1,748,926-character conversation with three exact values buried among
