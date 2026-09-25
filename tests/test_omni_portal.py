@@ -1469,6 +1469,116 @@ def test_virtual_context_active_overflow_preserves_native_request(tmp_path: Path
     assert "system contract and current query" in virtual["overflow"]
 
 
+def test_synthesis_bypasses_virtual_conversation_context(tmp_path: Path) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "That task hit a blocker.",
+                }
+            },
+        )
+
+    virtual_root = tmp_path / "virtual-context"
+    app = create_app(
+        _config(
+            virtual_context_mode="active",
+            virtual_context_root=virtual_root,
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[
+                {"role": "user", "content": "That task hit a blocker."},
+            ],
+            omni={
+                "schema": "robit.ollama.omni-adapter.v1",
+                "task": "synthesize",
+            },
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+            think=False,
+            portal_auto_tools=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    assert requests[0]["messages"] == [
+        {"role": "user", "content": "That task hit a blocker."}
+    ]
+    assert "tools" not in requests[0]
+    assert not list(virtual_root.glob("*.sqlite3"))
+    assert response.json["portal"]["virtual_context"] == {
+        "mode": "bypass",
+        "reason": "synthesis_only",
+    }
+
+
+def test_streaming_synthesis_bypasses_virtual_conversation_context(
+    tmp_path: Path,
+) -> None:
+    requests: list[dict[str, Any]] = []
+    wire = (
+        b'{"type":"delta","message":{"content":"That task hit a blocker."}}\n'
+        b'{"type":"final","response":{"message":{"content":"That task hit a blocker."}}}\n'
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            content=wire,
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    virtual_root = tmp_path / "virtual-context"
+    app = create_app(
+        _config(
+            virtual_context_mode="active",
+            virtual_context_root=virtual_root,
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    response = app.test_client().post(
+        "/api/chat/stream",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            stream=True,
+            messages=[
+                {"role": "user", "content": "That task hit a blocker."},
+            ],
+            omni={
+                "schema": "robit.ollama.omni-adapter.v1",
+                "task": "synthesize",
+            },
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+            think=False,
+            portal_auto_tools=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    events = [json.loads(line) for line in response.data.splitlines()]
+    assert requests[0]["messages"] == [
+        {"role": "user", "content": "That task hit a blocker."}
+    ]
+    assert "tools" not in requests[0]
+    assert not list(virtual_root.glob("*.sqlite3"))
+    assert events[-1]["response"]["portal"]["virtual_context"] == {
+        "mode": "bypass",
+        "reason": "synthesis_only",
+    }
+
+
 def test_social_text_does_not_gain_an_unrelated_leaf_tool() -> None:
     requests: list[dict[str, Any]] = []
 

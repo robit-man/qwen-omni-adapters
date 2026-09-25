@@ -1974,6 +1974,12 @@ def create_app(
                 "shadow_error": f"{type(exc).__name__}: {exc}"[:300],
             }
 
+    def synthesis_only(payload: Mapping[str, Any]) -> bool:
+        """Whether this request is a literal text-to-speech transport pass."""
+
+        omni = payload.get("omni")
+        return isinstance(omni, Mapping) and omni.get("task") == "synthesize"
+
     def safe_repack_virtual_followup(
         payload: dict[str, Any],
         session_id: str,
@@ -2340,39 +2346,59 @@ def create_app(
             diagnostic_fields = _request_diagnostic_fields(payload)
             diagnostic_fields["tools_requested"] = auto_tools
             diagnostic_media_ids = _request_media_digests(payload)
-            apply_client_location(payload, session_id, tools_enabled=auto_tools)
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
-            apply_system_policy(
-                payload,
-                session_id,
-                tools_enabled=auto_tools,
-                internal_background=internal_background,
-            )
-            if auto_tools:
-                payload["tools"] = initial_tool_contract(
+            if synthesis_only(payload):
+                # A synthesis pass is a literal transport from one settled
+                # text string to audio.  Conversation policy, retrieval,
+                # document wrapping, and virtual-memory replay can only change
+                # the text or make an old report the final user message.
+                auto_tools = False
+                payload.pop("tools", None)
+                observed_media = []
+                accepted_documents = []
+                virtual_summary = {
+                    "mode": "bypass",
+                    "reason": "synthesis_only",
+                }
+                virtual_query = ""
+                virtual_contract = ""
+            else:
+                apply_client_location(payload, session_id, tools_enabled=auto_tools)
+                apply_system_policy(
                     payload,
-                    session_id=session_id,
-                    request_id=request_id,
-                    camera_bridge=camera_bridge,
-                    shell_bridge=shell_bridge,
-                    background_bridge=background_bridge,
+                    session_id,
+                    tools_enabled=auto_tools,
+                    internal_background=internal_background,
                 )
-            observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
-            accepted_documents = apply_document_context(payload, session_id)
-            _prepared_context, virtual_summary = safe_prepare_virtual_context(
-                payload,
-                session_id,
-                raw_messages,
-                accepted_documents,
-                query_override=virtual_query_override,
-                internal_background=internal_background,
-            )
-            virtual_query, virtual_contract = virtual_repack_inputs(
-                _prepared_context,
-                raw_messages,
-                query_override=virtual_query_override,
-            )
+                if auto_tools:
+                    payload["tools"] = initial_tool_contract(
+                        payload,
+                        session_id=session_id,
+                        request_id=request_id,
+                        camera_bridge=camera_bridge,
+                        shell_bridge=shell_bridge,
+                        background_bridge=background_bridge,
+                    )
+                observed_media = (
+                    tool_harness.observe_request(session_id, payload)
+                    if auto_tools
+                    else []
+                )
+                accepted_documents = apply_document_context(payload, session_id)
+                _prepared_context, virtual_summary = safe_prepare_virtual_context(
+                    payload,
+                    session_id,
+                    raw_messages,
+                    accepted_documents,
+                    query_override=virtual_query_override,
+                    internal_background=internal_background,
+                )
+                virtual_query, virtual_contract = virtual_repack_inputs(
+                    _prepared_context,
+                    raw_messages,
+                    query_override=virtual_query_override,
+                )
             diagnostics.begin_request(
                 session_id,
                 request_id,
@@ -2565,39 +2591,59 @@ def create_app(
         diagnostic_fields["tools_requested"] = auto_tools
         diagnostic_media_ids = _request_media_digests(payload)
         try:
-            apply_client_location(payload, session_id, tools_enabled=auto_tools)
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
-            apply_system_policy(
-                payload,
-                session_id,
-                tools_enabled=auto_tools,
-                internal_background=internal_background,
-            )
-            if auto_tools:
-                payload["tools"] = initial_tool_contract(
+            if synthesis_only(payload):
+                # Do not turn settled speech text back into a conversation
+                # query.  In particular, never PAGE_IN a prior task report
+                # beside it: the adapter deliberately speaks the last user
+                # message for this route.
+                auto_tools = False
+                payload.pop("tools", None)
+                observed_media = []
+                accepted_documents = []
+                virtual_summary = {
+                    "mode": "bypass",
+                    "reason": "synthesis_only",
+                }
+                virtual_query = ""
+                virtual_contract = ""
+            else:
+                apply_client_location(payload, session_id, tools_enabled=auto_tools)
+                apply_system_policy(
                     payload,
-                    session_id=session_id,
-                    request_id=request_id,
-                    camera_bridge=camera_bridge,
-                    shell_bridge=shell_bridge,
-                    background_bridge=background_bridge,
+                    session_id,
+                    tools_enabled=auto_tools,
+                    internal_background=internal_background,
                 )
-            observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
-            accepted_documents = apply_document_context(payload, session_id)
-            _prepared_context, virtual_summary = safe_prepare_virtual_context(
-                payload,
-                session_id,
-                raw_messages,
-                accepted_documents,
-                query_override=virtual_query_override,
-                internal_background=internal_background,
-            )
-            virtual_query, virtual_contract = virtual_repack_inputs(
-                _prepared_context,
-                raw_messages,
-                query_override=virtual_query_override,
-            )
+                if auto_tools:
+                    payload["tools"] = initial_tool_contract(
+                        payload,
+                        session_id=session_id,
+                        request_id=request_id,
+                        camera_bridge=camera_bridge,
+                        shell_bridge=shell_bridge,
+                        background_bridge=background_bridge,
+                    )
+                observed_media = (
+                    tool_harness.observe_request(session_id, payload)
+                    if auto_tools
+                    else []
+                )
+                accepted_documents = apply_document_context(payload, session_id)
+                _prepared_context, virtual_summary = safe_prepare_virtual_context(
+                    payload,
+                    session_id,
+                    raw_messages,
+                    accepted_documents,
+                    query_override=virtual_query_override,
+                    internal_background=internal_background,
+                )
+                virtual_query, virtual_contract = virtual_repack_inputs(
+                    _prepared_context,
+                    raw_messages,
+                    query_override=virtual_query_override,
+                )
             diagnostics.begin_request(
                 session_id,
                 request_id,

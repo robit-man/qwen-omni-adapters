@@ -416,7 +416,10 @@ Completed or blocked work ends with a brief natural spoken status only when the
 live conversation is idle. Detailed reports, evidence IDs, paths, and worker
 self-assessment stay in the indicator and task archive and are never passed
 verbatim to TTS. The pending-delivery flag survives a harness restart, and the
-speech can be interrupted like any other reply.
+speech can be interrupted like any other reply. A direct `synthesize` request
+is a literal text-to-speech transport pass: it retains the selected voice-clone
+profile but bypasses conversation policy, tools, documents, and virtual-memory
+indexing/replay so recalled text cannot be appended to the utterance.
 
 Rendered computer work is not reduced to a fetched-text corpus. The
 `browser_interact` tool launches a real Chromium window on the active desktop,
