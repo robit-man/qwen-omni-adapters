@@ -44,6 +44,7 @@ from qwen_omni_adapters.context import (
     rank_tool_names,
     retained_tool_names,
     runtime_identity_context,
+    without_parent_frame_coordinates,
 )
 from qwen_omni_adapters.contract import (
     ADAPTER_SCHEMA,
@@ -820,16 +821,10 @@ def _gui_prior_orientation(content: str) -> str:
     )
     if match is None:
         return ""
-    orientation = " ".join(match.group(1).split())[:2000]
     # Parent-frame coordinates are actively harmful in a crop coordinate
-    # system. Retain target identity and appearance, never the old point.
-    orientation = re.sub(
-        r"\b(?:point|bbox)\s*=\s*\([^)]{1,120}\)",
-        "[parent-frame coordinates omitted]",
-        orientation,
-        flags=re.IGNORECASE,
-    )
-    return orientation
+    # system. This strips strict point/bbox syntax and free prose such as
+    # "amber star at approximately (710,690)" while retaining identity.
+    return without_parent_frame_coordinates(match.group(1), max_chars=2000)
 
 
 def _media_extraction_instruction(

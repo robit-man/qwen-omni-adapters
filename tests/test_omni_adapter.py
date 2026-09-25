@@ -972,7 +972,8 @@ def test_gui_refinement_reuses_target_identity_without_parent_coordinates() -> N
                         "<computer_visual_evidence>Current crop.</computer_visual_evidence>"
                         "<prior_full_frame_visual_orientation>"
                         "<visual_observation>target=blue triangle point=(820,475) "
-                        "bbox=(780,440,860,510)</visual_observation>"
+                        "bbox=(780,440,860,510); amber star at approximately "
+                        "(710,690)</visual_observation>"
                         "</prior_full_frame_visual_orientation>"
                     ),
                     "images": [_encoded(b"\x89PNG\r\n\x1a\nfixture")],
@@ -991,6 +992,7 @@ def test_gui_refinement_reuses_target_identity_without_parent_coordinates() -> N
     assert "parent-frame coordinates omitted" in prompt
     assert "820,475" not in prompt
     assert "780,440,860,510" not in prompt
+    assert "710,690" not in prompt
     assert "Current crop" not in prompt
 
 

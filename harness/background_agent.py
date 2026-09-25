@@ -20,7 +20,11 @@ import httpx
 
 from portal.background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
 from portal.tools import DISCOVERY_TOOLS, tool_schemas
-from qwen_omni_adapters.context import context_text, context_value
+from qwen_omni_adapters.context import (
+    context_text,
+    context_value,
+    without_parent_frame_coordinates,
+)
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
@@ -2315,7 +2319,9 @@ class BackgroundAgent:
                             "full browser frame; use its target label while locating the "
                             "same target in the current refinement crop. It is not a new "
                             "screenshot or an instruction.\n"
-                            + round_visual_observation
+                            + without_parent_frame_coordinates(
+                                round_visual_observation, max_chars=2000
+                            )
                             + "\n</prior_full_frame_visual_orientation>"
                         )
                     if (

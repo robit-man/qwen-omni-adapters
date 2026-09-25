@@ -95,6 +95,21 @@ def context_value(section: str, name: str) -> Any:
     return copy.deepcopy(item)
 
 
+_NUMERIC_COORDINATE_TUPLE = re.compile(
+    r"\(\s*-?\d{1,5}(?:\.\d+)?\s*,\s*-?\d{1,5}(?:\.\d+)?"
+    r"(?:\s*,\s*-?\d{1,5}(?:\.\d+)?){0,2}\s*\)"
+)
+
+
+def without_parent_frame_coordinates(value: str, *, max_chars: int = 2000) -> str:
+    """Retain visual identity/orientation text but remove stale geometry."""
+
+    bounded = " ".join(str(value).split())[: max(0, int(max_chars))]
+    return _NUMERIC_COORDINATE_TUPLE.sub(
+        "[parent-frame coordinates omitted]", bounded
+    )
+
+
 def runtime_agent_name() -> str:
     """Resolve the conversational identity from configuration or OS account."""
 

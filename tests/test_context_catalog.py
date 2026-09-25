@@ -20,11 +20,26 @@ from qwen_omni_adapters.context import (
     load_context,
     runtime_agent_name,
     runtime_identity_context,
+    without_parent_frame_coordinates,
 )
 from runtime.adapter_server import (
     DEFAULT_LANGUAGE_SYSTEM_PROMPT,
     MEDIA_CHAT_SYSTEM_PROMPT,
 )
+
+
+def test_parent_frame_orientation_removes_all_numeric_coordinate_tuples() -> None:
+    result = without_parent_frame_coordinates(
+        "target=amber star point=(710,690) bbox=(650,620,770,760); "
+        "roughly (-12.5, 44.0), while version (v2) remains text"
+    )
+
+    assert "amber star" in result
+    assert "710,690" not in result
+    assert "650,620,770,760" not in result
+    assert "-12.5, 44.0" not in result
+    assert "(v2)" in result
+    assert result.count("[parent-frame coordinates omitted]") == 3
 
 
 def test_context_catalog_is_the_runtime_source_of_prompts_and_tools() -> None:
