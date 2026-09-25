@@ -216,6 +216,10 @@ voice-clone profile through the normal TTS path. `conversation` keeps TTS warm
 and is the default on unqualified model/platform pairs. Action mode does not by
 itself authorize automatic context expansion while TTS is absent; expansion
 needs a coordinated foreground downshift before speech can safely return.
+Intermediate background checkpoints remain visible in the indicator but are
+silent by default in action mode, because speaking an optional status sentence
+would immediately reload the graph that the task just shed. Terminal completion
+still speaks. `OMNI_BACKGROUND_PROGRESS_SPEECH=1` is an explicit override.
 
 Note that `-ngl 99` does not increase the footprint here the way it does on a
 discrete card: there is one pool, so offloading layers changes which engine

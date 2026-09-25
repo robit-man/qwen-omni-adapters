@@ -1722,6 +1722,16 @@ def test_background_tts_residency_requires_a_confirmed_shed(monkeypatch) -> None
     ]
 
 
+def test_background_progress_speech_can_be_disabled_without_disabling_tasks() -> None:
+    config = CallConfig(
+        background_task_path="/tmp/background-tasks.json",
+        background_progress_speech=False,
+    )
+
+    assert config.background_task_path
+    assert config.background_progress_speech is False
+
+
 def test_a_turn_waits_for_comprehension_only_when_it_needs_it() -> None:
     order: list[str] = []
     call = CallSession(

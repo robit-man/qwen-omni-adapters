@@ -89,6 +89,11 @@ class CallConfig:
     # Shared crash-safe handoff between the portal and the stepwise background
     # agent. Empty disables background work without affecting normal tools.
     background_task_path: str = ""
+    # Intermediate task state is already visible in the indicator. Constrained
+    # action-residency profiles keep these updates silent so an optional status
+    # sentence does not reload TTS into the task's reclaimed working set.
+    # Terminal completion remains announced independently.
+    background_progress_speech: bool = True
     # Optional constrained-host transition run before a durable action slice.
     # It may shed independently resident TTS, but must not remove the shared
     # comprehension/ASR trunk or pointing worker.
@@ -1171,7 +1176,7 @@ def run_call_loop(
             on_complete=lambda item: background_announcements.put(
                 {**item, "_kind": "terminal"}
             ),
-            on_progress=queue_progress,
+            on_progress=(queue_progress if config.background_progress_speech else None),
             request_timeout_s=config.request_timeout_s,
             memory_governor=memory_governor,
             prepare_action_residency=config.prepare_background_action,

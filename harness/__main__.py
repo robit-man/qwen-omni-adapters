@@ -364,6 +364,15 @@ def main(argv: list[str] | None = None) -> int:
         prepare_background_action=(
             background_tts.shed if background_tts is not None else None
         ),
+        background_progress_speech=(
+            str(
+                os.environ.get(
+                    "OMNI_BACKGROUND_PROGRESS_SPEECH",
+                    "0" if background_residency_mode == "action" else "1",
+                )
+            ).strip().lower()
+            not in {"0", "false", "no", "off"}
+        ),
         prepare_speech=residency.prepare_speech if residency else None,
         restore_after_speech=residency.restore if residency else None,
         await_comprehension=residency.await_ready if residency else None,
