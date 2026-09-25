@@ -83,6 +83,8 @@ def test_active_mode_replaces_history_with_bounded_pack_and_current_media(
     assert len(payload["messages"]) == 2
     assert payload["messages"][0]["role"] == "system"
     assert "quartz-991" in payload["messages"][0]["content"]
+    assert "<current_query>" not in payload["messages"][0]["content"]
+    assert payload["messages"][1]["content"] == "What is the bus value?"
     assert payload["messages"][1]["images"][0]["data"] == "current-frame"
     assert prepared.context.total_tokens <= prepared.context.max_tokens
 
@@ -178,6 +180,8 @@ def test_active_tool_followup_is_repacked_with_result_and_original_query(
     assert "Find the actuator status." in followup.context.text
     assert followup.context.text.count("Find the actuator status.") == 1
     assert len(payload["messages"]) == 2
+    assert "<current_query>" not in payload["messages"][0]["content"]
+    assert payload["messages"][1]["content"] == "Find the actuator status."
     assert followup.context.total_tokens <= followup.context.max_tokens
 
 

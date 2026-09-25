@@ -244,6 +244,14 @@ class SessionVirtualContext:
             content = _text_content(message.get("content"))
             if not content or role == "system":
                 continue
+            if (
+                query_override is not None
+                and role == "user"
+                and "<current_query>" in content
+            ):
+                # Do not preserve the legacy symbolic handoff as dialogue.
+                # The exact override is pinned separately as the real query.
+                continue
             recent.append(f"{role}: {content}")
             if role == "user" and query_override is None:
                 query = content
@@ -327,10 +335,16 @@ class SessionVirtualContext:
             reserved_tokens=self.request_envelope_tokens(payload),
         )
         if prepared is not None:
-            self.apply_active(payload, prepared)
+            self.apply_active(payload, prepared, current_query=query)
         return prepared
 
-    def apply_active(self, payload: dict[str, Any], prepared: PreparedTurn) -> None:
+    def apply_active(
+        self,
+        payload: dict[str, Any],
+        prepared: PreparedTurn,
+        *,
+        current_query: str | None = None,
+    ) -> None:
         if self.mode != "active":
             return
         messages = payload.get("messages")
@@ -346,12 +360,23 @@ class SessionVirtualContext:
         )
         if latest_user is None:
             return
-        # The complete current text is already the final <current_query> in
-        # the bounded pack. Keep the user role (and any current media) without
-        # paying for or semantically duplicating that query a second time.
-        latest_user["content"] = "Act on <current_query> using the working set above."
+        # Keep the real query in the user turn.  A symbolic ``<current_query>``
+        # reference is not a template variable at the inference boundary and
+        # some language trunks correctly interpret it as missing input.  The
+        # packer already budgeted the query tokens; move that item from the
+        # packed system text into this user message rather than duplicating it.
+        if current_query and (
+            not _text_content(latest_user.get("content"))
+            or "<current_query>" in _text_content(latest_user.get("content"))
+        ):
+            latest_user["content"] = current_query
+        bounded_system = "\n\n".join(
+            item.text
+            for item in prepared.context.items
+            if item.category != "current_query" and item.text
+        )
         payload["messages"] = [
-            {"role": "system", "content": prepared.context.text},
+            {"role": "system", "content": bounded_system},
             latest_user,
         ]
 
