@@ -11,7 +11,7 @@
 
 Command: `./scripts/validate.sh`
 
-Result: 629 tests passed in 29.97 seconds. Source, contract, VAD, call-queue,
+Result: 634 tests passed in 30.41 seconds. Source, contract, VAD, call-queue,
 browser-cache, and unit validation gates passed.
 
 ## Synthetic source-length ladder
@@ -119,6 +119,31 @@ use dependency-aware exact line replay when a full chunk does not fit.
 
 This is preparation/replay evidence, not an answer-accuracy score. The complete
 13-task FIFO/hybrid/oracle model run remains a release gate.
+
+## Official RULER 13-task 32K preparation gate
+
+One upstream-generated sample for each RULER v1 task was prepared with
+`cl100k_base` accounting: eight NIAH variants, variable tracking, common-word
+extraction, frequent-word extraction, SQuAD QA, and HotpotQA. Hybrid preparation
+reported sufficient evidence for 13/13 tasks under the same 16,384 resident cap.
+
+This sweep exposed three failures before it passed:
+
+- one of four NIAH values shared a large source chunk with another value and was
+  lost by single-span replay; a chunk can now replay multiple disjoint exact
+  spans, each with its own offsets;
+- QA documents were fixed-token chunks spanning unrelated records; `Document N:`
+  sections are now independent structural chunks and exact entity titles receive
+  a query-derived reranking signal;
+- frequent/common-word extraction requires corpus-wide aggregation, not sparse
+  retrieval; a deterministic frequency memory now retains full provenance to all
+  immutable input chunks and keeps its long source list out of the resident tag.
+
+All NIAH, variable-tracking, and word-frequency reference terms were resident.
+The QA packs contained the exact support documents. HotpotQA's expected `yes`
+is intentionally not required to occur in source evidence; it is a conclusion
+the model must draw from the two replayed nationality statements. These are
+preparation results, not the pending live 13-task model scores.
 
 ## Live official RULER model-answer gate
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from qwen_omni_adapters.virtual_memory.ruler import (
     RulerVirtualContextHarness,
     read_ruler_jsonl,
+    ruler_string_match_score,
     run_samples,
     sample_from_record,
     split_ruler_prompt,
@@ -110,3 +111,34 @@ def test_fifo_baseline_is_hard_bounded() -> None:
 
     assert prepared.resident_tokens <= 14_000
     assert prepared.compression_ratio > 1.0
+
+
+def test_frequency_task_uses_reference_free_provenance_bearing_aggregation() -> None:
+    record = {
+        "index": 8,
+        "input": (
+            "Read the following coded text and track frequency. "
+            "alpha beta alpha gamma alpha beta delta.\n"
+            "Question: What are the three most frequently appeared words in "
+            "the above coded text?"
+        ),
+        # Deliberately wrong: hybrid preparation must not use this field.
+        "outputs": ["SECRET_WRONG_REFERENCE"],
+        "answer_prefix": " Answer:",
+    }
+    sample = sample_from_record(record, task="fwe", ordinal=0)
+
+    prepared = RulerVirtualContextHarness().prepare(sample, baseline="hybrid")
+
+    assert prepared.sufficient is True
+    assert "SECRET_WRONG_REFERENCE" not in prepared.prompt
+    assert "term=alpha count=3" in prepared.prompt
+    assert "term=beta count=2" in prepared.prompt
+    assert 'source_count="1"' in prepared.prompt
+    assert any(event["operation"] == "AGGREGATE" for event in prepared.trace)
+
+
+def test_ruler_string_match_scoring_matches_all_and_qa_part_semantics() -> None:
+    assert ruler_string_match_score("vt", "A, C", ("A", "B", "C")) == 66.67
+    assert ruler_string_match_score("qa_1", "The answer is France.", ("France",)) == 100.0
+    assert ruler_string_match_score("qa_2", "no", ("yes",)) == 0.0

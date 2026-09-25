@@ -18,6 +18,8 @@ The `qwen_omni_adapters.virtual_memory` package provides:
   episodes, open questions, current plans, and optional latent-memory records;
 - supersession without silent overwrite;
 - recursive PRETHINK/RETRIEVE/WRITE/ANSWER/STOP control;
+- deterministic corpus-wide word-frequency aggregation with full immutable
+  provenance for questions that cannot be answered by sparse top-k retrieval;
 - exact evidence replay adjacent to the current query;
 - a hard context allocator that pins active constraints and reserves output headroom;
 - PAGE_IN/PAGE_OUT/PIN/UNPIN/EVICT/EXPAND/MERGE/SUPERSEDE/RECONSTRUCT telemetry.
@@ -117,8 +119,10 @@ transformer:
 The output JSONL preserves the official fields and adds `pred`, so scoring is
 performed by NVIDIA RULER's official evaluator. The harness records the pinned RULER
 v1 revision, reattaches the generator's separated `answer_prefix`, and labels oracle
-reference-location runs separately. A preparation-only run does not produce model
-predictions and must not be reported as a RULER score.
+reference-location runs separately. Endpoint runs also report the same published
+all-match or QA partial-match string score in `virtual-context-run.json`; the
+JSONL remains suitable for independent upstream evaluation. A preparation-only
+run does not produce model predictions and must not be reported as a RULER score.
 
 ## Authority rules
 

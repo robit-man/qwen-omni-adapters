@@ -257,10 +257,15 @@ class WorkingContextPacker:
         )
 
     def _memory_item(self, memory: MemoryRecord, *, pinned: bool) -> ContextItem:
-        provenance = ",".join(pointer.chunk_id for pointer in memory.provenance)
+        source_ids = tuple(dict.fromkeys(pointer.chunk_id for pointer in memory.provenance))
+        displayed_sources = source_ids[:12]
+        provenance = ",".join(displayed_sources)
+        if len(source_ids) > len(displayed_sources):
+            provenance += ",..."
         block = (
             f'<memory class="{memory.memory_class.value}" id="{memory.memory_id}" '
-            f'verified="{str(memory.verified).lower()}" sources="{provenance}">\n'
+            f'verified="{str(memory.verified).lower()}" sources="{provenance}" '
+            f'source_count="{len(source_ids)}">\n'
             f"{memory.content}\n</memory>"
         )
         generation_penalty = 1.0 / (1.0 + memory.compression_generation * 0.35)
@@ -372,7 +377,9 @@ class WorkingContextPacker:
             focused = [
                 hit
                 for hit in candidates
-                if any(
+                if set(hit.channels)
+                & {"oracle", "oracle_reference_location", "memory_conflict"}
+                or any(
                     term in hit.chunk.original_text.casefold() for term in focus_terms
                 )
                 or any(
@@ -538,26 +545,53 @@ class WorkingContextPacker:
                 score=hit.score,
             )
         spans = self._query_spans(query, chunk.original_text)
+        selected_spans: list[tuple[int, int]] = []
+        block = ""
+        tokens = 0
         for start, end in spans:
-            block = format_block(chunk.original_text[start:end], start, end)
-            tokens = self.token_counter(block)
-            if tokens <= remaining:
-                pointer = ProvenancePointer(
+            # Prefer distinct evidence locations. Paragraph, line, and direct
+            # term windows around one match otherwise consume the entire pack
+            # while representing the same source bytes.
+            if any(not (end <= old_start or start >= old_end) for old_start, old_end in selected_spans):
+                continue
+            candidate_spans = [*selected_spans, (start, end)]
+            body = "\n".join(
+                f'<exact_span chunk_chars="{span_start}:{span_end}">\n'
+                f"{chunk.original_text[span_start:span_end]}\n</exact_span>"
+                for span_start, span_end in candidate_spans
+            )
+            candidate = (
+                f'<exact_evidence chunk_id="{chunk.chunk_id}" source="{chunk.source}" '
+                f'document_id="{chunk.document_id}" version="{chunk.version}" '
+                f'span_count="{len(candidate_spans)}">\n{body}\n</exact_evidence>'
+            )
+            candidate_tokens = self.token_counter(candidate)
+            if candidate_tokens <= remaining:
+                selected_spans = candidate_spans
+                block = candidate
+                tokens = candidate_tokens
+            if len(selected_spans) >= 12:
+                break
+        if selected_spans:
+            pointers = tuple(
+                ProvenancePointer(
                     chunk_id=chunk.chunk_id,
                     char_start=start,
                     char_end=end,
                     exact=True,
                 )
-                return ContextItem(
-                    item_id=f"{chunk.chunk_id}:{start}:{end}",
-                    memory_level="L3",
-                    category="exact_evidence",
-                    text=block,
-                    tokens=tokens,
-                    pinned=False,
-                    provenance=(pointer,),
-                    score=hit.score,
-                )
+                for start, end in selected_spans
+            )
+            return ContextItem(
+                item_id=f"{chunk.chunk_id}:spans:{len(selected_spans)}",
+                memory_level="L3",
+                category="exact_evidence",
+                text=block,
+                tokens=tokens,
+                pinned=False,
+                provenance=pointers,
+                score=hit.score,
+            )
         return None
 
     @staticmethod
@@ -567,6 +601,15 @@ class WorkingContextPacker:
             for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", query)
         }
         candidates: set[tuple[int, int]] = set()
+        folded = text.casefold()
+        for term in sorted(terms, key=len, reverse=True):
+            cursor = 0
+            while cursor < len(folded):
+                found = folded.find(term, cursor)
+                if found < 0:
+                    break
+                candidates.add((max(0, found - 512), min(len(text), found + len(term) + 512)))
+                cursor = found + max(1, len(term))
         start = 0
         for match in re.finditer(r"\n\s*\n", text):
             end = match.start()

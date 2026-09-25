@@ -18,6 +18,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from qwen_omni_adapters.virtual_memory.aggregation import FrequencyAggregationBuilder
 from qwen_omni_adapters.virtual_memory.controller import (
     ControllerConfig,
     RecursiveMemoryController,
@@ -38,6 +39,23 @@ _QUESTION_MARKERS = (
     "Question:",
     "What are all the special magic",
 )
+
+
+def ruler_string_match_score(
+    task: str, prediction: str, references: Sequence[str]
+) -> float:
+    """Reproduce RULER v1's published all/part string-match metric."""
+
+    normalized = str(prediction or "").casefold()
+    expected = [str(reference).casefold() for reference in references if str(reference)]
+    if not expected:
+        return 0.0
+    if str(task).startswith("qa_"):
+        return 100.0 if any(reference in normalized for reference in expected) else 0.0
+    return round(
+        sum(reference in normalized for reference in expected) / len(expected) * 100,
+        2,
+    )
 
 
 @dataclass(frozen=True)
@@ -242,13 +260,19 @@ class RulerVirtualContextHarness:
                 Path(temp_dir) / "evidence.sqlite3", embedder=embedder
             )
             try:
-                store.ingest(
+                chunks = store.ingest(
                     sample.source_text,
                     source=f"ruler:{sample.task}:{sample.sample_id}",
                     document_id=f"ruler-{sample.task}-{sample.sample_id}",
                     kind="document",
                 )
                 retriever = HybridRetriever(store, query_embedder=embedder)
+                aggregation = FrequencyAggregationBuilder(store).build(
+                    sample.query,
+                    sample.source_text,
+                    chunks,
+                )
+                memories = [aggregation.memory] if aggregation is not None else []
                 if selected == "oracle":
                     hits = _oracle_hits(store, sample.references)
                     sufficient = bool(hits)
@@ -256,7 +280,9 @@ class RulerVirtualContextHarness:
                         "oracle_reference_location",
                         *sample.references,
                     )
-                    trace: tuple[dict[str, Any], ...] = ()
+                    trace: tuple[dict[str, Any], ...] = (
+                        aggregation.trace if aggregation is not None else ()
+                    )
                 else:
                     controller = RecursiveMemoryController(
                         retriever,
@@ -264,14 +290,23 @@ class RulerVirtualContextHarness:
                     )
                     result = controller.gather(sample.query)
                     hits = list(result.evidence)
-                    sufficient = result.sufficient
-                    retrieval_queries = result.queries
-                    trace = result.trace
+                    sufficient = result.sufficient or aggregation is not None
+                    retrieval_queries = (
+                        (*result.queries, "deterministic word-frequency aggregation")
+                        if aggregation is not None
+                        else result.queries
+                    )
+                    trace = (
+                        (*result.trace, *aggregation.trace)
+                        if aggregation is not None
+                        else result.trace
+                    )
                 context: WorkingContext = self.packer.pack(
                     question,
                     system_contract=contract,
                     evidence=hits,
                     retrieval_queries=retrieval_queries,
+                    memories=memories,
                 )
             finally:
                 store.close()

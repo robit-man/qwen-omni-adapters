@@ -18,6 +18,7 @@ from qwen_omni_adapters.virtual_memory import (
     RecurrentConfig,
     RecurrentMemoryBuilder,
     RecursiveMemoryController,
+    RetrievalHit,
     StructureAwareChunker,
     StructuredMemoryExtractor,
     TraceCollector,
@@ -177,6 +178,23 @@ def test_hybrid_retrieval_combines_exact_symbol_dense_and_metadata(tmp_path: Pat
 
     assert hits[0].chunk.chunk_id == wanted.chunk_id
     assert {"exact", "symbol", "bm25", "dense", "metadata"} <= set(hits[0].channels)
+    store.close()
+
+
+def test_query_plan_promotes_bare_identifiers_and_cleans_question_entities(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "query-plan.sqlite3")
+    retriever = HybridRetriever(store)
+
+    plan = retriever.plan(
+        "Were Scott Derrickson and Ed Wood using controller_id-42?"
+    )
+
+    assert "controller_id-42" in plan.exact_strings
+    assert "Scott Derrickson" in plan.entities
+    assert "Ed Wood" in plan.entities
+    assert all(not entity.startswith("Were ") for entity in plan.entities)
     store.close()
 
 
@@ -531,6 +549,76 @@ def test_packer_uses_dependency_query_for_exact_line_replay(tmp_path: Path) -> N
     assert replayed in evidence_item.text
     assert len(replayed) < len(chunk.original_text)
     store.close()
+
+
+def test_packer_replays_multiple_disjoint_exact_spans_from_one_chunk(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(
+        tmp_path / "multi-span.sqlite3",
+        chunker=StructureAwareChunker(
+            target_tokens=2048, max_tokens=4096, overlap_tokens=0
+        ),
+    )
+    chunk = store.ingest(
+        "needle_key = value-111\n"
+        + "noise " * 900
+        + "needle_key = value-222\n"
+        + "noise " * 900,
+        source="single-large-chunk.txt",
+    )[0]
+    hit = RetrievalHit(
+        chunk=chunk,
+        score=1.0,
+        channels=("oracle",),
+        channel_scores={"oracle": 1.0},
+    )
+    packer = WorkingContextPacker(
+        budget=ContextBudget(
+            max_tokens=4096,
+            output_headroom=512,
+            evidence_target=500,
+        ),
+        token_counter=word_tokens,
+    )
+
+    packed = packer.pack(
+        "Return both values for needle_key.",
+        system_contract="Use exact evidence.",
+        evidence=[hit],
+        retrieval_queries=("value-111", "value-222"),
+    )
+
+    assert "value-111" in packed.text
+    assert "value-222" in packed.text
+    item = next(item for item in packed.items if item.category == "exact_evidence")
+    assert len(item.provenance) >= 2
+    assert all(
+        chunk.original_text[pointer.char_start : pointer.char_end] in item.text
+        for pointer in item.provenance
+    )
+    store.close()
+
+
+def test_document_number_headings_create_independent_retrieval_sections() -> None:
+    text = (
+        "Task preamble.\n\n"
+        "Document 1:\nNormandy is a region in France.\n\n"
+        "Document 2:\nScott Derrickson is an American director.\n"
+    )
+
+    chunks = StructureAwareChunker().chunk(text, kind="document")
+
+    assert [chunk.parent_kind for chunk in chunks] == [
+        "document_section",
+        "document_section",
+        "document_section",
+    ]
+    assert chunks[1].parent_name == "1"
+    assert chunks[2].parent_name == "2"
+    assert "Normandy" in chunks[1].text
+    assert "Scott Derrickson" in chunks[2].text
+    assert all(text[chunk.char_start : chunk.char_end] == chunk.text for chunk in chunks)
 
 
 def test_packer_refuses_to_silently_drop_active_constraints(tmp_path: Path) -> None:

@@ -18,5 +18,7 @@ hidden-answer or always-green fixture. See `virtual-context-v1-evidence.md` for
 the per-length resource measurements and the bounded live RULER result.
 
 The official 13-task RULER matrix and broad live downstream task evaluation
-remain open. Therefore this report supports the training-free V1 preparation
-layer, not native-256K equivalence or release of learned compression branches.
+remain open. A one-sample-per-task 32K preparation sweep is now 13/13 sufficient,
+but live FIFO/hybrid/oracle answer scoring is still required. Therefore this
+report supports the training-free V1 preparation layer, not native-256K
+equivalence or release of learned compression branches.

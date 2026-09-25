@@ -15,6 +15,7 @@ from qwen_omni_adapters.virtual_memory.ruler import (
     VALID_BASELINES,
     RulerVirtualContextHarness,
     read_ruler_jsonl,
+    ruler_string_match_score,
     run_samples,
 )
 
@@ -137,12 +138,20 @@ def main() -> int:
                 parser.error(f"refusing to overwrite existing output: {output_path}")
             _write_jsonl(output_path, records)
             contexts = [record["virtual_context"] for record in records]
+            scores = [
+                ruler_string_match_score(sample.task, record["pred"], sample.references)
+                for sample, record in zip(samples, records, strict=True)
+            ]
             summaries.append(
                 {
                     "input": str(input_path),
                     "output": str(output_path),
                     "samples": len(records),
                     "answered": sum(bool(record["pred"]) for record in records),
+                    "null_predictions": sum(not bool(record["pred"]) for record in records),
+                    "score": (
+                        sum(scores) / max(1, len(scores)) if responder is not None else None
+                    ),
                     "sufficient": sum(bool(item["sufficient"]) for item in contexts),
                     "mean_compression_ratio": (
                         sum(float(item["compression_ratio"]) for item in contexts)
@@ -159,6 +168,11 @@ def main() -> int:
         "physical_context_tokens": arguments.physical_context,
         "scoring": "Run NVIDIA RULER's official evaluate.py over output files.",
         "files": summaries,
+        "mean_task_score": (
+            sum(float(item["score"]) for item in summaries) / max(1, len(summaries))
+            if responder is not None
+            else None
+        ),
     }
     arguments.output_dir.mkdir(parents=True, exist_ok=True)
     report_path = arguments.output_dir / "virtual-context-run.json"

@@ -19,6 +19,22 @@ CODE_SYMBOL_RE = re.compile(
     r"[`'\"]?([A-Za-z_$][\w.$:-]*)"
 )
 TEMPORAL_RE = re.compile(r"\b(?:latest|recent|before|after|previous|current|when|timeline)\b", re.I)
+ENTITY_LEADING_STOP_WORDS = {
+    "are",
+    "did",
+    "do",
+    "does",
+    "in",
+    "is",
+    "question",
+    "was",
+    "were",
+    "what",
+    "when",
+    "where",
+    "which",
+    "who",
+}
 
 
 @dataclass(frozen=True)
@@ -76,7 +92,14 @@ class HybridRetriever:
         normalized = " ".join(str(query or "").split())
         if not normalized:
             raise ValueError("retrieval query is required")
-        exact = tuple(dict.fromkeys(match.group(1) for match in QUOTED_RE.finditer(query)))
+        exact_values = [match.group(1) for match in QUOTED_RE.finditer(query)]
+        exact_values.extend(
+            re.findall(
+                r"\b[A-Za-z0-9]+(?:[_.$:-][A-Za-z0-9]+)+\b",
+                query,
+            )
+        )
+        exact = tuple(dict.fromkeys(exact_values))
         symbols = list(match.group(1) for match in CODE_SYMBOL_RE.finditer(query))
         symbols.extend(
             term.strip("`")
@@ -90,13 +113,16 @@ class HybridRetriever:
             if len(clause.strip(" ,;:")) >= 3
         ]
         subqueries = tuple(dict.fromkeys([normalized, *clauses]))
-        entity_candidates = [
-            match.group(0)
-            for match in re.finditer(
-                r"\b[A-Z][A-Za-z0-9_.-]*(?:\s+[A-Z][A-Za-z0-9_.-]*){0,3}\b",
-                query,
-            )
-        ]
+        entity_candidates = []
+        for match in re.finditer(
+            r"\b[A-Z][A-Za-z0-9_.-]*(?:\s+[A-Z][A-Za-z0-9_.-]*){0,3}\b",
+            query,
+        ):
+            words = match.group(0).split()
+            while words and words[0].casefold() in ENTITY_LEADING_STOP_WORDS:
+                words.pop(0)
+            if words:
+                entity_candidates.append(" ".join(words))
         return QueryPlan(
             original=normalized,
             subqueries=subqueries,
@@ -199,6 +225,19 @@ class HybridRetriever:
             combined += lexical_overlap * 0.22
             if chunk.parent_name and chunk.parent_name.casefold() in selected_plan.original.casefold():
                 combined += 0.18
+            lines = [line.strip() for line in chunk.original_text.splitlines() if line.strip()]
+            title = lines[1] if len(lines) > 1 and lines[0].lower().startswith("document ") else ""
+            for entity in selected_plan.entities:
+                if title and title.casefold() == entity.casefold():
+                    combined += 0.5
+                if "country" in selected_plan.original.casefold() and re.search(
+                    rf"\b{re.escape(entity)}\b.{{0,100}}\b"
+                    r"(?:region|city|town|village|province|located|situated)\b"
+                    r".{0,60}\b(?:in|of)\b",
+                    chunk.original_text,
+                    re.IGNORECASE | re.DOTALL,
+                ):
+                    combined += 0.45
             prelim.append(
                 RetrievalHit(
                     chunk=chunk,

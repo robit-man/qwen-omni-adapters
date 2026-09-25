@@ -24,6 +24,7 @@ LOG_EVENT_RE = re.compile(
     r"(?m)^(?=(?:\d{4}-\d{2}-\d{2}[T ][^\n ]+|"
     r"\[[A-Z][A-Z0-9_-]{1,15}\]|(?:ERROR|WARN|INFO|DEBUG|TRACE)\b))"
 )
+DOCUMENT_SECTION_RE = re.compile(r"(?m)^Document\s+(\d+)\s*:\s*$")
 SYMBOL_RE = re.compile(
     r"(?m)^\s*(?:async\s+)?(?:def|class|function|interface|type|struct|enum)\s+"
     r"([A-Za-z_$][\w$]*)"
@@ -130,6 +131,8 @@ class StructureAwareChunker:
             chunks = self._json(text)
         elif selected_kind == "log":
             chunks = self._sections(text, LOG_EVENT_RE, "event")
+        elif selected_kind == "document":
+            chunks = self._sections(text, DOCUMENT_SECTION_RE, "document_section")
         else:
             chunks = []
         return chunks or self._fallback(text)

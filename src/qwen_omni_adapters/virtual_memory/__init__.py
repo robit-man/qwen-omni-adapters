@@ -5,6 +5,11 @@ Raw text is append-only and recoverable; everything placed in a transformer
 window is a disposable, provenance-carrying working set.
 """
 
+from qwen_omni_adapters.virtual_memory.aggregation import (
+    FrequencyAggregationBuilder,
+    FrequencyAggregationResult,
+    requested_frequency_count,
+)
 from qwen_omni_adapters.virtual_memory.chunking import ChunkDraft, StructureAwareChunker
 from qwen_omni_adapters.virtual_memory.controller import (
     ControllerConfig,
@@ -50,6 +55,8 @@ __all__ = [
     "ControllerConfig",
     "EvidenceChunk",
     "ExtractedCandidate",
+    "FrequencyAggregationBuilder",
+    "FrequencyAggregationResult",
     "HybridRetriever",
     "HashingEmbedder",
     "ImmutableEvidenceStore",
@@ -77,4 +84,5 @@ __all__ = [
     "WorkingContextPacker",
     "validate_embedding",
     "select_relevant_memories",
+    "requested_frequency_count",
 ]

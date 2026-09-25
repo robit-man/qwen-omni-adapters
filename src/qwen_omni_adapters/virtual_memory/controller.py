@@ -28,6 +28,7 @@ _SUFFICIENCY_STOP_WORDS = {
     "it",
     "of",
     "only",
+    "question",
     "return",
     "so",
     "that",
@@ -233,6 +234,13 @@ class RecursiveMemoryController:
             term.casefold()
             for term in re.findall(r"\b[A-Za-z][A-Za-z0-9]*(?:[_.$:-][A-Za-z0-9]+)+\b", query)
         )
+        try:
+            anchors.update(
+                entity.casefold() for entity in self.retriever.plan(query).entities
+            )
+        except (AttributeError, ValueError):
+            # Custom retrievers used by clients/tests may expose only retrieve().
+            pass
         evidence_text = "\n".join(hit.chunk.original_text for hit in evidence).casefold()
         anchor_coverage = (
             sum(anchor in evidence_text for anchor in anchors) / len(anchors)
@@ -242,11 +250,13 @@ class RecursiveMemoryController:
         channels = {channel for hit in evidence for channel in hit.channels}
         channel_strength = min(1.0, len(channels) / 3.0)
         breadth = min(1.0, len(evidence) / 3.0)
+        hit_strength = min(1.0, max(hit.score for hit in evidence))
         score = (
-            coverage * 0.35
+            coverage * 0.3
             + anchor_coverage * 0.35
-            + channel_strength * 0.2
+            + channel_strength * 0.15
             + breadth * 0.1
+            + hit_strength * 0.1
         )
         # Imperative requests often retrieve the governing negative constraint,
         # whose MUST/NEVER wording is necessarily absent from the request.  A
