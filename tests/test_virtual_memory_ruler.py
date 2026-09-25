@@ -13,7 +13,7 @@ from qwen_omni_adapters.virtual_memory.ruler import (
     sample_from_record,
     split_ruler_prompt,
 )
-from scripts.run_virtual_context_ruler import EndpointResponder
+from scripts.run_virtual_context_ruler import EndpointResponder, _default_tokenize_endpoint
 
 
 def _record() -> dict[str, object]:
@@ -136,6 +136,27 @@ def test_fifo_baseline_is_hard_bounded() -> None:
     assert prepared.compression_ratio > 1.0
 
 
+def test_fifo_uses_injected_model_tokenizer_for_its_physical_ceiling() -> None:
+    record = _record()
+    record["input"] = (
+        str(record["input"]).split("What are all")[0]
+        + (" punctuation:::heavy" * 4_000)
+        + " What are all the special magic numbers for silver-otter mentioned?"
+    )
+    sample = sample_from_record(record, task="niah_single_1", ordinal=0)
+
+    def exact_counter(text: str) -> int:
+        return max(1, (len(text.encode("utf-8")) + 1) // 2)
+
+    prepared = RulerVirtualContextHarness(
+        physical_context_tokens=4_096,
+        token_counter=exact_counter,
+    ).prepare(sample, baseline="fifo")
+
+    assert prepared.resident_tokens == exact_counter(prepared.prompt)
+    assert prepared.resident_tokens <= 4_096 - 2_384
+
+
 def test_frequency_task_uses_reference_free_provenance_bearing_aggregation() -> None:
     record = {
         "index": 8,
@@ -194,3 +215,13 @@ def test_endpoint_runner_explicitly_disables_hidden_thinking_by_default() -> Non
     finally:
         openai.close()
         ollama.close()
+
+
+def test_endpoint_runner_derives_the_active_llama_tokenizer_route() -> None:
+    assert (
+        _default_tokenize_endpoint(
+            "http://127.0.0.1:8901/v1/chat/completions", "openai"
+        )
+        == "http://127.0.0.1:8901/tokenize"
+    )
+    assert _default_tokenize_endpoint("http://127.0.0.1:11434/api/chat", "ollama") is None

@@ -227,17 +227,21 @@ def _merge_hits(*groups: Sequence[RetrievalHit]) -> list[RetrievalHit]:
     return list(merged.values())
 
 
-def _tail_within_tokens(value: str, maximum: int) -> str:
+def _tail_within_tokens(
+    value: str,
+    maximum: int,
+    token_counter: Callable[[str], int] = conservative_token_estimate,
+) -> str:
     if maximum <= 0:
         return ""
-    if conservative_token_estimate(value) <= maximum:
+    if token_counter(value) <= maximum:
         return value
     low = 0
     high = len(value)
     while low < high:
         middle = (low + high) // 2
         candidate = value[middle:]
-        if conservative_token_estimate(candidate) <= maximum:
+        if token_counter(candidate) <= maximum:
             high = middle
         else:
             low = middle + 1
@@ -247,9 +251,18 @@ def _tail_within_tokens(value: str, maximum: int) -> str:
 class RulerVirtualContextHarness:
     """Build isolated working sets for official RULER samples."""
 
-    def __init__(self, *, physical_context_tokens: int = 16_384) -> None:
+    def __init__(
+        self,
+        *,
+        physical_context_tokens: int = 16_384,
+        token_counter: Callable[[str], int] = conservative_token_estimate,
+    ) -> None:
         self.budget = ContextBudget(max_tokens=physical_context_tokens)
-        self.packer = WorkingContextPacker(budget=self.budget)
+        self.token_counter = token_counter
+        self.packer = WorkingContextPacker(
+            budget=self.budget,
+            token_counter=token_counter,
+        )
 
     def prepare(self, sample: RulerSample, *, baseline: str = "hybrid") -> PreparedRulerSample:
         selected = str(baseline).lower()
@@ -261,9 +274,7 @@ class RulerVirtualContextHarness:
             "Answer the current query using only replayed source evidence. "
             "Do not infer missing facts. Return only the requested answer."
         )
-        source_tokens = sample.reported_tokens or conservative_token_estimate(
-            sample.source_text
-        )
+        source_tokens = sample.reported_tokens or self.token_counter(sample.source_text)
         if selected == "fifo":
             def render(candidate: str) -> str:
                 return (
@@ -272,16 +283,18 @@ class RulerVirtualContextHarness:
                     "\n</current_query>"
                 )
 
-            fixed = conservative_token_estimate(render(""))
+            fixed = self.token_counter(render(""))
             tail = _tail_within_tokens(
-                sample.source_text, self.budget.input_ceiling - fixed
+                sample.source_text,
+                self.budget.input_ceiling - fixed,
+                self.token_counter,
             )
             prompt = render(tail)
-            while conservative_token_estimate(prompt) > self.budget.input_ceiling:
-                excess = conservative_token_estimate(prompt) - self.budget.input_ceiling
+            while self.token_counter(prompt) > self.budget.input_ceiling:
+                excess = self.token_counter(prompt) - self.budget.input_ceiling
                 tail = tail[min(len(tail), max(1, excess * 3)) :]
                 prompt = render(tail)
-            resident = conservative_token_estimate(prompt)
+            resident = self.token_counter(prompt)
             return PreparedRulerSample(
                 prompt=prompt,
                 answer_allowed=True,

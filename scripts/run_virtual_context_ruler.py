@@ -18,6 +18,7 @@ from qwen_omni_adapters.virtual_memory.ruler import (
     ruler_string_match_score,
     run_samples,
 )
+from qwen_omni_adapters.virtual_memory.tokenization import LlamaCppTokenCounter
 
 
 class EndpointResponder:
@@ -67,7 +68,13 @@ class EndpointResponder:
     def __call__(self, prompt: str) -> str:
         payload = self._payload(prompt)
         response = self.client.post(self.endpoint, json=payload)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            detail = response.text.strip().replace("\n", " ")[:500]
+            raise RuntimeError(
+                f"inference endpoint returned HTTP {response.status_code}: {detail}"
+            ) from exc
         body = response.json()
         if self.endpoint_style == "openai":
             return str(body["choices"][0]["message"]["content"])
@@ -87,6 +94,16 @@ def _input_files(values: list[Path]) -> list[Path]:
         else:
             raise FileNotFoundError(value)
     return list(dict.fromkeys(path.resolve() for path in result))
+
+
+def _default_tokenize_endpoint(endpoint: str | None, endpoint_style: str) -> str | None:
+    if not endpoint or endpoint_style != "openai":
+        return None
+    normalized = endpoint.rstrip("/")
+    suffix = "/v1/chat/completions"
+    if normalized.endswith(suffix):
+        return normalized[: -len(suffix)] + "/tokenize"
+    return None
 
 
 def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
@@ -115,6 +132,13 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--max-tokens", type=int, default=256)
     parser.add_argument(
+        "--tokenize-endpoint",
+        help=(
+            "exact tokenizer endpoint; defaults to /tokenize beside an OpenAI-style "
+            "/v1/chat/completions endpoint"
+        ),
+    )
+    parser.add_argument(
         "--think",
         action="store_true",
         help="enable the endpoint's native thinking mode (disabled by default)",
@@ -133,6 +157,7 @@ def main() -> int:
     if not files:
         parser.error("no JSONL files found")
     responder = None
+    token_counter = None
     if arguments.endpoint:
         responder = EndpointResponder(
             endpoint=arguments.endpoint,
@@ -143,8 +168,18 @@ def main() -> int:
             max_tokens=max(1, arguments.max_tokens),
             think=arguments.think,
         )
+    tokenize_endpoint = arguments.tokenize_endpoint or _default_tokenize_endpoint(
+        arguments.endpoint,
+        arguments.endpoint_style,
+    )
+    if tokenize_endpoint:
+        token_counter = LlamaCppTokenCounter(
+            tokenize_endpoint,
+            timeout=min(30.0, max(1.0, arguments.timeout)),
+        )
     harness = RulerVirtualContextHarness(
-        physical_context_tokens=arguments.physical_context
+        physical_context_tokens=arguments.physical_context,
+        **({"token_counter": token_counter} if token_counter is not None else {}),
     )
     summaries = []
     try:
@@ -186,11 +221,14 @@ def main() -> int:
     finally:
         if responder is not None:
             responder.close()
+        if token_counter is not None:
+            token_counter.close()
     report = {
         "schema": "robit.ruler-virtual-context-run.v1",
         "baseline": arguments.baseline,
         "physical_context_tokens": arguments.physical_context,
         "think": arguments.think,
+        "tokenizer": "exact_endpoint" if token_counter is not None else "conservative_fallback",
         "scoring": "Run NVIDIA RULER's official evaluate.py over output files.",
         "files": summaries,
         "mean_task_score": (
