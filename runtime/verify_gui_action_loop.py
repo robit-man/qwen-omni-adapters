@@ -262,7 +262,7 @@ def run(args: argparse.Namespace) -> int:
             value = status.get("task")
             if isinstance(value, dict):
                 task = value
-            if task.get("status") in {"complete", "blocked", "cancelled", "failed"}:
+            if task.get("status") in {"completed", "blocked", "cancelled"}:
                 break
         else:
             _tool(
@@ -295,7 +295,7 @@ def run(args: argparse.Namespace) -> int:
                 "visual_click",
             }:
                 invalid_browser_actions.append(browser_arguments.get("action"))
-        if task.get("status") != "complete":
+        if task.get("status") != "completed":
             raise RuntimeError(f"GUI task ended with status {task.get('status')}")
         if not challenge["complete"] or challenge["marker"] != state.marker:
             raise RuntimeError("The task completed without passing the canvas hit gates")
