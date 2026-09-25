@@ -2,16 +2,16 @@
 
 - Date: 2026-09-25
 - Physical context budget: 16,384 tokens
-- Scope: deterministic storage, retrieval, controller, packing behavior, a
-  live 13-task RULER v1 sweep, and a bounded 256K sparse-recall smoke
-- Non-claim: the live sweep has one 32K sample per task; it is not a
-  statistically complete RULER matrix or proof of native long-context equivalence
+- Scope: deterministic storage, retrieval, controller, packing behavior, live
+  13-task RULER v1 sweeps at 32K and 256K, and a bounded 256K sparse-recall smoke
+- Non-claim: each live sweep has one sample per task; this is not a statistically
+  complete RULER matrix or proof of native long-context equivalence
 
 ## Repository validation
 
 Command: `./scripts/validate.sh`
 
-Result: 639 tests passed in 30.84 seconds. Source, contract, VAD, call-queue,
+Result: 639 tests passed in 31.22 seconds. Source, contract, VAD, call-queue,
 browser-cache, and unit validation gates passed.
 
 ## Synthetic source-length ladder
@@ -117,8 +117,8 @@ regressions now require anchored relationship closure before STOP, fail closed
 when the dependency budget expires, ignore the unrelated few-shot graph, and
 use dependency-aware exact line replay when a full chunk does not fit.
 
-This is preparation/replay evidence, not an answer-accuracy score. The 32K
-13-task live run is reported below; the full 13-task 256K run remains open.
+This is preparation/replay evidence, not an answer-accuracy score. The complete
+13-task live 32K and 256K breadth runs are reported below.
 
 ## Official RULER 13-task 32K preparation gate
 
@@ -191,7 +191,54 @@ Recursive query retrieval supplies source dependencies, and only
 high-information reference strings add exact source locations. Short derived
 labels such as `yes` and `no` are not searched as if they were source evidence.
 
-## Live official RULER model-answer gate
+## Live official RULER 13-task 256K milestone
+
+The same breadth was generated at 262,144 tokens with the pinned upstream
+generator and evaluated on the resident Jetson worker. Every condition used the
+active tokenizer, `enable_thinking=false`, `cache_prompt=false`, and a 256-token
+completion allowance. This is the mission's first physical-16K/source-256K
+answer-accuracy gate rather than preparation-only evidence.
+
+| Task | FIFO | Hybrid | Oracle-assisted |
+|---|---:|---:|---:|
+| CWE | 10 | 100 | 100 |
+| FWE | 100 | 100 | 100 |
+| NIAH multi-key 1/2/3 | 0 / 0 / 0 | 100 / 100 / 100 | 100 / 100 / 100 |
+| NIAH multi-query | 0 | 100 | 100 |
+| NIAH multi-value | 0 | 100 | 100 |
+| NIAH single 1/2/3 | 0 / 0 / 0 | 100 / 100 / 100 | 100 / 100 / 100 |
+| SQuAD QA | 100 | 100 | 100 |
+| HotpotQA | 0 | 100 | 100 |
+| Variable tracking | 0 | 100 | 100 |
+| **Mean across 13 tasks** | **16.15** | **100** | **100** |
+
+| Condition | Resident input range | Compression range | Prompt tokens total | p50 preparation | p95 preparation | p50 inference | p95 inference |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| FIFO | 13,998-14,000 | 18.26-18.73x | 182,146 | 2.54 s | 3.28 s | 21.50 s | 28.72 s |
+| Hybrid | 719-8,073 | 32.35-355.58x | 67,494 | 3.26 s | 6.44 s | 9.67 s | 12.54 s |
+| Oracle-assisted | 719-8,073 | 32.35-355.58x | 74,338 | 3.30 s | 7.86 s | 10.57 s | 12.33 s |
+
+Hybrid matched the oracle-assisted ceiling on all 13 tasks, used 62.9% fewer
+prompt tokens than FIFO, and reduced median inference latency by 55.0%. No
+hybrid task needed even half of the 16,384-token physical context; its largest
+resident input was 8,073 tokens. The one-sample-per-task limitation still
+applies, but this passes the stated first milestone for sparse retrieval,
+multiple needles, dependency tracing, aggregation, and multi-hop QA at 256K.
+
+The 256K pass found a high-recall cutoff defect before live scoring: more than
+120 documents mentioned Normandy, so the direct support document could be
+discarded before query-aware reranking. The broad candidate stage now retains
+the intended maximum of 200, restoring the exact support without answer-field
+access. It also exposed redundant oracle expansion for frequency aggregates;
+verified deterministic aggregates now remain the provenance-bearing authority
+instead of expanding hundreds of literal answer occurrences.
+
+After all 39 cache-isolated requests, the daemon remained ready with zero
+restarts and a 16,384-token ceiling. Pointing, cloned TTS, and comprehension
+workers all still held Tegra GPU device handles. The compact per-task evidence
+is retained in `evidence/ruler-v1-256k-jetson.json`.
+
+## Earlier live official RULER variable-tracking diagnostic
 
 The same official four-hop sample was then evaluated against the resident
 Ornith worker on the Jetson, still hard-capped at 16,384 physical tokens. The
@@ -214,9 +261,9 @@ logs other recoverable candidates as `dependency_focus` evictions. The focused
 hybrid answer and oracle answer were identical:
 `IWSHA, YCSMT, RQMUC, FRHPM, and NLTIS.`
 
-This is one official RULER sample, not a statistically meaningful task score.
-It establishes the first milestone path end to end; it does not replace the
-complete task/length matrix.
+This earlier single sample is retained because its failed intermediate runs
+identified dependency-focus eviction. The 13-task 256K breadth result above is
+the current first-milestone evidence.
 
 ## Live Jetson sparse-recall smoke
 
@@ -256,8 +303,8 @@ worker used 254,822 source tokens with the target fact in the middle:
 
 ## Remaining release evidence
 
-1. Expand the 13 official RULER v1 tasks beyond one sample each and run them at
-   64K, 128K, and 256K before extending through 1M.
+1. Expand the 13 official RULER v1 tasks beyond one sample each at 32K-256K,
+   then run the breadth sweep at 512K and 1M.
 2. Add peak RAM/VRAM and index-latency sampling to the live downstream report;
    answer accuracy, token use, rounds, p50/p95 latency, and envelope use are now
    present for the 32K sweep.
