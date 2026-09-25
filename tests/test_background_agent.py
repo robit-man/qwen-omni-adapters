@@ -60,6 +60,7 @@ from harness.background_agent import (
     _task_virtual_query,
     _tool_evidence,
     _uncheckpointed_action_count,
+    _web_fetch_preflight,
 )
 from portal.background_tasks import BackgroundTaskStore
 from portal.documents import SessionDocumentStore
@@ -123,6 +124,43 @@ def test_task_virtual_query_reserves_space_for_latest_direction() -> None:
     assert query.startswith("Advance and verify the pinned task. Objective: ")
     assert f"Latest user direction: {latest_direction}" in query
     assert len(query) <= 1_200
+
+
+def test_web_fetch_preflight_allows_a_user_supplied_url_but_not_self_authorization() -> None:
+    task = {
+        "objective": "Inspect https://example.test/direct/ and summarize it.",
+    }
+    messages = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "invented",
+                    "function": {
+                        "name": "web_fetch",
+                        "arguments": {"url": "https://invented.test/source"},
+                    },
+                }
+            ],
+        }
+    ]
+
+    assert (
+        _web_fetch_preflight(
+            messages,
+            task,
+            {"url": "https://example.test/direct"},
+        )
+        is None
+    )
+    rejected = _web_fetch_preflight(
+        messages,
+        task,
+        {"url": "https://invented.test/source"},
+    )
+    assert rejected is not None
+    assert rejected["error"] == "undiscovered_url"
+    assert rejected["allowed_urls"] == ["https://example.test/direct"]
 
 
 def test_phase_budget_counts_only_actions_after_guidance_or_accepted_progress() -> None:
@@ -2332,6 +2370,137 @@ def test_capability_failure_triggers_generic_recovery_and_headed_browser(
         "browser_interact",
         "task_checkpoint",
     ]
+
+
+def test_background_web_fetch_must_follow_user_or_tool_evidence(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Research the requested public workflow source.")
+    chat_round = 0
+    external_fetches: list[str] = []
+    grounded_url = "https://example.test/grounded-source"
+
+    def model_call(call_id: str, name: str, arguments: dict[str, Any]) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "function": {"name": name, "arguments": arguments},
+                        }
+                    ],
+                }
+            },
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        payload = json.loads(request.content)
+        if request.url.path == "/api/tools/tool_search/call":
+            return httpx.Response(
+                200,
+                json={"result": {"available_tools": ["web_search"]}},
+            )
+        if request.url.path == "/api/tools/web_search/call":
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "alternative_tools": ["web_fetch"],
+                        "mode": "discover",
+                        "results": [
+                            {
+                                "title": "Grounded source",
+                                "url": grounded_url,
+                            }
+                        ],
+                    }
+                },
+            )
+        if request.url.path == "/api/tools/web_fetch/call":
+            external_fetches.append(payload["arguments"]["url"])
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "url": grounded_url,
+                        "content": "Verified workflow evidence.",
+                    }
+                },
+            )
+
+        chat_round += 1
+        if chat_round == 1:
+            return model_call(
+                "discover-web",
+                "tool_search",
+                {"query": "public web discovery"},
+            )
+        if chat_round == 2:
+            return model_call(
+                "search-web",
+                "web_search",
+                {"query": "workflow source", "mode": "discover"},
+            )
+        if chat_round == 3:
+            return model_call(
+                "invented-fetch",
+                "web_fetch",
+                {"url": "https://invented.test/not-in-evidence"},
+            )
+        if chat_round == 4:
+            tool_result = next(
+                message
+                for message in reversed(payload["messages"])
+                if message.get("role") == "tool"
+            )
+            rejection = json.loads(tool_result["content"])
+            assert rejection["error"] == "undiscovered_url"
+            assert rejection["allowed_urls"] == [grounded_url]
+            return model_call(
+                "grounded-fetch",
+                "web_fetch",
+                {"url": grounded_url},
+            )
+        return _checkpoint_response(
+            "complete",
+            "I fetched and verified the discovered source.",
+            ["grounded-fetch"],
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.02)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert external_fetches == [grounded_url]
+    invented = next(
+        item for item in current["actions"] if item["call_id"] == "invented-fetch"
+    )
+    assert "undiscovered_url" in str(invented["outcome"])
 
 
 def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaway_thinking(

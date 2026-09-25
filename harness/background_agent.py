@@ -16,6 +16,7 @@ import time
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -40,6 +41,9 @@ MAX_ACTION_ARGUMENT_CHARS = 2_000
 MAX_ACTION_OUTCOME_CHARS = 1_200
 VISUAL_CONTEXT_ACCOUNTING_BYTES = 8 * 1024
 COMPUTER_ACTION_TOOLS = {"browser_interact", "gui_interact"}
+WEB_EVIDENCE_TOOLS = {"browser_interact", "web_crawl", "web_fetch", "web_search"}
+
+_HTTP_URL = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 
 _SENSITIVE_AUDIT_KEY = re.compile(
     r"(?:authorization|cookie|credential|password|secret|token|api[_-]?key)",
@@ -1022,6 +1026,124 @@ def _audit_mapping(value: Any) -> dict[str, Any]:
     except ValueError:
         return {}
     return dict(parsed) if isinstance(parsed, Mapping) else {}
+
+
+def _canonical_http_url(value: Any) -> str:
+    """Normalize a public-web candidate for provenance-bound comparison."""
+
+    raw = str(value or "").strip().rstrip(".,;:!?)]}")
+    try:
+        parsed = urlsplit(raw)
+    except ValueError:
+        return ""
+    scheme = parsed.scheme.casefold()
+    hostname = (parsed.hostname or "").casefold()
+    if scheme not in {"http", "https"} or not hostname:
+        return ""
+    try:
+        port = parsed.port
+    except ValueError:
+        return ""
+    if port is not None and not (
+        (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
+    ):
+        netloc = f"{hostname}:{port}"
+    else:
+        netloc = hostname
+    path = parsed.path.rstrip("/") or "/"
+    return urlunsplit((scheme, netloc, path, parsed.query, ""))
+
+
+def _urls_in_value(value: Any) -> list[str]:
+    """Extract bounded HTTP(S) URLs from a trusted task or tool-result value."""
+
+    found: list[str] = []
+
+    def visit(item: Any) -> None:
+        if isinstance(item, Mapping):
+            for child in item.values():
+                visit(child)
+            return
+        if isinstance(item, list):
+            for child in item:
+                visit(child)
+            return
+        if not isinstance(item, str):
+            return
+        for match in _HTTP_URL.findall(item):
+            normalized = _canonical_http_url(match)
+            if normalized and normalized not in found:
+                found.append(normalized)
+
+    visit(value)
+    return found[:64]
+
+
+def _authorized_web_fetch_urls(
+    messages: list[dict[str, Any]], task: Mapping[str, Any]
+) -> list[str]:
+    """Return URLs grounded in user intent or prior external evidence.
+
+    Assistant-authored calls are deliberately excluded. Otherwise an invented
+    URL would authorize itself merely by appearing in the proposed call.
+    """
+
+    found: list[str] = []
+
+    def retain(values: Any) -> None:
+        for value in _urls_in_value(values):
+            if value not in found:
+                found.append(value)
+
+    # The newest external result is the most useful retry menu.
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            continue
+        if str(message.get("tool_name") or "") not in WEB_EVIDENCE_TOOLS:
+            continue
+        content = message.get("content")
+        try:
+            parsed = json.loads(str(content or ""))
+        except ValueError:
+            parsed = str(content or "")
+        retain(parsed)
+
+    retain(task.get("objective"))
+    retain(task.get("completion_criteria"))
+    guidance = task.get("guidance")
+    if isinstance(guidance, list):
+        for item in reversed(guidance):
+            if isinstance(item, Mapping):
+                retain(item.get("content"))
+    return found[:64]
+
+
+def _web_fetch_preflight(
+    messages: list[dict[str, Any]],
+    task: Mapping[str, Any],
+    arguments: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Fail closed when a model invents a fetch target after discovery."""
+
+    requested = _canonical_http_url(arguments.get("url"))
+    if not requested:
+        # The portal remains authoritative for malformed and non-HTTP input.
+        return None
+    allowed = _authorized_web_fetch_urls(messages, task)
+    if requested in allowed:
+        return None
+    return {
+        "error": "undiscovered_url",
+        "message": (
+            "The requested URL was absent from the task/user input and prior "
+            "tool evidence. Choose an exact URL from allowed_urls; do not invent "
+            "or reconstruct a source address."
+        ),
+        "failure_scope": "arguments",
+        "retryable": True,
+        "task_blocked": False,
+        "allowed_urls": allowed[:12],
+    }
 
 
 def _focus_memory(
@@ -3267,23 +3389,39 @@ class BackgroundAgent:
                             tool=name or "unknown"
                         ),
                     )
-                    try:
-                        response = self._post(
-                            f"/api/tools/{name}/call", {"arguments": arguments}
-                        ).json()
-                    except Exception as error:
-                        self._record_action(
-                            task_id,
-                            call_id,
-                            name,
+                    preflight_result = (
+                        _web_fetch_preflight(
+                            messages,
+                            latest or current,
                             arguments,
-                            {
-                                "error": type(error).__name__,
-                                "message": str(error),
-                            },
                         )
-                        raise
-                    result = response.get("result", response)
+                        if name == "web_fetch"
+                        else None
+                    )
+                    if preflight_result is not None:
+                        # Discovery is evidence about where a fetch may go. A
+                        # model-authored URL is not. Keep the leaf tool active
+                        # and return the exact grounded choices without issuing
+                        # any network request.
+                        result = preflight_result
+                    else:
+                        try:
+                            response = self._post(
+                                f"/api/tools/{name}/call", {"arguments": arguments}
+                            ).json()
+                        except Exception as error:
+                            self._record_action(
+                                task_id,
+                                call_id,
+                                name,
+                                arguments,
+                                {
+                                    "error": type(error).__name__,
+                                    "message": str(error),
+                                },
+                            )
+                            raise
+                        result = response.get("result", response)
                     if (
                         name in COMPUTER_ACTION_TOOLS
                         and str(arguments.get("action") or "") == "snapshot"

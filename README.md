@@ -416,6 +416,10 @@ Typed focus records advertise no paging operation while their detailed receipts
 are still resident. After compaction they gain structured pointers to the
 separate `task_expand` control function; that control name is never presented as
 an action or argument of `workspace_file` or another external tool.
+Background web fetches are provenance-bound as well: a target must appear in
+the accepted task/user input or prior search, browser, crawl, or fetch evidence.
+An invented address is rejected before network access and returned beside the
+exact admissible URLs so the next model step can choose a grounded source.
 Completed or blocked work ends with a brief natural spoken status only when the
 live conversation is idle. Detailed reports, evidence IDs, paths, and worker
 self-assessment stay in the indicator and task archive and are never passed
