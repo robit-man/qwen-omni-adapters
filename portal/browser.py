@@ -1047,13 +1047,14 @@ class BrowserAutomationStore:
   if (!el || !el.isConnected) return {{ok:false, reason:'missing'}};
   const s = getComputedStyle(el), r = el.getBoundingClientRect();
   const disabled = !!el.disabled || el.getAttribute('aria-disabled') === 'true';
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
   const visible = s.visibility !== 'hidden' && s.display !== 'none' &&
     Number(s.opacity || 1) > 0 && s.pointerEvents !== 'none' &&
     r.width > 1 && r.height > 1 && r.bottom >= 0 && r.right >= 0 &&
-    r.top <= innerHeight && r.left <= innerWidth;
+    r.top <= innerHeight && r.left <= innerWidth &&
+    x >= 0 && x <= innerWidth && y >= 0 && y <= innerHeight;
   if (!visible) return {{ok:false, reason:'not_visible'}};
   if (disabled) return {{ok:false, reason:'disabled'}};
-  const x = r.left + r.width / 2, y = r.top + r.height / 2;
   const hit = document.elementFromPoint(x, y);
   if (!hit || !(hit === el || el.contains(hit)))
     return {{ok:false, reason:'occluded'}};
@@ -1061,6 +1062,26 @@ class BrowserAutomationStore:
 }})()
 """
         current = self._evaluate(cdp, expression)
+        if isinstance(current, dict) and current.get("reason") == "not_visible":
+            # Element IDs describe the full rendered document, not just the
+            # current viewport. Match normal headed-browser automation by
+            # visibly scrolling a known DOM control into view, then repeat the
+            # complete visibility and hit-target check before acting.
+            scrolled = self._evaluate(
+                cdp,
+                f"""
+(() => {{
+  const el = document.querySelector(
+    '[data-omni-id="' + CSS.escape({json.dumps(normalized)}) + '"]'
+  );
+  if (!el || !el.isConnected) return false;
+  el.scrollIntoView({{block:'center', inline:'nearest', behavior:'instant'}});
+  return true;
+}})()
+""",
+            )
+            if scrolled is True:
+                current = self._evaluate(cdp, expression)
         if not isinstance(current, dict) or current.get("ok") is not True:
             reason = (
                 str(current.get("reason") or "stale")

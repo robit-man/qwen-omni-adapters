@@ -715,6 +715,47 @@ def test_browser_dom_action_revalidates_live_box_and_hit_target() -> None:
     assert session.elements["e3"]["width"] == 120.0
 
 
+def test_browser_dom_action_scrolls_offscreen_control_then_revalidates() -> None:
+    class Store(BrowserAutomationStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.results = iter(
+                [
+                    {"ok": False, "reason": "not_visible"},
+                    True,
+                    {"ok": True, "x": 80.0, "y": 200.0, "width": 160.0, "height": 32.0},
+                ]
+            )
+            self.expressions: list[str] = []
+
+        def _evaluate(self, _cdp, expression):
+            self.expressions.append(expression)
+            return next(self.results)
+
+    session = SimpleNamespace(
+        elements={
+            "e6": {
+                "id": "e6",
+                "x": 80,
+                "y": 900,
+                "width": 160,
+                "height": 32,
+            }
+        }
+    )
+    store = Store()
+
+    refreshed = store._refresh_element(
+        session,  # type: ignore[arg-type]
+        object(),  # type: ignore[arg-type]
+        "e6",
+    )
+
+    assert refreshed["y"] == 200.0
+    assert len(store.expressions) == 3
+    assert "scrollIntoView" in store.expressions[1]
+
+
 def test_gui_drag_uses_one_bounded_xdotool_gesture() -> None:
     class Gui(GuiAutomation):
         def __init__(self) -> None:
