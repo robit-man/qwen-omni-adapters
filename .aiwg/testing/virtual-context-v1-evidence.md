@@ -238,6 +238,31 @@ restarts and a 16,384-token ceiling. Pointing, cloned TTS, and comprehension
 workers all still held Tegra GPU device handles. The compact per-task evidence
 is retained in `evidence/ruler-v1-256k-jetson.json`.
 
+## Active production-portal gate
+
+The guided Jetson deployment now selects `OMNI_VIRTUAL_CONTEXT_MODE=active`.
+The deployed portal was exercised through its authenticated `/api/chat` route,
+not through the benchmark responder, with 104,050 exact-tokenizer source tokens
+and an early identifier buried below 8,000 repeated distractor records. It
+returned the exact identifier from a 3,236-token working set (32.15x source to
+working compression), replayed two provenance-bearing chunks, and reported
+`answer_allowed=true` with no unresolved dependency.
+
+The first production attempt returned the correct identifier but reported
+insufficient evidence. That run was rejected. The controller now excludes
+answer-format directives from subject/entity coverage, strips terminal
+punctuation before coverage scoring, and caps question-only historical evidence
+below the answer threshold. A fresh isolated-session run then passed both answer
+and controller-authority gates.
+
+The comprehension launcher selected an 8,192-token KV allocation under current
+co-resident unified-memory pressure while retaining the configured 16,384-token
+ceiling. After inference, comprehension and persistent cloned-TTS workers both
+still held Tegra GPU and `nvmap` handles; unified-memory use was 22,047.4 MiB.
+The daemon and desktop indicator were active with zero restarts. Compact,
+non-secret evidence is retained in
+`evidence/virtual-context-active-jetson.json`.
+
 ## Earlier live official RULER variable-tracking diagnostic
 
 The same official four-hop sample was then evaluated against the resident
@@ -297,6 +322,7 @@ worker used 254,822 source tokens with the target fact in the middle:
 - periodic recurrent regeneration from immutable raw evidence;
 - live tool-loop repacking and tool/control-envelope reservation;
 - exact llama.cpp token-counter adapter and shadow-mode safe fallback;
+- active portal prompt replacement with current-query self-evidence exclusion;
 - RULER input/reference isolation, answer-prefix restoration, dependency-aware
   oracle labelling, active-tokenizer bounds, inference telemetry, and
   official-scorer-compatible output records.

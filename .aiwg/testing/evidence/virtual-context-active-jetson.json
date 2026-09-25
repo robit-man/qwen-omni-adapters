@@ -1,0 +1,39 @@
+{
+  "schema": "robit.virtual-context.active-jetson.v1",
+  "date": "2026-09-25",
+  "commit": "c61aa44",
+  "host_class": "NVIDIA Jetson AGX Orin 32GB",
+  "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+  "virtual_context_mode": "active",
+  "configured_physical_ceiling_tokens": 16384,
+  "resident_context_tokens_selected": 8192,
+  "source_tokens": 104050,
+  "source_characters": 360212,
+  "working_tokens": 3236,
+  "source_to_working_compression": 32.1539,
+  "evidence_chunks_replayed": 2,
+  "answer_allowed": true,
+  "unresolved_reason": null,
+  "expected_answer_sha256": "e0f2a67b9da0a9a57062b482a53caa56ba7e95e15044f1d501b8b364883df29b",
+  "answer_sha256": "e0f2a67b9da0a9a57062b482a53caa56ba7e95e15044f1d501b8b364883df29b",
+  "answer_exact": true,
+  "tokenizer": "active llama.cpp endpoint",
+  "service": {
+    "daemon_active": true,
+    "daemon_restarts": 0,
+    "indicator_active": true,
+    "indicator_restarts": 0
+  },
+  "post_request_residency": {
+    "comprehension_gpu_resident": true,
+    "tts_gpu_resident": true,
+    "tts_persistent_worker_alive": true,
+    "tegra_unified_memory_used_mib": 22047.4
+  },
+  "notes": [
+    "The request traversed the authenticated portal /api/chat route rather than the benchmark responder.",
+    "The current user question was stored losslessly but excluded from evidence retrieval.",
+    "A pre-fix run returned the correct answer but failed the evidence-sufficiency flag; that run was not accepted.",
+    "No access token, capability URL, hostname, network address, or source text is retained in this artifact."
+  ]
+}

@@ -36,6 +36,14 @@ The service had zero restarts and retained simultaneous Tegra device-handle
 residency for comprehension, TTS, and pointing after the run. Per-task hashes
 and telemetry are in `evidence/ruler-v1-256k-jetson.json`.
 
+The production portal was subsequently switched from shadow to active virtual
+context. A fresh authenticated request compressed 104,050 source tokens to a
+3,236-token working set, replayed two exact chunks, returned the buried
+identifier exactly, and passed the controller's evidence-sufficiency gate. The
+daemon and indicator each remained active with zero restarts, and comprehension
+plus persistent cloned TTS remained GPU-resident. Evidence is in
+`evidence/virtual-context-active-jetson.json`.
+
 Meaningful multi-sample RULER runs, 512K/1M live breadth, peak RAM/VRAM sampling,
 and broad live downstream task evaluation remain open. Therefore this report
 supports the training-free V1 first milestone, not native-256K equivalence or
