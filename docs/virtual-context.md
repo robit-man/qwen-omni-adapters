@@ -44,6 +44,13 @@ for side-by-side diagnostics without prompt replacement, or `off` to disable the
 subsystem. Portal Trash removes the entire isolated session corpus together with the
 existing session caches.
 
+Tool follow-ups preserve the newest assistant `tool_calls` message and matching
+`role=tool` results as a bounded native protocol tail. Those messages are charged
+against the same physical-context budget and excluded from flattened recent/evidence
+replay for that turn. Older rounds remain in immutable storage. This prevents active
+compaction from turning a completed tool observation into generic user prose and
+causing the model to repeat an already successful call.
+
 ## Minimal use
 
 ```python

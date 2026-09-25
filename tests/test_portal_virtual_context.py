@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from portal.virtual_context import SessionVirtualContext
@@ -202,10 +203,24 @@ def test_active_tool_followup_is_repacked_with_result_and_original_query(
         "messages": [
             {"role": "system", "content": initial.context.text},
             {"role": "user", "content": "Act on <current_query>."},
-            {"role": "assistant", "content": ""},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "status-call",
+                        "type": "function",
+                        "function": {
+                            "name": "inspect_status",
+                            "arguments": {},
+                        },
+                    }
+                ],
+            },
             {
                 "role": "tool",
                 "tool_name": "inspect_status",
+                "tool_call_id": "status-call",
                 "content": '{"actuator_status":"cobalt-ready"}',
             },
         ]
@@ -219,14 +234,23 @@ def test_active_tool_followup_is_repacked_with_result_and_original_query(
     )
 
     assert followup is not None
-    assert "cobalt-ready" in followup.context.text
+    assert "cobalt-ready" not in followup.context.text
     assert "Find the actuator status." in followup.context.text
     assert followup.context.text.count("Find the actuator status.") == 1
-    assert len(payload["messages"]) == 2
+    assert [message["role"] for message in payload["messages"]] == [
+        "system",
+        "user",
+        "assistant",
+        "tool",
+    ]
     assert "<current_query>" not in payload["messages"][0]["content"]
-    assert "cobalt-ready" in payload["messages"][1]["content"]
+    assert "cobalt-ready" not in payload["messages"][1]["content"]
+    assert "cobalt-ready" in payload["messages"][3]["content"]
+    assert payload["messages"][2]["tool_calls"][0]["id"] == "status-call"
+    assert payload["messages"][3]["tool_call_id"] == "status-call"
     assert "Act on <current_query>." not in payload["messages"][1]["content"]
     assert payload["messages"][1]["content"].count("Find the actuator status.") == 1
+    assert json.dumps(payload["messages"]).count("cobalt-ready") == 1
     assert followup.context.total_tokens <= followup.context.max_tokens
 
 

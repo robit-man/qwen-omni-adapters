@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -71,6 +72,48 @@ def _message_records(
             )
         )
     return records
+
+
+def _latest_tool_protocol_tail(
+    messages: Sequence[Any],
+) -> tuple[list[dict[str, Any]], tuple[int, ...]]:
+    """Keep the newest completed tool round in its native chat roles.
+
+    Flattening a successful ``role=tool`` observation into generic user text
+    makes small language trunks treat the original request as still pending
+    and repeat the same call. Older tool rounds remain losslessly indexed; the
+    newest round stays structured so the inference endpoint receives a valid
+    assistant-tool-call -> tool-result protocol.
+    """
+
+    start: int | None = None
+    for ordinal in range(len(messages) - 1, -1, -1):
+        message = messages[ordinal]
+        if (
+            isinstance(message, Mapping)
+            and message.get("role") == "assistant"
+            and isinstance(message.get("tool_calls"), list)
+            and message.get("tool_calls")
+        ):
+            start = ordinal
+            break
+    if start is None:
+        return [], ()
+    retained: list[dict[str, Any]] = []
+    ordinals: list[int] = []
+    for ordinal in range(start, len(messages)):
+        message = messages[ordinal]
+        if not isinstance(message, Mapping):
+            break
+        role = str(message.get("role") or "")
+        if ordinal == start:
+            if role != "assistant":  # pragma: no cover - guarded above
+                break
+        elif role != "tool":
+            break
+        retained.append(copy.deepcopy(dict(message)))
+        ordinals.append(ordinal)
+    return retained, tuple(ordinals)
 
 
 @dataclass
@@ -258,17 +301,21 @@ class SessionVirtualContext:
         system_contract: str,
         query_override: str | None = None,
         reserved_tokens: int = 0,
+        retained_protocol_ordinals: Sequence[int] = (),
     ) -> PreparedTurn | None:
         if not self.enabled:
             return None
         query = str(query_override or "").strip()
         recent = []
-        for message in messages:
+        retained_ordinals = set(retained_protocol_ordinals)
+        for ordinal, message in enumerate(messages):
             if not isinstance(message, Mapping):
                 continue
             role = str(message.get("role") or "")
             content = _text_content(message.get("content"))
             if not content or role == "system":
+                continue
+            if ordinal in retained_ordinals:
                 continue
             if (
                 query_override is not None
@@ -304,6 +351,16 @@ class SessionVirtualContext:
             if current_user is not None
             else ()
         )
+        if retained_ordinals:
+            for ordinal, _role, _content, message_id, version in _message_records(messages):
+                if ordinal not in retained_ordinals:
+                    continue
+                excluded_chunk_ids.update(
+                    chunk.chunk_id
+                    for chunk in self._session(session_id).store.document_chunks(
+                        f"message-{message_id}", version
+                    )
+                )
         if query_override is not None:
             excluded_chunk_ids.update(
                 chunk.chunk_id
@@ -337,6 +394,15 @@ class SessionVirtualContext:
         # Reserve chat-template delimiters and the retained user control turn.
         return counter(serialized) + 96
 
+    def _protocol_tail_tokens(self, messages: Sequence[Mapping[str, Any]]) -> int:
+        if not messages:
+            return 0
+        counter = self.token_counter or conservative_token_estimate
+        serialized = json.dumps(messages, ensure_ascii=False, sort_keys=True)
+        # Reserve the model template's per-message role/tool delimiters in
+        # addition to the serialized content.
+        return counter(serialized) + 32 * len(messages)
+
     def repack_followup(
         self,
         session_id: str,
@@ -353,18 +419,29 @@ class SessionVirtualContext:
         if not isinstance(messages, list):
             return None
         self.observe_messages(session_id, messages)
+        protocol_tail, protocol_ordinals = _latest_tool_protocol_tail(messages)
         prepared = self.prepare(
             session_id,
             messages,
             system_contract=system_contract,
             query_override=query,
-            reserved_tokens=self.request_envelope_tokens(payload),
+            reserved_tokens=(
+                self.request_envelope_tokens(payload)
+                + self._protocol_tail_tokens(protocol_tail)
+            ),
+            retained_protocol_ordinals=protocol_ordinals,
         )
         if prepared is not None:
-            self.apply_active(payload, prepared)
+            self.apply_active(payload, prepared, protocol_tail=protocol_tail)
         return prepared
 
-    def apply_active(self, payload: dict[str, Any], prepared: PreparedTurn) -> None:
+    def apply_active(
+        self,
+        payload: dict[str, Any],
+        prepared: PreparedTurn,
+        *,
+        protocol_tail: Sequence[Mapping[str, Any]] = (),
+    ) -> None:
         if self.mode != "active":
             return
         messages = payload.get("messages")
@@ -411,6 +488,7 @@ class SessionVirtualContext:
         payload["messages"] = [
             {"role": "system", "content": bounded_system},
             latest_user,
+            *(copy.deepcopy(dict(message)) for message in protocol_tail),
         ]
 
     def stats(self, session_id: str) -> dict[str, Any]:

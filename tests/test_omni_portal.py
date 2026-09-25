@@ -1389,6 +1389,16 @@ def test_virtual_context_active_repacks_each_tool_followup(tmp_path: Path) -> No
                     }
                 },
             )
+        assert [message["role"] for message in body["messages"]] == [
+            "system",
+            "user",
+            "assistant",
+            "tool",
+        ]
+        assert body["messages"][-2]["tool_calls"][0]["function"]["name"] == (
+            "get_portal_capabilities"
+        )
+        assert body["messages"][-1]["tool_name"] == "get_portal_capabilities"
         return httpx.Response(
             200,
             json={"message": {"role": "assistant", "content": "Capability list ready."}},
@@ -1411,10 +1421,12 @@ def test_virtual_context_active_repacks_each_tool_followup(tmp_path: Path) -> No
 
     assert response.status_code == 200
     assert len(requests) == 2
-    assert len(requests[1]["messages"]) == 2
+    assert len(requests[1]["messages"]) == 4
     assert requests[1]["messages"][0]["role"] == "system"
     assert requests[1]["messages"][1]["role"] == "user"
-    assert "get_portal_capabilities" in requests[1]["messages"][1]["content"]
+    assert requests[1]["messages"][2]["role"] == "assistant"
+    assert requests[1]["messages"][3]["role"] == "tool"
+    assert "get_portal_capabilities" in requests[1]["messages"][3]["content"]
     assert "What can you do?" in requests[1]["messages"][1]["content"]
     assert response.json["portal"]["virtual_context"]["working_tokens"] <= 16_384
 
