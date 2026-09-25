@@ -316,15 +316,28 @@ class GuiAutomation:
             if isinstance(observed_identity, tuple) and len(observed_identity) >= 2
             else "active_window"
         )
+        if action != "snapshot" and not isinstance(observed_identity, tuple):
+            raise GuiAutomationError(
+                "A fresh GUI snapshot is required before acting on the desktop."
+            )
         coordinate_space = self._space_name(
             arguments, observed_space=observed_space
         )
+        if (
+            action in {"click", "drag"}
+            and "coordinate_space" in arguments
+            and coordinate_space != observed_space
+        ):
+            raise GuiAutomationError(
+                "The requested coordinate space differs from the observed image; "
+                "take a snapshot in that coordinate space before acting."
+            )
         display_width = display_height = 0
         active_window: dict[str, Any] | None = None
-        if action in {"click", "drag"}:
+        if action != "snapshot":
             display_width, display_height, active_window = self._desktop_state()
             if (
-                coordinate_space == "active_window"
+                observed_space == "active_window"
                 and isinstance(observed_identity, tuple)
                 and len(observed_identity) >= 2
                 and observed_identity[1] == "active_window"

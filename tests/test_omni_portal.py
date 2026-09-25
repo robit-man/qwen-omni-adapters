@@ -154,6 +154,10 @@ def test_gui_drag_uses_one_bounded_xdotool_gesture() -> None:
             }
 
     gui = Gui()
+    gui._visual_states["session"] = {
+        "identity": ("42", "active_window", 1000, 700),
+        "sample": b"\0" * 64 * 64 * 3,
+    }
     result = gui.act(
         "session",
         {"action": "drag", "x": 100, "y": 200, "to_x": 500, "to_y": 205},
@@ -216,6 +220,10 @@ def test_gui_screen_coordinates_remain_absolute() -> None:
             }
 
     gui = Gui()
+    gui._visual_states["session"] = {
+        "identity": ("42", "screen", 1920, 1080),
+        "sample": b"\0" * 64 * 64 * 3,
+    }
     gui.act(
         "session",
         {
@@ -280,6 +288,32 @@ def test_gui_omitted_space_reuses_the_last_screen_snapshot() -> None:
         "click",
         "1",
     ] in gui.commands
+
+
+def test_gui_rejects_pointer_action_before_any_gui_snapshot() -> None:
+    gui = GuiAutomation()
+
+    with pytest.raises(GuiAutomationError, match="fresh GUI snapshot"):
+        gui.act("session", {"action": "click", "x": 100, "y": 100})
+
+
+def test_gui_rejects_switching_coordinate_frames_without_observing_it() -> None:
+    gui = GuiAutomation()
+    gui._visual_states["session"] = {
+        "identity": ("42", "active_window", 1000, 700),
+        "sample": b"\0" * 64 * 64 * 3,
+    }
+
+    with pytest.raises(GuiAutomationError, match="differs from the observed image"):
+        gui.act(
+            "session",
+            {
+                "action": "click",
+                "coordinate_space": "screen",
+                "x": 100,
+                "y": 100,
+            },
+        )
 
 
 def test_gui_rejects_stale_active_window_coordinates_after_focus_changes() -> None:

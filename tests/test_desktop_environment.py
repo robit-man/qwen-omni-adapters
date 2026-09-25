@@ -298,3 +298,115 @@ def test_visual_only_browser_page_hands_pixels_to_gui() -> None:
     assert metadata["alternative_tools"] == ["gui_interact"]
     assert browser_module._visual_only_metadata("Readable article", []) == {}
     assert browser_module._visual_only_metadata("", [{"id": "e1"}]) == {}
+
+
+def test_visual_only_browser_result_is_replaced_by_exact_window_capture() -> None:
+    from portal.documents import SessionDocumentStore
+    from portal.tools import PortalToolHarness
+
+    class VisualOnlyBrowser:
+        def act(self, _session_id, _arguments):
+            return {
+                "rendered": True,
+                "title": "Canvas fixture",
+                "visual_only": True,
+                "disposition": "change_capability",
+                "alternative_tools": ["gui_interact"],
+                "screenshot": {"data": "viewport-pixels"},
+            }
+
+        def clear(self, _session_id):
+            pass
+
+    class ExactWindowGui:
+        calls: list[dict[str, object]] = []
+
+        def act(self, _session_id, arguments):
+            self.calls.append(dict(arguments))
+            return {
+                "rendered": True,
+                "desktop_visible_to_user": True,
+                "active_window": {
+                    "id": "42",
+                    "title": "Canvas fixture - Chromium",
+                },
+                "coordinate_space": {
+                    "name": "active_window",
+                    "origin_x": 54,
+                    "origin_y": 37,
+                    "width": 1042,
+                    "height": 800,
+                },
+                "display": {"width": 1080, "height": 1920},
+                "visual_change": {
+                    "comparable": False,
+                    "materially_changed": None,
+                },
+                "screenshot": {"data": "exact-window-pixels"},
+            }
+
+        def clear(self, _session_id):
+            pass
+
+    gui = ExactWindowGui()
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        browser_automation=VisualOnlyBrowser(),
+        gui_automation=gui,
+    )
+
+    result = harness.execute(
+        "session",
+        "browser_interact",
+        {"action": "navigate", "url": "http://127.0.0.1:8000/"},
+    )
+
+    assert gui.calls == [{"action": "snapshot", "coordinate_space": "active_window"}]
+    assert result["handoff_snapshot"] == "gui_active_window"
+    assert result["coordinate_space"]["name"] == "active_window"
+    assert result["screenshot"]["data"] == "exact-window-pixels"
+
+
+def test_visual_only_handoff_rejects_a_different_active_window() -> None:
+    from portal.documents import SessionDocumentStore
+    from portal.tools import PortalToolHarness
+
+    class VisualOnlyBrowser:
+        def act(self, _session_id, _arguments):
+            return {
+                "rendered": True,
+                "title": "Canvas fixture",
+                "visual_only": True,
+                "disposition": "change_capability",
+                "alternative_tools": ["gui_interact"],
+                "screenshot": {"data": "viewport-pixels"},
+            }
+
+        def clear(self, _session_id):
+            pass
+
+    class WrongWindowGui:
+        def act(self, _session_id, _arguments):
+            return {
+                "active_window": {"id": "9", "title": "Terminal"},
+                "coordinate_space": {"name": "active_window"},
+                "screenshot": {"data": "wrong-window"},
+            }
+
+        def clear(self, _session_id):
+            pass
+
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        browser_automation=VisualOnlyBrowser(),
+        gui_automation=WrongWindowGui(),
+    )
+
+    result = harness.execute(
+        "session",
+        "browser_interact",
+        {"action": "navigate", "url": "http://127.0.0.1:8000/"},
+    )
+
+    assert result["error"] == "ToolInputError"
+    assert "not the active window" in result["message"]
