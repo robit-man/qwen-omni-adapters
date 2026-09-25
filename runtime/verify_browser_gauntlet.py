@@ -16,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
+from urllib.request import Request, urlopen
 
 import httpx
 
@@ -453,31 +454,34 @@ def _complete_page(marker: str) -> bytes:
 def _load_photo_assets(cache_dir: Path) -> dict[str, bytes]:
     cache_dir.mkdir(parents=True, exist_ok=True)
     assets: dict[str, bytes] = {}
-    with httpx.Client(
-        timeout=30,
-        follow_redirects=True,
-        headers={"User-Agent": "qwen-omni-browser-gauntlet/1.0 (local validation)"},
-    ) as client:
-        for record in _PHOTO_RECORDS:
-            asset_id = str(record["id"])
-            expected = str(record["sha256"])
-            path = cache_dir / f"{asset_id}.jpg"
-            try:
-                payload = path.read_bytes()
-            except OSError:
-                payload = b""
+    for record in _PHOTO_RECORDS:
+        asset_id = str(record["id"])
+        expected = str(record["sha256"])
+        path = cache_dir / f"{asset_id}.jpg"
+        try:
+            payload = path.read_bytes()
+        except OSError:
+            payload = b""
+        if hashlib.sha256(payload).hexdigest() != expected:
+            request = Request(
+                str(record["url"]),
+                headers={
+                    "User-Agent": (
+                        "qwen-omni-browser-gauntlet/1.0 "
+                        "(https://github.com/robit-man/qwen-omni-adapters)"
+                    )
+                },
+            )
+            with urlopen(request, timeout=30) as response:
+                payload = response.read(4 * 1024 * 1024 + 1)
+            if not payload or len(payload) > 4 * 1024 * 1024:
+                raise RuntimeError(f"photo asset {asset_id} has an invalid size")
             if hashlib.sha256(payload).hexdigest() != expected:
-                response = client.get(str(record["url"]))
-                response.raise_for_status()
-                payload = response.content
-                if not payload or len(payload) > 4 * 1024 * 1024:
-                    raise RuntimeError(f"photo asset {asset_id} has an invalid size")
-                if hashlib.sha256(payload).hexdigest() != expected:
-                    raise RuntimeError(f"photo asset {asset_id} failed its SHA-256 pin")
-                partial = path.with_suffix(".jpg.part")
-                partial.write_bytes(payload)
-                partial.replace(path)
-            assets[asset_id] = payload
+                raise RuntimeError(f"photo asset {asset_id} failed its SHA-256 pin")
+            partial = path.with_suffix(".jpg.part")
+            partial.write_bytes(payload)
+            partial.replace(path)
+        assets[asset_id] = payload
     return assets
 
 
