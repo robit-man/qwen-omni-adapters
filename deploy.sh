@@ -6,6 +6,8 @@ SERVICE_NAME=qwen-omni-adapters.service
 SERVICE_UNIT=/etc/systemd/system/$SERVICE_NAME
 HARNESS_NAME=omni-call-harness.service
 HARNESS_UNIT=$HOME/.config/systemd/user/$HARNESS_NAME
+PACKAGE_LOCK_POLICY_SOURCE=$REPO_ROOT/services/linux/49-qwen-omni-package-lock-query.rules
+PACKAGE_LOCK_POLICY_TARGET=/etc/polkit-1/rules.d/49-qwen-omni-package-lock-query.rules
 DEPLOYMENT_PORTS=8892,8901,8910,8920,8930,8940
 PROFILE=""
 ACTION=""
@@ -31,6 +33,7 @@ PRIOR_OMNI_MODEL=""
 PRIOR_LANGUAGE_MODEL=""
 declare -a STOPPED_SYSTEM_UNITS=()
 declare -a STOPPED_USER_UNITS=()
+declare -a LEGACY_USER_UNITS=()
 declare -a STOPPED_MANUAL_PIDS=()
 
 restore_cursor() {
@@ -100,6 +103,12 @@ memory_gib() {
   else
     printf 'unknown'
   fi
+}
+
+install_desktop_package_lock_policy() {
+  ((WITH_HARNESS)) && is_tegra || return 0
+  [[ -d ${PACKAGE_LOCK_POLICY_TARGET%/*} ]] || return 0
+  run sudo install -m 0644 "$PACKAGE_LOCK_POLICY_SOURCE" "$PACKAGE_LOCK_POLICY_TARGET"
 }
 
 runtime_installed() {
@@ -571,6 +580,17 @@ prepare_runtime_handoff() {
   if systemctl --user is-active --quiet "$HARNESS_NAME" 2>/dev/null; then
     append_unique STOPPED_USER_UNITS "$HARNESS_NAME"
   fi
+  # Legacy per-user Egg units may be enabled but inactive while the current
+  # system daemon owns every port. Discover them by their exact namespace so
+  # they cannot return on the next graphical login and load a second CUDA
+  # worker behind the successful deployment.
+  while read -r unit _; do
+    [[ $unit == egg-omni-*.service ]] || continue
+    append_unique LEGACY_USER_UNITS "$unit"
+    if systemctl --user is-active --quiet "$unit" 2>/dev/null; then
+      append_unique STOPPED_USER_UNITS "$unit"
+    fi
+  done < <(systemctl --user list-unit-files --type=service --no-legend --no-pager 2>/dev/null)
 
   HANDOFF_STARTED=1
   for unit in "${STOPPED_USER_UNITS[@]}"; do
@@ -614,6 +634,9 @@ retire_prior_services() {
     if [[ $unit == "$HARNESS_NAME" && $WITH_HARNESS == 1 ]]; then
       continue
     fi
+    systemctl --user disable "$unit" >/dev/null 2>&1 || true
+  done
+  for unit in "${LEGACY_USER_UNITS[@]}"; do
     systemctl --user disable "$unit" >/dev/null 2>&1 || true
   done
 }
@@ -845,6 +868,7 @@ deploy_service() {
   ((WITH_HARNESS)) && install+=(--with-harness)
   "${install[@]}"
   UNIT_INSTALLED=1
+  install_desktop_package_lock_policy
 
   sudo systemctl enable "$SERVICE_NAME"
   SERVICE_START_EPOCH=$(date +%s)

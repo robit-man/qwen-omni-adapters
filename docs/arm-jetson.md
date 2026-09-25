@@ -98,6 +98,11 @@ camera is composed in one left-to-right row rather than a grid. It also polls
 updates preserve untracked files and fail closed for tracked edits, a non-main
 checkout, or diverged history; use `./deploy.sh` for those cases or for changes
 that require reinstalling privileged system-unit definitions.
+On Ubuntu appliance desktops, the harness install also adds one narrow polkit
+rule for the distro-owned, read-only `package-system-locked` query. This stops
+update-notifier from opening an administrator-password dialog during the
+autologin/Chromium startup race; it does not authorize package installation,
+updates, or configuration.
 
 An upgrade is a controlled handoff. The deployer resolves the live owners of
 ports 8892, 8901, 8910, 8920, and 8930 from procfs and refuses an unknown

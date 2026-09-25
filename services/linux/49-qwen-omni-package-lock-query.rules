@@ -1,0 +1,12 @@
+// The appliance desktop starts Chromium and the indicator immediately after
+// autologin. Ubuntu's update-notifier may run before logind has marked that
+// graphical session active and otherwise opens an administrator-password
+// dialog merely to read dpkg/apt lock state. This one action executes the
+// distro-owned, read-only /usr/lib/update-notifier/package-system-locked
+// helper. It grants no package install, update, or configuration authority.
+polkit.addRule(function(action, subject) {
+    if (action.id === "com.ubuntu.update-notifier.pkexec.package-system-locked" &&
+        subject.local) {
+        return polkit.Result.YES;
+    }
+});

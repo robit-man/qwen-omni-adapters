@@ -859,6 +859,7 @@ def main(argv: list[str] | None = None) -> int:
     sampled = False
     pressure_downshift = False
     pressure_started_at: float | None = None
+    runtime_pressure_deferred = False
     expansion_restart = False
     expansion_started_at: float | None = None
     runtime_required_headroom = 0.0
@@ -941,7 +942,11 @@ def main(argv: list[str] | None = None) -> int:
                             file=sys.stderr,
                             flush=True,
                         )
-            elif sampled and runtime_required_headroom > 0 and runtime_resize:
+            elif (
+                sampled
+                and runtime_required_headroom > 0
+                and not runtime_pressure_deferred
+            ):
                 current_available = available_memory_gib()
                 now = time.monotonic()
                 pressure_started_at = _pressure_started_at(
@@ -953,22 +958,16 @@ def main(argv: list[str] | None = None) -> int:
                 if (
                     pressure_started_at is not None
                     and now - pressure_started_at >= pressure_grace_s
-                    and _runtime_resize_ready(
-                        current_available,
-                        hard_floor_gib=memory_policy.hard_floor_gib,
-                        server_idle=_server_idle(args.health_url),
+                    and (
+                        not runtime_resize
+                        or _runtime_resize_ready(
+                            current_available,
+                            hard_floor_gib=memory_policy.hard_floor_gib,
+                            server_idle=_server_idle(args.health_url),
+                        )
                     )
                 ):
                     emergency = current_available < memory_policy.hard_floor_gib
-                    print(
-                        "controlled comprehension downshift after sustained "
-                        f"{'emergency' if emergency else 'idle'} runtime "
-                        f"pressure: {current_available:.2f} GiB available remained "
-                        f"below the {runtime_required_headroom:.2f} GiB reserve for "
-                        f"{pressure_grace_s:.1f}s",
-                        file=sys.stderr,
-                        flush=True,
-                    )
                     _record_failed_context(
                         args.calibration_file,
                         calibration,
@@ -981,9 +980,31 @@ def main(argv: list[str] | None = None) -> int:
                         # old process released its pages.
                         available_gib=available,
                     )
-                    pressure_downshift = True
-                    process.terminate()
-                elif pressure_started_at is None:
+                    if runtime_resize:
+                        print(
+                            "controlled comprehension downshift after sustained "
+                            f"{'emergency' if emergency else 'idle'} runtime "
+                            f"pressure: {current_available:.2f} GiB available remained "
+                            f"below the {runtime_required_headroom:.2f} GiB reserve for "
+                            f"{pressure_grace_s:.1f}s",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        pressure_downshift = True
+                        process.terminate()
+                    else:
+                        print(
+                            "recorded a lower comprehension tier for the next "
+                            "supervised start without terminating the Tegra worker: "
+                            f"{current_available:.2f} GiB available remained below the "
+                            f"{runtime_required_headroom:.2f} GiB reserve for "
+                            f"{pressure_grace_s:.1f}s",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        runtime_pressure_deferred = True
+                        pressure_started_at = None
+                elif pressure_started_at is None and runtime_resize:
                     target = _next_context_tier(
                         selected, args.min_context, args.max_context
                     )
