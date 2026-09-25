@@ -934,6 +934,34 @@ def _tool_evidence(messages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return evidence
 
 
+def _action_audit_evidence(task: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    """Recover compacted evidence from the bounded, immutable action audit."""
+
+    evidence: dict[str, dict[str, Any]] = {}
+    actions = task.get("actions")
+    if not isinstance(actions, list):
+        return evidence
+    for action in actions:
+        if not isinstance(action, Mapping):
+            continue
+        evidence_id = str(action.get("call_id") or "").strip()
+        name = str(action.get("tool") or "").strip()
+        if not evidence_id or not name or name in {
+            "tool_search",
+            "task_checkpoint",
+            "task_compact",
+            "task_recovery",
+        }:
+            continue
+        try:
+            result = json.loads(str(action.get("outcome") or "{}"))
+        except ValueError:
+            continue
+        if isinstance(result, Mapping):
+            evidence[evidence_id] = {"name": name, "result": result}
+    return evidence
+
+
 def _freshest_evidence_id(messages: list[dict[str, Any]]) -> str:
     """Return the newest concrete, non-control result available to the worker."""
 
@@ -1764,16 +1792,6 @@ class BackgroundAgent:
         result_digests = {
             str(value) for value in task.get("result_digests", []) if value
         }
-        compacted = _compact_task_messages(messages, task)
-        if len(compacted) < len(messages):
-            logger.info(
-                "background task %s compacted %d retained messages into %d for a fresh "
-                "checkpoint chain",
-                task_id,
-                len(messages),
-                len(compacted),
-            )
-            messages = compacted
         active_tools = [
             name
             for name in task.get("active_tools", [])
@@ -1852,6 +1870,32 @@ class BackgroundAgent:
                     task_id,
                     added_guidance,
                 )
+            if _compaction_tool_available(messages, active_tools):
+                before = copy.deepcopy(messages)
+                compacted = _compact_task_messages(messages, current, force=True)
+                if compacted != before:
+                    receipt = _compaction_receipt(
+                        before,
+                        compacted,
+                        current,
+                        reason="automatic_context_limit",
+                    )
+                    messages = compacted
+                    self.store.compact_context(
+                        task_id,
+                        self.owner,
+                        messages=_durable_task_messages(messages),
+                        receipt=receipt,
+                    )
+                    messages[0] = {
+                        "role": "system",
+                        "content": _task_system_prompt(current),
+                    }
+                    logger.info(
+                        "background task %s compacted automatically before inference: %s",
+                        task_id,
+                        json.dumps(receipt, sort_keys=True),
+                    )
             if not self._wait_for_foreground():
                 return
             # This deployment serves text cognition from the same Qwen3-Omni
@@ -1887,11 +1931,6 @@ class BackgroundAgent:
                 [copy.deepcopy(TASK_RECOVERY_TOOL)]
                 if recovery_required
                 else [
-                    *(
-                        [copy.deepcopy(TASK_COMPACT_TOOL)]
-                        if _compaction_tool_available(messages, active_tools)
-                        else []
-                    ),
                     *(
                         [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
                         if can_checkpoint
@@ -2304,7 +2343,10 @@ class BackgroundAgent:
                         if isinstance(raw_ids, list)
                         else []
                     )
-                    evidence = _tool_evidence(messages)
+                    evidence = {
+                        **_action_audit_evidence(latest or current),
+                        **_tool_evidence(messages),
+                    }
                     selected = [evidence.get(value) for value in evidence_ids]
                     valid_refs = bool(selected) and all(item is not None for item in selected)
                     freshest_evidence_id = _freshest_evidence_id(messages)

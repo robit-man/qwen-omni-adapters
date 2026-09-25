@@ -1038,7 +1038,7 @@ def test_compaction_control_waits_for_new_external_evidence_after_receipt() -> N
     assert _compaction_available(messages) is True
 
 
-def test_background_agent_can_invoke_deterministic_compaction(
+def test_background_agent_compacts_deterministically_before_inference(
     tmp_path: Path,
 ) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
@@ -1100,7 +1100,6 @@ def test_background_agent_can_invoke_deterministic_compaction(
     )
     claimed = store.claim_next(agent.owner)
     assert claimed is not None
-    seen_tools: list[str] = []
     persist_compaction = store.compact_context
 
     def persist_and_stop(*args, **kwargs):
@@ -1110,37 +1109,16 @@ def test_background_agent_can_invoke_deterministic_compaction(
 
     store.compact_context = persist_and_stop  # type: ignore[method-assign]
 
-    def compact(payload: dict[str, object]) -> dict[str, object]:
-        seen_tools.extend(
-            item["function"]["name"]  # type: ignore[index]
-            for item in payload["tools"]  # type: ignore[union-attr]
-        )
-        return {
-            "message": {
-                "role": "assistant",
-                "content": "",
-                "tool_calls": [
-                    {
-                        "id": "compact-1",
-                        "function": {
-                            "name": "task_compact",
-                            "arguments": {"reason": "context_noise"},
-                        },
-                    }
-                ],
-            }
-        }
-
-    agent._chat = compact  # type: ignore[method-assign]
     agent._execute(claimed)
     client.close()
 
-    assert "task_compact" in seen_tools
     current = store.get(task["task_id"])
     assert current is not None
-    assert current["compaction"]["reason"] == "agent_requested"
+    assert current["compaction"]["reason"] == "automatic_context_limit"
     assert current["compaction"]["after"]["messages"] < len(messages)
-    assert current["actions"][-1]["tool"] == "task_compact"
+    assert not any(
+        action["tool"] == "task_compact" for action in current.get("actions", [])
+    )
 
 
 def test_background_agent_rejects_tool_absent_from_current_action_contract(

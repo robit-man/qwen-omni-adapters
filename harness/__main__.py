@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -33,6 +34,13 @@ from harness.update import RepositoryUpdateManager
 from portal.background_tasks import BackgroundTaskStore
 
 logger = logging.getLogger("omni.harness")
+
+
+def _install_shutdown_handlers(callback) -> None:
+    """Route service-manager termination through normal resource cleanup."""
+
+    signal.signal(signal.SIGTERM, callback)
+    signal.signal(signal.SIGINT, callback)
 
 DEFAULT_PORTAL = "http://127.0.0.1:8920"
 DEFAULT_TOKEN_FILE = "runtime-data/state/access-token.txt"
@@ -384,6 +392,16 @@ def main(argv: list[str] | None = None) -> int:
     camera_view = CameraLiveView(cameras, enabled=lambda: config.camera_enabled)
     indicator_holder: dict[str, Any] = {}
 
+    def request_shutdown(*_args: object) -> None:
+        """Turn service-manager signals into the same orderly UI shutdown path."""
+
+        stop.set()
+        live_indicator = indicator_holder.get("value")
+        if live_indicator is not None:
+            live_indicator.stop()
+
+    _install_shutdown_handlers(request_shutdown)
+
     def set_tools(value: bool) -> None:
         config.tools_enabled = value
         logger.info("tools %s", "enabled" if value else "disabled")
@@ -404,10 +422,7 @@ def main(argv: list[str] | None = None) -> int:
     def request_reload() -> None:
         logger.info("indicator requested a clean voice-service reload")
         reload_requested.set()
-        stop.set()
-        live_indicator = indicator_holder.get("value")
-        if live_indicator is not None:
-            live_indicator.stop()
+        request_shutdown()
 
     update_manager = (
         RepositoryUpdateManager(repo_root, on_installed=request_reload)
@@ -425,7 +440,7 @@ def main(argv: list[str] | None = None) -> int:
             # restart. Exit this user service too, so systemd relaunches it with
             # the selected OMNI_MODEL rather than retaining stale environment.
             model_switch_requested.set()
-            stop.set()
+            request_shutdown()
         return ok, detail
 
     indicator_task_store = (
@@ -490,7 +505,7 @@ def main(argv: list[str] | None = None) -> int:
     indicator = (
         build_indicator(
             on_mute=lambda value: muted.set() if value else muted.clear(),
-            on_quit=stop.set,
+            on_quit=request_shutdown,
             on_reload=request_reload,
             on_clear_tasks=clear_finished_tasks,
             on_cancel_task=cancel_task,

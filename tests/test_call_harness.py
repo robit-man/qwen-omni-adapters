@@ -1248,6 +1248,30 @@ def test_public_link_comes_only_from_the_current_live_daemon(
     assert harness_main._published_access_url(tmp_path) == ""
 
 
+def test_service_signals_use_the_orderly_harness_shutdown_path(monkeypatch) -> None:
+    import signal
+
+    import harness.__main__ as harness_main
+
+    installed = {}
+
+    def callback(*_args) -> None:
+        return None
+
+    monkeypatch.setattr(
+        harness_main.signal,
+        "signal",
+        lambda signum, handler: installed.setdefault(signum, handler),
+    )
+
+    harness_main._install_shutdown_handlers(callback)
+
+    assert installed == {
+        signal.SIGTERM: callback,
+        signal.SIGINT: callback,
+    }
+
+
 def test_talking_over_a_reply_is_refused_without_echo_cancellation() -> None:
     """A bare microphone hears the speakers and would interrupt every answer."""
 
