@@ -51,6 +51,7 @@ TASK_START_REQUEST = (
     "evidence-producing action and continue until its criteria are verified.</task_start>"
 )
 MAX_VIRTUAL_QUERY_CHARS = 1_200
+MAX_PHASE_ACTIONS = 8
 
 
 def _durable_progress_lines(task: Mapping[str, Any], *, limit: int = 4) -> list[str]:
@@ -82,6 +83,52 @@ def _durable_progress_lines(task: Mapping[str, Any], *, limit: int = 4) -> list[
         if len(deduplicated) >= max(1, limit):
             break
     return list(reversed(deduplicated))
+
+
+def _uncheckpointed_action_count(task: Mapping[str, Any]) -> int:
+    """Count concrete attempts since the latest accepted phase boundary."""
+
+    boundary = 0.0
+    guidance = task.get("guidance")
+    if isinstance(guidance, list):
+        boundary = max(
+            (
+                float(item.get("received_at") or 0)
+                for item in guidance
+                if isinstance(item, Mapping)
+            ),
+            default=0.0,
+        )
+    actions = task.get("actions")
+    if not isinstance(actions, list):
+        return 0
+    for action in reversed(actions):
+        if not isinstance(action, Mapping):
+            continue
+        recorded_at = float(action.get("at") or 0)
+        if recorded_at <= boundary:
+            break
+        if str(action.get("tool") or "") != "task_checkpoint":
+            continue
+        try:
+            outcome = json.loads(str(action.get("outcome") or "{}"))
+        except ValueError:
+            continue
+        if (
+            isinstance(outcome, Mapping)
+            and outcome.get("accepted") is True
+            and outcome.get("action") == "progress"
+        ):
+            boundary = recorded_at
+            break
+    return sum(
+        1
+        for action in actions
+        if isinstance(action, Mapping)
+        and float(action.get("at") or 0) > boundary
+        and str(action.get("tool") or "")
+        not in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}
+    )
 
 
 def _task_virtual_query(task: Mapping[str, Any]) -> str:
@@ -1122,6 +1169,28 @@ def _checkpoint_retry_pending(messages: list[dict[str, Any]]) -> bool:
     return False
 
 
+def _normalize_progress_evidence(
+    action: str,
+    evidence_ids: list[str],
+    evidence: Mapping[str, Mapping[str, Any]],
+    freshest_evidence_id: str,
+) -> tuple[list[str], bool]:
+    """Repair progress provenance only; terminal assertions remain exact."""
+
+    selected = [evidence.get(value) for value in evidence_ids]
+    already_valid = (
+        bool(selected)
+        and all(item is not None for item in selected)
+        and freshest_evidence_id in evidence_ids
+    )
+    if action != "progress" or already_valid or not freshest_evidence_id:
+        return evidence_ids, False
+    freshest = evidence.get(freshest_evidence_id)
+    if freshest is None or _result_failed_or_blocked(freshest.get("result")):
+        return evidence_ids, False
+    return [freshest_evidence_id], True
+
+
 def _direct_alternative_tools(result: Mapping[str, Any]) -> list[str]:
     alternatives = result.get("alternative_tools")
     if not isinstance(alternatives, list):
@@ -1917,6 +1986,7 @@ class BackgroundAgent:
             str(value) for value in task.get("result_digests", []) if value
         }
         last_external_result_digest = ""
+        phase_action_count = _uncheckpointed_action_count(task)
         active_tools = [
             name
             for name in task.get("active_tools", [])
@@ -1990,6 +2060,7 @@ class BackgroundAgent:
             if added_guidance:
                 active_tools = []
                 suppress_discovery = False
+                phase_action_count = 0
                 logger.info(
                     "background task %s accepted %d conversational update(s)",
                     task_id,
@@ -2052,9 +2123,14 @@ class BackgroundAgent:
                     repaired_history,
                 )
             can_checkpoint = _checkpoint_available(messages) and not recovery_required
+            phase_boundary = (
+                phase_action_count >= MAX_PHASE_ACTIONS and can_checkpoint
+            )
             schemas = (
                 [copy.deepcopy(TASK_RECOVERY_TOOL)]
                 if recovery_required
+                else [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
+                if phase_boundary
                 else [
                     *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
                     *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
@@ -2089,6 +2165,19 @@ class BackgroundAgent:
                 active_tools,
                 recovery_required=recovery_required,
             )
+            if phase_boundary:
+                inference_messages = [*inference_messages]
+                inference_messages.append(
+                    {
+                        "role": "user",
+                        "content": context_text(
+                            "directives", "background_phase_boundary"
+                        ).format(
+                            action_count=phase_action_count,
+                            evidence_id=_freshest_evidence_id(messages),
+                        ),
+                    }
+                )
             if inference_messages is not messages:
                 durable_metrics = _context_metrics(messages)
                 scoped_metrics = _context_metrics(inference_messages)
@@ -2263,6 +2352,7 @@ class BackgroundAgent:
                 del messages[-redirected - 1]
                 active_tools = []
                 suppress_discovery = False
+                phase_action_count = 0
                 checkpoint = self.store.checkpoint(
                     task_id,
                     self.owner,
@@ -2472,9 +2562,15 @@ class BackgroundAgent:
                         **_action_audit_evidence(latest or current),
                         **_tool_evidence(messages),
                     }
+                    freshest_evidence_id = _freshest_evidence_id(messages)
+                    evidence_ids, evidence_normalized = _normalize_progress_evidence(
+                        action,
+                        evidence_ids,
+                        evidence,
+                        freshest_evidence_id,
+                    )
                     selected = [evidence.get(value) for value in evidence_ids]
                     valid_refs = bool(selected) and all(item is not None for item in selected)
-                    freshest_evidence_id = _freshest_evidence_id(messages)
                     cites_freshest = bool(freshest_evidence_id) and (
                         freshest_evidence_id in evidence_ids
                     )
@@ -2551,12 +2647,21 @@ class BackgroundAgent:
                                 or now - last_progress_at >= self.progress_min_interval_s
                             )
                         )
+                        active_tools = []
+                        suppress_discovery = False
+                        phase_action_count = 0
+                        accepted_result = {
+                            "accepted": True,
+                            "action": action,
+                            "evidence_ids": evidence_ids,
+                            "evidence_normalized": evidence_normalized,
+                        }
                         messages.append(
                             {
                                 "role": "tool",
                                 "tool_name": name,
                                 "tool_call_id": call_id,
-                                "content": json.dumps({"accepted": True}),
+                                "content": json.dumps(accepted_result),
                             }
                         )
                         self._record_action(
@@ -2564,7 +2669,7 @@ class BackgroundAgent:
                             call_id,
                             name,
                             arguments,
-                            {"accepted": True, "action": action},
+                            accepted_result,
                         )
                         checkpoint = self.store.checkpoint(
                             task_id,
@@ -2818,6 +2923,15 @@ class BackgroundAgent:
                     )
                 result = _bounded_tool_result(result)
                 self._record_action(task_id, call_id, name, arguments, result)
+                if (
+                    name
+                    and name not in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}
+                    and not (
+                        isinstance(result, Mapping)
+                        and result.get("error") == "duplicate_tool_call"
+                    )
+                ):
+                    phase_action_count += 1
                 observed_actions.append(
                     {
                         "call_id": call_id,

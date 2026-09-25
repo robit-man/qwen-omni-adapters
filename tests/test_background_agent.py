@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from harness.background_agent import (
     AGENT_SYSTEM_PROMPT,
     MAX_CHECKPOINT_REPORT_CHARS,
+    MAX_PHASE_ACTIONS,
     MAX_RETAINED_TASK_MESSAGES,
     MAX_TOOL_RESULT_CHARS,
     TASK_CHECKPOINT_TOOL,
@@ -42,6 +43,7 @@ from harness.background_agent import (
     _latest_tool_fingerprint,
     _MalformedToolCall,
     _NonRetryableBackgroundError,
+    _normalize_progress_evidence,
     _recovery_required,
     _seen_tool_fingerprints,
     _stream_error,
@@ -49,6 +51,7 @@ from harness.background_agent import (
     _task_system_prompt,
     _task_virtual_query,
     _tool_evidence,
+    _uncheckpointed_action_count,
 )
 from portal.background_tasks import BackgroundTaskStore
 from portal.documents import SessionDocumentStore
@@ -98,6 +101,43 @@ def test_task_virtual_query_reserves_space_for_latest_direction() -> None:
     assert query.startswith("Advance and verify the pinned task. Objective: ")
     assert f"Latest user direction: {latest_direction}" in query
     assert len(query) <= 1_200
+
+
+def test_phase_budget_counts_only_actions_after_guidance_or_accepted_progress() -> None:
+    task = {
+        "guidance": [{"content": "Use the corrected target.", "received_at": 20.0}],
+        "actions": [
+            {"at": 10.0, "tool": "shell", "outcome": '{"exit_code": 0}'},
+            {"at": 21.0, "tool": "tool_search", "outcome": "{}"},
+            {"at": 22.0, "tool": "shell", "outcome": '{"exit_code": 0}'},
+            {
+                "at": 23.0,
+                "tool": "task_checkpoint",
+                "outcome": '{"accepted": true, "action": "progress"}',
+            },
+            {"at": 24.0, "tool": "web_search", "outcome": "{}"},
+        ],
+    }
+
+    assert _uncheckpointed_action_count(task) == 1
+    assert MAX_PHASE_ACTIONS == 8
+
+
+def test_only_progress_checkpoint_evidence_can_be_normalized_to_freshest() -> None:
+    evidence = {
+        "fresh": {"name": "shell", "result": {"exit_code": 0}},
+        "failed": {"name": "shell", "result": {"exit_code": 1}},
+    }
+
+    assert _normalize_progress_evidence(
+        "progress", ["invented"], evidence, "fresh"
+    ) == (["fresh"], True)
+    assert _normalize_progress_evidence(
+        "complete", ["invented"], evidence, "fresh"
+    ) == (["invented"], False)
+    assert _normalize_progress_evidence(
+        "progress", ["invented"], evidence, "failed"
+    ) == (["invented"], False)
 
 
 def test_background_inference_diagnostics_report_budget_without_reasoning_text() -> None:
