@@ -25,6 +25,7 @@ from harness.background_agent import (
     _bounded_tool_result,
     _call_fingerprint,
     _checkpoint_available,
+    _checkpoint_retry_pending,
     _compact_task_messages,
     _compaction_available,
     _compaction_receipt,
@@ -786,7 +787,7 @@ def test_action_audit_redacts_credentials_and_bulk_payloads() -> None:
     assert "[omitted 4000 characters]" in rendered
 
 
-def test_checkpoint_requires_new_concrete_action_after_every_attempt() -> None:
+def test_checkpoint_allows_one_bounded_id_correction_before_another_action() -> None:
     messages = [
         {
             "role": "tool",
@@ -825,10 +826,22 @@ def test_checkpoint_requires_new_concrete_action_after_every_attempt() -> None:
             "role": "tool",
             "tool_name": "task_checkpoint",
             "tool_call_id": "checkpoint-1",
-            "content": '{"error": "unsupported_checkpoint"}',
+            "content": '{"error": "unsupported_checkpoint", "retryable": true}',
+        }
+    )
+    assert _checkpoint_available(messages) is True
+    assert _checkpoint_retry_pending(messages) is True
+
+    messages.append(
+        {
+            "role": "tool",
+            "tool_name": "task_checkpoint",
+            "tool_call_id": "checkpoint-2",
+            "content": '{"error": "unsupported_checkpoint", "retryable": false}',
         }
     )
     assert _checkpoint_available(messages) is False
+    assert _checkpoint_retry_pending(messages) is False
 
     messages.append(
         {
@@ -1784,9 +1797,9 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
         else:
             assert payload["think"] is False
             assert tool_names == [
-                "task_checkpoint",
-                "tool_search",
                 "browser_interact",
+                "tool_search",
+                "task_checkpoint",
             ]
             return _checkpoint_response(
                 "complete",

@@ -1056,7 +1056,22 @@ def _checkpoint_available(messages: list[dict[str, Any]]) -> bool:
         if role != "tool":
             continue
         name = str(message.get("tool_name") or "")
-        if name in {"task_checkpoint", "task_recovery"}:
+        if name == "task_checkpoint":
+            try:
+                result = json.loads(str(message.get("content") or "{}"))
+            except ValueError:
+                result = {}
+            if (
+                isinstance(result, Mapping)
+                and result.get("error") == "unsupported_checkpoint"
+                and result.get("retryable") is True
+            ):
+                # The result carries the exact admissible IDs. Permit one
+                # control-plane correction without manufacturing another
+                # external action merely to make checkpointing available.
+                continue
+            latest_control = index
+        elif name == "task_recovery":
             latest_control = index
         elif name == "task_compact":
             # Compaction changes only the representation of already observed
@@ -1072,6 +1087,26 @@ def _checkpoint_available(messages: list[dict[str, Any]]) -> bool:
         elif name and name != "tool_search":
             latest_action = index
     return latest_action > latest_control
+
+
+def _checkpoint_retry_pending(messages: list[dict[str, Any]]) -> bool:
+    """Whether the immediately preceding result offered one bounded ID repair."""
+
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            continue
+        if str(message.get("tool_name") or "") != "task_checkpoint":
+            return False
+        try:
+            result = json.loads(str(message.get("content") or "{}"))
+        except ValueError:
+            return False
+        return (
+            isinstance(result, Mapping)
+            and result.get("error") == "unsupported_checkpoint"
+            and result.get("retryable") is True
+        )
+    return False
 
 
 def _direct_alternative_tools(result: Mapping[str, Any]) -> list[str]:
@@ -1991,13 +2026,13 @@ class BackgroundAgent:
                 [copy.deepcopy(TASK_RECOVERY_TOOL)]
                 if recovery_required
                 else [
+                    *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
+                    *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
                     *(
                         [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
                         if can_checkpoint
                         else []
                     ),
-                    *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
-                    *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
                 ]
             )
             offered_tool_names = {
@@ -2450,6 +2485,7 @@ class BackgroundAgent:
                         stalls += 1
                         valid_ids = [eid for eid, item in evidence.items() if item is not None and not _result_failed_or_blocked(item["result"])]
                         failed_ids = [eid for eid, item in evidence.items() if item is not None and _result_failed_or_blocked(item["result"])]
+                        retryable = not _checkpoint_retry_pending(messages)
                         checkpoint_result = {
                             "error": "unsupported_checkpoint",
                             "message": (
@@ -2462,6 +2498,7 @@ class BackgroundAgent:
                             "valid_evidence_ids": valid_ids[:16],
                             "failed_evidence_ids": failed_ids[:8],
                             "freshest_evidence_id": freshest_evidence_id,
+                            "retryable": retryable,
                         }
                         messages.append(
                             {
