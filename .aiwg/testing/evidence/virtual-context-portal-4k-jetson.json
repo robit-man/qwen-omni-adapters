@@ -1,0 +1,66 @@
+{
+  "schema": "robit.virtual-context-portal-smoke.v1",
+  "generated_at": "2026-09-25T05:48:57-07:00",
+  "repository_revision": "f3685fed17ddb5e3c2f555b1dd940de681469a1e",
+  "runtime": {
+    "host": "NVIDIA Jetson AGX Orin 32 GB",
+    "architecture": "aarch64",
+    "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+    "configured_physical_context_tokens": 16384,
+    "resident_physical_context_tokens": 4096,
+    "physical_context_source": "resident_state",
+    "virtual_context_mode": "active",
+    "tokenizer": "exact_endpoint",
+    "tts_resident": true,
+    "pointing_resident": true
+  },
+  "fixture": {
+    "kind": "authenticated production portal conversation",
+    "event_count": 40000,
+    "source_characters": 1748926,
+    "source_sha256": "cbb1871931ace1598361b1981899713e5376c6e9c0f4b4634e9a01183af02532",
+    "buried_records": {
+      "amber-spindle": "7123456",
+      "cobalt-gasket": "9234567",
+      "violet-flange": "8345678"
+    }
+  },
+  "result": {
+    "http_status": 200,
+    "elapsed_seconds": 7.17,
+    "messages_ingested": 3,
+    "immutable_chunks": 226,
+    "verified_memories": 1,
+    "working_tokens": 3164,
+    "answer_allowed": true,
+    "all_identifiers_present": true,
+    "all_exact_values_present": true,
+    "answer_sha256": "d42a5f28918da50b02f180ef02584a10618cb5686638ea57e2b9b08fceae0904",
+    "session_cleanup_http_status": 204
+  },
+  "operational_state_after_test": {
+    "core_service": "active/running",
+    "core_service_restarts": 0,
+    "desktop_harness": "active/running",
+    "desktop_harness_restarts": 0
+  },
+  "integration_failures_detected_and_fixed": [
+    {
+      "symptom": "The model received a literal <current_query> reference and asked for the missing request.",
+      "root_cause": "The portal used a symbolic placeholder at the inference boundary rather than the exact user query.",
+      "fix": "Keep the exact packed current_query item in the bounded user working set."
+    },
+    {
+      "symptom": "Retrieval and compilation succeeded but the model claimed the exact records were absent.",
+      "root_cause": "Retrieved evidence was embedded behind the system policy, unlike the proven RULER user-prompt path.",
+      "fix": "Keep policy in the system role and place memory, evidence, and the real query together in one bounded user message."
+    }
+  ],
+  "anti_reward_hacking": {
+    "fixture_values_available_to_retriever_only": true,
+    "expected_values_not_used_by_controller_or_compiler": true,
+    "success_checked_against_the_model_response": true,
+    "failed_live_attempts_preserved_in_the_evidence_narrative": true,
+    "synthetic_session_destroyed_after_verification": true
+  }
+}

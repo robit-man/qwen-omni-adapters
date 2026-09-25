@@ -177,6 +177,16 @@ This is milestone evidence, not a claim of general 1M-context equivalence. It is
 generated sample per task class. Multi-seed runs, code/document/conversation suites,
 and subsystem ablations remain required for statistical and domain coverage.
 
+The production portal was separately exercised after enabling the fully co-resident
+TTS and pointing stack. Its launcher selected a stricter 4,096-token physical window.
+An authenticated 1,748,926-character conversation with three exact values buried among
+40,000 events was reduced to a 3,164-token working allocation; the live Ornith model
+returned all three identifiers and values exactly in 7.17 seconds. The synthetic
+session corpus was then deleted through the normal Trash path. This gate also verifies
+that policy remains in the system role while retrieved memory, exact evidence, and the
+real current query are presented together in the user working set. Evidence is recorded
+in `.aiwg/testing/evidence/virtual-context-portal-4k-jetson.json`.
+
 ## Authority rules
 
 - Raw source is authoritative and immutable inside its corpus.
