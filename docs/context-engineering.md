@@ -136,6 +136,16 @@ carry a separate criteria assessment and must cite the freshest concrete result;
 an older successful call cannot hide a newer failed verification. These checks
 remain private task-control context and are never synthesized as reasoning.
 
+Eight concrete actions without an accepted progress checkpoint form a mandatory
+phase boundary. The next inference receives only the checkpoint control and must
+name the earliest unmet requirement before external work can continue. An
+accepted progress boundary clears the prior active-tool scope so the next phase
+is planned from the durable milestone instead of inheriting a research, shell,
+or browser loop. For progress only, the runtime may replace malformed or invented
+provenance with the actual freshest successful tool-call ID; it records that
+normalization explicitly. Completion and blocked checkpoints never receive this
+repair and still require exact, valid evidence.
+
 ## Conversation tracing
 
 Normal diagnostics remain content-redacted. Setting `OMNI_CALL_LOG_CONTENT=1`
