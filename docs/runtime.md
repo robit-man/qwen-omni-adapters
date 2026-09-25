@@ -21,6 +21,10 @@ Guided Jetson deployment also points `OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL` at the
 resident llama.cpp worker. The packer counts the active tool/control envelope,
 chat-template reserve, output headroom, pinned state, and evidence against the
 same physical budget on every request and tool-loop follow-up.
+Verified structured state receives its bounded allocation before broad evidence
+pages, while exact evidence is compressed into query-focused source spans and
+rendered next to the query. Explicit identifiers/entities are coverage-pinned,
+and overlapping pages that add no new query evidence are evicted.
 When `OMNI_COMPREHENSION_CONTEXT_FILE` is present, the portal rereads that
 launcher-owned state before every pack and caps the working set to the resident
 KV window. A configured 16K ceiling therefore cannot emit a 16K prompt while

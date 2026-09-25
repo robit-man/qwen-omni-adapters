@@ -380,7 +380,12 @@ class RulerVirtualContextHarness:
                 context: WorkingContext = self.packer.pack(
                     question,
                     system_contract=contract,
-                    evidence=hits,
+                    # A deterministic whole-corpus aggregation is the exact
+                    # query-specific view.  Replaying a few arbitrary local
+                    # source pages beside it is incomplete and can falsely
+                    # overrule the verified global count.  All raw chunks stay
+                    # immutable and EXPAND-able through the memory provenance.
+                    evidence=[] if aggregation is not None else hits,
                     retrieval_queries=retrieval_queries,
                     memories=memories,
                 )

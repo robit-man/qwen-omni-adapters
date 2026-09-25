@@ -289,6 +289,33 @@ class RecursiveMemoryController:
             + breadth * 0.1
             + hit_strength * 0.1
         )
+        # Multiple explicitly named addresses form a conjunction: evidence
+        # for three of four keys is not sufficient merely because the
+        # surrounding prose has high lexical overlap.
+        if len(anchors) >= 2 and anchor_coverage < 1.0:
+            score = min(score, self.config.sufficiency_threshold - 0.01)
+
+        # Location questions commonly use a semantic relation ("country")
+        # while the source states a more specific type ("region in France").
+        # A literal subject plus a raw locative relation is enough to proceed;
+        # the destination itself still comes exclusively from source evidence.
+        location_query = bool(
+            re.search(r"\b(?:where|what\s+country|which\s+country|located|situated)\b", query, re.I)
+        )
+        location_evidence = False
+        if location_query and anchors:
+            for anchor in anchors:
+                if re.search(
+                    rf"\b{re.escape(anchor)}\b.{{0,160}}\b"
+                    r"(?:is|lies|located|situated|region|city|town|village|province|territory)\b"
+                    r".{0,100}\b(?:in|of|within)\s+[A-Za-z]",
+                    evidence_text,
+                    re.IGNORECASE | re.DOTALL,
+                ):
+                    location_evidence = True
+                    break
+        if location_evidence and anchor_coverage >= 1.0:
+            score = max(score, 0.82)
         # Imperative requests often retrieve the governing negative constraint,
         # whose MUST/NEVER wording is necessarily absent from the request.  A
         # provenance-bearing constraint with substantive lexical overlap is

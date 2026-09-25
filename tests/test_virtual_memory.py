@@ -25,7 +25,7 @@ from qwen_omni_adapters.virtual_memory import (
     VirtualContextEngine,
     WorkingContextPacker,
 )
-from qwen_omni_adapters.virtual_memory.models import ProvenancePointer
+from qwen_omni_adapters.virtual_memory.models import EvidenceChunk, ProvenancePointer
 from qwen_omni_adapters.virtual_memory.packer import ContextOverflow
 
 
@@ -194,6 +194,74 @@ def test_query_plan_promotes_bare_identifiers_and_cleans_question_entities(
     assert "Scott Derrickson" in plan.entities
     assert "Ed Wood" in plan.entities
     assert all(not entity.startswith("Were ") for entity in plan.entities)
+    store.close()
+
+
+def test_retrieval_pins_every_named_address_before_source_diversity(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "anchor-coverage.sqlite3")
+    anchors = ("alpha-key", "beta-key", "gamma-key", "delta-key")
+    for index, anchor in enumerate(anchors):
+        store.ingest(
+            f"The immutable value for {anchor} is value-{index}.",
+            source="one-large-corpus.txt",
+            document_id=f"section-{index}",
+        )
+
+    hits = HybridRetriever(store, source_cap=1, final_limit=4).retrieve(
+        "Return alpha-key, beta-key, gamma-key, and delta-key."
+    )
+    replay = "\n".join(hit.chunk.original_text for hit in hits).casefold()
+
+    assert len(hits) == 4
+    assert all(anchor in replay for anchor in anchors)
+    store.close()
+
+
+def test_named_location_uses_literal_entity_page_and_is_sufficient(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "location.sqlite3")
+    wanted = store.ingest(
+        "Document 17:\nNormandy is a region in France.",
+        source="encyclopedia.txt",
+        document_id="17",
+        entities=["Normandy"],
+    )[0]
+    for index in range(20):
+        store.ingest(
+            f"Document {index + 100}:\nCountry policy archive item {index}.",
+            source="encyclopedia.txt",
+            document_id=str(index + 100),
+        )
+    controller = RecursiveMemoryController(HybridRetriever(store))
+
+    result = controller.gather("In what country is Normandy located?")
+
+    assert result.sufficient is True
+    assert wanted.chunk_id in {hit.chunk.chunk_id for hit in result.evidence}
+    assert "entity_exact" in next(
+        hit.channels for hit in result.evidence if hit.chunk.chunk_id == wanted.chunk_id
+    )
+    store.close()
+
+
+def test_controller_requires_all_explicit_addresses_before_answer(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "missing-anchor.sqlite3")
+    store.ingest(
+        "alpha-key is 11 and beta-key is 22; no other key is recorded.",
+        source="partial.txt",
+    )
+    controller = RecursiveMemoryController(HybridRetriever(store))
+
+    result = controller.gather("Return alpha-key, beta-key, and gamma-key.")
+
+    assert result.evidence
+    assert result.sufficient is False
+    assert result.trace[-1]["detail"]["allowed"] is False
     store.close()
 
 
@@ -536,6 +604,105 @@ def test_packer_keeps_constraints_and_replays_exact_evidence_next_to_query(
     assert packed.items[-2].category == "exact_evidence"
     assert any(event["operation"] == "EVICT" for event in packed.trace)
     store.close()
+
+
+def test_packer_reserves_structured_memory_before_large_evidence(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "structured-reserve.sqlite3")
+    source = store.ingest(
+        "needle-17 " + "distractor " * 3_000,
+        source="archive.txt",
+    )[0]
+    fact = store.write_memory(
+        MemoryClass.FACT,
+        "verified aggregate",
+        "The verified whole-corpus result is orchid-17.",
+        provenance=[ProvenancePointer(source.chunk_id, 0, len(source.original_text))],
+        verified=True,
+    )
+    hit = RetrievalHit(source, 1.0, ("exact",), {"exact": 1.0})
+    packer = WorkingContextPacker(
+        budget=ContextBudget(
+            max_tokens=4_096,
+            output_headroom=512,
+            structured_target=200,
+            evidence_target=4_000,
+        ),
+        token_counter=word_tokens,
+    )
+
+    packed = packer.pack(
+        "What is the result?",
+        system_contract="Use the verified memory and exact evidence.",
+        evidence=[hit],
+        memories=[fact],
+    )
+
+    assert "orchid-17" in packed.text
+    assert packed.token_usage["fact"] > 0
+    assert packed.total_tokens <= 4_096
+    store.close()
+
+
+def test_packer_evicts_overlapping_page_without_new_query_evidence() -> None:
+    def chunk(chunk_id: str, start: int, end: int, text: str) -> EvidenceChunk:
+        return EvidenceChunk(
+            chunk_id=chunk_id,
+            document_id="chain",
+            message_id=None,
+            source="chain.log",
+            version="v1",
+            captured_at=1.0,
+            ordinal=start,
+            token_start=start,
+            token_end=end,
+            char_start=start,
+            char_end=end,
+            byte_start=start,
+            byte_end=end,
+            parent_kind="log_event",
+            parent_name=None,
+            previous_chunk_id=None,
+            next_chunk_id=None,
+            content_hash=chunk_id,
+            original_text=text,
+        )
+
+    first = RetrievalHit(
+        chunk("first", 0, 100, "VAR RQMUC = VAR YCSMT"),
+        2.0,
+        ("exact",),
+    )
+    duplicate = RetrievalHit(
+        chunk("duplicate", 80, 180, "VAR RQMUC = VAR YCSMT plus archive noise"),
+        1.9,
+        ("exact",),
+    )
+    dependency = RetrievalHit(
+        chunk("dependency", 200, 300, "VAR NLTIS = VAR FRHPM"),
+        1.8,
+        ("exact",),
+    )
+    packer = WorkingContextPacker(
+        budget=ContextBudget(max_tokens=4_096, output_headroom=512),
+        token_counter=word_tokens,
+    )
+
+    packed = packer.pack(
+        "Trace RQMUC, YCSMT, NLTIS, and FRHPM.",
+        system_contract="Use exact evidence.",
+        evidence=[first, duplicate, dependency],
+    )
+
+    assert "first" in packed.evidence_chunk_ids
+    assert "dependency" in packed.evidence_chunk_ids
+    assert "duplicate" not in packed.evidence_chunk_ids
+    assert any(
+        event["detail"].get("reason") == "overlapping_evidence_duplicate"
+        for event in packed.trace
+        if event["operation"] == "EVICT"
+    )
 
 
 def test_packer_uses_dependency_query_for_exact_line_replay(tmp_path: Path) -> None:

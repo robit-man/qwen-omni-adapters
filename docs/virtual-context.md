@@ -18,10 +18,13 @@ The `qwen_omni_adapters.virtual_memory` package provides:
   episodes, open questions, current plans, and optional latent-memory records;
 - supersession without silent overwrite;
 - recursive PRETHINK/RETRIEVE/WRITE/ANSWER/STOP control;
+- coverage-pinned exact identifiers/entities plus overlap-aware MMR, so a
+  duplicate page cannot evict another explicitly requested key or dependency;
 - deterministic corpus-wide word-frequency aggregation with full immutable
   provenance for questions that cannot be answered by sparse top-k retrieval;
-- exact evidence replay adjacent to the current query;
-- a hard context allocator that pins active constraints and reserves output headroom;
+- query-focused exact-span replay adjacent to the current query;
+- a hard context allocator that pins active constraints, reserves verified
+  structured memory before evidence expansion, and reserves output headroom;
 - PAGE_IN/PAGE_OUT/PIN/UNPIN/EVICT/EXPAND/MERGE/SUPERSEDE/RECONSTRUCT telemetry.
 
 This foundation is model-agnostic. Guided Jetson deployment enables `active` mode
@@ -70,6 +73,11 @@ offline/test fallback and cannot guarantee byte-identical counts for every token
 On Jetson, the packer also rereads the comprehension launcher's selected-context
 state on every turn. The environment value is a ceiling, not an assumption about
 the currently resident KV allocation.
+
+At reduced physical windows, whole-corpus deterministic operations are paged in as
+verified structured views with pointers to every contributing immutable chunk.
+Arbitrary local source pages are not replayed as if they prove a global aggregate;
+the raw corpus remains lossless and selectively expandable.
 
 ## Benchmark
 

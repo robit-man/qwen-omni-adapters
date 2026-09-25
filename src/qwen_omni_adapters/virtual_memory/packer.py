@@ -128,8 +128,20 @@ class WorkingContextPacker:
 
         fixed = system_tokens + query_tokens + pinned_tokens
         available = ceiling - fixed
-        # Exact evidence has higher authority than recent dialogue or a derived
-        # recurrent state.  It is packed before those recoverable conveniences.
+        # Reserve a bounded structured-memory allocation before evidence can
+        # consume the entire small physical window.  Verified facts and
+        # deterministic aggregate views otherwise disappear at 8K even though
+        # the 16K policy explicitly budgets 1--2K for them.  Exact evidence is
+        # still rendered immediately adjacent to the final query and remains
+        # higher authority than derived recurrent/recent state.
+        structured_cap = min(self.budget.structured_target, available)
+        structured_items = self._select_structured(
+            structured_memories,
+            structured_cap,
+            collector,
+        )
+        available -= sum(item.tokens for item in structured_items)
+
         evidence_cap = min(self.budget.evidence_target, available)
         evidence_query = " ".join((query, *retrieval_queries))
         focus_terms = tuple(
@@ -149,10 +161,6 @@ class WorkingContextPacker:
             root_focus_terms=root_focus_terms,
         )
         available -= sum(item.tokens for item in evidence_items)
-
-        structured_cap = min(self.budget.structured_target, available)
-        structured_items = self._select_structured(structured_memories, structured_cap, collector)
-        available -= sum(item.tokens for item in structured_items)
 
         recurrent_items: list[ContextItem] = []
         if recurrent_memory.strip() and available:
@@ -371,6 +379,7 @@ class WorkingContextPacker:
         root_focus_terms: Sequence[str] = (),
     ) -> list[ContextItem]:
         selected = []
+        selected_hits: list[RetrievalHit] = []
         used = 0
         candidates = list(evidence)
         if focus_terms or root_focus_terms:
@@ -405,6 +414,26 @@ class WorkingContextPacker:
             reverse=True,
         )
         for hit in ranked:
+            matched_terms = self._matched_query_terms(query, hit.chunk.original_text)
+            duplicate = next(
+                (
+                    previous
+                    for previous in selected_hits
+                    if self._chunks_overlap(previous.chunk, hit.chunk)
+                    and matched_terms
+                    <= self._matched_query_terms(query, previous.chunk.original_text)
+                ),
+                None,
+            )
+            if duplicate is not None:
+                collector.record(
+                    MemoryOperation.EVICT,
+                    hit.chunk.chunk_id,
+                    reason="overlapping_evidence_duplicate",
+                    recoverable=True,
+                    overlapping_chunk_id=duplicate.chunk.chunk_id,
+                )
+                continue
             remaining = cap - used
             if remaining <= 0:
                 collector.record(
@@ -424,6 +453,7 @@ class WorkingContextPacker:
                 )
                 continue
             selected.append(item)
+            selected_hits.append(hit)
             used += item.tokens
             collector.record(
                 MemoryOperation.PAGE_IN,
@@ -436,6 +466,27 @@ class WorkingContextPacker:
                 eviction_priority=self._evidence_priority(query, hit),
             )
         return selected
+
+    @staticmethod
+    def _matched_query_terms(query: str, text: str) -> set[str]:
+        source = text.casefold()
+        return {
+            term
+            for term in {
+                value.casefold().strip(".$:-")
+                for value in re.findall(r"[A-Za-z0-9_.$:-]{3,}", query)
+            }
+            if term and term in source
+        }
+
+    @staticmethod
+    def _chunks_overlap(left: object, right: object) -> bool:
+        return bool(
+            getattr(left, "document_id", None) == getattr(right, "document_id", None)
+            and getattr(left, "version", None) == getattr(right, "version", None)
+            and getattr(left, "char_start", 0) < getattr(right, "char_end", 0)
+            and getattr(right, "char_start", 0) < getattr(left, "char_end", 0)
+        )
 
     @staticmethod
     def _root_focus_terms(query: str) -> tuple[str, ...]:
@@ -527,7 +578,13 @@ class WorkingContextPacker:
 
         full = format_block(chunk.original_text, 0, len(chunk.original_text))
         full_tokens = self.token_counter(full)
-        if full_tokens <= remaining:
+        # Long chunks are storage pages, not ideal working-set units.  Replay
+        # bounded exact spans even when the whole page technically fits so one
+        # early page cannot crowd out later dependency edges.  Small source
+        # records remain verbatim in full.
+        span_budget = min(remaining, 768)
+        prefer_spans = full_tokens > span_budget
+        if full_tokens <= remaining and not prefer_spans:
             pointer = ProvenancePointer(
                 chunk_id=chunk.chunk_id,
                 char_start=0,
@@ -566,7 +623,7 @@ class WorkingContextPacker:
                 f'span_count="{len(candidate_spans)}">\n{body}\n</exact_evidence>'
             )
             candidate_tokens = self.token_counter(candidate)
-            if candidate_tokens <= remaining:
+            if candidate_tokens <= span_budget:
                 selected_spans = candidate_spans
                 block = candidate
                 tokens = candidate_tokens
@@ -590,6 +647,23 @@ class WorkingContextPacker:
                 tokens=tokens,
                 pinned=False,
                 provenance=pointers,
+                score=hit.score,
+            )
+        if full_tokens <= remaining:
+            pointer = ProvenancePointer(
+                chunk_id=chunk.chunk_id,
+                char_start=0,
+                char_end=len(chunk.original_text),
+                exact=True,
+            )
+            return ContextItem(
+                item_id=chunk.chunk_id,
+                memory_level="L3",
+                category="exact_evidence",
+                text=full,
+                tokens=full_tokens,
+                pinned=False,
+                provenance=(pointer,),
                 score=hit.score,
             )
         return None

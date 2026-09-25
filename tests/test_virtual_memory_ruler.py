@@ -189,6 +189,7 @@ def test_frequency_task_uses_reference_free_provenance_bearing_aggregation() -> 
     assert "term=beta count=2" in prepared.prompt
     assert 'source_count="1"' in prepared.prompt
     assert any(event["operation"] == "AGGREGATE" for event in prepared.trace)
+    assert prepared.evidence_chunk_ids == ()
     assert oracle.sufficient is True
     assert "SECRET_WRONG_REFERENCE" not in oracle.prompt
     assert "oracle_reference_location" not in oracle.retrieval_queries
