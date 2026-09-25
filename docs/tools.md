@@ -112,9 +112,12 @@ contains only calls already executed during the turn, the portal stops with an
 explicit no-progress error instead of spinning forever. A request timeout,
 client disconnect, or upstream failure also terminates execution. These are
 progress and transport boundaries, not hidden call quotas. Media bytes and raw document
-envelopes are removed from follow-up rounds; tagged observations, retrieved
-text, and prior dialogue remain as bounded text context. TTS is deferred while
-a tool call is unresolved and runs only for the final answer.
+envelopes are removed from older follow-up rounds; a browser/desktop tool's newest
+fresh screenshot is passed through the adapter's native image field for exactly one
+multimodal follow-up. Its `role=tool` JSON retains bounded frame metadata and the
+visual digest, never the base64 bytes as language text. Tagged observations,
+retrieved text, and prior dialogue remain as bounded text context. TTS is deferred
+while a tool call is unresolved and runs only for the final answer.
 
 A successful `tool_search` resolves an action address but is not evidence that
 the requested action occurred. When discovery exposes one or more bounded leaf

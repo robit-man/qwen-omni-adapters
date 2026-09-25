@@ -905,6 +905,53 @@ def _without_media(messages: list[Any]) -> list[Any]:
     return cleaned
 
 
+def _model_tool_result(
+    result: Mapping[str, Any],
+) -> tuple[str, list[dict[str, str]]]:
+    """Separate current visual evidence from the textual tool receipt.
+
+    Browser and desktop tools return a fresh screenshot as base64 so the
+    portal can hand it to the multimodal adapter.  Serializing those bytes
+    inside ``role=tool`` content makes the chat template treat an image as
+    tens or hundreds of thousands of text tokens.  Keep the image in the
+    adapter's native ``message.images`` field and leave only bounded metadata
+    in the JSON receipt.  The next tool round already strips prior media, so
+    only the newest frame remains current perceptual evidence.
+    """
+
+    textual = copy.deepcopy(dict(result))
+    images: list[dict[str, str]] = []
+    screenshot = textual.get("screenshot")
+    if isinstance(screenshot, Mapping):
+        compact = copy.deepcopy(dict(screenshot))
+        data = compact.pop("data", None)
+        mime_type = str(compact.get("mime_type") or "").strip().lower()
+        encoding = str(compact.get("encoding") or "").strip().lower()
+        if (
+            isinstance(data, str)
+            and data
+            and mime_type in {"image/jpeg", "image/png", "image/webp"}
+            and encoding == "base64"
+        ):
+            images.append(
+                {
+                    "mime_type": mime_type,
+                    "encoding": "base64",
+                    "data": data,
+                }
+            )
+            compact["data"] = "attached_as_current_tool_image"
+        textual["screenshot"] = compact
+
+    fingerprint = textual.get("visual_fingerprint")
+    if isinstance(fingerprint, Mapping):
+        compact_fingerprint = copy.deepcopy(dict(fingerprint))
+        if compact_fingerprint.pop("sample", None) is not None:
+            compact_fingerprint["sample"] = "omitted_binary_sample"
+        textual["visual_fingerprint"] = compact_fingerprint
+    return tool_result_json(textual), images
+
+
 def _latest_user_context(messages: list[Any]) -> str:
     """Return current user text for an explicit server-side helper handoff."""
 
@@ -1065,12 +1112,14 @@ def _tool_followup(
                             for item in alternatives
                             if str(item) in known_names
                         )
-        content = tool_result_json(result)
+        content, result_images = _model_tool_result(result)
         tool_message: dict[str, Any] = {
             "role": "tool",
             "tool_name": name or "unknown",
             "content": content,
         }
+        if result_images:
+            tool_message["images"] = result_images
         if call.get("id"):
             tool_message["tool_call_id"] = str(call["id"])
         messages.append(tool_message)

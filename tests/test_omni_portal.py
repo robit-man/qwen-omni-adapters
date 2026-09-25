@@ -20,6 +20,7 @@ from PIL import Image
 from portal.app import (
     DEFAULT_MODEL,
     PortalConfig,
+    _model_tool_result,
     create_app,
     load_voice_profile,
 )
@@ -2403,6 +2404,38 @@ def test_desktop_gui_tool_is_discoverable_and_returns_visual_evidence() -> None:
     assert result["screenshot"]["data"] == "desktop-image"
     assert calls == [
         ("voice-session", {"action": "click", "x": 20, "y": 30})
+    ]
+
+
+def test_tool_screenshot_is_native_media_not_base64_tool_text() -> None:
+    encoded = base64.b64encode(b"current-png-bytes" * 10_000).decode()
+
+    content, images = _model_tool_result(
+        {
+            "rendered": True,
+            "screenshot": {
+                "mime_type": "image/png",
+                "encoding": "base64",
+                "data": encoded,
+            },
+            "visual_fingerprint": {
+                "algorithm": "rgb64-q16-v1",
+                "digest": "cobalt-17",
+                "sample": "large-binary-sample",
+            },
+        }
+    )
+
+    receipt = json.loads(content)
+    assert receipt["screenshot"]["data"] == "attached_as_current_tool_image"
+    assert receipt["visual_fingerprint"]["sample"] == "omitted_binary_sample"
+    assert encoded not in content
+    assert images == [
+        {
+            "mime_type": "image/png",
+            "encoding": "base64",
+            "data": encoded,
+        }
     ]
 
 

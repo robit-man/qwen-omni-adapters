@@ -50,6 +50,12 @@ against the same physical-context budget and excluded from flattened recent/evid
 replay for that turn. Older rounds remain in immutable storage. This prevents active
 compaction from turning a completed tool observation into generic user prose and
 causing the model to repeat an already successful call.
+Binary media fields are projected out of that textual token charge. In particular,
+the newest browser/desktop screenshot is carried as one native current-image
+attachment while its tool receipt contains only bounded metadata and a digest;
+base64 pixels are never serialized into the language working set. The adapter turns
+that current image into tagged visual evidence, and the next tool round removes the
+old attachment before admitting a newer frame.
 
 ## Minimal use
 

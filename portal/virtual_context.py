@@ -398,7 +398,18 @@ class SessionVirtualContext:
         if not messages:
             return 0
         counter = self.token_counter or conservative_token_estimate
-        serialized = json.dumps(messages, ensure_ascii=False, sort_keys=True)
+        # Media bytes are consumed by the adapter's multimodal stage, not
+        # rendered as language tokens.  Counting base64 screenshots here can
+        # make a perfectly bounded tool follow-up appear larger than the whole
+        # transformer window.  Preserve role/tool identity and textual
+        # receipts while projecting media fields out of the text budget.
+        projected = []
+        for message in messages:
+            item = copy.deepcopy(dict(message))
+            for field in ("audios", "images", "videos", "documents"):
+                item.pop(field, None)
+            projected.append(item)
+        serialized = json.dumps(projected, ensure_ascii=False, sort_keys=True)
         # Reserve the model template's per-message role/tool delimiters in
         # addition to the serialized content.
         return counter(serialized) + 32 * len(messages)

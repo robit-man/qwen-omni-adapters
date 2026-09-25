@@ -254,6 +254,51 @@ def test_active_tool_followup_is_repacked_with_result_and_original_query(
     assert followup.context.total_tokens <= followup.context.max_tokens
 
 
+def test_tool_followup_media_is_not_charged_as_base64_text(tmp_path: Path) -> None:
+    manager = SessionVirtualContext(tmp_path / "virtual", mode="active")
+    query = "Inspect the current desktop state."
+    messages = [
+        {"role": "user", "content": query},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "desktop-snapshot",
+                    "type": "function",
+                    "function": {"name": "gui_interact", "arguments": {}},
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_name": "gui_interact",
+            "tool_call_id": "desktop-snapshot",
+            "content": '{"rendered":true,"screenshot":{"data":"attached"}}',
+            "images": [
+                {
+                    "mime_type": "image/png",
+                    "encoding": "base64",
+                    "data": "A" * 500_000,
+                }
+            ],
+        },
+    ]
+    payload = {"messages": messages, "tools": []}
+
+    followup = manager.repack_followup(
+        "session-media-tool",
+        payload,
+        query=query,
+        system_contract="Use the newest current-frame evidence.",
+    )
+
+    assert followup is not None
+    assert followup.context.total_tokens <= followup.context.max_tokens
+    assert payload["messages"][-1]["images"][0]["data"] == "A" * 500_000
+    assert followup.context.token_usage["request_envelope"] < 5000
+
+
 def test_live_tool_envelope_is_reserved_from_physical_context(tmp_path: Path) -> None:
     manager = SessionVirtualContext(
         tmp_path / "virtual", mode="shadow", token_counter=lambda value: len(value.split())
