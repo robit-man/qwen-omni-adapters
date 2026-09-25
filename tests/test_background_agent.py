@@ -75,6 +75,17 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
                 "Ran tool_search and retained its result.",
                 "The target folder is verified; research is the next unmet milestone.",
             ],
+            "actions": [
+                {
+                    "call_id": "source-1",
+                    "tool": "web_fetch",
+                    "arguments": json.dumps(
+                        {"url": "https://example.test/field-service"}
+                    ),
+                    "outcome": json.dumps({"content": "retrieved"}),
+                    "ok": True,
+                }
+            ],
         }
     )
 
@@ -85,6 +96,9 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
     assert "research is the next unmet milestone" in prompt
     assert "Ran tool_search" not in prompt
     assert "Do not restart a completed step" in prompt
+    assert '<focus_memory schema="robit.omni.background-focus.v1">' in prompt
+    assert "https://example.test/field-service" in prompt
+    assert "task_expand(source-1)" in prompt
     assert "Ignore unrelated topics" in prompt
     assert "every qualifier in the completion criteria as a constraint" in prompt
     assert prompt.endswith(AGENT_SYSTEM_PROMPT)
@@ -728,6 +742,43 @@ def test_background_task_store_compaction_is_control_not_progress(
     ] == '{"content":"exact retained source"}'
 
 
+def test_background_task_store_archives_evidence_with_action_before_compaction(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Fetch and retain a source.", "Use it later.")
+    assert store.claim_next("worker") is not None
+
+    updated = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="fetch-live-1",
+        tool="web_fetch",
+        arguments='{"url":"https://example.test/source"}',
+        outcome='{"content":"bounded audit"}',
+        ok=True,
+        evidence_record={
+            "evidence_id": "fetch-live-1",
+            "tool": "web_fetch",
+            "arguments": '{"url":"https://example.test/source"}',
+            "result": '{"content":"exact expandable passage"}',
+            "result_sha256": "feedface",
+        },
+    )
+
+    assert updated is not None
+    assert updated["evidence_record_count"] == 1
+    assert store.expand_evidence(created["task_id"], ["fetch-live-1"]) == [
+        {
+            "evidence_id": "fetch-live-1",
+            "tool": "web_fetch",
+            "arguments": '{"url":"https://example.test/source"}',
+            "result": '{"content":"exact expandable passage"}',
+            "result_sha256": "feedface",
+        }
+    ]
+
+
 def test_background_task_blocks_after_three_expired_worker_leases(
     tmp_path: Path,
 ) -> None:
@@ -1183,6 +1234,7 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
 
 
 def test_compaction_archives_model_visible_evidence_for_expansion() -> None:
+    exact_passage = "exact page excerpt " * 80
     messages = [
         {
             "role": "assistant",
@@ -1203,7 +1255,7 @@ def test_compaction_archives_model_visible_evidence_for_expansion() -> None:
             "tool_call_id": "fetch-1",
             "content": json.dumps(
                 {
-                    "content": "exact page excerpt",
+                    "content": exact_passage,
                     "provenance": {"source_url": "https://example.test/source"},
                 }
             ),
@@ -1215,7 +1267,7 @@ def test_compaction_archives_model_visible_evidence_for_expansion() -> None:
     assert len(records) == 1
     assert records[0]["evidence_id"] == "fetch-1"
     assert records[0]["tool"] == "web_fetch"
-    assert "exact page excerpt" in records[0]["result"]
+    assert exact_passage in records[0]["result"]
     assert len(records[0]["result_sha256"]) == 64
 
 

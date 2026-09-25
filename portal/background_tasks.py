@@ -85,7 +85,7 @@ class BackgroundTaskStore:
 
     @staticmethod
     def _public(task: Mapping[str, Any]) -> dict[str, Any]:
-        return {
+        public = {
             key: copy.deepcopy(task.get(key))
             for key in (
                 "task_id",
@@ -107,6 +107,13 @@ class BackgroundTaskStore:
             )
             if task.get(key) not in (None, "", [])
         }
+        evidence_records = task.get("evidence_records")
+        if isinstance(evidence_records, list) and evidence_records:
+            # The status/list surface stays small. Detailed immutable receipts
+            # are paged explicitly through expand_evidence instead of being
+            # copied into every task poll.
+            public["evidence_record_count"] = len(evidence_records)
+        return public
 
     def create(self, objective: str, completion_criteria: str = "") -> dict[str, Any]:
         objective = str(objective).strip()
@@ -527,9 +534,10 @@ class BackgroundTaskStore:
         outcome: str,
         ok: bool,
         receipt: Mapping[str, Any] | None = None,
+        evidence_record: Mapping[str, Any] | None = None,
         recorded_at: float | None = None,
     ) -> dict[str, Any] | None:
-        """Append one bounded tool-call audit entry while its task lease is held."""
+        """Append an audit entry and its immutable expandable evidence atomically."""
 
         def record(value: dict[str, Any]) -> dict[str, Any] | None:
             for item in value.get("tasks", []):
@@ -540,26 +548,36 @@ class BackgroundTaskStore:
                 now = time.time()
                 actions = item.setdefault("actions", [])
                 bounded_call_id = str(call_id)[:128]
-                if any(
+                action_already_recorded = any(
                     isinstance(action, Mapping)
                     and action.get("call_id") == bounded_call_id
                     for action in actions
-                ):
-                    return self._public(item)
-                action = {
-                    "call_id": bounded_call_id,
-                    "tool": str(tool or "unknown")[:120],
-                    "arguments": str(arguments)[:2000],
-                    "outcome": str(outcome)[:1200],
-                    "ok": bool(ok),
-                }
-                if receipt:
-                    action["receipt"] = copy.deepcopy(dict(receipt))
-                action_time = now if recorded_at is None else float(recorded_at)
-                if action_time > 0:
-                    action["at"] = action_time
-                actions.append(action)
-                item["actions"] = actions[-32:]
+                )
+                if not action_already_recorded:
+                    action = {
+                        "call_id": bounded_call_id,
+                        "tool": str(tool or "unknown")[:120],
+                        "arguments": str(arguments)[:2000],
+                        "outcome": str(outcome)[:1200],
+                        "ok": bool(ok),
+                    }
+                    if receipt:
+                        action["receipt"] = copy.deepcopy(dict(receipt))
+                    action_time = now if recorded_at is None else float(recorded_at)
+                    if action_time > 0:
+                        action["at"] = action_time
+                    actions.append(action)
+                    item["actions"] = actions[-32:]
+                if evidence_record:
+                    evidence_id = str(evidence_record.get("evidence_id") or "")
+                    archived = item.setdefault("evidence_records", [])
+                    already_archived = any(
+                        isinstance(record, Mapping)
+                        and str(record.get("evidence_id") or "") == evidence_id
+                        for record in archived
+                    )
+                    if evidence_id and not already_archived:
+                        archived.append(copy.deepcopy(dict(evidence_record)))
                 item["updated_at"] = now
                 return self._public(item)
             return None

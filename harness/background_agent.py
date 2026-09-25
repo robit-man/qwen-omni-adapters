@@ -207,6 +207,13 @@ def _task_system_prompt(task: Mapping[str, Any]) -> str:
                 "</current_plan_state>",
             ]
         )
+    focus_memory = _focus_memory(task)
+    if focus_memory:
+        # This is L1 pinned working state, not merely a post-compaction note.
+        # A successful source or artifact must remain conspicuous on the very
+        # next action round so ordinary transcript growth cannot make the
+        # controller rediscover or recreate it.
+        contract.append(focus_memory)
     contract.extend(
         [
             "Keep every action causally relevant to this task. Ignore unrelated topics "
@@ -1139,7 +1146,11 @@ def _compaction_evidence_records(
                 "evidence_id": evidence_id,
                 "tool": call_name or name,
                 "arguments": _audit_json(arguments, 4_000),
-                "result": _audit_json(_audit_mapping(raw_result), MAX_TOOL_RESULT_CHARS),
+                # This is the already bounded, model-visible receipt. Preserve
+                # its full text so EXPAND can recover exact fetched passages,
+                # symbols, values, and diagnostics instead of a 320-character
+                # audit preview.
+                "result": raw_result[:MAX_TOOL_RESULT_CHARS],
                 "result_sha256": hashlib.sha256(raw_result.encode("utf-8")).hexdigest(),
             }
         )
@@ -1745,6 +1756,22 @@ class BackgroundAgent:
                         # the verified semantic action identity needed for task
                         # continuity and accurate reporting after scope reduction.
                         receipt = {"action": action, "target": target}
+            evidence_record = None
+            if name not in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}:
+                evidence_result = json.dumps(
+                    _bounded_tool_result(result),
+                    ensure_ascii=False,
+                    default=str,
+                )
+                evidence_record = {
+                    "evidence_id": str(call_id)[:128],
+                    "tool": name or "unknown",
+                    "arguments": _audit_json(arguments, 4_000),
+                    "result": evidence_result[:MAX_TOOL_RESULT_CHARS],
+                    "result_sha256": hashlib.sha256(
+                        evidence_result.encode("utf-8")
+                    ).hexdigest(),
+                }
             self.store.record_action(
                 task_id,
                 self.owner,
@@ -1754,6 +1781,7 @@ class BackgroundAgent:
                 outcome=_audit_json(result, MAX_ACTION_OUTCOME_CHARS),
                 ok=not _result_failed_or_blocked(result),
                 receipt=receipt,
+                evidence_record=evidence_record,
                 recorded_at=0 if historical else None,
             )
         except Exception as error:  # noqa: BLE001 - auditing must not stop the task
@@ -2378,6 +2406,10 @@ class BackgroundAgent:
             phase_boundary = (
                 phase_action_count >= MAX_PHASE_ACTIONS and can_checkpoint
             )
+            # Before compaction the exact result is still resident in the
+            # ordinary transcript. Offer paging only after older turns may
+            # have left L0; otherwise the maintenance action needlessly
+            # competes with the next concrete task action.
             expand_available = bool(current.get("compaction"))
             schemas = (
                 [copy.deepcopy(TASK_RECOVERY_TOOL)]
