@@ -1217,6 +1217,22 @@ def _successor_tools(name: str, result: Any) -> list[str]:
     return [name]
 
 
+def _structured_action_phase(
+    messages: list[dict[str, Any]], active_tools: list[str]
+) -> bool:
+    """Native thinking is only for the task's first unresolved planning turn."""
+
+    if active_tools:
+        return True
+    for message in reversed(messages):
+        if message.get("role") == "tool":
+            return True
+        calls = message.get("tool_calls")
+        if isinstance(calls, list) and calls:
+            return True
+    return False
+
+
 def _recovery_required(messages: list[dict[str, Any]]) -> bool:
     """Whether a capability failure still needs a typed recovery transition."""
 
@@ -2158,7 +2174,9 @@ class BackgroundAgent:
                 and messages[-1].get("role") == "tool"
                 and messages[-1].get("tool_name") == "tool_search"
             )
-            structured_action_phase = action_after_discovery or bool(active_tools)
+            structured_action_phase = action_after_discovery or _structured_action_phase(
+                messages, active_tools
+            )
             inference_messages = _computer_action_messages(
                 messages,
                 current,

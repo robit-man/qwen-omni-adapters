@@ -47,6 +47,7 @@ from harness.background_agent import (
     _recovery_required,
     _seen_tool_fingerprints,
     _stream_error,
+    _structured_action_phase,
     _successor_tools,
     _task_system_prompt,
     _task_virtual_query,
@@ -1118,6 +1119,24 @@ def test_query_results_transition_without_pinning_the_completed_query_tool() -> 
     assert _successor_tools("web_fetch", {"content": "fetched"}) == []
     assert _successor_tools("get_portal_capabilities", {"output": ["text"]}) == []
     assert _successor_tools("shell", {"exit_code": 0}) == ["shell"]
+
+
+def test_native_thinking_is_not_reenabled_when_a_query_tool_becomes_non_sticky() -> None:
+    assert _structured_action_phase(
+        [{"role": "user", "content": "Start."}], []
+    ) is False
+    assert _structured_action_phase(
+        [
+            {"role": "assistant", "tool_calls": [{"function": {"name": "web_fetch"}}]},
+            {
+                "role": "tool",
+                "tool_name": "web_fetch",
+                "tool_call_id": "fetch-1",
+                "content": '{"content": "page"}',
+            },
+        ],
+        [],
+    ) is True
 
 
 def test_a_single_tool_result_cannot_balloon_the_durable_task_context() -> None:
