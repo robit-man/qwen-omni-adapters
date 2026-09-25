@@ -145,6 +145,10 @@ class BackgroundTaskStore:
                 # were summarized away.
                 "tool_fingerprints": [],
                 "result_digests": [],
+                # Compaction may page detailed tool turns out of the working
+                # transcript, but never destroys their only task-local copy.
+                # Records are append-only and addressed by the original call ID.
+                "evidence_records": [],
             }
             tasks = value.setdefault("tasks", [])
             tasks.append(task)
@@ -453,6 +457,7 @@ class BackgroundTaskStore:
         *,
         messages: list[dict[str, Any]],
         receipt: Mapping[str, Any],
+        evidence_records: list[Mapping[str, Any]] | None = None,
         lease_s: float = 60.0,
     ) -> dict[str, Any] | None:
         """Atomically replace a claimed task's renewable transcript.
@@ -471,12 +476,45 @@ class BackgroundTaskStore:
                 now = time.time()
                 item["messages"] = copy.deepcopy(messages)
                 item["compaction"] = copy.deepcopy(dict(receipt))
+                archived = item.setdefault("evidence_records", [])
+                archived_ids = {
+                    str(record.get("evidence_id") or "")
+                    for record in archived
+                    if isinstance(record, Mapping)
+                }
+                for record in evidence_records or []:
+                    evidence_id = str(record.get("evidence_id") or "")
+                    if not evidence_id or evidence_id in archived_ids:
+                        continue
+                    archived.append(copy.deepcopy(dict(record)))
+                    archived_ids.add(evidence_id)
                 item["updated_at"] = now
                 item["lease_until"] = now + max(5.0, lease_s)
                 return self._public(item)
             return None
 
         return self._mutate(compact)
+
+    def expand_evidence(
+        self, task_id: str, evidence_ids: list[str]
+    ) -> list[dict[str, Any]]:
+        """Page immutable pre-compaction tool receipts by original call ID."""
+
+        requested = {str(value) for value in evidence_ids if str(value)}
+
+        def expand(value: dict[str, Any]) -> list[dict[str, Any]]:
+            for item in value.get("tasks", []):
+                if item.get("task_id") != task_id:
+                    continue
+                return [
+                    copy.deepcopy(dict(record))
+                    for record in item.get("evidence_records", [])
+                    if isinstance(record, Mapping)
+                    and str(record.get("evidence_id") or "") in requested
+                ]
+            return []
+
+        return self._inspect(expand)
 
     def record_action(
         self,

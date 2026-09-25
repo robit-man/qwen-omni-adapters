@@ -1649,6 +1649,12 @@ def test_the_capture_loop_uses_a_two_stage_interruption() -> None:
     assert source.index("session.request_duck()") < source.index(
         "session.request_barge()"
     )
+    confirmed_start = source.split(
+        'if verdict.event in {"candidate", "start", "active"}:', 1
+    )[1].split('elif verdict.event == "rejected":', 1)[0]
+    assert 'if verdict.event == "start":' in confirmed_start
+    assert "foreground_active.set()" in confirmed_start
+    assert "session.background_agent.wake()" in confirmed_start
 
 
 # -- never waiting when it does not have to --------------------------------

@@ -1353,8 +1353,16 @@ def run_call_loop(
                     near_end_active.set()
                     # Still talking, so nothing is finished being said.
                     settle_until = None
-                    if verdict.event == "start" and not busy.is_set():
-                        notify("hearing", "")
+                    if verdict.event == "start":
+                        # A confirmed near-end speech start immediately owns the
+                        # shared model lane. Waiting until end-of-utterance leaves a
+                        # long background generation running while the person talks,
+                        # delaying ASR and making the system appear uninterruptible.
+                        foreground_active.set()
+                        if session.background_agent is not None:
+                            session.background_agent.wake()
+                        if not busy.is_set():
+                            notify("hearing", "")
                     if (
                         verdict.event in {"start", "active"}
                         and can_barge
@@ -1391,12 +1399,9 @@ def run_call_loop(
                         if session.background_agent is not None:
                             session.background_agent.wake()
                 elif verdict.event == "utterance" and verdict.utterance is not None:
-                    # Only an accepted utterance owns the foreground/model
-                    # lane. A raw VAD candidate can be room noise, and holding
-                    # this event from candidate onset allowed a stalled audio
-                    # stream to starve durable tasks forever. The background
-                    # worker runs one checkpoint at a time and will yield
-                    # before its next call once this accepted turn is queued.
+                    # Confirmed speech has owned the foreground/model lane since
+                    # its VAD start. Acceptance keeps that ownership through ASR,
+                    # reasoning, and reply; rejected speech releases it above.
                     foreground_active.set()
                     if session.background_agent is not None:
                         session.background_agent.wake()

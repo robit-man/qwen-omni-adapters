@@ -9,6 +9,7 @@ from harness.background_agent import (
     AGENT_SYSTEM_PROMPT,
     TASK_CHECKPOINT_TOOL,
     TASK_COMPACT_TOOL,
+    TASK_EXPAND_TOOL,
 )
 from harness.call import LIVE_CALL_SYSTEM_PROMPT
 from portal.app import TOOL_RESULT_POLICY, create_app
@@ -56,6 +57,7 @@ def test_context_catalog_is_the_runtime_source_of_prompts_and_tools() -> None:
     assert tool_use_instructions() == catalog["directives"]["tool_use"]
     assert catalog["control_tools"]["task_checkpoint"] == TASK_CHECKPOINT_TOOL
     assert catalog["control_tools"]["task_compact"] == TASK_COMPACT_TOOL
+    assert catalog["control_tools"]["task_expand"] == TASK_EXPAND_TOOL
     assert [item["schema"] for item in catalog["tools"]] == SAFE_TOOLS
 
 

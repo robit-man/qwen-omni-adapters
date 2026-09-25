@@ -2478,6 +2478,67 @@ def test_shell_stdin_writes_generated_content_without_shell_quoting(tmp_path: Pa
     assert (tmp_path / "plan.md").read_text(encoding="utf-8") == content
 
 
+def test_workspace_file_compacts_create_read_replace_and_list(tmp_path: Path) -> None:
+    harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    source = tmp_path / "app" / "main.py"
+
+    created = harness.execute(
+        "one",
+        "workspace_file",
+        {
+            "action": "write",
+            "path": str(source),
+            "content": "VALUE = 'old'\n",
+        },
+    )
+    assert created["created"] is True
+    assert created["validation"] == "python_ast_ok"
+    assert "content" not in created
+
+    read = harness.execute(
+        "one", "workspace_file", {"action": "read", "path": str(source)}
+    )
+    assert read["content"] == "VALUE = 'old'\n"
+    assert read["sha256"] == created["sha256"]
+
+    replaced = harness.execute(
+        "one",
+        "workspace_file",
+        {
+            "action": "replace",
+            "path": str(source),
+            "old_text": "'old'",
+            "new_text": "'new'",
+            "expected_sha256": read["sha256"],
+        },
+    )
+    assert replaced["validation"] == "python_ast_ok"
+    assert source.read_text(encoding="utf-8") == "VALUE = 'new'\n"
+
+    listed = harness.execute(
+        "one",
+        "workspace_file",
+        {"action": "list", "path": str(tmp_path), "depth": 2},
+    )
+    assert {item["path"] for item in listed["entries"]} == {"app", "app/main.py"}
+
+
+def test_workspace_file_rejects_invalid_source_before_overwrite(tmp_path: Path) -> None:
+    harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    source = tmp_path / "main.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+
+    rejected = harness.execute(
+        "one",
+        "workspace_file",
+        {"action": "write", "path": str(source), "content": "def broken(:\n"},
+    )
+
+    assert rejected["error"] == "ToolInputError"
+    assert "content not written" in rejected["message"]
+    assert source.read_text(encoding="utf-8") == "VALUE = 1\n"
+
+
 def test_shell_is_found_without_putting_its_schema_in_the_first_pass() -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
     result = harness.execute(
@@ -2489,7 +2550,12 @@ def test_shell_is_found_without_putting_its_schema_in_the_first_pass() -> None:
     file_result = harness.execute(
         "one", "tool_search", {"query": "write a file and encode it with ffmpeg"}
     )
-    assert file_result["available_tools"][0] == "shell"
+    assert file_result["available_tools"] == ["workspace_file", "shell"]
+
+    workspace_result = harness.execute(
+        "one", "tool_search", {"query": "write docs/plan.md"}
+    )
+    assert workspace_result["available_tools"] == ["workspace_file"]
 
 
 def test_failed_web_fetch_routes_back_to_discovery_instead_of_guessing_hosts() -> None:

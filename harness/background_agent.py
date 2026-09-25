@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import html
 import json
 import logging
 import os
@@ -219,10 +220,12 @@ def _task_system_prompt(task: Mapping[str, Any]) -> str:
 
 TASK_CHECKPOINT_TOOL = context_value("control_tools", "task_checkpoint")
 TASK_COMPACT_TOOL = context_value("control_tools", "task_compact")
+TASK_EXPAND_TOOL = context_value("control_tools", "task_expand")
 TASK_RECOVERY_TOOL = context_value("control_tools", "task_recovery")
 LOCAL_CONTROL_TOOL_NAMES = {
     "task_checkpoint",
     "task_compact",
+    "task_expand",
     "task_recovery",
 }
 NON_STICKY_RESULT_TOOLS = {
@@ -583,6 +586,9 @@ def _compact_task_messages(
         "Older detailed reasoning/tool rounds were compacted. Continue from the objective "
         "and the retained concrete state below; do not repeat completed or failed calls.",
     ]
+    focus_memory = _focus_memory(task)
+    if focus_memory:
+        sections.append(focus_memory)
     if progress_lines:
         sections.extend(["Recent durable checkpoints:", *progress_lines])
     if guidance_lines:
@@ -980,6 +986,166 @@ def _latest_external_result_digest(messages: list[dict[str, Any]]) -> str:
     return last_digest
 
 
+def _audit_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return dict(value)
+    try:
+        parsed = json.loads(str(value or "{}"))
+    except ValueError:
+        return {}
+    return dict(parsed) if isinstance(parsed, Mapping) else {}
+
+
+def _focus_memory(task: Mapping[str, Any]) -> str:
+    """Render durable, typed focus records instead of another prose summary."""
+
+    actions = task.get("actions")
+    if not isinstance(actions, list):
+        return ""
+    sources: list[dict[str, Any]] = []
+    artifacts: list[dict[str, Any]] = []
+    checkpoints: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    seen_sources: set[str] = set()
+    seen_artifacts: set[str] = set()
+    for action in actions:
+        if not isinstance(action, Mapping):
+            continue
+        call_id = str(action.get("call_id") or "")[:128]
+        tool = str(action.get("tool") or "")[:120]
+        ok = action.get("ok") is True
+        arguments = _audit_mapping(action.get("arguments"))
+        outcome = _audit_mapping(action.get("outcome"))
+        if tool == "web_fetch" and ok:
+            url = str(arguments.get("url") or "").strip()
+            if url and url not in seen_sources:
+                seen_sources.add(url)
+                sources.append(
+                    {
+                        "evidence_id": call_id,
+                        "status": "acquired",
+                        "source_url": url,
+                        "expand": f"task_expand({call_id})",
+                    }
+                )
+        elif tool == "workspace_file" and ok:
+            path = str(outcome.get("path") or arguments.get("path") or "").strip()
+            if path and path not in seen_artifacts:
+                seen_artifacts.add(path)
+                artifacts.append(
+                    {
+                        "evidence_id": call_id,
+                        "status": str(outcome.get("action") or arguments.get("action") or "changed"),
+                        "path": path,
+                        "sha256": str(outcome.get("sha256") or ""),
+                        "validation": str(outcome.get("validation") or ""),
+                        "expand": f"task_expand({call_id})",
+                    }
+                )
+        elif tool == "task_checkpoint" and ok:
+            accepted = outcome.get("accepted") is True
+            if accepted:
+                checkpoints.append(
+                    {
+                        "checkpoint_id": call_id,
+                        "action": str(arguments.get("action") or "progress"),
+                        "criteria_assessment": str(
+                            arguments.get("criteria_assessment") or ""
+                        )[:1000],
+                        "report": str(arguments.get("report") or "")[:1000],
+                        "evidence_ids": list(arguments.get("evidence_ids") or [])[:16],
+                    }
+                )
+        if not ok and tool not in LOCAL_CONTROL_TOOL_NAMES and tool != "tool_search":
+            failures.append(
+                {
+                    "evidence_id": call_id,
+                    "tool": tool,
+                    "diagnostic": " ".join(
+                        str(action.get("outcome") or "").split()
+                    )[:500],
+                    "expand": f"task_expand({call_id})",
+                }
+            )
+    if not any((sources, artifacts, checkpoints, failures)):
+        return ""
+
+    def tagged(name: str, records: list[dict[str, Any]]) -> list[str]:
+        if not records:
+            return []
+        return [
+            f"<{name}>",
+            *(
+                f'<focus_item id="{html.escape(str(record.get("evidence_id") or record.get("checkpoint_id") or ""))}">'
+                + html.escape(
+                    json.dumps(record, ensure_ascii=False, sort_keys=True, default=str)
+                )
+                + "</focus_item>"
+                for record in records
+            ),
+            f"</{name}>",
+        ]
+
+    sections = [
+        '<focus_memory schema="robit.omni.background-focus.v1">',
+        "<focus_contract>These typed records remain authoritative across compaction. "
+        "Do not redo an acquired source or artifact merely because its original turn is "
+        "not resident. If a relevant record lacks a needed detail, call task_expand with "
+        "its evidence_id; expansion is paging, not new progress.</focus_contract>",
+        *tagged("phase_checkpoints", checkpoints[-8:]),
+        *tagged("acquired_sources", sources[-24:]),
+        *tagged("artifacts", artifacts[-32:]),
+        *tagged("failed_attempts", failures[-8:]),
+        "</focus_memory>",
+    ]
+    return "\n".join(sections)
+
+
+def _compaction_evidence_records(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Archive model-visible tool receipts before their turns leave L0 context."""
+
+    calls: dict[str, tuple[str, dict[str, Any]]] = {}
+    records: list[dict[str, Any]] = []
+    for message in messages:
+        if message.get("role") == "assistant":
+            for call in message.get("tool_calls") or []:
+                if not isinstance(call, Mapping):
+                    continue
+                function = call.get("function")
+                if not isinstance(function, Mapping):
+                    continue
+                call_id = str(call.get("id") or "")
+                name = str(function.get("name") or "")
+                if call_id and name:
+                    calls[call_id] = (name, _arguments(call))
+            continue
+        if message.get("role") != "tool":
+            continue
+        evidence_id = str(message.get("tool_call_id") or "")
+        name = str(message.get("tool_name") or "")
+        if (
+            not evidence_id
+            or not name
+            or name == "tool_search"
+            or name in LOCAL_CONTROL_TOOL_NAMES
+        ):
+            continue
+        call_name, arguments = calls.get(evidence_id, (name, {}))
+        raw_result = str(message.get("content") or "")
+        records.append(
+            {
+                "evidence_id": evidence_id,
+                "tool": call_name or name,
+                "arguments": _audit_json(arguments, 4_000),
+                "result": _audit_json(_audit_mapping(raw_result), MAX_TOOL_RESULT_CHARS),
+                "result_sha256": hashlib.sha256(raw_result.encode("utf-8")).hexdigest(),
+            }
+        )
+    return records
+
+
 def _guard_repeated_unchanged_result(
     name: str,
     arguments: Mapping[str, Any],
@@ -1101,12 +1267,12 @@ def _tool_evidence(messages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
             continue
         evidence_id = str(message.get("tool_call_id") or "").strip()
         name = str(message.get("tool_name") or "").strip()
-        if not evidence_id or not name or name in {
-            "tool_search",
-            "task_checkpoint",
-            "task_compact",
-            "task_recovery",
-        }:
+        if (
+            not evidence_id
+            or not name
+            or name == "tool_search"
+            or name in LOCAL_CONTROL_TOOL_NAMES
+        ):
             continue
         try:
             result = json.loads(str(message.get("content") or "{}"))
@@ -1202,6 +1368,9 @@ def _checkpoint_available(messages: list[dict[str, Any]]) -> bool:
             # Compaction changes only the representation of already observed
             # state. It is neither task evidence nor a reason to invalidate a
             # checkpoint against the newest real external result.
+            continue
+        elif name == "task_expand":
+            # Paging a retained receipt changes only the working representation.
             continue
         elif _is_duplicate_tool_result(message):
             # A locally rejected replay performed no external action and cannot
@@ -1914,6 +2083,7 @@ class BackgroundAgent:
                         self.owner,
                         messages=compacted,
                         receipt=receipt,
+                        evidence_records=_compaction_evidence_records(retained),
                     )
                     task["messages"] = compacted
                     task["compaction"] = receipt
@@ -2163,6 +2333,7 @@ class BackgroundAgent:
                         self.owner,
                         messages=_durable_task_messages(messages),
                         receipt=receipt,
+                        evidence_records=_compaction_evidence_records(before),
                     )
                     messages[0] = {
                         "role": "system",
@@ -2207,6 +2378,7 @@ class BackgroundAgent:
             phase_boundary = (
                 phase_action_count >= MAX_PHASE_ACTIONS and can_checkpoint
             )
+            expand_available = bool(current.get("compaction"))
             schemas = (
                 [copy.deepcopy(TASK_RECOVERY_TOOL)]
                 if recovery_required
@@ -2215,6 +2387,11 @@ class BackgroundAgent:
                 else [
                     *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
                     *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
+                    *(
+                        [copy.deepcopy(TASK_EXPAND_TOOL)]
+                        if expand_available
+                        else []
+                    ),
                     *(
                         [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
                         if can_checkpoint
@@ -2534,8 +2711,47 @@ class BackgroundAgent:
                         self.owner,
                         messages=_durable_task_messages(messages),
                         receipt=receipt,
+                        evidence_records=_compaction_evidence_records(before),
                     )
                     stalls = 0
+                    continue
+                if name == "task_expand":
+                    raw_ids = arguments.get("evidence_ids")
+                    evidence_ids = (
+                        list(dict.fromkeys(str(value) for value in raw_ids if str(value)))[:8]
+                        if isinstance(raw_ids, list)
+                        else []
+                    )
+                    records = self.store.expand_evidence(task_id, evidence_ids)
+                    found = {str(record.get("evidence_id") or "") for record in records}
+                    expand_result = (
+                        {
+                            "expanded": records,
+                            "missing_evidence_ids": [
+                                value for value in evidence_ids if value not in found
+                            ],
+                            "authority": "retained_pre_compaction_tool_receipts",
+                            "task_progress": False,
+                        }
+                        if evidence_ids and records
+                        else {
+                            "error": "evidence_not_found",
+                            "message": "Use evidence IDs present in tagged focus items.",
+                            "requested_evidence_ids": evidence_ids,
+                        }
+                    )
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_name": name,
+                            "tool_call_id": call_id,
+                            "content": json.dumps(expand_result),
+                        }
+                    )
+                    self._record_action(
+                        task_id, call_id, name, arguments, expand_result
+                    )
+                    stalls = 0 if records else stalls + 1
                     continue
                 if name == "task_recovery":
                     evidence_id = str(arguments.get("evidence_id") or "").strip()

@@ -121,38 +121,38 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
         ),
         (
             "write-markdown",
-            "shell",
+            "workspace_file",
             {
-                "command": "tee plan.md >/dev/null",
-                "cwd": str(tmp_path),
-                "stdin": "# Plan\n\nCreated from a spoken request.\n",
+                "action": "write",
+                "path": str(tmp_path / "plan.md"),
+                "content": "# Plan\n\nCreated from a spoken request.\n",
             },
         ),
         (
             "write-json",
-            "shell",
+            "workspace_file",
             {
-                "command": "tee data.json >/dev/null",
-                "cwd": str(tmp_path),
-                "stdin": '{"name":"voice","enabled":true}\n',
+                "action": "write",
+                "path": str(tmp_path / "data.json"),
+                "content": '{"name":"voice","enabled":true}\n',
             },
         ),
         (
             "write-csv",
-            "shell",
+            "workspace_file",
             {
-                "command": "tee table.csv >/dev/null",
-                "cwd": str(tmp_path),
-                "stdin": "label,value\ntwo,2\n",
+                "action": "write",
+                "path": str(tmp_path / "table.csv"),
+                "content": "label,value\ntwo,2\n",
             },
         ),
         (
             "edit-python",
-            "shell",
+            "workspace_file",
             {
-                "command": "tee app.py >/dev/null",
-                "cwd": str(tmp_path),
-                "stdin": (
+                "action": "write",
+                "path": str(tmp_path / "app.py"),
+                "content": (
                     "def add(left: int, right: int) -> int:\n"
                     "    return left + right\n\n"
                     "print(f\"sum={add(2, 3)}\")\n"
@@ -160,8 +160,13 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
             },
         ),
         (
-            "verify-files",
-            "shell",
+            "discover-verification",
+            "tool_search",
+            {"query": "run the project tests and verification commands"},
+        ),
+            (
+                "verify-files",
+                "shell",
             {
                 "command": (
                     "python3 -m py_compile app.py "
@@ -202,10 +207,11 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
     assert "def add" in (tmp_path / "app.py").read_text()
     assert [item["tool"] for item in task["actions"]] == [
         "tool_search",
-        "shell",
-        "shell",
-        "shell",
-        "shell",
+        "workspace_file",
+        "workspace_file",
+        "workspace_file",
+        "workspace_file",
+        "tool_search",
         "shell",
         "task_checkpoint",
     ]

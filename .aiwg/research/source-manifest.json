@@ -15,6 +15,13 @@
     {"id":"REF-017","title":"KIVI","url":"https://arxiv.org/abs/2402.02750","pdf_sha256":"df31ef32d71bfb280c533c5db8220cadf5ef42076bf45d82ba4c8da8e50ea5f4"},
     {"id":"REF-018","title":"PyramidKV","url":"https://arxiv.org/abs/2406.02069","pdf_sha256":"0bcd6c0fba461e76a746a91316847b7552b441a4ea4d6481e9561a0f7fa9fb01"},
     {"id":"REF-019","title":"Quest","url":"https://arxiv.org/abs/2406.10774","pdf_sha256":"93cda144859b4e38d595c42dbc578e4e0c8d436fa0891e3dfeb74716bacc4ce8"},
-    {"id":"REF-020","title":"RULER","url":"https://arxiv.org/abs/2404.06654","pdf_sha256":"8a4bc6ca28d84570eec7f42652400c2121f4c8bc361701634e596772e396fc22"}
+    {"id":"REF-020","title":"RULER","url":"https://arxiv.org/abs/2404.06654","pdf_sha256":"8a4bc6ca28d84570eec7f42652400c2121f4c8bc361701634e596772e396fc22"},
+    {"id":"REF-021","title":"SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering","url":"https://arxiv.org/abs/2405.15793","pdf_sha256":"d171e0693060b910ceb2cddd0fd4bc7cae302005d42d0d8059bfdbe056c3adba"},
+    {"id":"REF-022","title":"ToolSandbox","url":"https://arxiv.org/abs/2408.04682","pdf_sha256":"3449baed1d8e0f4c07dbc859621899685eed8a6a0445a1ae8909c178e6b6173e"},
+    {"id":"REF-023","title":"tau-bench","url":"https://arxiv.org/abs/2406.12045","pdf_sha256":"0ce66a1763d698c61bb311c3c874bf593d1e9a5bfff11bb35f6f72b981f6da56"},
+    {"id":"REF-024","title":"OSWorld","url":"https://arxiv.org/abs/2404.07972","pdf_sha256":"d4c6e20dd59467f005561b1e97199f9842fd3b0e9fdd93e66e06ba0ec09edfdb"},
+    {"id":"REF-025","title":"Agent S","url":"https://arxiv.org/abs/2410.08164","pdf_sha256":"ee8c9b38e20b5f747bd78828d96beab0b266eb99baaafe44c3936ff0d89cb92b"},
+    {"id":"REF-026","title":"SWE-Bench Pro","url":"https://arxiv.org/abs/2509.16941","pdf_sha256":"38bafe017fe2e259f27aba35ec3583b0332af001d4a8e7b3330e522076beeb0f"},
+    {"id":"REF-027","title":"The BrowserGym Ecosystem for Web Agent Research","url":"https://arxiv.org/abs/2412.05467","pdf_sha256":"98d4d9b8088ca6bc5e0efd613389622b53ffedcb36cb285f093f7e6045499491"}
   ]
 }

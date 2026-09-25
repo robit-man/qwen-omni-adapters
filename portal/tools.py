@@ -74,6 +74,7 @@ MAX_MEMORY_ENTRIES = 64
 MAX_MEMORY_ENTRY_CHARS = 4_096
 MAX_MEMORY_SESSION_CHARS = 32_768
 MAX_SHELL_OUTPUT_BYTES = 64 * 1024
+MAX_WORKSPACE_TEXT_CHARS = 65_536
 TOKEN_PATTERN = re.compile(r"[\w][\w'-]{1,}", re.UNICODE)
 
 
@@ -272,6 +273,166 @@ def _run_shell(
         "stderr": captured["stderr"].decode("utf-8", errors="replace"),
         "stdout_truncated": totals["stdout"] > MAX_SHELL_OUTPUT_BYTES,
         "stderr_truncated": totals["stderr"] > MAX_SHELL_OUTPUT_BYTES,
+    }
+
+
+def _validate_workspace_text(path: Path, content: str) -> str:
+    suffix = path.suffix.casefold()
+    try:
+        if suffix == ".py":
+            ast.parse(content, filename=str(path))
+            return "python_ast_ok"
+        if suffix == ".json":
+            json.loads(content)
+            return "json_parse_ok"
+    except (SyntaxError, ValueError) as exc:
+        raise ToolInputError(f"content not written: {exc}") from exc
+    return "text"
+
+
+def _workspace_file(
+    action: Any,
+    path: Any,
+    *,
+    content: Any = None,
+    old_text: Any = None,
+    new_text: Any = None,
+    expected_occurrences: Any = None,
+    expected_sha256: Any = None,
+    max_chars: Any = None,
+    offset_chars: Any = None,
+    depth: Any = None,
+) -> dict[str, Any]:
+    """Perform one compact file operation with a bounded, verifiable receipt."""
+
+    operation = str(action or "").strip().lower()
+    if operation not in {"list", "read", "mkdir", "write", "replace"}:
+        raise ToolInputError("action must be list, read, mkdir, write, or replace")
+    raw_path = _bounded_text(path, "path", 4096)
+    target = Path(raw_path).expanduser().resolve(strict=False)
+
+    if operation == "mkdir":
+        existed = target.is_dir()
+        target.mkdir(parents=True, exist_ok=True)
+        return {
+            "action": operation,
+            "path": str(target),
+            "created": not existed,
+            "is_directory": True,
+        }
+
+    if operation == "list":
+        if not target.is_dir():
+            raise ToolInputError(f"path is not a directory: {target}")
+        maximum_depth = _bounded_integer(depth, default=2, minimum=1, maximum=5)
+        entries: list[dict[str, Any]] = []
+        for candidate in sorted(target.rglob("*")):
+            relative = candidate.relative_to(target)
+            if len(relative.parts) > maximum_depth:
+                continue
+            item: dict[str, Any] = {
+                "path": str(relative),
+                "kind": "directory" if candidate.is_dir() else "file",
+            }
+            if candidate.is_file():
+                try:
+                    item["bytes"] = candidate.stat().st_size
+                except OSError:
+                    item["bytes"] = None
+            entries.append(item)
+            if len(entries) >= 200:
+                break
+        return {
+            "action": operation,
+            "path": str(target),
+            "depth": maximum_depth,
+            "entries": entries,
+            "truncated": len(entries) >= 200,
+        }
+
+    if not target.is_file() and operation in {"read", "replace"}:
+        raise ToolInputError(f"path is not a file: {target}")
+
+    if operation == "read":
+        limit = _bounded_integer(
+            max_chars, default=12_000, minimum=1, maximum=MAX_WORKSPACE_TEXT_CHARS
+        )
+        offset = _bounded_integer(
+            offset_chars, default=0, minimum=0, maximum=100_000_000
+        )
+        try:
+            source = target.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            raise ToolInputError("path is not UTF-8 text") from exc
+        segment = source[offset : offset + limit]
+        return {
+            "action": operation,
+            "path": str(target),
+            "content": segment,
+            "offset_chars": offset,
+            "next_offset_chars": offset + len(segment),
+            "total_chars": len(source),
+            "truncated": offset + len(segment) < len(source),
+            "sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        }
+
+    if operation == "write":
+        if not isinstance(content, str):
+            raise ToolInputError("content must be a string")
+        source = content
+        existed = target.exists()
+    else:
+        if not isinstance(old_text, str) or not old_text:
+            raise ToolInputError("old_text must be a non-empty string")
+        if not isinstance(new_text, str):
+            raise ToolInputError("new_text must be a string")
+        source = target.read_text(encoding="utf-8")
+        expected = _bounded_integer(
+            expected_occurrences, default=1, minimum=1, maximum=1000
+        )
+        actual = source.count(old_text)
+        if actual != expected:
+            raise ToolInputError(
+                f"old_text occurrence mismatch: expected {expected}, found {actual}"
+            )
+        source = source.replace(old_text, new_text)
+        existed = True
+
+    if len(source) > MAX_WORKSPACE_TEXT_CHARS:
+        raise ToolInputError(
+            f"resulting content exceeds {MAX_WORKSPACE_TEXT_CHARS} characters"
+        )
+    if expected_sha256 not in (None, ""):
+        expected_hash = str(expected_sha256).strip().casefold()
+        current_hash = (
+            hashlib.sha256(target.read_bytes()).hexdigest() if target.exists() else "missing"
+        )
+        if current_hash != expected_hash:
+            raise ToolInputError(
+                f"sha256 mismatch: expected {expected_hash}, found {current_hash}"
+            )
+    validation = _validate_workspace_text(target, source)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            output.write(source)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, target)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+    return {
+        "action": operation,
+        "path": str(target),
+        "created": not existed,
+        "chars": len(source),
+        "bytes": len(source.encode("utf-8")),
+        "sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        "validation": validation,
     }
 
 
@@ -2051,6 +2212,19 @@ class PortalToolHarness:
                 result = self.workspace.notes(session_id, arguments)
             elif name == "task_list":
                 result = self.workspace.task_list(session_id, arguments)
+            elif name == "workspace_file":
+                result = _workspace_file(
+                    arguments.get("action"),
+                    arguments.get("path"),
+                    content=arguments.get("content"),
+                    old_text=arguments.get("old_text"),
+                    new_text=arguments.get("new_text"),
+                    expected_occurrences=arguments.get("expected_occurrences"),
+                    expected_sha256=arguments.get("expected_sha256"),
+                    max_chars=arguments.get("max_chars"),
+                    offset_chars=arguments.get("offset_chars"),
+                    depth=arguments.get("depth"),
+                )
             elif name == "shell":
                 result = _run_shell(
                     arguments.get("command"),

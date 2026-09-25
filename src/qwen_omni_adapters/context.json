@@ -124,6 +124,28 @@
         }
       }
     },
+    "task_expand": {
+      "type": "function",
+      "function": {
+        "name": "task_expand",
+        "description": "Page exact retained tool receipts back into working context by evidence ID after compaction. Use only when a tagged focus item is relevant but its compact record lacks a detail needed for the next action. Expansion restores evidence; it is not new progress and must not be cited as a fresh external result.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 8
+            }
+          },
+          "required": ["evidence_ids"],
+          "additionalProperties": false
+        }
+      }
+    },
     "task_recovery": {
       "type": "function",
       "function": {
@@ -986,6 +1008,72 @@
       "schema": {
         "type": "function",
         "function": {
+          "name": "workspace_file",
+          "description": "Perform one compact filesystem operation with an immediate bounded receipt. Prefer this over raw shell for creating directories, listing or reading project files, writing a complete UTF-8 file, or replacing one exact text span. Python and JSON writes are parsed before they are committed. Use shell for running programs, tests, installers, processes, or operations this contract cannot express.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": ["list", "read", "mkdir", "write", "replace"]
+              },
+              "path": {
+                "type": "string",
+                "description": "Absolute or working-directory-relative filesystem path."
+              },
+              "content": {
+                "type": "string",
+                "maxLength": 65536,
+                "description": "Exact UTF-8 content for write."
+              },
+              "old_text": {
+                "type": "string",
+                "description": "Exact existing text for replace."
+              },
+              "new_text": {
+                "type": "string",
+                "description": "Replacement text for replace."
+              },
+              "expected_occurrences": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000,
+                "description": "Required old_text match count; defaults to one."
+              },
+              "expected_sha256": {
+                "type": "string",
+                "description": "Optional compare-and-swap digest of the existing file."
+              },
+              "max_chars": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65536,
+                "description": "Bounded read length; defaults to 12000."
+              },
+              "offset_chars": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Character offset for a paged read."
+              },
+              "depth": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5,
+                "description": "Recursive list depth; defaults to two."
+              }
+            },
+            "additionalProperties": false,
+            "required": ["action", "path"]
+          }
+        }
+      },
+      "discovery_hints": "workspace project filesystem file directory folder mkdir create write edit replace patch read inspect list source code plan documentation docs html css javascript python json",
+      "memory_admission": "bounded"
+    },
+    {
+      "schema": {
+        "type": "function",
+        "function": {
           "name": "shell",
           "description": "Run an unrestricted Bash command on the portal host and return stdout, stderr, exit status, working directory, and timeout state. This is not a read-only sandbox. In a live foreground voice turn, use it only for one bounded command or immediate inspection; hand mutation, verification, retry, or multi-command work to background_task. Inside an already-delegated background task, use shell freely for the full job. For generated file content, pass it through stdin to a command such as tee instead of embedding multiline text in fragile shell quoting.",
           "parameters": {
@@ -1018,7 +1106,7 @@
           }
         }
       },
-      "discovery_hints": "shell bash terminal command execute run script host filesystem process system sudo systemctl system c t l service restart jtop jet top create write edit file folder directory ffmpeg encode media probe",
+      "discovery_hints": "shell bash terminal command execute run program tests pytest script host process install package system sudo systemctl system c t l service restart jtop jet top ffmpeg encode media probe",
       "memory_admission": "executor",
       "memory_reserve_gib": 0.5
     },

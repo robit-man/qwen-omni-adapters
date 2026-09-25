@@ -29,12 +29,14 @@ from harness.background_agent import (
     _checkpoint_retry_pending,
     _compact_task_messages,
     _compaction_available,
+    _compaction_evidence_records,
     _compaction_receipt,
     _compaction_tool_available,
     _computer_action_messages,
     _context_metrics,
     _direct_alternative_tools,
     _discard_visual_frames,
+    _focus_memory,
     _ForegroundPreempted,
     _freshest_evidence_id,
     _ground_visual_click,
@@ -680,6 +682,15 @@ def test_background_task_store_compaction_is_control_not_progress(
             "before": {"messages": 40, "bytes": 90000},
             "after": {"messages": 2, "bytes": 1000},
         },
+        evidence_records=[
+            {
+                "evidence_id": "fetch-1",
+                "tool": "web_fetch",
+                "arguments": '{"url":"https://example.test/source"}',
+                "result": '{"content":"exact retained source"}',
+                "result_sha256": "abc123",
+            }
+        ],
     )
 
     assert compacted is not None
@@ -688,6 +699,33 @@ def test_background_task_store_compaction_is_control_not_progress(
     assert compacted["compaction"]["before"]["messages"] == 40
     raw = json.loads((tmp_path / "tasks.json").read_text(encoding="utf-8"))
     assert raw["tasks"][0]["messages"][1]["content"] == "exact objective"
+    assert store.expand_evidence(created["task_id"], ["fetch-1"]) == [
+        {
+            "evidence_id": "fetch-1",
+            "tool": "web_fetch",
+            "arguments": '{"url":"https://example.test/source"}',
+            "result": '{"content":"exact retained source"}',
+            "result_sha256": "abc123",
+        }
+    ]
+
+    # Evidence is append-only across later compactions with the same ID.
+    store.compact_context(
+        created["task_id"],
+        "worker",
+        messages=[{"role": "system", "content": "new working set"}],
+        receipt={"schema": "robit.omni.task-compaction.v1"},
+        evidence_records=[
+            {
+                "evidence_id": "fetch-1",
+                "tool": "web_fetch",
+                "result": "replacement must not overwrite",
+            }
+        ],
+    )
+    assert store.expand_evidence(created["task_id"], ["fetch-1"])[0][
+        "result"
+    ] == '{"content":"exact retained source"}'
 
 
 def test_background_task_blocks_after_three_expired_worker_leases(
@@ -1084,6 +1122,101 @@ def test_duplicate_guard_is_scoped_to_the_immediately_preceding_external_call() 
             },
         ]
     ) == _latest_tool_fingerprint([build, repair])
+
+
+def test_compaction_retains_typed_expandable_focus_records() -> None:
+    task = {
+        "actions": [
+            {
+                "call_id": "source-1",
+                "tool": "web_fetch",
+                "arguments": json.dumps(
+                    {"url": "https://example.test/field-service"}
+                ),
+                "outcome": json.dumps({"content": "retrieved"}),
+                "ok": True,
+            },
+            {
+                "call_id": "file-1",
+                "tool": "workspace_file",
+                "arguments": json.dumps(
+                    {"action": "write", "path": "/tmp/project/docs/research.md"}
+                ),
+                "outcome": json.dumps(
+                    {
+                        "action": "write",
+                        "path": "/tmp/project/docs/research.md",
+                        "sha256": "deadbeef",
+                        "validation": "text",
+                    }
+                ),
+                "ok": True,
+            },
+            {
+                "call_id": "checkpoint-1",
+                "tool": "task_checkpoint",
+                "arguments": json.dumps(
+                    {
+                        "action": "progress",
+                        "report": "Research is written.",
+                        "criteria_assessment": "Research satisfied; plan remains.",
+                        "evidence_ids": ["file-1"],
+                    }
+                ),
+                "outcome": json.dumps({"accepted": True}),
+                "ok": True,
+            },
+        ]
+    }
+
+    focus = _focus_memory(task)
+
+    assert 'schema="robit.omni.background-focus.v1"' in focus
+    assert "<phase_checkpoints>" in focus
+    assert "<acquired_sources>" in focus
+    assert "<artifacts>" in focus
+    assert "https://example.test/field-service" in focus
+    assert "/tmp/project/docs/research.md" in focus
+    assert "Research satisfied; plan remains." in focus
+    assert "task_expand(source-1)" in focus
+    assert "Do not redo an acquired source" in focus
+
+
+def test_compaction_archives_model_visible_evidence_for_expansion() -> None:
+    messages = [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "fetch-1",
+                    "function": {
+                        "name": "web_fetch",
+                        "arguments": {"url": "https://example.test/source"},
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_name": "web_fetch",
+            "tool_call_id": "fetch-1",
+            "content": json.dumps(
+                {
+                    "content": "exact page excerpt",
+                    "provenance": {"source_url": "https://example.test/source"},
+                }
+            ),
+        },
+    ]
+
+    records = _compaction_evidence_records(messages)
+
+    assert len(records) == 1
+    assert records[0]["evidence_id"] == "fetch-1"
+    assert records[0]["tool"] == "web_fetch"
+    assert "exact page excerpt" in records[0]["result"]
+    assert len(records[0]["result_sha256"]) == 64
 
 
 def test_discovery_after_checkpoint_does_not_erase_last_concrete_call() -> None:
