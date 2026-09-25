@@ -323,6 +323,17 @@ class GuiAutomation:
         coordinate_space = self._space_name(
             arguments, observed_space=observed_space
         )
+        scope_adjustment = None
+        if (
+            action == "snapshot"
+            and not isinstance(observed_identity, tuple)
+            and coordinate_space == "screen"
+        ):
+            # Establish a bounded, high-signal frame before exposing the whole
+            # workspace. A later explicit screen snapshot remains available after
+            # the caller has observed which window currently owns focus.
+            coordinate_space = "active_window"
+            scope_adjustment = "initial_snapshot_scoped_to_active_window"
         if (
             action in {"click", "drag"}
             and "coordinate_space" in arguments
@@ -432,6 +443,9 @@ class GuiAutomation:
         wait_ms = self._integer(arguments.get("wait_ms", 250), "wait_ms", 0, 5000)
         if wait_ms:
             time.sleep(wait_ms / 1000.0)
-        return self._annotate_visual_change(
+        result = self._annotate_visual_change(
             _session_id, self._snapshot(coordinate_space)
         )
+        if scope_adjustment is not None:
+            result["scope_adjustment"] = scope_adjustment
+        return result

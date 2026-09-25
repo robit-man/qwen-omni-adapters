@@ -157,6 +157,10 @@ def test_full_screen_observation_keeps_screen_coordinates_for_next_click(
         window=(80, 60, 900, 700),
         target=(1100, 820),
     )
+    initial = gui.act(
+        "fixture", {"action": "snapshot", "coordinate_space": "screen"}
+    )
+    assert _decoded_image(initial).size == (900, 700)
     observed = gui.act(
         "fixture", {"action": "snapshot", "coordinate_space": "screen"}
     )

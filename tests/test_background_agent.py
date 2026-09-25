@@ -1393,10 +1393,7 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
             arguments = {"query": "visual rendered browser navigation"}
         elif chat_round == 2:
             assert payload["think"] is False
-            assert tool_names == [
-                "tool_search",
-                "browser_interact",
-            ]
+            assert tool_names == ["browser_interact"]
             call_name = "browser_interact"
             arguments = {"action": "navigate", "url": "http://example.test/"}
         else:

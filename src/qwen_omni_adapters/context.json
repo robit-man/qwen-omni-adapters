@@ -408,7 +408,7 @@
         "type": "function",
         "function": {
           "name": "gui_interact",
-          "description": "See and operate the active Ubuntu desktop. The first screenshot defaults to the active window; later pointer actions remain bound to the most recently returned image frame when coordinate_space is omitted. Use coordinate_space=screen for panels, the workspace, or switching windows. An active-window action fails safely if focus changed after observation. Snapshot before acting, then assess the fresh image returned after every action.",
+          "description": "See and operate the active Ubuntu desktop. The first GUI screenshot is always scoped to the active window, even if screen is requested; after that bounded observation, coordinate_space=screen is available for panels, the workspace, or switching windows. Later pointer actions remain bound to the most recently returned image frame when coordinate_space is omitted. An active-window action fails safely if focus changed after observation. Snapshot before acting, then assess the fresh image returned after every action.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -446,7 +446,7 @@
                   "active_window",
                   "screen"
                 ],
-                "description": "Coordinate frame and screenshot scope. The first call defaults to active_window; an omitted value on a later call reuses that session's newest returned image frame. Choose screen when the target is outside the active window."
+                "description": "Coordinate frame and screenshot scope. The first GUI observation is forced to active_window; screen becomes available after that scoped frame. An omitted value on a later call reuses that session's newest returned image frame. Choose screen only when the target is outside the active window."
               },
               "button": {
                 "type": "integer",

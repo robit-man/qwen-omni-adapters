@@ -277,6 +277,7 @@ def test_gui_omitted_space_reuses_the_last_screen_snapshot() -> None:
 
     gui = Gui()
     gui.act("session", {"action": "snapshot", "coordinate_space": "screen"})
+    gui.act("session", {"action": "snapshot", "coordinate_space": "screen"})
     gui.act("session", {"action": "click", "x": 380, "y": 62, "wait_ms": 0})
 
     assert [
@@ -295,6 +296,31 @@ def test_gui_rejects_pointer_action_before_any_gui_snapshot() -> None:
 
     with pytest.raises(GuiAutomationError, match="fresh GUI snapshot"):
         gui.act("session", {"action": "click", "x": 100, "y": 100})
+
+
+def test_gui_first_screen_request_is_scoped_to_the_active_window() -> None:
+    class Gui(GuiAutomation):
+        def _snapshot(self, coordinate_space: str = "active_window") -> dict[str, Any]:
+            assert coordinate_space == "active_window"
+            return {
+                "rendered": True,
+                "coordinate_space": {
+                    "name": "active_window",
+                    "width": 1000,
+                    "height": 700,
+                },
+                "active_window": {"id": "42"},
+                "visual_fingerprint": self._visual_fingerprint(
+                    Image.new("RGB", (32, 32), "white")
+                ),
+            }
+
+    result = Gui().act(
+        "session", {"action": "snapshot", "coordinate_space": "screen"}
+    )
+
+    assert result["coordinate_space"]["name"] == "active_window"
+    assert result["scope_adjustment"] == "initial_snapshot_scoped_to_active_window"
 
 
 def test_gui_rejects_switching_coordinate_frames_without_observing_it() -> None:

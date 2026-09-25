@@ -2184,6 +2184,10 @@ class BackgroundAgent:
                                 ]
                             )
                         )[:3]
+                        # Discovery is a routing result, not an invitation to
+                        # discover again. Require one concrete attempt before the
+                        # broad discovery schema returns to the action space.
+                        suppress_discovery = bool(active_tools)
                 elif name and name != "background_task":
                     active_tools = [name]
                 tool_message: dict[str, Any] = {
