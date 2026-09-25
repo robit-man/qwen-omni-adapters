@@ -73,7 +73,7 @@ def test_custom_physical_context_is_reported_not_hard_coded(tmp_path: Path) -> N
     assert result["resident_input_ceiling"] == 9_904
 
 
-def test_derived_memories_are_subject_scoped_but_constraints_remain_pinned(
+def test_derived_memories_and_constraints_are_deterministically_task_scoped(
     tmp_path: Path,
 ) -> None:
     store = ImmutableEvidenceStore(tmp_path / "memory-scope.sqlite3")
@@ -93,9 +93,22 @@ def test_derived_memories_are_subject_scoped_but_constraints_remain_pinned(
     )
     constraint = store.write_memory(
         MemoryClass.CONSTRAINT,
-        "constraint:any",
-        "MUST preserve the golden configuration",
+        "dropbear_left_controller",
+        "MUST preserve the dropbear_left_controller configuration",
         provenance=[pointer],
+    )
+    irrelevant_constraint = store.write_memory(
+        MemoryClass.CONSTRAINT,
+        "camera encoder profile",
+        "MUST preserve the camera encoder profile",
+        provenance=[pointer],
+    )
+    global_constraint = store.write_memory(
+        MemoryClass.CONSTRAINT,
+        "verified answers",
+        "MUST cite verified source evidence",
+        provenance=[pointer],
+        metadata={"scope": "global"},
     )
 
     selected = select_relevant_memories(
@@ -105,5 +118,7 @@ def test_derived_memories_are_subject_scoped_but_constraints_remain_pinned(
 
     assert relevant in selected
     assert constraint in selected
+    assert global_constraint in selected
     assert irrelevant not in selected
+    assert irrelevant_constraint not in selected
     store.close()

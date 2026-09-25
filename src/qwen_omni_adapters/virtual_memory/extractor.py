@@ -34,6 +34,16 @@ _DECISION_RE = re.compile(
     re.IGNORECASE,
 )
 _OPEN_RE = re.compile(r"^(?:todo|open question|unresolved)\s*[:\-]", re.IGNORECASE)
+_SUBJECT_BEFORE_MODAL_RE = re.compile(
+    r"^(?P<subject>[A-Za-z_][\w.:-]*(?:\s+[A-Za-z_][\w.:-]*){0,5})\s+"
+    r"(?:must(?:\s+not)?|shall(?:\s+not)?)\b",
+    re.IGNORECASE,
+)
+_LEADING_MODAL_RE = re.compile(
+    r"^(?:must(?:\s+not)?|shall(?:\s+not)?|never|always|do\s+not|don't)\s+",
+    re.IGNORECASE,
+)
+_LEADING_DETERMINERS = {"a", "an", "any", "each", "every", "the"}
 
 
 @dataclass(frozen=True)
@@ -75,17 +85,36 @@ class StructuredMemoryExtractor:
     def _subject(value: str) -> str:
         return value.strip().strip("`'\"").rstrip(".:")
 
+    @staticmethod
+    def _constraint_subject(content: str) -> str:
+        """Derive a stable entity/task scope rather than an opaque hash alone."""
+
+        before_modal = _SUBJECT_BEFORE_MODAL_RE.match(content)
+        if before_modal:
+            return StructuredMemoryExtractor._subject(before_modal.group("subject"))
+        remainder = _LEADING_MODAL_RE.sub("", content, count=1)
+        # Leading-modal constraints normally begin with an action. Drop that
+        # verb and retain the bounded object phrase as the deterministic scope.
+        words = re.findall(r"[A-Za-z0-9_.$:-]+", remainder)
+        if words:
+            words = words[1:]
+        while words and words[0].casefold() in _LEADING_DETERMINERS:
+            words.pop(0)
+        if words:
+            return StructuredMemoryExtractor._subject(" ".join(words[:6]))
+        digest = hashlib.sha256(content.casefold().encode()).hexdigest()[:16]
+        return f"constraint:{digest}"
+
     def candidates(self, chunk: EvidenceChunk) -> list[ExtractedCandidate]:
         candidates = []
         for content, start, end in _spans(chunk.original_text):
             if _CONSTRAINT_RE.search(content) and not re.match(
                 r"^I\s+must\b", content, re.IGNORECASE
             ):
-                digest = hashlib.sha256(content.casefold().encode()).hexdigest()[:16]
                 candidates.append(
                     ExtractedCandidate(
                         MemoryClass.CONSTRAINT,
-                        f"constraint:{digest}",
+                        self._constraint_subject(content),
                         content,
                         start,
                         end,

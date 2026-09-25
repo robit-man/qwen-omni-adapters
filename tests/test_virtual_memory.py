@@ -483,6 +483,7 @@ def test_structured_extractor_promotes_constraints_and_explicit_supersession(
     old_decision = next(memory for memory in created if memory.memory_class is MemoryClass.DECISION)
     new_decision = updated[0]
     assert constraint.importance == 1.0
+    assert constraint.subject == "golden controller"
     assert constraint.ttl_seconds is None
     assert store.reconstruct(constraint.memory_id)[0][1] == constraint.content
     assert new_decision.supersedes == old_decision.memory_id

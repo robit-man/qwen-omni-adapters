@@ -33,15 +33,22 @@ class PreparedTurn:
 
 
 _MEMORY_SCOPE_STOP_WORDS = {
+    "always",
     "and",
     "are",
+    "constraint",
     "current",
     "did",
+    "do",
     "does",
     "for",
     "from",
     "how",
     "into",
+    "must",
+    "never",
+    "not",
+    "shall",
     "that",
     "the",
     "their",
@@ -57,6 +64,18 @@ _MEMORY_SCOPE_STOP_WORDS = {
 }
 
 
+def _scope_terms(value: str) -> set[str]:
+    terms = {
+        raw.strip(".$:-").casefold()
+        for raw in re.findall(r"[A-Za-z0-9_.$:-]{3,}", value)
+    }
+    return {
+        term
+        for term in terms
+        if len(term) >= 3 and term not in _MEMORY_SCOPE_STOP_WORDS
+    }
+
+
 def select_relevant_memories(
     memories: Sequence[MemoryRecord],
     query: str,
@@ -65,30 +84,47 @@ def select_relevant_memories(
 ) -> list[MemoryRecord]:
     """Deterministically scope derived memory without similarity-only recall.
 
-    Constraints and the current execution plan remain hard pins.  Other memory
-    classes must be explicitly active or share a stable subject identifier with
-    the current request.  Raw evidence is unaffected and remains recoverable.
+    Relevant constraints and the current execution plan remain hard pins.
+    Constraints are selected by explicit global scope, active subject, or exact
+    lexical/entity overlap; pinning every constraint in the corpus leaks stale
+    task policy into unrelated answers. Other memory classes must be explicitly
+    active or share a stable subject identifier with the current request. Raw
+    evidence is unaffected and remains recoverable.
     """
 
     selected_subjects = {subject.casefold() for subject in active_subjects}
     query_folded = query.casefold()
-    query_terms = {
-        term.casefold()
-        for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", query)
-        if term.casefold() not in _MEMORY_SCOPE_STOP_WORDS
-    }
+    query_terms = _scope_terms(query)
     selected = []
     for memory in memories:
-        if memory.memory_class in {MemoryClass.CONSTRAINT, MemoryClass.CURRENT_PLAN}:
+        if memory.memory_class is MemoryClass.CURRENT_PLAN:
             selected.append(memory)
             continue
         subject = memory.subject.casefold()
-        subject_terms = {
-            term.casefold()
-            for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", memory.subject)
-        }
+        subject_terms = _scope_terms(memory.subject)
         explicitly_active = subject in selected_subjects
         subject_mentioned = subject in query_folded or bool(subject_terms & query_terms)
+        if memory.memory_class is MemoryClass.CONSTRAINT:
+            content_folded = memory.content.casefold()
+            content_terms = _scope_terms(memory.content)
+            active_entity_mentioned = any(
+                active in content_folded for active in selected_subjects
+            )
+            globally_scoped = memory.metadata.get("scope") == "global"
+            content_overlap = content_terms & query_terms
+            if (
+                globally_scoped
+                or explicitly_active
+                or subject_mentioned
+                or active_entity_mentioned
+                # Backward-compatible path for older opaque constraint
+                # subjects: require two exact content anchors so an incidental
+                # verb such as "replace" in a historical question does not
+                # activate an unrelated policy.
+                or len(content_overlap) >= 2
+            ):
+                selected.append(memory)
+            continue
         if explicitly_active or subject_mentioned:
             selected.append(memory)
     return selected

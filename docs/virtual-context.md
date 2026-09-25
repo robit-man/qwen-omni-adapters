@@ -26,8 +26,11 @@ The `qwen_omni_adapters.virtual_memory` package provides:
   become small verified memories with reconstructable source offsets, while
   partial or conflicting relations fall back to raw evidence;
 - query-focused exact-span replay adjacent to the current query;
-- a hard context allocator that pins active constraints, reserves verified
-  structured memory before evidence expansion, and reserves output headroom;
+- a hard context allocator that pins deterministically relevant constraints,
+  reserves verified structured memory before evidence expansion, and reserves
+  output headroom. Constraint scope comes from explicit global metadata, an
+  active subject/entity, or exact task terms; unrelated historical constraints
+  are never pinned merely because they exist;
 - PAGE_IN/PAGE_OUT/PIN/UNPIN/EVICT/EXPAND/MERGE/SUPERSEDE/RECONSTRUCT telemetry.
 
 This foundation is model-agnostic. Guided Jetson deployment enables `active` mode

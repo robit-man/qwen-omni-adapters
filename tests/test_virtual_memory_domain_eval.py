@@ -48,6 +48,9 @@ def test_domain_hybrid_replays_every_required_topology_span_at_4k(
         if event["operation"] == "retrieval_candidates"
         for selected in event["detail"]["selected"]
     )
+    numerical = prepared["numerical_aggregation_evidence"]
+    assert "send_frame must surface" not in numerical.prompt
+    assert "golden controller configuration" not in numerical.prompt
 
 
 def test_domain_expected_terms_never_become_production_retrieval_input(
@@ -117,3 +120,20 @@ def test_domain_score_requires_all_exact_terms_and_rejects_decoys() -> None:
     assert decoy["required_recall"] == 1.0
     assert decoy["forbidden_found"] == 1
     assert decoy["passed"] is False
+
+
+def test_domain_score_ignores_presentation_whitespace_around_assignments() -> None:
+    corpus = build_adversarial_corpus(8_000)
+    scenario = next(
+        item
+        for item in corpus.scenarios
+        if item.name == "numerical_aggregation_evidence"
+    )
+
+    score = score_domain_answer(
+        scenario,
+        "NUM_ATLAS_W = 17, NUM_BOREAL_W=23, NUM_CYGNUS_W  =  31; total 71",
+    )
+
+    assert score["required_recall"] == 1.0
+    assert score["passed"] is True

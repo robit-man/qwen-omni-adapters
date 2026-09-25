@@ -13,6 +13,7 @@ model-answer suite while preserving the same evaluation boundary:
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass
@@ -88,12 +89,18 @@ def score_domain_answer(
 ) -> dict[str, Any]:
     """Score source-exact task content without influencing preparation."""
 
-    folded = str(prediction or "").casefold()
+    def canonical(value: str) -> str:
+        # Preserve exact identifiers and values while treating presentation
+        # whitespace around assignment operators as insignificant. A model
+        # rendering ``KEY = 17`` has not lost fidelity relative to ``KEY=17``.
+        return re.sub(r"\s*=\s*", "=", str(value or "").casefold())
+
+    folded = canonical(prediction)
     required_matches = {
-        term: term.casefold() in folded for term in scenario.required_terms
+        term: canonical(term) in folded for term in scenario.required_terms
     }
     forbidden_matches = {
-        term: term.casefold() in folded for term in scenario.forbidden_terms
+        term: canonical(term) in folded for term in scenario.forbidden_terms
     }
     required_found = sum(required_matches.values())
     required_total = len(required_matches)
