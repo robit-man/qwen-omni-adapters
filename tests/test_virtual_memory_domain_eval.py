@@ -174,3 +174,9 @@ def test_domain_score_ignores_presentation_whitespace_around_assignments() -> No
     )
     assert table_score["required_recall"] == 1.0
     assert table_score["passed"] is True
+
+    qualified_score = score_domain_answer(
+        replace(scenario, required_terms=("NUM_ATLAS_W=17",)),
+        "DriveConfig.NUM_ATLAS_W -> power://atlas = 17",
+    )
+    assert qualified_score["passed"] is True

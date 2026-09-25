@@ -106,12 +106,12 @@ def score_domain_answer(
         if not left or not right:
             return False
         # Markdown tables and compact prose may render an exact assignment as
-        # ``KEY | VALUE`` or ``KEY: VALUE``. Keep direction and a tight span so
-        # values from another row cannot satisfy the relation accidentally.
+        # ``KEY | VALUE`` or ``Type.KEY -> source = VALUE``. Keep direction and
+        # the same line so values from another row cannot satisfy the relation.
         return bool(
             re.search(
                 rf"(?<![A-Za-z0-9_]){re.escape(left)}(?![A-Za-z0-9_])"
-                rf"[^A-Za-z0-9_]{{0,64}}"
+                rf"[^\n]{{0,160}}?"
                 rf"(?<![A-Za-z0-9_]){re.escape(right)}(?![A-Za-z0-9_])",
                 text,
             )
