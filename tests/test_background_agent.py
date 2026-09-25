@@ -104,6 +104,8 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
     assert "https://example.test/field-service" in prompt
     assert "task_expand" not in prompt
     assert "no paging control is available or needed" in prompt
+    assert "Advance the earliest unmet prerequisite" in prompt
+    assert "downstream target absent" in prompt
     assert "Ignore unrelated topics" in prompt
     assert "every qualifier in the completion criteria as a constraint" in prompt
     assert prompt.endswith(AGENT_SYSTEM_PROMPT)
@@ -1646,6 +1648,9 @@ def test_query_results_transition_without_pinning_the_completed_query_tool() -> 
     ) == []
     assert _successor_tools(
         "workspace_file", {"error": "repeated_unchanged_result"}
+    ) == []
+    assert _successor_tools(
+        "browser_interact", {"error": "browser_navigation_error"}
     ) == []
 
 

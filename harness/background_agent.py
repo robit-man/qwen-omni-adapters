@@ -176,6 +176,12 @@ def _task_system_prompt(task: Mapping[str, Any]) -> str:
         contract.append(focus_memory)
     contract.extend(
         [
+            "<execution_frontier>Advance the earliest unmet prerequisite in the "
+            "task's stated sequence. A downstream verification, launch, or presentation "
+            "step cannot precede concrete evidence that its required artifact or input "
+            "exists. If a probe proves a downstream target absent, return to the "
+            "earliest missing prerequisite instead of probing variants of that absent "
+            "target.</execution_frontier>",
             "Keep every action causally relevant to this task. Ignore unrelated topics "
             "from model state or prior work.",
             "</current_task>",
@@ -1676,13 +1682,14 @@ def _successor_tools(name: str, result: Any) -> list[str]:
     """Keep only capabilities that remain causally useful after this result."""
 
     if isinstance(result, Mapping) and result.get("error") in {
+        "browser_navigation_error",
         "duplicate_tool_call",
         "repeated_unchanged_result",
     }:
-        # A locally rejected/no-change call performed no external action. Do
-        # not immediately restore the same sticky capability after the caller
-        # removed it for looping; the next round must return to discovery and
-        # select a materially different action space.
+        # A locally rejected/no-change call, or a rendered network-error page,
+        # cannot advance through another sticky call in the same action space.
+        # Return to discovery so the controller can select a materially
+        # different capability.
         return []
     alternatives = (
         _direct_alternative_tools(result) if isinstance(result, Mapping) else []

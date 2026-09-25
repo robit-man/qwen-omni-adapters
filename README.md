@@ -420,6 +420,10 @@ Background web fetches are provenance-bound as well: a target must appear in
 the accepted task/user input or prior search, browser, crawl, or fetch evidence.
 An invented address is rejected before network access and returned beside the
 exact admissible URLs so the next model step can choose a grounded source.
+The pinned task envelope also carries an explicit execution frontier: work
+advances the earliest unmet prerequisite in the user's stated order, and a
+failed downstream probe returns the worker to that prerequisite instead of
+encouraging variants of the same premature verification.
 Completed or blocked work ends with a brief natural spoken status only when the
 live conversation is idle. Detailed reports, evidence IDs, paths, and worker
 self-assessment stay in the indicator and task archive and are never passed
@@ -442,6 +446,9 @@ when a later pointer call omits its coordinate space, it remains bound to the
 newest returned frame. Active-window clicks fail safely if focus changed after
 observation. Every result also reports whether the coarse visual state materially
 changed, which lets the worker reject a missed click as non-progress.
+Chromium's rendered network-error documents remain visible evidence, but are
+tagged as failed navigation and release the sticky browser action space; a
+connection-refused page can never count as successful GUI verification.
 Actionable DOM controls are always re-resolved through live CDP geometry. For
 canvas, challenge, and image targets on Jetson, the conversational vision pass
 supplies a concise referring expression and an isolated resident Moondream 2

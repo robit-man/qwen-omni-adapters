@@ -28,6 +28,7 @@ from portal.browser import (
     _SNAPSHOT_SCRIPT,
     BrowserAutomationError,
     BrowserAutomationStore,
+    _navigation_error_metadata,
 )
 from portal.documents import SessionDocumentStore, extract_document
 from portal.gui import GuiAutomation, GuiAutomationError
@@ -160,6 +161,25 @@ def test_browser_native_form_actions_validate_control_types(tmp_path: Path) -> N
             {"id": "e3", "tag": "input", "type": "text"},
             "bypass",
         )
+
+
+def test_browser_network_error_page_is_failed_visual_evidence() -> None:
+    result = _navigation_error_metadata(
+        "chrome-error://chromewebdata/",
+        "This site can't be reached 127.0.0.1 refused to connect ERR_CONNECTION_REFUSED",
+    )
+
+    assert result == {
+        "error": "browser_navigation_error",
+        "message": (
+            "This site can't be reached 127.0.0.1 refused to connect "
+            "ERR_CONNECTION_REFUSED"
+        ),
+        "failure_scope": "target_state",
+        "task_blocked": False,
+        "retryable": False,
+    }
+    assert _navigation_error_metadata("https://example.test/", "Loaded") == {}
 
 
 def test_browser_upload_is_root_scoped_and_uses_cdp(tmp_path: Path) -> None:

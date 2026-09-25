@@ -160,6 +160,21 @@ def _challenge_metadata(title: str, url: str, visible_text: str) -> dict[str, An
     return {}
 
 
+def _navigation_error_metadata(url: str, visible_text: str) -> dict[str, Any]:
+    """Make Chromium's rendered network-error document explicit evidence."""
+
+    if not url.casefold().startswith("chrome-error://"):
+        return {}
+    detail = " ".join(visible_text.split())[:500]
+    return {
+        "error": "browser_navigation_error",
+        "message": detail or "Chromium rendered a navigation error page.",
+        "failure_scope": "target_state",
+        "task_blocked": False,
+        "retryable": False,
+    }
+
+
 def _visual_only_metadata(
     visible_text: str, elements: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -1037,6 +1052,7 @@ class BrowserAutomationStore:
         }
         result.update(_visual_only_metadata(visible_text, list(session.elements.values())))
         result.update(_challenge_metadata(title, url, visible_text))
+        result.update(_navigation_error_metadata(url, visible_text))
         return result
 
     def _element(self, session: _BrowserSession, element_id: Any) -> dict[str, Any]:
