@@ -725,6 +725,35 @@ def test_orderly_release_does_not_count_as_an_expired_lease(tmp_path: Path) -> N
     assert claimed.get("resume_count") in {None, 0}
 
 
+def test_agent_releases_lease_before_waiting_for_worker_join(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Keep this task durable during deployment.")
+    stop = threading.Event()
+    client = httpx.Client(transport=httpx.MockTransport(lambda _request: httpx.Response(200)))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=stop,
+        client=client,
+    )
+    assert store.claim_next(agent.owner) is not None
+
+    class JoinProbe:
+        def join(self, timeout: float) -> None:
+            assert timeout == 5
+            released = store.get(task["task_id"])
+            assert released is not None
+            assert released["status"] == "pending"
+            assert released.get("owner") is None
+
+    agent._thread = JoinProbe()  # type: ignore[assignment]
+    agent.close()
+    client.close()
+
+
 def test_background_task_claims_rotate_between_pending_work(tmp_path: Path) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
     first = store.create("First task")

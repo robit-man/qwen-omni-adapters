@@ -1293,12 +1293,16 @@ class BackgroundAgent:
     def close(self) -> None:
         self.stop.set()
         self._wake.set()
-        self._thread.join(timeout=5)
+        # Relinquish the durable lease before waiting for an in-flight HTTP
+        # request.  Service managers may enforce a stop deadline shorter than
+        # the request timeout; releasing after join can therefore turn an
+        # orderly deployment into a false expired-lease crash.
         released = self.store.release_owner(self.owner)
         if released:
             logger.info(
                 "released %d background task lease(s) for orderly shutdown", released
             )
+        self._thread.join(timeout=5)
         if self._owns_client:
             self._client.close()
         if self._decision_executor is not None:
