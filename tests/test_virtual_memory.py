@@ -494,6 +494,12 @@ def test_packer_uses_dependency_query_for_exact_line_replay(tmp_path: Path) -> N
     )
     store.ingest(source, source="events.log", kind="log")
     hit = HybridRetriever(store).retrieve('Trace dependency "RQMUC"')[0]
+    store.ingest(
+        "VAR SIT = 74925\nVAR YRE = VAR SIT\n",
+        source="unrelated.log",
+        kind="log",
+    )
+    distractor = HybridRetriever(store).retrieve('Trace dependency "SIT"')[0]
     packer = WorkingContextPacker(
         budget=ContextBudget(
             max_tokens=4096,
@@ -506,11 +512,17 @@ def test_packer_uses_dependency_query_for_exact_line_replay(tmp_path: Path) -> N
     packed = packer.pack(
         "Find all variables assigned the value 72955.",
         system_contract="Use exact evidence.",
-        evidence=[hit],
+        evidence=[distractor, hit],
         retrieval_queries=['Trace dependency "RQMUC"'],
     )
 
     assert "VAR FRHPM = VAR RQMUC" in packed.text
+    assert "VAR SIT = 74925" not in packed.text
+    assert any(
+        event["operation"] == "EVICT"
+        and event["detail"].get("reason") == "dependency_focus"
+        for event in packed.trace
+    )
     evidence_item = next(item for item in packed.items if item.category == "exact_evidence")
     pointer = evidence_item.provenance[0]
     chunk = store.get_chunk(pointer.chunk_id)

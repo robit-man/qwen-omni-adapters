@@ -132,11 +132,19 @@ class WorkingContextPacker:
         # recurrent state.  It is packed before those recoverable conveniences.
         evidence_cap = min(self.budget.evidence_target, available)
         evidence_query = " ".join((query, *retrieval_queries))
+        focus_terms = tuple(
+            dict.fromkeys(
+                term.casefold()
+                for retrieval_query in retrieval_queries
+                for term in re.findall(r'["\']([^"\']{2,200})["\']', retrieval_query)
+            )
+        )
         evidence_items = self._select_evidence(
             evidence_query,
             evidence,
             evidence_cap,
             collector,
+            focus_terms=focus_terms,
         )
         available -= sum(item.tokens for item in evidence_items)
 
@@ -351,11 +359,34 @@ class WorkingContextPacker:
         evidence: Sequence[RetrievalHit],
         cap: int,
         collector: TraceCollector,
+        *,
+        focus_terms: Sequence[str] = (),
     ) -> list[ContextItem]:
         selected = []
         used = 0
+        candidates = list(evidence)
+        if focus_terms:
+            focused = [
+                hit
+                for hit in candidates
+                if any(
+                    term in hit.chunk.original_text.casefold() for term in focus_terms
+                )
+            ]
+            if focused:
+                focused_ids = {hit.chunk.chunk_id for hit in focused}
+                for hit in candidates:
+                    if hit.chunk.chunk_id not in focused_ids:
+                        collector.record(
+                            MemoryOperation.EVICT,
+                            hit.chunk.chunk_id,
+                            reason="dependency_focus",
+                            recoverable=True,
+                            focus_terms=list(focus_terms),
+                        )
+                candidates = focused
         ranked = sorted(
-            evidence,
+            candidates,
             key=lambda hit: self._evidence_priority(query, hit),
             reverse=True,
         )
