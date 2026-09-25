@@ -34,6 +34,28 @@ def test_adversarial_corpus_has_exact_requested_size_and_no_answer_in_queries() 
     }
 
 
+def test_seeded_domain_variants_are_reproducible_distinct_and_answer_hidden() -> None:
+    first = build_adversarial_corpus(16_000, seed=91_307)
+    repeated = build_adversarial_corpus(16_000, seed=91_307)
+    different = build_adversarial_corpus(16_000, seed=91_308)
+
+    assert first.seed == 91_307
+    assert first.source_tokens == 16_000
+    assert conservative_token_estimate(first.source_text) == 16_000
+    assert first.source_text == repeated.source_text
+    assert first.scenarios == repeated.scenarios
+    assert first.source_text != different.source_text
+    assert first.scenarios != different.scenarios
+    assert tuple(item.position for item in first.documents) != tuple(
+        item.position for item in different.documents
+    )
+
+    single = next(item for item in first.scenarios if item.name == "single_needle")
+    assert single.required_terms[0] not in single.query
+    assert single.required_terms[0] in first.source_text
+    assert single.forbidden_terms[0] in first.source_text
+
+
 def test_matrix_preserves_oracle_ceiling_and_training_free_production_gate(
     tmp_path: Path,
 ) -> None:

@@ -53,6 +53,32 @@ def test_domain_hybrid_replays_every_required_topology_span_at_4k(
     assert "golden controller configuration" not in numerical.prompt
 
 
+def test_seeded_domain_variant_replays_randomized_evidence_at_4k(
+    tmp_path: Path,
+) -> None:
+    corpus = build_adversarial_corpus(16_000, seed=91_307)
+    with DomainVirtualContextHarness(
+        corpus,
+        database=tmp_path / "seeded-domain.sqlite3",
+        physical_context_tokens=4_096,
+    ) as harness:
+        prepared = {
+            scenario.name: harness.prepare(scenario, baseline="hybrid")
+            for scenario in corpus.scenarios
+        }
+
+    for scenario in corpus.scenarios:
+        item = prepared[scenario.name]
+        assert item.answer_allowed is True
+        assert item.sufficient is True
+        assert item.exact_provenance is True
+        assert item.resident_tokens <= 4_096 - 2_384
+        assert all(
+            term.casefold() in item.prompt.casefold()
+            for term in scenario.required_terms
+        )
+
+
 def test_domain_expected_terms_never_become_production_retrieval_input(
     tmp_path: Path,
 ) -> None:

@@ -38,6 +38,14 @@ def main() -> int:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--source-length", type=int, default=256_000)
     parser.add_argument(
+        "--seed",
+        type=int,
+        help=(
+            "build a deterministic held-out variant with randomized facts, "
+            "symbols, decoys, and evidence placement"
+        ),
+    )
+    parser.add_argument(
         "--baseline", choices=sorted(VALID_DOMAIN_BASELINES), default="hybrid"
     )
     parser.add_argument(
@@ -87,7 +95,7 @@ def main() -> int:
         except ValueError as exc:
             parser.error(str(exc))
 
-    corpus = build_adversarial_corpus(arguments.source_length)
+    corpus = build_adversarial_corpus(arguments.source_length, seed=arguments.seed)
     available = {scenario.name: scenario for scenario in corpus.scenarios}
     unknown = sorted(set(arguments.scenario) - set(available))
     if unknown:
@@ -168,6 +176,7 @@ def main() -> int:
         "source": {
             "tokens": corpus.source_tokens,
             "sha256": hashlib.sha256(corpus.source_text.encode("utf-8")).hexdigest(),
+            "seed": corpus.seed,
             "index_bytes": index_bytes,
             "store_stats": stats,
         },

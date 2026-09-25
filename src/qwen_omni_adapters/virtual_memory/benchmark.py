@@ -8,6 +8,7 @@ they are never appended to production retrieval queries.
 
 from __future__ import annotations
 
+import random
 import resource
 import time
 from collections.abc import Iterable, Sequence
@@ -84,6 +85,7 @@ class PreparedCorpus:
     scenarios: tuple[BenchmarkScenario, ...]
     source_text: str
     source_tokens: int
+    seed: int | None = None
 
 
 @dataclass(frozen=True)
@@ -355,12 +357,447 @@ def _scenarios() -> tuple[BenchmarkScenario, ...]:
     )
 
 
-def build_adversarial_corpus(source_tokens: int) -> PreparedCorpus:
-    """Build the same adversarial facts at each requested source length."""
+def _randomized_fixture(
+    seed: int,
+) -> tuple[list[BenchmarkDocument], tuple[BenchmarkScenario, ...]]:
+    """Create one deterministic, previously unseen domain-evaluation variant.
+
+    Seeded variants change both the address vocabulary and the payload values.
+    Only the task shapes remain stable.  Expected values are returned solely in
+    ``BenchmarkScenario`` evaluator fields and follow the same no-leak boundary
+    as the original development fixture.
+    """
+
+    rng = random.Random(int(seed))
+
+    def token(prefix: str, bits: int = 24) -> str:
+        return f"{prefix}_{rng.getrandbits(bits):0{bits // 4}X}"
+
+    def value(prefix: str) -> str:
+        return f"{prefix}-{rng.randrange(10_000, 99_999)}"
+
+    suffix = f"{rng.getrandbits(16):04x}"
+    needle_key = token("NEEDLE")
+    needle_value = value("Mineral")
+    needle_decoy_key = f"{needle_key[:-1]}{rng.choice('ABCDEF')}"
+    if needle_decoy_key == needle_key:
+        needle_decoy_key = f"{needle_key[:-1]}0"
+    needle_decoy_value = value("Decoy")
+
+    multi_keys = tuple(token(f"SURVEY_{name}") for name in ("A", "B", "C"))
+    multi_values = tuple(value(name) for name in ("Lumen", "Mica", "Nimbus"))
+    multi_decoy_key = f"{multi_keys[0]}_ARCHIVE"
+    multi_decoy_value = value("Stale")
+
+    controller_subject = f"motor_controller_{suffix}"
+    controller_old = value("MC-OLD")
+    controller_new = value("MC-NEW")
+
+    telemetry_key = f"telemetry_format_{suffix}"
+    telemetry_value = rng.choice(("CBOR", "JSONL", "MessagePack", "Parquet"))
+
+    emit_fn = f"emit_packet_{suffix}"
+    verify_fn = f"verify_packet_{suffix}"
+    error_type = f"IntegrityFault{rng.getrandbits(16):04X}"
+    error_code = token("E_FRAME")
+    timeout_name = f"PACKET_TIMEOUT_MS_{suffix.upper()}"
+    timeout_value = rng.randrange(180, 980)
+    test_name = f"test_{emit_fn}_surfaces_{error_type.lower()}"
+
+    root_entity = f"Rover{rng.getrandbits(12):03X}"
+    limb_entity = f"left_arm_{suffix}"
+    sensor_entity = f"Encoder{rng.getrandbits(12):03X}"
+    bus_entity = f"BUS_{rng.randrange(20, 90)}_{suffix.upper()}"
+    bitrate_key = f"{bus_entity}_RATE_BPS"
+    bitrate_value = rng.choice((250_000, 500_000, 800_000, 1_000_000, 2_000_000))
+    graph_decoy_value = rng.choice(
+        tuple(
+            value
+            for value in (125_000, 333_000, 666_000, 1_500_000)
+            if value != bitrate_value
+        )
+    )
+
+    numeric_keys = tuple(token(f"POWER_{name}", bits=16) for name in ("A", "B", "C"))
+    numeric_values = tuple(rng.sample(range(11, 89), 3))
+
+    conflict_subject = f"{root_entity.casefold()}_left_controller_{suffix}"
+    conflict_right = f"{root_entity.casefold()}_right_controller_{suffix}"
+    conflict_typo = f"{root_entity.casefold()}x_left_controller_{suffix}"
+    conflict_old = value("LEFT-OLD")
+    conflict_new = value("LEFT-NEW")
+    conflict_right_value = value("RIGHT")
+    conflict_decoy_value = value("LEFT-DECOY")
+
+    request_id = f"req-{rng.randrange(100, 999)}-{suffix}"
+    fault_code = token("E_THERMAL")
+    decoy_request_id = f"req-{rng.randrange(100, 999)}-{suffix}"
+    while decoy_request_id == request_id:
+        decoy_request_id = f"req-{rng.randrange(100, 999)}-{suffix}"
+    decoy_fault_code = f"{fault_code}_ARCHIVE"
+
+    labels = (
+        "single",
+        "single_decoy",
+        "decision",
+        "motor_v1",
+        "motor_v2",
+        "multi_a",
+        "multi_b",
+        "multi_c",
+        "multi_decoy",
+        "code_config",
+        "code_validator",
+        "code_bus",
+        "code_test",
+        "graph_1",
+        "graph_2",
+        "graph_3",
+        "graph_4",
+        "graph_decoy",
+        "power_a",
+        "power_b",
+        "power_c",
+        "conflict_v1",
+        "conflict_right",
+        "conflict_typo",
+        "conflict_v2",
+        "log",
+        "log_decoy",
+        "open",
+    )
+    slots = rng.sample(range(25, 850), len(labels))
+    positions = {label: slot / 1_000 for label, slot in zip(labels, slots, strict=True)}
+    for older, newer in (("motor_v1", "motor_v2"), ("conflict_v1", "conflict_v2")):
+        if positions[older] > positions[newer]:
+            positions[older], positions[newer] = positions[newer], positions[older]
+
+    metadata = {"held_out_seed": int(seed)}
+    documents = [
+        BenchmarkDocument(
+            f"conversation://constraint/{suffix}",
+            f"MUST NOT replace the golden controller configuration {suffix}.",
+            0.005,
+            kind="conversation",
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"notes://needle/{suffix}",
+            f"Calibration ledger: {needle_key} has exact value {needle_value}.",
+            positions["single"],
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"notes://needle-decoy/{suffix}",
+            f"Archived calibration ledger: {needle_decoy_key} has obsolete value {needle_decoy_value}.",
+            positions["single_decoy"],
+            metadata={**metadata, "distractor": True},
+        ),
+        BenchmarkDocument(
+            f"conversation://preference/{suffix}",
+            f"I chose to use {telemetry_key} {telemetry_value} for durable event exports.",
+            positions["decision"],
+            kind="conversation",
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"config://motor/{suffix}/v1",
+            f"{controller_subject} is configured as {controller_old}.",
+            positions["motor_v1"],
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"config://motor/{suffix}/v2",
+            f"{controller_subject} changed from {controller_old} to {controller_new}.",
+            positions["motor_v2"],
+            metadata=metadata,
+        ),
+        *[
+            BenchmarkDocument(
+                f"notes://survey/{suffix}/{index}",
+                f"Survey key {key} records {recorded}.",
+                positions[f"multi_{'abc'[index]}"],
+                metadata=metadata,
+            )
+            for index, (key, recorded) in enumerate(zip(multi_keys, multi_values, strict=True))
+        ],
+        BenchmarkDocument(
+            f"notes://survey-decoy/{suffix}",
+            f"Archived survey key {multi_decoy_key} records {multi_decoy_value}.",
+            positions["multi_decoy"],
+            metadata={**metadata, "distractor": True},
+        ),
+        BenchmarkDocument(
+            f"src://packet_{suffix}/config.py",
+            f"class PacketConfig:\n    {timeout_name} = {timeout_value}\n",
+            positions["code_config"],
+            kind="code",
+            media_type="text/x-python",
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"src://packet_{suffix}/validator.py",
+            (
+                f"class {error_type}(Exception):\n    pass\n\n"
+                f"def {verify_fn}(packet):\n"
+                "    if not packet.integrity_ok:\n"
+                f"        raise {error_type}(\"{error_code}\")\n"
+            ),
+            positions["code_validator"],
+            kind="code",
+            media_type="text/x-python",
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"src://packet_{suffix}/bus.py",
+            (
+                "from .config import PacketConfig\n"
+                f"from .validator import {verify_fn}\n\n"
+                f"def {emit_fn}(packet):\n"
+                f"    {verify_fn}(packet)\n"
+                f"    return PacketConfig.{timeout_name}\n"
+            ),
+            positions["code_bus"],
+            kind="code",
+            media_type="text/x-python",
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"tests://packet_{suffix}/test_bus.py",
+            (
+                f"def {test_name}():\n"
+                f"    # {emit_fn} must surface {error_type} for {error_code}.\n"
+                "    pass\n"
+            ),
+            positions["code_test"],
+            kind="code",
+            media_type="text/x-python",
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"graph://{suffix}/1",
+            f"{root_entity} uses {limb_entity}.",
+            positions["graph_1"],
+            metadata=metadata,
+            entities=(root_entity, limb_entity),
+            relationships=((root_entity, "uses", limb_entity),),
+        ),
+        BenchmarkDocument(
+            f"graph://{suffix}/2",
+            f"{limb_entity} uses {sensor_entity}.",
+            positions["graph_2"],
+            metadata=metadata,
+            entities=(limb_entity, sensor_entity),
+            relationships=((limb_entity, "uses", sensor_entity),),
+        ),
+        BenchmarkDocument(
+            f"graph://{suffix}/3",
+            f"{sensor_entity} communicates through {bus_entity}.",
+            positions["graph_3"],
+            metadata=metadata,
+            entities=(sensor_entity, bus_entity),
+            relationships=((sensor_entity, "communicates_through", bus_entity),),
+        ),
+        BenchmarkDocument(
+            f"graph://{suffix}/4",
+            f"{bus_entity} has exact setting {bitrate_key}={bitrate_value}.",
+            positions["graph_4"],
+            metadata=metadata,
+            entities=(bus_entity,),
+        ),
+        BenchmarkDocument(
+            f"graph://{suffix}/decoy",
+            (
+                f"{root_entity}_archive used retired bus {bus_entity}_OLD with "
+                f"{bitrate_key}_OLD={graph_decoy_value}."
+            ),
+            positions["graph_decoy"],
+            metadata={**metadata, "distractor": True},
+            entities=(f"{root_entity}_archive", f"{bus_entity}_OLD"),
+        ),
+        *[
+            BenchmarkDocument(
+                f"power://{suffix}/{index}",
+                f"Power ledger states {key}={number}.",
+                positions[f"power_{'abc'[index]}"],
+                metadata=metadata,
+            )
+            for index, (key, number) in enumerate(zip(numeric_keys, numeric_values, strict=True))
+        ],
+        BenchmarkDocument(
+            f"config://conflict/{suffix}/v1",
+            f"{conflict_subject} is configured as {conflict_old}.",
+            positions["conflict_v1"],
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"config://conflict/{suffix}/right",
+            f"{conflict_right} is configured as {conflict_right_value}.",
+            positions["conflict_right"],
+            metadata={**metadata, "distractor": True},
+        ),
+        BenchmarkDocument(
+            f"config://conflict/{suffix}/typo",
+            f"{conflict_typo} is configured as {conflict_decoy_value}.",
+            positions["conflict_typo"],
+            metadata={**metadata, "distractor": True},
+        ),
+        BenchmarkDocument(
+            f"config://conflict/{suffix}/v2",
+            f"{conflict_subject} changed from {conflict_old} to {conflict_new}.",
+            positions["conflict_v2"],
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"logs://thermal/{request_id}",
+            f"2038-06-11T09:14:27Z request={request_id} fault={fault_code} zone=gantry.",
+            positions["log"],
+            kind="log",
+            metadata=metadata,
+        ),
+        BenchmarkDocument(
+            f"logs://thermal/{decoy_request_id}",
+            (
+                f"2037-02-04T08:01:02Z request={decoy_request_id} "
+                f"fault={decoy_fault_code} status=retired."
+            ),
+            positions["log_decoy"],
+            kind="log",
+            metadata={**metadata, "distractor": True},
+        ),
+        BenchmarkDocument(
+            f"conversation://open-question/{suffix}",
+            "Open question: verify whether the auxiliary encoder is shielded.",
+            positions["open"],
+            kind="conversation",
+            metadata=metadata,
+        ),
+    ]
+
+    scenarios = (
+        BenchmarkScenario(
+            "single_needle",
+            "sparse_retrieval",
+            f"What exact value is recorded for {needle_key}?",
+            (needle_value,),
+            (needle_key,),
+            forbidden_terms=(needle_decoy_value,),
+        ),
+        BenchmarkScenario(
+            "multiple_needles",
+            "multi_source_retrieval",
+            f"Return the recorded values for {multi_keys[0]}, {multi_keys[1]}, and {multi_keys[2]}.",
+            multi_values,
+            multi_keys,
+            forbidden_terms=(multi_decoy_value,),
+        ),
+        BenchmarkScenario(
+            "chronology_and_supersession",
+            "temporal_contradiction",
+            f"What is the current {controller_subject} value and what value did it replace?",
+            (controller_old, controller_new),
+            (f"{controller_subject} is configured", f"{controller_subject} changed"),
+            active_memory_subject=controller_subject,
+            active_memory_term=controller_new,
+        ),
+        BenchmarkScenario(
+            "numerical_aggregation_evidence",
+            "numerical_aggregation",
+            f"Find {numeric_keys[0]}, {numeric_keys[1]}, and {numeric_keys[2]} so their total can be computed.",
+            tuple(f"{key}={number}" for key, number in zip(numeric_keys, numeric_values, strict=True)),
+            numeric_keys,
+        ),
+        BenchmarkScenario(
+            "multi_hop_entity_graph",
+            "multi_hop",
+            f"What exact numeric setting does {root_entity} ultimately use through its {limb_entity} sensor path?",
+            (limb_entity, sensor_entity, bus_entity, f"{bitrate_key}={bitrate_value}"),
+            (
+                f"{root_entity} uses",
+                f"{limb_entity} uses",
+                f"{sensor_entity} communicates through",
+                bitrate_key,
+            ),
+            forbidden_terms=(str(graph_decoy_value),),
+        ),
+        BenchmarkScenario(
+            "cross_file_symbol_trace",
+            "code_dependency",
+            (
+                f"Trace function `{emit_fn}` through `{verify_fn}` to error `{error_type}`, "
+                "including the relevant test and timeout constant."
+            ),
+            (
+                emit_fn,
+                verify_fn,
+                error_type,
+                test_name,
+                f"{timeout_name} = {timeout_value}",
+                error_code,
+            ),
+            (
+                f"def {emit_fn}",
+                f"def {verify_fn}",
+                f"def {test_name}",
+                f"{timeout_name} = {timeout_value}",
+            ),
+        ),
+        BenchmarkScenario(
+            "buried_constraint",
+            "constraint_persistence",
+            f"Replace the golden controller configuration {suffix} with a convenient local default.",
+            (f"MUST NOT replace the golden controller configuration {suffix}",),
+            (f"MUST NOT replace the golden controller configuration {suffix}",),
+        ),
+        BenchmarkScenario(
+            "user_decision",
+            "preference_and_decision",
+            f"Which {telemetry_key} did the user choose for durable event exports?",
+            (telemetry_key, telemetry_value),
+            (f"{telemetry_key} {telemetry_value}",),
+        ),
+        BenchmarkScenario(
+            "exact_log_string",
+            "exact_string_and_citation",
+            f"Which request emitted exact fault string `{fault_code}`?",
+            (request_id, fault_code),
+            (fault_code,),
+            forbidden_terms=(decoy_request_id,),
+        ),
+        BenchmarkScenario(
+            "near_duplicate_conflict",
+            "adversarial_conflict",
+            f"What is the current {conflict_subject} and what did it supersede?",
+            (conflict_old, conflict_new),
+            (f"{conflict_subject} is configured", f"{conflict_subject} changed"),
+            forbidden_terms=(conflict_right_value, conflict_decoy_value),
+            active_memory_subject=conflict_subject,
+            active_memory_term=conflict_new,
+        ),
+    )
+    return documents, scenarios
+
+
+def build_adversarial_corpus(
+    source_tokens: int,
+    *,
+    seed: int | None = None,
+) -> PreparedCorpus:
+    """Build fixed or seeded adversarial facts at a requested source length.
+
+    ``seed=None`` preserves the original development fixture byte-for-byte.
+    Any integer seed creates a deterministic held-out variant with randomized
+    identifiers, values, source positions, and semantically adjacent decoys.
+    """
 
     if source_tokens < 4_000:
         raise ValueError("source_tokens must be at least 4000")
-    evidence = sorted(_documents(), key=lambda item: item.position)
+    if seed is None:
+        evidence = _documents()
+        scenarios = _scenarios()
+    else:
+        evidence, scenarios = _randomized_fixture(int(seed))
+    evidence = sorted(evidence, key=lambda item: item.position)
     fixed_tokens = sum(_word_tokens(item.text) for item in evidence)
     if source_tokens <= fixed_tokens:
         raise ValueError("source token target is too small for benchmark evidence")
@@ -412,7 +849,7 @@ def build_adversarial_corpus(source_tokens: int) -> PreparedCorpus:
             raise ValueError("source token target is too small for benchmark evidence")
     else:  # pragma: no cover - construction invariant
         raise AssertionError(f"constructed {measured} tokens, expected {source_tokens}")
-    return PreparedCorpus(tuple(documents), _scenarios(), text, measured)
+    return PreparedCorpus(tuple(documents), scenarios, text, measured, seed=seed)
 
 
 def _dedupe_hits(hits: Iterable[RetrievalHit]) -> list[RetrievalHit]:

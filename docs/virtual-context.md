@@ -159,7 +159,7 @@ deployed model can actually use the prepared evidence:
 
 .venv/bin/python scripts/run_virtual_context_domain_eval.py \
   --output /tmp/domain-hybrid.json \
-  --source-length 256000 --physical-context 16384 \
+  --source-length 256000 --seed 91308 --physical-context 16384 \
   --physical-context-state-file runtime-data/state/comprehension-context-tokens \
   --endpoint http://127.0.0.1:8901/v1/chat/completions \
   --model local-audio-bridge
@@ -175,6 +175,14 @@ physical context, endpoint token usage, latency, compression, and per-term failu
 Use `--retrieval-profile hybrid-no-graph` to causally test the entity/code topology
 channels; use `--baseline fifo` and `--baseline oracle` for the resident-tail floor and
 evidence-pack ceiling.
+
+Supplying `--seed` generates a reproducible held-out variant rather than renaming the
+development fixture. It independently changes source placement, fact values, exact
+identifiers, code symbols, entity paths, revision values, request/fault IDs, and
+semantically adjacent obsolete decoys while preserving only the ten task shapes. The
+seed and source hash are recorded in the report. Select and record evaluation seeds
+before endpoint execution; do not tune against a failed seed and then report its rerun
+as held-out evidence.
 
 The output JSONL preserves the official fields and adds `pred`, so scoring is
 performed by NVIDIA RULER's official evaluator. The harness records the pinned RULER
