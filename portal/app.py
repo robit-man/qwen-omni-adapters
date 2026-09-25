@@ -47,7 +47,7 @@ from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
 from qwen_omni_adapters.context import context_text
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, DecisionWaveResult
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
-from qwen_omni_adapters.virtual_memory import LlamaCppTokenCounter
+from qwen_omni_adapters.virtual_memory import ContextOverflow, LlamaCppTokenCounter
 
 try:
     from portal.background_tasks import BackgroundTaskStore
@@ -1946,6 +1946,18 @@ def create_app(
                 accepted_documents,
                 query_override=query_override,
             )
+        except ContextOverflow as exc:
+            # The lossless corpus has already observed this turn. When the
+            # pinned system/query plus a deferred multimodal tool envelope do
+            # not fit the live KV tier, there is no lower-authority virtual
+            # item left to evict. Preserve the authoritative native request
+            # and let the adapter's bounded prompt shedding/transcript routing
+            # handle it instead of turning a spoken interruption into HTTP 500.
+            return None, {
+                **virtual_context.stats(session_id),
+                "working_set_fallback": "native_bounded_prompt",
+                "overflow": str(exc)[:300],
+            }
         except Exception as exc:  # noqa: BLE001 - shadow memory is not load-bearing
             if runtime.virtual_context_mode == "active":
                 raise PortalError(f"virtual context preparation failed: {exc}") from exc
@@ -1970,6 +1982,11 @@ def create_app(
                 query=query,
                 system_contract=system_contract,
             )
+        except ContextOverflow as exc:
+            return None, {
+                "working_set_fallback": "native_bounded_prompt",
+                "overflow": str(exc)[:300],
+            }
         except Exception as exc:  # noqa: BLE001 - shadow memory is advisory
             if runtime.virtual_context_mode == "active":
                 raise PortalError(f"virtual context follow-up failed: {exc}") from exc

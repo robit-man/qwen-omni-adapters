@@ -1432,6 +1432,43 @@ def test_virtual_context_active_repacks_each_tool_followup(tmp_path: Path) -> No
     assert response.json["portal"]["virtual_context"]["working_tokens"] <= 16_384
 
 
+def test_virtual_context_active_overflow_preserves_native_request(tmp_path: Path) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Still responsive."}},
+        )
+
+    app = create_app(
+        _config(
+            virtual_context_mode="active",
+            virtual_context_root=tmp_path / "virtual-context",
+            virtual_context_physical_tokens=4096,
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[
+                {"role": "system", "content": "pinned contract " * 1200},
+                {"role": "user", "content": "Answer this foreground turn."},
+            ]
+        ),
+    )
+
+    assert response.status_code == 200
+    assert requests[0]["messages"][-1]["content"] == "Answer this foreground turn."
+    virtual = response.json["portal"]["virtual_context"]
+    assert virtual["mode"] == "active"
+    assert virtual["working_set_fallback"] == "native_bounded_prompt"
+    assert "system contract and current query" in virtual["overflow"]
+
+
 def test_social_text_does_not_gain_an_unrelated_leaf_tool() -> None:
     requests: list[dict[str, Any]] = []
 

@@ -40,7 +40,11 @@ from qwen_omni_adapters.virtual_memory.models import (
     RetrievalHit,
     WorkingContext,
 )
-from qwen_omni_adapters.virtual_memory.packer import ContextBudget, WorkingContextPacker
+from qwen_omni_adapters.virtual_memory.packer import (
+    ContextBudget,
+    ContextOverflow,
+    WorkingContextPacker,
+)
 from qwen_omni_adapters.virtual_memory.recurrent import (
     QueryAwareRecurrentViewBuilder,
     RecurrentConfig,
@@ -57,6 +61,7 @@ from qwen_omni_adapters.virtual_memory.tokenization import LlamaCppTokenCounter
 __all__ = [
     "ChunkDraft",
     "ContextBudget",
+    "ContextOverflow",
     "ControllerAction",
     "ControllerConfig",
     "EvidenceChunk",
