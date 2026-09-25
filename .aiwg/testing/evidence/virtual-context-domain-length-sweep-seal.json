@@ -1,0 +1,53 @@
+{
+  "schema": "robit.virtual-context-domain-length-sweep-seal.v1",
+  "sealed_at": "2026-09-25T10:39:00-07:00",
+  "repository_revision": "a54a25b6330f7ccea688b1d0de7a51534de2aa0c",
+  "selection_policy": "One new seed evaluated at every declared source length. All length/hash pairs were committed before any endpoint inference for this seed.",
+  "seed": 26092507,
+  "physical_context_target_tokens": 4096,
+  "fixtures": [
+    {
+      "source_tokens": 16000,
+      "source_sha256": "b4a6f779fd8ca6f558ca7882e46d898899f8d38ccff5e7fac86f006e26949797",
+      "documents": 60,
+      "scenarios": 10
+    },
+    {
+      "source_tokens": 32000,
+      "source_sha256": "5d55aab6c86d0fe78eac9050f670311ce711529aee1e0509a8055c772fe89f70",
+      "documents": 63,
+      "scenarios": 10
+    },
+    {
+      "source_tokens": 64000,
+      "source_sha256": "be6ec5ee66e13b9704f44a9cd43c97112eefc31a9f9327beebfb4ceca70e8661",
+      "documents": 74,
+      "scenarios": 10
+    },
+    {
+      "source_tokens": 128000,
+      "source_sha256": "0a782d5e3d95af9067788d81685420903fa9ba37782620dea2fc2171d7500eaf",
+      "documents": 105,
+      "scenarios": 10
+    },
+    {
+      "source_tokens": 256000,
+      "source_sha256": "cb55fa9a629c59e593f98fc7d95c7136c841c407a69946d6b9c97045b6bd4ac1",
+      "documents": 166,
+      "scenarios": 10
+    },
+    {
+      "source_tokens": 512000,
+      "source_sha256": "ef385c08dc376d52ce2b059f23353a740e0acf42b07a1d88b86ff6a872030ab4",
+      "documents": 290,
+      "scenarios": 10
+    },
+    {
+      "source_tokens": 1000000,
+      "source_sha256": "4cea75cba0586a40f082051c2ba5d6fdb450f6c3444ce832f7de17da846bcc57",
+      "documents": 531,
+      "scenarios": 10
+    }
+  ],
+  "status": "sealed_pending_execution"
+}
