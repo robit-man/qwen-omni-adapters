@@ -1622,32 +1622,19 @@ def build_language_payload(
                 }
             else:
                 selected = set(rank_tool_names(query, tools, limit=3))
-            keep = gateways | selected
-            supplied_names = {
-                str(tool.get("function", {}).get("name") or "")
-                for tool in tools
-                if isinstance(tool, Mapping)
-                and isinstance(tool.get("function"), Mapping)
-            }
-            if (
-                _is_live_spoken_turn(parsed)
-                and "request_camera_view" in supplied_names
-                and not any(
-                    kind in {"image", "video"} for kind in parsed.input_modalities
-                )
-            ):
-                # Keep the camera bridge optional even when lexical routing did
-                # not select it. The model may need fresh gaze/attention
-                # evidence to decide whether ambiguous room speech addresses
-                # the embodied client. No image is attached unless the model
-                # explicitly requests it, and this optional schema does not
-                # make an otherwise conversational turn tool-required.
-                keep.add("request_camera_view")
+            # An empty relevance result is an ordinary answer/conversation
+            # turn, not an invitation to choose among every generic gateway.
+            # Supplying discovery/background/camera anyway overwhelmed the
+            # constrained trunk and turned simple arithmetic into a runaway
+            # tool-capability trajectory. A gateway remains available when it
+            # is itself relevant; a concrete leaf below is narrower still.
+            keep = set(selected)
             if any(kind in {"image", "video"} for kind in parsed.input_modalities):
                 # A fresh visual attachment fulfills the bridge request. Do
                 # not let the answer pass ask for another capture instead of
                 # examining the evidence it already has.
                 keep.discard("request_camera_view")
+                selected.discard("request_camera_view")
             payload["tools"] = [
                 tool
                 for tool in tools
@@ -1655,6 +1642,8 @@ def build_language_payload(
                 and isinstance(tool.get("function"), Mapping)
                 and str(tool["function"].get("name") or "") in keep
             ]
+            if not payload["tools"]:
+                payload.pop("tools", None)
             concrete = selected - gateways
             if concrete:
                 # Relevant routing is used after recovering a spoken request.

@@ -1587,7 +1587,7 @@ def test_live_model_control_may_silence_ambiguous_room_speech() -> None:
     assert final["adapter"]["tts_skipped_reason"] == "empty_assistant_response"
 
 
-def test_ambiguous_live_room_speech_keeps_camera_optional_without_forcing_it() -> None:
+def test_ordinary_live_speech_with_no_relevant_capability_exposes_no_tools() -> None:
     from runtime import adapter_server
 
     tools = [entry["schema"] for entry in configured_tools()]
@@ -1609,14 +1609,12 @@ def test_ambiguous_live_room_speech_keeps_camera_optional_without_forcing_it() -
 
     payload = adapter_server.build_language_payload(
         parsed,
-        "<speech_transcript>Maya, I'll call you tomorrow.</speech_transcript>",
+        "<speech_transcript>Egg what is two plus three.</speech_transcript>",
         "language",
         config=_adapter_config(),
     )
 
-    assert "request_camera_view" in {
-        item["function"]["name"] for item in payload["tools"]
-    }
+    assert "tools" not in payload
     assert payload.get("tool_choice") != "required"
 
 
@@ -2576,7 +2574,7 @@ def test_fresh_visual_evidence_cannot_request_the_same_camera_bridge_again() -> 
         "ollama",
     )
 
-    assert "request_camera_view" not in {
+    assert "tools" not in payload or "request_camera_view" not in {
         item["function"]["name"] for item in payload["tools"]
     }
 
