@@ -118,6 +118,30 @@ def test_python_code_topology_finds_callers_callees_imports_and_inheritance(
     store.close()
 
 
+def test_generic_code_hint_preserves_more_specific_python_topology(
+    tmp_path: Path,
+) -> None:
+    source = (
+        "from .validator import validate_frame\n\n"
+        "def send_frame(frame):\n"
+        "    return validate_frame(frame)\n"
+    )
+    store = ImmutableEvidenceStore(tmp_path / "generic-python.sqlite3")
+    store.ingest(
+        source,
+        source="src/bus.py",
+        media_type="text/x-python",
+        kind="code",
+    )
+
+    topology = store.code_search("validate_frame", max_hops=2)
+
+    assert any(chunk.parent_name == "send_frame" for chunk, _distance, _edges in topology)
+    assert any("calls" in edges for _chunk, _distance, edges in topology)
+    assert store.stats()["code_edges"] >= 2
+    store.close()
+
+
 def test_evidence_is_database_immutable_and_idempotent(tmp_path: Path) -> None:
     store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
     chunks = store.ingest(

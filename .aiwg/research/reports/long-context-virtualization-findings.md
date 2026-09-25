@@ -439,6 +439,19 @@ not suitable as a standalone semantic retriever. Exact settings and report hashe
 preserved in
 `.aiwg/testing/evidence/ruler-v1-256k-ablation-seed9137-jetson.json`.
 
+An answer-level domain harness now closes the measurement gap left by RULER. It uses
+the existing adversarial 16K--1M corpus but executes the deployed model on ten tasks
+covering Python topology, explicit entity relationships, pinned constraints,
+supersession/chronology, exact log joins, durable decisions, and near-duplicate
+conflicts. Expected and forbidden terms exist only in the post-inference scorer; the
+production controller sees the query and immutable corpus only. A 256K preparation
+run under a 4,096-token physical cap marked all ten tasks sufficient with exact
+provenance. During this work, a generic `kind=code` hint was found to override the more
+specific Python MIME/suffix and silently suppress AST call/import edges. The chunker
+now preserves the Python specialization; the same corpus indexes five code edges
+instead of zero. Model-answer, oracle, FIFO, and no-graph Jetson results remain to be
+recorded before making a domain-fidelity claim.
+
 ## Required next experiments
 
 - Repeat the 16K–1M model-answer curve with additional independent sealed seeds and
@@ -452,7 +465,7 @@ preserved in
   2K/4K/8K chunk-budget integrity matrix.
 - Replace the weak hashing-dense lane with a production-quality embedding model and
   rerun dense/hybrid ablations without changing the immutable corpus.
-- Extend the implemented code topology, chronology, supersession, contradictions, and
-  100K+ constraint fixtures into model-answer and adversarial held-out evaluations.
+- Run and seal the new code-topology, chronology, supersession, contradiction, and
+  100K+ constraint answer suite on the Jetson for hybrid, no-graph, FIFO, and oracle.
 - Measure latency, inference tokens, RAM/VRAM, SQLite/index size, and evidence tokens.
 - Prototype latent compilation only after the training-free V1 has a stable fidelity curve.

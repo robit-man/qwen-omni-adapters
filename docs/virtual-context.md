@@ -143,6 +143,36 @@ transformer:
   --endpoint http://127.0.0.1:8000/v1/chat/completions --model MODEL
 ```
 
+RULER does not materially exercise the runtime's explicit entity graph, Python
+call/import topology, pinned constraints, or versioned decisions. Run the separate
+domain answer gate against those paths. A preparation-only run proves retrieval,
+provenance, sufficiency, and physical packing; adding an endpoint measures whether the
+deployed model can actually use the prepared evidence:
+
+```bash
+.venv/bin/python scripts/run_virtual_context_domain_eval.py \
+  --output /tmp/domain-preparation.json \
+  --source-length 256000 --physical-context 4096
+
+.venv/bin/python scripts/run_virtual_context_domain_eval.py \
+  --output /tmp/domain-hybrid.json \
+  --source-length 256000 --physical-context 16384 \
+  --physical-context-state-file runtime-data/state/comprehension-context-tokens \
+  --endpoint http://127.0.0.1:8901/v1/chat/completions \
+  --model local-audio-bridge
+```
+
+The ten answer tasks cover sparse/multi-source recall, supersession chronology,
+numerical operands, a three-hop entity path, cross-file definitions/calls/imports/tests,
+a buried negative constraint, a durable user decision, an exact log/request join, and
+near-duplicate conflicting entities. Production preparation never reads required or
+forbidden evaluator terms. The labelled oracle uses fixture terms only to locate raw
+source pages. Reports retain controller/index traces, exact-provenance state, live
+physical context, endpoint token usage, latency, compression, and per-term failures.
+Use `--retrieval-profile hybrid-no-graph` to causally test the entity/code topology
+channels; use `--baseline fifo` and `--baseline oracle` for the resident-tail floor and
+evidence-pack ceiling.
+
 The output JSONL preserves the official fields and adds `pred`, so scoring is
 performed by NVIDIA RULER's official evaluator. The harness records the pinned RULER
 v1 revision and reattaches the generator's separated `answer_prefix`. Its

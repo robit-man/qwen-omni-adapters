@@ -118,7 +118,15 @@ class StructureAwareChunker:
     ) -> list[ChunkDraft]:
         if not text:
             return []
-        selected_kind = kind or self._kind(source, media_type)
+        inferred_kind = self._kind(source, media_type)
+        selected_kind = kind or inferred_kind
+        # ``code`` is a generic caller hint.  A Python suffix or MIME type is
+        # more specific and unlocks AST symbols, imports, calls, and class
+        # hierarchy.  Treating an explicitly labelled Python document as
+        # generic code silently discarded its topology while retaining only
+        # regex declaration boundaries.
+        if selected_kind == "code" and inferred_kind == "python":
+            selected_kind = "python"
         if selected_kind == "python":
             chunks = self._python(text)
         elif selected_kind == "code":
