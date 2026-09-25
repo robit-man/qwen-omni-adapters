@@ -36,6 +36,7 @@ from harness.background_agent import (
     _ForegroundPreempted,
     _freshest_evidence_id,
     _ground_visual_click,
+    _guard_repeated_unchanged_result,
     _inference_diagnostics,
     _latest_tool_fingerprint,
     _MalformedToolCall,
@@ -44,6 +45,7 @@ from harness.background_agent import (
     _seen_tool_fingerprints,
     _stream_error,
     _task_system_prompt,
+    _task_virtual_query,
     _tool_evidence,
 )
 from portal.background_tasks import BackgroundTaskStore
@@ -77,6 +79,23 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
     assert "Ignore unrelated topics" in prompt
     assert "every qualifier in the completion criteria as a constraint" in prompt
     assert prompt.endswith(AGENT_SYSTEM_PROMPT)
+
+
+def test_task_virtual_query_reserves_space_for_latest_direction() -> None:
+    latest_direction = "Use the corrected source and write the retained plan."
+    query = _task_virtual_query(
+        {
+            "objective": "long objective token " * 500,
+            "guidance": [
+                {"content": "An older direction."},
+                {"content": latest_direction},
+            ],
+        }
+    )
+
+    assert query.startswith("Advance and verify the pinned task. Objective: ")
+    assert f"Latest user direction: {latest_direction}" in query
+    assert len(query) <= 1_200
 
 
 def test_background_inference_diagnostics_report_budget_without_reasoning_text() -> None:
@@ -980,6 +999,32 @@ def test_duplicate_guard_is_scoped_to_the_immediately_preceding_external_call() 
             },
         ]
     ) == _latest_tool_fingerprint([build, repair])
+
+
+def test_unchanged_fetch_result_routes_back_to_discovery() -> None:
+    fetched = {
+        "content": "same page",
+        "provenance": {"source_url": "https://a.test"},
+    }
+
+    first, last_digest, first_digest, repeated = _guard_repeated_unchanged_result(
+        "web_fetch", {"url": "https://a.test"}, fetched, ""
+    )
+    second, retained_digest, second_digest, repeated_again = (
+        _guard_repeated_unchanged_result(
+            "web_fetch", {"url": "https://a.test"}, fetched, last_digest
+        )
+    )
+
+    assert first == fetched
+    assert repeated is False
+    assert last_digest == first_digest
+    assert second_digest == first_digest
+    assert retained_digest == last_digest
+    assert repeated_again is True
+    assert second["error"] == "repeated_unchanged_result"
+    assert second["disposition"] == "change_capability"
+    assert second["alternative_tools"] == ["web_search", "browser_interact"]
 
 
 def test_a_single_tool_result_cannot_balloon_the_durable_task_context() -> None:

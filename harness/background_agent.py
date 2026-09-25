@@ -100,10 +100,29 @@ def _task_virtual_query(task: Mapping[str, Any]) -> str:
             ),
             "",
         )
-    query = f"Advance and verify the pinned task. Objective: {objective}"
-    if latest_direction:
-        query += f" Latest user direction: {latest_direction}"
-    return query[:MAX_VIRTUAL_QUERY_CHARS]
+    prefix = "Advance and verify the pinned task. Objective: "
+    if not latest_direction:
+        return f"{prefix}{objective}"[:MAX_VIRTUAL_QUERY_CHARS]
+
+    # A long objective must not crowd the newest correction out of the paging
+    # query.  The objective remains pinned in full in the system contract; this
+    # compact retrieval anchor reserves a stable share for current direction.
+    direction_prefix = " Latest user direction: "
+    direction_budget = min(
+        len(latest_direction),
+        max(1, (MAX_VIRTUAL_QUERY_CHARS * 2) // 5),
+    )
+    objective_budget = max(
+        0,
+        MAX_VIRTUAL_QUERY_CHARS
+        - len(prefix)
+        - len(direction_prefix)
+        - direction_budget,
+    )
+    return (
+        f"{prefix}{objective[:objective_budget]}"
+        f"{direction_prefix}{latest_direction[:direction_budget]}"
+    )
 
 
 def _task_system_prompt(task: Mapping[str, Any]) -> str:
@@ -832,6 +851,46 @@ def _compaction_receipt(
 def _result_digest(name: str, result: Any) -> str:
     rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(f"{name}\0{rendered}".encode()).hexdigest()
+
+
+def _guard_repeated_unchanged_result(
+    name: str,
+    arguments: Mapping[str, Any],
+    result: Any,
+    last_digest: str,
+) -> tuple[Any, str, str, bool]:
+    """Require a causal boundary between identical non-visual tool results."""
+
+    digest = hashlib.sha256(
+        f"{_call_fingerprint(name, arguments)}\0{_result_digest(name, result)}".encode()
+    ).hexdigest()
+    if (
+        not name
+        or name == "tool_search"
+        or name in LOCAL_CONTROL_TOOL_NAMES
+        or name in COMPUTER_ACTION_TOOLS
+    ):
+        return result, last_digest, digest, False
+    if not last_digest or digest != last_digest:
+        return result, digest, digest, False
+    recovery: dict[str, Any] = {
+        "error": "repeated_unchanged_result",
+        "message": (
+            "This call returned the same bounded result as the preceding concrete "
+            "action; it produced no new task evidence. Reassess the retained result "
+            "and choose an action that changes or inspects different state."
+        ),
+        "task_blocked": False,
+    }
+    if name == "web_fetch":
+        recovery.update(
+            {
+                "failure_scope": "arguments",
+                "disposition": "change_capability",
+                "alternative_tools": ["web_search", "browser_interact"],
+            }
+        )
+    return recovery, last_digest, digest, True
 
 
 def _bounded_tool_result(result: Any) -> Any:
@@ -1792,6 +1851,7 @@ class BackgroundAgent:
         result_digests = {
             str(value) for value in task.get("result_digests", []) if value
         }
+        last_external_result_digest = ""
         active_tools = [
             name
             for name in task.get("active_tools", [])
@@ -2592,6 +2652,14 @@ class BackgroundAgent:
                         tools_used = list(dict.fromkeys([*tools_used, name]))[-16:]
                     if name != "tool_search":
                         suppress_discovery = False
+                (
+                    result,
+                    last_external_result_digest,
+                    digest,
+                    repeated_result,
+                ) = _guard_repeated_unchanged_result(
+                    name, arguments, result, last_external_result_digest
+                )
                 change_capability = (
                     isinstance(result, Mapping)
                     and result.get("disposition") == "change_capability"
@@ -2635,8 +2703,6 @@ class BackgroundAgent:
                     "tool_name": name or "unknown",
                     "content": "",
                 }
-                digest = _result_digest(name, result)
-                repeated_result = digest in result_digests
                 failed_result = _result_failed_or_blocked(result)
                 if failed_result:
                     stalls += 1
