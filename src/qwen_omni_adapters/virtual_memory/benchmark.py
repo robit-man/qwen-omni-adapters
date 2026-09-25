@@ -603,7 +603,8 @@ def _randomized_fixture(
             f"{bus_entity} has exact setting {bitrate_key}={bitrate_value}.",
             positions["graph_4"],
             metadata=metadata,
-            entities=(bus_entity,),
+            entities=(bus_entity, bitrate_key),
+            relationships=((bus_entity, "has_setting", bitrate_key),),
         ),
         BenchmarkDocument(
             f"graph://{suffix}/decoy",

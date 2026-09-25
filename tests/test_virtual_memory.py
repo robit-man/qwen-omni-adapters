@@ -142,6 +142,32 @@ def test_generic_code_hint_preserves_more_specific_python_topology(
     store.close()
 
 
+def test_python_code_topology_indexes_assignment_and_attribute_references(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "attribute-topology.sqlite3")
+    config = store.ingest(
+        "class PacketConfig:\n    PACKET_TIMEOUT_MS = 275\n",
+        source="config.py",
+    )[0]
+    caller = store.ingest(
+        "def emit_packet(packet):\n    return PacketConfig.PACKET_TIMEOUT_MS\n",
+        source="bus.py",
+    )[0]
+
+    topology = store.code_search("emit_packet", max_hops=2)
+    chunk_ids = {chunk.chunk_id for chunk, _distance, _edges in topology}
+    predicates = {
+        predicate for _chunk, _distance, edge_types in topology for predicate in edge_types
+    }
+
+    assert caller.chunk_id in chunk_ids
+    assert config.chunk_id in chunk_ids
+    assert "references" in predicates
+    assert store.symbol_search("PacketConfig.PACKET_TIMEOUT_MS")[0].chunk_id == config.chunk_id
+    store.close()
+
+
 def test_evidence_is_database_immutable_and_idempotent(tmp_path: Path) -> None:
     store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
     chunks = store.ingest(
@@ -1075,6 +1101,41 @@ def test_packer_focus_does_not_conflate_identifier_prefix_decoys(
 
     assert "Dropbear uses left_leg" in packed.text
     assert "DBL-DECOY-991" not in packed.text
+    assert any(
+        event["operation"] == "EVICT"
+        and event["detail"].get("reason") == "dependency_focus"
+        for event in packed.trace
+    )
+    store.close()
+
+
+def test_packer_exact_address_focus_evicts_longer_prefix_collision(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "focus-exact-address.sqlite3")
+    target = store.ingest(
+        "request=req-135 fault=E_THERMAL_4E1567 zone=gantry.",
+        source="current.log",
+        kind="log",
+    )[0]
+    decoy = store.ingest(
+        "request=req-562 fault=E_THERMAL_4E1567_ARCHIVE status=retired.",
+        source="archive.log",
+        kind="log",
+    )[0]
+    hits = [
+        RetrievalHit(target, 1.0, ("exact",), {"exact": 1.0}),
+        RetrievalHit(decoy, 0.95, ("bm25",), {"bm25": 0.95}),
+    ]
+
+    packed = WorkingContextPacker(token_counter=word_tokens).pack(
+        "Which request emitted exact fault string `E_THERMAL_4E1567`?",
+        system_contract="Use exact evidence.",
+        evidence=hits,
+    )
+
+    assert "request=req-135" in packed.text
+    assert "req-562" not in packed.text
     assert any(
         event["operation"] == "EVICT"
         and event["detail"].get("reason") == "dependency_focus"

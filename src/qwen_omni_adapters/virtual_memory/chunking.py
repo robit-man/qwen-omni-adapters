@@ -308,6 +308,26 @@ class StructureAwareChunker:
                     symbols.append((child.name, "class"))
                 elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     symbols.append((child.name, "function"))
+                elif isinstance(child, (ast.Assign, ast.AnnAssign)):
+                    targets = (
+                        child.targets
+                        if isinstance(child, ast.Assign)
+                        else [child.target]
+                    )
+                    assigned: list[str] = []
+                    for target_node in targets:
+                        for candidate in ast.walk(target_node):
+                            if isinstance(candidate, ast.Name):
+                                assigned.append(candidate.id)
+                            elif isinstance(candidate, ast.Attribute):
+                                try:
+                                    assigned.append(ast.unparse(candidate))
+                                except (AttributeError, ValueError):
+                                    pass
+                    for target in assigned:
+                        symbols.append((target, "assignment"))
+                        if isinstance(node, ast.ClassDef) and "." not in target:
+                            symbols.append((f"{node.name}.{target}", "assignment"))
                 if isinstance(child, ast.Call):
                     try:
                         target = ast.unparse(child.func)
@@ -321,6 +341,13 @@ class StructureAwareChunker:
                     for target in imported:
                         qualified = f"{module}.{target}" if module else target
                         edges.append((name, "imports", qualified))
+                if isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):
+                    try:
+                        target = ast.unparse(child)
+                    except (AttributeError, ValueError):
+                        target = ""
+                    if target:
+                        edges.append((name, "references", target))
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
                     try:

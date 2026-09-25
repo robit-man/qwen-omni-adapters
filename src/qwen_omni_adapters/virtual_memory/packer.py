@@ -570,6 +570,30 @@ class WorkingContextPacker:
             "var",
             "variables",
         }
+        quoted = tuple(
+            dict.fromkeys(
+                term.casefold().strip()
+                for term in re.findall(r"[`'\"]([^`'\"]{2,200})[`'\"]", query)
+                if term.strip()
+            )
+        )
+        addresses = tuple(
+            dict.fromkeys(
+                term.casefold().strip(".$:-")
+                for term in re.findall(
+                    r"\b[A-Za-z0-9]+(?:[_.$:-][A-Za-z0-9]+)+\b",
+                    query,
+                )
+                if term.casefold().strip(".$:-") not in stop
+            )
+        )
+        distinctive = tuple(dict.fromkeys((*quoted, *addresses)))
+        if distinctive:
+            # Once a request supplies an exact address, broad query prose such
+            # as "exact value" or "which request" must not keep a prefix
+            # collision resident.  Topology-authoritative graph/code hits are
+            # retained separately by _select_evidence.
+            return distinctive
         return tuple(
             dict.fromkeys(
                 term.casefold().strip(".$:-")

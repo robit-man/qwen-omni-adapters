@@ -77,6 +77,10 @@ def test_seeded_domain_variant_replays_randomized_evidence_at_4k(
             term.casefold() in item.prompt.casefold()
             for term in scenario.required_terms
         )
+        assert all(
+            term.casefold() not in item.prompt.casefold()
+            for term in scenario.forbidden_terms
+        )
 
 
 def test_domain_expected_terms_never_become_production_retrieval_input(
