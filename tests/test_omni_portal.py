@@ -100,6 +100,9 @@ def test_browser_snapshot_exposes_collapsible_reasoning_and_tool_summaries() -> 
     assert "el.labels" in _SNAPSHOT_SCRIPT
     assert "type.toLowerCase() === 'password' ? ''" in _SNAPSHOT_SCRIPT
     assert "[...el.options]" in _SNAPSHOT_SCRIPT
+    assert "ids: new WeakMap()" in _SNAPSHOT_SCRIPT
+    assert "identity.ids.get(el)" in _SNAPSHOT_SCRIPT
+    assert "removeAttribute('data-omni-id')" not in _SNAPSHOT_SCRIPT
 
 
 def test_browser_drag_emits_a_pressed_mouse_path() -> None:

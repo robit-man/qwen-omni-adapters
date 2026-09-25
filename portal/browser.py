@@ -344,12 +344,21 @@ _SNAPSHOT_SCRIPT = r"""
            Number(s.opacity || 1) > 0 && r.width > 1 && r.height > 1 &&
            r.bottom >= 0 && r.right >= 0 && r.top <= innerHeight && r.left <= innerWidth;
   };
-  document.querySelectorAll('[data-omni-id]').forEach(el => el.removeAttribute('data-omni-id'));
+  const identity = window.__omniElementIdentity || {
+    next: 1,
+    ids: new WeakMap()
+  };
+  window.__omniElementIdentity = identity;
   const candidates = [...document.querySelectorAll(
     'a[href],button,input,textarea,select,summary,[role="button"],[role="link"],[tabindex]'
   )].filter(visible).slice(0, 120);
-  const elements = candidates.map((el, i) => {
-    const id = `e${i + 1}`, r = el.getBoundingClientRect();
+  const elements = candidates.map((el) => {
+    let id = identity.ids.get(el);
+    if (!id) {
+      id = `e${identity.next++}`;
+      identity.ids.set(el, id);
+    }
+    const r = el.getBoundingClientRect();
     const type = (el.getAttribute('type') || '').slice(0, 40);
     const labels = el.labels ? [...el.labels].map(label => label.innerText.trim()).filter(Boolean) : [];
     const label = (labels.join(' ') || el.getAttribute('aria-label') ||
