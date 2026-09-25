@@ -1071,6 +1071,14 @@ class OmniDaemon:
             **common,
             "OMNI_MODEL": self.config.model,
             "OMNI_PORTAL_TOKEN": token,
+            # The launcher may select a smaller resident window than the
+            # configured ceiling after measuring unified-memory headroom.  The
+            # portal is the working-set allocator, so it must observe the same
+            # state file as the adapter rather than packing against a stale
+            # 16K ceiling while the live worker is resident at 8K.
+            "OMNI_COMPREHENSION_CONTEXT_FILE": (
+                str(self.context_file) if is_tegra() else ""
+            ),
             "OMNI_ADAPTER_URL": f"http://127.0.0.1:{self.config.adapter_port}/api/chat",
             "OMNI_ADAPTER_HEALTH_URL": f"http://127.0.0.1:{self.config.adapter_port}/healthz",
             "OMNI_COMPREHENSION_HEALTH_URL": (

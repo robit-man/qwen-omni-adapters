@@ -222,7 +222,9 @@ def test_tegra_direct_daemon_uses_dynamic_context_launcher() -> None:
 
     assert '"comprehension_launcher.py"' in source
     assert '"--child-pid-file"' in source
-    assert '"OMNI_COMPREHENSION_CONTEXT_FILE"' in source
+    # Both the adapter and the portal must receive the launcher's selected
+    # resident-context state.  The latter owns virtual-context packing.
+    assert source.count('"OMNI_COMPREHENSION_CONTEXT_FILE"') >= 2
     assert '"{context}" if is_tegra()' in source
     assert '"--parallel-slots"' in source
     assert '"{parallel}"' in source
