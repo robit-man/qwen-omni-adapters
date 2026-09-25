@@ -1,0 +1,31 @@
+{
+  "schema": "robit.virtual-context-domain-seal.v1",
+  "sealed_at": "2026-09-25T10:02:00-07:00",
+  "generator_revision": "26efd9d116aa1fb66ba0be2b1b13d364b95cac84",
+  "selection_policy": "Three consecutive post-fix seeds selected and committed before any endpoint inference. These fixtures were not used to develop the answer-focus, exact-address, AST-reference, or terminal-graph changes.",
+  "physical_context_target_tokens": 4096,
+  "fixtures": [
+    {
+      "seed": 26092504,
+      "source_tokens": 256000,
+      "source_sha256": "601cd2637cbf6e8054726bedaeceaec25e7f2efe746d1342f0fd27d97c6d8bcc",
+      "documents": 166,
+      "scenarios": 10
+    },
+    {
+      "seed": 26092505,
+      "source_tokens": 256000,
+      "source_sha256": "3ed58f4a9d40aa0b6af099a52fb6282ed5cacdd4ae94c9af3aafa8d9b18aaf4b",
+      "documents": 165,
+      "scenarios": 10
+    },
+    {
+      "seed": 26092506,
+      "source_tokens": 256000,
+      "source_sha256": "8aa1b957f6b95ab2aa1c0394d79a258124086670bfc7743712f227daad38be47",
+      "documents": 166,
+      "scenarios": 10
+    }
+  ],
+  "status": "sealed_pending_execution"
+}
