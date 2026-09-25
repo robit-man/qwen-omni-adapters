@@ -652,6 +652,58 @@ def test_background_task_blocks_after_three_expired_worker_leases(
     assert blocked["resume_count"] == 3
     assert "three expired worker leases" in blocked["progress"][-1]
 
+    resumed = store.resume_after_review(
+        created["task_id"], "The restarts were controlled deployment updates."
+    )
+    assert resumed is not None
+    assert resumed["status"] == "pending"
+    assert resumed.get("resume_count") in {None, 0}
+    assert "error" not in resumed
+    assert "controlled deployment updates" in resumed["progress"][-1]
+
+
+def test_healthy_checkpoint_resets_expired_lease_streak(tmp_path: Path) -> None:
+    task_path = tmp_path / "tasks.json"
+    store = BackgroundTaskStore(task_path)
+    created = store.create("Continue through isolated worker restarts.")
+    assert store.claim_next("first") is not None
+
+    state = json.loads(task_path.read_text(encoding="utf-8"))
+    state["tasks"][0]["lease_until"] = 0
+    task_path.write_text(json.dumps(state), encoding="utf-8")
+    resumed = store.claim_next("second")
+    assert resumed is not None
+    assert resumed["resume_count"] == 1
+
+    checkpoint = store.checkpoint(
+        created["task_id"], "second", progress="Verified a healthy milestone."
+    )
+    assert checkpoint is not None
+    assert checkpoint.get("resume_count") in {None, 0}
+
+    state = json.loads(task_path.read_text(encoding="utf-8"))
+    state["tasks"][0]["lease_until"] = 0
+    task_path.write_text(json.dumps(state), encoding="utf-8")
+    resumed_again = store.claim_next("third")
+    assert resumed_again is not None
+    assert resumed_again["resume_count"] == 1
+
+
+def test_orderly_release_does_not_count_as_an_expired_lease(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Survive a managed harness restart.")
+    assert store.claim_next("old-worker") is not None
+
+    assert store.release_owner("old-worker") == 1
+    pending = store.get(created["task_id"])
+    assert pending is not None
+    assert pending["status"] == "pending"
+    assert pending["current_stage"] == "Paused for an orderly worker restart"
+
+    claimed = store.claim_next("new-worker")
+    assert claimed is not None
+    assert claimed.get("resume_count") in {None, 0}
+
 
 def test_background_task_claims_rotate_between_pending_work(tmp_path: Path) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")

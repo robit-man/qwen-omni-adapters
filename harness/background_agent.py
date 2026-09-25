@@ -1172,6 +1172,11 @@ class BackgroundAgent:
         self.stop.set()
         self._wake.set()
         self._thread.join(timeout=5)
+        released = self.store.release_owner(self.owner)
+        if released:
+            logger.info(
+                "released %d background task lease(s) for orderly shutdown", released
+            )
         if self._owns_client:
             self._client.close()
         if self._decision_executor is not None:

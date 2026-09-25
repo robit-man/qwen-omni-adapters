@@ -326,6 +326,10 @@ class BackgroundTaskStore:
                 now = time.time()
                 item["updated_at"] = now
                 item["round"] = int(item.get("round") or 0) + 1
+                # A successfully persisted worker checkpoint ends any prior
+                # crash streak. Only consecutive expired leases without an
+                # intervening checkpoint should trigger manual review.
+                item["resume_count"] = 0
                 previous_status = str(item.get("status") or "")
                 item["status"] = status
                 if status == "running":
@@ -380,6 +384,67 @@ class BackgroundTaskStore:
             return None
 
         return self._mutate(update)
+
+    def release_owner(
+        self,
+        owner: str,
+        *,
+        current_stage: str = "Paused for an orderly worker restart",
+    ) -> int:
+        """Relinquish live leases during a controlled service shutdown."""
+
+        owner = str(owner)
+
+        def release(value: dict[str, Any]) -> int:
+            now = time.time()
+            count = 0
+            for item in value.get("tasks", []):
+                if item.get("status") != "running" or item.get("owner") != owner:
+                    continue
+                item["status"] = "pending"
+                item["updated_at"] = now
+                item["resume_count"] = 0
+                item["current_stage"] = current_stage[:300]
+                item.pop("lease_until", None)
+                item.pop("owner", None)
+                count += 1
+            return count
+
+        return int(self._mutate(release))
+
+    def resume_after_review(self, task_id: str, reason: str) -> dict[str, Any] | None:
+        """Resume only a lease-exhausted task after explicit human review."""
+
+        reason = " ".join(str(reason).split())
+        if not reason:
+            raise ValueError("review reason is required")
+
+        def resume(value: dict[str, Any]) -> dict[str, Any] | None:
+            for item in value.get("tasks", []):
+                if item.get("task_id") != task_id:
+                    continue
+                error = str(item.get("error") or "")
+                if item.get("status") != "blocked" or not error.startswith(
+                    "The background worker stopped repeatedly"
+                ):
+                    return self._public(item)
+                now = time.time()
+                item["status"] = "pending"
+                item["updated_at"] = now
+                item["resume_count"] = 0
+                item["current_stage"] = context_text("task_stages", "queued")
+                item["announcement_pending"] = False
+                item.pop("error", None)
+                item.pop("lease_until", None)
+                item.pop("owner", None)
+                item.setdefault("progress", []).append(
+                    f"Human review resumed the preserved task: {reason[:500]}"
+                )
+                item["progress"] = item["progress"][-32:]
+                return self._public(item)
+            return None
+
+        return self._mutate(resume)
 
     def compact_context(
         self,
