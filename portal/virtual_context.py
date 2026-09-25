@@ -29,6 +29,16 @@ from qwen_omni_adapters.virtual_memory.packer import conservative_token_estimate
 VALID_MODES = {"off", "shadow", "active"}
 
 
+def _adaptive_output_headroom(physical_tokens: int) -> int:
+    """Keep useful action space when a constrained host downshifts its KV tier."""
+
+    # The 2,384-token 16K allowance consumed most of a 4K window after a live
+    # Tegra downshift. Background steps are already capped (normally 768
+    # tokens), so reserve one eighth of the resident window with a practical
+    # 768-token floor and retain the established upper bound at larger tiers.
+    return min(2_384, max(768, int(physical_tokens) // 8))
+
+
 def _text_content(content: Any) -> str:
     if isinstance(content, str):
         return content.strip()
@@ -193,7 +203,7 @@ class SessionVirtualContext:
         if current.max_tokens != selected:
             session.engine.packer.budget = ContextBudget(
                 max_tokens=selected,
-                output_headroom=min(current.output_headroom, selected - 512),
+                output_headroom=_adaptive_output_headroom(selected),
                 system_target=current.system_target,
                 pinned_target=current.pinned_target,
                 structured_target=current.structured_target,
@@ -216,7 +226,10 @@ class SessionVirtualContext:
             retriever = HybridRetriever(store, query_embedder=embedder)
             controller = RecursiveMemoryController(retriever)
             packer = WorkingContextPacker(
-                budget=ContextBudget(max_tokens=resident_tokens),
+                budget=ContextBudget(
+                    max_tokens=resident_tokens,
+                    output_headroom=_adaptive_output_headroom(resident_tokens),
+                ),
                 **({"token_counter": self.token_counter} if self.token_counter else {}),
             )
             current = _SessionEngine(

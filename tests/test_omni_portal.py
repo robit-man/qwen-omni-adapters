@@ -4606,6 +4606,37 @@ def test_compact_system_policy_merges_without_eager_host_snapshot() -> None:
     assert "<portal_tools>" not in messages[0]["content"]
 
 
+def test_internal_background_worker_uses_the_compact_policy_envelope() -> None:
+    seen: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(
+            200, json={"message": {"role": "assistant", "content": "Done."}}
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            portal_background_worker=True,
+            messages=[
+                {"role": "system", "content": "<current_task>Build it.</current_task>"},
+                {"role": "user", "content": "Begin the pinned task."},
+            ],
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = seen[0]
+    assert "portal_background_worker" not in payload
+    content = payload["messages"][0]["content"]
+    assert "authenticated internal durable-task worker" in content
+    assert "Tool results" in content
+    assert "natural participant" not in content
+
+
 def test_portal_stream_route_requires_auth_and_chains_session_tools() -> None:
     requests = []
 

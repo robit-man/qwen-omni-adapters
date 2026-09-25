@@ -288,6 +288,52 @@ for line in sys.stdin.buffer:
     assert worker.speaker_reference_active is False
 
 
+def test_tts_residency_endpoint_sheds_and_rewarms_the_separate_graph(
+    tmp_path: Path, monkeypatch
+) -> None:
+    reference = tmp_path / "reference.wav"
+    reference.write_bytes(_wav(16000))
+
+    class FakePersistentWorker:
+        def __init__(self, _config) -> None:
+            self.ready = False
+
+        @property
+        def pid(self):
+            return 123 if self.ready else None
+
+        @property
+        def speaker_reference_active(self) -> bool:
+            return self.ready
+
+        def ensure(self, _spec) -> None:
+            self.ready = True
+
+        def close(self) -> None:
+            self.ready = False
+
+    monkeypatch.setattr(
+        "runtime.tts_server.PersistentTTSWorker", FakePersistentWorker
+    )
+    app = create_tts_app(
+        _tts_config(
+            tmp_path,
+            persistent=True,
+            warm_speaker_file=str(reference),
+        )
+    )
+    client = app.test_client()
+
+    assert client.post("/residency", json={"action": "warm"}).json[
+        "persistent_ready"
+    ] is True
+    shed = client.post("/residency", json={"action": "shed"})
+
+    assert shed.status_code == 200
+    assert shed.json["persistent_ready"] is False
+    assert shed.json["speaker_reference_active"] is False
+
+
 def test_nonpersistent_tts_batch_reuses_one_process_for_the_whole_utterance(
     tmp_path: Path,
     monkeypatch,

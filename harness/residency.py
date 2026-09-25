@@ -185,3 +185,23 @@ class SpeechResidency:
                 next_start_attempt = now + 2.0
             time.sleep(0.5)
         raise TimeoutError(f"{self.unit} did not become ready ({last})")
+
+
+@dataclass
+class BackgroundTTSResidency:
+    """Free the independently resident TTS graph during silent action work."""
+
+    tts_url: str
+    timeout_s: float = 15.0
+
+    def shed(self) -> None:
+        endpoint = f"{self.tts_url.rstrip('/')}/residency"
+        response = httpx.post(
+            endpoint,
+            json={"action": "shed"},
+            timeout=self.timeout_s,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get("persistent_ready") is not False:
+            raise RuntimeError("TTS residency endpoint did not confirm graph shedding")

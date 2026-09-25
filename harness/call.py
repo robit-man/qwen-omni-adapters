@@ -89,6 +89,10 @@ class CallConfig:
     # Shared crash-safe handoff between the portal and the stepwise background
     # agent. Empty disables background work without affecting normal tools.
     background_task_path: str = ""
+    # Optional constrained-host transition run before a durable action slice.
+    # It may shed independently resident TTS, but must not remove the shared
+    # comprehension/ASR trunk or pointing worker.
+    prepare_background_action: Callable[[], None] | None = None
     # Unified-memory hosts may need to evict comprehension before loading TTS.
     # When configured, chat stays text-only until every reasoning/tool/vision
     # pass is complete, then these callbacks bracket one direct synthesis pass.
@@ -1170,6 +1174,7 @@ def run_call_loop(
             on_progress=queue_progress,
             request_timeout_s=config.request_timeout_s,
             memory_governor=memory_governor,
+            prepare_action_residency=config.prepare_background_action,
         )
         session.background_agent.start()
 

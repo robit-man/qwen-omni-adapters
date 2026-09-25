@@ -3,7 +3,32 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from portal.virtual_context import SessionVirtualContext
+from portal.virtual_context import SessionVirtualContext, _adaptive_output_headroom
+
+
+def test_output_headroom_tracks_the_resident_context_tier() -> None:
+    assert _adaptive_output_headroom(4_096) == 768
+    assert _adaptive_output_headroom(8_192) == 1_024
+    assert _adaptive_output_headroom(16_384) == 2_048
+    assert _adaptive_output_headroom(65_536) == 2_384
+
+
+def test_new_session_uses_adaptive_headroom_after_a_live_downshift(
+    tmp_path: Path,
+) -> None:
+    state = tmp_path / "resident-context"
+    state.write_text("4096\n", encoding="utf-8")
+    manager = SessionVirtualContext(
+        tmp_path / "virtual",
+        mode="shadow",
+        physical_context_tokens=16_384,
+        physical_context_state_file=state,
+    )
+
+    session = manager._session("downshifted")
+
+    assert session.engine.packer.budget.max_tokens == 4_096
+    assert session.engine.packer.budget.output_headroom == 768
 
 
 def test_status_does_not_create_an_empty_session_database(tmp_path: Path) -> None:

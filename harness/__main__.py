@@ -27,7 +27,7 @@ from harness.camera_view import CameraLiveView
 from harness.indicator import ThreadedIndicator, build_indicator, probe_indicator
 from harness.location import BrowserLocationProvider
 from harness.models import IndicatorModelManager
-from harness.residency import SpeechResidency
+from harness.residency import BackgroundTTSResidency, SpeechResidency
 from harness.respeaker import find_source
 from harness.update import RepositoryUpdateManager
 from portal.background_tasks import BackgroundTaskStore
@@ -297,6 +297,22 @@ def main(argv: list[str] | None = None) -> int:
         if eviction_unit
         else None
     )
+    background_residency_mode = str(
+        os.environ.get("OMNI_BACKGROUND_RESIDENCY_MODE") or "conversation"
+    ).strip().lower()
+    if background_residency_mode not in {"conversation", "action"}:
+        raise SystemExit(
+            "OMNI_BACKGROUND_RESIDENCY_MODE must be conversation or action"
+        )
+    background_tts = (
+        BackgroundTTSResidency(
+            os.environ.get(
+                "OMNI_TTS_RESIDENCY_URL", "http://127.0.0.1:8892"
+            )
+        )
+        if background_residency_mode == "action"
+        else None
+    )
 
     def content_trace(event: str, text: str, details: dict[str, Any]) -> None:
         logger.info(
@@ -337,6 +353,9 @@ def main(argv: list[str] | None = None) -> int:
             else os.environ.get("OMNI_BACKGROUND_TASKS")
             or str(_repo_root() / "runtime-data/state/background-tasks.json")
         ),
+        prepare_background_action=(
+            background_tts.shed if background_tts is not None else None
+        ),
         prepare_speech=residency.prepare_speech if residency else None,
         restore_after_speech=residency.restore if residency else None,
         await_comprehension=residency.await_ready if residency else None,
@@ -355,6 +374,7 @@ def main(argv: list[str] | None = None) -> int:
         eviction_unit or "off",
         config.content_trace is not None,
     )
+    logger.info("background residency mode: %s", background_residency_mode)
 
     stop = threading.Event()
     reload_requested = threading.Event()

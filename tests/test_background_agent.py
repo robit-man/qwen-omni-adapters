@@ -19,6 +19,7 @@ from harness.background_agent import (
     TASK_CHECKPOINT_TOOL,
     TASK_COMPACT_TOOL,
     TASK_RECOVERY_TOOL,
+    TASK_START_REQUEST,
     BackgroundAgent,
     _audit_json,
     _bounded_tool_result,
@@ -1630,6 +1631,7 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
     store = BackgroundTaskStore(tmp_path / "tasks.json")
     task = store.create("Open the rendered browser and inspect the page.")
     chat_round = 0
+    residency_prepared = threading.Event()
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal chat_round
@@ -1653,6 +1655,11 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
         tool_names = [item["function"]["name"] for item in payload["tools"]]
         assert payload["options"]["num_predict"] == 256
         if chat_round == 1:
+            assert payload["portal_background_worker"] is True
+            assert payload["messages"][1] == {
+                "role": "user",
+                "content": TASK_START_REQUEST,
+            }
             assert payload["think"] is True
             assert payload["tool_choice"] == "required"
             assert tool_names == ["tool_search"]
@@ -1701,6 +1708,7 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
         stop=threading.Event(),
         step_token_limit=256,
         client=client,
+        prepare_action_residency=residency_prepared.set,
     )
     agent.start()
     deadline = time.monotonic() + 3
@@ -1716,6 +1724,7 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
     assert current is not None
     assert current["status"] == "completed"
     assert current["tools_used"] == ["tool_search", "browser_interact"]
+    assert residency_prepared.is_set()
 
 
 def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(

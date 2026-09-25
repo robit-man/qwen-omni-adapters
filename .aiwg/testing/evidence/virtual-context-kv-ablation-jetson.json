@@ -1,6 +1,7 @@
 {
   "schema": "robit.virtual-context-kv-ablation-jetson.v1",
   "generated_at": "2026-09-25T10:22:40-07:00",
+  "updated_at": "2026-09-25T10:50:00-07:00",
   "runtime_revision": "0ad914a4953211fc01cd5b25b77a5128a9cd09fe",
   "runtime": {
     "host_class": "NVIDIA Jetson AGX Orin 32 GB",
@@ -98,7 +99,33 @@
       "available_after_load_gib": 8.192543029785156,
       "final_mem_available_gib": 4.48
     },
+    "post_qualification_soak": {
+      "workload": "Live foreground conversation followed by a medium-horizon browser and application-construction background task.",
+      "outcome": "cache_format_qualified_but_16k_steady_tier_rejected",
+      "observations": [
+        {
+          "resident_context_tokens": 16384,
+          "available_gib": 1.78,
+          "recorded_next_cap_tokens": 8192,
+          "background_disposition": "correctly deferred below the 2 GiB hard floor"
+        },
+        {
+          "resident_context_tokens": 8192,
+          "available_gib": 1.95,
+          "recorded_next_cap_tokens": 4096,
+          "background_disposition": "browser snapshot rejected with MemoryPressure rather than executed unsafely"
+        },
+        {
+          "resident_context_tokens": 4096,
+          "available_after_restart_gib": 9.98,
+          "background_disposition": "durable task survived and resumed, then exposed a separate 4K context-envelope budgeting defect"
+        }
+      ],
+      "interpretation": "q8_0 preserves the tested answer, multimodal, voice, and tool behavior, but the full resident stack cannot promise a continuously full 16K KV tier under long live action workloads. The physical tier must remain adaptive, and silent action work should shed independently reloadable TTS before memory admission.",
+      "automatic_resize_on_tested_tegra_revision": false
+    },
     "qualification": true,
+    "steady_16k_qualification": false,
     "qualified_scope": "Ornith 1.5 audio bridge on the tested 32 GB AGX Orin, pinned llama.cpp revision and JetPack/L4T release."
   },
   "q4_branch": {
@@ -140,7 +167,10 @@
     "cache_type_v": "q8_0",
     "deployment_scope": "guided Ornith bridge deployment on Tegra",
     "fallback_for_unqualified_profiles": "f16",
-    "physical_context_tokens": 16384,
+    "physical_context_ceiling_tokens": 16384,
+    "observed_safe_context_floor_tokens": 4096,
+    "context_tier_policy": "adaptive from live unified-memory pressure; 16K is a ceiling, not a residency guarantee",
+    "background_residency_mode": "action sheds the independent TTS graph while retaining comprehension/ASR/vision and pointing",
     "raw_history_policy": "append-only immutable external evidence; physical KV remains an ephemeral L0 working set"
   },
   "anti_reward_hacking": {
@@ -151,6 +181,7 @@
     "q4_not_rerun_for_a_favorable_tool_sample": true,
     "full_multimodal_voice_and_tool_gate_required": true,
     "post_gate_service_and_memory_state_audited": true,
+    "post_qualification_live_soak_retained": true,
     "scope_caveat": "This qualifies one model/platform/backend combination. It does not establish universal q8 fidelity, q4 safety, native 256K attention equivalence, or a 2-bit KIVI result."
   },
   "privacy": {

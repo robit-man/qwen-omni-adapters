@@ -196,12 +196,26 @@ audio bridge; other model/platform pairs retain the general `f16` default until
 they pass equivalent live gates. The qualified q8 run held a 16,384-token worker
 through sealed 256K domain answers, text/audio/image comprehension, resident
 cloned and streamed TTS, post-TTS ASR, and structured tools without a restart or
-governor downshift. `q4_0` remains experimental: its sealed domain answers passed,
-but the live tool gate selected an incorrect GUI route and was rejected. The
-launcher derives its admission slope from exact block bytes and resets its
+governor downshift. A later foreground plus medium-horizon action soak did
+downshift 16K to 8K and then 4K as the full working set became resident. This
+qualifies q8 as the cache format, not 16K as a permanent tier; 16K remains the
+ceiling and the live governor is authoritative. `q4_0` remains experimental:
+its sealed domain answers passed, but the live tool gate selected an incorrect
+GUI route and was rejected. The launcher derives its admission slope from exact
+block bytes and resets its
 calibration when the format contract changes. The pinned build has no 2-bit KV
 format, so q4 testing is only a lower-precision cache ablation inspired by the
 KIVI direction, not a reproduction of KIVI's 2-bit method.
+
+Guided Ornith/Tegra deployment also sets
+`OMNI_BACKGROUND_RESIDENCY_MODE=action`. Before a silent durable-task slice,
+the harness asks the loopback TTS wrapper to shed only its independently
+reloadable speech graph. The shared Omni language/ASR/vision trunk and the
+pointing worker stay resident. A later synthesis request reloads the shipped
+voice-clone profile through the normal TTS path. `conversation` keeps TTS warm
+and is the default on unqualified model/platform pairs. Action mode does not by
+itself authorize automatic context expansion while TTS is absent; expansion
+needs a coordinated foreground downshift before speech can safely return.
 
 Note that `-ngl 99` does not increase the footprint here the way it does on a
 discrete card: there is one pool, so offloading layers changes which engine

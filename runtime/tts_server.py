@@ -943,6 +943,39 @@ def create_app(config: Config | None = None) -> Flask:
             }
         ), 200 if not missing else 503
 
+    @app.post("/residency")
+    def residency_route():
+        """Shed or restore the optional resident graph without stopping HTTP."""
+
+        try:
+            body = request.get_json(force=True)
+            if not isinstance(body, dict):
+                raise TTSError("request body must be a JSON object")
+            action = str(body.get("action") or "").strip().lower()
+            if action not in {"shed", "warm"}:
+                raise TTSError("residency action must be shed or warm")
+            if persistent is None:
+                raise TTSError("persistent TTS residency is disabled")
+            with lock:
+                if action == "shed":
+                    persistent.close()
+                else:
+                    if warm_spec is None:
+                        raise TTSError("no warm speaker reference is configured")
+                    persistent.ensure(warm_spec)
+                return jsonify(
+                    {
+                        "ok": True,
+                        "action": action,
+                        "persistent_ready": persistent.ready,
+                        "speaker_reference_active": (
+                            persistent.speaker_reference_active
+                        ),
+                    }
+                )
+        except (TTSError, ValueError, subprocess.TimeoutExpired) as exc:
+            return jsonify({"error": str(exc)}), 422
+
     @app.post("/synthesize")
     def synthesize_route():
         try:

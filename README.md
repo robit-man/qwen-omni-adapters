@@ -481,7 +481,9 @@ may have a 262,144-token native positional range, but the managed compact
 profiles intentionally expose a 16,384-token resident working-set ceiling.
 The guided Ornith-on-Tegra profile uses its live-qualified q8 KV cache; other
 model/platform pairs retain f16 until they pass the same answer, multimodal,
-voice, tool, and memory-pressure gates.
+voice, tool, and memory-pressure gates. The configured 16K value is a ceiling:
+a longer live action soak selected 8K and then 4K as the rest of the resident
+stack consumed unified memory. The live tier is authoritative.
 Longer history is paged through the lossless virtual-context layer instead of
 preallocating a nominal 256K KV cache. First load uses the conservative complete
 component-byte footprint; later loads also use measured residency. It records

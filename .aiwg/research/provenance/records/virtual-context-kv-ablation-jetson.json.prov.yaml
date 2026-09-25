@@ -6,7 +6,7 @@ entities:
   - id: urn:aiwg:artifact:.aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
     type: evidence_record
     path: .aiwg/testing/evidence/virtual-context-kv-ablation-jetson.json
-    sha256: 9636cc381e27fb023c38b91b29b799ad0b7f2c95bfdedea8b85e08cb62dd480a
+    sha256: bfcd683f4f7c48210eed45840dfa5320b8e5e1577abad02bdfc05a404574b447
     schema: robit.virtual-context-kv-ablation-jetson.v1
   - id: urn:aiwg:artifact:.aiwg/research/reports/long-context-virtualization-findings.md
     type: research_synthesis
@@ -84,3 +84,5 @@ validation:
   capability_urls_retained: false
   user_conversation_retained: false
   qualification_scope: Ornith 1.5 audio bridge on the tested 32 GB AGX Orin and pinned backend
+  steady_16k_qualified: false
+  post_qualification_soak_retained: true

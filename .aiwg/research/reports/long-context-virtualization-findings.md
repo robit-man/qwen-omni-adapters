@@ -562,6 +562,19 @@ services had zero restarts, the governor recorded no cap or failure, and 4.48 Gi
 remained available at the final audit. This qualifies q8_0 only for the tested Ornith
 bridge/32 GB Orin/backend revision; the guided deployer retains f16 elsewhere.
 
+The subsequent medium-horizon live soak rejected a stronger interpretation of
+that result. Foreground conversation plus the first browser/application task
+eventually drove the full resident stack below the 2 GiB floor at 16K, then at
+8K after pointing and longer prompts became resident. The governor retained both
+failures and selected 4K on the next starts; the durable task survived. q8 is
+therefore qualified as the cache format, while 16K is only the configured
+ceiling—not a guaranteed steady tier on this board. The soak also exposed two
+fixable harness costs rather than a semantic-memory failure: a 4K session kept
+the 16K output reserve and the background task duplicated its full contract.
+Adaptive output headroom and a single pinned task contract correct those costs.
+Silent action mode now sheds the independently reloadable TTS graph while
+retaining the shared language/ASR/vision trunk and pointing worker.
+
 q4_0 also passed a separately pre-sealed 256K domain seed 10/10, but its combined
 gate selected `gui_interact` after calculator discovery instead of `safe_math_eval`
 and ended with a 502. The service and 16K tier remained healthy, proving this was a

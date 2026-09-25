@@ -46,6 +46,10 @@ _SENSITIVE_AUDIT_KEY = re.compile(
 )
 
 AGENT_SYSTEM_PROMPT = context_text("prompts", "background_agent_system")
+TASK_START_REQUEST = (
+    "<task_start>Begin the task pinned in <current_task>. Choose the smallest "
+    "evidence-producing action and continue until its criteria are verified.</task_start>"
+)
 
 
 def _task_system_prompt(task: Mapping[str, Any]) -> str:
@@ -1027,6 +1031,7 @@ class BackgroundAgent:
         slice_backoff_s: float = 10.0,
         client: httpx.Client | None = None,
         decision_plane: DecisionPlane | None = None,
+        prepare_action_residency: Callable[[], None] | None = None,
     ) -> None:
         self.store = store
         self.portal_url = portal_url.rstrip("/")
@@ -1037,6 +1042,7 @@ class BackgroundAgent:
         self.token_reader = token_reader
         self.await_language = await_language
         self.decision_plane = decision_plane
+        self.prepare_action_residency = prepare_action_residency
         if self.decision_plane is None and os.environ.get(
             "OMNI_DECISION_PLANE_ENABLED", "0"
         ).strip().lower() not in {"0", "false", "no", "off"}:
@@ -1446,6 +1452,17 @@ class BackgroundAgent:
                 self._wake.wait(0.5)
                 self._wake.clear()
                 continue
+            if self.foreground_active.is_set():
+                continue
+            if self.prepare_action_residency is not None:
+                try:
+                    self.prepare_action_residency()
+                except Exception as error:  # noqa: BLE001 - governor remains authoritative
+                    logger.warning(
+                        "could not prepare background action residency: %s", error
+                    )
+                if self.foreground_active.is_set():
+                    continue
             if self.memory_governor is not None:
                 try:
                     # Claiming and compacting are bounded control work. Using
@@ -1631,13 +1648,9 @@ class BackgroundAgent:
         last_progress_at: float | None = None
         messages = copy.deepcopy(task.get("messages") or [])
         if not messages:
-            criteria = str(task.get("completion_criteria") or "").strip()
-            request = f"<objective>\n{task['objective']}\n</objective>"
-            if criteria:
-                request += f"\n\n<completion_criteria>\n{criteria}\n</completion_criteria>"
             messages = [
                 {"role": "system", "content": _task_system_prompt(task)},
-                {"role": "user", "content": request},
+                {"role": "user", "content": TASK_START_REQUEST},
             ]
         elif messages[0].get("role") == "system":
             # Durable tasks keep evidence and calls across service restarts, but
@@ -1652,6 +1665,16 @@ class BackgroundAgent:
                 0,
                 {"role": "system", "content": _task_system_prompt(task)},
             )
+        # Tasks accepted by an older worker may retain a second full copy of
+        # objective/criteria in the initial user turn. The authoritative copy
+        # is deterministically pinned in the system contract above; collapse
+        # only that known legacy envelope before the next bounded request.
+        if (
+            len(messages) > 1
+            and messages[1].get("role") == "user"
+            and str(messages[1].get("content") or "").lstrip().startswith("<objective>")
+        ):
+            messages[1] = {"role": "user", "content": TASK_START_REQUEST}
         self._restore_action_audit(task_id, messages)
         seen = {
             *_seen_tool_fingerprints(messages),
@@ -1851,6 +1874,7 @@ class BackgroundAgent:
                 # durable task between those states.
                 "tool_choice": "required",
                 "portal_auto_tools": False,
+                "portal_background_worker": True,
                 "stream": False,
             }
             try:

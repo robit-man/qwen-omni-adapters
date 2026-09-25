@@ -1673,6 +1673,31 @@ def test_background_comprehension_recovery_never_gives_up() -> None:
     assert SpeechResidency.ready_timeout_s == 120.0
 
 
+def test_background_tts_residency_requires_a_confirmed_shed(monkeypatch) -> None:
+    import httpx
+
+    from harness.residency import BackgroundTTSResidency
+
+    seen: list[tuple[str, dict[str, str]]] = []
+
+    def post(url: str, *, json: dict[str, str], timeout: float):
+        seen.append((url, json))
+        return httpx.Response(
+            200,
+            json={"ok": True, "persistent_ready": False},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr("harness.residency.httpx.post", post)
+    residency = BackgroundTTSResidency("http://127.0.0.1:8892/")
+
+    residency.shed()
+
+    assert seen == [
+        ("http://127.0.0.1:8892/residency", {"action": "shed"})
+    ]
+
+
 def test_a_turn_waits_for_comprehension_only_when_it_needs_it() -> None:
     order: list[str] = []
     call = CallSession(

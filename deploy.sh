@@ -383,14 +383,16 @@ backup_service_unit() {
 }
 
 install_environment() {
-  local temporary cache_type=f16
+  local temporary cache_type=f16 background_residency_mode=conversation
   # The Ornith bridge's q8 KV profile is qualified on the 32 GB AGX Orin:
   # sealed 256K domain answers, text/audio/image, cloned streaming TTS,
-  # post-TTS ASR, and structured tool routing all pass while the same 16K
-  # worker stays resident above the runtime reserve. Keep f16 everywhere else
+  # post-TTS ASR, and structured tool routing pass. A longer live soak proved
+  # that 16K remains a ceiling rather than a guaranteed steady tier; the
+  # launcher may downshift its physical working set. Keep f16 everywhere else
   # until the exact model/platform pair has equivalent live evidence.
   if [[ $PROFILE == ornith15 ]] && is_tegra; then
     cache_type=q8_0
+    background_residency_mode=action
   fi
   temporary=$(mktemp "$REPO_ROOT/.env.deploy.XXXXXX")
   if [[ -f "$REPO_ROOT/.env" ]]; then
@@ -417,6 +419,10 @@ install_environment() {
     printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=16384\n'
     printf 'OMNI_COMPREHENSION_CACHE_TYPE_K=%s\n' "$cache_type"
     printf 'OMNI_COMPREHENSION_CACHE_TYPE_V=%s\n' "$cache_type"
+    # Silent durable work needs the language/vision/pointing path, not a
+    # permanently resident speech decoder. Action mode sheds only the
+    # independently reloadable TTS graph before a background slice.
+    printf 'OMNI_BACKGROUND_RESIDENCY_MODE=%s\n' "$background_residency_mode"
     # The 16K/256K live RULER gate is accepted: use the lossless hierarchy as
     # the production working-set allocator. Operators can still explicitly
     # select shadow/off in .env for diagnostic comparison.

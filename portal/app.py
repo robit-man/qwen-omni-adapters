@@ -1776,12 +1776,28 @@ def create_app(
             raise PortalRequestError(str(exc)) from exc
 
     def apply_system_policy(
-        payload: dict[str, Any], session_id: str, *, tools_enabled: bool
+        payload: dict[str, Any],
+        session_id: str,
+        *,
+        tools_enabled: bool,
+        internal_background: bool = False,
     ) -> None:
         messages = payload.get("messages")
         if not isinstance(messages, list) or not messages:
             raise PortalRequestError("messages must be a non-empty array")
-        environment = portal_behavior_system_message()
+        environment = (
+            {
+                "role": "system",
+                "content": (
+                    "This is the authenticated internal durable-task worker. "
+                    "Its pinned <current_task> and background-agent policy remain "
+                    "authoritative.\n\n"
+                    f"{TOOL_RESULT_POLICY}"
+                ),
+            }
+            if internal_background
+            else portal_behavior_system_message()
+        )
         now = datetime.now().astimezone()
         grounding: dict[str, Any] = {
             "date": now.date().isoformat(),
@@ -1811,8 +1827,9 @@ def create_app(
             "This grounding was sampled at request admission. Treat location as "
             "approximate network-area evidence, never GPS, street, or visual evidence."
         )
-        environment["content"] += f"\n\n{TOOL_RESULT_POLICY}"
-        if tools_enabled:
+        if not internal_background:
+            environment["content"] += f"\n\n{TOOL_RESULT_POLICY}"
+        if tools_enabled and not internal_background:
             environment["content"] += f"\n\n{tool_use_instructions()}"
         if isinstance(messages[0], dict) and messages[0].get("role") == "system":
             existing = str(messages[0].get("content") or "").strip()
@@ -2256,6 +2273,7 @@ def create_app(
                 return jsonify({"error": "request body must be a JSON object"}), 400
             raw_messages = copy.deepcopy(list(payload.get("messages") or []))
             auto_tools = payload.pop("portal_auto_tools", False) is True
+            internal_background = payload.pop("portal_background_worker", False) is True
             camera_bridge = payload.pop("portal_camera_bridge", False) is True
             shell_bridge = payload.pop("portal_shell_bridge", False) is True
             background_bridge = payload.pop("portal_background_bridge", False) is True
@@ -2270,7 +2288,12 @@ def create_app(
             apply_client_location(payload, session_id, tools_enabled=auto_tools)
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
-            apply_system_policy(payload, session_id, tools_enabled=auto_tools)
+            apply_system_policy(
+                payload,
+                session_id,
+                tools_enabled=auto_tools,
+                internal_background=internal_background,
+            )
             if auto_tools:
                 payload["tools"] = initial_tool_contract(
                     payload,
@@ -2459,6 +2482,7 @@ def create_app(
             return jsonify({"error": "request body must be a JSON object"}), 400
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
         auto_tools = payload.pop("portal_auto_tools", False) is True
+        internal_background = payload.pop("portal_background_worker", False) is True
         camera_bridge = payload.pop("portal_camera_bridge", False) is True
         shell_bridge = payload.pop("portal_shell_bridge", False) is True
         background_bridge = payload.pop("portal_background_bridge", False) is True
@@ -2477,7 +2501,12 @@ def create_app(
             apply_client_location(payload, session_id, tools_enabled=auto_tools)
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
-            apply_system_policy(payload, session_id, tools_enabled=auto_tools)
+            apply_system_policy(
+                payload,
+                session_id,
+                tools_enabled=auto_tools,
+                internal_background=internal_background,
+            )
             if auto_tools:
                 payload["tools"] = initial_tool_contract(
                     payload,
