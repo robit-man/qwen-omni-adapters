@@ -1,0 +1,6 @@
+[Allow appliance users to query package lock state]
+Identity=unix-group:sudo
+Action=com.ubuntu.update-notifier.pkexec.package-system-locked
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes

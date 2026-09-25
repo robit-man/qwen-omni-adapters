@@ -148,13 +148,13 @@ def test_indicator_service_starts_before_the_core_readiness_wait() -> None:
 def test_tegra_desktop_install_whitelists_only_the_read_only_lock_query() -> None:
     source = DEPLOY.read_text(encoding="utf-8")
     rule = (
-        REPO_ROOT / "services/linux/49-qwen-omni-package-lock-query.rules"
+        REPO_ROOT / "services/linux/49-qwen-omni-package-lock-query.pkla"
     ).read_text(encoding="utf-8")
 
     assert "install_desktop_package_lock_policy" in source
     assert "com.ubuntu.update-notifier.pkexec.package-system-locked" in rule
-    assert "subject.local" in rule
-    assert "package-system-locked" in rule
+    assert "Identity=unix-group:sudo" in rule
+    assert "ResultAny=yes" in rule
     assert "apt-get" not in rule
     assert "update-manager" not in rule
 
