@@ -12,6 +12,7 @@ PULL_MODELS=1
 REFRESH_MODELS=0
 PREPARE_COMPONENTS=0
 INSTALL_LAYA=1
+INSTALL_POINTING=1
 INSTALL_HARNESS=0
 
 usage() {
@@ -23,6 +24,7 @@ Usage: ./scripts/bootstrap.sh [options]
   --refresh-models   Pull selected tags even when already installed
   --prepare          Materialize the disposable component cache now
   --skip-laya        Do not install the isolated resident Laya runtime
+  --skip-pointing    Do not install the isolated Tegra visual point head
   --with-harness     Install Linux desktop indicator/audio prerequisites
   --help             Show this help
 
@@ -38,6 +40,7 @@ while (($#)); do
     --refresh-models) REFRESH_MODELS=1 ;;
     --prepare) PREPARE_COMPONENTS=1 ;;
     --skip-laya) INSTALL_LAYA=0 ;;
+    --skip-pointing) INSTALL_POINTING=0 ;;
     --with-harness) INSTALL_HARNESS=1 ;;
     --help|-h) usage; exit 0 ;;
     *) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
@@ -94,6 +97,10 @@ fi
 
 if ((INSTALL_LAYA)); then
   "$REPO_ROOT/scripts/bootstrap_laya.sh"
+fi
+
+if ((INSTALL_POINTING)); then
+  "$REPO_ROOT/scripts/bootstrap_pointing.sh"
 fi
 
 if ((BUILD_LLAMA)); then

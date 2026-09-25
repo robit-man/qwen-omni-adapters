@@ -429,6 +429,16 @@ when a later pointer call omits its coordinate space, it remains bound to the
 newest returned frame. Active-window clicks fail safely if focus changed after
 observation. Every result also reports whether the coarse visual state materially
 changed, which lets the worker reject a missed click as non-progress.
+Actionable DOM controls are always re-resolved through live CDP geometry. For
+canvas, challenge, and image targets on Jetson, the conversational vision pass
+supplies a concise referring expression and an isolated resident Moondream 2
+point head resolves it against the exact CDP viewport. The browser re-captures
+and compares that viewport after point inference before sending input, so a
+coordinate is never carried onto changed pixels. Multiple returned matches are
+disambiguated by the conversational model's coarse current-frame point; the
+point head's structured coordinate remains the executed value. If the point
+head is not configured, the existing bounded crop-refinement loop remains the
+fail-safe fallback rather than widening hit tolerances.
 Screenshot bytes are shown to the multimodal model for one reasoning
 pass and then removed from the durable transcript so long tasks retain visual
 grounding without filling their context with base64. Local HTTP pages and all

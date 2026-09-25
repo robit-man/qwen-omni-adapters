@@ -123,6 +123,16 @@ tasks run. A larger measured Jetson deployment may opt in with
 `OMNI_DECISION_PLANE_ENABLED=1`; the language/tool path remains authoritative
 when the shadow worker is absent.
 
+Guided Tegra deployment also creates `.pointing-venv`, installs the NVIDIA
+JetPack PyTorch wheel matching the board's L4T release, and downloads the pinned
+Moondream 2 point checkpoint. The point worker starts before comprehension so
+the live context-window allocator sees its real resident cost. It stays loaded
+beside comprehension and cloned TTS; each worker must retain its own Tegra GPU
+device handles. Set `OMNI_ENABLE_POINTING=0` only to deliberately restore the
+slower two-pass crop fallback. There is no CPU fallback. JetPack 6.0's official
+Torch 2.4 lacks the later `enable_gqa` SDPA argument, so the worker applies the
+equivalent K/V-head repetition before loading the checkpoint.
+
 As a service:
 
 ```bash

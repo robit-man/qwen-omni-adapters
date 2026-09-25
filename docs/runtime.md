@@ -181,7 +181,15 @@ round/call/stall-bounded slices. Configure the policy with
 The comprehension server reserves at least 1,024 dynamic tokens for each image.
 This is the Qwen-VL/llama.cpp minimum for reliable grounding; allowing the smaller
 model-default image budget saves prompt work but materially degrades browser point
-selection. Exact DOM targets still bypass visual pointing through live CDP geometry.
+proposals. Exact DOM targets bypass visual pointing through live CDP geometry.
+Rendered targets without usable DOM geometry use a separate loopback-only
+Moondream 2 point worker on Tegra. It accepts only bounded image bytes plus one
+referring expression, returns proportional structured points, and has no browser
+or network action surface. The browser chooses among multiple returned matches
+using the current coarse proposal, then re-captures the same CDP region before
+executing. A material pixel change rejects the action. This isolates semantic
+planning from motor grounding without trusting stale coordinates or broadening
+the synthetic gate's acceptance radius.
 
 The launcher continues sampling after readiness because CUDA and KV pages can
 be committed lazily by the first large image or text request. A short dip is

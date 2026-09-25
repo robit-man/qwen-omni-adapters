@@ -109,6 +109,15 @@ The reference deployment serializes GPU inference with one active lane and
 admits four active/queued requests. This is bounded concurrency, not shared
 context. The count shown in the UI is aggregate only.
 
+Rendered browser actions have two grounding paths. DOM controls use freshly
+re-resolved CDP boxes and hit testing. Non-DOM targets use the current
+multimodal observation only to name the referent and provide a coarse prior; a
+resident, loopback-only Moondream 2 point worker maps that referent to structured
+coordinates in the exact current screenshot. The browser performs a second
+frame comparison before input dispatch. The point worker cannot navigate or
+click and never accepts image URLs, so it is a narrow motor-grounding component,
+not another general language trunk.
+
 llama.cpp prompt caching is disabled for comprehension because the pinned
 multimodal slot cache can retain decoded media embeddings. This is a correctness
 requirement even when ordinary token-prefix caching would be safe.

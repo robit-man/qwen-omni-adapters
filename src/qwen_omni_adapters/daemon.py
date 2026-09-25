@@ -112,6 +112,7 @@ class DaemonConfig:
     adapter_port: int = 8910
     portal_port: int = 8920
     decision_port: int = 8930
+    pointing_port: int = 8940
     context_tokens: int = 65_536
     comprehension_parallel_slots: int = 1
     tts_stream_frames: int = 8
@@ -136,6 +137,7 @@ class DaemonConfig:
     # against Ollama is meaningless and hangs on a tag that cannot exist.
     language_api: str = "ollama"
     decision_plane_enabled: bool = True
+    enable_pointing: bool = False
 
     @classmethod
     def from_environment(
@@ -210,6 +212,12 @@ class DaemonConfig:
             # OMNI_DECISION_PLANE_ENABLED=1 after measuring their workload.
             decision_plane_enabled=os.environ.get(
                 "OMNI_DECISION_PLANE_ENABLED", "0" if tegra else "1"
+            )
+            .strip()
+            .lower()
+            not in {"0", "false", "no"},
+            enable_pointing=os.environ.get(
+                "OMNI_ENABLE_POINTING", "1" if tegra else "0"
             )
             .strip()
             .lower()
@@ -369,6 +377,13 @@ class OmniDaemon:
         ]
         if self.config.decision_plane_enabled and self._laya_python().is_file():
             ports.append(self.config.decision_port)
+        if self.config.enable_pointing:
+            if not self._pointing_python().is_file():
+                raise DaemonError(
+                    "structured pointing is enabled but its isolated runtime is missing; "
+                    "run scripts/bootstrap_pointing.sh"
+                )
+            ports.append(self.config.pointing_port)
         if self.config.enable_comprehension:
             # Only required when this supervisor spawns the worker. An
             # externally managed comprehension worker legitimately occupies
@@ -606,6 +621,18 @@ class OmniDaemon:
             self.config.repo_root / ".laya-venv" / ("Scripts" if os.name == "nt" else "bin") / name
         )
 
+    def _pointing_python(self) -> Path:
+        configured = os.environ.get("OMNI_POINTING_PYTHON", "").strip()
+        if configured:
+            return Path(configured).expanduser().resolve()
+        name = "python.exe" if os.name == "nt" else "python"
+        return (
+            self.config.repo_root
+            / ".pointing-venv"
+            / ("Scripts" if os.name == "nt" else "bin")
+            / name
+        )
+
     def _discard_child(self, child: Child) -> None:
         if child.process.poll() is None:
             if os.name == "nt":
@@ -789,6 +816,44 @@ class OmniDaemon:
         common["OMNI_DECISION_PLANE_ENABLED"] = "1" if decision_ready else "0"
         common["OMNI_DECISION_PLANE_URL"] = f"http://127.0.0.1:{self.config.decision_port}"
         common["OMNI_DECISION_TRACE_FILE"] = str(self.config.runtime_root / "decision-traces.jsonl")
+        pointing: Child | None = None
+        if self.config.enable_pointing:
+            pointing_env = {
+                **common,
+                "OMNI_POINTING_HOST": "127.0.0.1",
+                "OMNI_POINTING_PORT": str(self.config.pointing_port),
+                "OMNI_POINTING_MODEL": os.environ.get(
+                    "OMNI_POINTING_MODEL", "vikhyatk/moondream2"
+                ),
+                "OMNI_POINTING_REVISION": os.environ.get(
+                    "OMNI_POINTING_REVISION",
+                    "9a7d4024050840e001defacec2b00727e89149e6",
+                ),
+            }
+            if platform.system() == "Linux" and is_tegra():
+                cuda_libraries = (
+                    "/usr/local/cuda/lib64:/usr/local/cuda/targets/aarch64-linux/lib"
+                )
+                inherited_libraries = pointing_env.get("LD_LIBRARY_PATH", "")
+                pointing_env["LD_LIBRARY_PATH"] = (
+                    f"{cuda_libraries}:{inherited_libraries}"
+                    if inherited_libraries
+                    else cuda_libraries
+                )
+            pointing = self._spawn(
+                "pointing",
+                [
+                    str(self._pointing_python()),
+                    str(self.config.repo_root / "runtime" / "pointing_server.py"),
+                ],
+                pointing_env,
+            )
+            self._wait_http(
+                pointing,
+                f"http://127.0.0.1:{self.config.pointing_port}/healthz",
+                600,
+            )
+            self._verify_direct_gpu(pointing.process.pid, "pointing")
         comprehension_model, comprehension_projector = self._comprehension_artifacts()
         comprehension: Child | None = None
         if self.config.enable_comprehension:
@@ -880,6 +945,12 @@ class OmniDaemon:
             tts_env,
         )
         self._wait_http(tts, f"http://127.0.0.1:{self.config.tts_port}/healthz", 60)
+        if pointing is not None:
+            if pointing.process.poll() is not None:
+                raise DaemonError(
+                    "structured pointing exited while the co-resident voice stack loaded"
+                )
+            self._verify_direct_gpu(pointing.process.pid, "pointing")
 
         language_api, language_url, language_model = self._language_route()
         # The direct llama.cpp route intentionally uses the runtime alias
@@ -944,6 +1015,11 @@ class OmniDaemon:
                 else os.environ.get("OMNI_COMPREHENSION_HEALTH_URL", "")
             ),
             "OMNI_TTS_HEALTH_URL": f"http://127.0.0.1:{self.config.tts_port}/healthz",
+            "OMNI_POINTING_URL": (
+                f"http://127.0.0.1:{self.config.pointing_port}"
+                if pointing is not None
+                else ""
+            ),
             "OMNI_PORTAL_SESSION_LOG_DIR": str(self.session_log_dir),
             "OMNI_PORTAL_HOST": "127.0.0.1",
             "OMNI_PORTAL_PORT": str(self.config.portal_port),
@@ -990,6 +1066,7 @@ class OmniDaemon:
             comprehension=self.config.enable_comprehension,
             startup_smoke=self.config.startup_smoke,
             decision_plane=decision_ready,
+            pointing=pointing is not None,
             co_resident_stack=resident_stack,
         )
 

@@ -6,7 +6,7 @@ SERVICE_NAME=qwen-omni-adapters.service
 SERVICE_UNIT=/etc/systemd/system/$SERVICE_NAME
 HARNESS_NAME=omni-call-harness.service
 HARNESS_UNIT=$HOME/.config/systemd/user/$HARNESS_NAME
-DEPLOYMENT_PORTS=8892,8901,8910,8920,8930
+DEPLOYMENT_PORTS=8892,8901,8910,8920,8930,8940
 PROFILE=""
 ACTION=""
 WITH_HARNESS=""
@@ -378,7 +378,7 @@ install_environment() {
   temporary=$(mktemp "$REPO_ROOT/.env.deploy.XXXXXX")
   if [[ -f "$REPO_ROOT/.env" ]]; then
     awk '!/^OMNI_PROFILE=/ && !/^OMNI_MODEL=/ && !/^OMNI_LANGUAGE_MODEL=/ \
-      && !/^OMNI_ENABLE_COMPREHENSION=/ && !/^OMNI_STARTUP_SMOKE=/ \
+      && !/^OMNI_ENABLE_COMPREHENSION=/ && !/^OMNI_ENABLE_POINTING=/ && !/^OMNI_STARTUP_SMOKE=/ \
       && !/^OMNI_COMPREHENSION_CONTEXT_TOKENS=/ \
       && !/^OMNI_TTS_PERSISTENT=/ && !/^OMNI_CALL_SPEECH_EVICT_UNIT=/' \
       "$REPO_ROOT/.env" >"$temporary"
@@ -388,6 +388,7 @@ install_environment() {
     printf 'OMNI_MODEL=%s\n' "$OMNI_MODEL"
     printf 'OMNI_LANGUAGE_MODEL=%s\n' "$OMNI_LANGUAGE_MODEL"
     printf 'OMNI_ENABLE_COMPREHENSION=1\n'
+    printf 'OMNI_ENABLE_POINTING=1\n'
     # This is the native ceiling. The Tegra launcher derives KV cost from the
     # selected GGUF and chooses the largest currently safe tier beneath it.
     printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=262144\n'

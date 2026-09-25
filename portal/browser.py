@@ -333,6 +333,7 @@ class _BrowserSession:
     visual_frame: dict[str, Any] = field(default_factory=dict)
     visual_sample: bytes = b""
     visual_revision: int = 0
+    visual_grounding: dict[str, Any] = field(default_factory=dict)
 
 
 _SNAPSHOT_SCRIPT = r"""
@@ -385,6 +386,7 @@ class BrowserAutomationStore:
         timeout_s: float = 15.0,
         memory_governor: MemoryGovernor | None = None,
         launch_reserve_gib: float | None = None,
+        pointing_url: str | None = None,
     ) -> None:
         self.ttl_s = max(30.0, float(ttl_s))
         self.timeout_s = max(2.0, float(timeout_s))
@@ -393,8 +395,99 @@ class BrowserAutomationStore:
         )
         self.memory_governor = memory_governor
         self.launch_reserve_gib = launch_reserve_gib
+        configured_pointing = (
+            pointing_url
+            if pointing_url is not None
+            else os.environ.get("OMNI_POINTING_URL", "")
+        ).strip()
+        if configured_pointing:
+            parsed_pointing = urlsplit(configured_pointing)
+            if (
+                parsed_pointing.scheme != "http"
+                or parsed_pointing.hostname not in {"127.0.0.1", "localhost", "::1"}
+                or not parsed_pointing.port
+            ):
+                raise BrowserAutomationError(
+                    "OMNI_POINTING_URL must be an explicit loopback HTTP endpoint"
+                )
+        self.pointing_url = configured_pointing.rstrip("/")
         self._lock = threading.RLock()
         self._sessions: dict[str, _BrowserSession] = {}
+
+    def _point_target(
+        self,
+        image: Image.Image,
+        target: str,
+        proposed_x: int,
+        proposed_y: int,
+    ) -> tuple[int, int, dict[str, Any]]:
+        """Resolve one referring expression through the dedicated point head."""
+
+        normalized_target = " ".join(target.split())
+        if not self.pointing_url or not normalized_target:
+            raise BrowserAutomationError("structured visual pointing is unavailable")
+        if len(normalized_target) > 240:
+            raise BrowserAutomationError("visual target description is too long")
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        payload = json.dumps(
+            {
+                "image": base64.b64encode(buffer.getvalue()).decode("ascii"),
+                "target": normalized_target,
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
+        request = Request(
+            f"{self.pointing_url}/point",
+            data=payload,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Content-Length": str(len(payload)),
+                "User-Agent": "omni-visible-browser/1",
+            },
+        )
+        try:
+            with urlopen(request, timeout=max(5.0, self.timeout_s)) as response:  # noqa: S310
+                result = json.loads(response.read(256 * 1024))
+        except (OSError, URLError, TimeoutError, ValueError) as exc:
+            raise BrowserAutomationError(
+                f"structured visual pointing failed: {type(exc).__name__}"
+            ) from exc
+        points = result.get("points") if isinstance(result, dict) else None
+        candidates: list[tuple[int, int]] = []
+        if isinstance(points, list):
+            for point in points[:32]:
+                if not isinstance(point, dict):
+                    continue
+                try:
+                    x = round(float(point["x"]) * 1000)
+                    y = round(float(point["y"]) * 1000)
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if 0 <= x <= 1000 and 0 <= y <= 1000:
+                    candidates.append((x, y))
+        if not candidates:
+            raise BrowserAutomationError(
+                "the structured point head found no matching target in the current frame"
+            )
+        # A referring expression can legitimately match several items.  The
+        # planner's coarse point is useful only as a disambiguating prior; the
+        # dedicated point head remains authoritative for the executed pixels.
+        selected_x, selected_y = min(
+            candidates,
+            key=lambda point: (point[0] - proposed_x) ** 2
+            + (point[1] - proposed_y) ** 2,
+        )
+        return selected_x, selected_y, {
+            "source": "dedicated_point_head",
+            "model": str(result.get("model") or "")[:160],
+            "revision": str(result.get("revision") or "")[:80],
+            "target": normalized_target,
+            "candidate_count": len(candidates),
+            "planner_prior": {"x": proposed_x, "y": proposed_y},
+            "executed": {"x": selected_x, "y": selected_y},
+        }
 
     def _admit_single_window(self) -> None:
         live = [
@@ -844,11 +937,15 @@ class BrowserAutomationStore:
             raise BrowserAutomationError("visual_click x and y must be integers") from exc
         if not 0 <= normalized_x <= 1000 or not 0 <= normalized_y <= 1000:
             raise BrowserAutomationError("visual_click x and y must be between 0 and 1000")
-        if int(frame.get("refinement_depth") or 0) == 0:
+        target = " ".join(str(arguments.get("target") or "").split())
+        use_point_head = bool(self.pointing_url and target)
+        session.visual_grounding = {}
+        if int(frame.get("refinement_depth") or 0) == 0 and not use_point_head:
             # Treat the first full-viewport point as a region proposal, not an
             # executable click. Qwen-family grounding is trained in normalized
             # image space and becomes materially more accurate after the target
-            # occupies a larger share of the perception frame.
+            # occupies a larger share of the perception frame. A configured
+            # structured point head can act on the full viewport directly.
             return "refine"
         current = self._evaluate(
             cdp,
@@ -893,6 +990,46 @@ class BrowserAutomationStore:
         # and raster jitter; larger changes invalidate the visual target.
         if changed >= 12:
             return "stale"
+        if use_point_head:
+            normalized_x, normalized_y, receipt = self._point_target(
+                current_region,
+                target,
+                normalized_x,
+                normalized_y,
+            )
+            # Point inference is bounded but not instantaneous. Re-capture the
+            # same region once more so its result is never applied to pixels
+            # that changed while the point head was running.
+            execution_shot = cdp.call(
+                "Page.captureScreenshot",
+                {"format": "png", "fromSurface": True, "captureBeyondViewport": False},
+            ).get("data")
+            if not isinstance(execution_shot, str) or not execution_shot:
+                raise BrowserAutomationError(
+                    "Chromium produced no visual-point execution screenshot"
+                )
+            execution_image = self._decode_screenshot(execution_shot)
+            if execution_image.size != current_image.size:
+                return "stale"
+            execution_region = execution_image.crop(
+                (left, top, left + width, top + height)
+            )
+            execution_sample = self._image_sample(execution_region)
+            if len(execution_sample) != len(current_sample):
+                return "stale"
+            inference_changes = sum(
+                1
+                for before, after in zip(
+                    current_sample,
+                    execution_sample,
+                    strict=True,
+                )
+                if before != after
+            )
+            if inference_changes >= 12:
+                return "stale"
+            receipt["frame_changed_during_inference"] = inference_changes
+            session.visual_grounding = receipt
         x = float(frame.get("origin_css_x") or 0.0) + (
             normalized_x * max(0.0, float(frame["css_width"]) - 1.0) / 1000
         )
@@ -1193,6 +1330,9 @@ class BrowserAutomationStore:
                     self._evaluate(cdp, "history.back(); true")
                 self._wait_rendered(cdp, wait_ms)
                 result = self._snapshot(session, cdp)
+                if session.visual_grounding:
+                    result["visual_grounding"] = dict(session.visual_grounding)
+                    session.visual_grounding = {}
                 if visual_click_outcome == "refine":
                     result = self._refine_visual_result(
                         session,

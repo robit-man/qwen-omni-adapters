@@ -332,7 +332,7 @@
         "type": "function",
         "function": {
           "name": "browser_interact",
-          "description": "Control one persistent rendered Chromium session for interactive or JavaScript-heavy web work. It is visible on the signed-in desktop and never substitutes a headless session. Prefer element_id for DOM controls: the executor re-resolves its current box, visibility, enabled state, and hit target immediately before acting. For canvas, image, challenge, or other non-DOM targets, use visual_click with normalized_1000 x/y from the latest screenshot. A first point on the full browser_viewport is a safe region proposal: it returns a bounded refinement crop without clicking. Re-locate the target in that crop; the next visual_click maps through the crop into the parent viewport and executes. Every non-close action returns fresh visual evidence.",
+          "description": "Control one persistent rendered Chromium session for interactive or JavaScript-heavy web work. It is visible on the signed-in desktop and never substitutes a headless session. Prefer element_id for DOM controls: the executor re-resolves its current box, visibility, enabled state, and hit target immediately before acting. For canvas, image, challenge, or other non-DOM targets, use visual_click with normalized_1000 x/y and the concise target referring expression from the latest screenshot. When a dedicated point head is available, target is resolved against the exact fresh viewport and its structured point is executed after another stale-frame check. Otherwise, a first full-viewport point returns a bounded refinement crop without clicking; re-locate the same target in that crop and call visual_click once more. Every non-close action returns fresh visual evidence.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -376,6 +376,11 @@
                   "normalized_1000"
                 ],
                 "description": "Required visual grounding convention for action=visual_click."
+              },
+              "target": {
+                "type": "string",
+                "maxLength": 240,
+                "description": "Concise referring expression for the intended rendered target, such as the exact label or uniquely described object. Include it for visual_click so the dedicated point head can resolve pixels; never use it instead of element_id for an actionable DOM element."
               },
               "text": {
                 "type": "string",

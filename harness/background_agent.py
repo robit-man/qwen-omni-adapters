@@ -203,11 +203,12 @@ def _ground_visual_click(
     x, y = int(match.group("x")), int(match.group("y"))
     if not 0 <= x <= 1000 or not 0 <= y <= 1000:
         return grounded, None
+    label = " ".join(match.group("label").split())[:160]
     proposed = {"x": grounded.get("x"), "y": grounded.get("y")}
-    grounded.update({"x": x, "y": y})
+    grounded.update({"x": x, "y": y, "target": label})
     return grounded, {
         "source": "strict_current_visual_observation",
-        "target": " ".join(match.group("label").split())[:160],
+        "target": label,
         "proposed": proposed,
         "executed": {"x": x, "y": y},
     }

@@ -111,6 +111,7 @@ def test_strict_current_visual_target_overrides_language_coordinate_guess() -> N
 
     assert arguments["x"] == 818
     assert arguments["y"] == 494
+    assert arguments["target"] == "blue triangle"
     assert receipt == {
         "source": "strict_current_visual_observation",
         "target": "blue triangle",

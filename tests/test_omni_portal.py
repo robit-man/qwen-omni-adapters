@@ -198,6 +198,73 @@ def test_browser_first_visual_point_returns_a_refinement_crop_without_clicking()
     assert outcome == "refine"
 
 
+def test_browser_dedicated_point_head_executes_full_viewport_target_directly() -> None:
+    class Store(BrowserAutomationStore):
+        def _evaluate(self, _cdp, _expression):
+            return {"url": "https://example.test/", "width": 1000, "height": 700}
+
+        def _point_target(self, image, target, proposed_x, proposed_y):
+            assert image.size == (1000, 700)
+            assert target == "blue triangle"
+            assert (proposed_x, proposed_y) == (150, 150)
+            return 760, 390, {
+                "source": "dedicated_point_head",
+                "target": target,
+                "executed": {"x": 760, "y": 390},
+            }
+
+    class Cdp:
+        def __init__(self, screenshot: str) -> None:
+            self.screenshot = screenshot
+            self.calls: list[tuple[str, dict[str, Any]]] = []
+
+        def call(self, method: str, arguments: dict[str, Any]) -> dict[str, str]:
+            self.calls.append((method, arguments))
+            return {"data": self.screenshot} if method == "Page.captureScreenshot" else {}
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (1000, 700), "white").save(buffer, format="PNG")
+    screenshot = base64.b64encode(buffer.getvalue()).decode()
+    _width, _height, sample = BrowserAutomationStore._screenshot_details(screenshot)
+    session = SimpleNamespace(
+        visual_frame={
+            "url": "https://example.test/",
+            "css_width": 1000,
+            "css_height": 700,
+            "root_css_width": 1000,
+            "root_css_height": 700,
+            "origin_css_x": 0,
+            "origin_css_y": 0,
+            "width": 1000,
+            "height": 700,
+            "pixel_origin_x": 0,
+            "pixel_origin_y": 0,
+            "refinement_depth": 0,
+        },
+        visual_sample=sample,
+        visual_grounding={},
+    )
+    cdp = Cdp(screenshot)
+
+    outcome = Store(pointing_url="http://127.0.0.1:8940")._visual_click(
+        session,  # type: ignore[arg-type]
+        cdp,  # type: ignore[arg-type]
+        {
+            "x": 150,
+            "y": 150,
+            "target": "blue triangle",
+            "coordinate_unit": "normalized_1000",
+        },
+    )
+
+    events = [args for method, args in cdp.calls if method == "Input.dispatchMouseEvent"]
+    assert outcome == "clicked"
+    assert events[0]["x"] == pytest.approx(759.24)
+    assert events[0]["y"] == pytest.approx(272.61)
+    assert session.visual_grounding["source"] == "dedicated_point_head"
+    assert session.visual_grounding["frame_changed_during_inference"] == 0
+
+
 def test_browser_refinement_crop_preserves_parent_viewport_transform() -> None:
     buffer = io.BytesIO()
     Image.new("RGB", (1010, 619), "white").save(buffer, format="PNG")
@@ -664,6 +731,7 @@ def test_browser_and_gui_tools_expose_drag_recovery_actions() -> None:
     assert schemas["browser_interact"]["properties"]["coordinate_unit"]["enum"] == [
         "normalized_1000"
     ]
+    assert schemas["browser_interact"]["properties"]["target"]["maxLength"] == 240
     assert {"delta_x", "delta_y"} <= set(
         schemas["browser_interact"]["properties"]
     )
