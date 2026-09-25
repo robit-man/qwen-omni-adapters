@@ -2,16 +2,16 @@
 
 - Date: 2026-09-25
 - Physical context budget: 16,384 tokens
-- Scope: deterministic storage, retrieval, controller, packing behavior, and
-  a bounded live-model sparse-recall smoke
-- Non-claim: this is not a complete RULER model-answer score or proof of native
-  long-context equivalence
+- Scope: deterministic storage, retrieval, controller, packing behavior, a
+  live 13-task RULER v1 sweep, and a bounded 256K sparse-recall smoke
+- Non-claim: the live sweep has one 32K sample per task; it is not a
+  statistically complete RULER matrix or proof of native long-context equivalence
 
 ## Repository validation
 
 Command: `./scripts/validate.sh`
 
-Result: 634 tests passed in 30.41 seconds. Source, contract, VAD, call-queue,
+Result: 639 tests passed in 30.84 seconds. Source, contract, VAD, call-queue,
 browser-cache, and unit validation gates passed.
 
 ## Synthetic source-length ladder
@@ -117,8 +117,8 @@ regressions now require anchored relationship closure before STOP, fail closed
 when the dependency budget expires, ignore the unrelated few-shot graph, and
 use dependency-aware exact line replay when a full chunk does not fit.
 
-This is preparation/replay evidence, not an answer-accuracy score. The complete
-13-task FIFO/hybrid/oracle model run remains a release gate.
+This is preparation/replay evidence, not an answer-accuracy score. The 32K
+13-task live run is reported below; the full 13-task 256K run remains open.
 
 ## Official RULER 13-task 32K preparation gate
 
@@ -142,8 +142,54 @@ This sweep exposed three failures before it passed:
 All NIAH, variable-tracking, and word-frequency reference terms were resident.
 The QA packs contained the exact support documents. HotpotQA's expected `yes`
 is intentionally not required to occur in source evidence; it is a conclusion
-the model must draw from the two replayed nationality statements. These are
-preparation results, not the pending live 13-task model scores.
+the model must draw from the two replayed nationality statements.
+
+## Live official RULER 13-task 32K sweep
+
+One upstream-generated sample from every RULER v1 task was run on the resident
+Ornith audio-bridge worker. The transformer remained hard-capped at 16,384
+tokens, the runner used the active llama.cpp tokenizer, thinking was disabled,
+and output was capped at 256 tokens. Scores use RULER v1's published all-match
+metric for NIAH/VT/CWE/FWE and partial-match metric for QA.
+
+| Task | FIFO | Hybrid | Oracle-assisted |
+|---|---:|---:|---:|
+| CWE | 80 | 100 | 100 |
+| FWE | 100 | 100 | 100 |
+| NIAH multi-key 1/2/3 | 100 / 0 / 0 | 100 / 100 / 100 | 100 / 100 / 100 |
+| NIAH multi-query | 0 | 100 | 100 |
+| NIAH multi-value | 50 | 100 | 100 |
+| NIAH single 1/2/3 | 0 / 0 / 0 | 100 / 100 / 100 | 100 / 100 / 100 |
+| SQuAD QA | 0 | 100 | 100 |
+| HotpotQA | 100 | 100 | 100 |
+| Variable tracking | 80 | 100 | 100 |
+| **Mean across 13 tasks** | **39.23** | **100** | **100** |
+
+| Condition | Resident input range | Prompt tokens total | p50 inference | p95 inference |
+|---|---:|---:|---:|---:|
+| FIFO | 13,998-14,000 | 182,151 | 21.49 s | 31.97 s |
+| Hybrid | 719-8,108 | 73,026 | 1.38 s | 14.19 s |
+| Oracle-assisted | 719-8,508 | 78,897 | 1.36 s | 14.98 s |
+
+The hybrid condition matched its oracle-assisted ceiling on all 13 samples
+while consuming 59.9% fewer prompt tokens than FIFO. This is a one-sample task
+breadth gate, not a confidence interval. The compact per-task artifact records
+source/prediction/reference hashes, exact token counts, preparation and inference
+latency, retrieval rounds, finish reasons, and scores at
+`evidence/ruler-v1-32k-jetson.json`.
+
+The live sweep caught two non-scoring harness failures. First, one multi-value
+request exhausted all 256 output tokens in a hidden reasoning channel and
+returned no visible answer; endpoint runs now explicitly use Qwen's native
+`enable_thinking=false` template branch unless `--think` is requested. Second,
+FIFO exceeded the physical window when bounded by a conservative character
+estimate; endpoint runs now derive and use the active `/tokenize` route for the
+packer and FIFO binary search. Neither failure was converted into a pass.
+
+The oracle is dependency-aware rather than a blind answer-string search.
+Recursive query retrieval supplies source dependencies, and only
+high-information reference strings add exact source locations. Short derived
+labels such as `yes` and `no` are not searched as if they were source evidence.
 
 ## Live official RULER model-answer gate
 
@@ -204,15 +250,17 @@ worker used 254,822 source tokens with the target fact in the middle:
 - periodic recurrent regeneration from immutable raw evidence;
 - live tool-loop repacking and tool/control-envelope reservation;
 - exact llama.cpp token-counter adapter and shadow-mode safe fallback;
-- RULER input/reference isolation, answer-prefix restoration, oracle labelling,
-  and official-scorer-compatible output records.
+- RULER input/reference isolation, answer-prefix restoration, dependency-aware
+  oracle labelling, active-tokenizer bounds, inference telemetry, and
+  official-scorer-compatible output records.
 
 ## Remaining release evidence
 
-1. Run the 13 official RULER v1 tasks with the target model for FIFO, hybrid,
-   and reference-location oracle conditions.
-2. Report answer accuracy, oracle gap, inference tokens, rounds, p50/p95 latency,
-   peak RAM/VRAM, and context-envelope use.
+1. Expand the 13 official RULER v1 tasks beyond one sample each and run them at
+   64K, 128K, and 256K before extending through 1M.
+2. Add peak RAM/VRAM and index-latency sampling to the live downstream report;
+   answer accuracy, token use, rounds, p50/p95 latency, and envelope use are now
+   present for the 32K sweep.
 3. Run realistic long conversation, document, and code-agent workloads; the
    deterministic adversarial fixtures above are necessary regression evidence,
    not a substitute for those live task distributions.

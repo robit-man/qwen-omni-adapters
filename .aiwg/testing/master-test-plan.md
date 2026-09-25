@@ -13,8 +13,9 @@ provenance-bearing evidence without treating derived summaries as source truth.
 2. Adversarial preparation gate: ten scenario families at 16K through 1M for
    FIFO, dense, lexical, hybrid, recurrent, recursive replay, structured replay,
    and oracle baselines.
-3. Oracle ceiling gate: exact source locations must produce a complete bounded
-   evidence pack. An oracle failure is a packer/base-task issue, not retrieval.
+3. Oracle ceiling gate: recursive support plus exact high-information source
+   locations must produce a complete bounded evidence pack. Derived answer
+   labels are not source locators. An oracle failure is a packer/base-task issue.
 4. Production retrieval gate: structured replay must match the oracle evidence
    ceiling, reconstruct all provenance, stay within the input ceiling, and
    exclude scenario-declared near-duplicate distractors.

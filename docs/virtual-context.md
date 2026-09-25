@@ -118,11 +118,15 @@ transformer:
 
 The output JSONL preserves the official fields and adds `pred`, so scoring is
 performed by NVIDIA RULER's official evaluator. The harness records the pinned RULER
-v1 revision, reattaches the generator's separated `answer_prefix`, and labels oracle
-reference-location runs separately. Endpoint runs also report the same published
-all-match or QA partial-match string score in `virtual-context-run.json`; the
-JSONL remains suitable for independent upstream evaluation. A preparation-only
-run does not produce model predictions and must not be reported as a RULER score.
+v1 revision and reattaches the generator's separated `answer_prefix`. Its
+oracle-assisted condition combines recursive dependency retrieval with exact
+locations for high-information references; short derived labels such as yes/no
+are never treated as source locators. Endpoint runs default to native
+no-thinking mode, derive the active llama.cpp `/tokenize` route, and report the
+published all-match or QA partial-match score, prompt/completion tokens, finish
+reason, and p50/p95 inference latency in `virtual-context-run.json`. The JSONL
+remains suitable for independent upstream evaluation. A preparation-only run
+does not produce model predictions and must not be reported as a RULER score.
 
 ## Authority rules
 
