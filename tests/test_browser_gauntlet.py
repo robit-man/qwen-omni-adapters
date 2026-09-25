@@ -85,6 +85,16 @@ def test_visual_grid_records_miss_and_refuses_early_verify() -> None:
 
 def test_final_state_requires_correct_drag_and_inferred_seal() -> None:
     state = GauntletState(seed=23)
+    assert state.submit_form(
+        {
+            "recipient": "Avery Morgan",
+            "email": "avery.morgan@example.test",
+            "dispatch_code": "ORIN-4827",
+            "notes": "Two ruggedized actuators; keep upright.",
+            "speed": "expedited",
+            "confirmed": "yes",
+        }
+    )
     for _round in range(3):
         while True:
             view = state.grid_view()
