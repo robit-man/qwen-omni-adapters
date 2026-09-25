@@ -215,7 +215,7 @@ def test_an_explicit_language_model_always_wins(monkeypatch) -> None:
     assert config.language_model == "robit/ornith-1.5:9b"
 
 
-def test_tegra_bridge_uses_a_native_ceiling_for_dynamic_memory_selection(monkeypatch) -> None:
+def test_tegra_bridge_uses_a_bounded_virtual_memory_working_set(monkeypatch) -> None:
     from qwen_omni_adapters import daemon
 
     monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
@@ -225,7 +225,7 @@ def test_tegra_bridge_uses_a_native_ceiling_for_dynamic_memory_selection(monkeyp
     )
 
     monkeypatch.setattr(daemon, "is_tegra", lambda: True)
-    assert daemon.DaemonConfig.from_environment(cloudflare=False).context_tokens == 262144
+    assert daemon.DaemonConfig.from_environment(cloudflare=False).context_tokens == 16384
 
     monkeypatch.setattr(daemon, "is_tegra", lambda: False)
     assert daemon.DaemonConfig.from_environment(cloudflare=False).context_tokens == 65536

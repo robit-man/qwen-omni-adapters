@@ -167,7 +167,10 @@ class DaemonConfig:
         )
         model = os.environ.get("OMNI_MODEL", "robit/qwen3.8-27b-e03-obliterated-omni:q4km").strip()
         tegra = is_tegra()
-        default_context = "262144" if tegra and "-audio-bridge:" in model else "65536"
+        # Compact bridges use a bounded resident working set. Long history is
+        # paged through virtual memory instead of eagerly consuming Tegra's
+        # unified pool with a nominal native-length KV allocation.
+        default_context = "16384" if tegra and "-audio-bridge:" in model else "65536"
         return cls(
             repo_root=root,
             runtime_root=runtime,

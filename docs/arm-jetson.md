@@ -174,16 +174,20 @@ ample headroom. A **32 GB module is tight**: it fits the three workers, but
 not with much else resident, so budget carefully if the host is also running
 vision or other CUDA workloads.
 
-Legacy full bundles retain a 65,536-token ceiling. Compact bridge bundles use
-their 262,144-token native ceiling, but the ceiling is not an allocation. The
-direct Jetson daemon runs `runtime/comprehension_launcher.py`, derives KV bytes
-per token from the selected GGUF, samples current `MemAvailable`, and selects
-the largest standard tier that leaves the shared runtime reserve. The selected
+Legacy full bundles retain a 65,536-token ceiling. Compact bridge bundles may
+have a larger native positional range, but default to a **16,384-token resident
+working set**. History beyond that bound is handled by the lossless
+virtual-context hierarchy instead of preallocating a nominal 256K KV cache in
+the Jetson's shared pool. The direct Jetson daemon runs
+`runtime/comprehension_launcher.py`, derives KV bytes per token from the
+selected GGUF, and may select a smaller standard tier when current
+`MemAvailable` cannot fund 16K plus the shared runtime reserve. The selected
 value is published in daemon status as `comprehension_context_tokens`; the
-ceiling is `comprehension_context_ceiling`. The published
+default ceiling is `comprehension_context_ceiling`. The published
 `comprehension_parallel_slots` matches llama-server's `--parallel` value; the
 default is one so the planner cannot undercount four implicit KV slots. An
-explicit `OMNI_COMPREHENSION_CONTEXT_TOKENS` still overrides the ceiling.
+explicit `OMNI_COMPREHENSION_CONTEXT_TOKENS` can still override the ceiling for
+controlled benchmarks, but larger values are not the supported Jetson default.
 
 Note that `-ngl 99` does not increase the footprint here the way it does on a
 discrete card: there is one pool, so offloading layers changes which engine

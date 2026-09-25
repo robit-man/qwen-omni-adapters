@@ -679,6 +679,37 @@ class SessionDocumentStore:
             for item in documents
         ]
 
+    def evidence_documents(
+        self, session_id: str, document_ids: Sequence[str]
+    ) -> list[dict[str, Any]]:
+        """Return extracted source text for the lossless session evidence store."""
+
+        wanted = {str(document_id) for document_id in document_ids}
+        if not wanted:
+            return []
+        now = time.monotonic()
+        with self._lock:
+            self._expire_locked(now)
+            index = self._sessions.get(self._key(session_id))
+            if index is None:
+                return []
+            index.last_seen = now
+            selected = [
+                document
+                for document_id, document in index.documents.items()
+                if document_id in wanted
+            ]
+        return [
+            {
+                "id": document.document_id,
+                "digest": document.digest,
+                "name": document.name,
+                "mime_type": document.mime_type,
+                "text": document.text,
+            }
+            for document in selected
+        ]
+
     def structured_read(
         self,
         session_id: str,

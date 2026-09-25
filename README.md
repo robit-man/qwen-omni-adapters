@@ -477,13 +477,15 @@ never waits for it.
 On unified-memory hosts, `runtime/comprehension_launcher.py` reads the installed
 GGUF, derives KV bytes per token, samples live available memory, and chooses the
 largest context tier that fits with the runtime memory reserve. Compact models
-advertise their 262,144-token native ceiling, but that ceiling is never
-allocated blindly. First load uses the conservative complete component-byte
-footprint; later loads also use measured residency. It records before/after
-residency and automatically caps the next load below a tier that exits or
-leaves too little memory. The adapter reads the chosen window per request and
-sheds old history/tool evidence before llama.cpp can reject an oversized
-prompt.
+may have a 262,144-token native positional range, but the managed compact
+profiles intentionally expose a 16,384-token resident working-set ceiling.
+Longer history is paged through the lossless virtual-context layer instead of
+preallocating a nominal 256K KV cache. First load uses the conservative complete
+component-byte footprint; later loads also use measured residency. It records
+before/after residency and automatically caps the next load below a tier that
+exits or leaves too little memory. The adapter reads the chosen window per
+request and sheds old history/tool evidence before llama.cpp can reject an
+oversized prompt.
 
 On discrete-memory hosts, sampling continues after readiness: a continuous
 low-headroom interval downshifts one tier, and sustained surplus performs the
@@ -827,6 +829,9 @@ separate so environmental sounds are never misrouted as the user's words.
 | `tests/` | Contract, routing, isolation, diagnostics, GGUF, and portal regression tests |
 
 ## Documentation
+
+- [Virtual context](docs/virtual-context.md) — lossless long-history storage,
+  recursive retrieval, exact replay, and the bounded 16K working-set contract.
 
 - [Architecture and ownership](docs/architecture.md)
 - [Agent runbook](docs/agent-runbook.md)

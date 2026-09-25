@@ -21,7 +21,7 @@ import sys
 import threading
 import time
 from collections import deque
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -47,6 +47,7 @@ from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
 from qwen_omni_adapters.context import context_text
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, DecisionWaveResult
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
+from qwen_omni_adapters.virtual_memory import LlamaCppTokenCounter
 
 try:
     from portal.background_tasks import BackgroundTaskStore
@@ -62,6 +63,7 @@ try:
         tool_schemas,
         tool_use_instructions,
     )
+    from portal.virtual_context import SessionVirtualContext
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import BackgroundTaskStore
     from documents import DocumentError, SessionDocumentStore
@@ -76,6 +78,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
         tool_schemas,
         tool_use_instructions,
     )
+    from virtual_context import SessionVirtualContext
 
 ADAPTER_SCHEMA = "robit.ollama.omni-adapter.v1"
 DEFAULT_MODEL = "robit/qwen3.8-27b-e03-obliterated-omni:q4km"
@@ -279,6 +282,10 @@ class PortalConfig:
     background_task_path: Path | None = None
     memory_policy: MemoryPolicy | None = None
     decision_plane_enabled: bool = False
+    virtual_context_mode: str = "off"
+    virtual_context_root: Path | None = None
+    virtual_context_physical_tokens: int = 16_384
+    virtual_context_tokenize_url: str | None = None
 
     @classmethod
     def from_environment(cls) -> PortalConfig:
@@ -345,6 +352,25 @@ class PortalConfig:
                 "OMNI_DECISION_PLANE_ENABLED", "0"
             ).strip().lower()
             not in {"0", "false", "no", "off"},
+            virtual_context_mode=os.environ.get(
+                "OMNI_VIRTUAL_CONTEXT_MODE", "off"
+            ).strip().lower(),
+            virtual_context_root=Path(
+                os.environ.get(
+                    "OMNI_VIRTUAL_CONTEXT_ROOT",
+                    str(
+                        Path(os.environ.get("OMNI_REPO_ROOT") or ".")
+                        / "runtime-data/virtual-context"
+                    ),
+                )
+            ).expanduser(),
+            virtual_context_physical_tokens=max(
+                4096,
+                int(os.environ.get("OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS", "16384")),
+            ),
+            virtual_context_tokenize_url=(
+                os.environ.get("OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL", "").strip() or None
+            ),
         )
 
 
@@ -1355,6 +1381,21 @@ def create_app(
         ttl_s=runtime.session_log_ttl_s,
     )
     documents = SessionDocumentStore(ttl_s=runtime.session_log_ttl_s)
+    virtual_token_counter = (
+        LlamaCppTokenCounter(runtime.virtual_context_tokenize_url)
+        if runtime.virtual_context_tokenize_url
+        else None
+    )
+    virtual_context = SessionVirtualContext(
+        runtime.virtual_context_root
+        or (
+            (runtime.session_log_dir or Path("runtime-data/session-logs")).parent
+            / "virtual-context"
+        ),
+        mode=runtime.virtual_context_mode,
+        physical_context_tokens=runtime.virtual_context_physical_tokens,
+        token_counter=virtual_token_counter,
+    )
     plane = decision_plane
     if plane is None and runtime.decision_plane_enabled:
         plane = DecisionPlane.from_environment()
@@ -1728,6 +1769,114 @@ def create_app(
             last_user["content"] = f"{context}\n\n<user_request>\n{query}\n</user_request>"
         return accepted
 
+    def prepare_virtual_context(
+        payload: dict[str, Any],
+        session_id: str,
+        raw_messages: list[Any],
+        accepted_documents: Sequence[Mapping[str, Any]],
+    ):
+        if not virtual_context.enabled:
+            return None, {"mode": "off"}
+        ingested_messages = virtual_context.observe_messages(session_id, raw_messages)
+        document_ids = [str(item.get("id") or "") for item in accepted_documents]
+        ingested_documents = virtual_context.observe_documents(
+            session_id, documents.evidence_documents(session_id, document_ids)
+        )
+        current_messages = payload.get("messages")
+        system_contract = ""
+        if isinstance(current_messages, list):
+            for message in current_messages:
+                if isinstance(message, Mapping) and message.get("role") == "system":
+                    system_contract = str(message.get("content") or "")
+                    break
+        prepared = virtual_context.prepare(
+            session_id,
+            raw_messages,
+            system_contract=system_contract,
+            reserved_tokens=virtual_context.request_envelope_tokens(payload),
+        )
+        if prepared is not None:
+            virtual_context.apply_active(payload, prepared)
+        summary: dict[str, Any] = {
+            **virtual_context.stats(session_id),
+            "messages_ingested": ingested_messages,
+            "documents_ingested": ingested_documents,
+        }
+        if prepared is not None:
+            summary.update(
+                {
+                    "answer_allowed": prepared.answer_allowed,
+                    "unresolved_reason": prepared.unresolved_reason,
+                    "working_tokens": prepared.context.total_tokens,
+                    "evidence_chunk_ids": prepared.context.evidence_chunk_ids,
+                    "retrieval_queries": prepared.controller.queries,
+                    "trace": prepared.context.trace[-200:],
+                }
+            )
+        return prepared, summary
+
+    def safe_prepare_virtual_context(
+        payload: dict[str, Any],
+        session_id: str,
+        raw_messages: list[Any],
+        accepted_documents: Sequence[Mapping[str, Any]],
+    ):
+        try:
+            return prepare_virtual_context(
+                payload, session_id, raw_messages, accepted_documents
+            )
+        except Exception as exc:  # noqa: BLE001 - shadow memory is not load-bearing
+            if runtime.virtual_context_mode == "active":
+                raise PortalError(f"virtual context preparation failed: {exc}") from exc
+            return None, {
+                "mode": runtime.virtual_context_mode,
+                "shadow_error": f"{type(exc).__name__}: {exc}"[:300],
+            }
+
+    def safe_repack_virtual_followup(
+        payload: dict[str, Any],
+        session_id: str,
+        *,
+        query: str,
+        system_contract: str,
+    ):
+        if not virtual_context.enabled or not query or not system_contract:
+            return None, {}
+        try:
+            prepared = virtual_context.repack_followup(
+                session_id,
+                payload,
+                query=query,
+                system_contract=system_contract,
+            )
+        except Exception as exc:  # noqa: BLE001 - shadow memory is advisory
+            if runtime.virtual_context_mode == "active":
+                raise PortalError(f"virtual context follow-up failed: {exc}") from exc
+            return None, {"shadow_error": f"{type(exc).__name__}: {exc}"[:300]}
+        if prepared is None:
+            return None, {}
+        return prepared, {
+            "answer_allowed": prepared.answer_allowed,
+            "unresolved_reason": prepared.unresolved_reason,
+            "working_tokens": prepared.context.total_tokens,
+            "evidence_chunk_ids": prepared.context.evidence_chunk_ids,
+            "retrieval_queries": prepared.controller.queries,
+            "trace": prepared.context.trace[-200:],
+        }
+
+    def virtual_repack_inputs(prepared: Any, raw_messages: list[Any]) -> tuple[str, str]:
+        if prepared is None:
+            return "", ""
+        system_contract = next(
+            (
+                item.text
+                for item in prepared.context.items
+                if item.category == "system_contract"
+            ),
+            "",
+        )
+        return _latest_user_context(raw_messages), system_contract
+
     @app.after_request
     def secure_headers(response):
         response.headers["Content-Security-Policy"] = (
@@ -1849,6 +1998,7 @@ def create_app(
                     "retrieval": "session-isolated hashed lexical embeddings",
                     **documents.stats(session_id),
                 },
+                "virtual_context": virtual_context.stats(session_id),
                 "memory": {
                     "scope": "browser_session",
                     "ttl_seconds": runtime.session_log_ttl_s,
@@ -1944,6 +2094,7 @@ def create_app(
             diagnostics.clear(session_id)
             documents.clear(session_id)
             tool_harness.clear(session_id)
+            virtual_context.clear(session_id)
             return Response(status=204)
         if request.method == "GET":
             return jsonify(diagnostics.snapshot(session_id))
@@ -2021,6 +2172,7 @@ def create_app(
             payload = request.get_json(silent=True)
             if not isinstance(payload, dict):
                 return jsonify({"error": "request body must be a JSON object"}), 400
+            raw_messages = copy.deepcopy(list(payload.get("messages") or []))
             auto_tools = payload.pop("portal_auto_tools", False) is True
             camera_bridge = payload.pop("portal_camera_bridge", False) is True
             shell_bridge = payload.pop("portal_shell_bridge", False) is True
@@ -2037,8 +2189,23 @@ def create_app(
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
             apply_system_policy(payload, session_id, tools_enabled=auto_tools)
+            if auto_tools:
+                payload["tools"] = initial_tool_contract(
+                    payload,
+                    session_id=session_id,
+                    request_id=request_id,
+                    camera_bridge=camera_bridge,
+                    shell_bridge=shell_bridge,
+                    background_bridge=background_bridge,
+                )
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
+            _prepared_context, virtual_summary = safe_prepare_virtual_context(
+                payload, session_id, raw_messages, accepted_documents
+            )
+            virtual_query, virtual_contract = virtual_repack_inputs(
+                _prepared_context, raw_messages
+            )
             diagnostics.begin_request(
                 session_id,
                 request_id,
@@ -2048,14 +2215,18 @@ def create_app(
                 diagnostics, session_id, request_id, diagnostic_media_ids
             )
             request_logged = True
-            if auto_tools:
-                payload["tools"] = initial_tool_contract(
-                    payload,
-                    session_id=session_id,
+            if virtual_summary.get("mode") != "off":
+                diagnostics.record(
+                    session_id,
+                    "virtual_context",
+                    {
+                        "request_id": request_id,
+                        "mode": virtual_summary.get("mode"),
+                        "working_tokens": virtual_summary.get("working_tokens"),
+                        "evidence_chunk_ids": virtual_summary.get("evidence_chunk_ids", ()),
+                        "retrieval_queries": virtual_summary.get("retrieval_queries", ()),
+                    },
                     request_id=request_id,
-                    camera_bridge=camera_bridge,
-                    shell_bridge=shell_bridge,
-                    background_bridge=background_bridge,
                 )
             queue_started = time.monotonic()
             ticket = inference_queue.acquire(session_id, runtime.timeout_s)
@@ -2130,6 +2301,13 @@ def create_app(
                         current_payload = _tool_recovery_retry_payload(
                             current_payload, data
                         )
+                        _repacked, repack_summary = safe_repack_virtual_followup(
+                            current_payload,
+                            session_id,
+                            query=virtual_query,
+                            system_contract=virtual_contract,
+                        )
+                        virtual_summary.update(repack_summary)
                         continue
                     break
                 if _tool_round_productive(round_tools):
@@ -2150,12 +2328,20 @@ def create_app(
                     round_tools,
                 )
                 current_payload = followup
+                _repacked, repack_summary = safe_repack_virtual_followup(
+                    current_payload,
+                    session_id,
+                    query=virtual_query,
+                    system_contract=virtual_contract,
+                )
+                virtual_summary.update(repack_summary)
 
             data["portal"] = {
                 "schema": "robit.omni-phone-portal.v1",
                 "safe_tools_executed": _tool_trace(executed),
                 "documents_indexed": accepted_documents,
                 "media_observed": observed_media,
+                "virtual_context": virtual_summary,
             }
             outcome_status = 200
             response = jsonify(data)
@@ -2189,6 +2375,7 @@ def create_app(
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
+        raw_messages = copy.deepcopy(list(payload.get("messages") or []))
         auto_tools = payload.pop("portal_auto_tools", False) is True
         camera_bridge = payload.pop("portal_camera_bridge", False) is True
         shell_bridge = payload.pop("portal_shell_bridge", False) is True
@@ -2209,16 +2396,6 @@ def create_app(
             apply_reasoning_mode(payload)
             apply_voice_profile(payload)
             apply_system_policy(payload, session_id, tools_enabled=auto_tools)
-            observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
-            accepted_documents = apply_document_context(payload, session_id)
-            diagnostics.begin_request(
-                session_id,
-                request_id,
-                diagnostic_fields,
-            )
-            _record_media_diagnostics(
-                diagnostics, session_id, request_id, diagnostic_media_ids
-            )
             if auto_tools:
                 payload["tools"] = initial_tool_contract(
                     payload,
@@ -2227,6 +2404,35 @@ def create_app(
                     camera_bridge=camera_bridge,
                     shell_bridge=shell_bridge,
                     background_bridge=background_bridge,
+                )
+            observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
+            accepted_documents = apply_document_context(payload, session_id)
+            _prepared_context, virtual_summary = safe_prepare_virtual_context(
+                payload, session_id, raw_messages, accepted_documents
+            )
+            virtual_query, virtual_contract = virtual_repack_inputs(
+                _prepared_context, raw_messages
+            )
+            diagnostics.begin_request(
+                session_id,
+                request_id,
+                diagnostic_fields,
+            )
+            _record_media_diagnostics(
+                diagnostics, session_id, request_id, diagnostic_media_ids
+            )
+            if virtual_summary.get("mode") != "off":
+                diagnostics.record(
+                    session_id,
+                    "virtual_context",
+                    {
+                        "request_id": request_id,
+                        "mode": virtual_summary.get("mode"),
+                        "working_tokens": virtual_summary.get("working_tokens"),
+                        "evidence_chunk_ids": virtual_summary.get("evidence_chunk_ids", ()),
+                        "retrieval_queries": virtual_summary.get("retrieval_queries", ()),
+                    },
+                    request_id=request_id,
                 )
         except PortalRequestError as exc:
             return jsonify({"error": str(exc)}), 400
@@ -2489,6 +2695,7 @@ def create_app(
                             "safe_tools_executed": _tool_trace(executed),
                             "documents_indexed": accepted_documents,
                             "media_observed": observed_media,
+                            "virtual_context": virtual_summary,
                         }
                         yield event_bytes({"type": "final", "response": final_response})
                         return
@@ -2527,6 +2734,13 @@ def create_app(
                             }
                         )
                     current_payload = followup
+                    _repacked, repack_summary = safe_repack_virtual_followup(
+                        current_payload,
+                        session_id,
+                        query=virtual_query,
+                        system_contract=virtual_contract,
+                    )
+                    virtual_summary.update(repack_summary)
                     stream_retries = 0
                     try:
                         next_request = session.build_request(

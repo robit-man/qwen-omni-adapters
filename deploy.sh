@@ -389,6 +389,8 @@ install_environment() {
     awk '!/^OMNI_PROFILE=/ && !/^OMNI_MODEL=/ && !/^OMNI_LANGUAGE_MODEL=/ \
       && !/^OMNI_ENABLE_COMPREHENSION=/ && !/^OMNI_ENABLE_POINTING=/ && !/^OMNI_STARTUP_SMOKE=/ \
       && !/^OMNI_COMPREHENSION_CONTEXT_TOKENS=/ \
+      && !/^OMNI_VIRTUAL_CONTEXT_MODE=/ && !/^OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=/ \
+      && !/^OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL=/ \
       && !/^OMNI_TTS_PERSISTENT=/ && !/^OMNI_CALL_SPEECH_EVICT_UNIT=/' \
       "$REPO_ROOT/.env" >"$temporary"
   fi
@@ -398,9 +400,15 @@ install_environment() {
     printf 'OMNI_LANGUAGE_MODEL=%s\n' "$OMNI_LANGUAGE_MODEL"
     printf 'OMNI_ENABLE_COMPREHENSION=1\n'
     printf 'OMNI_ENABLE_POINTING=1\n'
-    # This is the native ceiling. The Tegra launcher derives KV cost from the
-    # selected GGUF and chooses the largest currently safe tier beneath it.
-    printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=262144\n'
+    # Treat resident attention as L0 RAM. History beyond this bound belongs in
+    # the lossless virtual-context hierarchy rather than an oversized Tegra KV
+    # allocation that competes with vision, TTS, and the desktop.
+    printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=16384\n'
+    # Dual-write and build observable working sets without changing live
+    # prompts until the on-device shadow fidelity gates are accepted.
+    printf 'OMNI_VIRTUAL_CONTEXT_MODE=shadow\n'
+    printf 'OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=16384\n'
+    printf 'OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL=http://127.0.0.1:8901/tokenize\n'
     printf 'OMNI_STARTUP_SMOKE=0\n'
     printf 'OMNI_TTS_PERSISTENT=1\n'
   } >>"$temporary"

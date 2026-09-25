@@ -3,6 +3,30 @@
 The reference runtime presents one Ollama-compatible API while coordinating
 three independently executable graphs from one logical model tag.
 
+## Bounded virtual context
+
+Compact audio-bridge profiles default to a 16,384-token physical context. The
+portal can maintain a larger lossless, session-isolated evidence corpus through
+`OMNI_VIRTUAL_CONTEXT_MODE`:
+
+- `off`: no virtual-context database or packing work;
+- `shadow`: dual-write evidence and emit retrieval/packing telemetry without
+  changing the live request (the guided Jetson deployment default);
+- `active`: replace old textual history with the bounded working pack for
+  controlled end-to-end evaluation.
+
+`OMNI_VIRTUAL_CONTEXT_ROOT` selects the corpus directory and
+`OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS` sets the hard pack budget (default 16384).
+Guided Jetson deployment also points `OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL` at the
+resident llama.cpp worker. The packer counts the active tool/control envelope,
+chat-template reserve, output headroom, pinned state, and evidence against the
+same physical budget on every request and tool-loop follow-up.
+Current user media remains attached only to the newest user message. Deleting
+portal session diagnostics/Trash also deletes that session's complete virtual
+corpus, WAL, and shared-memory files.
+
+See [Virtual context](virtual-context.md) for authority and benchmark rules.
+
 ```text
 client POST /api/chat
         │

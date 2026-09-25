@@ -1318,6 +1318,106 @@ def test_text_request_gets_relevant_concrete_schema_without_laya_fast_path() -> 
     assert "tool_search" in names
 
 
+def test_virtual_context_shadow_indexes_and_traces_without_replacing_live_prompt(
+    tmp_path: Path,
+) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "cobalt-771"}},
+        )
+
+    app = create_app(
+        _config(
+            virtual_context_mode="shadow",
+            virtual_context_root=tmp_path / "virtual-context",
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[
+                {"role": "user", "content": "The actuator code is cobalt-771."},
+                {"role": "assistant", "content": "Understood."},
+                {"role": "user", "content": "What was the actuator code?"},
+            ]
+        ),
+    )
+
+    assert response.status_code == 200
+    assert [message["role"] for message in requests[0]["messages"]] == [
+        "system",
+        "user",
+        "assistant",
+        "user",
+    ]
+    virtual = response.json["portal"]["virtual_context"]
+    assert virtual["mode"] == "shadow"
+    assert virtual["documents"] == 3
+    assert virtual["working_tokens"] <= 16_384
+    assert virtual["evidence_chunk_ids"]
+    assert any(event["operation"] == "PAGE_IN" for event in virtual["trace"])
+
+
+def test_virtual_context_active_repacks_each_tool_followup(tmp_path: Path) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "get_portal_capabilities",
+                                    "arguments": {},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Capability list ready."}},
+        )
+
+    app = create_app(
+        _config(
+            virtual_context_mode="active",
+            virtual_context_root=tmp_path / "virtual-context",
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    request = _request(portal_auto_tools=True)
+    request["messages"][-1]["content"] = "What can you do?"
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=request,
+    )
+
+    assert response.status_code == 200
+    assert len(requests) == 2
+    assert len(requests[1]["messages"]) == 2
+    assert requests[1]["messages"][0]["role"] == "system"
+    assert "get_portal_capabilities" in requests[1]["messages"][0]["content"]
+    assert "What can you do?" in requests[1]["messages"][0]["content"]
+    assert response.json["portal"]["virtual_context"]["working_tokens"] <= 16_384
+
+
 def test_social_text_does_not_gain_an_unrelated_leaf_tool() -> None:
     requests: list[dict[str, Any]] = []
 

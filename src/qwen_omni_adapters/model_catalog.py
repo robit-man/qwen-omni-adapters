@@ -28,7 +28,10 @@ MANAGED_MODELS: tuple[ManagedModel, ...] = (
         tag="robit/ornith-1.5-omni-audio-bridge:q4km",
         size_gib=8.15,
         generation="compact",
-        max_context_tokens=262_144,
+        # The virtual-context layer treats this resident window as L0.  The
+        # tag may accept a larger native position range, but advertising that
+        # as the deploy default recreates the unified-memory eviction cycle.
+        max_context_tokens=16_384,
         language_disable_thinking=True,
     ),
     ManagedModel(
@@ -37,7 +40,7 @@ MANAGED_MODELS: tuple[ManagedModel, ...] = (
         tag="robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
         size_gib=18.33,
         generation="compact",
-        max_context_tokens=262_144,
+        max_context_tokens=16_384,
         language_disable_thinking=False,
     ),
     ManagedModel(

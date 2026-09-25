@@ -34,8 +34,8 @@ def test_catalog_contains_compact_and_legacy_models_but_not_rejected_ornith() ->
     ]
     assert not any("ornith-1.5-obliterated" in tag for tag in tags)
     assert [model.max_context_tokens for model in MANAGED_MODELS[:2]] == [
-        262_144,
-        262_144,
+        16_384,
+        16_384,
     ]
     assert [model.language_disable_thinking for model in MANAGED_MODELS] == [
         True,
@@ -88,7 +88,7 @@ def test_activation_selects_one_trunk_and_requests_a_managed_restart(
     )
     assert environment["OMNI_MODEL"] == selected.tag
     assert environment["OMNI_LANGUAGE_MODEL"] == selected.tag
-    assert environment["OMNI_COMPREHENSION_CONTEXT_TOKENS"] == "262144"
+    assert environment["OMNI_COMPREHENSION_CONTEXT_TOKENS"] == "16384"
     assert environment["OMNI_STARTUP_SMOKE"] == "0"
     request = json.loads(
         (tmp_path / "runtime-data/state/restart.request").read_text(encoding="utf-8")
@@ -167,8 +167,8 @@ def test_active_daemon_residency_and_context_are_visible(tmp_path: Path) -> None
                 "state": "ready",
                 "pid": os.getpid(),
                 "model": selected.tag,
-                "comprehension_context_tokens": 32_768,
-                "comprehension_context_ceiling": 262_144,
+                "comprehension_context_tokens": 16_384,
+                "comprehension_context_ceiling": 16_384,
             }
         ),
         encoding="utf-8",
@@ -178,5 +178,5 @@ def test_active_daemon_residency_and_context_are_visible(tmp_path: Path) -> None
 
     assert view["service_loaded"] is True
     assert view["loaded"] is True
-    assert view["context_tokens"] == 32_768
-    assert "32,768 ctx" in model_views([view])[0]["label"]
+    assert view["context_tokens"] == 16_384
+    assert "16,384 ctx" in model_views([view])[0]["label"]

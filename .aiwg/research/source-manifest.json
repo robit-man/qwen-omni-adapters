@@ -1,0 +1,20 @@
+{
+  "schema": "aiwg.research.source-manifest.v1",
+  "generated_at": "2026-09-25",
+  "sources": [
+    {"id":"REF-007","title":"MemAgent","url":"https://arxiv.org/abs/2507.02259","pdf_sha256":"690330cb239650f620b68b4b286d1ba6866bebb7d9291863bdf807cb94388322"},
+    {"id":"REF-008","title":"InfMem","url":"https://arxiv.org/abs/2602.02704","pdf_sha256":"2e4c396ef7a4bcf85062e11ffb86823aba1c6abe22162a12e205f4e611f6dd3c"},
+    {"id":"REF-009","title":"LycheeMemory","url":"https://aclanthology.org/2026.acl-long.365/","pdf_sha256":"9d23da08250ef7f7cf11b0596b23f325896df08245e10ff9e5e81141de42b5aa"},
+    {"id":"REF-010","title":"R3Mem","url":"https://aclanthology.org/2025.findings-acl.235/","pdf_sha256":"e1ae03adfc762bc6fa559de7077851314d1f307b93c6177aa9e9c0e6e0b03312"},
+    {"id":"REF-011","title":"LazyMem","url":"https://arxiv.org/abs/2607.22690","pdf_sha256":"1859d5e79870e099128b312b9878ffbdb5ea9b9ed7a1f279536c5c7188c5f816"},
+    {"id":"REF-012","title":"ReContext","url":"https://arxiv.org/abs/2607.02509","pdf_sha256":"43659054fcd39b5d02445c1b6857e01014ebaeb035f6a02ed7c9b759b59c852f"},
+    {"id":"REF-013","title":"Latent Context Compilation","url":"https://arxiv.org/abs/2602.21221","pdf_sha256":"19d73768b344d3d0108414246fdabdbd7e4f1496969989bc2be35ab697b74741"},
+    {"id":"REF-014","title":"Infini-attention","url":"https://arxiv.org/abs/2404.07143","pdf_sha256":"cb1f8b015192764c859bb25050511307c2d9983e2bedb2fa9ebd8dedbc8f3153"},
+    {"id":"REF-015","title":"Titans","url":"https://arxiv.org/abs/2501.00663","pdf_sha256":"a65e4a7d02784df1a040b487127e6dd09fff4474e5caf94d93263af3d50cfbc2"},
+    {"id":"REF-016","title":"StreamingLLM","url":"https://arxiv.org/abs/2309.17453","pdf_sha256":"e8a7de67c7c57642648362651b4cf64fd852467e18865a298916a36098314819"},
+    {"id":"REF-017","title":"KIVI","url":"https://arxiv.org/abs/2402.02750","pdf_sha256":"df31ef32d71bfb280c533c5db8220cadf5ef42076bf45d82ba4c8da8e50ea5f4"},
+    {"id":"REF-018","title":"PyramidKV","url":"https://arxiv.org/abs/2406.02069","pdf_sha256":"0bcd6c0fba461e76a746a91316847b7552b441a4ea4d6481e9561a0f7fa9fb01"},
+    {"id":"REF-019","title":"Quest","url":"https://arxiv.org/abs/2406.10774","pdf_sha256":"93cda144859b4e38d595c42dbc578e4e0c8d436fa0891e3dfeb74716bacc4ce8"},
+    {"id":"REF-020","title":"RULER","url":"https://arxiv.org/abs/2404.06654","pdf_sha256":"8a4bc6ca28d84570eec7f42652400c2121f4c8bc361701634e596772e396fc22"}
+  ]
+}

@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from portal.virtual_context import SessionVirtualContext
+
+
+def test_status_does_not_create_an_empty_session_database(tmp_path: Path) -> None:
+    root = tmp_path / "virtual"
+    manager = SessionVirtualContext(root, mode="shadow")
+
+    status = manager.stats("unused-session")
+
+    assert status["documents"] == 0
+    assert not root.exists()
+
+
+def test_shadow_mode_persists_lossless_turns_without_rewriting_payload(
+    tmp_path: Path,
+) -> None:
+    manager = SessionVirtualContext(tmp_path / "virtual", mode="shadow")
+    messages = [
+        {"role": "user", "content": "The actuator code is cobalt-771."},
+        {"role": "assistant", "content": "Understood."},
+        {"role": "user", "content": "What was the actuator code?"},
+    ]
+    payload = {"messages": list(messages)}
+
+    assert manager.observe_messages("session-one", messages) == 3
+    prepared = manager.prepare(
+        "session-one", messages, system_contract="Answer from exact evidence."
+    )
+    manager.apply_active(payload, prepared)
+
+    assert payload["messages"] == messages
+    assert "cobalt-771" in prepared.context.text
+    assert manager.stats("session-one")["documents"] == 3
+
+
+def test_user_constraint_is_promoted_and_deterministically_pinned(tmp_path: Path) -> None:
+    manager = SessionVirtualContext(tmp_path / "virtual", mode="shadow")
+    messages = [
+        {
+            "role": "user",
+            "content": "MUST NOT create a new asset for every edit.",
+        },
+        {"role": "assistant", "content": "Understood."},
+        {"role": "user", "content": "Apply the next edit."},
+    ]
+    manager.observe_messages("session-constraint", messages)
+
+    prepared = manager.prepare(
+        "session-constraint", messages, system_contract="Follow active constraints."
+    )
+
+    assert "MUST NOT create a new asset for every edit." in prepared.context.text
+    pinned = [item for item in prepared.context.items if item.category == "constraint"]
+    assert len(pinned) == 1
+    assert pinned[0].pinned is True
+
+
+def test_active_mode_replaces_history_with_bounded_pack_and_current_media(
+    tmp_path: Path,
+) -> None:
+    manager = SessionVirtualContext(tmp_path / "virtual", mode="active")
+    messages = [
+        {"role": "user", "content": "The bus value is quartz-991."},
+        {"role": "assistant", "content": "Noted."},
+        {
+            "role": "user",
+            "content": "What is the bus value?",
+            "images": [{"data": "current-frame", "mime_type": "image/jpeg"}],
+        },
+    ]
+    manager.observe_messages("session-two", messages)
+    prepared = manager.prepare(
+        "session-two", messages, system_contract="Answer from exact evidence."
+    )
+    payload = {"messages": [{"role": "system", "content": "old"}, *messages]}
+
+    manager.apply_active(payload, prepared)
+
+    assert len(payload["messages"]) == 2
+    assert payload["messages"][0]["role"] == "system"
+    assert "quartz-991" in payload["messages"][0]["content"]
+    assert payload["messages"][1]["images"][0]["data"] == "current-frame"
+    assert prepared.context.total_tokens <= prepared.context.max_tokens
+
+
+def test_active_tool_followup_is_repacked_with_result_and_original_query(
+    tmp_path: Path,
+) -> None:
+    manager = SessionVirtualContext(tmp_path / "virtual", mode="active")
+    messages = [{"role": "user", "content": "Find the actuator status."}]
+    manager.observe_messages("session-tool", messages)
+    initial = manager.prepare(
+        "session-tool", messages, system_contract="Use current tool evidence."
+    )
+    payload = {
+        "messages": [
+            {"role": "system", "content": initial.context.text},
+            {"role": "user", "content": "Act on <current_query>."},
+            {"role": "assistant", "content": ""},
+            {
+                "role": "tool",
+                "tool_name": "inspect_status",
+                "content": '{"actuator_status":"cobalt-ready"}',
+            },
+        ]
+    }
+
+    followup = manager.repack_followup(
+        "session-tool",
+        payload,
+        query="Find the actuator status.",
+        system_contract="Use current tool evidence.",
+    )
+
+    assert followup is not None
+    assert "cobalt-ready" in followup.context.text
+    assert "Find the actuator status." in followup.context.text
+    assert len(payload["messages"]) == 2
+    assert followup.context.total_tokens <= followup.context.max_tokens
+
+
+def test_live_tool_envelope_is_reserved_from_physical_context(tmp_path: Path) -> None:
+    manager = SessionVirtualContext(
+        tmp_path / "virtual", mode="shadow", token_counter=lambda value: len(value.split())
+    )
+    payload = {
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "inspect_motor",
+                    "description": "Inspect the motor state with a verbose schema.",
+                },
+            }
+        ],
+        "tool_choice": "auto",
+    }
+
+    reserve = manager.request_envelope_tokens(payload)
+
+    assert reserve > 96
+
+
+def test_document_text_is_indexed_and_trash_destroys_the_session_corpus(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "virtual"
+    manager = SessionVirtualContext(root, mode="shadow")
+    manager.observe_documents(
+        "session-three",
+        [
+            {
+                "id": "document-1",
+                "digest": "a" * 64,
+                "name": "controller.md",
+                "mime_type": "text/markdown",
+                "text": "# Controller\n\nExact phase offset: 17.25 degrees.",
+            }
+        ],
+    )
+    database = next(root.glob("*.sqlite3"))
+    prepared = manager.prepare(
+        "session-three",
+        [{"role": "user", "content": "What is the exact phase offset?"}],
+        system_contract="Use evidence.",
+    )
+
+    assert "17.25 degrees" in prepared.context.text
+    assert database.is_file()
+
+    manager.clear("session-three")
+
+    assert not database.exists()
+    assert not Path(f"{database}-wal").exists()
+    assert not Path(f"{database}-shm").exists()

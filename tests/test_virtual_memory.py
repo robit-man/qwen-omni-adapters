@@ -1,0 +1,640 @@
+"""Lossless context virtualization and bounded working-set invariants."""
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+import pytest
+
+from qwen_omni_adapters.virtual_memory import (
+    ContextBudget,
+    ControllerConfig,
+    HashingEmbedder,
+    HybridRetriever,
+    ImmutableEvidenceStore,
+    MemoryClass,
+    MemoryHierarchy,
+    RecurrentConfig,
+    RecurrentMemoryBuilder,
+    RecursiveMemoryController,
+    StructureAwareChunker,
+    StructuredMemoryExtractor,
+    TraceCollector,
+    VirtualContextEngine,
+    WorkingContextPacker,
+)
+from qwen_omni_adapters.virtual_memory.models import ProvenancePointer
+from qwen_omni_adapters.virtual_memory.packer import ContextOverflow
+
+
+def word_tokens(value: str) -> int:
+    return len(value.split())
+
+
+def test_hashing_embedder_is_stable_normalized_and_fuzzy() -> None:
+    embed = HashingEmbedder(dimensions=128)
+    original = embed("MotorController rotor mismatch E42")
+    repeated = embed("MotorController rotor mismatch E42")
+    related = embed("motor controller reports rotor mismatch E42")
+    unrelated = embed("cloud cover and afternoon rain")
+
+    dot = lambda left, right: sum(  # noqa: E731 - compact test helper
+        a * b for a, b in zip(left, right, strict=True)
+    )
+    assert original == repeated
+    assert sum(value * value for value in original) == pytest.approx(1.0)
+    assert dot(original, related) > dot(original, unrelated)
+
+
+def test_python_chunks_preserve_exact_offsets_and_symbols() -> None:
+    source = (
+        '"""module"""\n\n'
+        "class MotorController:\n"
+        "    def engage(self, can_id: int) -> None:\n"
+        "        raise RuntimeError('CAN bus offline')\n\n"
+        "def shutdown() -> None:\n"
+        "    pass\n"
+    )
+    chunks = StructureAwareChunker(
+        target_tokens=64, max_tokens=128, overlap_tokens=8
+    ).chunk(
+        source, source="motor.py"
+    )
+
+    assert chunks
+    assert any(chunk.parent_name == "MotorController" for chunk in chunks)
+    assert any(("engage", "function") in chunk.symbols for chunk in chunks)
+    for chunk in chunks:
+        assert source[chunk.char_start : chunk.char_end] == chunk.text
+        assert len(source[: chunk.char_start].encode()) == chunk.byte_start
+        assert len(source[: chunk.char_end].encode()) == chunk.byte_end
+
+
+def test_generic_code_chunks_follow_declarations_and_index_symbols(tmp_path: Path) -> None:
+    source = (
+        "import { bus } from './bus';\n\n"
+        "class MotorController { engage() { return bus.open(); } }\n\n"
+        "function shutdown() { return true; }\n"
+    )
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    chunks = store.ingest(source, source="controller.ts")
+
+    assert any(chunk.parent_name == "MotorController" for chunk in chunks)
+    assert any(chunk.parent_name == "shutdown" for chunk in chunks)
+    assert store.symbol_search("MotorController")[0].parent_name == "MotorController"
+    assert store.symbol_search("shutdown")[0].parent_name == "shutdown"
+    store.close()
+
+
+def test_python_code_topology_finds_callers_callees_imports_and_inheritance(
+    tmp_path: Path,
+) -> None:
+    source = (
+        "from drivers import Bus\n\n"
+        "class MotorController(Bus):\n"
+        "    def engage(self):\n"
+        "        return calibrate_motor()\n\n"
+        "def calibrate_motor():\n"
+        "    return 17\n"
+    )
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    chunks = store.ingest(source, source="controller.py")
+
+    topology = store.code_search("calibrate_motor", max_hops=2)
+    topology_names = {chunk.parent_name for chunk, _distance, _edges in topology}
+    predicates = {
+        predicate
+        for _chunk, _distance, edge_types in topology
+        for predicate in edge_types
+    }
+
+    assert {"MotorController", "calibrate_motor"} <= topology_names
+    assert "calls" in predicates
+    assert any(
+        "inherits" in edge_types
+        for chunk, _distance, edge_types in store.code_search("Bus", max_hops=2)
+        if chunk.parent_name == "MotorController"
+    )
+    assert len(chunks) >= 3
+    store.close()
+
+
+def test_evidence_is_database_immutable_and_idempotent(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    chunks = store.ingest(
+        "alpha beta gamma",
+        source="notes.md",
+        document_id="notes",
+        version="v1",
+        message_id="m-1",
+    )
+    again = store.ingest(
+        "alpha beta gamma",
+        source="notes.md",
+        document_id="notes",
+        version="v1",
+        message_id="m-1",
+    )
+
+    assert [chunk.chunk_id for chunk in again] == [chunk.chunk_id for chunk in chunks]
+    with pytest.raises(sqlite3.IntegrityError, match="immutable evidence"):
+        store._db.execute(  # noqa: SLF001 - verifies a database-level invariant
+            "UPDATE chunks SET original_text = 'changed' WHERE chunk_id = ?",
+            (chunks[0].chunk_id,),
+        )
+    store.close()
+
+
+def test_hybrid_retrieval_combines_exact_symbol_dense_and_metadata(tmp_path: Path) -> None:
+    def embed(value: str) -> list[float]:
+        lowered = value.casefold()
+        return [
+            float("motor" in lowered or "actuator" in lowered),
+            float("weather" in lowered),
+            0.1,
+        ]
+
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3", embedder=embed)
+    wanted = store.ingest(
+        "def calibrate_motor():\n    raise RuntimeError('E42 rotor mismatch')\n",
+        source="drive.py",
+        metadata={"branch": "main"},
+        entities=["left_leg"],
+    )[0]
+    store.ingest(
+        "Cloud cover will increase this afternoon.",
+        source="weather.md",
+        metadata={"branch": "archive"},
+    )
+    retriever = HybridRetriever(store, query_embedder=embed)
+    plan = retriever.plan(
+        'Find function `calibrate_motor` causing "E42 rotor mismatch"',
+        metadata_filters={"branch": "main"},
+    )
+
+    hits = retriever.retrieve(plan.original, plan=plan)
+
+    assert hits[0].chunk.chunk_id == wanted.chunk_id
+    assert {"exact", "symbol", "bm25", "dense", "metadata"} <= set(hits[0].channels)
+    store.close()
+
+
+def test_entity_graph_traverses_dependencies_with_provenance(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    chunk = store.ingest(
+        "Dropbear sends left_leg angle data through CAN ID 0x21.",
+        source="robot.md",
+        entities=["Dropbear", "left_leg", "CAN ID 0x21"],
+    )[0]
+    store.add_relationship("Dropbear", "controls", "left_leg", chunk_id=chunk.chunk_id)
+    store.add_relationship("left_leg", "uses", "CAN ID 0x21", chunk_id=chunk.chunk_id)
+
+    found = store.graph_search("How does Dropbear reach CAN ID 0x21?", max_hops=3)
+
+    assert found
+    assert found[0][0].chunk_id == chunk.chunk_id
+    assert found[0][1] in {1, 2}
+    store.close()
+
+
+def test_supersession_preserves_old_and_current_values(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    old_source = store.ingest("motor_controller = X", source="config-v1.txt")[0]
+    old = store.write_memory(
+        MemoryClass.DECISION,
+        "motor_controller",
+        "Use controller X.",
+        provenance=[ProvenancePointer(old_source.chunk_id, 0, len(old_source.original_text))],
+    )
+    new_source = store.ingest("motor_controller = Y", source="config-v2.txt")[0]
+    new = store.write_memory(
+        MemoryClass.DECISION,
+        "motor_controller",
+        "Use controller Y.",
+        provenance=[ProvenancePointer(new_source.chunk_id, 0, len(new_source.original_text))],
+        supersedes=old.memory_id,
+    )
+
+    active = store.active_memories(classes=[MemoryClass.DECISION])
+
+    assert [memory.memory_id for memory in active] == [new.memory_id]
+    assert store.get_memory(old.memory_id).valid_to is not None
+    assert store.reconstruct(old.memory_id)[0][1] == "motor_controller = X"
+    store.close()
+
+
+def test_structured_extractor_promotes_constraints_and_explicit_supersession(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    extractor = StructuredMemoryExtractor(store)
+    first = store.ingest(
+        "MUST NOT replace the golden controller.\n"
+        "I decided to use motor_controller.\n",
+        source="conversation:user",
+    )
+    created = extractor.extract(first, authority="user")
+    second = store.ingest(
+        "motor_controller changed from amber-17 to violet-29.",
+        source="conversation:user",
+        document_id="update",
+    )
+    updated = extractor.extract(second, authority="user")
+
+    constraint = next(
+        memory for memory in created if memory.memory_class is MemoryClass.CONSTRAINT
+    )
+    old_decision = next(
+        memory for memory in created if memory.memory_class is MemoryClass.DECISION
+    )
+    new_decision = updated[0]
+    assert constraint.importance == 1.0
+    assert constraint.ttl_seconds is None
+    assert store.reconstruct(constraint.memory_id)[0][1] == constraint.content
+    assert new_decision.supersedes == old_decision.memory_id
+    assert store.get_memory(old_decision.memory_id).valid_to is not None
+    assert [memory.memory_id for memory in store.active_memories(subject="motor_controller")] == [
+        new_decision.memory_id
+    ]
+    store.close()
+
+
+def test_structured_extractor_does_not_promote_casual_personal_must(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "personal.sqlite3")
+    extractor = StructuredMemoryExtractor(store)
+    chunk = store.ingest("I must leave for lunch now.", source="conversation:user")
+
+    assert extractor.extract(chunk, authority="user") == []
+    assert store.active_memories(classes=[MemoryClass.CONSTRAINT]) == []
+    store.close()
+
+
+def test_memory_classes_have_independent_default_lifetimes(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    chunk = store.ingest("Execute the migration plan.", source="plan.md")[0]
+    plan = store.write_memory(
+        MemoryClass.CURRENT_PLAN,
+        "migration",
+        "Execute the migration plan.",
+        provenance=[ProvenancePointer(chunk.chunk_id, 0, len(chunk.original_text))],
+    )
+    fact = store.write_memory(
+        MemoryClass.FACT,
+        "migration owner",
+        "The migration owner is Rhea.",
+        provenance=[ProvenancePointer(chunk.chunk_id, 0, len(chunk.original_text))],
+    )
+
+    assert plan.importance == 1.0
+    assert plan.ttl_seconds == 7 * 24 * 60 * 60
+    assert fact.importance == 0.72
+    assert fact.ttl_seconds is None
+    store.close()
+
+
+def test_conflicting_active_memories_page_in_both_exact_sources_and_block_authority(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    first = store.ingest("CAN bitrate is 500000.", source="claim-a.txt")[0]
+    second = store.ingest("CAN bitrate is 1000000.", source="claim-b.txt")[0]
+    for chunk, value in ((first, "500000"), (second, "1000000")):
+        store.write_memory(
+            MemoryClass.FACT,
+            "CAN bitrate",
+            f"CAN bitrate is {value}.",
+            provenance=[ProvenancePointer(chunk.chunk_id, 0, len(chunk.original_text))],
+        )
+    retriever = HybridRetriever(store)
+    controller = RecursiveMemoryController(
+        retriever,
+        sufficiency_judge=lambda _query, evidence: 1.0 if evidence else 0.0,
+    )
+    engine = VirtualContextEngine(
+        store,
+        controller,
+        WorkingContextPacker(token_counter=word_tokens),
+    )
+
+    prepared = engine.prepare_turn(
+        "What is the CAN bitrate?",
+        system_contract="Resolve conflicts from exact sources.",
+    )
+
+    assert prepared.answer_allowed is False
+    assert "conflicting active memory" in prepared.unresolved_reason
+    assert "500000" in prepared.context.text
+    assert "1000000" in prepared.context.text
+    assert any(
+        event["operation"] == "memory_conflict" for event in prepared.context.trace
+    )
+    store.close()
+
+
+def test_recursive_controller_retrieves_a_second_hop_and_stops(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    store.ingest("The actuator project is called Dropbear.", source="one.md")
+    target = store.ingest(
+        "Dropbear's motor bus bitrate is exactly 1000000 baud.", source="two.md"
+    )[0]
+    hybrid = HybridRetriever(store, final_limit=8)
+
+    class TwoHopRetriever:
+        def retrieve(self, query, *, trace=None):
+            if "Dropbear" not in query:
+                return hybrid.retrieve("actuator project", trace=trace)[:1]
+            return hybrid.retrieve("Dropbear motor bus bitrate", trace=trace)
+
+    retriever = TwoHopRetriever()
+
+    def planner(_query, evidence, history):
+        if len(history) == 1 and evidence:
+            return ["Dropbear motor bus bitrate"]
+        return []
+
+    controller = RecursiveMemoryController(
+        retriever,  # type: ignore[arg-type]
+        config=ControllerConfig(max_rounds=3, sufficiency_threshold=0.5),
+        dependency_planner=planner,
+        sufficiency_judge=lambda _query, evidence: (
+            1.0 if any("1000000" in hit.chunk.original_text for hit in evidence) else 0.0
+        ),
+    )
+
+    result = controller.gather("What is the actuator project's motor bus bitrate?")
+
+    assert result.sufficient
+    assert target.chunk_id in {hit.chunk.chunk_id for hit in result.evidence}
+    assert len(result.queries) == 2
+    operations = [event["operation"] for event in result.trace]
+    assert operations.count("PRETHINK") == 2
+    assert operations[-2:] == ["STOP", "ANSWER"]
+    store.close()
+
+
+def test_packer_keeps_constraints_and_replays_exact_evidence_next_to_query(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    chunk = store.ingest(
+        "The launch code is cobalt-771.\n\nUnrelated paragraph " + "noise " * 200,
+        source="runbook.md",
+    )[0]
+    constraint = store.write_memory(
+        MemoryClass.CONSTRAINT,
+        "asset edits",
+        "MUST update the existing asset; NEVER create a new asset for each edit.",
+        provenance=[ProvenancePointer(chunk.chunk_id, 0, 30)],
+        importance=1.0,
+    )
+    hit = HybridRetriever(store).retrieve('What is the "cobalt-771" launch code?')[0]
+    packer = WorkingContextPacker(
+        budget=ContextBudget(
+                max_tokens=4096,
+                output_headroom=512,
+            system_target=40,
+            pinned_target=60,
+            structured_target=20,
+            recent_target=60,
+            evidence_target=100,
+        ),
+        token_counter=word_tokens,
+    )
+    trace = TraceCollector()
+
+    packed = packer.pack(
+        "What is the launch code?",
+        system_contract="Use evidence and obey active constraints.",
+        evidence=[hit],
+        memories=[constraint],
+        recent_context=["old " * 100, "most recent exchange"],
+        trace=trace,
+    )
+
+    assert packed.total_tokens <= packed.max_tokens
+    assert "NEVER create a new asset" in packed.text
+    assert "cobalt-771" in packed.text
+    assert packed.text.rfind("<exact_evidence") < packed.text.rfind("<current_query>")
+    assert packed.items[-2].category == "exact_evidence"
+    assert any(event["operation"] == "EVICT" for event in packed.trace)
+    store.close()
+
+
+def test_packer_refuses_to_silently_drop_active_constraints(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    chunk = store.ingest("source", source="source.txt")[0]
+    constraint = store.write_memory(
+        MemoryClass.CONSTRAINT,
+        "oversized",
+        "MUST " + "retain " * 5000,
+        provenance=[ProvenancePointer(chunk.chunk_id, 0, len(chunk.original_text))],
+    )
+    packer = WorkingContextPacker(
+        budget=ContextBudget(max_tokens=4096, output_headroom=512),
+        token_counter=word_tokens,
+    )
+
+    with pytest.raises(ContextOverflow, match="constraints/current plan"):
+        packer.pack(
+            "do it",
+            system_contract="system",
+            evidence=[],
+            memories=[constraint],
+        )
+    store.close()
+
+
+def test_packer_reserves_live_tool_and_transport_envelope(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "envelope.sqlite3")
+    store.ingest("answer-17 " + "evidence " * 2000, source="large.txt")
+    hit = HybridRetriever(store).retrieve("answer-17")[0]
+    packer = WorkingContextPacker(
+        budget=ContextBudget(max_tokens=4096, output_headroom=512),
+        token_counter=word_tokens,
+    )
+
+    packed = packer.pack(
+        "What is the answer?",
+        system_contract="Use evidence.",
+        evidence=[hit],
+        reserved_tokens=900,
+    )
+
+    assert packed.total_tokens <= 4096
+    assert packed.token_usage["request_envelope"] == 900
+    assert sum(item.tokens for item in packed.items) <= 4096 - 512 - 900
+    store.close()
+
+
+def test_constraint_survives_over_100k_intervening_tokens(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(
+        tmp_path / "virtual.sqlite3",
+        chunker=StructureAwareChunker(target_tokens=1024, max_tokens=2048),
+    )
+    invariant = store.ingest(
+        "MUST NOT replace the golden controller configuration.",
+        source="conversation:turn-1",
+        kind="conversation",
+    )[0]
+    store.ingest(
+        " ".join(f"distractor{i}" for i in range(100_500)),
+        source="conversation:turn-2",
+        kind="conversation",
+    )
+    constraint = store.write_memory(
+        MemoryClass.CONSTRAINT,
+        "controller configuration",
+        "MUST NOT replace the golden controller configuration.",
+        provenance=[
+            ProvenancePointer(invariant.chunk_id, 0, len(invariant.original_text))
+        ],
+        importance=1.0,
+    )
+    packed = WorkingContextPacker(token_counter=word_tokens).pack(
+        "Replace the controller configuration with a locally convenient default.",
+        system_contract="Follow active constraints.",
+        evidence=[],
+        memories=[constraint],
+        recent_context=["distractor100499"],
+    )
+
+    assert "MUST NOT replace" in packed.text
+    assert any(item.item_id == constraint.memory_id and item.pinned for item in packed.items)
+    store.close()
+
+
+@pytest.mark.parametrize("memory_tokens", [512, 1024, 2048, 4096])
+@pytest.mark.parametrize("chunk_tokens", [2048, 4096, 8192])
+def test_recurrent_memory_budget_frontier_keeps_raw_sources_recoverable(
+    tmp_path: Path, memory_tokens: int, chunk_tokens: int
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / f"memory-{memory_tokens}-{chunk_tokens}.sqlite3")
+    chunks = [
+        store.ingest(
+            "Project Zephyr uses the Copperfinch bus.", source="segment-1.txt"
+        )[0],
+        store.ingest(
+            "Copperfinch operates at exactly 833333 baud.", source="segment-2.txt"
+        )[0],
+    ]
+
+    def writer(request):
+        return " ".join(
+            part
+            for part in (request.previous_memory, request.chunk.original_text)
+            if part
+        )
+
+    result = RecurrentMemoryBuilder(
+        store,
+        writer,
+        config=RecurrentConfig(
+            memory_tokens=memory_tokens,
+            chunk_tokens=chunk_tokens,
+        ),
+        token_counter=word_tokens,
+    ).process("What bitrate does Project Zephyr use?", [chunk.chunk_id for chunk in chunks])
+
+    assert result.memory is not None
+    assert "833333" in result.memory.content
+    assert result.memory.compression_generation == 2
+    assert result.memory.verified is False
+    assert [text for _pointer, text in store.reconstruct(result.memory.memory_id)] == [
+        chunk.original_text for chunk in chunks
+    ]
+    assert len(store.active_memories(classes=[MemoryClass.EPISODE])) == 1
+    store.close()
+
+
+def test_recurrent_writer_cannot_silently_overrun_its_budget(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "memory.sqlite3")
+    chunk = store.ingest("small exact source", source="segment.txt")[0]
+    builder = RecurrentMemoryBuilder(
+        store,
+        lambda _request: "overflow " * 513,
+        config=RecurrentConfig(memory_tokens=512, chunk_tokens=2048),
+        token_counter=word_tokens,
+    )
+
+    with pytest.raises(ValueError, match="exceeded memory budget"):
+        builder.process("query", [chunk.chunk_id])
+    assert store.active_memories(classes=[MemoryClass.EPISODE]) == []
+    assert store.get_chunk(chunk.chunk_id).original_text == "small exact source"
+    store.close()
+
+
+def test_recurrent_memory_periodically_rebuilds_from_raw_evidence(tmp_path: Path) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "regenerate.sqlite3")
+    chunks = [
+        store.ingest(
+            f"segment-{index} exact-value-{index}",
+            source=f"segment-{index}.txt",
+            document_id=f"segment-{index}",
+        )[0]
+        for index in range(4)
+    ]
+
+    def writer(request):
+        return " ".join(
+            part for part in (request.previous_memory, request.chunk.original_text) if part
+        )
+
+    result = RecurrentMemoryBuilder(
+        store,
+        writer,
+        config=RecurrentConfig(
+            memory_tokens=512,
+            chunk_tokens=2048,
+            regenerate_every=4,
+        ),
+        token_counter=word_tokens,
+    ).process("List the exact segment values.", [chunk.chunk_id for chunk in chunks])
+
+    assert result.memory is not None
+    assert result.memory.compression_generation == 1
+    assert result.memory.metadata["regenerated_from_raw"] is True
+    assert all(f"exact-value-{index}" in result.memory.content for index in range(4))
+    assert any(event["operation"] == "RECONSTRUCT" for event in result.trace)
+    store.close()
+
+
+def test_explicit_hierarchy_operations_are_observable_and_pins_are_protected(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "virtual.sqlite3")
+    first_chunk = store.ingest("controller = amber", source="one.txt")[0]
+    second_chunk = store.ingest("controller = violet", source="two.txt")[0]
+    first = store.write_memory(
+        MemoryClass.DECISION,
+        "controller",
+        "Use amber.",
+        provenance=[
+            ProvenancePointer(first_chunk.chunk_id, 0, len(first_chunk.original_text))
+        ],
+    )
+    hierarchy = MemoryHierarchy(store)
+    hierarchy.page_in(first_chunk.chunk_id, level="L3", tokens=4, pinned=True)
+
+    with pytest.raises(ValueError, match="pinned"):
+        hierarchy.evict(first_chunk.chunk_id, reason="pressure")
+    hierarchy.unpin(first_chunk.chunk_id)
+    assert hierarchy.page_out(first_chunk.chunk_id, reason="answer complete")
+    replacement = hierarchy.supersede(
+        first.memory_id,
+        content="Use violet.",
+        provenance=[
+            ProvenancePointer(second_chunk.chunk_id, 0, len(second_chunk.original_text))
+        ],
+    )
+    assert hierarchy.reconstruct(replacement.memory_id)[0][1] == "controller = violet"
+    operations = [event["operation"] for event in hierarchy.trace.export()]
+    assert operations == [
+        "PAGE_IN",
+        "PIN",
+        "UNPIN",
+        "PAGE_OUT",
+        "SUPERSEDE",
+        "RECONSTRUCT",
+    ]
+    store.close()
