@@ -37,6 +37,7 @@ MAX_TOOL_RESULT_CHARS = 24_000
 MAX_CHECKPOINT_REPORT_CHARS = 1_000
 MAX_ACTION_ARGUMENT_CHARS = 2_000
 MAX_ACTION_OUTCOME_CHARS = 1_200
+VISUAL_CONTEXT_ACCOUNTING_BYTES = 8 * 1024
 COMPUTER_ACTION_TOOLS = {"browser_interact", "gui_interact"}
 
 _SENSITIVE_AUDIT_KEY = re.compile(
@@ -650,11 +651,34 @@ def _durable_task_messages(
 
 
 def _context_metrics(messages: list[dict[str, Any]]) -> dict[str, int]:
+    measured: list[dict[str, Any]] = []
+    image_count = 0
+    for message in messages:
+        item = {key: value for key, value in message.items() if key != "images"}
+        images = message.get("images")
+        if isinstance(images, list) and images:
+            image_count += len(images)
+            item["images"] = [
+                {
+                    key: value
+                    for key, value in image.items()
+                    if key != "data"
+                }
+                if isinstance(image, Mapping)
+                else {"type": "unknown"}
+                for image in images
+            ]
+        measured.append(item)
     return {
         "messages": len(messages),
+        # Raw PNG/JPEG base64 bytes are transport size, not language context.
+        # Charge one bounded multimodal-token estimate per live frame so a
+        # single fresh screenshot does not falsely trigger transcript
+        # compaction and discard the only actionable visual state.
         "bytes": len(
-            json.dumps(messages, ensure_ascii=False, default=str).encode("utf-8")
-        ),
+            json.dumps(measured, ensure_ascii=False, default=str).encode("utf-8")
+        )
+        + image_count * VISUAL_CONTEXT_ACCOUNTING_BYTES,
     }
 
 

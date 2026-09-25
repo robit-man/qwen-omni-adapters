@@ -1678,6 +1678,11 @@ class BrowserAutomationStore:
                             "action": action,
                             "target": semantic_target,
                         }
+                elif action == "navigate":
+                    result["action_receipt"] = {
+                        "action": "navigate",
+                        "target": str(arguments.get("url") or "")[:240],
+                    }
                 verify_returned_frame = action == "snapshot" or (
                     action == "visual_click" and visual_click_outcome == "clicked"
                 )

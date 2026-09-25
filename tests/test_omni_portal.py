@@ -635,6 +635,15 @@ def test_browser_dom_action_returns_semantic_control_receipt(
         "target": "Recipient — text",
     }
 
+    navigated = Store().act(
+        "session",
+        {"action": "navigate", "url": "https://example.test/form"},
+    )
+    assert navigated["action_receipt"] == {
+        "action": "navigate",
+        "target": "https://example.test/form",
+    }
+
 
 def test_browser_refinement_crop_preserves_parent_viewport_transform() -> None:
     buffer = io.BytesIO()

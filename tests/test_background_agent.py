@@ -28,6 +28,7 @@ from harness.background_agent import (
     _compaction_available,
     _compaction_receipt,
     _computer_action_messages,
+    _context_metrics,
     _direct_alternative_tools,
     _discard_visual_frames,
     _ForegroundPreempted,
@@ -307,6 +308,30 @@ def test_computer_action_scope_retains_completed_form_control_ledger() -> None:
     assert '"target": "field 4"' in state
     assert '"target": "field 3"' not in state
     assert "element_id" not in state
+
+
+def test_context_metrics_charge_visual_tokens_not_raw_base64_transport() -> None:
+    messages = [
+        {"role": "system", "content": "task policy"},
+        {"role": "user", "content": "inspect the current frame"},
+        {
+            "role": "user",
+            "content": "fresh visual evidence",
+            "images": [
+                {
+                    "mime_type": "image/png",
+                    "encoding": "base64",
+                    "data": "x" * 500_000,
+                }
+            ],
+        },
+    ]
+
+    metrics = _context_metrics(messages)
+
+    assert metrics["messages"] == 3
+    assert 8 * 1024 < metrics["bytes"] < 12 * 1024
+    assert _compaction_available(messages) is False
 
 
 def test_visual_frame_is_discarded_only_for_a_real_replacement() -> None:
