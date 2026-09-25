@@ -4774,6 +4774,10 @@ def test_internal_background_worker_uses_the_compact_policy_envelope(
             messages=[
                 {"role": "system", "content": "<current_task>Build it.</current_task>"},
                 {
+                    "role": "assistant",
+                    "content": "Imaginary prior artifact mercury-884 passed every test.",
+                },
+                {
                     "role": "user",
                     "content": "<retained_checkpoint>Old failed probe.</retained_checkpoint>",
                 },
@@ -4789,6 +4793,7 @@ def test_internal_background_worker_uses_the_compact_policy_envelope(
     assert "authenticated internal durable-task worker" in content
     assert "Tool results" in content
     assert "natural participant" not in content
+    assert "mercury-884" not in json.dumps(payload)
     assert f"<current_query>\n{task_query}\n</current_query>" in payload["messages"][1][
         "content"
     ]

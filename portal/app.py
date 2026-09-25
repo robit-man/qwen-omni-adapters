@@ -1888,10 +1888,15 @@ def create_app(
         accepted_documents: Sequence[Mapping[str, Any]],
         *,
         query_override: str | None = None,
+        internal_background: bool = False,
     ):
         if not virtual_context.enabled:
             return None, {"mode": "off"}
-        ingested_messages = virtual_context.observe_messages(session_id, raw_messages)
+        ingested_messages = virtual_context.observe_messages(
+            session_id,
+            raw_messages,
+            include_assistant=not internal_background,
+        )
         document_ids = [str(item.get("id") or "") for item in accepted_documents]
         ingested_documents = virtual_context.observe_documents(
             session_id, documents.evidence_documents(session_id, document_ids)
@@ -1909,6 +1914,7 @@ def create_app(
             system_contract=system_contract,
             query_override=query_override,
             reserved_tokens=virtual_context.request_envelope_tokens(payload),
+            include_assistant=not internal_background,
         )
         if prepared is not None:
             virtual_context.apply_active(payload, prepared)
@@ -1937,6 +1943,7 @@ def create_app(
         accepted_documents: Sequence[Mapping[str, Any]],
         *,
         query_override: str | None = None,
+        internal_background: bool = False,
     ):
         try:
             return prepare_virtual_context(
@@ -1945,6 +1952,7 @@ def create_app(
                 raw_messages,
                 accepted_documents,
                 query_override=query_override,
+                internal_background=internal_background,
             )
         except ContextOverflow as exc:
             # The lossless corpus has already observed this turn. When the
@@ -1972,6 +1980,7 @@ def create_app(
         *,
         query: str,
         system_contract: str,
+        internal_background: bool = False,
     ):
         if not virtual_context.enabled or not query or not system_contract:
             return None, {}
@@ -1981,6 +1990,7 @@ def create_app(
                 payload,
                 query=query,
                 system_contract=system_contract,
+                include_assistant=not internal_background,
             )
         except ContextOverflow as exc:
             return None, {
@@ -2358,6 +2368,7 @@ def create_app(
                 raw_messages,
                 accepted_documents,
                 query_override=virtual_query_override,
+                internal_background=internal_background,
             )
             virtual_query, virtual_contract = virtual_repack_inputs(
                 _prepared_context,
@@ -2464,6 +2475,7 @@ def create_app(
                             session_id,
                             query=virtual_query,
                             system_contract=virtual_contract,
+                            internal_background=internal_background,
                         )
                         virtual_summary.update(repack_summary)
                         continue
@@ -2491,6 +2503,7 @@ def create_app(
                     session_id,
                     query=virtual_query,
                     system_contract=virtual_contract,
+                    internal_background=internal_background,
                 )
                 virtual_summary.update(repack_summary)
 
@@ -2580,6 +2593,7 @@ def create_app(
                 raw_messages,
                 accepted_documents,
                 query_override=virtual_query_override,
+                internal_background=internal_background,
             )
             virtual_query, virtual_contract = virtual_repack_inputs(
                 _prepared_context,
@@ -2912,6 +2926,7 @@ def create_app(
                         session_id,
                         query=virtual_query,
                         system_contract=virtual_contract,
+                        internal_background=internal_background,
                     )
                     virtual_summary.update(repack_summary)
                     stream_retries = 0

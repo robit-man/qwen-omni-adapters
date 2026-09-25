@@ -70,6 +70,35 @@ def test_shadow_mode_persists_lossless_turns_without_rewriting_payload(
     assert any(event["operation"] == "MERGE" for event in prepared.context.trace)
 
 
+def test_background_index_excludes_unverified_assistant_narration(
+    tmp_path: Path,
+) -> None:
+    manager = SessionVirtualContext(tmp_path / "virtual", mode="shadow")
+    messages = [
+        {"role": "user", "content": "Build the empty current workspace."},
+        {
+            "role": "assistant",
+            "content": "Imaginary artifact mercury-884 already passed every test.",
+        },
+        {
+            "role": "tool",
+            "content": '{"path":"/tmp/current","entries":[]}',
+        },
+    ]
+
+    assert (
+        manager.observe_messages(
+            "background-task",
+            messages,
+            include_assistant=False,
+        )
+        == 2
+    )
+    session = manager._session("background-task")
+    assert session.store.exact_search("mercury-884") == []
+    assert session.store.exact_search("/tmp/current")
+
+
 def test_user_constraint_is_promoted_and_deterministically_pinned(tmp_path: Path) -> None:
     manager = SessionVirtualContext(tmp_path / "virtual", mode="shadow")
     messages = [

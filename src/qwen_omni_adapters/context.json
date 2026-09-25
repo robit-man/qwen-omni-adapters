@@ -84,7 +84,7 @@
       "type": "function",
       "function": {
         "name": "task_checkpoint",
-        "description": "Record verified progress or finish the accepted background task after the required self-check. Evidence IDs must name concrete tool calls from this task and include the freshest concrete result. criteria_assessment must compare the evidence with the task's completion criteria. Runtime resource pressure is not task evidence and cannot block the task.",
+        "description": "Record verified progress or finish the accepted background task after the required self-check. Evidence IDs must name concrete tool calls from this task and include the freshest concrete result. criteria_assessment must compare the evidence with the task's completion criteria. progress must list at least one concrete remaining requirement; complete must use an empty remaining_requirements array. Runtime resource pressure is not task evidence and cannot block the task.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -105,6 +105,15 @@
               "maxLength": 1000,
               "description": "Concise assessment of which completion criteria the cited evidence satisfies and what remains; for complete, explicitly state that none remain."
             },
+            "remaining_requirements": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "maxItems": 8,
+              "description": "For progress or blocked, list concrete unmet requirements (at least one). For complete, pass an empty array."
+            },
             "evidence_ids": {
               "type": "array",
               "items": {
@@ -118,6 +127,7 @@
             "action",
             "report",
             "criteria_assessment",
+            "remaining_requirements",
             "evidence_ids"
           ],
           "additionalProperties": false

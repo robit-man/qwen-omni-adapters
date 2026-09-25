@@ -262,6 +262,13 @@ class _MalformedToolCall(RuntimeError):
     """The model emitted invalid structured arguments and must replan smaller."""
 
 
+def _background_portal_session(seed: str, task_id: str) -> str:
+    """Return a stable task-local portal namespace without exposing either input."""
+
+    digest = hashlib.sha256(f"{seed}\0{task_id}".encode()).hexdigest()
+    return f"background-{digest[:40]}"
+
+
 _HTTP_STATUS_PATTERN = re.compile(r"\bHTTP\s+([45]\d\d)\b", re.IGNORECASE)
 _TRANSIENT_CLIENT_STATUSES = {408, 409, 425, 429}
 
@@ -1085,6 +1092,13 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
                         )[:1000],
                         "report": str(arguments.get("report") or "")[:1000],
                         "evidence_ids": list(arguments.get("evidence_ids") or [])[:16],
+                        "remaining_requirements": [
+                            str(value)[:300]
+                            for value in (
+                                arguments.get("remaining_requirements") or []
+                            )
+                            if str(value).strip()
+                        ][:8],
                     }
                 )
         if not ok and tool not in LOCAL_CONTROL_TOOL_NAMES and tool != "tool_search":
@@ -1658,14 +1672,11 @@ class BackgroundAgent:
         self._slice_deferrals: dict[str, int] = {}
         self._quiesced_tasks: set[str] = set()
         self.owner = f"voice-agent-{secrets.token_hex(8)}"
+        self._portal_session_seed = portal_session_id or secrets.token_urlsafe(24)
+        self._active_portal_session = ""
         self.active = threading.Event()
         self._wake = threading.Event()
-        self._client = client or httpx.Client(
-            timeout=httpx.Timeout(request_timeout_s),
-            cookies={
-                "omni_portal_session": portal_session_id or secrets.token_urlsafe(24)
-            },
-        )
+        self._client = client or httpx.Client(timeout=httpx.Timeout(request_timeout_s))
         self._owns_client = client is None
         self._thread = threading.Thread(
             target=self._run, name="omni-background-agent", daemon=True
@@ -1758,7 +1769,10 @@ class BackgroundAgent:
         )
 
     def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.token}"}
+        headers = {"Authorization": f"Bearer {self.token}"}
+        if self._active_portal_session:
+            headers["Cookie"] = "omni_portal_session=" + self._active_portal_session
+        return headers
 
     def _record_action(
         self,
@@ -2252,6 +2266,12 @@ class BackgroundAgent:
 
     def _execute(self, task: dict[str, Any]) -> None:
         task_id = str(task["task_id"])
+        # Browser/web indexes and virtual memory are task-local. Sharing the
+        # foreground cookie, or one cookie across durable tasks, lets an old
+        # project's assistant narration outrank the empty current workspace.
+        self._active_portal_session = _background_portal_session(
+            self._portal_session_seed, task_id
+        )
         task_started_at = time.monotonic()
         last_progress_at: float | None = None
         messages = copy.deepcopy(task.get("messages") or [])
@@ -2911,6 +2931,16 @@ class BackgroundAgent:
                     criteria_assessment = " ".join(
                         str(arguments.get("criteria_assessment") or "").split()
                     )
+                    raw_remaining = arguments.get("remaining_requirements")
+                    remaining_requirements = (
+                        [
+                            " ".join(str(value).split())[:300]
+                            for value in raw_remaining
+                            if str(value).strip()
+                        ][:8]
+                        if isinstance(raw_remaining, list)
+                        else []
+                    )
                     raw_ids = arguments.get("evidence_ids")
                     evidence_ids = (
                         [str(value) for value in raw_ids if str(value)]
@@ -2955,6 +2985,13 @@ class BackgroundAgent:
                         and len(report) <= MAX_CHECKPOINT_REPORT_CHARS
                         and bool(criteria_assessment)
                         and len(criteria_assessment) <= MAX_CHECKPOINT_REPORT_CHARS
+                        and (
+                            (action == "complete" and not remaining_requirements)
+                            or (
+                                action in {"progress", "blocked"}
+                                and bool(remaining_requirements)
+                            )
+                        )
                         and valid_refs
                         and cites_freshest
                         and (
@@ -2983,6 +3020,9 @@ class BackgroundAgent:
                             "valid_evidence_ids": valid_ids[:16],
                             "failed_evidence_ids": failed_ids[:8],
                             "freshest_evidence_id": freshest_evidence_id,
+                            "remaining_requirements_required": (
+                                "non-empty for progress/blocked; empty for complete"
+                            ),
                             "retryable": retryable,
                         }
                         messages.append(

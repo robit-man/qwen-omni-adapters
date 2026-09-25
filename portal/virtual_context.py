@@ -257,12 +257,25 @@ class SessionVirtualContext:
             self._sessions[key] = current
             return current
 
-    def observe_messages(self, session_id: str, messages: Sequence[Any]) -> int:
+    def observe_messages(
+        self,
+        session_id: str,
+        messages: Sequence[Any],
+        *,
+        include_assistant: bool = True,
+    ) -> int:
         if not self.enabled:
             return 0
         session = self._session(session_id)
         ingested = 0
         for ordinal, role, content, message_id, version in _message_records(messages):
+            if role == "assistant" and not include_assistant:
+                # Durable worker narration and proposed checkpoint claims are
+                # derived state, not external evidence. The task store retains
+                # them losslessly; excluding them from the retrieval corpus
+                # prevents a rejected hallucination from becoming its own
+                # supporting source on the next round.
+                continue
             chunks = session.store.ingest(
                 content,
                 source=f"conversation:{role}",
@@ -315,6 +328,7 @@ class SessionVirtualContext:
         query_override: str | None = None,
         reserved_tokens: int = 0,
         retained_protocol_ordinals: Sequence[int] = (),
+        include_assistant: bool = True,
     ) -> PreparedTurn | None:
         if not self.enabled:
             return None
@@ -327,6 +341,8 @@ class SessionVirtualContext:
             role = str(message.get("role") or "")
             content = _text_content(message.get("content"))
             if not content or role == "system":
+                continue
+            if role == "assistant" and not include_assistant:
                 continue
             if ordinal in retained_ordinals:
                 continue
@@ -434,6 +450,7 @@ class SessionVirtualContext:
         *,
         query: str,
         system_contract: str,
+        include_assistant: bool = True,
     ) -> PreparedTurn | None:
         """Page tool-loop results into a fresh bounded working set."""
 
@@ -442,7 +459,11 @@ class SessionVirtualContext:
         messages = payload.get("messages")
         if not isinstance(messages, list):
             return None
-        self.observe_messages(session_id, messages)
+        self.observe_messages(
+            session_id,
+            messages,
+            include_assistant=include_assistant,
+        )
         protocol_tail, protocol_ordinals = _latest_tool_protocol_tail(messages)
         prepared = self.prepare(
             session_id,
@@ -454,6 +475,7 @@ class SessionVirtualContext:
                 + self._protocol_tail_tokens(protocol_tail)
             ),
             retained_protocol_ordinals=protocol_ordinals,
+            include_assistant=include_assistant,
         )
         if prepared is not None:
             self.apply_active(payload, prepared, protocol_tail=protocol_tail)

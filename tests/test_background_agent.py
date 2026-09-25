@@ -23,6 +23,7 @@ from harness.background_agent import (
     TASK_START_REQUEST,
     BackgroundAgent,
     _audit_json,
+    _background_portal_session,
     _bounded_tool_result,
     _call_fingerprint,
     _checkpoint_available,
@@ -552,7 +553,17 @@ def _checkpoint_response(
                                 "report": report,
                                 "criteria_assessment": (
                                     "The cited evidence was checked against the "
-                                    "completion criteria; no required work remains."
+                                    "completion criteria; "
+                                    + (
+                                        "no required work remains."
+                                        if action == "complete"
+                                        else "further required work remains."
+                                    )
+                                ),
+                                "remaining_requirements": (
+                                    []
+                                    if action == "complete"
+                                    else ["Continue the next unmet requirement."]
                                 ),
                                 "evidence_ids": evidence_ids,
                             },
@@ -575,6 +586,18 @@ def test_checkpoint_schema_stays_below_llama_grammar_repetition_limit() -> None:
     assert MAX_CHECKPOINT_REPORT_CHARS < 2_000
     assert TASK_RECOVERY_TOOL["function"]["name"] == "task_recovery"
     assert TASK_COMPACT_TOOL["function"]["name"] == "task_compact"
+    assert "remaining_requirements" in TASK_CHECKPOINT_TOOL["function"][
+        "parameters"
+    ]["required"]
+
+
+def test_background_portal_sessions_are_stable_and_task_isolated() -> None:
+    first = _background_portal_session("foreground-seed", "task-one")
+
+    assert first == _background_portal_session("foreground-seed", "task-one")
+    assert first != _background_portal_session("foreground-seed", "task-two")
+    assert first.startswith("background-")
+    assert 16 <= len(first) <= 128
 
 
 def test_deterministic_client_error_is_not_retryable() -> None:
@@ -1222,6 +1245,7 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
                         "action": "progress",
                         "report": "Research is written.",
                         "criteria_assessment": "Research satisfied; plan remains.",
+                        "remaining_requirements": ["Write docs/plan.md."],
                         "evidence_ids": ["file-1"],
                     }
                 ),
@@ -1248,6 +1272,7 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
         "</inspections>", 1
     )[0]
     assert "Research satisfied; plan remains." in focus
+    assert "Write docs/plan.md." in focus
     assert "task_expand(source-1)" in focus
     assert "Do not redo an acquired source" in focus
 
