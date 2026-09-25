@@ -412,6 +412,10 @@ long task it may pause after a meaningful verified milestone, speak a short
 progress explanation, then resume with the same task context. A later spoken
 update is appended as authoritative task guidance before the next step,
 including a final race check so stale completion cannot beat a new instruction.
+Typed focus records advertise no paging operation while their detailed receipts
+are still resident. After compaction they gain structured pointers to the
+separate `task_expand` control function; that control name is never presented as
+an action or argument of `workspace_file` or another external tool.
 Completed or blocked work ends with a brief natural spoken status only when the
 live conversation is idle. Detailed reports, evidence IDs, paths, and worker
 self-assessment stay in the indicator and task archive and are never passed

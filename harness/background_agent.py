@@ -555,7 +555,10 @@ def _compact_task_messages(
         "Older detailed reasoning/tool rounds were compacted. Continue from the objective "
         "and the retained concrete state below; do not repeat completed or failed calls.",
     ]
-    focus_memory = _focus_memory(task)
+    # This is the post-compaction checkpoint. Expose typed page-in pointers
+    # immediately even though the store writes its compaction receipt only
+    # after this message has been constructed.
+    focus_memory = _focus_memory(task, expand_available=True)
     if focus_memory:
         sections.append(focus_memory)
     if guidance_lines:
@@ -1021,8 +1024,23 @@ def _audit_mapping(value: Any) -> dict[str, Any]:
     return dict(parsed) if isinstance(parsed, Mapping) else {}
 
 
-def _focus_memory(task: Mapping[str, Any]) -> str:
+def _focus_memory(
+    task: Mapping[str, Any], *, expand_available: bool | None = None
+) -> str:
     """Render durable, typed focus records instead of another prose summary."""
+
+    if expand_available is None:
+        expand_available = bool(task.get("compaction"))
+
+    def expansion_pointer(call_id: str) -> dict[str, Any]:
+        if not expand_available:
+            return {}
+        return {
+            "page_in": {
+                "tool": "task_expand",
+                "arguments": {"evidence_ids": [call_id]},
+            }
+        }
 
     actions = task.get("actions")
     if not isinstance(actions, list):
@@ -1051,7 +1069,7 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
                         "evidence_id": call_id,
                         "status": "acquired",
                         "source_url": url,
-                        "expand": f"task_expand({call_id})",
+                        **expansion_pointer(call_id),
                     }
                 )
         elif tool == "workspace_file" and ok:
@@ -1068,7 +1086,7 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
                         "path": path,
                         "sha256": str(outcome.get("sha256") or ""),
                         "validation": str(outcome.get("validation") or ""),
-                        "expand": f"task_expand({call_id})",
+                        **expansion_pointer(call_id),
                     }
                 )
             elif path and action in {"list", "read"}:
@@ -1079,7 +1097,7 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
                         "path": path,
                         "sha256": str(outcome.get("sha256") or ""),
                         "task_progress": False,
-                        "expand": f"task_expand({call_id})",
+                        **expansion_pointer(call_id),
                     }
                 )
         elif tool == "task_checkpoint" and ok:
@@ -1101,7 +1119,7 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
                     "diagnostic": " ".join(
                         str(action.get("outcome") or "").split()
                     )[:500],
-                    "expand": f"task_expand({call_id})",
+                    **expansion_pointer(call_id),
                 }
             )
     if not any((sources, artifacts, inspections, checkpoints, failures)):
@@ -1123,12 +1141,23 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
             f"</{name}>",
         ]
 
+    paging_contract = (
+        "Some detailed receipts have left active context. To recover a missing "
+        "detail, invoke the separate task_expand control tool with "
+        '{"evidence_ids":["the-evidence-id"]}. task_expand is never an action '
+        "or argument of workspace_file or another external tool. Expansion is "
+        "paging, not new progress. "
+        if expand_available
+        else "Detailed recent receipts remain in the active tool transcript; no "
+        "paging control is available or needed. "
+    )
     sections = [
         '<focus_memory schema="robit.omni.background-focus.v1">',
         "<focus_contract>These typed records remain authoritative across compaction. "
         "Do not redo an acquired source or artifact merely because its original turn is "
-        "not resident. If a relevant record lacks a needed detail, call task_expand with "
-        "its evidence_id; expansion is paging, not new progress. Read/list inspections "
+        "not resident. "
+        + paging_contract
+        + "Read/list inspections "
         "are observations, never completed work: use them to choose the next action and "
         "do not repeat an equivalent inspection unless causal state changed or a missing "
         "detail requires a different bounded page. Phase checkpoints are control "

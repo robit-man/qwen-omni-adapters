@@ -101,7 +101,8 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
     assert "Ran tool_search" not in prompt
     assert '<focus_memory schema="robit.omni.background-focus.v1">' in prompt
     assert "https://example.test/field-service" in prompt
-    assert "task_expand(source-1)" in prompt
+    assert "task_expand" not in prompt
+    assert "no paging control is available or needed" in prompt
     assert "Ignore unrelated topics" in prompt
     assert "every qualifier in the completion criteria as a constraint" in prompt
     assert prompt.endswith(AGENT_SYSTEM_PROMPT)
@@ -1167,6 +1168,8 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
     assert "fixed-write | shell | succeeded" in checkpoint
     assert "Ran tool_search" not in checkpoint
     assert "compact-control" not in checkpoint
+    assert "task_expand is never an action" in checkpoint
+    assert "&quot;tool&quot;: &quot;task_expand&quot;" in checkpoint
     assert compacted[3]["role"] == "assistant"
     assert compacted[4]["role"] == "tool"
 
@@ -1292,7 +1295,7 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
         ]
     }
 
-    focus = _focus_memory(task)
+    focus = _focus_memory(task, expand_available=True)
 
     assert 'schema="robit.omni.background-focus.v1"' in focus
     assert "<phase_checkpoints>" in focus
@@ -1313,7 +1316,10 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
     assert "Write docs/plan.md." not in focus
     assert "model_checkpoint_control_not_task_evidence" in focus
     assert "Phase checkpoints are control boundaries, not proof" in focus
-    assert "task_expand(source-1)" in focus
+    assert "task_expand(source-1)" not in focus
+    assert "task_expand is never an action" in focus
+    assert "&quot;tool&quot;: &quot;task_expand&quot;" in focus
+    assert "&quot;evidence_ids&quot;: [&quot;source-1&quot;]" in focus
     assert "Do not redo an acquired source" in focus
 
 
