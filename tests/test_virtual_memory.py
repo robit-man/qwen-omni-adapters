@@ -198,6 +198,35 @@ def test_query_plan_promotes_bare_identifiers_and_cleans_question_entities(
     store.close()
 
 
+def test_retrieval_channels_can_be_ablated_independently(tmp_path: Path) -> None:
+    embed = HashingEmbedder()
+    store = ImmutableEvidenceStore(tmp_path / "retrieval-ablation.sqlite3", embedder=embed)
+    store.ingest(
+        "The zirconium actuator calibration value is cobalt-7319.",
+        source="calibration.txt",
+    )
+    query = "zirconium actuator calibration"
+
+    lexical = HybridRetriever(
+        store,
+        query_embedder=embed,
+        enabled_channels=("bm25",),
+    ).retrieve(query)
+    dense = HybridRetriever(
+        store,
+        query_embedder=embed,
+        enabled_channels=("dense",),
+    ).retrieve(query)
+
+    assert lexical and all(hit.channels == ("bm25",) for hit in lexical)
+    assert dense and all(hit.channels == ("dense",) for hit in dense)
+    with pytest.raises(ValueError, match="unknown retrieval channels"):
+        HybridRetriever(store, enabled_channels=("imaginary",))
+    with pytest.raises(ValueError, match="at least one"):
+        HybridRetriever(store, enabled_channels=())
+    store.close()
+
+
 def test_retrieval_pins_every_named_address_before_source_diversity(
     tmp_path: Path,
 ) -> None:

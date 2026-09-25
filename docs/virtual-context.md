@@ -133,6 +133,14 @@ transformer:
 .venv/bin/python scripts/run_virtual_context_ruler.py /path/to/ruler/jsonl \
   --output-dir /tmp/ruler-oracle --baseline oracle \
   --endpoint http://127.0.0.1:8000/v1/chat/completions --model MODEL
+
+# Causal ablation: lexical retrieval only, one controller pass, and no
+# deterministic whole-corpus aggregation or exact-relation compiler.
+.venv/bin/python scripts/run_virtual_context_ruler.py /path/to/ruler/jsonl \
+  --output-dir /tmp/ruler-bm25-one-pass --baseline hybrid \
+  --retrieval-profile bm25-only --controller-rounds 1 \
+  --disable-aggregation --disable-compilation \
+  --endpoint http://127.0.0.1:8000/v1/chat/completions --model MODEL
 ```
 
 The output JSONL preserves the official fields and adds `pred`, so scoring is
@@ -147,6 +155,10 @@ published all-match or QA partial-match score, prompt/completion tokens, finish
 reason, and p50/p95 inference latency in `virtual-context-run.json`. The JSONL
 remains suitable for independent upstream evaluation. A preparation-only run
 does not produce model predictions and must not be reported as a RULER score.
+The `bm25-only`, `dense-only`, `hybrid-no-graph`, and `hybrid` retrieval
+profiles plus the controller/aggregation/compiler switches support isolated
+ablation without changing or regenerating the sealed benchmark fixture. Every
+record and `virtual-context-run.json` retain the selected settings.
 
 ### Jetson milestone evidence
 

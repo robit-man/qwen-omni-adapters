@@ -31,11 +31,20 @@ from qwen_omni_adapters.virtual_memory.packer import (
     WorkingContextPacker,
     conservative_token_estimate,
 )
-from qwen_omni_adapters.virtual_memory.retrieval import HybridRetriever
+from qwen_omni_adapters.virtual_memory.retrieval import (
+    RETRIEVAL_CHANNELS,
+    HybridRetriever,
+)
 from qwen_omni_adapters.virtual_memory.store import ImmutableEvidenceStore
 
 RULER_V1_REVISION = "e8bbff677ca2c239640dc90f93310dcf32408c93"
 VALID_BASELINES = {"fifo", "hybrid", "oracle"}
+RETRIEVAL_PROFILES = {
+    "bm25-only": frozenset({"bm25"}),
+    "dense-only": frozenset({"dense"}),
+    "hybrid": RETRIEVAL_CHANNELS,
+    "hybrid-no-graph": RETRIEVAL_CHANNELS - {"code_graph", "graph"},
+}
 _QUESTION_MARKERS = (
     "Question:",
     "What are all the special magic",
@@ -83,6 +92,10 @@ class PreparedRulerSample:
     sufficient: bool
     preparation_seconds: float
     trace: tuple[dict[str, Any], ...]
+    retrieval_profile: str
+    controller_rounds: int
+    aggregation_enabled: bool
+    compilation_enabled: bool
 
 
 def _flatten_strings(value: Any) -> tuple[str, ...]:
@@ -257,9 +270,21 @@ class RulerVirtualContextHarness:
         *,
         physical_context_tokens: int = 16_384,
         token_counter: Callable[[str], int] = conservative_token_estimate,
+        retrieval_profile: str = "hybrid",
+        controller_rounds: int = 6,
+        aggregation_enabled: bool = True,
+        compilation_enabled: bool = True,
     ) -> None:
+        if retrieval_profile not in RETRIEVAL_PROFILES:
+            raise ValueError(f"unknown retrieval profile: {retrieval_profile}")
+        if not 1 <= int(controller_rounds) <= 12:
+            raise ValueError("controller_rounds must be between 1 and 12")
         self.budget = ContextBudget(max_tokens=physical_context_tokens)
         self.token_counter = token_counter
+        self.retrieval_profile = retrieval_profile
+        self.controller_rounds = int(controller_rounds)
+        self.aggregation_enabled = bool(aggregation_enabled)
+        self.compilation_enabled = bool(compilation_enabled)
         self.packer = WorkingContextPacker(
             budget=self.budget,
             token_counter=token_counter,
@@ -310,6 +335,10 @@ class RulerVirtualContextHarness:
                 sufficient=True,
                 preparation_seconds=time.perf_counter() - started,
                 trace=(),
+                retrieval_profile=self.retrieval_profile,
+                controller_rounds=self.controller_rounds,
+                aggregation_enabled=self.aggregation_enabled,
+                compilation_enabled=self.compilation_enabled,
             )
         with tempfile.TemporaryDirectory(prefix="omni-ruler-") as temp_dir:
             embedder = HashingEmbedder()
@@ -323,16 +352,24 @@ class RulerVirtualContextHarness:
                     document_id=f"ruler-{sample.task}-{sample.sample_id}",
                     kind="document",
                 )
-                retriever = HybridRetriever(store, query_embedder=embedder)
-                aggregation = FrequencyAggregationBuilder(store).build(
-                    sample.query,
-                    sample.source_text,
-                    chunks,
+                retriever = HybridRetriever(
+                    store,
+                    query_embedder=embedder,
+                    enabled_channels=RETRIEVAL_PROFILES[self.retrieval_profile],
+                )
+                aggregation = (
+                    FrequencyAggregationBuilder(store).build(
+                        sample.query,
+                        sample.source_text,
+                        chunks,
+                    )
+                    if self.aggregation_enabled
+                    else None
                 )
                 memories = [aggregation.memory] if aggregation is not None else []
                 controller = RecursiveMemoryController(
                     retriever,
-                    config=ControllerConfig(max_rounds=6),
+                    config=ControllerConfig(max_rounds=self.controller_rounds),
                 )
                 if selected == "oracle":
                     # Literal answer location is not an evidence oracle for a
@@ -381,11 +418,9 @@ class RulerVirtualContextHarness:
                         if aggregation is not None
                         else result.trace
                     )
-                compilation = (
-                    QueryEvidenceCompiler(store).compile(sample.query, hits)
-                    if aggregation is None
-                    else None
-                )
+                compilation = None
+                if aggregation is None and self.compilation_enabled:
+                    compilation = QueryEvidenceCompiler(store).compile(sample.query, hits)
                 if compilation is not None and compilation.complete:
                     memories.extend(compilation.memories)
                     sufficient = True
@@ -425,6 +460,10 @@ class RulerVirtualContextHarness:
             sufficient=sufficient,
             preparation_seconds=time.perf_counter() - started,
             trace=trace,
+            retrieval_profile=self.retrieval_profile,
+            controller_rounds=self.controller_rounds,
+            aggregation_enabled=self.aggregation_enabled,
+            compilation_enabled=self.compilation_enabled,
         )
 
 

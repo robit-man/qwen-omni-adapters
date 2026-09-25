@@ -230,6 +230,28 @@ def test_multi_key_values_compile_without_reference_answers() -> None:
     )
 
 
+def test_ruler_ablation_controls_are_recorded_and_disable_derived_shortcuts() -> None:
+    sample = sample_from_record(_record(), task="niah_single_1", ordinal=0)
+    prepared = RulerVirtualContextHarness(
+        physical_context_tokens=4096,
+        retrieval_profile="bm25-only",
+        controller_rounds=1,
+        aggregation_enabled=False,
+        compilation_enabled=False,
+    ).prepare(sample, baseline="hybrid")
+
+    assert prepared.retrieval_profile == "bm25-only"
+    assert prepared.controller_rounds == 1
+    assert prepared.aggregation_enabled is False
+    assert prepared.compilation_enabled is False
+    assert prepared.evidence_chunk_ids
+    assert "7319042" in prepared.prompt
+    assert not any(
+        event["operation"] in {"AGGREGATE", "COMPILE_RELATIONS"}
+        for event in prepared.trace
+    )
+
+
 def test_ruler_string_match_scoring_matches_all_and_qa_part_semantics() -> None:
     assert ruler_string_match_score("vt", "A, C", ("A", "B", "C")) == 66.67
     assert ruler_string_match_score("qa_1", "The answer is France.", ("France",)) == 100.0

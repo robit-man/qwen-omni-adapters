@@ -47,6 +47,20 @@ ENTITY_LEADING_STOP_WORDS = {
     "which",
     "who",
 }
+RETRIEVAL_CHANNELS = frozenset(
+    {
+        "bm25",
+        "code_graph",
+        "dense",
+        "entity",
+        "entity_exact",
+        "exact",
+        "graph",
+        "metadata",
+        "recency",
+        "symbol",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -117,6 +131,7 @@ class HybridRetriever:
         final_limit: int = 12,
         source_cap: int = 4,
         mmr_lambda: float = 0.76,
+        enabled_channels: Sequence[str] | None = None,
     ) -> None:
         self.store = store
         self.query_embedder = query_embedder
@@ -126,6 +141,17 @@ class HybridRetriever:
         self.final_limit = max(1, min(15, final_limit))
         self.source_cap = max(1, source_cap)
         self.mmr_lambda = max(0.0, min(1.0, mmr_lambda))
+        selected_channels = (
+            RETRIEVAL_CHANNELS
+            if enabled_channels is None
+            else frozenset(str(channel).strip() for channel in enabled_channels)
+        )
+        unknown = selected_channels - RETRIEVAL_CHANNELS
+        if unknown:
+            raise ValueError(f"unknown retrieval channels: {', '.join(sorted(unknown))}")
+        if not selected_channels:
+            raise ValueError("at least one retrieval channel must be enabled")
+        self.enabled_channels = selected_channels
 
     def plan(
         self,
@@ -192,6 +218,7 @@ class HybridRetriever:
                 symbols=list(selected_plan.symbols),
                 entities=list(selected_plan.entities),
                 metadata_filters=selected_plan.metadata_filters,
+                enabled_channels=sorted(self.enabled_channels),
             )
         candidates: dict[str, EvidenceChunk] = {}
         scores: dict[str, dict[str, float]] = defaultdict(dict)
@@ -201,56 +228,70 @@ class HybridRetriever:
             candidates[chunk.chunk_id] = chunk
             scores[chunk.chunk_id][channel] = max(score, scores[chunk.chunk_id].get(channel, 0.0))
 
-        for exact in selected_plan.exact_strings:
-            for rank, chunk in enumerate(
-                self.store.exact_search(exact, limit=self.candidate_limit)
-            ):
-                add(chunk, "exact", 1.0 / (1.0 + rank * 0.02))
+        if "exact" in self.enabled_channels:
+            for exact in selected_plan.exact_strings:
+                for rank, chunk in enumerate(
+                    self.store.exact_search(exact, limit=self.candidate_limit)
+                ):
+                    add(chunk, "exact", 1.0 / (1.0 + rank * 0.02))
         for symbol in selected_plan.symbols:
-            for rank, chunk in enumerate(
-                self.store.symbol_search(symbol, limit=self.candidate_limit)
-            ):
-                add(chunk, "symbol", 0.98 / (1.0 + rank * 0.03))
-            for chunk, distance, predicates in self.store.code_search(
-                symbol, max_hops=2, limit=self.candidate_limit
-            ):
-                add(chunk, "code_graph", 0.9 / (1.0 + distance * 0.4))
-                if predicates:
-                    scores[chunk.chunk_id]["code_graph"] += min(0.08, len(predicates) * 0.02)
+            if "symbol" in self.enabled_channels:
+                for rank, chunk in enumerate(
+                    self.store.symbol_search(symbol, limit=self.candidate_limit)
+                ):
+                    add(chunk, "symbol", 0.98 / (1.0 + rank * 0.03))
+            if "code_graph" in self.enabled_channels:
+                for chunk, distance, predicates in self.store.code_search(
+                    symbol, max_hops=2, limit=self.candidate_limit
+                ):
+                    add(chunk, "code_graph", 0.9 / (1.0 + distance * 0.4))
+                    if predicates:
+                        scores[chunk.chunk_id]["code_graph"] += min(
+                            0.08, len(predicates) * 0.02
+                        )
         for subquery in selected_plan.subqueries:
-            for chunk, score in self.store.lexical_search(subquery, limit=self.candidate_limit):
-                add(chunk, "bm25", score)
-            if self.query_embedder is not None:
+            if "bm25" in self.enabled_channels:
+                for chunk, score in self.store.lexical_search(
+                    subquery, limit=self.candidate_limit
+                ):
+                    add(chunk, "bm25", score)
+            if "dense" in self.enabled_channels and self.query_embedder is not None:
                 vector = self.query_embedder(subquery)
                 if vector:
                     for chunk, score in self.store.dense_search(vector, limit=self.candidate_limit):
                         add(chunk, "dense", max(0.0, score) * 0.85)
-            for chunk in self.store.entity_search(subquery, limit=self.candidate_limit):
-                add(chunk, "entity", 0.68)
-            for chunk, distance in self.store.graph_search(
-                subquery, max_hops=3, limit=self.candidate_limit
-            ):
-                add(chunk, "graph", 0.66 / distance)
-                graph_distances[chunk.chunk_id] = min(
-                    distance, graph_distances.get(chunk.chunk_id, distance)
-                )
+            if "entity" in self.enabled_channels:
+                for chunk in self.store.entity_search(
+                    subquery, limit=self.candidate_limit
+                ):
+                    add(chunk, "entity", 0.68)
+            if "graph" in self.enabled_channels:
+                for chunk, distance in self.store.graph_search(
+                    subquery, max_hops=3, limit=self.candidate_limit
+                ):
+                    add(chunk, "graph", 0.66 / distance)
+                    graph_distances[chunk.chunk_id] = min(
+                        distance, graph_distances.get(chunk.chunk_id, distance)
+                    )
         for entity in selected_plan.entities:
             # Entity indexes are broad by design (aliases and graph neighbors
             # are useful), but a literal mention is the strongest starting
             # page for a named subject.  Keep the two channels separate in
             # telemetry so callers can audit why the page was selected.
-            for rank, chunk in enumerate(
-                self.store.exact_search(entity, limit=self.candidate_limit)
-            ):
-                add(chunk, "entity_exact", 0.96 / (1.0 + rank * 0.02))
-            for chunk in self.store.entity_search(entity, limit=self.candidate_limit):
-                add(chunk, "entity", 0.72)
-        if selected_plan.metadata_filters:
+            if "entity_exact" in self.enabled_channels:
+                for rank, chunk in enumerate(
+                    self.store.exact_search(entity, limit=self.candidate_limit)
+                ):
+                    add(chunk, "entity_exact", 0.96 / (1.0 + rank * 0.02))
+            if "entity" in self.enabled_channels:
+                for chunk in self.store.entity_search(entity, limit=self.candidate_limit):
+                    add(chunk, "entity", 0.72)
+        if selected_plan.metadata_filters and "metadata" in self.enabled_channels:
             for chunk in self.store.metadata_search(
                 selected_plan.metadata_filters, limit=self.candidate_limit
             ):
                 add(chunk, "metadata", 0.74)
-        if selected_plan.temporal:
+        if selected_plan.temporal and "recency" in self.enabled_channels:
             for rank, chunk in enumerate(self.store.recent(limit=32)):
                 add(chunk, "recency", 0.35 / (1.0 + rank * 0.08))
 

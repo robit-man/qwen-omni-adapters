@@ -13,6 +13,7 @@ from typing import Any
 import httpx
 
 from qwen_omni_adapters.virtual_memory.ruler import (
+    RETRIEVAL_PROFILES,
     VALID_BASELINES,
     RulerVirtualContextHarness,
     read_ruler_jsonl,
@@ -163,6 +164,28 @@ def main() -> int:
     parser.add_argument("inputs", nargs="+", type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--baseline", choices=sorted(VALID_BASELINES), default="hybrid")
+    parser.add_argument(
+        "--retrieval-profile",
+        choices=sorted(RETRIEVAL_PROFILES),
+        default="hybrid",
+        help="retrieval-channel ablation profile",
+    )
+    parser.add_argument(
+        "--controller-rounds",
+        type=int,
+        default=6,
+        help="bounded PRETHINK/RETRIEVE rounds; use 1 for no-recursion ablation",
+    )
+    parser.add_argument(
+        "--disable-aggregation",
+        action="store_true",
+        help="disable deterministic whole-corpus frequency aggregation",
+    )
+    parser.add_argument(
+        "--disable-compilation",
+        action="store_true",
+        help="disable deterministic exact-relation compilation",
+    )
     parser.add_argument("--physical-context", type=int, default=16_384)
     parser.add_argument(
         "--physical-context-state-file",
@@ -196,6 +219,8 @@ def main() -> int:
     arguments = parser.parse_args()
     if arguments.physical_context < 4096:
         parser.error("--physical-context must be at least 4096")
+    if not 1 <= arguments.controller_rounds <= 12:
+        parser.error("--controller-rounds must be between 1 and 12")
     configured_physical_context = arguments.physical_context
     if arguments.physical_context_state_file is not None:
         try:
@@ -233,6 +258,10 @@ def main() -> int:
         )
     harness = RulerVirtualContextHarness(
         physical_context_tokens=arguments.physical_context,
+        retrieval_profile=arguments.retrieval_profile,
+        controller_rounds=arguments.controller_rounds,
+        aggregation_enabled=not arguments.disable_aggregation,
+        compilation_enabled=not arguments.disable_compilation,
         **({"token_counter": token_counter} if token_counter is not None else {}),
     )
     summaries = []
@@ -296,6 +325,10 @@ def main() -> int:
     report = {
         "schema": "robit.ruler-virtual-context-run.v1",
         "baseline": arguments.baseline,
+        "retrieval_profile": arguments.retrieval_profile,
+        "controller_rounds": arguments.controller_rounds,
+        "aggregation_enabled": not arguments.disable_aggregation,
+        "compilation_enabled": not arguments.disable_compilation,
         "physical_context_tokens": arguments.physical_context,
         "configured_physical_context_tokens": configured_physical_context,
         "physical_context_source": (
