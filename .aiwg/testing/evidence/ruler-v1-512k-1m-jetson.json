@@ -1,0 +1,157 @@
+{
+  "schema": "robit.ruler-virtual-context-evidence.v1",
+  "generated_at": "2026-09-25T05:21:19-07:00",
+  "repository_revision": "b1fe293791627025e076a2bf307bb35950b218f3",
+  "benchmark": {
+    "name": "NVIDIA RULER v1",
+    "revision": "e8bbff677ca2c239640dc90f93310dcf32408c93",
+    "generator_revision": "dac2a40",
+    "samples_per_task": 1,
+    "task_count": 13,
+    "task_names": [
+      "cwe",
+      "fwe",
+      "niah_multikey_1",
+      "niah_multikey_2",
+      "niah_multikey_3",
+      "niah_multiquery",
+      "niah_multivalue",
+      "niah_single_1",
+      "niah_single_2",
+      "niah_single_3",
+      "qa_1",
+      "qa_2",
+      "vt"
+    ],
+    "scoring": "RULER task-native string match over model predictions",
+    "caveat": "One generated sample per task class is milestone evidence, not a confidence interval."
+  },
+  "runtime": {
+    "host": "NVIDIA Jetson AGX Orin 32 GB",
+    "architecture": "aarch64",
+    "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+    "configured_physical_context_tokens": 16384,
+    "resident_physical_context_tokens": 8192,
+    "physical_context_source": "resident_state",
+    "tokenizer": "exact_endpoint",
+    "think": false,
+    "cache_prompt": false,
+    "core_service_restarts_during_final_runs": 0,
+    "harness_restarts_during_final_runs": 0
+  },
+  "runs": {
+    "source_512k_hybrid": {
+      "baseline": "hybrid",
+      "mean_task_score": 100.0,
+      "prompt_tokens": 29381,
+      "completion_tokens": 402,
+      "p50_inference_seconds": 4.7565,
+      "p95_inference_seconds": 7.8972,
+      "min_compression_ratio": 117.0268,
+      "max_compression_ratio": 1175.0519,
+      "report_sha256": "93fad2b5a793e17172063ae4616c2a3cc9644d617cc26bff3b3831cf625c1a10"
+    },
+    "source_1m_precompiler_hybrid": {
+      "baseline": "hybrid",
+      "mean_task_score": 90.3846,
+      "prompt_tokens": 29513,
+      "completion_tokens": 329,
+      "p50_inference_seconds": 4.5962,
+      "p95_inference_seconds": 7.4648,
+      "report_sha256": "196e50d96a5ee04fab862d8aac1a1cac7f53fc6b2ed3c57ca3dedf5d6d208653"
+    },
+    "source_1m_precompiler_oracle": {
+      "baseline": "oracle",
+      "mean_task_score": 90.3846,
+      "prompt_tokens": 35162,
+      "completion_tokens": 330,
+      "p50_inference_seconds": 5.3078,
+      "p95_inference_seconds": 8.2089,
+      "report_sha256": "a6563fc59e7d4aa2a15f25437eb2e22179bbf5473269dc2e711ca5094afd548f"
+    },
+    "source_1m_fifo": {
+      "baseline": "fifo",
+      "mean_task_score": 7.6923,
+      "prompt_tokens": 75658,
+      "completion_tokens": 509,
+      "p50_inference_seconds": 9.7388,
+      "p95_inference_seconds": 12.3474,
+      "min_compression_ratio": 175.2212,
+      "max_compression_ratio": 180.5398,
+      "task_scores": {
+        "cwe": 0.0,
+        "fwe": 100.0,
+        "niah_multikey_1": 0.0,
+        "niah_multikey_2": 0.0,
+        "niah_multikey_3": 0.0,
+        "niah_multiquery": 0.0,
+        "niah_multivalue": 0.0,
+        "niah_single_1": 0.0,
+        "niah_single_2": 0.0,
+        "niah_single_3": 0.0,
+        "qa_1": 0.0,
+        "qa_2": 0.0,
+        "vt": 0.0
+      },
+      "report_sha256": "f9ae8bdbfe1bf10c01effa9fef25b4cdad48dbcbf222748763e40e51c9fe8b98"
+    },
+    "source_1m_hybrid": {
+      "baseline": "hybrid",
+      "mean_task_score": 100.0,
+      "prompt_tokens": 22699,
+      "completion_tokens": 339,
+      "p50_inference_seconds": 3.4903,
+      "p95_inference_seconds": 6.7967,
+      "min_compression_ratio": 341.1331,
+      "max_compression_ratio": 3449.2336,
+      "task_scores": {
+        "cwe": 100.0,
+        "fwe": 100.0,
+        "niah_multikey_1": 100.0,
+        "niah_multikey_2": 100.0,
+        "niah_multikey_3": 100.0,
+        "niah_multiquery": 100.0,
+        "niah_multivalue": 100.0,
+        "niah_single_1": 100.0,
+        "niah_single_2": 100.0,
+        "niah_single_3": 100.0,
+        "qa_1": 100.0,
+        "qa_2": 100.0,
+        "vt": 100.0
+      },
+      "report_sha256": "13c3faba5d97886b23ff2ded51e6edda44eb81fabe3d84ec95d2070609d64616"
+    },
+    "source_1m_oracle": {
+      "baseline": "oracle",
+      "mean_task_score": 100.0,
+      "prompt_tokens": 28345,
+      "completion_tokens": 339,
+      "p50_inference_seconds": 4.8562,
+      "p95_inference_seconds": 8.2305,
+      "min_compression_ratio": 182.5432,
+      "max_compression_ratio": 3415.5277,
+      "task_scores": {
+        "cwe": 100.0,
+        "fwe": 100.0,
+        "niah_multikey_1": 100.0,
+        "niah_multikey_2": 100.0,
+        "niah_multikey_3": 100.0,
+        "niah_multiquery": 100.0,
+        "niah_multivalue": 100.0,
+        "niah_single_1": 100.0,
+        "niah_single_2": 100.0,
+        "niah_single_3": 100.0,
+        "qa_1": 100.0,
+        "qa_2": 100.0,
+        "vt": 100.0
+      },
+      "report_sha256": "1f2656370999c0f35466220fb54eff4a7a0150582238306242bf00334d6d416b"
+    }
+  },
+  "interpretation": {
+    "retrieval_ceiling": "The final 1M hybrid run matched the oracle-assisted run on every task.",
+    "compiler_scope": "The query-time relation compiler reads retrieved evidence only, requires complete resolution, preserves exact source offsets, and declines ambiguity.",
+    "reference_isolation": "Expected answers and benchmark references were used for scoring and the explicitly labelled oracle locator only; they were not passed to production hybrid retrieval or compilation.",
+    "non_claim": "This does not prove native 1M-attention equivalence, statistical confidence, or learned latent-memory fidelity."
+  }
+}

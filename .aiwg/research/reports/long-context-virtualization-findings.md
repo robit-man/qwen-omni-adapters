@@ -378,26 +378,45 @@ evidence use at 128K; REF-016 demonstrates why infinite streaming is not recall.
 ## Current evidence and non-claims
 
 The implemented deterministic harness has passed local 16K–1M synthetic storage and
-retrieval runs with a hard 16,384-token budget: oracle and hybrid retrieval replayed the
-exact value, followed a controlled two-hop dependency, recovered chronology, and pinned
-the early constraint, while a final-16K FIFO baseline missed the old value beyond 16K.
-This validates memory-subsystem paths only. It does not establish native-long-context
-equivalence, model-answer accuracy, or learned compression fidelity. Those claims remain
-gated on the benchmark matrix and a real model.
+retrieval runs: oracle and hybrid retrieval replayed the exact value, followed a
+controlled two-hop dependency, recovered chronology, and pinned the early constraint,
+while a final-window FIFO baseline missed the old value beyond its resident window.
 
 The RULER adapter pins v1 revision
 `e8bbff677ca2c239640dc90f93310dcf32408c93`, reattaches its separated answer prefix,
 keeps references out of production retrieval, emits official-scorer-compatible JSONL,
-and labels reference-location oracle runs. It has unit/fixture coverage but no reportable
-model score yet.
+and labels reference-location oracle runs.
+
+On the live 32 GB Jetson, the model launcher selected an 8,192-token physical window
+under a configured 16,384-token ceiling. One official RULER v1 sample from each of all
+13 task classes produced these model-answer results:
+
+- 512K hybrid: 100%, 29,381 prompt tokens, 4.76s p50 and 7.90s p95 inference;
+- 1M final-window FIFO: 7.69%, 75,658 prompt tokens, 9.74s p50 and 12.35s p95;
+- 1M hybrid: 100%, 22,699 prompt tokens, 3.49s p50 and 6.80s p95;
+- 1M oracle-assisted locator: 100%, 28,345 prompt tokens, 4.86s p50 and 8.23s p95.
+
+The final 1M hybrid run matched the oracle ceiling on this fixture set at
+341x–3,449x source-to-resident compression. Both initially scored 90.38% before a
+generic query-time exact-relation compiler was added; identical hybrid and oracle
+failures isolated the problem to answer-path reasoning rather than retrieval recall.
+The compiler uses only retrieved text and exact provenance, never references or
+expected answers, and declines partial or conflicting compilations. Report hashes and
+per-task results are preserved in
+`.aiwg/testing/evidence/ruler-v1-512k-1m-jetson.json`.
+
+These are single-sample-per-task milestone results. They establish a working 1M
+virtual-memory path on the deployed model, not native-long-context equivalence,
+population-level confidence, learned compression fidelity, or broad real-world task
+coverage.
 
 ## Required next experiments
 
-- Run model-answer source lengths 16K through 1M with randomized evidence positions;
-  the deterministic storage/retrieval ladder is already green through 1M.
-- Execute all 13 RULER v1 tasks through FIFO, hybrid, and oracle-location model runs and
-  score with the pinned official evaluator.
-- Measure oracle-context model answers before diagnosing retrieval failures as model faults.
+- Repeat the 16K–1M model-answer curve with multiple sealed seeds and randomized
+  evidence positions rather than one sample per RULER task class.
+- Expand the completed 1M FIFO/hybrid/oracle comparison into BM25-only, dense-only,
+  no-graph, no-recursion, no-replay, and fixed-budget ablations.
+- Continue using oracle-context answers to distinguish model faults from retrieval faults.
 - Add answer-quality curves to the completed 512/1K/2K/4K recurrent-memory by
   2K/4K/8K chunk-budget integrity matrix.
 - Compare BM25, dense, hybrid, graph, recursion, replay, and adaptive allocation ablations.

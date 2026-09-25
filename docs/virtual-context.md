@@ -148,6 +148,35 @@ reason, and p50/p95 inference latency in `virtual-context-run.json`. The JSONL
 remains suitable for independent upstream evaluation. A preparation-only run
 does not produce model predictions and must not be reported as a RULER score.
 
+### Jetson milestone evidence
+
+The first live stretch run used the Ornith 1.5 audio-bridge model on the 32 GB
+Jetson. Although the configured ceiling was 16,384 tokens, the resident launcher
+selected 8,192 tokens; every run reread that state and reported
+`physical_context_source=resident_state`.
+
+With one official RULER v1 sample from each of its 13 task classes:
+
+| source length | condition | mean task score | prompt tokens | inference p50 / p95 |
+|---:|---|---:|---:|---:|
+| 512K | hybrid virtual context | 100% | 29,381 | 4.76s / 7.90s |
+| 1M | final-window FIFO | 7.69% | 75,658 | 9.74s / 12.35s |
+| 1M | hybrid virtual context | 100% | 22,699 | 3.49s / 6.80s |
+| 1M | oracle-assisted locator | 100% | 28,345 | 4.86s / 8.23s |
+
+The 1M hybrid run matched the oracle ceiling on this fixture set and used
+341x-3,449x source-to-resident compression. Query-time relation compilation was
+trained on neither these fixtures nor their answers: it activates only when a
+retrieved multi-key lookup or assignment graph resolves completely, retains exact
+source offsets, and falls back to replayed raw evidence on ambiguity. The benchmark
+references never enter the production retrieval query. The corresponding report
+hashes and per-task scores are recorded in
+`.aiwg/testing/evidence/ruler-v1-512k-1m-jetson.json`.
+
+This is milestone evidence, not a claim of general 1M-context equivalence. It is one
+generated sample per task class. Multi-seed runs, code/document/conversation suites,
+and subsystem ablations remain required for statistical and domain coverage.
+
 ## Authority rules
 
 - Raw source is authoritative and immutable inside its corpus.
