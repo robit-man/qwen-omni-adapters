@@ -584,6 +584,46 @@ def _computer_action_messages(
     return scoped
 
 
+def _discard_visual_frames(
+    messages: list[dict[str, Any]],
+    *,
+    replacement_note: str,
+) -> int:
+    """Discard superseded screenshots while retaining their transcript slot.
+
+    The newest screenshot remains useful across a local control rejection, such as an
+    immediately duplicated snapshot: no external action happened, so it is still the
+    current frame. Callers invoke this helper only when a real computer-use result
+    supplies a replacement frame or invalidates the old one.
+    """
+
+    discarded = 0
+    for message in messages:
+        if not message.pop("images", None):
+            continue
+        discarded += 1
+        message["content"] = (
+            str(message.get("content") or "") + f"\n[{replacement_note}]"
+        ).strip()
+    return discarded
+
+
+def _durable_task_messages(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return the crash-safe transcript without embedding screenshot payloads."""
+
+    durable = copy.deepcopy(messages)
+    _discard_visual_frames(
+        durable,
+        replacement_note=(
+            "The rendered screenshot was inspected in this worker slice; take a fresh "
+            "snapshot after a restart or scheduling yield."
+        ),
+    )
+    return durable
+
+
 def _context_metrics(messages: list[dict[str, Any]]) -> dict[str, int]:
     return {
         "messages": len(messages),
@@ -794,9 +834,11 @@ def _checkpoint_available(messages: list[dict[str, Any]]) -> bool:
         if name in {"task_checkpoint", "task_recovery"}:
             latest_control = index
         elif _is_duplicate_tool_result(message):
-            # A locally rejected replay is control feedback, not new evidence.
-            # Require a materially different real action before checkpointing.
-            latest_control = index
+            # A locally rejected replay performed no external action and cannot
+            # invalidate the preceding successful evidence. Keep checkpointing
+            # available against that prior result; the validator still requires
+            # the freshest real evidence ID and rejects the duplicate itself.
+            continue
         elif name and name != "tool_search":
             latest_action = index
     return latest_action > latest_control
@@ -1594,7 +1636,7 @@ class BackgroundAgent:
                 self.store.checkpoint(
                     task_id,
                     self.owner,
-                    messages=messages,
+                    messages=_durable_task_messages(messages),
                     active_tools=active_tools,
                     tools_used=tools_used,
                     applied_guidance_ids=list(seen_guidance),
@@ -1741,7 +1783,7 @@ class BackgroundAgent:
                 checkpoint = self.store.checkpoint(
                     task_id,
                     self.owner,
-                    messages=messages,
+                    messages=_durable_task_messages(messages),
                     active_tools=active_tools,
                     tools_used=tools_used,
                     applied_guidance_ids=list(seen_guidance),
@@ -1760,15 +1802,6 @@ class BackgroundAgent:
                 )
                 continue
             slice_rounds += 1
-            # Browser screenshots are one-pass perception evidence. Once the
-            # model has inspected one, retain the DOM/tool summary but never
-            # checkpoint megabytes of base64 into the long-horizon transcript.
-            for retained in messages:
-                if retained.pop("images", None):
-                    retained["content"] = (
-                        str(retained.get("content") or "")
-                        + "\n[The rendered screenshot was inspected in this reasoning pass.]"
-                    ).strip()
             message = data.get("message")
             if not isinstance(message, Mapping):
                 raise RuntimeError("background inference returned no assistant message")
@@ -1857,7 +1890,7 @@ class BackgroundAgent:
                 checkpoint = self.store.checkpoint(
                     task_id,
                     self.owner,
-                    messages=messages,
+                    messages=_durable_task_messages(messages),
                     active_tools=active_tools,
                     tools_used=tools_used,
                     applied_guidance_ids=list(seen_guidance),
@@ -1921,7 +1954,7 @@ class BackgroundAgent:
                     self.store.compact_context(
                         task_id,
                         self.owner,
-                        messages=messages,
+                        messages=_durable_task_messages(messages),
                         receipt=receipt,
                     )
                     stalls = 0
@@ -2126,7 +2159,7 @@ class BackgroundAgent:
                         checkpoint = self.store.checkpoint(
                             task_id,
                             self.owner,
-                            messages=messages,
+                            messages=_durable_task_messages(messages),
                             active_tools=active_tools,
                             tools_used=tools_used,
                             applied_guidance_ids=list(seen_guidance),
@@ -2158,7 +2191,7 @@ class BackgroundAgent:
                     completed = self.store.checkpoint(
                         task_id,
                         self.owner,
-                        messages=messages,
+                        messages=_durable_task_messages(messages),
                         active_tools=active_tools,
                         tools_used=tools_used,
                         applied_guidance_ids=list(seen_guidance),
@@ -2222,6 +2255,27 @@ class BackgroundAgent:
                         )
                         raise
                     result = response.get("result", response)
+                    if (
+                        name in COMPUTER_ACTION_TOOLS
+                        and str(arguments.get("action") or "") == "snapshot"
+                        and round_visual_observation
+                        and isinstance(result, Mapping)
+                        and isinstance(result.get("visual_change"), Mapping)
+                        and result["visual_change"].get("materially_changed") is False
+                    ):
+                        # The model perceived the frame immediately before asking for a
+                        # no-op verification snapshot, and the executor proved that the
+                        # returned frame is unchanged. Preserve that tagged semantic
+                        # reading as fresh evidence so exact text or terminal state does
+                        # not vanish when image tensors are later compacted.
+                        result = dict(result)
+                        result["verified_visual_observation"] = {
+                            "provenance": "current_unchanged_browser_frame",
+                            "observation": without_parent_frame_coordinates(
+                                round_visual_observation,
+                                max_chars=3000,
+                            ),
+                        }
                     if grounding_receipt is not None and isinstance(result, Mapping):
                         existing_grounding = result.get("visual_grounding")
                         result = dict(result)
@@ -2313,6 +2367,32 @@ class BackgroundAgent:
                         for key, value in result.items()
                         if key != "screenshot"
                     }
+                if isinstance(screenshot, Mapping) and screenshot.get("data"):
+                    _discard_visual_frames(
+                        messages,
+                        replacement_note=(
+                            "This rendered screenshot was superseded by a newer "
+                            "computer-use frame."
+                        ),
+                    )
+                elif (
+                    name in COMPUTER_ACTION_TOOLS
+                    and not (
+                        isinstance(result, Mapping)
+                        and result.get("error") == "duplicate_tool_call"
+                    )
+                ):
+                    # A real computer action without a returned frame may have closed,
+                    # switched, or invalidated the page. Never replay its predecessor as
+                    # current evidence. A locally rejected duplicate is the exception:
+                    # it performed no action, so the newest screenshot remains current.
+                    _discard_visual_frames(
+                        messages,
+                        replacement_note=(
+                            "The rendered screenshot was invalidated by a later "
+                            "computer-use action."
+                        ),
+                    )
                 result = _bounded_tool_result(result)
                 self._record_action(task_id, call_id, name, arguments, result)
                 observed_actions.append(
@@ -2449,7 +2529,7 @@ class BackgroundAgent:
             checkpoint = self.store.checkpoint(
                 task_id,
                 self.owner,
-                messages=messages,
+                messages=_durable_task_messages(messages),
                 active_tools=active_tools,
                 tools_used=tools_used,
                 applied_guidance_ids=list(seen_guidance),

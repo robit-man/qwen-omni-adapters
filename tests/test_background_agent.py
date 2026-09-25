@@ -29,6 +29,7 @@ from harness.background_agent import (
     _compaction_receipt,
     _computer_action_messages,
     _direct_alternative_tools,
+    _discard_visual_frames,
     _ForegroundPreempted,
     _freshest_evidence_id,
     _ground_visual_click,
@@ -251,6 +252,28 @@ def test_computer_action_scope_is_disabled_while_capability_recovery_is_required
         )
         is messages
     )
+
+
+def test_visual_frame_is_discarded_only_for_a_real_replacement() -> None:
+    messages: list[dict[str, object]] = [
+        {"role": "system", "content": "task policy"},
+        {"role": "user", "content": "objective"},
+        {
+            "role": "user",
+            "content": "fresh frame",
+            "images": [{"encoding": "base64", "data": "current-image"}],
+        },
+    ]
+
+    # A locally rejected duplicate executes nothing, so its caller deliberately
+    # keeps the only current frame instead of invoking this replacement helper.
+    assert messages[-1]["images"][0]["data"] == "current-image"  # type: ignore[index]
+
+    discarded = _discard_visual_frames(messages, replacement_note="Superseded by a newer frame.")
+
+    assert discarded == 1
+    assert "images" not in messages[-1]
+    assert "Superseded by a newer frame." in str(messages[-1]["content"])
 
 
 def test_allowlisted_executor_alternative_skips_generative_rediscovery() -> None:
@@ -616,7 +639,7 @@ def test_checkpoint_requires_new_concrete_action_after_every_attempt() -> None:
             "content": '{"error": "duplicate_tool_call"}',
         }
     )
-    assert _checkpoint_available(messages) is False
+    assert _checkpoint_available(messages) is True
     assert "shell-duplicate" not in _tool_evidence(messages)
     assert _freshest_evidence_id(messages) == "shell-1"
 
@@ -1699,7 +1722,7 @@ def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
     assert [item["ok"] for item in current["actions"]] == [False, True, True]
 
 
-def test_browser_screenshot_is_seen_once_but_not_persisted_as_base64(
+def test_current_browser_screenshot_is_not_persisted_as_base64(
     tmp_path: Path,
 ) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
@@ -1784,6 +1807,132 @@ def test_browser_screenshot_is_seen_once_but_not_persisted_as_base64(
     assert '"images"' not in persisted
     assert "iVBORw0KGgo" not in persisted
     assert "rendered screenshot was inspected" in persisted
+
+
+def test_duplicate_snapshot_keeps_current_frame_and_verified_visual_text(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create(
+        "Inspect the rendered page.",
+        "The visible page shows the exact terminal marker PASS-42.",
+    )
+    chat_round = 0
+    browser_calls: list[str] = []
+
+    def browser_call(call_id: str, action: str) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "function": {
+                                "name": "browser_interact",
+                                "arguments": {"action": action},
+                            },
+                        }
+                    ],
+                }
+            },
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        body = json.loads(request.content)
+        if request.url.path == "/api/tools/browser_interact/call":
+            action = str(body["arguments"]["action"])
+            browser_calls.append(action)
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "url": "http://example.test/",
+                        "rendered": True,
+                        "visual_change": {
+                            "comparable": action == "snapshot",
+                            "materially_changed": False if action == "snapshot" else None,
+                        },
+                        "screenshot": {
+                            "mime_type": "image/png",
+                            "encoding": "base64",
+                            "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+                        },
+                    }
+                },
+            )
+        chat_round += 1
+        payload = body
+        if chat_round == 1:
+            return browser_call("navigate-1", "navigate")
+        if chat_round == 2:
+            assert any(message.get("images") for message in payload["messages"])
+            response = browser_call("snapshot-1", "snapshot")
+            value = response.json()
+            value["adapter"] = {
+                "observation": (
+                    "<visual_observation>ALL VISUAL ACTION GATES PASSED; "
+                    "PASS-42</visual_observation>"
+                )
+            }
+            return httpx.Response(200, json=value)
+        if chat_round == 3:
+            snapshot_result = next(
+                message
+                for message in payload["messages"]
+                if message.get("tool_call_id") == "snapshot-1"
+            )
+            parsed = json.loads(snapshot_result["content"])
+            assert parsed["verified_visual_observation"]["provenance"] == (
+                "current_unchanged_browser_frame"
+            )
+            assert "PASS-42" in parsed["verified_visual_observation"]["observation"]
+            return browser_call("snapshot-duplicate", "snapshot")
+
+        assert any(message.get("images") for message in payload["messages"])
+        assert any(
+            item["function"]["name"] == "task_checkpoint"
+            for item in payload["tools"]
+        )
+        return _checkpoint_response(
+            "complete",
+            "I verified the visible PASS-42 terminal marker.",
+            ["snapshot-1"],
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.02)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert browser_calls == ["navigate", "snapshot"]
+    assert any(
+        "duplicate_tool_call" in str(action.get("outcome"))
+        for action in current["actions"]
+    )
+    persisted = (tmp_path / "tasks.json").read_text(encoding="utf-8")
+    assert '"images"' not in persisted
 
 
 def test_background_agent_rejects_a_completion_with_no_action_evidence(
