@@ -200,20 +200,22 @@ expression. A miss in the planner-centered crop invokes bounded overlapping tile
 search, prioritizing the same horizontal band before a full-frame grid; only a
 structured returned point can reach input dispatch.
 
-The launcher continues sampling after readiness because CUDA and KV pages can
-be committed lazily by the first large image or text request. A short dip is
-ignored, but availability below the model-derived adjacent-tier reserve for a
-continuous grace interval causes a controlled one-tier restart. The failed
-tier remains capped until enough additional live capacity can fund its measured
-KV increment; this avoids repeatedly selecting a window that only fit before
-its pages were touched.
-The reverse path is live as well. If the next tier's incremental KV plus its
-complete reserve remains available, every llama.cpp slot stays idle for the
-expansion grace interval, and the last pressure event is outside the cooldown,
-the launcher requests one controlled tier-up restart. Expansion and downshift
-therefore use different thresholds and time horizons instead of oscillating at
-one boundary. llama.cpp allocates context per process, so either resize is a
-worker restart rather than an unsafe in-place mutation.
+On discrete-memory hosts, the launcher continues sampling after readiness
+because CUDA and KV pages can be committed lazily by the first large image or
+text request. A short dip is ignored, but availability below the model-derived
+adjacent-tier reserve for a continuous grace interval causes a controlled
+one-tier restart. The reverse path requires every llama.cpp slot to remain idle
+for the expansion grace interval and the last pressure event to be outside the
+cooldown.
+
+Tegra uses the same live startup selection and calibration but does not resize
+the llama.cpp process during that service session. JetPack GPU character-device
+teardown can panic affected kernels even after a clean server exit. The adapter
+therefore changes prompt/history budgets inside the fixed allocated tier, and
+the shared admission governor keeps new work above the hard floor. A later
+supervised start consumes the calibration and selects the next safe tier.
+`OMNI_COMPREHENSION_RUNTIME_RESIZE=1` exists only for explicit teardown stress
+qualification on a fixed JetPack release.
 
 The soft floor admits work that can establish new residency; the hard floor
 is the emergency boundary for tightly bounded work and continuation of an

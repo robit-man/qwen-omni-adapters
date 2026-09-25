@@ -481,16 +481,19 @@ advertise their 262,144-token native ceiling, but that ceiling is never
 allocated blindly. First load uses the conservative complete component-byte
 footprint; later loads also use measured residency. It records before/after
 residency and automatically caps the next load below a tier that exits or
-leaves too little memory. It keeps sampling after readiness and downshifts only
-after a continuous low-headroom interval, catching KV/CUDA pages committed by
-real inference without reacting to a momentary spike. The
-adapter reads the chosen window per request and sheds old history/tool evidence
-before llama.cpp can reject an oversized prompt.
-Sustained surplus performs the inverse one tier at a time, but only when every
-inference slot is idle and the pressure cooldown has elapsed. The resize is a
-controlled worker restart because llama.cpp fixes KV capacity at process
-creation; asymmetric grace periods keep the worker from bouncing between
-adjacent tiers.
+leaves too little memory. The adapter reads the chosen window per request and
+sheds old history/tool evidence before llama.cpp can reject an oversized
+prompt.
+
+On discrete-memory hosts, sampling continues after readiness: a continuous
+low-headroom interval downshifts one tier, and sustained surplus performs the
+inverse only while every inference slot is idle and the cooldown has elapsed.
+On Tegra, the startup-selected llama.cpp process stays pinned for the service
+session because affected JetPack kernels can panic while closing GPU character
+devices during an otherwise controlled worker restart. Prompt budgets remain
+dynamic inside the allocated KV window; new work is admission-gated, and the
+next supervised start reselects its tier from live memory. This avoids process
+churn without reverting to a board-specific context limit.
 
 The trained-bridge runtime keeps TTS and comprehension simultaneously resident,
 but guided deployment does not block the desktop on generation probes. It marks
@@ -697,6 +700,7 @@ These environment variables are worth knowing:
 | `OMNI_MEMORY_HARD_FLOOR_GIB` | Emergency floor that cancels cancellable work before kernel OOM (default `2`) |
 | `OMNI_MEMORY_OPERATION_RESERVE_GIB` | Additional per-operation reserve above the soft floor (default `1`) |
 | `OMNI_COMPREHENSION_PRESSURE_GRACE_SECONDS` | Continuous low-headroom interval before a context downshift (default `8`) |
+| `OMNI_COMPREHENSION_RUNTIME_RESIZE` | Restart llama.cpp to change its allocated KV tier at runtime; defaults off on Tegra to avoid unsafe JetPack GPU-device teardown and on elsewhere |
 | `OMNI_COMPREHENSION_EXPANSION_GRACE_SECONDS` | Continuous idle-surplus interval before a one-tier expansion (default `60`) |
 | `OMNI_COMPREHENSION_EXPANSION_COOLDOWN_SECONDS` | Minimum delay after a failed/pressured tier before retrying it (default `900`) |
 | `OMNI_CONTEXT_FILE` | Optional complete `robit.omni.context.v1` catalog override; defaults to the packaged context catalog |

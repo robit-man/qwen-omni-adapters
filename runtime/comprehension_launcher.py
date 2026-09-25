@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+from qwen_omni_adapters.accelerator import is_tegra
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 
 GIB_IN_KIB = 1024 * 1024
@@ -635,6 +636,21 @@ def _runtime_resize_ready(
     return server_idle or available_gib < hard_floor_gib
 
 
+def _runtime_resize_enabled(*, tegra: bool, configured: str | None) -> bool:
+    """Keep Tegra CUDA character-device ownership stable for one boot session."""
+
+    normalized = str(configured or "").strip().lower()
+    if not normalized:
+        return not tegra
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(
+        "OMNI_COMPREHENSION_RUNTIME_RESIZE must be a boolean value"
+    )
+
+
 def _launcher_restart_command(argv: list[str]) -> list[str]:
     """Render an in-place launcher restart without involving the parent daemon."""
 
@@ -711,6 +727,10 @@ def main(argv: list[str] | None = None) -> int:
     available = sampled_available_memory_gib()
     memory_policy = MemoryPolicy.from_environment()
     governor = MemoryGovernor(memory_policy)
+    runtime_resize = _runtime_resize_enabled(
+        tegra=is_tegra(),
+        configured=os.environ.get("OMNI_COMPREHENSION_RUNTIME_RESIZE"),
+    )
     runtime_reserve = governor.required_gib() if memory_policy.enabled else 0.0
     recovery_reserve = runtime_reserve
     fingerprint, component_gib = _component_fingerprint(command)
@@ -822,6 +842,13 @@ def main(argv: list[str] | None = None) -> int:
         f"{available:.2f} GiB available, {detail}, {args.parallel_slots} slot(s)",
         flush=True,
     )
+    if not runtime_resize:
+        print(
+            "runtime comprehension process resizing disabled for this host; "
+            "the startup-selected KV allocation remains fixed while prompt budgets "
+            "continue to adapt within it",
+            flush=True,
+        )
     rendered = [
         part.replace("{context}", str(selected)).replace("{parallel}", str(args.parallel_slots))
         for part in command
@@ -888,13 +915,6 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 sampled = True
                 if after < required_headroom:
-                    print(
-                        "controlled comprehension downshift: "
-                        f"only {after:.2f} GiB remained after load, below the "
-                        f"{required_headroom:.2f} GiB runtime reserve",
-                        file=sys.stderr,
-                        flush=True,
-                    )
                     _record_failed_context(
                         args.calibration_file,
                         calibration,
@@ -903,9 +923,25 @@ def main(argv: list[str] | None = None) -> int:
                         maximum=args.max_context,
                         available_gib=available,
                     )
-                    pressure_downshift = True
-                    process.terminate()
-            elif sampled and runtime_required_headroom > 0:
+                    if runtime_resize:
+                        print(
+                            "controlled comprehension downshift: "
+                            f"only {after:.2f} GiB remained after load, below the "
+                            f"{required_headroom:.2f} GiB runtime reserve",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        pressure_downshift = True
+                        process.terminate()
+                    else:
+                        print(
+                            "deferred comprehension downshift until the next supervised "
+                            f"start: {after:.2f} GiB remained below the "
+                            f"{required_headroom:.2f} GiB reserve",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+            elif sampled and runtime_required_headroom > 0 and runtime_resize:
                 current_available = available_memory_gib()
                 now = time.monotonic()
                 pressure_started_at = _pressure_started_at(

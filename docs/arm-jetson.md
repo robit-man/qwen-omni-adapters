@@ -208,15 +208,23 @@ At worker start, the context launcher performs the finer-grained KV admission.
 Its first load can select the largest tier justified by complete component
 bytes instead of waiting through multiple restarts at 4K/8K/16K. A live sample
 then calibrates actual residency; an abnormal exit or insufficient post-load
-reserve caps the next attempt below that failed tier. Sampling continues after
-readiness so lazily committed KV/CUDA pages are included: sustained pressure,
-not a brief inference transient, triggers a controlled one-tier downshift. A
-future start can expand again only when live capacity has grown by at least the
-KV cost of the failed tier. While running, sustained surplus can also request a
-one-tier expansion, but only while every inference slot is idle and after the
-pressure cooldown. Since llama.cpp fixes KV capacity at process creation, both
-directions use a supervised worker restart; request/task context is compacted
-against the currently published active tier before inference.
+reserve caps the next supervised start below that failed tier. On Tegra the
+selected llama.cpp process and its CUDA character-device handles stay fixed for
+the complete service session. JetPack 6 / L4T R36.3 can panic in the `nvgpu`
+character-device close path when a CUDA-heavy process exits, so transient tool
+pressure must never turn an otherwise ordinary request gap into a model-process
+restart. Prompt limits still expand, compact, and shed dynamically inside the
+startup-selected KV allocation, and the shared governor refuses new browser,
+TTS, memory, or background residency before crossing its hard floor. The next
+supervised service start re-evaluates all live capacity and can select a larger
+or smaller tier. `OMNI_COMPREHENSION_RUNTIME_RESIZE=1` is an explicit diagnostic
+override for a JetPack release whose repeated process-teardown stress gate has
+passed; it is not a production default.
+
+Discrete-memory Linux hosts retain live one-tier downshift/expansion. Their
+resizes occur only while every inference slot is idle (except an emergency hard
+floor) and after the pressure/cooldown interval, with request/task context
+compacted against the currently published active tier before inference.
 
 `qwen-omni doctor` reports the accelerator, and omits the broker tooling
 (`docker`, `jq`, `ss`) that does not apply:

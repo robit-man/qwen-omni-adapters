@@ -24,6 +24,7 @@ from comprehension_launcher import (  # noqa: E402
     _probe_backed_off,
     _record_failed_context,
     _record_live_sample,
+    _runtime_resize_enabled,
     _runtime_resize_ready,
     _safe_context_tokens,
     available_memory_gib,
@@ -129,6 +130,18 @@ def test_runtime_resize_waits_for_idle_above_the_emergency_floor() -> None:
     assert not _runtime_resize_ready(3.5, hard_floor_gib=2.0, server_idle=False)
     assert _runtime_resize_ready(3.5, hard_floor_gib=2.0, server_idle=True)
     assert _runtime_resize_ready(1.9, hard_floor_gib=2.0, server_idle=False)
+
+
+def test_runtime_process_resize_is_pinned_by_default_on_tegra() -> None:
+    assert _runtime_resize_enabled(tegra=True, configured=None) is False
+    assert _runtime_resize_enabled(tegra=False, configured=None) is True
+    assert _runtime_resize_enabled(tegra=True, configured="1") is True
+    assert _runtime_resize_enabled(tegra=False, configured="off") is False
+
+
+def test_runtime_process_resize_rejects_an_invalid_override() -> None:
+    with pytest.raises(ValueError, match="must be a boolean"):
+        _runtime_resize_enabled(tegra=True, configured="sometimes")
 
 
 def test_planned_resize_reexecs_the_same_launcher_contract() -> None:
