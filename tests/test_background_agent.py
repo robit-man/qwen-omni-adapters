@@ -45,6 +45,7 @@ from harness.background_agent import (
     _recovery_required,
     _seen_tool_fingerprints,
     _stream_error,
+    _successor_tools,
     _task_system_prompt,
     _task_virtual_query,
     _tool_evidence,
@@ -1067,6 +1068,16 @@ def test_unchanged_fetch_result_routes_back_to_discovery() -> None:
     assert second["error"] == "repeated_unchanged_result"
     assert second["disposition"] == "change_capability"
     assert second["alternative_tools"] == ["web_search", "browser_interact"]
+
+
+def test_query_results_transition_without_pinning_the_completed_query_tool() -> None:
+    assert _successor_tools(
+        "web_search",
+        {"alternative_tools": ["web_fetch", "browser_interact"]},
+    ) == ["web_fetch", "browser_interact"]
+    assert _successor_tools("web_fetch", {"content": "fetched"}) == []
+    assert _successor_tools("get_portal_capabilities", {"output": ["text"]}) == []
+    assert _successor_tools("shell", {"exit_code": 0}) == ["shell"]
 
 
 def test_a_single_tool_result_cannot_balloon_the_durable_task_context() -> None:

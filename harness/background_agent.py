@@ -178,6 +178,19 @@ LOCAL_CONTROL_TOOL_NAMES = {
     "task_compact",
     "task_recovery",
 }
+NON_STICKY_RESULT_TOOLS = {
+    "document_search",
+    "get_current_time",
+    "get_portal_capabilities",
+    "get_system_snapshot",
+    "get_user_location",
+    "memory_search",
+    "memory_write",
+    "request_camera_view",
+    "web_crawl",
+    "web_fetch",
+    "web_search",
+}
 
 
 class _ForegroundPreempted(RuntimeError):
@@ -1120,6 +1133,19 @@ def _direct_alternative_tools(result: Mapping[str, Any]) -> list[str]:
             if str(item) != "background_task" and tool_schemas([str(item)])
         )
     )[:3]
+
+
+def _successor_tools(name: str, result: Any) -> list[str]:
+    """Keep only capabilities that remain causally useful after this result."""
+
+    alternatives = (
+        _direct_alternative_tools(result) if isinstance(result, Mapping) else []
+    )
+    if alternatives:
+        return alternatives
+    if not name or name == "background_task" or name in NON_STICKY_RESULT_TOOLS:
+        return []
+    return [name]
 
 
 def _recovery_required(messages: list[dict[str, Any]]) -> bool:
@@ -2738,7 +2764,11 @@ class BackgroundAgent:
                         # broad discovery schema returns to the action space.
                         suppress_discovery = bool(active_tools)
                 elif name and name != "background_task":
-                    active_tools = [name]
+                    active_tools = _successor_tools(name, result)
+                    suppress_discovery = bool(
+                        isinstance(result, Mapping)
+                        and _direct_alternative_tools(result)
+                    )
                 tool_message: dict[str, Any] = {
                     "role": "tool",
                     "tool_name": name or "unknown",
