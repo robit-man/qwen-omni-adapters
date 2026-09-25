@@ -87,6 +87,17 @@ def context_text(section: str, name: str) -> str:
     return text.strip()
 
 
+def live_call_system_prompt() -> str:
+    """Compose the spoken-turn policy with its machine-only response control."""
+
+    return "\n\n".join(
+        (
+            context_text("prompts", "live_call_system"),
+            context_text("directives", "live_response_control"),
+        )
+    )
+
+
 def context_value(section: str, name: str) -> Any:
     value = context_catalog().get(section)
     item = value.get(name) if isinstance(value, Mapping) else None

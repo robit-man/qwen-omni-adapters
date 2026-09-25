@@ -44,7 +44,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
-from qwen_omni_adapters.context import context_text
+from qwen_omni_adapters.context import context_text, live_call_system_prompt
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, DecisionWaveResult
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 from qwen_omni_adapters.virtual_memory import ContextOverflow, LlamaCppTokenCounter
@@ -2066,9 +2066,7 @@ def create_app(
                     f"robit-omni-browser-cache:{browser_session}".encode()
                 ).hexdigest(),
                 browser_context={
-                    "live_call_system": context_text(
-                        "prompts", "live_call_system"
-                    ),
+                    "live_call_system": live_call_system_prompt(),
                     "media_conversation_system": context_text(
                         "prompts", "media_conversation_system"
                     ),

@@ -159,6 +159,10 @@ def test_natural_live_reply_filters_only_unsolicited_assistant_filler(
     assert _natural_live_reply(reply, user_text) == expected
 
 
+def test_natural_live_reply_converts_structured_observation_control_to_silence() -> None:
+    assert _natural_live_reply("  <observe_only/>\n", "Maya, I will call tomorrow.") == ""
+
+
 @pytest.mark.parametrize(
     "reply",
     [
@@ -1428,7 +1432,10 @@ def test_live_model_may_observe_addressed_elsewhere_speech_without_tts() -> None
         if request.url.host == "language":
             return httpx.Response(
                 200,
-                content=b'{"message":{"role":"assistant","content":""},"done":true}\n',
+                content=(
+                    b'{"message":{"role":"assistant","content":"<observe_only/>"},'
+                    b'"done":true}\n'
+                ),
             )
         raise AssertionError(f"unexpected backend {request.url.host}")
 

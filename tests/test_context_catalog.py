@@ -47,7 +47,8 @@ def test_context_catalog_is_the_runtime_source_of_prompts_and_tools() -> None:
     catalog = context_catalog()
 
     assert catalog["schema"] == CONTEXT_SCHEMA
-    assert catalog["prompts"]["live_call_system"] == LIVE_CALL_SYSTEM_PROMPT
+    assert catalog["prompts"]["live_call_system"] in LIVE_CALL_SYSTEM_PROMPT
+    assert catalog["directives"]["live_response_control"] in LIVE_CALL_SYSTEM_PROMPT
     assert catalog["prompts"]["background_agent_system"] == AGENT_SYSTEM_PROMPT
     assert catalog["prompts"]["media_encoder_system"] == MEDIA_CHAT_SYSTEM_PROMPT
     assert catalog["prompts"][
@@ -109,6 +110,8 @@ def test_live_context_forbids_support_boilerplate_and_unsolicited_transport_meta
     assert "ordinary decimal digits" in live
     assert "Do not mention message delivery, the microphone" in live
     assert "unless the speaker explicitly asks about it" in live
+    assert "<observe_only/>" in catalog["directives"]["live_response_control"]
+    assert "Never verbalize the decision" in catalog["directives"]["live_response_control"]
     assert "not as a support agent" in portal
 
 
@@ -136,7 +139,7 @@ def test_browser_receives_prompts_from_the_same_catalog(
     browser_context = json.loads(html[start:end])
 
     assert browser_context == {
-        "live_call_system": context_catalog()["prompts"]["live_call_system"],
+        "live_call_system": LIVE_CALL_SYSTEM_PROMPT,
         "media_conversation_system": context_catalog()["prompts"][
             "media_conversation_system"
         ],

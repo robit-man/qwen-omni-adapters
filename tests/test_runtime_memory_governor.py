@@ -289,7 +289,8 @@ def test_background_compacts_before_soft_floor_admission(
     persisted = json.loads((tmp_path / "tasks.json").read_text(encoding="utf-8"))
     retained = persisted["tasks"][0]["messages"]
     assert retained[1]["content"] == "exact objective"
-    assert "The workspace exists" in retained[2]["content"]
+    assert "The workspace exists" not in retained[2]["content"]
+    assert "retained concrete state" in retained[2]["content"]
 
 
 def test_idle_background_scheduler_does_not_poll_memory_or_log_pressure(

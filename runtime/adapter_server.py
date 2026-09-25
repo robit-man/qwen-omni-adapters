@@ -212,6 +212,7 @@ AUDIO_OBSERVATION_BLOCK = re.compile(
     r"<audio_observation\b[^>]*>(.*?)</audio_observation\s*>",
     re.IGNORECASE | re.DOTALL,
 )
+OBSERVE_ONLY_CONTROL = re.compile(r"^\s*<observe_only\s*/>\s*$", re.IGNORECASE)
 
 
 def _active_context_tokens(config: Config) -> int:
@@ -410,6 +411,12 @@ def _natural_live_reply(
 
     normalized = text.strip()
     if not normalized:
+        return ""
+    # This is an explicit model/runtime control boundary, not a prose
+    # classifier. A non-addressed live utterance is represented structurally
+    # and therefore cannot leak the model's private abstention rationale into
+    # conversation history or TTS.
+    if OBSERVE_ONLY_CONTROL.fullmatch(normalized):
         return ""
     allow_canned_quote = any(
         pattern.search(user_text) for pattern in _CANNED_ASSISTANT_PATTERNS

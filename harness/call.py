@@ -42,14 +42,14 @@ from harness.memory import PassiveMemory, memory_capacity_available
 from harness.respeaker import STATE_TO_RING, ReSpeaker, describe_direction
 from harness.vad import Vad, VadConfig
 from portal.background_tasks import BackgroundTaskStore
-from qwen_omni_adapters.context import context_text
+from qwen_omni_adapters.context import context_text, live_call_system_prompt
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 logger = logging.getLogger(__name__)
 
 SCHEMA = "robit.ollama.omni-adapter.v1"
 
-LIVE_CALL_SYSTEM_PROMPT = context_text("prompts", "live_call_system")
+LIVE_CALL_SYSTEM_PROMPT = live_call_system_prompt()
 
 
 State = str  # "starting" | "listening" | "hearing" | "thinking" | "speaking" | "offline"

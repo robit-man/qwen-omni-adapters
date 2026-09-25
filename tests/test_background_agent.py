@@ -37,6 +37,7 @@ from harness.background_agent import (
     _context_metrics,
     _direct_alternative_tools,
     _discard_visual_frames,
+    _evidence_authority,
     _focus_memory,
     _ForegroundPreempted,
     _freshest_evidence_id,
@@ -93,10 +94,9 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
     assert prompt.startswith("<current_task>\nObjective: Open the requested application.")
     assert "Completion criteria: Its window is visible." in prompt
     assert "- Verify the active window." in prompt
-    assert "<current_plan_state>" in prompt
-    assert "research is the next unmet milestone" in prompt
+    assert "<current_plan_state>" not in prompt
+    assert "research is the next unmet milestone" not in prompt
     assert "Ran tool_search" not in prompt
-    assert "Do not restart a completed step" in prompt
     assert '<focus_memory schema="robit.omni.background-focus.v1">' in prompt
     assert "https://example.test/field-service" in prompt
     assert "task_expand(source-1)" in prompt
@@ -146,6 +146,16 @@ def test_only_progress_checkpoint_evidence_can_be_normalized_to_freshest() -> No
     evidence = {
         "fresh": {"name": "shell", "result": {"exit_code": 0}},
         "failed": {"name": "shell", "result": {"exit_code": 1}},
+        "discovery": {
+            "name": "web_search",
+            "result": {
+                "mode": "discover",
+                "provenance": {
+                    "authority": "discovery_only",
+                    "citation_ready": False,
+                },
+            },
+        },
     }
 
     assert _normalize_progress_evidence(
@@ -157,6 +167,30 @@ def test_only_progress_checkpoint_evidence_can_be_normalized_to_freshest() -> No
     assert _normalize_progress_evidence(
         "progress", ["invented"], evidence, "failed"
     ) == (["invented"], False)
+    assert _normalize_progress_evidence(
+        "progress", ["invented"], evidence, "discovery"
+    ) == (["invented"], False)
+
+
+def test_checkpoint_evidence_authority_separates_discovery_inspection_and_progress() -> None:
+    assert _evidence_authority(
+        {
+            "name": "web_search",
+            "result": {
+                "mode": "discover",
+                "provenance": {"authority": "discovery_only", "citation_ready": False},
+            },
+        }
+    ) == "discovery"
+    assert _evidence_authority(
+        {"name": "workspace_file", "result": {"task_progress": False}}
+    ) == "inspection"
+    assert _evidence_authority(
+        {"name": "shell", "result": {"exit_code": 0}}
+    ) == "concrete"
+    assert _evidence_authority(
+        {"name": "shell", "result": {"exit_code": 1}}
+    ) == "failed"
 
 
 def test_background_inference_diagnostics_report_budget_without_reasoning_text() -> None:
@@ -323,7 +357,8 @@ def test_computer_action_scope_keeps_durable_state_and_two_fresh_motor_cycles() 
     assert messages == original
     assert scoped[:2] == messages[:2]
     assert "<computer_action_state>" in scoped[2]["content"]
-    assert "Reached the site" in scoped[2]["content"]
+    assert "Reached the site" not in scoped[2]["content"]
+    assert "BLUE TRIANGLE" in scoped[2]["content"]
     assert '"x":730' not in scoped[2]["content"]
     assert "action=click" in scoped[2]["content"]
     assert '"target": "BLUE TRIANGLE"' in scoped[2]["content"]
@@ -1124,7 +1159,7 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
     assert len(compacted) < 20
     assert compacted[:2] == [{"role": "system", "content": "rules"}, objective]
     checkpoint = compacted[2]["content"]
-    assert "Verified the latest artifact" in checkpoint
+    assert "Verified the latest artifact" not in checkpoint
     assert "Make the final version blue" in checkpoint
     assert "failed-write | shell | failed" in checkpoint
     assert "fixed-write | shell | succeeded" in checkpoint
@@ -1271,8 +1306,11 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
     assert "list-1" in focus.split("<inspections>", 1)[1].split(
         "</inspections>", 1
     )[0]
-    assert "Research satisfied; plan remains." in focus
+    assert "Research satisfied; plan remains." not in focus
+    assert "declared_remaining_requirements" in focus
     assert "Write docs/plan.md." in focus
+    assert "model_checkpoint_control_not_task_evidence" in focus
+    assert "Phase checkpoints are control boundaries, not proof" in focus
     assert "task_expand(source-1)" in focus
     assert "Do not redo an acquired source" in focus
 
@@ -3004,7 +3042,7 @@ def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
     assert current["result"].startswith("I finished the artifact")
     assert len(progress_updates) == 1
     assert progress_updates[0]["result"] == (
-        "I created the artifact. I’m verifying its contents now."
+        "Phase checkpoint retained against concrete evidence step-1; work remains."
     )
 
 

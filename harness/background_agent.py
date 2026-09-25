@@ -55,37 +55,6 @@ MAX_VIRTUAL_QUERY_CHARS = 1_200
 MAX_PHASE_ACTIONS = 8
 
 
-def _durable_progress_lines(task: Mapping[str, Any], *, limit: int = 4) -> list[str]:
-    """Prefer accepted milestone reports over low-signal executor bookkeeping."""
-
-    progress = task.get("progress")
-    if not isinstance(progress, list):
-        return []
-    normalized = [
-        " ".join(str(item).split())[:500]
-        for item in progress
-        if str(item).strip()
-    ]
-    milestones = [
-        item
-        for item in normalized
-        if not item.startswith("Ran ")
-        and not item.startswith("Resumed after ")
-    ]
-    selected = milestones or normalized
-    deduplicated: list[str] = []
-    seen: set[str] = set()
-    for item in reversed(selected):
-        key = item.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        deduplicated.append(item)
-        if len(deduplicated) >= max(1, limit):
-            break
-    return list(reversed(deduplicated))
-
-
 def _uncheckpointed_action_count(task: Mapping[str, Any]) -> int:
     """Count concrete attempts since the latest accepted phase boundary."""
 
@@ -194,19 +163,6 @@ def _task_system_prompt(task: Mapping[str, Any]) -> str:
         if directions:
             contract.append("Later user directions, oldest to newest:")
             contract.extend(f"- {direction}" for direction in directions)
-    progress_lines = _durable_progress_lines(task)
-    if progress_lines:
-        contract.extend(
-            [
-                "<current_plan_state>",
-                "Accepted durable milestones, oldest to newest:",
-                *(f"- {line}" for line in progress_lines),
-                "Continue after these milestones. Do not restart a completed step unless "
-                "new evidence shows that its state changed; act on the earliest unmet "
-                "completion requirement.",
-                "</current_plan_state>",
-            ]
-        )
     focus_memory = _focus_memory(task)
     if focus_memory:
         # This is L1 pinned working state, not merely a post-compaction note.
@@ -562,7 +518,6 @@ def _compact_task_messages(
         and messages[tail_start - 1].get("role") == "assistant"
     ):
         tail_start -= 1
-    progress_lines = [f"- {item}" for item in _durable_progress_lines(task)]
     guidance = task.get("guidance")
     guidance_lines = []
     if isinstance(guidance, list):
@@ -603,8 +558,6 @@ def _compact_task_messages(
     focus_memory = _focus_memory(task)
     if focus_memory:
         sections.append(focus_memory)
-    if progress_lines:
-        sections.extend(["Recent durable checkpoints:", *progress_lines])
     if guidance_lines:
         sections.extend(["Spoken guidance that remains authoritative:", *guidance_lines])
     if tool_names:
@@ -642,12 +595,6 @@ def _computer_action_state(task: Mapping[str, Any]) -> str:
         "Ground the next pointer action only in the newest returned screenshot and "
         "its coordinate_space metadata; old coordinates are not reusable.",
     ]
-    progress = task.get("progress")
-    if isinstance(progress, list) and progress:
-        sections.append("Recent durable progress:")
-        sections.extend(
-            f"- {' '.join(str(item).split())[:500]}" for item in progress[-4:]
-        )
     actions = task.get("actions")
     if isinstance(actions, list) and actions:
         verified_receipts = [
@@ -1087,18 +1034,15 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
                     {
                         "checkpoint_id": call_id,
                         "action": str(arguments.get("action") or "progress"),
-                        "criteria_assessment": str(
-                            arguments.get("criteria_assessment") or ""
-                        )[:1000],
-                        "report": str(arguments.get("report") or "")[:1000],
                         "evidence_ids": list(arguments.get("evidence_ids") or [])[:16],
-                        "remaining_requirements": [
+                        "declared_remaining_requirements": [
                             str(value)[:300]
                             for value in (
                                 arguments.get("remaining_requirements") or []
                             )
                             if str(value).strip()
                         ][:8],
+                        "authority": "model_checkpoint_control_not_task_evidence",
                     }
                 )
         if not ok and tool not in LOCAL_CONTROL_TOOL_NAMES and tool != "tool_search":
@@ -1139,7 +1083,11 @@ def _focus_memory(task: Mapping[str, Any]) -> str:
         "its evidence_id; expansion is paging, not new progress. Read/list inspections "
         "are observations, never completed work: use them to choose the next action and "
         "do not repeat an equivalent inspection unless causal state changed or a missing "
-        "detail requires a different bounded page.</focus_contract>",
+        "detail requires a different bounded page. Phase checkpoints are control "
+        "boundaries, not proof: their declared remaining requirements may orient the "
+        "next step but never establish that omitted criteria were completed. Recompute "
+        "task state from the pinned completion contract and typed source, artifact, "
+        "inspection, and failure records.</focus_contract>",
         *tagged("phase_checkpoints", checkpoints[-8:]),
         *tagged("acquired_sources", sources[-24:]),
         *tagged("artifacts", artifacts[-32:]),
@@ -1473,9 +1421,43 @@ def _normalize_progress_evidence(
     if action != "progress" or already_valid or not freshest_evidence_id:
         return evidence_ids, False
     freshest = evidence.get(freshest_evidence_id)
-    if freshest is None or _result_failed_or_blocked(freshest.get("result")):
+    if freshest is None or not _supports_durable_progress(freshest):
         return evidence_ids, False
     return [freshest_evidence_id], True
+
+
+def _evidence_authority(item: Mapping[str, Any] | None) -> str:
+    """Classify a receipt without interpreting free-form model claims.
+
+    Discovery identifies a possible next source/capability. Inspection observes
+    state but does not create it. Concrete receipts can establish phase
+    progress. Failed receipts can support only recovery or a proven blocker.
+    """
+
+    if not isinstance(item, Mapping):
+        return "missing"
+    name = str(item.get("name") or "")
+    result = item.get("result")
+    if _result_failed_or_blocked(result):
+        return "failed"
+    if name in {"tool_search", "web_search"}:
+        return "discovery"
+    if isinstance(result, Mapping):
+        provenance = result.get("provenance")
+        if isinstance(provenance, Mapping) and (
+            provenance.get("authority") == "discovery_only"
+            or provenance.get("citation_ready") is False
+        ):
+            return "discovery"
+        if result.get("mode") == "discover":
+            return "discovery"
+        if result.get("task_progress") is False:
+            return "inspection"
+    return "concrete"
+
+
+def _supports_durable_progress(item: Mapping[str, Any] | None) -> bool:
+    return _evidence_authority(item) == "concrete"
 
 
 def _direct_alternative_tools(result: Mapping[str, Any]) -> list[str]:
@@ -2960,6 +2942,20 @@ class BackgroundAgent:
                     )
                     selected = [evidence.get(value) for value in evidence_ids]
                     valid_refs = bool(selected) and all(item is not None for item in selected)
+                    evidence_authorities = [
+                        _evidence_authority(item) for item in selected
+                    ]
+                    supports_progress = any(
+                        authority == "concrete"
+                        for authority in evidence_authorities
+                    )
+                    supports_completion = (
+                        supports_progress
+                        and all(
+                            authority in {"concrete", "inspection"}
+                            for authority in evidence_authorities
+                        )
+                    )
                     cites_freshest = bool(freshest_evidence_id) and (
                         freshest_evidence_id in evidence_ids
                     )
@@ -2995,6 +2991,11 @@ class BackgroundAgent:
                         and valid_refs
                         and cites_freshest
                         and (
+                            (action == "progress" and supports_progress)
+                            or (action == "complete" and supports_completion)
+                            or action == "blocked"
+                        )
+                        and (
                             (
                                 action == "blocked"
                                 and bool(failed)
@@ -3005,7 +3006,11 @@ class BackgroundAgent:
                     )
                     if not valid:
                         stalls += 1
-                        valid_ids = [eid for eid, item in evidence.items() if item is not None and not _result_failed_or_blocked(item["result"])]
+                        valid_ids = [
+                            eid
+                            for eid, item in evidence.items()
+                            if _evidence_authority(item) in {"concrete", "inspection"}
+                        ]
                         failed_ids = [eid for eid, item in evidence.items() if item is not None and _result_failed_or_blocked(item["result"])]
                         retryable = not _checkpoint_retry_pending(messages)
                         checkpoint_result = {
@@ -3022,6 +3027,11 @@ class BackgroundAgent:
                             "freshest_evidence_id": freshest_evidence_id,
                             "remaining_requirements_required": (
                                 "non-empty for progress/blocked; empty for complete"
+                            ),
+                            "evidence_authority_required": (
+                                "progress requires a concrete result; completion requires "
+                                "concrete and/or inspection receipts plus at least one "
+                                "concrete result; discovery metadata never proves progress"
                             ),
                             "retryable": retryable,
                         }
@@ -3055,6 +3065,10 @@ class BackgroundAgent:
                             "evidence_ids": evidence_ids,
                             "evidence_normalized": evidence_normalized,
                         }
+                        neutral_progress = (
+                            "Phase checkpoint retained against concrete evidence "
+                            f"{', '.join(evidence_ids[:4])}; work remains."
+                        )
                         messages.append(
                             {
                                 "role": "tool",
@@ -3079,7 +3093,7 @@ class BackgroundAgent:
                             applied_guidance_ids=list(seen_guidance),
                             tool_fingerprints=list(seen),
                             result_digests=list(result_digests),
-                            progress=report,
+                            progress=neutral_progress,
                             status="running",
                             current_stage=context_text(
                                 "task_stages", "continuing_checkpoint"
@@ -3090,7 +3104,11 @@ class BackgroundAgent:
                         if eligible and self.on_progress is not None:
                             last_progress_at = now
                             self.on_progress(
-                                {"task_id": task_id, "status": "running", "result": report}
+                                {
+                                    "task_id": task_id,
+                                    "status": "running",
+                                    "result": neutral_progress,
+                                }
                             )
                         stalls = 0
                         continue
