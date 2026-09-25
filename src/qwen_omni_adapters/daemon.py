@@ -37,6 +37,19 @@ class DaemonError(RuntimeError):
     """Raised when the portable runtime cannot enter a safe ready state."""
 
 
+_SUPPORTED_KV_CACHE_TYPES = frozenset(
+    {"f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"}
+)
+
+
+def _kv_cache_type_from_environment(name: str, default: str = "f16") -> str:
+    value = os.environ.get(name, default).strip().lower()
+    if value not in _SUPPORTED_KV_CACHE_TYPES:
+        allowed = ", ".join(sorted(_SUPPORTED_KV_CACHE_TYPES))
+        raise DaemonError(f"{name} must be one of: {allowed}")
+    return value
+
+
 def _repo_root() -> Path:
     configured = os.environ.get("OMNI_REPO_ROOT", "").strip()
     return (
@@ -127,6 +140,8 @@ class DaemonConfig:
     pointing_port: int = 8940
     context_tokens: int = 65_536
     comprehension_parallel_slots: int = 1
+    comprehension_cache_type_k: str = "f16"
+    comprehension_cache_type_v: str = "f16"
     tts_stream_frames: int = 8
     portal_token: str = ""
     cloudflare: bool = True
@@ -205,6 +220,12 @@ class DaemonConfig:
             ),
             comprehension_parallel_slots=max(
                 1, int(os.environ.get("OMNI_COMPREHENSION_PARALLEL", "1"))
+            ),
+            comprehension_cache_type_k=_kv_cache_type_from_environment(
+                "OMNI_COMPREHENSION_CACHE_TYPE_K"
+            ),
+            comprehension_cache_type_v=_kv_cache_type_from_environment(
+                "OMNI_COMPREHENSION_CACHE_TYPE_V"
             ),
             tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
             portal_token=os.environ.get("OMNI_PORTAL_TOKEN", "").strip(),
@@ -967,6 +988,10 @@ class OmniDaemon:
                     if is_tegra()
                     else str(self.config.comprehension_parallel_slots)
                 ),
+                "--cache-type-k",
+                self.config.comprehension_cache_type_k,
+                "--cache-type-v",
+                self.config.comprehension_cache_type_v,
                 *self._speculative_args(),
             ]
             command = server_command
@@ -1227,6 +1252,8 @@ class OmniDaemon:
                 comprehension_context_tokens=self._active_context_tokens(),
                 comprehension_context_ceiling=self.config.context_tokens,
                 comprehension_parallel_slots=self.config.comprehension_parallel_slots,
+                comprehension_cache_type_k=self.config.comprehension_cache_type_k,
+                comprehension_cache_type_v=self.config.comprehension_cache_type_v,
                 children=[
                     {
                         "name": child.name,

@@ -13,6 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "runtime"))
 
 from adapter_server import _active_context_tokens  # noqa: E402
 from comprehension_launcher import (  # noqa: E402
+    _cache_bytes,
+    _cache_contract,
     _component_window_fits,
     _effective_context_maximum,
     _expansion_backed_off,
@@ -35,6 +37,29 @@ from comprehension_launcher import (  # noqa: E402
     context_headroom_gib,
     estimated_resident_gib,
 )
+
+
+def test_kv_cache_block_formats_have_exact_admission_slopes() -> None:
+    base = ["llama-server"]
+
+    assert _cache_bytes(base, "--cache-type-k") == 2.0
+    assert _cache_bytes(
+        [*base, "--cache-type-k", "q8_0"], "--cache-type-k"
+    ) == pytest.approx(34 / 32)
+    assert _cache_bytes(
+        [*base, "--cache-type-v", "q4_0"], "--cache-type-v"
+    ) == pytest.approx(18 / 32)
+    assert _cache_contract(
+        [*base, "--cache-type-k", "q8_0", "--cache-type-v", "q4_0"]
+    ) == {"key": "q8_0", "value": "q4_0"}
+
+
+def test_unknown_kv_cache_type_fails_closed() -> None:
+    with pytest.raises(ValueError, match="unsupported llama.cpp KV cache type"):
+        _cache_bytes(
+            ["llama-server", "--cache-type-k", "q2_k"],
+            "--cache-type-k",
+        )
 
 
 def test_largest_context_that_fits_live_capacity_is_selected() -> None:

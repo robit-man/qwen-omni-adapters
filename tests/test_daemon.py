@@ -92,6 +92,29 @@ def test_tts_stream_window_has_measured_default_and_environment_override(
     assert daemon.DaemonConfig.from_environment(cloudflare=False).tts_stream_frames == 12
 
 
+def test_comprehension_kv_cache_formats_are_explicit_and_validated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OMNI_REPO_ROOT", str(tmp_path))
+    monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
+    monkeypatch.delenv("OMNI_COMPREHENSION_CACHE_TYPE_K", raising=False)
+    monkeypatch.delenv("OMNI_COMPREHENSION_CACHE_TYPE_V", raising=False)
+
+    default = daemon.DaemonConfig.from_environment(cloudflare=False)
+    assert default.comprehension_cache_type_k == "f16"
+    assert default.comprehension_cache_type_v == "f16"
+
+    monkeypatch.setenv("OMNI_COMPREHENSION_CACHE_TYPE_K", "q8_0")
+    monkeypatch.setenv("OMNI_COMPREHENSION_CACHE_TYPE_V", "q4_0")
+    quantized = daemon.DaemonConfig.from_environment(cloudflare=False)
+    assert quantized.comprehension_cache_type_k == "q8_0"
+    assert quantized.comprehension_cache_type_v == "q4_0"
+
+    monkeypatch.setenv("OMNI_COMPREHENSION_CACHE_TYPE_K", "q2_k")
+    with pytest.raises(daemon.DaemonError, match="CACHE_TYPE_K must be one of"):
+        daemon.DaemonConfig.from_environment(cloudflare=False)
+
+
 def test_language_thinking_policy_uses_the_logical_model_not_the_runtime_alias() -> None:
     assert daemon._language_disable_thinking_default(
         "robit/ornith-1.5-omni-audio-bridge:q4km"
@@ -230,6 +253,8 @@ def test_tegra_direct_daemon_uses_dynamic_context_launcher() -> None:
     assert '"{parallel}"' in source
     assert '"--image-min-tokens"' in source
     assert '"1024"' in source
+    assert '"--cache-type-k"' in source
+    assert '"--cache-type-v"' in source
 
 
 def test_an_openai_language_backend_is_not_pulled_from_ollama(monkeypatch, tmp_path):

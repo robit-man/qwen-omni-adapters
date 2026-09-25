@@ -220,6 +220,17 @@ round/call/stall-bounded slices. Configure the policy with
 `OMNI_MEMORY_GOVERNOR`, `OMNI_MEMORY_SOFT_FLOOR_GIB`,
 `OMNI_MEMORY_HARD_FLOOR_GIB`, and `OMNI_MEMORY_OPERATION_RESERVE_GIB`.
 
+KV storage precision is independently configurable with
+`OMNI_COMPREHENSION_CACHE_TYPE_K` and
+`OMNI_COMPREHENSION_CACHE_TYPE_V`. The production default remains `f16`.
+The pinned llama.cpp build also exposes `q8_0`, `q4_0`, `q4_1`, `iq4_nl`,
+`q5_0`, and `q5_1`; the launcher accounts for their exact block storage when
+choosing a context tier and invalidates live calibration when either format
+changes. This is a physical L0 optimization, not semantic memory. Quantized
+profiles must pass the same oracle/RULER/domain answer gates before adoption.
+The current build does not expose a 2-bit KV type, so it must not be described
+as a KIVI 2-bit implementation.
+
 The comprehension server reserves at least 1,024 dynamic tokens for each image.
 This is the Qwen-VL/llama.cpp minimum for reliable grounding; allowing the smaller
 model-default image budget saves prompt work but materially degrades browser point

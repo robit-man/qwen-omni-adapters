@@ -32,6 +32,23 @@ from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 GIB_IN_KIB = 1024 * 1024
 GIB_IN_BYTES = 1024**3
 
+# Exact storage slopes for the KV element formats exposed by the pinned
+# llama.cpp build. Quantized formats are block encoded, so treating every
+# value as two bytes silently defeats cache-quantization admission: the
+# launcher would reserve fp16-sized KV even when the worker uses q8/q4.
+# Values include each block's scale/min metadata.
+_CACHE_BYTES_PER_ELEMENT = {
+    "f32": 4.0,
+    "f16": 2.0,
+    "bf16": 2.0,
+    "q8_0": 34.0 / 32.0,
+    "q4_0": 18.0 / 32.0,
+    "q4_1": 20.0 / 32.0,
+    "iq4_nl": 18.0 / 32.0,
+    "q5_0": 22.0 / 32.0,
+    "q5_1": 24.0 / 32.0,
+}
+
 
 def available_memory_gib(meminfo: Path = Path("/proc/meminfo")) -> float:
     """Return Linux ``MemAvailable`` in GiB, or zero when it is unavailable."""
@@ -294,18 +311,28 @@ def _gguf_scalar(reader: Any, name: str) -> int:
     return int(value)
 
 
-def _cache_bytes(command: list[str], flag: str) -> int:
+def _cache_type(command: list[str], flag: str) -> str:
+    try:
+        return _command_value(command, flag).lower()
+    except ValueError:
+        return "f16"
+
+
+def _cache_contract(command: list[str]) -> dict[str, str]:
+    return {
+        "key": _cache_type(command, "--cache-type-k"),
+        "value": _cache_type(command, "--cache-type-v"),
+    }
+
+
+def _cache_bytes(command: list[str], flag: str) -> float:
     """Bytes per cache element from llama.cpp's explicit or default type."""
 
+    name = _cache_type(command, flag)
     try:
-        name = _command_value(command, flag).lower()
-    except ValueError:
-        name = "f16"
-    if name == "f32":
-        return 4
-    # Quantized cache formats occupy no more than fp16; using two bytes keeps
-    # admission conservative without embedding a device-specific estimate.
-    return 2
+        return _CACHE_BYTES_PER_ELEMENT[name]
+    except KeyError as error:
+        raise ValueError(f"unsupported llama.cpp KV cache type: {name}") from error
 
 
 def _kv_gib_per_token(model: Path, command: list[str]) -> float:
@@ -341,16 +368,20 @@ def _load_calibration(
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         payload = {}
-    if payload.get("components") != fingerprint:
+    cache_contract = _cache_contract(command)
+    if (
+        payload.get("components") != fingerprint
+        or payload.get("cache_types") != cache_contract
+    ):
         payload = {}
     # Migrate calibration written by the old fixed-reserve admission logic.
     # Capacity is now recalculated from each live sample instead.
     payload.pop("reserve_gib", None)
-    if "kv_gib_per_token" not in payload:
-        payload["kv_gib_per_token"] = _kv_gib_per_token(
-            Path(_command_value(command, "-m")), command
-        )
+    payload["kv_gib_per_token"] = _kv_gib_per_token(
+        Path(_command_value(command, "-m")), command
+    )
     payload["components"] = fingerprint
+    payload["cache_types"] = cache_contract
     return payload
 
 

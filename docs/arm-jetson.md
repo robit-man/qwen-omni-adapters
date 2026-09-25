@@ -189,6 +189,15 @@ default is one so the planner cannot undercount four implicit KV slots. An
 explicit `OMNI_COMPREHENSION_CONTEXT_TOKENS` can still override the ceiling for
 controlled benchmarks, but larger values are not the supported Jetson default.
 
+`OMNI_COMPREHENSION_CACHE_TYPE_K` and
+`OMNI_COMPREHENSION_CACHE_TYPE_V` separately control the llama.cpp L0 KV
+formats. Both default to `f16`; `q8_0` and `q4_0` are experimental until the
+selected bridge passes answer-level fidelity and long-run memory gates. The
+launcher derives its admission slope from exact block bytes and resets its
+calibration when the format contract changes. The pinned build has no 2-bit KV
+format, so q4 testing is only a lower-precision cache ablation inspired by the
+KIVI direction, not a reproduction of KIVI's 2-bit method.
+
 Note that `-ngl 99` does not increase the footprint here the way it does on a
 discrete card: there is one pool, so offloading layers changes which engine
 computes them, not how much memory they occupy.

@@ -389,6 +389,7 @@ install_environment() {
     awk '!/^OMNI_PROFILE=/ && !/^OMNI_MODEL=/ && !/^OMNI_LANGUAGE_MODEL=/ \
       && !/^OMNI_ENABLE_COMPREHENSION=/ && !/^OMNI_ENABLE_POINTING=/ && !/^OMNI_STARTUP_SMOKE=/ \
       && !/^OMNI_COMPREHENSION_CONTEXT_TOKENS=/ \
+      && !/^OMNI_COMPREHENSION_CACHE_TYPE_K=/ && !/^OMNI_COMPREHENSION_CACHE_TYPE_V=/ \
       && !/^OMNI_VIRTUAL_CONTEXT_MODE=/ && !/^OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=/ \
       && !/^OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL=/ \
       && !/^OMNI_VIRTUAL_CONTEXT_RECURRENT_TOKENS=/ \
@@ -406,6 +407,11 @@ install_environment() {
     # the lossless virtual-context hierarchy rather than an oversized Tegra KV
     # allocation that competes with vision, TTS, and the desktop.
     printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=16384\n'
+    # Keep exact fp16 cache behavior as the production default. q8_0/q4_0 are
+    # explicit experimental profiles until their answer-level fidelity gates
+    # pass for the selected model and JetPack/llama.cpp revision.
+    printf 'OMNI_COMPREHENSION_CACHE_TYPE_K=f16\n'
+    printf 'OMNI_COMPREHENSION_CACHE_TYPE_V=f16\n'
     # The 16K/256K live RULER gate is accepted: use the lossless hierarchy as
     # the production working-set allocator. Operators can still explicitly
     # select shadow/off in .env for diagnostic comparison.
