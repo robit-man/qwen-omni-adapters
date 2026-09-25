@@ -251,6 +251,61 @@ def test_browser_point_head_maps_bounded_region_back_to_parent(
     }
 
 
+def test_browser_visual_observer_reads_the_exact_full_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self, _limit: int) -> bytes:
+            return json.dumps(
+                {
+                    "observation": "ALL VISUAL ACTION GATES PASSED; PASS-42",
+                    "model": "visual-test",
+                    "revision": "pinned",
+                }
+            ).encode()
+
+    def open_request(request, **_kwargs):
+        payload = json.loads(request.data)
+        captured["url"] = request.full_url
+        captured["keys"] = sorted(payload)
+        captured["size"] = Image.open(
+            io.BytesIO(base64.b64decode(payload["image"]))
+        ).size
+        return Response()
+
+    monkeypatch.setattr("portal.browser.urlopen", open_request)
+    store = BrowserAutomationStore(pointing_url="http://127.0.0.1:8940")
+    frame = io.BytesIO()
+    Image.new("RGB", (1000, 700), "white").save(frame, format="PNG")
+    result = {
+        "screenshot": {
+            "data": base64.b64encode(frame.getvalue()).decode()
+        }
+    }
+
+    store._verify_snapshot_frame(result)
+
+    assert captured == {
+        "url": "http://127.0.0.1:8940/observe",
+        "keys": ["image"],
+        "size": (1000, 700),
+    }
+    assert result["verified_visual_observation"] == {
+        "provenance": "current_browser_snapshot_visual_model",
+        "observation": "ALL VISUAL ACTION GATES PASSED; PASS-42",
+        "model": "visual-test",
+        "revision": "pinned",
+    }
+
+
 def test_browser_dedicated_point_head_executes_full_viewport_target_directly() -> None:
     class Store(BrowserAutomationStore):
         def _evaluate(self, _cdp, _expression):

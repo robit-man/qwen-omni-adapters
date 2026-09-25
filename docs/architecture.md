@@ -117,6 +117,10 @@ coordinates in the exact current screenshot. The browser performs a second
 frame comparison before input dispatch. The point worker cannot navigate or
 click and never accepts image URLs, so it is a narrow motor-grounding component,
 not another general language trunk.
+For an explicit verification snapshot, the same isolated worker returns a
+bounded semantic reading of the exact current frame. The browser tags that
+reading with current-frame provenance before durable image bytes are compacted;
+it is never reused as evidence for a later frame.
 
 llama.cpp prompt caching is disabled for comprehension because the pinned
 multimodal slot cache can retain decoded media embeddings. This is a correctness

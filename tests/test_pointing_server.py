@@ -12,7 +12,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "runtime"))
 
-from pointing_server import _decode_request  # noqa: E402
+from pointing_server import _decode_observation_request, _decode_request  # noqa: E402
 
 
 def _request(target: str = "blue triangle") -> bytes:
@@ -28,6 +28,13 @@ def test_pointing_request_decodes_bounded_pixels_and_referring_expression() -> N
     assert image.size == (320, 180)
     assert image.mode == "RGB"
     assert target == "blue triangle"
+
+
+def test_observation_request_accepts_bounded_pixels_without_a_prompt() -> None:
+    image = _decode_observation_request(_request())
+
+    assert image.size == (320, 180)
+    assert image.mode == "RGB"
 
 
 @pytest.mark.parametrize(

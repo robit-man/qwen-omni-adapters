@@ -28,6 +28,13 @@ MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_EDGE = 4096
 MAX_TARGET_CHARS = 240
 MAX_RETURNED_POINTS = 32
+MAX_OBSERVATION_CHARS = 6000
+
+OBSERVATION_PROMPT = (
+    "Read this browser screenshot as current visual evidence. Transcribe all visible "
+    "status text and exact identifiers or completion markers, then briefly describe "
+    "the current page state. Do not infer text or state that is not visible."
+)
 
 
 def _install_torch_24_gqa_compatibility() -> None:
@@ -127,17 +134,24 @@ class PointingModel:
                 points.append({"x": x, "y": y})
         return points
 
+    def observe(self, image: Image.Image) -> str:
+        """Return a bounded semantic reading of the exact supplied frame."""
 
-def _decode_request(raw: bytes) -> tuple[Image.Image, str]:
+        with self._lock, self._torch.inference_mode():
+            result = self._model.query(image, OBSERVATION_PROMPT)
+        answer = result.get("answer") if isinstance(result, dict) else result
+        if not isinstance(answer, str) or not answer.strip():
+            raise RuntimeError("Moondream returned no visual observation")
+        return answer.strip()[:MAX_OBSERVATION_CHARS]
+
+
+def _decode_payload(raw: bytes) -> tuple[dict[str, Any], Image.Image]:
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError("request body must be one JSON object") from exc
     if not isinstance(payload, dict):
         raise ValueError("request body must be one JSON object")
-    target = " ".join(str(payload.get("target") or "").split())
-    if not target or len(target) > MAX_TARGET_CHARS:
-        raise ValueError(f"target must contain 1-{MAX_TARGET_CHARS} characters")
     encoded = payload.get("image")
     if not isinstance(encoded, str) or not encoded:
         raise ValueError("image must be a base64-encoded PNG or JPEG")
@@ -155,7 +169,20 @@ def _decode_request(raw: bytes) -> tuple[Image.Image, str]:
         raise ValueError("image is not a valid PNG or JPEG") from exc
     if max(image.size) > MAX_IMAGE_EDGE or min(image.size) < 2:
         raise ValueError("image dimensions are outside the supported range")
+    return payload, image
+
+
+def _decode_request(raw: bytes) -> tuple[Image.Image, str]:
+    payload, image = _decode_payload(raw)
+    target = " ".join(str(payload.get("target") or "").split())
+    if not target or len(target) > MAX_TARGET_CHARS:
+        raise ValueError(f"target must contain 1-{MAX_TARGET_CHARS} characters")
     return image, target
+
+
+def _decode_observation_request(raw: bytes) -> Image.Image:
+    _payload, image = _decode_payload(raw)
+    return image
 
 
 class PointingHandler(BaseHTTPRequestHandler):
@@ -185,11 +212,12 @@ class PointingHandler(BaseHTTPRequestHandler):
                 "model": self.server.model.model_id,
                 "revision": self.server.model.revision,
                 "device": "cuda",
+                "capabilities": ["point", "observe"],
             },
         )
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path != "/point":
+        if self.path not in {"/point", "/observe"}:
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         try:
@@ -200,21 +228,28 @@ class PointingHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"error": "invalid request size"})
             return
         try:
-            image, target = _decode_request(self.rfile.read(length))
-            points = self.server.model.point(image, target)
+            raw = self.rfile.read(length)
+            if self.path == "/point":
+                image, target = _decode_request(raw)
+                result: dict[str, Any] = {
+                    "points": self.server.model.point(image, target)
+                }
+            else:
+                image = _decode_observation_request(raw)
+                result = {"observation": self.server.model.observe(image)}
         except ValueError as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
         except Exception as exc:  # noqa: BLE001 - bound the server failure surface.
             self._json(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
-                {"error": f"point inference failed: {type(exc).__name__}"},
+                {"error": f"visual inference failed: {type(exc).__name__}"},
             )
             return
         self._json(
             HTTPStatus.OK,
             {
-                "points": points,
+                **result,
                 "model": self.server.model.model_id,
                 "revision": self.server.model.revision,
             },

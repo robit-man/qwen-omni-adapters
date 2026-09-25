@@ -439,6 +439,10 @@ disambiguated by the conversational model's coarse current-frame point; the
 point head's structured coordinate remains the executed value. If the point
 head is not configured, the existing bounded crop-refinement loop remains the
 fail-safe fallback rather than widening hit tolerances.
+An explicit verification snapshot also asks that same resident visual worker
+to transcribe visible status text and exact completion identifiers from the
+exact CDP frame. That bounded reading is stored as current-frame evidence, so
+terminal state survives image compaction without relying on an invented marker.
 Screenshot bytes are shown to the multimodal model for one reasoning
 pass and then removed from the durable transcript so long tasks retain visual
 grounding without filling their context with base64. Local HTTP pages and all

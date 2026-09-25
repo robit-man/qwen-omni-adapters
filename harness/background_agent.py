@@ -2262,6 +2262,9 @@ class BackgroundAgent:
                         and isinstance(result, Mapping)
                         and isinstance(result.get("visual_change"), Mapping)
                         and result["visual_change"].get("materially_changed") is False
+                        and not isinstance(
+                            result.get("verified_visual_observation"), Mapping
+                        )
                     ):
                         # The model perceived the frame immediately before asking for a
                         # no-op verification snapshot, and the executor proved that the

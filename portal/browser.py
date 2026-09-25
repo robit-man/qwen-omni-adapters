@@ -525,6 +525,65 @@ class BrowserAutomationStore:
             "executed": {"x": selected_x, "y": selected_y},
         }
 
+    def _observe_frame(self, image: Image.Image) -> dict[str, Any]:
+        """Read one exact browser frame through the resident visual worker."""
+
+        if not self.pointing_url:
+            raise BrowserAutomationError("dedicated visual observation is unavailable")
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        payload = json.dumps(
+            {"image": base64.b64encode(buffer.getvalue()).decode("ascii")},
+            separators=(",", ":"),
+        ).encode("utf-8")
+        request = Request(
+            f"{self.pointing_url}/observe",
+            data=payload,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Content-Length": str(len(payload)),
+                "User-Agent": "omni-visible-browser/1",
+            },
+        )
+        try:
+            with urlopen(request, timeout=max(5.0, self.timeout_s)) as response:  # noqa: S310
+                result = json.loads(response.read(256 * 1024))
+        except (OSError, URLError, TimeoutError, ValueError) as exc:
+            raise BrowserAutomationError(
+                f"dedicated visual observation failed: {type(exc).__name__}"
+            ) from exc
+        observation = result.get("observation") if isinstance(result, dict) else None
+        if not isinstance(observation, str) or not observation.strip():
+            raise BrowserAutomationError(
+                "dedicated visual observation returned no current-frame reading"
+            )
+        return {
+            "provenance": "current_browser_snapshot_visual_model",
+            "observation": observation.strip()[:6000],
+            "model": str(result.get("model") or "")[:160],
+            "revision": str(result.get("revision") or "")[:80],
+        }
+
+    def _verify_snapshot_frame(self, result: dict[str, Any]) -> None:
+        """Attach durable semantic evidence for an explicit no-action snapshot."""
+
+        screenshot = result.get("screenshot")
+        encoded = screenshot.get("data") if isinstance(screenshot, dict) else None
+        if not isinstance(encoded, str) or not encoded:
+            result["verified_visual_observation_error"] = (
+                "current snapshot contained no decodable image"
+            )
+            return
+        try:
+            result["verified_visual_observation"] = self._observe_frame(
+                self._decode_screenshot(encoded)
+            )
+        except BrowserAutomationError as exc:
+            # Keep the raw current screenshot available to the multimodal trunk,
+            # but never silently turn a failed visual read into terminal evidence.
+            result["verified_visual_observation_error"] = str(exc)
+
     def _admit_single_window(self) -> None:
         live = [
             key
@@ -1366,6 +1425,8 @@ class BrowserAutomationStore:
                     self._evaluate(cdp, "history.back(); true")
                 self._wait_rendered(cdp, wait_ms)
                 result = self._snapshot(session, cdp)
+                if action == "snapshot" and self.pointing_url:
+                    self._verify_snapshot_frame(result)
                 if session.visual_grounding:
                     result["visual_grounding"] = dict(session.visual_grounding)
                     session.visual_grounding = {}
