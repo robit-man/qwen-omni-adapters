@@ -351,6 +351,15 @@ def test_startup_smoke_includes_real_audio_asr_and_tts() -> None:
     assert "_verify_co_resident_stack" in source
 
 
+def test_tegra_prewarms_resident_tts_before_comprehension_admission() -> None:
+    source = inspect.getsource(daemon.OmniDaemon.start_children)
+
+    prewarm = source.index("if is_tegra():\n            tts = self._start_tts(common)")
+    comprehension = source.index("comprehension_model, comprehension_projector")
+    assert prewarm < comprehension
+    assert "self._wait_resident_tts(tts)" in source[prewarm:comprehension]
+
+
 def test_daemon_resolves_the_shipped_default_clone_reference(tmp_path: Path) -> None:
     profile_dir = tmp_path / "portal"
     voice_dir = profile_dir / "voices"

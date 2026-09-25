@@ -791,6 +791,67 @@ class OmniDaemon:
             f"{component} pid {pid} did not become CUDA-resident (evidence: {residency_backend()})"
         )
 
+    def _start_tts(self, common: dict[str, str]) -> Child:
+        tts_env = {
+            **common,
+            "LLAMA_TTS_BIN": str(_binary(self.config.repo_root, "llama-tts")),
+            "OMNI_TTS_MODEL_GGUF": str(self.cache_dir / "tts-model.gguf"),
+            "OMNI_TTS_PROJECTOR_GGUF": str(self.cache_dir / "tts-projector.gguf"),
+            "OMNI_COMPONENT_CACHE": str(self.cache_dir),
+            "OMNI_TTS_GPU_LAYERS": "-1",
+            "OMNI_TTS_REQUIRE_GPU": "0" if platform.system() == "Darwin" else "1",
+            "OMNI_TTS_PERSISTENT": "1",
+            "OMNI_TTS_WARM_SPEAKER_FILE": str(self._voice_reference()),
+            "OMNI_TTS_ACTIVE_PID_FILE": str(self.state_dir / "tts-worker.pid"),
+            "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames),
+            "OMNI_TTS_HOST": "127.0.0.1",
+            "OMNI_TTS_PORT": str(self.config.tts_port),
+        }
+        tts = self._spawn(
+            "tts",
+            [sys.executable, str(self.config.repo_root / "runtime" / "tts_server.py")],
+            tts_env,
+        )
+        self._wait_http(tts, f"http://127.0.0.1:{self.config.tts_port}/healthz", 60)
+        return tts
+
+    def _wait_resident_tts(self, tts: Child, *, timeout_s: float = 600) -> int:
+        """Wait until the cloned voice graph, not just its HTTP wrapper, is resident."""
+
+        deadline = time.monotonic() + timeout_s
+        diagnostic = "TTS health did not report a ready persistent worker"
+        while time.monotonic() < deadline:
+            if tts.process.poll() is not None:
+                raise DaemonError("TTS wrapper exited before its cloned voice graph was ready")
+            try:
+                response = httpx.get(
+                    f"http://127.0.0.1:{self.config.tts_port}/healthz", timeout=10
+                )
+                response.raise_for_status()
+                health = response.json()
+            except (httpx.HTTPError, ValueError) as exc:
+                diagnostic = f"could not verify resident cloned TTS: {exc}"
+                time.sleep(0.2)
+                continue
+            if not isinstance(health, dict):
+                diagnostic = "TTS health returned no object"
+                time.sleep(0.2)
+                continue
+            tts_pid = health.get("persistent_pid")
+            if (
+                health.get("persistent_ready") is True
+                and health.get("speaker_reference_configured") is True
+                and health.get("speaker_reference_active") is True
+                and isinstance(tts_pid, int)
+                and tts_pid > 0
+                and _pid_alive(tts_pid)
+            ):
+                if platform.system() != "Darwin":
+                    self._verify_direct_gpu(tts_pid, "tts")
+                return tts_pid
+            time.sleep(0.2)
+        raise DaemonError(diagnostic)
+
     def _verify_co_resident_stack(self, comprehension: Child | None, tts: Child) -> dict[str, Any]:
         """Prove cloned TTS did not evict the comprehension worker."""
 
@@ -804,30 +865,7 @@ class OmniDaemon:
                 comprehension.resident_pid or comprehension.process.pid,
                 "comprehension",
             )
-        if tts.process.poll() is not None:
-            raise DaemonError("TTS wrapper exited during startup smoke")
-        try:
-            response = httpx.get(f"http://127.0.0.1:{self.config.tts_port}/healthz", timeout=10)
-            response.raise_for_status()
-            health = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            raise DaemonError(f"could not verify resident cloned TTS: {exc}") from exc
-        if not isinstance(health, dict):
-            raise DaemonError("TTS health returned no object")
-        tts_pid = health.get("persistent_pid")
-        if (
-            health.get("persistent_ready") is not True
-            or health.get("speaker_reference_configured") is not True
-            or health.get("speaker_reference_active") is not True
-            or not isinstance(tts_pid, int)
-            or tts_pid <= 0
-            or not _pid_alive(tts_pid)
-        ):
-            raise DaemonError(
-                "cloned TTS did not retain one live persistent speaker-profile worker"
-            )
-        if platform.system() != "Darwin":
-            self._verify_direct_gpu(tts_pid, "tts")
+        tts_pid = self._wait_resident_tts(tts, timeout_s=10)
         return {
             "comprehension_pid": (
                 (comprehension.resident_pid or comprehension.process.pid)
@@ -886,6 +924,14 @@ class OmniDaemon:
                 600,
             )
             self._verify_direct_gpu(pointing.process.pid, "pointing")
+        # The Tegra launcher must measure the pool after every fixed resident
+        # sidecar is warm. Starting comprehension first caused its context
+        # calibration to count memory that persistent cloned TTS consumed a few
+        # seconds later, admitting a KV tier that stalled ordinary GUI work.
+        tts: Child | None = None
+        if is_tegra():
+            tts = self._start_tts(common)
+            self._wait_resident_tts(tts)
         comprehension_model, comprehension_projector = self._comprehension_artifacts()
         comprehension: Child | None = None
         if self.config.enable_comprehension:
@@ -956,27 +1002,8 @@ class OmniDaemon:
         else:
             self._write_status(state="starting", detail="comprehension disabled")
 
-        tts_env = {
-            **common,
-            "LLAMA_TTS_BIN": str(_binary(self.config.repo_root, "llama-tts")),
-            "OMNI_TTS_MODEL_GGUF": str(self.cache_dir / "tts-model.gguf"),
-            "OMNI_TTS_PROJECTOR_GGUF": str(self.cache_dir / "tts-projector.gguf"),
-            "OMNI_COMPONENT_CACHE": str(self.cache_dir),
-            "OMNI_TTS_GPU_LAYERS": "-1",
-            "OMNI_TTS_REQUIRE_GPU": "0" if platform.system() == "Darwin" else "1",
-            "OMNI_TTS_PERSISTENT": "1",
-            "OMNI_TTS_WARM_SPEAKER_FILE": str(self._voice_reference()),
-            "OMNI_TTS_ACTIVE_PID_FILE": str(self.state_dir / "tts-worker.pid"),
-            "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames),
-            "OMNI_TTS_HOST": "127.0.0.1",
-            "OMNI_TTS_PORT": str(self.config.tts_port),
-        }
-        tts = self._spawn(
-            "tts",
-            [python, str(self.config.repo_root / "runtime" / "tts_server.py")],
-            tts_env,
-        )
-        self._wait_http(tts, f"http://127.0.0.1:{self.config.tts_port}/healthz", 60)
+        if tts is None:
+            tts = self._start_tts(common)
         if pointing is not None:
             if pointing.process.poll() is not None:
                 raise DaemonError(
