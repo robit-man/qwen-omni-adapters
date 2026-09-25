@@ -177,6 +177,28 @@ This is milestone evidence, not a claim of general 1M-context equivalence. It is
 generated sample per task class. Multi-seed runs, code/document/conversation suites,
 and subsystem ablations remain required for statistical and domain coverage.
 
+A second sealed run used three freshly generated samples from each task class at
+256K source length while the complete TTS and pointing stack remained resident. The
+live allocator selected a 4,096-token physical window. The final hybrid run answered
+all 39 samples and NVIDIA's pinned evaluator scored every task at 100% with no null
+predictions. It used 41,872 prompt tokens across the run, 3.03s p50 / 4.13s p95
+inference, and 153x-905x source-to-resident compression.
+
+The first pass over that sealed fixture scored 91.03%, which exposed rather than hid
+three gaps: exhaustive values for one key, a natural-language bridge entity, and
+source-exact/ambiguous answer rendering. Oracle reruns were limited to those failures
+to classify them. The resulting fixes operate only on the query and immutable source:
+bounded exact-key corpus scans fail closed on saturation, natural bridge expansion is
+limited to two candidates and one round, and ambiguous answers retain all qualifying
+source-exact spans. The unchanged fixture then passed in full. Checksums, initial
+failures, oracle diagnostics, the evaluator compatibility shim, and final per-task
+scores are recorded in
+`.aiwg/testing/evidence/ruler-v1-256k-seed9137-jetson.json`.
+
+This adds held-out positions and more examples but is still one seed with only three
+samples per class. More independent seeds, length sweeps, domain suites, and ablations
+remain necessary.
+
 The production portal was separately exercised after enabling the fully co-resident
 TTS and pointing stack. Its launcher selected a stricter 4,096-token physical window.
 An authenticated 1,748,926-character conversation with three exact values buried among

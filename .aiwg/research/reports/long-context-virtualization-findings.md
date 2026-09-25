@@ -410,10 +410,27 @@ virtual-memory path on the deployed model, not native-long-context equivalence,
 population-level confidence, learned compression fidelity, or broad real-world task
 coverage.
 
+A subsequent sealed seed generated three new samples per task at 256K. With TTS and
+pointing co-resident, the allocator selected a stricter 4,096-token physical window.
+The first hybrid pass scored 91.03%; targeted oracle diagnostics separated a
+natural-language dependency miss from exhaustive multi-value compilation and exact
+answer-rendering faults. Generic, reference-blind fixes were then applied: bounded
+exact-key scans over immutable evidence, a two-candidate/one-round proper-name bridge
+expansion, and source-exact ambiguity preservation. On the unchanged 39-sample
+fixture, hybrid scored 100% on all 13 tasks using NVIDIA's pinned metric code, with
+3.03s p50 / 4.13s p95 inference and 153x-905x compression. The initial failures,
+oracle diagnostics, schema compatibility shim, hashes, and final scores are preserved
+in `.aiwg/testing/evidence/ruler-v1-256k-seed9137-jetson.json`.
+
+This result provides better position and example coverage than the first milestone,
+but three samples per task from one seed still do not establish population-level
+confidence or broad domain generalization.
+
 ## Required next experiments
 
-- Repeat the 16K–1M model-answer curve with multiple sealed seeds and randomized
-  evidence positions rather than one sample per RULER task class.
+- Repeat the 16K–1M model-answer curve with additional independent sealed seeds and
+  randomized evidence positions; the completed 256K run covers only one seed with
+  three samples per RULER task class.
 - Expand the completed 1M FIFO/hybrid/oracle comparison into BM25-only, dense-only,
   no-graph, no-recursion, no-replay, and fixed-budget ablations.
 - Continue using oracle-context answers to distinguish model faults from retrieval faults.
