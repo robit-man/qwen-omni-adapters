@@ -30,6 +30,7 @@ class EndpointResponder:
         api_key: str | None,
         timeout: float,
         max_tokens: int,
+        think: bool,
     ) -> None:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self.client = httpx.Client(timeout=timeout, headers=headers)
@@ -37,17 +38,34 @@ class EndpointResponder:
         self.endpoint_style = endpoint_style
         self.model = model
         self.max_tokens = max_tokens
+        self.think = think
 
-    def __call__(self, prompt: str) -> str:
+    def _payload(self, prompt: str) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
             "stream": False,
         }
         if self.endpoint_style == "openai":
-            payload.update({"temperature": 0.0, "max_tokens": self.max_tokens})
+            payload.update(
+                {
+                    "temperature": 0.0,
+                    "max_tokens": self.max_tokens,
+                    # llama.cpp exposes the Qwen native switch through the
+                    # chat-template arguments rather than Ollama's top-level
+                    # ``think`` field. Keep answer tokens out of a hidden
+                    # reasoning channel unless the benchmark explicitly asks
+                    # to measure thinking mode.
+                    "chat_template_kwargs": {"enable_thinking": self.think},
+                }
+            )
         else:
+            payload["think"] = self.think
             payload["options"] = {"temperature": 0.0, "num_predict": self.max_tokens}
+        return payload
+
+    def __call__(self, prompt: str) -> str:
+        payload = self._payload(prompt)
         response = self.client.post(self.endpoint, json=payload)
         response.raise_for_status()
         body = response.json()
@@ -97,6 +115,11 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--max-tokens", type=int, default=256)
     parser.add_argument(
+        "--think",
+        action="store_true",
+        help="enable the endpoint's native thinking mode (disabled by default)",
+    )
+    parser.add_argument(
         "--allow-insufficient",
         action="store_true",
         help="diagnostic only: ask the model even when evidence sufficiency failed",
@@ -118,6 +141,7 @@ def main() -> int:
             api_key=os.environ.get(arguments.api_key_env),
             timeout=arguments.timeout,
             max_tokens=max(1, arguments.max_tokens),
+            think=arguments.think,
         )
     harness = RulerVirtualContextHarness(
         physical_context_tokens=arguments.physical_context
@@ -166,6 +190,7 @@ def main() -> int:
         "schema": "robit.ruler-virtual-context-run.v1",
         "baseline": arguments.baseline,
         "physical_context_tokens": arguments.physical_context,
+        "think": arguments.think,
         "scoring": "Run NVIDIA RULER's official evaluate.py over output files.",
         "files": summaries,
         "mean_task_score": (

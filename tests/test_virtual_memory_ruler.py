@@ -13,6 +13,7 @@ from qwen_omni_adapters.virtual_memory.ruler import (
     sample_from_record,
     split_ruler_prompt,
 )
+from scripts.run_virtual_context_ruler import EndpointResponder
 
 
 def _record() -> dict[str, object]:
@@ -142,3 +143,32 @@ def test_ruler_string_match_scoring_matches_all_and_qa_part_semantics() -> None:
     assert ruler_string_match_score("vt", "A, C", ("A", "B", "C")) == 66.67
     assert ruler_string_match_score("qa_1", "The answer is France.", ("France",)) == 100.0
     assert ruler_string_match_score("qa_2", "no", ("yes",)) == 0.0
+
+
+def test_endpoint_runner_explicitly_disables_hidden_thinking_by_default() -> None:
+    openai = EndpointResponder(
+        endpoint="http://127.0.0.1:8901/v1/chat/completions",
+        endpoint_style="openai",
+        model="local-audio-bridge",
+        api_key=None,
+        timeout=1,
+        max_tokens=256,
+        think=False,
+    )
+    ollama = EndpointResponder(
+        endpoint="http://127.0.0.1:11434/api/chat",
+        endpoint_style="ollama",
+        model="test-model",
+        api_key=None,
+        timeout=1,
+        max_tokens=256,
+        think=False,
+    )
+    try:
+        assert openai._payload("question")["chat_template_kwargs"] == {
+            "enable_thinking": False
+        }
+        assert ollama._payload("question")["think"] is False
+    finally:
+        openai.close()
+        ollama.close()
