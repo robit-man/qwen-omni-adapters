@@ -50,6 +50,29 @@ TASK_START_REQUEST = (
     "<task_start>Begin the task pinned in <current_task>. Choose the smallest "
     "evidence-producing action and continue until its criteria are verified.</task_start>"
 )
+MAX_VIRTUAL_QUERY_CHARS = 1_200
+
+
+def _task_virtual_query(task: Mapping[str, Any]) -> str:
+    """Keep paging anchored to the durable task, not a compaction artifact."""
+
+    objective = " ".join(str(task.get("objective") or "").split())
+    guidance = task.get("guidance")
+    latest_direction = ""
+    if isinstance(guidance, list):
+        latest_direction = next(
+            (
+                " ".join(str(item.get("content") or "").split())
+                for item in reversed(guidance)
+                if isinstance(item, Mapping)
+                and str(item.get("content") or "").strip()
+            ),
+            "",
+        )
+    query = f"Advance and verify the pinned task. Objective: {objective}"
+    if latest_direction:
+        query += f" Latest user direction: {latest_direction}"
+    return query[:MAX_VIRTUAL_QUERY_CHARS]
 
 
 def _task_system_prompt(task: Mapping[str, Any]) -> str:
@@ -1875,6 +1898,7 @@ class BackgroundAgent:
                 "tool_choice": "required",
                 "portal_auto_tools": False,
                 "portal_background_worker": True,
+                "portal_virtual_query": _task_virtual_query(current),
                 "stream": False,
             }
             try:

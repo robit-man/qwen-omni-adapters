@@ -147,6 +147,39 @@ def test_current_user_question_is_stored_but_never_self_replayed_as_evidence(
     )
 
 
+def test_explicit_task_query_overrides_a_retained_checkpoint_as_retrieval_intent(
+    tmp_path: Path,
+) -> None:
+    manager = SessionVirtualContext(tmp_path / "virtual", mode="active")
+    messages = [
+        {"role": "user", "content": "Begin the pinned task."},
+        {
+            "role": "user",
+            "content": (
+                "<retained_checkpoint>Old browser failures and environment probes."
+                "</retained_checkpoint>"
+            ),
+        },
+    ]
+    query = "Advance and verify the pinned task. Objective: Build the care app."
+    manager.observe_messages("background-task", messages)
+
+    prepared = manager.prepare(
+        "background-task",
+        messages,
+        system_contract="<current_task>Build the care app.</current_task>",
+        query_override=query,
+    )
+    payload = {"messages": list(messages)}
+    manager.apply_active(payload, prepared)
+
+    assert prepared.controller.queries[0] == query
+    assert prepared.context.text.count(query) == 1
+    assert f"<current_query>\n{query}\n</current_query>" in payload["messages"][1][
+        "content"
+    ]
+
+
 def test_active_mode_replaces_inline_text_but_keeps_current_media_parts(
     tmp_path: Path,
 ) -> None:

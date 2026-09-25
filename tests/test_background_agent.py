@@ -1656,6 +1656,10 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
         assert payload["options"]["num_predict"] == 256
         if chat_round == 1:
             assert payload["portal_background_worker"] is True
+            assert payload["portal_virtual_query"].startswith(
+                "Advance and verify the pinned task. Objective: Open the rendered browser"
+            )
+            assert len(payload["portal_virtual_query"]) <= 1_200
             assert payload["messages"][1] == {
                 "role": "user",
                 "content": TASK_START_REQUEST,

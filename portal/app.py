@@ -106,6 +106,7 @@ VOICE_CLIENT_FIELDS = {
     "max_frames",
 }
 MAX_SPEAKER_REFERENCE_BYTES = 10 * 1024 * 1024
+MAX_INTERNAL_VIRTUAL_QUERY_CHARS = 1_200
 SESSION_COOKIE_NAME = "omni_portal_session"
 DIAGNOSTIC_TTL_SECONDS = 5 * 60
 # Productive chains have no numeric round ceiling. This guard only stops a
@@ -401,6 +402,18 @@ class PortalError(RuntimeError):
 
 class PortalRequestError(ValueError):
     """A safe client request validation failure."""
+
+
+def _pop_internal_virtual_query(
+    payload: dict[str, Any], *, internal_background: bool
+) -> str | None:
+    """Consume the private paging hint without exposing it upstream."""
+
+    raw_query = payload.pop("portal_virtual_query", None)
+    if not internal_background or not isinstance(raw_query, str):
+        return None
+    query = " ".join(raw_query.split())
+    return query[:MAX_INTERNAL_VIRTUAL_QUERY_CHARS] or None
 
 
 @dataclass
@@ -1873,6 +1886,8 @@ def create_app(
         session_id: str,
         raw_messages: list[Any],
         accepted_documents: Sequence[Mapping[str, Any]],
+        *,
+        query_override: str | None = None,
     ):
         if not virtual_context.enabled:
             return None, {"mode": "off"}
@@ -1892,6 +1907,7 @@ def create_app(
             session_id,
             raw_messages,
             system_contract=system_contract,
+            query_override=query_override,
             reserved_tokens=virtual_context.request_envelope_tokens(payload),
         )
         if prepared is not None:
@@ -1919,10 +1935,16 @@ def create_app(
         session_id: str,
         raw_messages: list[Any],
         accepted_documents: Sequence[Mapping[str, Any]],
+        *,
+        query_override: str | None = None,
     ):
         try:
             return prepare_virtual_context(
-                payload, session_id, raw_messages, accepted_documents
+                payload,
+                session_id,
+                raw_messages,
+                accepted_documents,
+                query_override=query_override,
             )
         except Exception as exc:  # noqa: BLE001 - shadow memory is not load-bearing
             if runtime.virtual_context_mode == "active":
@@ -1963,7 +1985,12 @@ def create_app(
             "trace": prepared.context.trace[-200:],
         }
 
-    def virtual_repack_inputs(prepared: Any, raw_messages: list[Any]) -> tuple[str, str]:
+    def virtual_repack_inputs(
+        prepared: Any,
+        raw_messages: list[Any],
+        *,
+        query_override: str | None = None,
+    ) -> tuple[str, str]:
         if prepared is None:
             return "", ""
         system_contract = next(
@@ -1974,7 +2001,7 @@ def create_app(
             ),
             "",
         )
-        return _latest_user_context(raw_messages), system_contract
+        return query_override or _latest_user_context(raw_messages), system_contract
 
     @app.after_request
     def secure_headers(response):
@@ -2274,6 +2301,9 @@ def create_app(
             raw_messages = copy.deepcopy(list(payload.get("messages") or []))
             auto_tools = payload.pop("portal_auto_tools", False) is True
             internal_background = payload.pop("portal_background_worker", False) is True
+            virtual_query_override = _pop_internal_virtual_query(
+                payload, internal_background=internal_background
+            )
             camera_bridge = payload.pop("portal_camera_bridge", False) is True
             shell_bridge = payload.pop("portal_shell_bridge", False) is True
             background_bridge = payload.pop("portal_background_bridge", False) is True
@@ -2306,10 +2336,16 @@ def create_app(
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
             _prepared_context, virtual_summary = safe_prepare_virtual_context(
-                payload, session_id, raw_messages, accepted_documents
+                payload,
+                session_id,
+                raw_messages,
+                accepted_documents,
+                query_override=virtual_query_override,
             )
             virtual_query, virtual_contract = virtual_repack_inputs(
-                _prepared_context, raw_messages
+                _prepared_context,
+                raw_messages,
+                query_override=virtual_query_override,
             )
             diagnostics.begin_request(
                 session_id,
@@ -2483,6 +2519,9 @@ def create_app(
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
         auto_tools = payload.pop("portal_auto_tools", False) is True
         internal_background = payload.pop("portal_background_worker", False) is True
+        virtual_query_override = _pop_internal_virtual_query(
+            payload, internal_background=internal_background
+        )
         camera_bridge = payload.pop("portal_camera_bridge", False) is True
         shell_bridge = payload.pop("portal_shell_bridge", False) is True
         background_bridge = payload.pop("portal_background_bridge", False) is True
@@ -2519,10 +2558,16 @@ def create_app(
             observed_media = tool_harness.observe_request(session_id, payload) if auto_tools else []
             accepted_documents = apply_document_context(payload, session_id)
             _prepared_context, virtual_summary = safe_prepare_virtual_context(
-                payload, session_id, raw_messages, accepted_documents
+                payload,
+                session_id,
+                raw_messages,
+                accepted_documents,
+                query_override=virtual_query_override,
             )
             virtual_query, virtual_contract = virtual_repack_inputs(
-                _prepared_context, raw_messages
+                _prepared_context,
+                raw_messages,
+                query_override=virtual_query_override,
             )
             diagnostics.begin_request(
                 session_id,

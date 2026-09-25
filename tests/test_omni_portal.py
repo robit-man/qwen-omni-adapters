@@ -4606,7 +4606,9 @@ def test_compact_system_policy_merges_without_eager_host_snapshot() -> None:
     assert "<portal_tools>" not in messages[0]["content"]
 
 
-def test_internal_background_worker_uses_the_compact_policy_envelope() -> None:
+def test_internal_background_worker_uses_the_compact_policy_envelope(
+    tmp_path: Path,
+) -> None:
     seen: list[dict[str, Any]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -4615,15 +4617,26 @@ def test_internal_background_worker_uses_the_compact_policy_envelope() -> None:
             200, json={"message": {"role": "assistant", "content": "Done."}}
         )
 
-    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    app = create_app(
+        _config(
+            virtual_context_mode="active",
+            virtual_context_root=tmp_path / "virtual-context",
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    task_query = "Advance and verify the pinned task. Objective: Build it."
     response = app.test_client().post(
         "/api/chat",
         headers={"Authorization": f"Bearer {TOKEN}"},
         json=_request(
             portal_background_worker=True,
+            portal_virtual_query=task_query,
             messages=[
                 {"role": "system", "content": "<current_task>Build it.</current_task>"},
-                {"role": "user", "content": "Begin the pinned task."},
+                {
+                    "role": "user",
+                    "content": "<retained_checkpoint>Old failed probe.</retained_checkpoint>",
+                },
             ],
         ),
     )
@@ -4631,10 +4644,14 @@ def test_internal_background_worker_uses_the_compact_policy_envelope() -> None:
     assert response.status_code == 200
     payload = seen[0]
     assert "portal_background_worker" not in payload
+    assert "portal_virtual_query" not in payload
     content = payload["messages"][0]["content"]
     assert "authenticated internal durable-task worker" in content
     assert "Tool results" in content
     assert "natural participant" not in content
+    assert f"<current_query>\n{task_query}\n</current_query>" in payload["messages"][1][
+        "content"
+    ]
 
 
 def test_portal_stream_route_requires_auth_and_chains_session_tools() -> None:
