@@ -17,12 +17,14 @@ from comprehension_launcher import (  # noqa: E402
     _effective_context_maximum,
     _expansion_backed_off,
     _expansion_required_gib,
+    _launcher_restart_command,
     _live_calibrated_base,
     _next_context_tier,
     _pressure_started_at,
     _probe_backed_off,
     _record_failed_context,
     _record_live_sample,
+    _runtime_resize_ready,
     _safe_context_tokens,
     available_memory_gib,
     candidate_windows,
@@ -121,6 +123,20 @@ def test_runtime_pressure_requires_one_continuous_low_memory_interval() -> None:
     assert _pressure_started_at(2.0, 4.0, started, now=14.0) == 10.0
     assert _pressure_started_at(4.1, 4.0, started, now=15.0) is None
     assert _pressure_started_at(3.9, 4.0, None, now=16.0) == 16.0
+
+
+def test_runtime_resize_waits_for_idle_above_the_emergency_floor() -> None:
+    assert not _runtime_resize_ready(3.5, hard_floor_gib=2.0, server_idle=False)
+    assert _runtime_resize_ready(3.5, hard_floor_gib=2.0, server_idle=True)
+    assert _runtime_resize_ready(1.9, hard_floor_gib=2.0, server_idle=False)
+
+
+def test_planned_resize_reexecs_the_same_launcher_contract() -> None:
+    command = _launcher_restart_command(["--max-context", "65536", "--", "llama"])
+
+    assert command[0] == sys.executable
+    assert command[1].endswith("runtime/comprehension_launcher.py")
+    assert command[2:] == ["--max-context", "65536", "--", "llama"]
 
 
 def test_live_context_expansion_charges_growth_and_target_headroom() -> None:

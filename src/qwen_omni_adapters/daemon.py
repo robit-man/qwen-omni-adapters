@@ -101,6 +101,18 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
+def _process_group_alive(pgid: int) -> bool:
+    if os.name == "nt":
+        return False
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 @dataclass(frozen=True)
 class DaemonConfig:
     repo_root: Path
@@ -634,19 +646,39 @@ class OmniDaemon:
         )
 
     def _discard_child(self, child: Child) -> None:
-        if child.process.poll() is None:
-            if os.name == "nt":
+        if os.name == "nt":
+            if child.process.poll() is None:
                 child.process.terminate()
-            else:
+        else:
+            # A launcher may exit a moment before its CUDA worker. Signal the
+            # owned process group even when the group leader has already died;
+            # otherwise the orphan keeps its loopback port through systemd's
+            # restart delay and the replacement daemon enters a port-conflict loop.
+            try:
                 os.killpg(child.process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+        if child.process.poll() is None:
             try:
                 child.process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 if os.name == "nt":
                     child.process.kill()
                 else:
-                    os.killpg(child.process.pid, signal.SIGKILL)
+                    try:
+                        os.killpg(child.process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
                 child.process.wait(timeout=5)
+        if os.name != "nt":
+            deadline = time.monotonic() + 10
+            while _process_group_alive(child.process.pid) and time.monotonic() < deadline:
+                time.sleep(0.1)
+            if _process_group_alive(child.process.pid):
+                try:
+                    os.killpg(child.process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
         if child in self.children:
             self.children.remove(child)
         child.log.close()
@@ -1119,22 +1151,8 @@ class OmniDaemon:
         self.stop_event.set()
 
     def stop_children(self) -> None:
-        for child in reversed(self.children):
-            if child.process.poll() is None:
-                if os.name == "nt":
-                    child.process.terminate()
-                else:
-                    os.killpg(child.process.pid, signal.SIGTERM)
-                try:
-                    child.process.wait(timeout=30)
-                except subprocess.TimeoutExpired:
-                    if os.name == "nt":
-                        child.process.kill()
-                    else:
-                        os.killpg(child.process.pid, signal.SIGKILL)
-                    child.process.wait(timeout=10)
-            child.log.close()
-        self.children.clear()
+        for child in list(reversed(self.children)):
+            self._discard_child(child)
 
     def cleanup(self) -> None:
         self.stop_children()

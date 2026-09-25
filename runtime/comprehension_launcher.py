@@ -624,6 +624,31 @@ def _server_idle(health_url: str) -> bool:
     )
 
 
+def _runtime_resize_ready(
+    available_gib: float,
+    *,
+    hard_floor_gib: float,
+    server_idle: bool,
+) -> bool:
+    """Resize between requests unless unified memory reached the emergency floor."""
+
+    return server_idle or available_gib < hard_floor_gib
+
+
+def _launcher_restart_command(argv: list[str]) -> list[str]:
+    """Render an in-place launcher restart without involving the parent daemon."""
+
+    return [sys.executable, str(Path(__file__).resolve()), *argv]
+
+
+def _reexec_launcher(argv: list[str]) -> None:
+    """Re-evaluate live capacity while retaining the supervised launcher PID."""
+
+    command = _launcher_restart_command(argv)
+    os.execvpe(command[0], command, os.environ.copy())
+    raise RuntimeError("comprehension launcher re-exec unexpectedly returned")
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -675,7 +700,8 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    args = _parser().parse_args(raw_argv)
     command = list(args.command)
     if command and command[0] == "--":
         command.pop(0)
@@ -891,9 +917,16 @@ def main(argv: list[str] | None = None) -> int:
                 if (
                     pressure_started_at is not None
                     and now - pressure_started_at >= pressure_grace_s
+                    and _runtime_resize_ready(
+                        current_available,
+                        hard_floor_gib=memory_policy.hard_floor_gib,
+                        server_idle=_server_idle(args.health_url),
+                    )
                 ):
+                    emergency = current_available < memory_policy.hard_floor_gib
                     print(
-                        "controlled comprehension downshift after sustained runtime "
+                        "controlled comprehension downshift after sustained "
+                        f"{'emergency' if emergency else 'idle'} runtime "
                         f"pressure: {current_available:.2f} GiB available remained "
                         f"below the {runtime_required_headroom:.2f} GiB reserve for "
                         f"{pressure_grace_s:.1f}s",
@@ -988,7 +1021,15 @@ def main(argv: list[str] | None = None) -> int:
         )
     if stopping:
         return 0
-    return 75 if pressure_downshift or expansion_restart else returncode
+    if pressure_downshift or expansion_restart:
+        # A planned context resize is internal to the comprehension component.
+        # Replacing this launcher process preserves the PID supervised by the
+        # daemon, so the portal, TTS, point head, and indicator remain live while
+        # the smaller/larger llama worker is selected from a fresh memory sample.
+        if os.name != "nt":
+            _reexec_launcher(raw_argv)
+        return 75
+    return returncode
 
 
 if __name__ == "__main__":
