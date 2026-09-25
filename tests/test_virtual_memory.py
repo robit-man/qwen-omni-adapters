@@ -15,6 +15,7 @@ from qwen_omni_adapters.virtual_memory import (
     ImmutableEvidenceStore,
     MemoryClass,
     MemoryHierarchy,
+    QueryAwareRecurrentViewBuilder,
     QueryEvidenceCompiler,
     RecurrentConfig,
     RecurrentMemoryBuilder,
@@ -1265,6 +1266,87 @@ def test_recurrent_memory_periodically_rebuilds_from_raw_evidence(tmp_path: Path
     assert result.memory.metadata["regenerated_from_raw"] is True
     assert all(f"exact-value-{index}" in result.memory.content for index in range(4))
     assert any(event["operation"] == "RECONSTRUCT" for event in result.trace)
+    store.close()
+
+
+def test_query_aware_recurrent_view_is_bounded_and_exactly_recoverable(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "recurrent-view.sqlite3")
+    related = store.ingest(
+        "The actuator project uses the Copperfinch bus.\n"
+        "Copperfinch operates at exactly 833333 baud.",
+        source="episode.txt",
+    )[0]
+    irrelevant = store.ingest(
+        "The afternoon weather was clear.",
+        source="weather.txt",
+    )[0]
+    builder = QueryAwareRecurrentViewBuilder(
+        memory_tokens=128,
+        source_chunks=20,
+        token_counter=word_tokens,
+    )
+
+    view = builder.process(
+        "What bus does the actuator project use?",
+        [related, irrelevant],
+    )
+
+    assert "Copperfinch bus" in view.text
+    assert "weather" not in view.text
+    assert view.tokens <= 128
+    assert view.processed_chunk_ids == (related.chunk_id, irrelevant.chunk_id)
+    assert view.provenance
+    assert all(pointer.exact for pointer in view.provenance)
+    assert all(
+        store.get_chunk(pointer.chunk_id).original_text[
+            pointer.char_start : pointer.char_end
+        ]
+        in view.text
+        for pointer in view.provenance
+    )
+    assert any(event["operation"] == "MERGE" for event in view.trace)
+    assert store.get_chunk(related.chunk_id).original_text.startswith("The actuator")
+    store.close()
+
+
+def test_derived_recurrent_view_cannot_authorize_without_exact_evidence(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "recurrent-authority.sqlite3")
+    store.ingest(
+        "The actuator code is cobalt-771.",
+        source="episode.txt",
+    )
+
+    class EmptyRetriever:
+        @staticmethod
+        def retrieve(_query, *, trace=None):
+            return []
+
+    engine = VirtualContextEngine(
+        store,
+        RecursiveMemoryController(EmptyRetriever()),  # type: ignore[arg-type]
+        WorkingContextPacker(token_counter=word_tokens),
+        recurrent_view_builder=QueryAwareRecurrentViewBuilder(
+            memory_tokens=128,
+            token_counter=word_tokens,
+        ),
+    )
+
+    prepared = engine.prepare_turn(
+        "What is the actuator code?",
+        system_contract="Use exact evidence.",
+    )
+
+    assert "cobalt-771" in prepared.context.text
+    assert any(
+        item.category == "recurrent_memory" and item.provenance
+        for item in prepared.context.items
+    )
+    assert prepared.answer_allowed is False
+    assert prepared.unresolved_reason == "retrieval budget exhausted before evidence sufficiency"
     store.close()
 
 

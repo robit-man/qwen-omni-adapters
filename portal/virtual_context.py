@@ -16,6 +16,7 @@ from qwen_omni_adapters.virtual_memory import (
     HashingEmbedder,
     HybridRetriever,
     ImmutableEvidenceStore,
+    QueryAwareRecurrentViewBuilder,
     RecursiveMemoryController,
     StructuredMemoryExtractor,
     VirtualContextEngine,
@@ -90,6 +91,8 @@ class SessionVirtualContext:
         physical_context_tokens: int = 16_384,
         token_counter: Callable[[str], int] | None = None,
         physical_context_state_file: Path | None = None,
+        recurrent_memory_tokens: int = 512,
+        recurrent_source_chunks: int = 200,
     ) -> None:
         normalized_mode = str(mode or "off").strip().lower()
         if normalized_mode not in VALID_MODES:
@@ -98,6 +101,12 @@ class SessionVirtualContext:
         self.mode = normalized_mode
         self.physical_context_tokens = max(4096, physical_context_tokens)
         self.token_counter = token_counter
+        self.recurrent_memory_tokens = max(0, int(recurrent_memory_tokens))
+        self.recurrent_source_chunks = max(1, int(recurrent_source_chunks))
+        if self.recurrent_memory_tokens and not 128 <= self.recurrent_memory_tokens <= 4096:
+            raise ValueError("recurrent memory tokens must be zero or between 128 and 4096")
+        if self.recurrent_source_chunks > 2000:
+            raise ValueError("recurrent source chunks cannot exceed 2000")
         self.physical_context_state_file = (
             Path(physical_context_state_file).expanduser()
             if physical_context_state_file is not None
@@ -169,7 +178,24 @@ class SessionVirtualContext:
             )
             current = _SessionEngine(
                 store=store,
-                engine=VirtualContextEngine(store, controller, packer),
+                engine=VirtualContextEngine(
+                    store,
+                    controller,
+                    packer,
+                    recurrent_view_builder=(
+                        QueryAwareRecurrentViewBuilder(
+                            memory_tokens=self.recurrent_memory_tokens,
+                            source_chunks=self.recurrent_source_chunks,
+                            **(
+                                {"token_counter": self.token_counter}
+                                if self.token_counter
+                                else {}
+                            ),
+                        )
+                        if self.recurrent_memory_tokens
+                        else None
+                    ),
+                ),
                 extractor=StructuredMemoryExtractor(store),
             )
             self._sessions[key] = current
@@ -397,6 +423,8 @@ class SessionVirtualContext:
             "configured_physical_context_tokens": self.physical_context_tokens,
             "physical_context_source": context_source,
             "tokenizer": "exact_endpoint" if self.token_counter else "conservative_fallback",
+            "recurrent_memory_tokens": self.recurrent_memory_tokens,
+            "recurrent_source_chunks": self.recurrent_source_chunks,
         }
         key = self._key(session_id)
         with self._lock:
@@ -448,5 +476,11 @@ class SessionVirtualContext:
                 Path(os.environ["OMNI_COMPREHENSION_CONTEXT_FILE"])
                 if os.environ.get("OMNI_COMPREHENSION_CONTEXT_FILE", "").strip()
                 else None
+            ),
+            recurrent_memory_tokens=int(
+                os.environ.get("OMNI_VIRTUAL_CONTEXT_RECURRENT_TOKENS", "512")
+            ),
+            recurrent_source_chunks=int(
+                os.environ.get("OMNI_VIRTUAL_CONTEXT_RECURRENT_SOURCE_CHUNKS", "200")
             ),
         )

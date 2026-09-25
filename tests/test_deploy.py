@@ -132,6 +132,8 @@ def test_guided_bridge_disables_legacy_eviction_and_blocking_smoke() -> None:
     assert "OMNI_VIRTUAL_CONTEXT_MODE=active" in install_body
     assert "OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=16384" in install_body
     assert "OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL=http://127.0.0.1:8901/tokenize" in install_body
+    assert "OMNI_VIRTUAL_CONTEXT_RECURRENT_TOKENS=512" in install_body
+    assert "OMNI_VIRTUAL_CONTEXT_RECURRENT_SOURCE_CHUNKS=200" in install_body
     assert "OMNI_STARTUP_SMOKE=0" in install_body
     assert "OMNI_TTS_PERSISTENT=1" in install_body
     assert "co_resident_stack == 1" not in source

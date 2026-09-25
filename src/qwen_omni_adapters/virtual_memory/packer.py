@@ -91,6 +91,7 @@ class WorkingContextPacker:
         memories: Sequence[MemoryRecord] = (),
         recent_context: Sequence[str] = (),
         recurrent_memory: str = "",
+        recurrent_provenance: Sequence[ProvenancePointer] = (),
         reserved_tokens: int = 0,
         trace: TraceCollector | None = None,
     ) -> WorkingContext:
@@ -164,8 +165,15 @@ class WorkingContextPacker:
 
         recurrent_items: list[ContextItem] = []
         if recurrent_memory.strip() and available:
+            source_ids = tuple(
+                dict.fromkeys(pointer.chunk_id for pointer in recurrent_provenance)
+            )
+            displayed_sources = ",".join(source_ids[:12])
+            if len(source_ids) > 12:
+                displayed_sources += ",..."
             block = (
-                "<derived_recurrent_memory authority=\"derived\">\n"
+                "<derived_recurrent_memory authority=\"derived_unverified\" "
+                f'sources="{displayed_sources}" source_count="{len(source_ids)}">\n'
                 f"{recurrent_memory.strip()}\n</derived_recurrent_memory>"
             )
             tokens = self.token_counter(block)
@@ -178,6 +186,7 @@ class WorkingContextPacker:
                         text=block,
                         tokens=tokens,
                         pinned=False,
+                        provenance=tuple(recurrent_provenance),
                         score=0.3,
                     )
                 )
@@ -187,7 +196,8 @@ class WorkingContextPacker:
                     "recurrent-memory",
                     level="L2",
                     tokens=tokens,
-                    authority="derived",
+                    authority="derived_unverified",
+                    source_chunk_ids=list(source_ids),
                 )
 
         recent_cap = min(self.budget.recent_target, available)

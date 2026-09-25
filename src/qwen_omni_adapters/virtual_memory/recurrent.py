@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
@@ -45,6 +46,188 @@ class RecurrentResult:
     memory: MemoryRecord | None
     processed_chunk_ids: tuple[str, ...]
     trace: tuple[dict[str, object], ...]
+
+
+@dataclass(frozen=True)
+class RecurrentView:
+    """Ephemeral query-specific L2 view with exact recovery pointers."""
+
+    text: str
+    provenance: tuple[ProvenancePointer, ...]
+    processed_chunk_ids: tuple[str, ...]
+    tokens: int
+    trace: tuple[dict[str, object], ...]
+
+
+_VIEW_STOP_WORDS = {
+    "about",
+    "after",
+    "also",
+    "and",
+    "are",
+    "did",
+    "does",
+    "for",
+    "from",
+    "have",
+    "into",
+    "that",
+    "the",
+    "their",
+    "then",
+    "this",
+    "through",
+    "using",
+    "what",
+    "when",
+    "where",
+    "which",
+    "with",
+}
+
+
+def _view_terms(value: str) -> set[str]:
+    return {
+        term.casefold().strip(".$:-")
+        for term in re.findall(r"[A-Za-z0-9_.$:-]{3,}", value)
+        if term.casefold().strip(".$:-") not in _VIEW_STOP_WORDS
+    }
+
+
+class QueryAwareRecurrentViewBuilder:
+    """Build a bounded MemAgent-shaped view without modifying source truth.
+
+    This applies LazyMem's query-time principle to recurrent text: scan a
+    bounded set of externally recoverable pages, repeatedly update a fixed-size
+    state, and attach exact line provenance to everything that survives.  The
+    view is deliberately unverified and never substitutes for retrieved L3
+    evidence.
+    """
+
+    def __init__(
+        self,
+        *,
+        memory_tokens: int = 512,
+        source_chunks: int = 200,
+        token_counter: Callable[[str], int] = conservative_token_estimate,
+    ) -> None:
+        if not 128 <= int(memory_tokens) <= 4096:
+            raise ValueError("recurrent view tokens must be between 128 and 4096")
+        if not 1 <= int(source_chunks) <= 2000:
+            raise ValueError("recurrent source chunks must be between 1 and 2000")
+        self.memory_tokens = int(memory_tokens)
+        self.source_chunks = int(source_chunks)
+        self.token_counter = token_counter
+
+    def process(
+        self,
+        query: str,
+        chunks: Sequence[EvidenceChunk],
+        *,
+        excluded_chunk_ids: Sequence[str] = (),
+        trace: TraceCollector | None = None,
+    ) -> RecurrentView:
+        collector = trace or TraceCollector()
+        query_terms = _view_terms(query)
+        excluded = set(excluded_chunk_ids)
+        candidates: list[
+            tuple[float, int, str, ProvenancePointer]
+        ] = []
+        selected: list[tuple[float, int, str, ProvenancePointer]] = []
+        processed: list[str] = []
+        sequence = 0
+        bounded = [chunk for chunk in chunks if chunk.chunk_id not in excluded][
+            -self.source_chunks :
+        ]
+        for step, chunk in enumerate(bounded):
+            processed.append(chunk.chunk_id)
+            changed = False
+            role = str(chunk.metadata.get("role") or "").casefold()
+            role_penalty = 0.2 if role == "assistant" else 0.0
+            for match in re.finditer(r"[^\r\n]+", chunk.original_text):
+                line = match.group(0).strip()
+                if not line:
+                    continue
+                terms = _view_terms(line)
+                overlap = len(query_terms & terms)
+                if not overlap:
+                    continue
+                durable = bool(
+                    re.search(
+                        r"\b(?:MUST|NEVER|ALWAYS|decided|chose|changed\s+from|"
+                        r"configured\s+as|TODO|open\s+question|unresolved)\b|"
+                        r"\b(?:fault|error|request|status)=",
+                        line,
+                        re.IGNORECASE,
+                    )
+                )
+                exact_addresses = {
+                    term
+                    for term in query_terms
+                    if re.search(r"[_.$:-]|\d", term)
+                }
+                exact_overlap = len(exact_addresses & terms)
+                recency = (step + 1) / max(1, len(bounded))
+                score = (
+                    float(overlap)
+                    + exact_overlap * 0.75
+                    + (0.25 if durable else 0.0)
+                    + recency * 0.1
+                    - role_penalty
+                )
+                left_trim = len(match.group(0)) - len(match.group(0).lstrip())
+                start = match.start() + left_trim
+                pointer = ProvenancePointer(
+                    chunk.chunk_id,
+                    start,
+                    start + len(line),
+                    exact=True,
+                )
+                candidates.append((score, sequence, line, pointer))
+                sequence += 1
+                changed = True
+            if not changed:
+                continue
+            selected = self._bounded_state(candidates)
+            collector.record(
+                MemoryOperation.MERGE,
+                "query-recurrent-view",
+                level="L4->L2",
+                step=step,
+                source_chunk_id=chunk.chunk_id,
+                retained_lines=len(selected),
+                memory_tokens=sum(self.token_counter(item[2]) for item in selected),
+                authority="derived_unverified",
+            )
+        text = "\n".join(item[2] for item in selected)
+        provenance = tuple(item[3] for item in selected)
+        return RecurrentView(
+            text=text,
+            provenance=provenance,
+            processed_chunk_ids=tuple(processed),
+            tokens=self.token_counter(text),
+            trace=collector.export(),
+        )
+
+    def _bounded_state(
+        self,
+        candidates: Sequence[tuple[float, int, str, ProvenancePointer]],
+    ) -> list[tuple[float, int, str, ProvenancePointer]]:
+        ranked = sorted(candidates, key=lambda item: (item[0], item[1]), reverse=True)
+        retained: list[tuple[float, int, str, ProvenancePointer]] = []
+        seen: set[str] = set()
+        used = 0
+        for item in ranked:
+            normalized = " ".join(item[2].casefold().split())
+            if normalized in seen:
+                continue
+            tokens = self.token_counter(item[2])
+            if used + tokens > self.memory_tokens:
+                continue
+            retained.append(item)
+            seen.add(normalized)
+            used += tokens
+        return sorted(retained, key=lambda item: item[1])
 
 
 class RecurrentMemoryBuilder:

@@ -42,9 +42,11 @@ from qwen_omni_adapters.virtual_memory.models import (
 )
 from qwen_omni_adapters.virtual_memory.packer import ContextBudget, WorkingContextPacker
 from qwen_omni_adapters.virtual_memory.recurrent import (
+    QueryAwareRecurrentViewBuilder,
     RecurrentConfig,
     RecurrentMemoryBuilder,
     RecurrentResult,
+    RecurrentView,
     RecurrentWriteRequest,
 )
 from qwen_omni_adapters.virtual_memory.retrieval import HybridRetriever, QueryPlan
@@ -75,9 +77,11 @@ __all__ = [
     "QueryCompilation",
     "QueryEvidenceCompiler",
     "QueryPlan",
+    "QueryAwareRecurrentViewBuilder",
     "RecurrentConfig",
     "RecurrentMemoryBuilder",
     "RecurrentResult",
+    "RecurrentView",
     "RecurrentWriteRequest",
     "RecursiveMemoryController",
     "RetrievalHit",

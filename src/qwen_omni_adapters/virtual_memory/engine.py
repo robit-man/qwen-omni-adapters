@@ -20,6 +20,7 @@ from qwen_omni_adapters.virtual_memory.models import (
     WorkingContext,
 )
 from qwen_omni_adapters.virtual_memory.packer import WorkingContextPacker
+from qwen_omni_adapters.virtual_memory.recurrent import QueryAwareRecurrentViewBuilder
 from qwen_omni_adapters.virtual_memory.store import ImmutableEvidenceStore
 from qwen_omni_adapters.virtual_memory.telemetry import MemoryOperation, TraceCollector
 
@@ -138,10 +139,12 @@ class VirtualContextEngine:
         store: ImmutableEvidenceStore,
         controller: RecursiveMemoryController,
         packer: WorkingContextPacker,
+        recurrent_view_builder: QueryAwareRecurrentViewBuilder | None = None,
     ) -> None:
         self.store = store
         self.controller = controller
         self.packer = packer
+        self.recurrent_view_builder = recurrent_view_builder
 
     def ingest(self, text: str, *, source: str, **metadata: Any):
         return self.store.ingest(text, source=source, **metadata)
@@ -234,6 +237,23 @@ class VirtualContextEngine:
             hit.chunk.chunk_id: hit
             for hit in (*controller_evidence, *conflict_hits)
         }
+        recurrent_provenance: tuple[ProvenancePointer, ...] = ()
+        selected_recurrent_memory = recurrent_memory
+        if self.recurrent_view_builder is not None and not selected_recurrent_memory.strip():
+            recurrent_view = self.recurrent_view_builder.process(
+                query,
+                tuple(
+                    reversed(
+                        self.store.recent(
+                            limit=self.recurrent_view_builder.source_chunks,
+                        )
+                    )
+                ),
+                excluded_chunk_ids=excluded_chunk_ids,
+                trace=trace,
+            )
+            selected_recurrent_memory = recurrent_view.text
+            recurrent_provenance = recurrent_view.provenance
         context = self.packer.pack(
             query,
             system_contract=system_contract,
@@ -243,7 +263,8 @@ class VirtualContextEngine:
             retrieval_queries=controller_result.queries,
             memories=memories,
             recent_context=recent_context,
-            recurrent_memory=recurrent_memory,
+            recurrent_memory=selected_recurrent_memory,
+            recurrent_provenance=recurrent_provenance,
             reserved_tokens=reserved_tokens,
             trace=trace,
         )

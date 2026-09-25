@@ -35,6 +35,13 @@ def test_shadow_mode_persists_lossless_turns_without_rewriting_payload(
     assert payload["messages"] == messages
     assert "cobalt-771" in prepared.context.text
     assert manager.stats("session-one")["documents"] == 3
+    recurrent = [
+        item for item in prepared.context.items if item.category == "recurrent_memory"
+    ]
+    assert len(recurrent) == 1
+    assert recurrent[0].provenance
+    assert 'authority="derived_unverified"' in recurrent[0].text
+    assert any(event["operation"] == "MERGE" for event in prepared.context.trace)
 
 
 def test_user_constraint_is_promoted_and_deterministically_pinned(tmp_path: Path) -> None:

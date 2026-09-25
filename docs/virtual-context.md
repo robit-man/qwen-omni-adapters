@@ -26,6 +26,9 @@ The `qwen_omni_adapters.virtual_memory` package provides:
   become small verified memories with reconstructable source offsets, while
   partial or conflicting relations fall back to raw evidence;
 - query-focused exact-span replay adjacent to the current query;
+- a bounded query-time recurrent L2 view over recent immutable pages; every retained
+  line has exact provenance, remains explicitly derived/unverified, and is regenerated
+  from L4 rather than recursively becoming the only copy;
 - a hard context allocator that pins deterministically relevant constraints,
   reserves verified structured memory before evidence expansion, and reserves
   output headroom. Constraint scope comes from explicit global metadata, an

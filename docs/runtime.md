@@ -29,6 +29,12 @@ Complete multi-key value lookups and assignment chains can be deterministically
 compiled after retrieval into short verified fact memories; each line retains
 exact source offsets, and ambiguity disables compilation rather than inventing a
 single answer.
+`OMNI_VIRTUAL_CONTEXT_RECURRENT_TOKENS` sets the query-specific L2 recurrent-view
+ceiling (default 512; zero disables it), and
+`OMNI_VIRTUAL_CONTEXT_RECURRENT_SOURCE_CHUNKS` bounds its raw-page scan (default 200,
+maximum 2000). The recurrent view is marked derived/unverified and every retained line
+has an exact pointer back to immutable L4 source. It is packed only after structured
+state and exact evidence, so it cannot displace stronger authority.
 When `OMNI_COMPREHENSION_CONTEXT_FILE` is present, the portal rereads that
 launcher-owned state before every pack and caps the working set to the resident
 KV window. A configured 16K ceiling therefore cannot emit a 16K prompt while

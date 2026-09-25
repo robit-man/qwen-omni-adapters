@@ -391,6 +391,8 @@ install_environment() {
       && !/^OMNI_COMPREHENSION_CONTEXT_TOKENS=/ \
       && !/^OMNI_VIRTUAL_CONTEXT_MODE=/ && !/^OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=/ \
       && !/^OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL=/ \
+      && !/^OMNI_VIRTUAL_CONTEXT_RECURRENT_TOKENS=/ \
+      && !/^OMNI_VIRTUAL_CONTEXT_RECURRENT_SOURCE_CHUNKS=/ \
       && !/^OMNI_TTS_PERSISTENT=/ && !/^OMNI_CALL_SPEECH_EVICT_UNIT=/' \
       "$REPO_ROOT/.env" >"$temporary"
   fi
@@ -410,6 +412,8 @@ install_environment() {
     printf 'OMNI_VIRTUAL_CONTEXT_MODE=active\n'
     printf 'OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=16384\n'
     printf 'OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL=http://127.0.0.1:8901/tokenize\n'
+    printf 'OMNI_VIRTUAL_CONTEXT_RECURRENT_TOKENS=512\n'
+    printf 'OMNI_VIRTUAL_CONTEXT_RECURRENT_SOURCE_CHUNKS=200\n'
     printf 'OMNI_STARTUP_SMOKE=0\n'
     printf 'OMNI_TTS_PERSISTENT=1\n'
   } >>"$temporary"
