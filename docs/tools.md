@@ -256,6 +256,13 @@ executor rejects a crop whose pixels changed while the model was deciding. Every
 browser action returns a new screenshot and visual change receipt; a changed frame is
 causal evidence, not proof that the intended state was reached.
 
+Native form controls remain element-grounded as well. `type` enters ordinary text,
+`set_value` sets date/time/month/week/number/range/color controls through their native
+value contract, and `select` chooses one or more exact option values. `upload` uses
+Chromium's file-input protocol only for regular files of at most 16 MiB beneath
+`OMNI_BROWSER_UPLOAD_ROOTS` (default `runtime-data/browser-uploads`); arbitrary host
+paths are rejected before Chromium sees them.
+
 The visible browser is globally single-instance for this runtime. A cancelled or timed-out
 GUI fixture closes its stable voice-agent browser session in `finally`; before another
 launch, the store reaps only orphan processes carrying an exact runtime-owned

@@ -121,6 +121,72 @@ def test_browser_drag_emits_a_pressed_mouse_path() -> None:
     assert cdp.calls[-1][1]["y"] == 30
 
 
+def test_browser_native_form_actions_validate_control_types(tmp_path: Path) -> None:
+    class Store(BrowserAutomationStore):
+        expressions: list[str] = []
+
+        def _evaluate(self, _cdp, expression):
+            self.expressions.append(expression)
+            return (
+                {"ok": True, "value": "2026-10-06"}
+                if "el.value =" in expression
+                else {"ok": True}
+            )
+
+    store = Store(upload_roots=[tmp_path])
+    store._set_value(
+        object(),  # type: ignore[arg-type]
+        {"id": "e1", "tag": "input", "type": "date"},
+        "2026-10-06",
+    )
+    store._select_values(
+        object(),  # type: ignore[arg-type]
+        {"id": "e2", "tag": "select", "type": ""},
+        ["voice", "vision"],
+    )
+
+    assert "2026-10-06" in store.expressions[0]
+    assert "voice" in store.expressions[1]
+    with pytest.raises(BrowserAutomationError, match="limited to input types"):
+        store._set_value(
+            object(),  # type: ignore[arg-type]
+            {"id": "e3", "tag": "input", "type": "text"},
+            "bypass",
+        )
+
+
+def test_browser_upload_is_root_scoped_and_uses_cdp(tmp_path: Path) -> None:
+    upload_root = tmp_path / "uploads"
+    upload_root.mkdir()
+    allowed = upload_root / "note.txt"
+    allowed.write_text("owned fixture", encoding="utf-8")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("not allowed", encoding="utf-8")
+
+    class Cdp:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, dict[str, Any]]] = []
+
+        def call(self, method: str, arguments: dict[str, Any]) -> dict[str, Any]:
+            self.calls.append((method, arguments))
+            if method == "Runtime.evaluate":
+                return {"result": {"objectId": "node-7"}}
+            return {}
+
+    store = BrowserAutomationStore(upload_roots=[upload_root])
+    cdp = Cdp()
+    store._upload_files(
+        cdp,  # type: ignore[arg-type]
+        {"id": "e7", "tag": "input", "type": "file"},
+        [str(allowed)],
+    )
+
+    set_files = next(arguments for method, arguments in cdp.calls if method == "DOM.setFileInputFiles")
+    assert set_files == {"files": [str(allowed)], "objectId": "node-7"}
+    with pytest.raises(BrowserAutomationError, match="outside"):
+        store._resolve_upload_files([str(outside)])
+
+
 def test_browser_visual_click_maps_normalized_point_into_exact_viewport() -> None:
     class Store(BrowserAutomationStore):
         def _evaluate(self, _cdp, _expression):
@@ -971,6 +1037,12 @@ def test_browser_and_gui_tools_expose_drag_recovery_actions() -> None:
 
     assert "drag" in schemas["browser_interact"]["properties"]["action"]["enum"]
     assert "visual_click" in schemas["browser_interact"]["properties"]["action"]["enum"]
+    assert {"set_value", "select", "upload"} <= set(
+        schemas["browser_interact"]["properties"]["action"]["enum"]
+    )
+    assert {"value", "values", "paths"} <= set(
+        schemas["browser_interact"]["properties"]
+    )
     assert schemas["browser_interact"]["properties"]["coordinate_unit"]["enum"] == [
         "normalized_1000"
     ]

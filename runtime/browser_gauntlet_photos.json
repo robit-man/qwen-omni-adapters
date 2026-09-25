@@ -1,0 +1,165 @@
+{
+  "schema": "robit.browser-gauntlet-photos.v1",
+  "photos": [
+    {
+      "id": "p01",
+      "kind": "traffic_light",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cc/Traffic_lights%2C_Northleach_-_geograph.org.uk_-_4665314.jpg/500px-Traffic_lights%2C_Northleach_-_geograph.org.uk_-_4665314.jpg",
+      "sha256": "59cd61d3d29dbed9690b0ac4ed74a9512d44e9776d249c44e87c96251c51f24a",
+      "title": "Traffic lights, Northleach",
+      "creator": "Derek Harper",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Traffic_lights,_Northleach_-_geograph.org.uk_-_4665314.jpg"
+    },
+    {
+      "id": "p02",
+      "kind": "traffic_light",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f0/Traffic_lights%2C_Oatlands_-_geograph.org.uk_-_5879676.jpg/500px-Traffic_lights%2C_Oatlands_-_geograph.org.uk_-_5879676.jpg",
+      "sha256": "a03e2596f9849e73ce9147e2b92676c520c32b06b40aa2bbf60b0e394840e48d",
+      "title": "Traffic lights, Oatlands",
+      "creator": "Derek Harper",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Traffic_lights,_Oatlands_-_geograph.org.uk_-_5879676.jpg"
+    },
+    {
+      "id": "p03",
+      "kind": "traffic_light",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4c/Traffic_lights_in_Kingswinford_-_geograph.org.uk_-_4781501.jpg/500px-Traffic_lights_in_Kingswinford_-_geograph.org.uk_-_4781501.jpg",
+      "sha256": "2d7a916dbe40f5410a5c0b8c10dba6fafc6b7a61ff66b998769eb5725da37f67",
+      "title": "Traffic lights in Kingswinford",
+      "creator": "Bill Boaden",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Traffic_lights_in_Kingswinford_-_geograph.org.uk_-_4781501.jpg"
+    },
+    {
+      "id": "p04",
+      "kind": "bicycle",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/02/Bicycle_reflections.jpg/500px-Bicycle_reflections.jpg",
+      "sha256": "cbf424cd807affc6cb6f9efc23b4bc9c26d3c9daaaed6f15b59e8b0da0067e3c",
+      "title": "Bicycle reflections",
+      "creator": "Tomascastelazo",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Bicycle_reflections.jpg"
+    },
+    {
+      "id": "p05",
+      "kind": "bicycle",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/36/Parked_bicycle_with_graffitied_building_facade_and_doors_in_Amsterdam.jpg/500px-Parked_bicycle_with_graffitied_building_facade_and_doors_in_Amsterdam.jpg",
+      "sha256": "fc3859593aa515c265af23e17b696f76855a12b3eeb6d9b487702913f83cc65e",
+      "title": "Parked bicycle with graffitied building facade and doors in Amsterdam",
+      "creator": "Basile Morin",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Parked_bicycle_with_graffitied_building_facade_and_doors_in_Amsterdam.jpg"
+    },
+    {
+      "id": "p06",
+      "kind": "crosswalk",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cf/New_zebra_crossing%2C_Arbury_Road_-_geograph.org.uk_-_5238338.jpg/500px-New_zebra_crossing%2C_Arbury_Road_-_geograph.org.uk_-_5238338.jpg",
+      "sha256": "beefd4dd3385f22ca28bc16367d442756af2d8aef6238099cda5206c5565c132",
+      "title": "New zebra crossing, Arbury Road",
+      "creator": "Hugh Venables",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:New_zebra_crossing,_Arbury_Road_-_geograph.org.uk_-_5238338.jpg"
+    },
+    {
+      "id": "p07",
+      "kind": "crosswalk",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bd/Zebra_Crossing_of_Staines_Road_-_geograph.org.uk_-_5737260.jpg/500px-Zebra_Crossing_of_Staines_Road_-_geograph.org.uk_-_5737260.jpg",
+      "sha256": "82566061927ecb1cd5c1b9b1cc9d581ea815ee47857cc067943354dd6b536ddd",
+      "title": "Zebra Crossing of Staines Road",
+      "creator": "Richard Cooke",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Zebra_Crossing_of_Staines_Road_-_geograph.org.uk_-_5737260.jpg"
+    },
+    {
+      "id": "p08",
+      "kind": "bus",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/Abandoned_bus_in_San_Pedro_de_Atacama_%28Unsplash%29.jpg/500px-Abandoned_bus_in_San_Pedro_de_Atacama_%28Unsplash%29.jpg",
+      "sha256": "a3c6cd9bfc2384d7d79ebc51da0b2eb0c3d80b12e51ff653a2cd40e578b56232",
+      "title": "Abandoned bus in San Pedro de Atacama",
+      "creator": "Pablo Garcia Saldana",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Abandoned_bus_in_San_Pedro_de_Atacama_(Unsplash).jpg"
+    },
+    {
+      "id": "p09",
+      "kind": "car",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c3/Abandoned_car_in_Marine_Park_%2810852p%29.jpg/500px-Abandoned_car_in_Marine_Park_%2810852p%29.jpg",
+      "sha256": "18d72b2690fa1475b94bff8a327166fdda908aae7121c2a35e091882154006d7",
+      "title": "Abandoned car in Marine Park",
+      "creator": "Rhododendrites",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Abandoned_car_in_Marine_Park_(10852p).jpg"
+    },
+    {
+      "id": "p10",
+      "kind": "fire_hydrant",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a9/Fire_Hydrant_of_Carson_Avenue_and_Kinchant_Street_in_Quesnel%2C_BC_%28DSCF5303%29.jpg/500px-Fire_Hydrant_of_Carson_Avenue_and_Kinchant_Street_in_Quesnel%2C_BC_%28DSCF5303%29.jpg",
+      "sha256": "d031bd94312a076a41d899e0f615ba61182de0a1b9347f76e642153fb064e0c3",
+      "title": "Fire Hydrant of Carson Avenue and Kinchant Street",
+      "creator": "Trougnouf (Benoit Brummer)",
+      "license": "CC BY 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Fire_Hydrant_of_Carson_Avenue_and_Kinchant_Street_in_Quesnel,_BC_(DSCF5303).jpg"
+    },
+    {
+      "id": "p11",
+      "kind": "mountain",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e8/Mountain_Peak%2C_Alaska_%281999%29.jpg/500px-Mountain_Peak%2C_Alaska_%281999%29.jpg",
+      "sha256": "c6c33e52ba3ddce54d38c7493765c253776c4a66eb3de3948ff43b8903ce5300",
+      "title": "Mountain Peak, Alaska",
+      "creator": "Godot13",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Mountain_Peak,_Alaska_(1999).jpg"
+    },
+    {
+      "id": "p12",
+      "kind": "boat",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/49/Boat_passing_under_Elgin_Bridge_during_blue_hour_%282023%29-L1003785.jpg/500px-Boat_passing_under_Elgin_Bridge_during_blue_hour_%282023%29-L1003785.jpg",
+      "sha256": "204dd3b00dbbff6bf692f8f32080d2c9bdd9718b9ca292071f36edb5d3bb80a6",
+      "title": "Boat passing under Elgin Bridge during blue hour",
+      "creator": "Frank Schulenburg",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Boat_passing_under_Elgin_Bridge_during_blue_hour_(2023)-L1003785.jpg"
+    },
+    {
+      "id": "p13",
+      "kind": "bench",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/86/Bench_in_Clissold_Park_-_geograph.org.uk_-_4577631.jpg/500px-Bench_in_Clissold_Park_-_geograph.org.uk_-_4577631.jpg",
+      "sha256": "83256bf1a2bfe19c4eadc5da764e5a381df268726dba0c526a9b68009ad11358",
+      "title": "Bench in Clissold Park",
+      "creator": "Mike Quinn",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Bench_in_Clissold_Park_-_geograph.org.uk_-_4577631.jpg"
+    },
+    {
+      "id": "p14",
+      "kind": "palm_tree",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/af/Palm_tree._Eriyadu%2C_Maldives.jpg/500px-Palm_tree._Eriyadu%2C_Maldives.jpg",
+      "sha256": "90e64efc468aaf9b94ea950076435a31b96ac806b1f1a28b314a3f0a0be0e833",
+      "title": "Palm tree, Eriyadu, Maldives",
+      "creator": "Vvlasenko",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Palm_tree._Eriyadu,_Maldives.jpg"
+    },
+    {
+      "id": "p15",
+      "kind": "cat",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cf/Cat_portrait_%28Unsplash%29.jpg/500px-Cat_portrait_%28Unsplash%29.jpg",
+      "sha256": "cfff8b9f86743d112ac2e4d4132d3ddb2d6f1f439957c503c66f93f6375e7b15",
+      "title": "Cat portrait",
+      "creator": "Anton Petrov",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Cat_portrait_(Unsplash).jpg"
+    },
+    {
+      "id": "p16",
+      "kind": "dog",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5a/Dog-portrait-1367008135LpJ.jpg/500px-Dog-portrait-1367008135LpJ.jpg",
+      "sha256": "263b866c0b3b1559204102acf015ee17f64f9464684779da251a5a9271cca9a4",
+      "title": "Dog portrait",
+      "creator": "Karen Arnold",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Dog-portrait-1367008135LpJ.jpg"
+    }
+  ]
+}

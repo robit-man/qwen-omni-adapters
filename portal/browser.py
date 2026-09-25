@@ -387,6 +387,7 @@ class BrowserAutomationStore:
         memory_governor: MemoryGovernor | None = None,
         launch_reserve_gib: float | None = None,
         pointing_url: str | None = None,
+        upload_roots: list[Path] | None = None,
     ) -> None:
         self.ttl_s = max(30.0, float(ttl_s))
         self.timeout_s = max(2.0, float(timeout_s))
@@ -411,6 +412,17 @@ class BrowserAutomationStore:
                     "OMNI_POINTING_URL must be an explicit loopback HTTP endpoint"
                 )
         self.pointing_url = configured_pointing.rstrip("/")
+        configured_upload_roots = upload_roots
+        if configured_upload_roots is None:
+            raw_roots = os.environ.get("OMNI_BROWSER_UPLOAD_ROOTS", "").strip()
+            configured_upload_roots = (
+                [Path(item) for item in raw_roots.split(os.pathsep) if item.strip()]
+                if raw_roots
+                else [Path("runtime-data/browser-uploads")]
+            )
+        self.upload_roots = tuple(
+            root.expanduser().resolve() for root in configured_upload_roots
+        )
         self._lock = threading.RLock()
         self._sessions: dict[str, _BrowserSession] = {}
 
@@ -1344,6 +1356,150 @@ class BrowserAutomationStore:
             },
         )
 
+    def _set_value(
+        self,
+        cdp: _Cdp,
+        element: dict[str, Any],
+        value: Any,
+    ) -> None:
+        tag = str(element.get("tag") or "").lower()
+        input_type = str(element.get("type") or "").lower()
+        allowed_types = {
+            "color",
+            "date",
+            "datetime-local",
+            "month",
+            "number",
+            "range",
+            "time",
+            "week",
+        }
+        if tag != "input" or input_type not in allowed_types:
+            raise BrowserAutomationError(
+                "set_value is limited to input types color, date, datetime-local, "
+                "month, number, range, time, and week; use type, click, or select "
+                "for other controls"
+            )
+        selector = json.dumps(
+            f'[data-omni-id="{str(element.get("id") or "")}"]'
+        )
+        result = self._evaluate(
+            cdp,
+            f"""
+(() => {{
+  const el = document.querySelector({selector});
+  if (!el || el.tagName.toLowerCase() !== 'input') return {{ok:false}};
+  el.value = {json.dumps(str(value)[:240])};
+  el.dispatchEvent(new Event('input', {{bubbles:true}}));
+  el.dispatchEvent(new Event('change', {{bubbles:true}}));
+  return {{ok:true, value:el.value}};
+}})()
+""",
+        )
+        if (
+            not isinstance(result, dict)
+            or result.get("ok") is not True
+            or str(result.get("value") or "") != str(value)[:240]
+        ):
+            raise BrowserAutomationError("Chromium could not set the form control value")
+
+    def _select_values(
+        self,
+        cdp: _Cdp,
+        element: dict[str, Any],
+        values: Any,
+    ) -> None:
+        if str(element.get("tag") or "").lower() != "select":
+            raise BrowserAutomationError("select requires a select element")
+        if not isinstance(values, list) or not values or len(values) > 32:
+            raise BrowserAutomationError("select requires one to 32 option values")
+        normalized = [str(item)[:240] for item in values]
+        selector = json.dumps(
+            f'[data-omni-id="{str(element.get("id") or "")}"]'
+        )
+        result = self._evaluate(
+            cdp,
+            f"""
+(() => {{
+  const el = document.querySelector({selector});
+  if (!el || el.tagName.toLowerCase() !== 'select') return {{ok:false}};
+  const wanted = new Set({json.dumps(normalized)});
+  for (const option of el.options) option.selected = wanted.has(option.value);
+  const selected = [...el.selectedOptions].map(option => option.value);
+  if (selected.length !== wanted.size || selected.some(value => !wanted.has(value)))
+    return {{ok:false, selected}};
+  el.dispatchEvent(new Event('input', {{bubbles:true}}));
+  el.dispatchEvent(new Event('change', {{bubbles:true}}));
+  return {{ok:true, selected}};
+}})()
+""",
+        )
+        if not isinstance(result, dict) or result.get("ok") is not True:
+            raise BrowserAutomationError(
+                "Chromium could not select the requested option values"
+            )
+
+    def _resolve_upload_files(self, paths: Any) -> list[Path]:
+        if not isinstance(paths, list) or not paths or len(paths) > 4:
+            raise BrowserAutomationError("upload requires one to four file paths")
+        resolved: list[Path] = []
+        for raw_path in paths:
+            try:
+                path = Path(str(raw_path)).expanduser().resolve(strict=True)
+            except (OSError, RuntimeError) as exc:
+                raise BrowserAutomationError("upload file does not exist") from exc
+            if not any(path.is_relative_to(root) for root in self.upload_roots):
+                raise BrowserAutomationError(
+                    "upload file is outside the configured browser upload roots"
+                )
+            try:
+                size = path.stat().st_size
+            except OSError as exc:
+                raise BrowserAutomationError("upload file is not readable") from exc
+            if not path.is_file() or size > 16 * 1024 * 1024:
+                raise BrowserAutomationError(
+                    "upload files must be regular files no larger than 16 MiB"
+                )
+            resolved.append(path)
+        return resolved
+
+    def _upload_files(
+        self,
+        cdp: _Cdp,
+        element: dict[str, Any],
+        paths: Any,
+    ) -> None:
+        if (
+            str(element.get("tag") or "").lower() != "input"
+            or str(element.get("type") or "").lower() != "file"
+        ):
+            raise BrowserAutomationError("upload requires an input type=file element")
+        files = self._resolve_upload_files(paths)
+        selector = json.dumps(
+            f'[data-omni-id="{str(element.get("id") or "")}"]'
+        )
+        remote = cdp.call(
+            "Runtime.evaluate",
+            {"expression": f"document.querySelector({selector})", "returnByValue": False},
+        ).get("result")
+        object_id = remote.get("objectId") if isinstance(remote, dict) else None
+        if not isinstance(object_id, str) or not object_id:
+            raise BrowserAutomationError("Chromium could not resolve the file input")
+        cdp.call(
+            "DOM.setFileInputFiles",
+            {"files": [str(path) for path in files], "objectId": object_id},
+        )
+        cdp.call(
+            "Runtime.callFunctionOn",
+            {
+                "objectId": object_id,
+                "functionDeclaration": (
+                    "function(){this.dispatchEvent(new Event('input',{bubbles:true}));"
+                    "this.dispatchEvent(new Event('change',{bubbles:true}));}"
+                ),
+            },
+        )
+
     def act(self, session_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
         action = str(arguments.get("action") or "").strip().lower()
         if action not in {
@@ -1353,13 +1509,16 @@ class BrowserAutomationStore:
             "visual_click",
             "drag",
             "type",
+            "set_value",
+            "select",
+            "upload",
             "scroll",
             "back",
             "close",
         }:
             raise BrowserAutomationError(
                 "action must be navigate, snapshot, click, visual_click, drag, type, "
-                "scroll, back, or close"
+                "set_value, select, upload, scroll, back, or close"
             )
         if action == "close":
             self.clear(session_id)
@@ -1397,7 +1556,14 @@ class BrowserAutomationStore:
                             "navigate requires an absolute HTTP(S) URL"
                         )
                     cdp.call("Page.navigate", {"url": url})
-                elif action in {"click", "drag", "type"}:
+                elif action in {
+                    "click",
+                    "drag",
+                    "type",
+                    "set_value",
+                    "select",
+                    "upload",
+                }:
                     element = self._refresh_element(
                         session,
                         cdp,
@@ -1416,7 +1582,7 @@ class BrowserAutomationStore:
                                 "drag requires a non-zero delta_x or delta_y"
                             )
                         self._drag(cdp, element, delta_x, delta_y)
-                    else:
+                    elif action in {"click", "type"}:
                         self._click(cdp, element)
                     if action == "type":
                         if arguments.get("clear") is True:
@@ -1453,6 +1619,12 @@ class BrowserAutomationStore:
                                     "Input.dispatchKeyEvent",
                                     {"type": event_type, "key": "Enter", "code": "Enter"},
                                 )
+                    elif action == "set_value":
+                        self._set_value(cdp, element, arguments.get("value"))
+                    elif action == "select":
+                        self._select_values(cdp, element, arguments.get("values"))
+                    elif action == "upload":
+                        self._upload_files(cdp, element, arguments.get("paths"))
                 elif action == "visual_click":
                     visual_click_outcome = self._visual_click(
                         session,
