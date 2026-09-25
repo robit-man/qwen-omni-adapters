@@ -2202,12 +2202,19 @@ class PortalToolHarness:
                 # prove that web research is blocked. Route back to discovery
                 # (or the rendered browser) instead of letting an agent vary
                 # hostnames inside the same failed fetch capability.
+                rendered_first = bool(
+                    re.search(r"\bHTTP\s+(?:401|403|429)\b", str(exc), re.IGNORECASE)
+                )
                 result.update(
                     {
                         "failure_scope": "arguments",
                         "task_blocked": False,
                         "disposition": "change_capability",
-                        "alternative_tools": ["web_search", "browser_interact"],
+                        "alternative_tools": (
+                            ["browser_interact", "web_search"]
+                            if rendered_first
+                            else ["web_search", "browser_interact"]
+                        ),
                     }
                 )
         except (

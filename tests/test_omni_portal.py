@@ -2509,6 +2509,26 @@ def test_failed_web_fetch_routes_back_to_discovery_instead_of_guessing_hosts() -
     assert result["alternative_tools"] == ["web_search", "browser_interact"]
 
 
+def test_challenged_web_fetch_prefers_the_rendered_browser() -> None:
+    client = httpx.Client(
+        transport=httpx.MockTransport(lambda _request: httpx.Response(403))
+    )
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        web_client=client,
+        resolver=lambda _hostname: ["93.184.216.34"],
+    )
+
+    result = harness.execute(
+        "one", "web_fetch", {"url": "https://example.com/challenged"}
+    )
+
+    assert result["error"] == "ToolInputError"
+    assert result["disposition"] == "change_capability"
+    assert result["alternative_tools"] == ["browser_interact", "web_search"]
+    client.close()
+
+
 def test_safe_math_eval_computes_without_code_execution() -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
     computed = harness.execute("one", "safe_math_eval", {"expression": "sqrt(81) + 2 ** 3"})
