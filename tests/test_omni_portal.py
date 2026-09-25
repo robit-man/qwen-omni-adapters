@@ -2492,6 +2492,23 @@ def test_shell_is_found_without_putting_its_schema_in_the_first_pass() -> None:
     assert file_result["available_tools"][0] == "shell"
 
 
+def test_failed_web_fetch_routes_back_to_discovery_instead_of_guessing_hosts() -> None:
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        resolver=lambda _hostname: (_ for _ in ()).throw(OSError("dns failed")),
+    )
+
+    result = harness.execute(
+        "one", "web_fetch", {"url": "https://not-a-real-source.invalid/page"}
+    )
+
+    assert result["error"] == "ToolInputError"
+    assert result["failure_scope"] == "arguments"
+    assert result["task_blocked"] is False
+    assert result["disposition"] == "change_capability"
+    assert result["alternative_tools"] == ["web_search", "browser_interact"]
+
+
 def test_safe_math_eval_computes_without_code_execution() -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
     computed = harness.execute("one", "safe_math_eval", {"expression": "sqrt(81) + 2 ** 3"})

@@ -2195,8 +2195,22 @@ class PortalToolHarness:
                 "disposition": "change_capability",
                 "alternative_tools": ["gui_interact"],
             }
+        except ToolInputError as exc:
+            result = {"error": type(exc).__name__, "message": str(exc)[:500]}
+            if name == "web_fetch":
+                # A guessed, stale, blocked, or non-renderable URL does not
+                # prove that web research is blocked. Route back to discovery
+                # (or the rendered browser) instead of letting an agent vary
+                # hostnames inside the same failed fetch capability.
+                result.update(
+                    {
+                        "failure_scope": "arguments",
+                        "task_blocked": False,
+                        "disposition": "change_capability",
+                        "alternative_tools": ["web_search", "browser_interact"],
+                    }
+                )
         except (
-            ToolInputError,
             BrowserAutomationError,
             GuiAutomationError,
             DocumentError,
