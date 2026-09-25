@@ -187,6 +187,11 @@ def test_query_plan_promotes_bare_identifiers_and_cleans_question_entities(
     store = ImmutableEvidenceStore(tmp_path / "query-plan.sqlite3")
     retriever = HybridRetriever(store)
 
+    # Preserve the high-recall stage at the top of the V1 target range. Large
+    # document corpora can contain well over 120 mentions of one query entity;
+    # query-aware reranking cannot recover a support chunk excluded here.
+    assert retriever.candidate_limit == 200
+
     plan = retriever.plan(
         "Were Scott Derrickson and Ed Wood using controller_id-42?"
     )

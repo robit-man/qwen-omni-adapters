@@ -68,7 +68,7 @@ class HybridRetriever:
         *,
         query_embedder: Callable[[str], Sequence[float] | None] | None = None,
         reranker: Callable[[str, Sequence[EvidenceChunk]], Sequence[float]] | None = None,
-        candidate_limit: int = 120,
+        candidate_limit: int = 200,
         cheap_limit: int = 36,
         final_limit: int = 12,
         source_cap: int = 4,
