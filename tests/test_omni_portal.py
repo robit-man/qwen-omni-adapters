@@ -9,6 +9,7 @@ import threading
 import time
 import wave
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from urllib.parse import quote_plus
 
@@ -118,6 +119,79 @@ def test_browser_drag_emits_a_pressed_mouse_path() -> None:
     assert events[-1] == "mouseReleased"
     assert cdp.calls[-1][1]["x"] == 150
     assert cdp.calls[-1][1]["y"] == 30
+
+
+def test_browser_visual_click_maps_normalized_point_into_exact_viewport() -> None:
+    class Store(BrowserAutomationStore):
+        def _evaluate(self, _cdp, _expression):
+            return {"url": "https://example.test/", "width": 1010, "height": 619}
+
+    class Cdp:
+        def __init__(self, screenshot: str) -> None:
+            self.calls: list[tuple[str, dict[str, Any]]] = []
+            self.screenshot = screenshot
+
+        def call(self, method: str, arguments: dict[str, Any]) -> dict[str, str]:
+            self.calls.append((method, arguments))
+            return {"data": self.screenshot} if method == "Page.captureScreenshot" else {}
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (1010, 619), "white").save(buffer, format="PNG")
+    screenshot = base64.b64encode(buffer.getvalue()).decode()
+    _width, _height, sample = BrowserAutomationStore._screenshot_details(screenshot)
+
+    session = SimpleNamespace(
+        visual_frame={
+            "url": "https://example.test/",
+            "css_width": 1010,
+            "css_height": 619,
+        },
+        visual_sample=sample,
+    )
+    cdp = Cdp(screenshot)
+
+    Store()._visual_click(
+        session,  # type: ignore[arg-type]
+        cdp,  # type: ignore[arg-type]
+        {
+            "x": 750,
+            "y": 500,
+            "coordinate_unit": "normalized_1000",
+        },
+    )
+
+    events = [arguments for method, arguments in cdp.calls if method == "Input.dispatchMouseEvent"]
+    assert len(events) == 2
+    assert events[0]["x"] == pytest.approx(756.75)
+    assert events[0]["y"] == pytest.approx(309.0)
+
+
+def test_browser_dom_action_revalidates_live_box_and_hit_target() -> None:
+    class Store(BrowserAutomationStore):
+        def _evaluate(self, _cdp, _expression):
+            return {"ok": True, "x": 90.0, "y": 40.0, "width": 120.0, "height": 30.0}
+
+    session = SimpleNamespace(
+        elements={
+            "e3": {
+                "id": "e3",
+                "x": 10,
+                "y": 20,
+                "width": 30,
+                "height": 10,
+            }
+        }
+    )
+
+    refreshed = Store()._refresh_element(
+        session,  # type: ignore[arg-type]
+        object(),  # type: ignore[arg-type]
+        "e3",
+    )
+
+    assert refreshed["x"] == 90.0
+    assert refreshed["y"] == 40.0
+    assert session.elements["e3"]["width"] == 120.0
 
 
 def test_gui_drag_uses_one_bounded_xdotool_gesture() -> None:
@@ -404,6 +478,7 @@ def test_gui_snapshot_crops_to_active_window_and_reports_its_frame(
         "origin_y": 37,
         "width": 1042,
         "height": 800,
+        "coordinate_units": ["pixels", "normalized_1000"],
     }
     assert result["active_window"]["bounds"]["x"] == 54
     with Image.open(io.BytesIO(base64.b64decode(result["screenshot"]["data"]))) as image:
@@ -511,6 +586,10 @@ def test_browser_and_gui_tools_expose_drag_recovery_actions() -> None:
     }
 
     assert "drag" in schemas["browser_interact"]["properties"]["action"]["enum"]
+    assert "visual_click" in schemas["browser_interact"]["properties"]["action"]["enum"]
+    assert schemas["browser_interact"]["properties"]["coordinate_unit"]["enum"] == [
+        "normalized_1000"
+    ]
     assert {"delta_x", "delta_y"} <= set(
         schemas["browser_interact"]["properties"]
     )
@@ -521,6 +600,10 @@ def test_browser_and_gui_tools_expose_drag_recovery_actions() -> None:
     assert schemas["gui_interact"]["properties"]["coordinate_space"]["enum"] == [
         "active_window",
         "screen",
+    ]
+    assert schemas["gui_interact"]["properties"]["coordinate_unit"]["enum"] == [
+        "pixels",
+        "normalized_1000",
     ]
     assert schemas["web_fetch"]["properties"]["format"]["enum"] == [
         "text",

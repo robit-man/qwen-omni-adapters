@@ -935,6 +935,33 @@ def test_chat_comprehension_payload_forbids_conversational_media_reply() -> None
     assert "nothing else" in media_parts[-1]["text"]
 
 
+def test_computer_visual_evidence_uses_normalized_gui_grounding_prompt() -> None:
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "<computer_visual_evidence>Internal bounded GUI frame."
+                        "</computer_visual_evidence>"
+                    ),
+                    "images": [_encoded(b"\x89PNG\r\n\x1a\nfixture")],
+                }
+            ]
+        )
+    )
+
+    payload = build_comprehension_payload(
+        parsed,
+        Config("http://comp", "omni", "http://ollama", "http://tts", 30),
+    )
+
+    media_parts = payload["messages"][-1]["content"]
+    assert [part["type"] for part in media_parts] == ["image_url", "text"]
+    assert "normalized integer coordinates from 0 to 1000" in media_parts[-1]["text"]
+    assert "Internal bounded GUI frame" not in media_parts[-1]["text"]
+
+
 def test_trained_audio_bridge_uses_the_release_gated_prompt_contract() -> None:
     parsed = parse_adapter_request(
         _base_request(

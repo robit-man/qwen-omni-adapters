@@ -188,10 +188,10 @@ def run(args: argparse.Namespace) -> int:
                 "independent": bool(active),
                 "objective": (
                     f"Open {challenge_url} in the visible Chromium window. Complete all "
-                    "three instructions drawn inside its canvas using fresh gui_interact "
-                    "screenshots and coordinate clicks. browser_interact may be used only "
-                    "to navigate to the URL; do not use shell, fetched page text, DOM click "
-                    "targets, or source inspection."
+                    "three instructions drawn inside its canvas using fresh "
+                    "browser_interact viewport screenshots and normalized_1000 "
+                    "visual_click actions. Do not use shell, fetched page text, DOM click "
+                    "targets, gui_interact, or source inspection."
                 ),
                 "completion_criteria": (
                     f"The visible canvas shows the exact marker {state.marker}. Cite the "
@@ -243,7 +243,11 @@ def run(args: argparse.Namespace) -> int:
                 browser_arguments = json.loads(str(action.get("arguments") or "{}"))
             except ValueError:
                 browser_arguments = {}
-            if browser_arguments.get("action") != "navigate":
+            if browser_arguments.get("action") not in {
+                "navigate",
+                "snapshot",
+                "visual_click",
+            }:
                 invalid_browser_actions.append(browser_arguments.get("action"))
         if task.get("status") != "complete":
             raise RuntimeError(f"GUI task ended with status {task.get('status')}")
@@ -253,9 +257,15 @@ def run(args: argparse.Namespace) -> int:
             raise RuntimeError(f"GUI task bypassed visual execution with {sorted(forbidden)}")
         if invalid_browser_actions:
             raise RuntimeError(
-                "GUI task attempted non-navigation browser actions: "
+                "GUI task attempted browser actions outside the visual viewport path: "
                 f"{invalid_browser_actions}"
             )
+        if "gui_interact" in {
+            str(action.get("tool") or "")
+            for action in actions
+            if isinstance(action, dict)
+        }:
+            raise RuntimeError("Browser GUI task escaped to whole-window desktop control")
         if len([hit for hit in challenge["hits"] if hit["accepted"]]) != 3:
             raise RuntimeError("The challenge did not record exactly three accepted hits")
         print(

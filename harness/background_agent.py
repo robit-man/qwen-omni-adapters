@@ -2251,8 +2251,9 @@ class BackgroundAgent:
                         "directives", "background_visual_evidence"
                     )
                     if (
-                        name == "gui_interact"
-                        and str(arguments.get("action") or "") != "snapshot"
+                        name in {"gui_interact", "browser_interact"}
+                        and str(arguments.get("action") or "")
+                        in {"click", "visual_click", "drag", "type", "key", "hotkey", "scroll"}
                         and isinstance(result, Mapping)
                         and isinstance(result.get("visual_change"), Mapping)
                         and result["visual_change"].get("materially_changed") is False

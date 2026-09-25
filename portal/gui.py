@@ -130,6 +130,20 @@ class GuiAutomation:
         display_width: int,
         display_height: int,
     ) -> tuple[int, int]:
+        coordinate_unit = str(
+            arguments.get("coordinate_unit") or "pixels"
+        ).strip().lower()
+        if coordinate_unit not in {"pixels", "normalized_1000"}:
+            raise GuiAutomationError(
+                "coordinate_unit must be pixels or normalized_1000"
+            )
+
+        def axis(value: Any, name: str, size: int) -> int:
+            if coordinate_unit == "normalized_1000":
+                normalized = self._integer(value, name, 0, 1000)
+                return round(normalized * max(0, size - 1) / 1000)
+            return self._integer(value, name, 0, max(0, size - 1))
+
         if coordinate_space == "active_window":
             if active_window is None:
                 raise GuiAutomationError(
@@ -137,11 +151,20 @@ class GuiAutomation:
                     "take a screen snapshot or use coordinate_space=screen."
                 )
             bounds = active_window["bounds"]
-            x = self._integer(arguments.get(x_name), x_name, 0, bounds["width"] - 1)
-            y = self._integer(arguments.get(y_name), y_name, 0, bounds["height"] - 1)
+            x = axis(arguments.get(x_name), x_name, bounds["width"])
+            y = axis(arguments.get(y_name), y_name, bounds["height"])
             return bounds["x"] + x, bounds["y"] + y
         x_max = max(0, display_width - 1) if display_width else 16_384
         y_max = max(0, display_height - 1) if display_height else 16_384
+        if coordinate_unit == "normalized_1000":
+            if display_width <= 0 or display_height <= 0:
+                raise GuiAutomationError(
+                    "normalized screen coordinates require known display dimensions"
+                )
+            return (
+                axis(arguments.get(x_name), x_name, display_width),
+                axis(arguments.get(y_name), y_name, display_height),
+            )
         return (
             self._integer(arguments.get(x_name), x_name, 0, x_max),
             self._integer(arguments.get(y_name), y_name, 0, y_max),
@@ -200,6 +223,7 @@ class GuiAutomation:
                 "origin_y": bounds["y"],
                 "width": image_width,
                 "height": image_height,
+                "coordinate_units": ["pixels", "normalized_1000"],
             }
         else:
             frame = {
@@ -208,6 +232,7 @@ class GuiAutomation:
                 "origin_y": 0,
                 "width": image_width,
                 "height": image_height,
+                "coordinate_units": ["pixels", "normalized_1000"],
             }
         return {
             "rendered": True,

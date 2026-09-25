@@ -811,9 +811,13 @@ def _content_parts(
 
 def _media_extraction_instruction(
     parts: list[dict[str, Any]],
+    *,
+    gui_grounding: bool = False,
 ) -> str | None:
     has_audio = any(part.get("type") == "input_audio" for part in parts)
     has_visuals = any(part.get("type") in {"image_url", "input_video"} for part in parts)
+    if gui_grounding and has_visuals and not has_audio:
+        return context_text("directives", "media_extract_gui_visual")
     if has_audio and has_visuals:
         return context_text("directives", "media_extract_audio_visual")
     if has_audio:
@@ -831,6 +835,13 @@ def build_comprehension_payload(
 ) -> dict[str, Any]:
     media_messages: list[dict[str, Any]] = []
     for message in parsed.messages:
+        # This marker is emitted only by the internal computer-use loop. It
+        # requests a coordinate-bearing perception summary without forwarding
+        # arbitrary task text into the untrusted media encoder. Ordinary photos,
+        # cameras, and video retain the concise evidence-only description path.
+        gui_grounding = bool(message.images) and (
+            "<computer_visual_evidence>" in message.content
+        )
         parts = _content_parts(
             message,
             include_audio_from_video=parsed.include_audio_from_video,
@@ -844,7 +855,10 @@ def build_comprehension_payload(
             # not a caller-supplied instruction that can conflict with the tagged
             # evidence contract.
             parts = [part for part in parts if part.get("type") != "text"]
-        extraction = _media_extraction_instruction(parts)
+        extraction = _media_extraction_instruction(
+            parts,
+            gui_grounding=gui_grounding,
+        )
         if extraction and parts:
             parts.append({"type": "text", "text": extraction})
         if parts:

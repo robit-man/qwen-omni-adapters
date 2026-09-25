@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import logging
 import os
@@ -30,6 +31,8 @@ from typing import Any
 from urllib.error import URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+
+from PIL import Image
 
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
@@ -102,14 +105,13 @@ def _challenge_metadata(title: str, url: str, visible_text: str) -> dict[str, An
             return {
                 "challenge": True,
                 "challenge_kind": kind,
-                "failure_scope": "interactive_challenge",
                 "task_blocked": False,
-                "disposition": "change_capability",
-                "alternative_tools": ["gui_interact"],
+                "interaction_mode": "browser_viewport_visual",
                 "next_action": (
-                    "Use gui_interact on this same visible Chromium window and "
-                    "inspect a fresh screenshot before each click. Do not treat "
-                    "the challenge page as source evidence."
+                    "Continue in this same visible Chromium viewport with "
+                    "browser_interact action=visual_click and normalized_1000 "
+                    "coordinates from the fresh screenshot. Do not treat the "
+                    "challenge page as source evidence."
                 ),
             }
     return {}
@@ -124,13 +126,12 @@ def _visual_only_metadata(
         return {}
     return {
         "visual_only": True,
-        "failure_scope": "interaction_representation",
         "task_blocked": False,
-        "disposition": "change_capability",
-        "alternative_tools": ["gui_interact"],
+        "interaction_mode": "browser_viewport_visual",
         "next_action": (
-            "The page rendered no actionable DOM elements or text. Continue on the "
-            "same visible Chromium window with gui_interact and its fresh pixels."
+            "The page rendered no actionable DOM elements or text. Continue in the "
+            "same visible Chromium viewport with browser_interact action=visual_click "
+            "and normalized_1000 coordinates from this fresh screenshot."
         ),
     }
 
@@ -286,6 +287,9 @@ class _BrowserSession:
     target_id: str = ""
     last_seen: float = field(default_factory=time.monotonic)
     elements: dict[str, dict[str, Any]] = field(default_factory=dict)
+    visual_frame: dict[str, Any] = field(default_factory=dict)
+    visual_sample: bytes = b""
+    visual_revision: int = 0
 
 
 _SNAPSHOT_SCRIPT = r"""
@@ -560,6 +564,27 @@ class BrowserAutomationStore:
             return remote.get("value")
         return None
 
+    @staticmethod
+    def _screenshot_details(encoded: str) -> tuple[int, int, bytes]:
+        """Decode one CDP screenshot into exact dimensions and a coarse sample."""
+
+        try:
+            raw = base64.b64decode(encoded, validate=True)
+            image = Image.open(io.BytesIO(raw)).convert("RGB")
+        except (ValueError, OSError) as exc:
+            raise BrowserAutomationError(
+                "Chromium produced an invalid screenshot"
+            ) from exc
+        resampling = getattr(Image, "Resampling", Image).BILINEAR
+        reduced = image.resize((64, 64), resampling)
+        pixels = (
+            reduced.get_flattened_data()
+            if hasattr(reduced, "get_flattened_data")
+            else reduced.getdata()
+        )
+        sample = bytes(channel // 16 for pixel in pixels for channel in pixel)
+        return image.width, image.height, sample
+
     def _snapshot(self, session: _BrowserSession, cdp: _Cdp) -> dict[str, Any]:
         raw = self._evaluate(cdp, _SNAPSHOT_SCRIPT)
         if not isinstance(raw, dict):
@@ -580,15 +605,58 @@ class BrowserAutomationStore:
         title = str(raw.get("title") or "")[:500]
         url = str(raw.get("url") or "")[:4096]
         visible_text = str(raw.get("visible_text") or "")[:12000]
+        image_width, image_height, sample = self._screenshot_details(shot)
+        viewport = raw.get("viewport") if isinstance(raw.get("viewport"), dict) else {}
+        previous_frame = session.visual_frame
+        previous_sample = session.visual_sample
+        comparable = bool(
+            previous_sample
+            and previous_frame.get("url") == url
+            and previous_frame.get("width") == image_width
+            and previous_frame.get("height") == image_height
+        )
+        if comparable and len(previous_sample) == len(sample):
+            changed = sum(
+                1
+                for before, after in zip(previous_sample, sample, strict=True)
+                if before != after
+            )
+            visual_change: dict[str, Any] = {
+                "comparable": True,
+                "changed_sample_count": changed,
+                "changed_sample_fraction": round(changed / len(sample), 4),
+                "materially_changed": changed >= 2,
+            }
+        else:
+            visual_change = {"comparable": False, "materially_changed": None}
+        session.visual_revision += 1
+        coordinate_space = {
+            "name": "browser_viewport",
+            "origin_x": 0,
+            "origin_y": 0,
+            "width": image_width,
+            "height": image_height,
+            "coordinate_units": ["normalized_1000"],
+            "revision": session.visual_revision,
+        }
+        session.visual_frame = {
+            **coordinate_space,
+            "url": url,
+            "css_width": int(viewport.get("width") or image_width),
+            "css_height": int(viewport.get("height") or image_height),
+        }
+        session.visual_sample = sample
         result = {
             "rendered": True,
             "browser_visible_on_desktop": session.visible_on_desktop,
             "title": title,
             "url": url,
             "ready_state": str(raw.get("ready_state") or ""),
-            "viewport": raw.get("viewport") if isinstance(raw.get("viewport"), dict) else {},
+            "viewport": viewport,
             "visible_text": visible_text,
             "elements": list(session.elements.values()),
+            "coordinate_space": coordinate_space,
+            "visual_change": visual_change,
             "screenshot": {
                 "mime_type": "image/png",
                 "encoding": "base64",
@@ -607,6 +675,131 @@ class BrowserAutomationStore:
                 f"Unknown element {normalized or '(empty)'}; take a new snapshot and use its id"
             )
         return element
+
+    def _refresh_element(
+        self,
+        session: _BrowserSession,
+        cdp: _Cdp,
+        element_id: Any,
+    ) -> dict[str, Any]:
+        """Re-resolve an element and hit-test its current box before acting."""
+
+        element = self._element(session, element_id)
+        normalized = str(element.get("id") or "")
+        expression = f"""
+(() => {{
+  const id = {json.dumps(normalized)};
+  const el = document.querySelector('[data-omni-id="' + CSS.escape(id) + '"]');
+  if (!el || !el.isConnected) return {{ok:false, reason:'missing'}};
+  const s = getComputedStyle(el), r = el.getBoundingClientRect();
+  const disabled = !!el.disabled || el.getAttribute('aria-disabled') === 'true';
+  const visible = s.visibility !== 'hidden' && s.display !== 'none' &&
+    Number(s.opacity || 1) > 0 && s.pointerEvents !== 'none' &&
+    r.width > 1 && r.height > 1 && r.bottom >= 0 && r.right >= 0 &&
+    r.top <= innerHeight && r.left <= innerWidth;
+  if (!visible) return {{ok:false, reason:'not_visible'}};
+  if (disabled) return {{ok:false, reason:'disabled'}};
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
+  const hit = document.elementFromPoint(x, y);
+  if (!hit || !(hit === el || el.contains(hit)))
+    return {{ok:false, reason:'occluded'}};
+  return {{ok:true, x:r.left, y:r.top, width:r.width, height:r.height}};
+}})()
+"""
+        current = self._evaluate(cdp, expression)
+        if not isinstance(current, dict) or current.get("ok") is not True:
+            reason = (
+                str(current.get("reason") or "stale")
+                if isinstance(current, dict)
+                else "stale"
+            )
+            raise BrowserAutomationError(
+                f"Element {normalized} is no longer safely actionable ({reason}); "
+                "take a new browser snapshot and select its current element id"
+            )
+        refreshed = dict(element)
+        for key in ("x", "y", "width", "height"):
+            refreshed[key] = float(current[key])
+        session.elements[normalized] = refreshed
+        return refreshed
+
+    def _visual_click(
+        self,
+        session: _BrowserSession,
+        cdp: _Cdp,
+        arguments: dict[str, Any],
+    ) -> bool:
+        """Click a normalized point in the exact last CDP viewport frame."""
+
+        frame = session.visual_frame
+        if not frame or not session.visual_sample:
+            raise BrowserAutomationError(
+                "A fresh browser screenshot is required before visual_click"
+            )
+        unit = str(arguments.get("coordinate_unit") or "normalized_1000").lower()
+        if unit != "normalized_1000":
+            raise BrowserAutomationError(
+                "browser visual_click requires coordinate_unit=normalized_1000"
+            )
+        try:
+            normalized_x = int(arguments.get("x"))
+            normalized_y = int(arguments.get("y"))
+        except (TypeError, ValueError) as exc:
+            raise BrowserAutomationError("visual_click x and y must be integers") from exc
+        if not 0 <= normalized_x <= 1000 or not 0 <= normalized_y <= 1000:
+            raise BrowserAutomationError("visual_click x and y must be between 0 and 1000")
+        current = self._evaluate(
+            cdp,
+            "({url:location.href,width:innerWidth,height:innerHeight})",
+        )
+        if (
+            not isinstance(current, dict)
+            or str(current.get("url") or "") != str(frame.get("url") or "")
+            or int(current.get("width") or 0) != int(frame.get("css_width") or 0)
+            or int(current.get("height") or 0) != int(frame.get("css_height") or 0)
+        ):
+            raise BrowserAutomationError(
+                "The browser viewport changed after the last screenshot; take a fresh "
+                "browser snapshot before visual_click"
+            )
+        latest_shot = cdp.call(
+            "Page.captureScreenshot",
+            {"format": "png", "fromSurface": True, "captureBeyondViewport": False},
+        ).get("data")
+        if not isinstance(latest_shot, str) or not latest_shot:
+            raise BrowserAutomationError("Chromium produced no pre-action screenshot")
+        _width, _height, current_sample = self._screenshot_details(latest_shot)
+        if len(current_sample) != len(session.visual_sample):
+            return False
+        changed = sum(
+            1
+            for before, after in zip(
+                session.visual_sample,
+                current_sample,
+                strict=True,
+            )
+            if before != after
+        )
+        # Re-observe a frame that changed while the model was deciding instead
+        # of clicking stale pixels. A few quantized cells tolerate cursor hover
+        # and raster jitter; larger changes invalidate the visual target.
+        if changed >= 12:
+            return False
+        x = normalized_x * max(0, int(frame["css_width"]) - 1) / 1000
+        y = normalized_y * max(0, int(frame["css_height"]) - 1) / 1000
+        for event_type, buttons in (("mousePressed", 1), ("mouseReleased", 0)):
+            cdp.call(
+                "Input.dispatchMouseEvent",
+                {
+                    "type": event_type,
+                    "x": x,
+                    "y": y,
+                    "button": "left",
+                    "buttons": buttons,
+                    "clickCount": 1,
+                },
+            )
+        return True
 
     def _click(self, cdp: _Cdp, element: dict[str, Any]) -> None:
         x = float(element.get("x") or 0) + float(element.get("width") or 0) / 2
@@ -680,6 +873,7 @@ class BrowserAutomationStore:
             "navigate",
             "snapshot",
             "click",
+            "visual_click",
             "drag",
             "type",
             "scroll",
@@ -687,7 +881,8 @@ class BrowserAutomationStore:
             "close",
         }:
             raise BrowserAutomationError(
-                "action must be navigate, snapshot, click, drag, type, scroll, back, or close"
+                "action must be navigate, snapshot, click, visual_click, drag, type, "
+                "scroll, back, or close"
             )
         if action == "close":
             self.clear(session_id)
@@ -716,6 +911,7 @@ class BrowserAutomationStore:
                 cdp = _Cdp(session.page_socket, self.timeout_s)
                 cdp.call("Page.enable")
                 cdp.call("Runtime.enable")
+                visual_click_executed: bool | None = None
                 if action == "navigate":
                     url = str(arguments.get("url") or "").strip()
                     parsed = urlsplit(url)
@@ -725,7 +921,11 @@ class BrowserAutomationStore:
                         )
                     cdp.call("Page.navigate", {"url": url})
                 elif action in {"click", "drag", "type"}:
-                    element = self._element(session, arguments.get("element_id"))
+                    element = self._refresh_element(
+                        session,
+                        cdp,
+                        arguments.get("element_id"),
+                    )
                     if action == "drag":
                         try:
                             delta_x = max(-4000, min(4000, int(arguments.get("delta_x", 0))))
@@ -776,6 +976,12 @@ class BrowserAutomationStore:
                                     "Input.dispatchKeyEvent",
                                     {"type": event_type, "key": "Enter", "code": "Enter"},
                                 )
+                elif action == "visual_click":
+                    visual_click_executed = self._visual_click(
+                        session,
+                        cdp,
+                        arguments,
+                    )
                 elif action == "scroll":
                     try:
                         pixels = max(-4000, min(4000, int(arguments.get("pixels", 600))))
@@ -795,6 +1001,17 @@ class BrowserAutomationStore:
                     self._evaluate(cdp, "history.back(); true")
                 self._wait_rendered(cdp, wait_ms)
                 result = self._snapshot(session, cdp)
+                if visual_click_executed is False:
+                    result.update(
+                        {
+                            "action_executed": False,
+                            "visual_action_rejected": "stale_frame",
+                            "next_action": (
+                                "The browser pixels changed before execution, so no click "
+                                "was sent. Re-ground the target in this fresh screenshot."
+                            ),
+                        }
+                    )
                 if tripped.is_set() and self.memory_governor is not None:
                     self._sessions.pop(_session_key(session_id), None)
                     raise MemoryPressure(

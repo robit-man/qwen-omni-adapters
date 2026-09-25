@@ -275,7 +275,7 @@ def test_browser_keeps_the_controlled_tab_when_chromium_adds_a_blank_tab(
     assert store._page_socket(9222).endswith("/reddit")
 
 
-def test_browser_challenge_hands_the_visible_window_to_gui() -> None:
+def test_browser_challenge_stays_in_exact_browser_viewport() -> None:
     metadata = browser_module._challenge_metadata(
         "Reddit - Prove your humanity",
         "https://www.reddit.com/r/robots/",
@@ -284,23 +284,23 @@ def test_browser_challenge_hands_the_visible_window_to_gui() -> None:
 
     assert metadata["challenge"] is True
     assert metadata["challenge_kind"] == "recaptcha"
-    assert metadata["disposition"] == "change_capability"
     assert metadata["task_blocked"] is False
-    assert metadata["alternative_tools"] == ["gui_interact"]
+    assert metadata["interaction_mode"] == "browser_viewport_visual"
+    assert "visual_click" in metadata["next_action"]
 
 
-def test_visual_only_browser_page_hands_pixels_to_gui() -> None:
+def test_visual_only_browser_page_stays_in_exact_browser_viewport() -> None:
     metadata = browser_module._visual_only_metadata("", [])
 
     assert metadata["visual_only"] is True
-    assert metadata["disposition"] == "change_capability"
     assert metadata["task_blocked"] is False
-    assert metadata["alternative_tools"] == ["gui_interact"]
+    assert metadata["interaction_mode"] == "browser_viewport_visual"
+    assert "visual_click" in metadata["next_action"]
     assert browser_module._visual_only_metadata("Readable article", []) == {}
     assert browser_module._visual_only_metadata("", [{"id": "e1"}]) == {}
 
 
-def test_visual_only_browser_result_is_replaced_by_exact_window_capture() -> None:
+def test_visual_only_browser_result_is_not_replaced_by_a_desktop_capture() -> None:
     from portal.documents import SessionDocumentStore
     from portal.tools import PortalToolHarness
 
@@ -310,8 +310,11 @@ def test_visual_only_browser_result_is_replaced_by_exact_window_capture() -> Non
                 "rendered": True,
                 "title": "Canvas fixture",
                 "visual_only": True,
-                "disposition": "change_capability",
-                "alternative_tools": ["gui_interact"],
+                "interaction_mode": "browser_viewport_visual",
+                "coordinate_space": {
+                    "name": "browser_viewport",
+                    "coordinate_units": ["normalized_1000"],
+                },
                 "screenshot": {"data": "viewport-pixels"},
             }
 
@@ -323,27 +326,7 @@ def test_visual_only_browser_result_is_replaced_by_exact_window_capture() -> Non
 
         def act(self, _session_id, arguments):
             self.calls.append(dict(arguments))
-            return {
-                "rendered": True,
-                "desktop_visible_to_user": True,
-                "active_window": {
-                    "id": "42",
-                    "title": "Canvas fixture - Chromium",
-                },
-                "coordinate_space": {
-                    "name": "active_window",
-                    "origin_x": 54,
-                    "origin_y": 37,
-                    "width": 1042,
-                    "height": 800,
-                },
-                "display": {"width": 1080, "height": 1920},
-                "visual_change": {
-                    "comparable": False,
-                    "materially_changed": None,
-                },
-                "screenshot": {"data": "exact-window-pixels"},
-            }
+            raise AssertionError("browser visual work must not escape to desktop GUI")
 
         def clear(self, _session_id):
             pass
@@ -361,13 +344,12 @@ def test_visual_only_browser_result_is_replaced_by_exact_window_capture() -> Non
         {"action": "navigate", "url": "http://127.0.0.1:8000/"},
     )
 
-    assert gui.calls == [{"action": "snapshot", "coordinate_space": "active_window"}]
-    assert result["handoff_snapshot"] == "gui_active_window"
-    assert result["coordinate_space"]["name"] == "active_window"
-    assert result["screenshot"]["data"] == "exact-window-pixels"
+    assert gui.calls == []
+    assert result["coordinate_space"]["name"] == "browser_viewport"
+    assert result["screenshot"]["data"] == "viewport-pixels"
 
 
-def test_visual_only_handoff_rejects_a_different_active_window() -> None:
+def test_visual_only_browser_result_ignores_unrelated_active_window() -> None:
     from portal.documents import SessionDocumentStore
     from portal.tools import PortalToolHarness
 
@@ -377,8 +359,8 @@ def test_visual_only_handoff_rejects_a_different_active_window() -> None:
                 "rendered": True,
                 "title": "Canvas fixture",
                 "visual_only": True,
-                "disposition": "change_capability",
-                "alternative_tools": ["gui_interact"],
+                "interaction_mode": "browser_viewport_visual",
+                "coordinate_space": {"name": "browser_viewport"},
                 "screenshot": {"data": "viewport-pixels"},
             }
 
@@ -408,5 +390,5 @@ def test_visual_only_handoff_rejects_a_different_active_window() -> None:
         {"action": "navigate", "url": "http://127.0.0.1:8000/"},
     )
 
-    assert result["error"] == "ToolInputError"
-    assert "not the active window" in result["message"]
+    assert result["coordinate_space"]["name"] == "browser_viewport"
+    assert result["screenshot"]["data"] == "viewport-pixels"

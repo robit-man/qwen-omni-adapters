@@ -237,18 +237,28 @@ that always opens on the attached desktop. If the service cannot join that
 desktop it returns an explicit capability handoff instead of silently launching
 headless Chromium. Browser and desktop interaction support drag gestures, and
 rendered `<summary>` controls are clickable for reasoning/tool inspection.
-`gui_interact` returns an active-window crop by default and interprets its
-coordinates relative to that returned image. The crop comes from the root-window
-capture using the same X11 bounds used to translate input, including window-manager
-decorations; its declared width and height therefore match its pixels exactly.
-This keeps the immediate motor step grounded in one stable visual frame. The model
-selects the full-screen coordinate space when operating a panel, workspace, or
-another window. If a later action omits the space, the runtime reuses the newest
-returned frame rather than silently changing its meaning. An active-window action
-is rejected when focus changed after its observation. Each result identifies the
-coordinate frame, the active window's screen bounds, and whether the coarse frame
-materially changed since the preceding GUI result; that change signal is evidence
-of causality, not proof that the requested state succeeded.
+
+Browser actions use a hybrid grounding order. A returned DOM `element_id` is the
+preferred authority: immediately before acting, the executor re-resolves that node,
+refreshes its current viewport box, verifies visibility and enabled state, and
+confirms that the center hit-test is not occluded. Canvas, challenge, image-map, and
+other non-DOM targets stay in the exact CDP viewport screenshot instead of switching
+to a whole-window or desktop frame. Their `visual_click` points use Qwen's normalized
+0–1000 coordinate convention and are deterministically converted into the current
+viewport's CSS coordinates. Every browser action returns a new screenshot and visual
+change receipt; a changed frame is causal evidence, not proof that the intended state
+was reached.
+
+`gui_interact` is reserved for controls outside the browser viewport. It returns an
+active-window crop by default and interprets its coordinates relative to that returned
+image. The crop comes from the root-window capture using the same X11 bounds used to
+translate input, including window-manager decorations; its declared width and height
+therefore match its pixels exactly. It accepts deterministic pixel points and
+normalized 0–1000 visual-grounding points. The model selects the full-screen coordinate
+space only when operating a panel, workspace, or another window. If a later action
+omits the space, the runtime reuses the newest returned frame rather than silently
+changing its meaning. An active-window action is rejected when focus changed after its
+observation.
 
 The focused deterministic gate is `tests/test_gui_action_loop.py`. It renders
 synthetic desktops with offset and resized browser windows, asserts that captured
@@ -257,8 +267,9 @@ handoff, and distinguishes a hit from an unchanged miss. On a running desktop
 deployment, `python runtime/verify_gui_action_loop.py` adds an end-to-end multimodal
 gate: the background worker must navigate visible Chromium and solve three canvas-only
 image targets, including a modal and a shifted lower strip. The fixture keeps target
-coordinates out of the DOM, verifies accepted hits independently, audits the task for
-nonvisual bypass tools, and requires fresh GUI evidence before completion.
+coordinates out of the DOM, verifies normalized viewport clicks independently, rejects
+escape to desktop-wide GUI control and nonvisual bypass tools, and requires fresh visual
+evidence before completion.
 
 Discovery indexes at most 48 result/fetched pages and 128,000 characters for
 the opaque browser session. `web_search(mode=session)` ranks that local index

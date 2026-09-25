@@ -107,6 +107,7 @@ def test_active_window_pixels_and_clicks_share_one_exact_frame(
         "origin_y": wy,
         "width": width,
         "height": height,
+        "coordinate_units": ["pixels", "normalized_1000"],
     }
     assert image.getpixel((rx, ry)) == (9, 105, 218)
 
@@ -120,6 +121,32 @@ def test_active_window_pixels_and_clicks_share_one_exact_frame(
     assert clicked["visual_change"]["comparable"] is True
     assert clicked["visual_change"]["materially_changed"] is True
     assert _decoded_image(clicked).getpixel((rx, ry)) == (26, 127, 55)
+
+
+def test_active_window_normalized_point_maps_into_the_observed_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("portal.gui.shutil.which", lambda _name: "/usr/bin/tool")
+    gui = SyntheticDesktop(
+        display=(1280, 900),
+        window=(54, 37, 1042, 800),
+        target=(574, 437),
+    )
+    gui.act("fixture", {"action": "snapshot"})
+
+    gui.act(
+        "fixture",
+        {
+            "action": "click",
+            "x": 500,
+            "y": 500,
+            "coordinate_unit": "normalized_1000",
+            "wait_ms": 0,
+        },
+    )
+
+    assert gui.clicks == [(574, 437)]
+    assert gui.hit is True
 
 
 def test_missed_target_is_reported_as_unchanged_not_progress(

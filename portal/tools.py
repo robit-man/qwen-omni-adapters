@@ -2001,54 +2001,6 @@ class PortalToolHarness:
                 )
             elif name == "browser_interact":
                 result = self.browser.act(session_id, dict(arguments))
-                alternatives = result.get("alternative_tools")
-                gui_handoff = (
-                    result.get("rendered") is True
-                    and result.get("disposition") == "change_capability"
-                    and isinstance(alternatives, list)
-                    and "gui_interact" in alternatives
-                )
-                if gui_handoff:
-                    # CDP screenshots use viewport coordinates, while the fallback
-                    # executor uses X11 window coordinates. For visual-only pages
-                    # and interactive challenges alike, seed the GUI session and
-                    # replace the image with an exact active-window capture before
-                    # the model may point at it. Mixing these frames caused desktop-
-                    # relative guesses and clicks outside Chromium.
-                    handoff = self.gui.act(
-                        session_id,
-                        {"action": "snapshot", "coordinate_space": "active_window"},
-                    )
-                    browser_title = str(result.get("title") or "").strip().casefold()
-                    active_window = handoff.get("active_window")
-                    active_title = (
-                        str(active_window.get("title") or "").strip().casefold()
-                        if isinstance(active_window, Mapping)
-                        else ""
-                    )
-                    frame = handoff.get("coordinate_space")
-                    if (
-                        not isinstance(frame, Mapping)
-                        or frame.get("name") != "active_window"
-                        or not browser_title
-                        or browser_title not in active_title
-                    ):
-                        raise ToolInputError(
-                            "Visible Chromium was not the active window during the GUI "
-                            "handoff; focus it and take a fresh active-window snapshot."
-                        )
-                    for key in (
-                        "active_window",
-                        "coordinate_space",
-                        "desktop_visible_to_user",
-                        "display",
-                        "rendered",
-                        "screenshot",
-                        "visual_change",
-                    ):
-                        if key in handoff:
-                            result[key] = handoff[key]
-                    result["handoff_snapshot"] = "gui_active_window"
             elif name == "gui_interact":
                 result = self.gui.act(session_id, dict(arguments))
             elif name == "web_crawl":
