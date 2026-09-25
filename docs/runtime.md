@@ -195,6 +195,10 @@ server-side prompt. Explicit browser snapshots and completed visual clicks use
 it to retain visible status text and exact identifiers as tagged current-frame
 evidence. The click result separately retains the exact grounded target as an
 action receipt; clients cannot supply arbitrary visual questions.
+When this worker is configured, `visual_click` requires the current referring
+expression. A miss in the planner-centered crop invokes bounded overlapping tile
+search, prioritizing the same horizontal band before a full-frame grid; only a
+structured returned point can reach input dispatch.
 
 The launcher continues sampling after readiness because CUDA and KV pages can
 be committed lazily by the first large image or text request. A short dip is

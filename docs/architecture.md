@@ -122,6 +122,9 @@ isolated worker returns a bounded semantic reading of the exact returned frame.
 The browser tags that reading with current-frame provenance and records the
 grounded target as a compact action receipt before durable image bytes are
 compacted; neither is reused as evidence for a later frame.
+The configured point path rejects targetless visual clicks. A miss in the coarse
+proposal triggers bounded overlapping-tile search, first within the same visual
+band and then across the frame, without ever executing the planner's raw point.
 
 llama.cpp prompt caching is disabled for comprehension because the pinned
 multimodal slot cache can retain decoded media embeddings. This is a correctness

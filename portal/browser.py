@@ -442,43 +442,51 @@ class BrowserAutomationStore:
         crop_top = max(
             0, min(image.height - crop_height, center_y - crop_height // 2)
         )
-        point_image = image.crop(
-            (
-                crop_left,
-                crop_top,
-                crop_left + crop_width,
-                crop_top + crop_height,
+        searched_regions: list[tuple[int, int]] = []
+        result: dict[str, Any] = {}
+
+        def query_region(left: int, top: int) -> list[dict[str, Any]]:
+            nonlocal result
+            origin = (left, top)
+            if origin in searched_regions:
+                return []
+            searched_regions.append(origin)
+            point_image = image.crop(
+                (left, top, left + crop_width, top + crop_height)
             )
-        )
-        buffer = io.BytesIO()
-        point_image.save(buffer, format="PNG")
-        payload = json.dumps(
-            {
-                "image": base64.b64encode(buffer.getvalue()).decode("ascii"),
-                "target": normalized_target,
-            },
-            separators=(",", ":"),
-        ).encode("utf-8")
-        request = Request(
-            f"{self.pointing_url}/point",
-            data=payload,
-            method="POST",
-            headers={
-                "Content-Type": "application/json",
-                "Content-Length": str(len(payload)),
-                "User-Agent": "omni-visible-browser/1",
-            },
-        )
-        try:
-            with urlopen(request, timeout=max(5.0, self.timeout_s)) as response:  # noqa: S310
-                result = json.loads(response.read(256 * 1024))
-        except (OSError, URLError, TimeoutError, ValueError) as exc:
-            raise BrowserAutomationError(
-                f"structured visual pointing failed: {type(exc).__name__}"
-            ) from exc
-        points = result.get("points") if isinstance(result, dict) else None
-        candidates: list[tuple[int, int]] = []
-        if isinstance(points, list):
+            buffer = io.BytesIO()
+            point_image.save(buffer, format="PNG")
+            payload = json.dumps(
+                {
+                    "image": base64.b64encode(buffer.getvalue()).decode("ascii"),
+                    "target": normalized_target,
+                },
+                separators=(",", ":"),
+            ).encode("utf-8")
+            request = Request(
+                f"{self.pointing_url}/point",
+                data=payload,
+                method="POST",
+                headers={
+                    "Content-Type": "application/json",
+                    "Content-Length": str(len(payload)),
+                    "User-Agent": "omni-visible-browser/1",
+                },
+            )
+            try:
+                with urlopen(  # noqa: S310
+                    request, timeout=max(5.0, self.timeout_s)
+                ) as response:
+                    decoded = json.loads(response.read(256 * 1024))
+            except (OSError, URLError, TimeoutError, ValueError) as exc:
+                raise BrowserAutomationError(
+                    f"structured visual pointing failed: {type(exc).__name__}"
+                ) from exc
+            result = decoded if isinstance(decoded, dict) else {}
+            points = result.get("points")
+            found: list[dict[str, Any]] = []
+            if not isinstance(points, list):
+                return found
             for point in points[:32]:
                 if not isinstance(point, dict):
                     continue
@@ -489,12 +497,56 @@ class BrowserAutomationStore:
                     continue
                 if not 0.0 <= local_x <= 1.0 or not 0.0 <= local_y <= 1.0:
                     continue
-                pixel_x = crop_left + local_x * max(0, crop_width - 1)
-                pixel_y = crop_top + local_y * max(0, crop_height - 1)
+                pixel_x = left + local_x * max(0, crop_width - 1)
+                pixel_y = top + local_y * max(0, crop_height - 1)
                 x = round(pixel_x * 1000 / max(1, image.width - 1))
                 y = round(pixel_y * 1000 / max(1, image.height - 1))
                 if 0 <= x <= 1000 and 0 <= y <= 1000:
-                    candidates.append((x, y))
+                    found.append(
+                        {
+                            "x": x,
+                            "y": y,
+                            "region": {
+                                "origin_x": left,
+                                "origin_y": top,
+                                "width": crop_width,
+                                "height": crop_height,
+                                "parent_width": image.width,
+                                "parent_height": image.height,
+                            },
+                        }
+                    )
+            return found
+
+        candidates = query_region(crop_left, crop_top)
+        horizontal_origins = list(
+            range(
+                0,
+                max(1, image.width - crop_width + 1),
+                max(1, crop_width * 3 // 4),
+            )
+        )
+        if horizontal_origins[-1] != image.width - crop_width:
+            horizontal_origins.append(image.width - crop_width)
+        if not candidates:
+            # A coarse x proposal can be wrong even when its vertical band is
+            # right. Search that band first so instruction text in a distant
+            # band cannot beat the actual object merely because it has a label.
+            for left in horizontal_origins:
+                candidates.extend(query_region(left, crop_top))
+        if not candidates:
+            vertical_origins = list(
+                range(
+                    0,
+                    max(1, image.height - crop_height + 1),
+                    max(1, crop_height * 3 // 4),
+                )
+            )
+            if vertical_origins[-1] != image.height - crop_height:
+                vertical_origins.append(image.height - crop_height)
+            for top in vertical_origins:
+                for left in horizontal_origins:
+                    candidates.extend(query_region(left, top))
         if not candidates:
             raise BrowserAutomationError(
                 "the structured point head found no matching target in the current frame"
@@ -502,26 +554,22 @@ class BrowserAutomationStore:
         # A referring expression can legitimately match several items.  The
         # planner's coarse point is useful only as a disambiguating prior; the
         # dedicated point head remains authoritative for the executed pixels.
-        selected_x, selected_y = min(
+        selected = min(
             candidates,
-            key=lambda point: (point[0] - proposed_x) ** 2
-            + (point[1] - proposed_y) ** 2,
+            key=lambda point: (int(point["x"]) - proposed_x) ** 2
+            + (int(point["y"]) - proposed_y) ** 2,
         )
+        selected_x, selected_y = int(selected["x"]), int(selected["y"])
         return selected_x, selected_y, {
             "source": "dedicated_point_head",
             "model": str(result.get("model") or "")[:160],
             "revision": str(result.get("revision") or "")[:80],
             "target": normalized_target,
             "candidate_count": len(candidates),
+            "searched_region_count": len(searched_regions),
+            "fallback_search": len(searched_regions) > 1,
             "planner_prior": {"x": proposed_x, "y": proposed_y},
-            "grounding_region": {
-                "origin_x": crop_left,
-                "origin_y": crop_top,
-                "width": crop_width,
-                "height": crop_height,
-                "parent_width": image.width,
-                "parent_height": image.height,
-            },
+            "grounding_region": selected["region"],
             "executed": {"x": selected_x, "y": selected_y},
         }
 
@@ -1033,6 +1081,11 @@ class BrowserAutomationStore:
         if not 0 <= normalized_x <= 1000 or not 0 <= normalized_y <= 1000:
             raise BrowserAutomationError("visual_click x and y must be between 0 and 1000")
         target = " ".join(str(arguments.get("target") or "").split())
+        if self.pointing_url and not target:
+            raise BrowserAutomationError(
+                "visual_click requires a concise target referring expression while "
+                "the dedicated point head is active"
+            )
         use_point_head = bool(self.pointing_url and target)
         session.visual_grounding = {}
         if int(frame.get("refinement_depth") or 0) == 0 and not use_point_head:

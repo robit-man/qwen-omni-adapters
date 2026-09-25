@@ -439,6 +439,10 @@ disambiguated by the conversational model's coarse current-frame point; the
 point head's structured coordinate remains the executed value. If the point
 head is not configured, the existing bounded crop-refinement loop remains the
 fail-safe fallback rather than widening hit tolerances.
+With the point head active, every visual click requires a concise target phrase.
+If the planner's coarse crop misses, the executor searches the same horizontal
+band in bounded overlapping tiles before widening to a bounded tile grid; the
+point head still selects every executable coordinate.
 An explicit verification snapshot or completed visual click also asks that same
 resident visual worker to transcribe visible status text and exact completion
 identifiers from the exact returned CDP frame. That bounded reading is stored as

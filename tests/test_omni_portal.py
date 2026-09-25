@@ -251,6 +251,67 @@ def test_browser_point_head_maps_bounded_region_back_to_parent(
     }
 
 
+def test_browser_point_head_searches_same_band_after_bad_x_prior(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    class Response:
+        def __init__(self, points: list[dict[str, float]]) -> None:
+            self.points = points
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self, _limit: int) -> bytes:
+            return json.dumps(
+                {
+                    "points": self.points,
+                    "model": "point-test",
+                    "revision": "pinned",
+                }
+            ).encode()
+
+    def open_request(_request, **_kwargs):
+        nonlocal calls
+        calls += 1
+        return Response([{"x": 0.5, "y": 0.5}] if calls == 2 else [])
+
+    monkeypatch.setattr("portal.browser.urlopen", open_request)
+
+    x, y, receipt = BrowserAutomationStore(
+        pointing_url="http://127.0.0.1:8940"
+    )._point_target(
+        Image.new("RGB", (1000, 700), "white"),
+        "purple diamond",
+        800,
+        300,
+    )
+
+    assert calls == 4
+    assert (x, y) == (200, 300)
+    assert receipt["fallback_search"] is True
+    assert receipt["searched_region_count"] == 4
+    assert receipt["grounding_region"]["origin_x"] == 0
+    assert receipt["grounding_region"]["origin_y"] == 60
+
+
+def test_browser_point_head_rejects_a_targetless_visual_click() -> None:
+    session = SimpleNamespace(visual_frame={"url": "https://example.test"}, visual_sample=b"x")
+
+    with pytest.raises(BrowserAutomationError, match="requires a concise target"):
+        BrowserAutomationStore(
+            pointing_url="http://127.0.0.1:8940"
+        )._visual_click(
+            session,  # type: ignore[arg-type]
+            object(),  # type: ignore[arg-type]
+            {"x": 500, "y": 500, "coordinate_unit": "normalized_1000"},
+        )
+
+
 def test_browser_visual_observer_reads_the_exact_full_frame(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
