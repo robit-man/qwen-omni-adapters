@@ -1959,8 +1959,23 @@ class BackgroundAgent:
                 if key in {"role", "content", "tool_calls"}
             }
             assistant["role"] = "assistant"
-            messages.append(assistant)
             calls = _tool_calls(data)
+            if len(calls) > 1:
+                logger.warning(
+                    "background task %s proposed %d tool calls; executing only the "
+                    "first so every external result receives a fresh self-check",
+                    task_id,
+                    len(calls),
+                )
+                calls = calls[:1]
+            if calls:
+                # The durable protocol must describe only calls that the worker
+                # will actually execute. Later proposed calls were planned
+                # without seeing the first result and are therefore stale.
+                assistant["tool_calls"] = copy.deepcopy(calls)
+            else:
+                assistant.pop("tool_calls", None)
+            messages.append(assistant)
             if not calls:
                 stalls += 1
                 messages.append(

@@ -1731,6 +1731,117 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
     assert residency_prepared.is_set()
 
 
+def test_background_agent_executes_one_external_action_before_self_check(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Create exactly the first marker.")
+    chat_round = 0
+    discovery_queries: list[str] = []
+    commands: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        payload = json.loads(request.content)
+        if request.url.path == "/api/tools/tool_search/call":
+            discovery_queries.append(payload["arguments"]["query"])
+            return httpx.Response(
+                200,
+                json={"result": {"available_tools": ["shell"], "results": []}},
+            )
+        if request.url.path == "/api/tools/shell/call":
+            commands.append(payload["arguments"]["command"])
+            return httpx.Response(
+                200,
+                json={"result": {"exit_code": 0, "stdout": "first marker verified"}},
+            )
+        chat_round += 1
+        if chat_round == 1:
+            calls = [
+                {
+                    "id": "discover-first",
+                    "function": {
+                        "name": "tool_search",
+                        "arguments": {"query": "shell command execution"},
+                    },
+                },
+                {
+                    "id": "discover-stale",
+                    "function": {
+                        "name": "tool_search",
+                        "arguments": {"query": "unrelated browser action"},
+                    },
+                },
+            ]
+        elif chat_round == 2:
+            calls = [
+                {
+                    "id": "write-first",
+                    "function": {
+                        "name": "shell",
+                        "arguments": {"command": "touch first-marker"},
+                    },
+                },
+                {
+                    "id": "write-stale",
+                    "function": {
+                        "name": "shell",
+                        "arguments": {"command": "touch stale-second-marker"},
+                    },
+                },
+            ]
+        else:
+            return _checkpoint_response(
+                "complete", "I created and verified the first marker.", ["write-first"]
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": calls,
+                }
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.02)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert discovery_queries == ["shell command execution"]
+    assert commands == ["touch first-marker"]
+    assert [item["tool"] for item in current["actions"]] == [
+        "tool_search",
+        "shell",
+        "task_checkpoint",
+    ]
+    assert [item["call_id"] for item in current["actions"]] == [
+        "discover-first",
+        "write-first",
+        "checkpoint-complete",
+    ]
+
+
 def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
     tmp_path: Path,
 ) -> None:
