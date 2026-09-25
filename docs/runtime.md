@@ -11,9 +11,9 @@ portal can maintain a larger lossless, session-isolated evidence corpus through
 
 - `off`: no virtual-context database or packing work;
 - `shadow`: dual-write evidence and emit retrieval/packing telemetry without
-  changing the live request (the guided Jetson deployment default);
+  changing the live request;
 - `active`: replace old textual history with the bounded working pack for
-  controlled end-to-end evaluation.
+  production inference (the guided Jetson deployment default).
 
 `OMNI_VIRTUAL_CONTEXT_ROOT` selects the corpus directory and
 `OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS` sets the hard pack budget (default 16384).

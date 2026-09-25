@@ -24,11 +24,13 @@ The `qwen_omni_adapters.virtual_memory` package provides:
 - a hard context allocator that pins active constraints and reserves output headroom;
 - PAGE_IN/PAGE_OUT/PIN/UNPIN/EVICT/EXPAND/MERGE/SUPERSEDE/RECONSTRUCT telemetry.
 
-This foundation is model-agnostic. Guided Jetson deployment enables `shadow` mode:
-the portal dual-writes raw conversation/extracted document text and builds observable
-working sets, but does not change live prompts. Set `OMNI_VIRTUAL_CONTEXT_MODE=active`
-only for controlled end-to-end validation. Portal Trash removes the entire isolated
-session corpus together with the existing session caches.
+This foundation is model-agnostic. Guided Jetson deployment enables `active` mode
+after the cache-isolated 16K/256K RULER gate: the portal stores raw conversation and
+document text losslessly, then replaces old textual history with a bounded working
+set on every initial and tool-follow-up turn. Set `OMNI_VIRTUAL_CONTEXT_MODE=shadow`
+for side-by-side diagnostics without prompt replacement, or `off` to disable the
+subsystem. Portal Trash removes the entire isolated session corpus together with the
+existing session caches.
 
 ## Minimal use
 

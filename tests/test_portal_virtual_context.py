@@ -87,6 +87,63 @@ def test_active_mode_replaces_history_with_bounded_pack_and_current_media(
     assert prepared.context.total_tokens <= prepared.context.max_tokens
 
 
+def test_current_user_question_is_stored_but_never_self_replayed_as_evidence(
+    tmp_path: Path,
+) -> None:
+    manager = SessionVirtualContext(tmp_path / "virtual", mode="active")
+    messages = [{"role": "user", "content": "What is the unrecorded bus value?"}]
+
+    manager.observe_messages("session-current", messages)
+    prepared = manager.prepare(
+        "session-current",
+        messages,
+        system_contract="Use exact historical evidence when it exists.",
+    )
+
+    assert manager.stats("session-current")["documents"] == 1
+    assert prepared.context.evidence_chunk_ids == ()
+    assert prepared.context.text.count("What is the unrecorded bus value?") == 1
+    assert prepared.answer_allowed is False
+    assert any(
+        event["operation"] == "EVICT"
+        and event["detail"].get("reason") == "current_query_is_not_evidence"
+        for event in prepared.controller.trace
+    )
+
+
+def test_active_mode_recalls_early_fact_beyond_physical_history_window(
+    tmp_path: Path,
+) -> None:
+    manager = SessionVirtualContext(tmp_path / "virtual", mode="active")
+    messages = [
+        {"role": "user", "content": "The immutable actuator code is quartz-991."},
+        {"role": "assistant", "content": "Recorded."},
+        {"role": "assistant", "content": "irrelevant padding " * 12_000},
+        {
+            "role": "user",
+            "content": "What is the immutable actuator code?",
+            "images": [{"data": "current-frame", "mime_type": "image/jpeg"}],
+        },
+    ]
+    manager.observe_messages("session-long", messages)
+
+    prepared = manager.prepare(
+        "session-long",
+        messages,
+        system_contract="Answer from exact historical evidence.",
+    )
+    payload = {"messages": [{"role": "system", "content": "old"}, *messages]}
+    manager.apply_active(payload, prepared)
+
+    assert prepared.answer_allowed is True
+    assert "quartz-991" in prepared.context.text
+    assert prepared.context.evidence_chunk_ids
+    assert prepared.context.total_tokens <= prepared.context.max_tokens
+    assert prepared.context.text.count("irrelevant padding") < 100
+    assert len(payload["messages"]) == 2
+    assert payload["messages"][1]["images"][0]["data"] == "current-frame"
+
+
 def test_active_tool_followup_is_repacked_with_result_and_original_query(
     tmp_path: Path,
 ) -> None:
@@ -119,6 +176,7 @@ def test_active_tool_followup_is_repacked_with_result_and_original_query(
     assert followup is not None
     assert "cobalt-ready" in followup.context.text
     assert "Find the actuator status." in followup.context.text
+    assert followup.context.text.count("Find the actuator status.") == 1
     assert len(payload["messages"]) == 2
     assert followup.context.total_tokens <= followup.context.max_tokens
 

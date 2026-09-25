@@ -152,9 +152,14 @@ class VirtualContextEngine:
         recurrent_memory: str = "",
         active_subjects: Sequence[str] = (),
         reserved_tokens: int = 0,
+        excluded_chunk_ids: Sequence[str] = (),
     ) -> PreparedTurn:
         trace = TraceCollector()
-        controller_result = self.controller.gather(query, trace=trace)
+        controller_result = self.controller.gather(
+            query,
+            trace=trace,
+            excluded_chunk_ids=excluded_chunk_ids,
+        )
         memories = self._active_memories(query, active_subjects)
         conflicts = self._conflicts(memories)
         conflict_hits: list[RetrievalHit] = []

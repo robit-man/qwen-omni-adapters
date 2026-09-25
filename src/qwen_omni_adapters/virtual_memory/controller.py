@@ -86,8 +86,15 @@ class RecursiveMemoryController:
         self.dependency_planner = dependency_planner
         self.sufficiency_judge = sufficiency_judge
 
-    def gather(self, query: str, *, trace: TraceCollector | None = None) -> ControllerResult:
+    def gather(
+        self,
+        query: str,
+        *,
+        trace: TraceCollector | None = None,
+        excluded_chunk_ids: Sequence[str] = (),
+    ) -> ControllerResult:
         collector = trace or TraceCollector()
+        excluded = set(excluded_chunk_ids)
         pending = [query]
         queries: list[str] = []
         evidence: dict[str, RetrievalHit] = {}
@@ -117,6 +124,14 @@ class RecursiveMemoryController:
                 )
                 found = self.retriever.retrieve(current, trace=collector)
                 for hit in found:
+                    if hit.chunk.chunk_id in excluded:
+                        collector.record(
+                            "EVICT",
+                            hit.chunk.chunk_id,
+                            reason="current_query_is_not_evidence",
+                            recoverable=True,
+                        )
+                        continue
                     previous = evidence.get(hit.chunk.chunk_id)
                     if previous is None or hit.score > previous.score:
                         evidence[hit.chunk.chunk_id] = hit

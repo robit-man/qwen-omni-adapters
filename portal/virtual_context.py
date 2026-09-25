@@ -41,6 +41,37 @@ def _text_content(content: Any) -> str:
     return ""
 
 
+def _message_records(
+    messages: Sequence[Any],
+) -> list[tuple[int, str, str, str, str]]:
+    """Return stable append-only identities for textual conversation turns."""
+
+    prefix = hashlib.sha256()
+    records = []
+    for ordinal, message in enumerate(messages):
+        if not isinstance(message, Mapping):
+            continue
+        role = str(message.get("role") or "").strip().lower()
+        if role not in {"user", "assistant", "tool"}:
+            continue
+        content = _text_content(message.get("content"))
+        if not content:
+            continue
+        prefix.update(role.encode())
+        prefix.update(b"\0")
+        prefix.update(content.encode())
+        records.append(
+            (
+                ordinal,
+                role,
+                content,
+                prefix.hexdigest()[:24],
+                hashlib.sha256(content.encode()).hexdigest()[:16],
+            )
+        )
+    return records
+
+
 @dataclass
 class _SessionEngine:
     store: ImmutableEvidenceStore
@@ -107,27 +138,14 @@ class SessionVirtualContext:
         if not self.enabled:
             return 0
         session = self._session(session_id)
-        prefix = hashlib.sha256()
         ingested = 0
-        for ordinal, message in enumerate(messages):
-            if not isinstance(message, Mapping):
-                continue
-            role = str(message.get("role") or "").strip().lower()
-            if role not in {"user", "assistant", "tool"}:
-                continue
-            content = _text_content(message.get("content"))
-            if not content:
-                continue
-            prefix.update(role.encode())
-            prefix.update(b"\0")
-            prefix.update(content.encode())
-            message_id = prefix.hexdigest()[:24]
+        for ordinal, role, content, message_id, version in _message_records(messages):
             chunks = session.store.ingest(
                 content,
                 source=f"conversation:{role}",
                 document_id=f"message-{message_id}",
                 message_id=message_id,
-                version=hashlib.sha256(content.encode()).hexdigest()[:16],
+                version=version,
                 kind="conversation",
                 metadata={"role": role, "ordinal": ordinal},
             )
@@ -190,11 +208,43 @@ class SessionVirtualContext:
                 query = content
         if not query:
             return None
+        current_user = next(
+            (
+                (message_id, version)
+                for _ordinal, role, _content, message_id, version in reversed(
+                    _message_records(messages)
+                )
+                if role == "user"
+            ),
+            None,
+        )
+        excluded_chunk_ids = set(
+            (
+                chunk.chunk_id
+                for chunk in self._session(session_id).store.document_chunks(
+                    f"message-{current_user[0]}",
+                    current_user[1],
+                )
+            )
+            if current_user is not None
+            else ()
+        )
+        if query_override is not None:
+            excluded_chunk_ids.update(
+                chunk.chunk_id
+                for chunk in self._session(session_id).store.exact_search(
+                    query,
+                    limit=200,
+                )
+                if chunk.original_text.strip() == query
+                and str(chunk.metadata.get("role") or "").lower() == "user"
+            )
         return self._session(session_id).engine.prepare_turn(
             query,
             system_contract=system_contract,
             recent_context=recent if query_override is not None else recent[:-1],
             reserved_tokens=reserved_tokens,
+            excluded_chunk_ids=tuple(excluded_chunk_ids),
         )
 
     def request_envelope_tokens(self, payload: Mapping[str, Any]) -> int:

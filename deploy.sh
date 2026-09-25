@@ -404,9 +404,10 @@ install_environment() {
     # the lossless virtual-context hierarchy rather than an oversized Tegra KV
     # allocation that competes with vision, TTS, and the desktop.
     printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=16384\n'
-    # Dual-write and build observable working sets without changing live
-    # prompts until the on-device shadow fidelity gates are accepted.
-    printf 'OMNI_VIRTUAL_CONTEXT_MODE=shadow\n'
+    # The 16K/256K live RULER gate is accepted: use the lossless hierarchy as
+    # the production working-set allocator. Operators can still explicitly
+    # select shadow/off in .env for diagnostic comparison.
+    printf 'OMNI_VIRTUAL_CONTEXT_MODE=active\n'
     printf 'OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=16384\n'
     printf 'OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL=http://127.0.0.1:8901/tokenize\n'
     printf 'OMNI_STARTUP_SMOKE=0\n'
