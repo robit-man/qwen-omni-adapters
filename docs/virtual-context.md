@@ -305,6 +305,42 @@ that the implemented topology, constraint, chronology, conflict, and code-symbol
 work end to end on the deployed model; additional randomized domain seeds remain
 required for confidence intervals.
 
+The seeded generator was then frozen before model execution. Its first three committed
+256K fixtures exposed real generalization faults rather than being silently replaced:
+23/30 strict passes even though retrieval was sufficient and provenance-exact for all
+30. Six answers unnecessarily repeated a distinct prefix-collision decoy, and one
+512-token code answer reached its output cap before stating the requested constant.
+The resulting general fixes prioritize requested facts before explanation, focus the
+final working set on boundary-exact addresses, add Python assignment/attribute-reference
+topology, and make terminal graph settings traversable.
+
+Three new consecutive seeds were separately hash-sealed before inference and were not
+used to develop those changes. On the live Jetson with the physical window still fixed
+at 4,096 tokens, all 30 post-fix tasks passed with exact provenance and post-pack
+sufficiency:
+
+| condition | tasks passed | prompt / completion tokens | p50 / p95 inference |
+|---|---:|---:|---:|
+| initial sealed seeds, pre-fix | 23 / 30 | 18,391 / 4,911 | 6.56s / 20.10s |
+| same-seed diagnostic regression | 20 / 20 | 11,266 / 2,356 | 5.26s / 9.98s |
+| fresh post-fix sealed seeds | 30 / 30 | 16,757 / 3,170 | 4.80s / 10.57s |
+| corrected labelled oracle, one sealed seed | 10 / 10 | 4,864 / 1,173 | 3.62s / 17.32s |
+| final-window FIFO, same sealed seed | 0 / 10 | 17,230 / 1,023 | 6.35s / 9.71s |
+
+The 30 fresh hybrid calls each stopped after one retrieval round and used only 276--995
+resident tokens per task, a 257x--928x source-to-resident ratio. The production service
+and voice harness remained active with zero restarts. The first oracle attempt is also
+retained: it scored 8/10 because its benchmark-only locator used substring rather than
+identifier-boundary matching and admitted the same prefix decoys. Correcting that
+baseline produced 10/10 without changing hybrid retrieval. Seed manifests, raw-report
+hashes, initial failures, diagnostic reruns, and the final controls are recorded in
+`.aiwg/testing/evidence/virtual-context-domain-heldout-256k-jetson.json`.
+
+This is held-out evidence for ten randomized domain task families, not a claim that a
+4K model is universally equivalent to native 256K attention. More independent seeds,
+source-length curves through 1M, and codebase-scale task-completion suites remain
+required.
+
 The production portal was separately exercised after enabling the fully co-resident
 TTS and pointing stack. Its launcher selected a stricter 4,096-token physical window.
 An authenticated 1,748,926-character conversation with three exact values buried among

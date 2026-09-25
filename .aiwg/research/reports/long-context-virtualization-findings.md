@@ -474,6 +474,33 @@ authority paths. Exact reports and hashes are preserved in
 `.aiwg/testing/evidence/virtual-context-domain-256k-jetson.json`. The fixture was used
 during development and is not claimed as held-out or population-level evidence.
 
+A subsequent seeded generator randomized fact values, identifiers, code symbols,
+entity paths, revisions, request/fault IDs, source placement, and adjacent obsolete
+decoys while retaining only the task shapes. Three consecutive seed/hash pairs were
+committed before endpoint inference. That first sealed cohort scored 23/30 despite
+30/30 retrieval sufficiency and exact provenance: six answers repeated a rejected
+prefix decoy, while one verbose code trace reached 512 completion tokens before its
+requested constant. The non-perfect reports were preserved rather than relabelled.
+
+Those failures produced model-agnostic changes: boundary-exact address focus in the
+final packer, Python assignment symbols and attribute-reference edges, a traversable
+terminal setting edge, and a compact requested-facts-first answer contract. The two
+previously failing seeds then passed 20/20 as a labelled diagnostic regression. A
+second cohort of three consecutive seeds was hash-sealed before any post-fix inference;
+it passed 30/30 at 256K source / 4,096 physical tokens, with exact provenance and
+post-pack sufficiency for all answers. All 30 stopped after one retrieval round, used
+276--995 resident tokens (257x--928x compression), and measured 4.80s p50 / 10.57s
+p95 inference. On one of those sealed seeds, hybrid matched a boundary-exact labelled
+oracle at 10/10 while final-window FIFO scored 0/10.
+
+The first oracle control itself exposed another useful measurement fault: substring
+location admitted identifiers such as `FAULT_X_ARCHIVE` for a `FAULT_X` label and
+scored 8/10. Its raw report is retained; boundary-exact labelled source selection fixed
+the oracle without touching production hybrid retrieval. Full seed seals, report
+hashes, failures, fixes, and runtime evidence are in
+`.aiwg/testing/evidence/virtual-context-domain-heldout-256k-jetson.json`. This remains
+task-family evidence rather than universal native-256K equivalence.
+
 ## Required next experiments
 
 - Repeat the 16K–1M model-answer curve with additional independent sealed seeds and
@@ -487,7 +514,7 @@ during development and is not claimed as held-out or population-level evidence.
   2K/4K/8K chunk-budget integrity matrix.
 - Replace the weak hashing-dense lane with a production-quality embedding model and
   rerun dense/hybrid ablations without changing the immutable corpus.
-- Generate held-out randomized variants of the completed code-topology, chronology,
-  supersession, contradiction, and 100K+ constraint answer suite.
+- Extend the completed three-seed randomized domain gate across source lengths,
+  additional seeds, and codebase-scale task-completion outcomes.
 - Measure latency, inference tokens, RAM/VRAM, SQLite/index size, and evidence tokens.
 - Prototype latent compilation only after the training-free V1 has a stable fidelity curve.

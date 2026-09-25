@@ -1,0 +1,158 @@
+{
+  "schema": "robit.virtual-context-domain-heldout-evidence.v1",
+  "generated_at": "2026-09-25T10:31:00-07:00",
+  "repository_revision": "cd5c7b549e88bb355ef23de7ce649cfd8a0d0904",
+  "runtime": {
+    "host": "NVIDIA Jetson AGX Orin 32 GB",
+    "architecture": "aarch64",
+    "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+    "endpoint_model_alias": "local-audio-bridge",
+    "physical_context_tokens": 4096,
+    "configured_physical_context_tokens": 16384,
+    "physical_context_source": "resident_state",
+    "tokenizer": "exact_endpoint",
+    "think": false,
+    "cache_prompt": false,
+    "core_service_restarts_during_runs": 0,
+    "harness_restarts_during_runs": 0,
+    "core_service_final_state": "active",
+    "harness_service_final_state": "active"
+  },
+  "initial_sealed_cohort": {
+    "seal_file": ".aiwg/testing/evidence/virtual-context-domain-heldout-seal.json",
+    "generator_revision": "8b99dac45bd9e569ca65dfbaca164ce21091d88e",
+    "seeds": [26092501, 26092502, 26092503],
+    "source_sha256": [
+      "aa38028a32148ce3d716d459e5fda64aaacededb74d2e21b3d74f1d737e5b929",
+      "45e0487681ddfb4c5935e2071d073e1d82c6de8d1365d9b02e178f28aad2ef99",
+      "3ee8481211bdd9afe72d507f46b5bae4652101e269a7eb23f3da395bd7e918f5"
+    ],
+    "source_tokens_per_seed": 256000,
+    "scenarios": 30,
+    "answered": 30,
+    "sufficient": 30,
+    "exact_provenance": 30,
+    "passed": 23,
+    "strict_pass_rate": 0.7666666666666667,
+    "failure_classes": {
+      "unrequested_near_duplicate_repeated_in_answer": 6,
+      "requested_code_constant_after_512_token_cutoff": 1
+    },
+    "prompt_tokens": 18391,
+    "completion_tokens": 4911,
+    "p50_inference_seconds": 6.564794221005286,
+    "p95_inference_seconds": 20.103284919001453,
+    "report_sha256": {
+      "26092501": "c4a4408deee389abb0c7414990901ccb9f31458b8218d1ddaff0b6b65637c864",
+      "26092502": "2d6aad2aaa6ccb50793e92fcbdbb236e98bd9d6902cd68afb94ebe0dfec698d5",
+      "26092503": "d629a3c67717fb83c7c7d6392ea0bdebad0eb91043066c3cf6af596233c3cbff"
+    }
+  },
+  "failure_driven_changes": [
+    {
+      "revision": "a327cd6",
+      "change": "Put every requested fact before explanation, cap domain answers at 180 words, and suppress unasked alternatives and internal source identifiers."
+    },
+    {
+      "revision": "26efd9d",
+      "change": "Use boundary-exact query addresses for final evidence focus, add Python assignment symbols and attribute-reference edges, and link terminal graph settings."
+    }
+  ],
+  "same_seed_regression": {
+    "scope": "Previously failing seeds 26092501 and 26092502; diagnostic regression, not held-out evidence.",
+    "scenarios": 20,
+    "passed": 20,
+    "sufficient": 20,
+    "exact_provenance": 20,
+    "prompt_tokens": 11266,
+    "completion_tokens": 2356,
+    "p50_inference_seconds": 5.258282196999062,
+    "p95_inference_seconds": 9.982140167005127,
+    "report_sha256": {
+      "26092501": "f8c5ce6fb94e68d3bcb8d44853b13e7fbe55a72d0f9c43515dbda196573448a1",
+      "26092502": "5c224fca16b754c6294418f8a54c99248f16b0598246027fa3bfd21873e9899e"
+    }
+  },
+  "post_fix_heldout_cohort": {
+    "seal_file": ".aiwg/testing/evidence/virtual-context-domain-heldout-postfix-seal.json",
+    "behavior_revision": "26efd9d116aa1fb66ba0be2b1b13d364b95cac84",
+    "seal_commit": "871d884",
+    "answer_contract_version": "focused-complete-v2",
+    "seeds": [26092504, 26092505, 26092506],
+    "source_sha256": [
+      "601cd2637cbf6e8054726bedaeceaec25e7f2efe746d1342f0fd27d97c6d8bcc",
+      "3ed58f4a9d40aa0b6af099a52fb6282ed5cacdd4ae94c9af3aafa8d9b18aaf4b",
+      "8aa1b957f6b95ab2aa1c0394d79a258124086670bfc7743712f227daad38be47"
+    ],
+    "source_tokens_per_seed": 256000,
+    "scenarios": 30,
+    "answered": 30,
+    "sufficient": 30,
+    "exact_provenance": 30,
+    "post_pack_sufficiency_checks": 30,
+    "passed": 30,
+    "pass_rate": 1.0,
+    "retrieval_rounds": {
+      "one_round": 30,
+      "more_than_one_round": 0
+    },
+    "resident_tokens_min": 276,
+    "resident_tokens_max": 995,
+    "compression_ratio_min": 257.286432160804,
+    "compression_ratio_max": 927.536231884058,
+    "prompt_tokens": 16757,
+    "completion_tokens": 3170,
+    "p50_inference_seconds": 4.799120550997031,
+    "p95_inference_seconds": 10.572978877004061,
+    "report_sha256": {
+      "26092504": "f3a782f4bbe42480067035aeb860c9dfae8fc01591bea5a23334c8d82250c338",
+      "26092505": "662b2c969cd52dd4c36251ea94ae3a7c7a2ec3fa8c9c89b1e929e375ac452b86",
+      "26092506": "fd384b6d8a629f16c0a522bb449fca2982e74e7e1ea7bcece8a6371a478dfbeb"
+    }
+  },
+  "sealed_seed_26092504_controls": {
+    "hybrid": {
+      "passed": 10,
+      "exact_provenance": 10,
+      "prompt_tokens": 5656,
+      "completion_tokens": 1108,
+      "p50_inference_seconds": 4.799120550997031,
+      "p95_inference_seconds": 10.616840324000805,
+      "report_sha256": "f3a782f4bbe42480067035aeb860c9dfae8fc01591bea5a23334c8d82250c338"
+    },
+    "boundary_exact_oracle": {
+      "passed": 10,
+      "exact_provenance": 10,
+      "prompt_tokens": 4864,
+      "completion_tokens": 1173,
+      "p50_inference_seconds": 3.6170235669997055,
+      "p95_inference_seconds": 17.316194050996273,
+      "report_sha256": "8d91d128da62c2b75b1ba29d7d20e29e950735ed036434a6e26d9f9b10c4583b"
+    },
+    "fifo_tail": {
+      "passed": 0,
+      "exact_provenance": 0,
+      "prompt_tokens": 17230,
+      "completion_tokens": 1023,
+      "p50_inference_seconds": 6.345802169002127,
+      "p95_inference_seconds": 9.707028669996362,
+      "report_sha256": "634bcb4802f330a71a5ca039bbc20f83dac46db17d3deeacd114b2b602256879"
+    },
+    "discarded_substring_oracle_diagnostic": {
+      "passed": 8,
+      "reason": "The first oracle locator admitted prefix collisions such as FAULT_X_ARCHIVE. The raw report is retained; boundary-exact labels fixed the baseline without changing production hybrid retrieval.",
+      "report_sha256": "82086eb0a82b6723559e7c6bfa3b2907fb5c6fe4dacca8bcd7bb9377fedf545d"
+    }
+  },
+  "anti_reward_hacking": {
+    "seeds_and_source_hashes_committed_before_inference": true,
+    "initial_nonperfect_results_preserved": true,
+    "post_fix_seeds_not_used_during_development": true,
+    "strict_required_and_forbidden_term_scorer_unchanged": true,
+    "expected_answers_not_available_to_retrieval_packing_or_model": true,
+    "insufficient_samples_not_forced_to_answer": true,
+    "same_seed_reruns_labelled_as_regression_not_heldout": true,
+    "oracle_uses_raw_source_pages_not_expected_answer_text": true,
+    "scope_caveat": "Thirty post-fix samples across three independent randomized seeds establish this ten-family domain suite, not universal equivalence to native 256K attention. RULER and additional length/seed sweeps remain separate evidence."
+  }
+}
