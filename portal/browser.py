@@ -90,6 +90,49 @@ def _profile_process_ids(profile: Path, proc_root: Path = Path("/proc")) -> list
     return sorted(matches)
 
 
+def _owned_profile_processes(
+    proc_root: Path = Path("/proc"),
+    temp_root: Path | None = None,
+) -> dict[Path, list[int]]:
+    """Find Chromium processes using profiles created by this runtime only."""
+
+    root = (temp_root or Path(tempfile.gettempdir())).resolve()
+    profiles: dict[Path, list[int]] = {}
+    try:
+        entries = list(proc_root.iterdir())
+    except OSError:
+        return profiles
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        try:
+            arguments = (entry / "cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        executable = arguments[0].split(b" ", 1)[0].rsplit(b"/", 1)[-1]
+        if executable not in {b"bwrap", b"chrome", b"chromium", b"chromium-browser"}:
+            continue
+        for argument in arguments:
+            for token in argument.split():
+                if not token.startswith(b"--user-data-dir="):
+                    continue
+                try:
+                    profile = Path(
+                        os.fsdecode(token.removeprefix(b"--user-data-dir="))
+                    ).resolve()
+                except (OSError, ValueError):
+                    continue
+                if (
+                    profile.parent == root
+                    and profile.name.startswith("omni-visible-chromium-")
+                ):
+                    profiles.setdefault(profile, []).append(int(entry.name))
+    return {
+        profile: sorted(set(process_ids))
+        for profile, process_ids in profiles.items()
+    }
+
+
 def _page_target_id(socket_url: str) -> str:
     return urlsplit(socket_url).path.rstrip("/").rsplit("/", 1)[-1]
 
@@ -365,6 +408,39 @@ class BrowserAutomationStore:
                 "this constrained runtime"
             )
 
+    def _reap_orphan_browsers(self) -> None:
+        """Close prior runtime-owned Chromium trees absent from this store."""
+
+        current_profiles = {
+            session.profile.resolve()
+            for session in self._sessions.values()
+            if session.process.poll() is None
+        }
+        for profile, process_ids in _owned_profile_processes().items():
+            if profile in current_profiles:
+                continue
+            logger.warning(
+                "closing stale visible-browser profile %s (%d processes)",
+                profile.name,
+                len(process_ids),
+            )
+            for pid in process_ids:
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+            deadline = time.monotonic() + 3
+            remaining = _profile_process_ids(profile)
+            while remaining and time.monotonic() < deadline:
+                time.sleep(0.05)
+                remaining = _profile_process_ids(profile)
+            for pid in remaining:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            shutil.rmtree(profile, ignore_errors=True)
+
     def _terminate(self, session: _BrowserSession) -> None:
         if session.process.poll() is None:
             try:
@@ -470,6 +546,10 @@ class BrowserAutomationStore:
                 "browser_interact did not launch a headless substitute."
             )
         self._admit_single_window()
+        # Chromium/Flatpak children can outlive a cancelled fixture or a portal
+        # process restart. The profile prefix is our exact ownership boundary;
+        # reap those orphans before starting the one allowed visible browser.
+        self._reap_orphan_browsers()
         if self.memory_governor is not None:
             if self.launch_reserve_gib is None:
                 self.memory_governor.require("visible browser")

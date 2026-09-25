@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import secrets
 import threading
@@ -164,8 +165,16 @@ def run(args: argparse.Namespace) -> int:
     thread.start()
     challenge_url = f"http://{args.bind}:{server.server_port}/"
     token = _access_token(args.status_path)
-    client = httpx.Client(timeout=30, follow_redirects=False)
+    portal_session_id = hashlib.sha256(
+        b"omni-voice-session\0" + token.encode("utf-8")
+    ).hexdigest()
+    client = httpx.Client(
+        timeout=30,
+        follow_redirects=False,
+        cookies={"omni_portal_session": portal_session_id},
+    )
     task_id = ""
+    owns_browser = False
     try:
         listed = _tool(client, args.portal, token, "background_task", {"action": "list"})
         active = [
@@ -178,6 +187,12 @@ def run(args: argparse.Namespace) -> int:
                 "An unfinished background task already owns the desktop; finish or "
                 "cancel it before running this end-to-end GUI gate."
             )
+        owns_browser = not active
+        if owns_browser:
+            # A previous timed-out fixture may have left the shared voice-agent
+            # Chromium session alive. Reuse its stable cookie and close it before
+            # this fixture claims the desktop rather than compounding windows.
+            _tool(client, args.portal, token, "browser_interact", {"action": "close"})
         started = _tool(
             client,
             args.portal,
@@ -284,6 +299,28 @@ def run(args: argparse.Namespace) -> int:
         )
         return 0
     finally:
+        if task_id:
+            try:
+                _tool(
+                    client,
+                    args.portal,
+                    token,
+                    "background_task",
+                    {"action": "cancel", "task_id": task_id},
+                )
+            except (httpx.HTTPError, RuntimeError):
+                pass
+        if owns_browser:
+            try:
+                _tool(
+                    client,
+                    args.portal,
+                    token,
+                    "browser_interact",
+                    {"action": "close"},
+                )
+            except (httpx.HTTPError, RuntimeError):
+                pass
         client.close()
         server.shutdown()
         server.server_close()

@@ -809,15 +809,44 @@ def _content_parts(
     return parts
 
 
+def _gui_prior_orientation(content: str) -> str:
+    """Recover bounded prior perception for same-target crop grounding."""
+
+    match = re.search(
+        r"<prior_full_frame_visual_orientation>(.*?)"
+        r"</prior_full_frame_visual_orientation>",
+        content,
+        flags=re.DOTALL,
+    )
+    if match is None:
+        return ""
+    orientation = " ".join(match.group(1).split())[:2000]
+    # Parent-frame coordinates are actively harmful in a crop coordinate
+    # system. Retain target identity and appearance, never the old point.
+    orientation = re.sub(
+        r"\b(?:point|bbox)\s*=\s*\([^)]{1,120}\)",
+        "[parent-frame coordinates omitted]",
+        orientation,
+        flags=re.IGNORECASE,
+    )
+    return orientation
+
+
 def _media_extraction_instruction(
     parts: list[dict[str, Any]],
     *,
     gui_grounding: bool = False,
+    gui_prior_orientation: str = "",
 ) -> str | None:
     has_audio = any(part.get("type") == "input_audio" for part in parts)
     has_visuals = any(part.get("type") in {"image_url", "input_video"} for part in parts)
     if gui_grounding and has_visuals and not has_audio:
-        return context_text("directives", "media_extract_gui_visual")
+        instruction = context_text("directives", "media_extract_gui_visual")
+        if gui_prior_orientation:
+            instruction += "\n" + context_text(
+                "directives", "media_extract_gui_refinement"
+            ).format(prior_orientation=json.dumps(gui_prior_orientation))
+        return instruction
     if has_audio and has_visuals:
         return context_text("directives", "media_extract_audio_visual")
     if has_audio:
@@ -842,6 +871,9 @@ def build_comprehension_payload(
         gui_grounding = bool(message.images) and (
             "<computer_visual_evidence>" in message.content
         )
+        gui_prior_orientation = (
+            _gui_prior_orientation(message.content) if gui_grounding else ""
+        )
         parts = _content_parts(
             message,
             include_audio_from_video=parsed.include_audio_from_video,
@@ -858,6 +890,7 @@ def build_comprehension_payload(
         extraction = _media_extraction_instruction(
             parts,
             gui_grounding=gui_grounding,
+            gui_prior_orientation=gui_prior_orientation,
         )
         if extraction and parts:
             parts.append({"type": "text", "text": extraction})

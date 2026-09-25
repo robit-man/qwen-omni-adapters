@@ -962,6 +962,38 @@ def test_computer_visual_evidence_uses_normalized_gui_grounding_prompt() -> None
     assert "Internal bounded GUI frame" not in media_parts[-1]["text"]
 
 
+def test_gui_refinement_reuses_target_identity_without_parent_coordinates() -> None:
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "<computer_visual_evidence>Current crop.</computer_visual_evidence>"
+                        "<prior_full_frame_visual_orientation>"
+                        "<visual_observation>target=blue triangle point=(820,475) "
+                        "bbox=(780,440,860,510)</visual_observation>"
+                        "</prior_full_frame_visual_orientation>"
+                    ),
+                    "images": [_encoded(b"\x89PNG\r\n\x1a\nfixture")],
+                }
+            ]
+        )
+    )
+
+    payload = build_comprehension_payload(
+        parsed,
+        Config("http://comp", "omni", "http://ollama", "http://tts", 30),
+    )
+
+    prompt = payload["messages"][-1]["content"][-1]["text"]
+    assert "target=blue triangle" in prompt
+    assert "parent-frame coordinates omitted" in prompt
+    assert "820,475" not in prompt
+    assert "780,440,860,510" not in prompt
+    assert "Current crop" not in prompt
+
+
 def test_trained_audio_bridge_uses_the_release_gated_prompt_contract() -> None:
     parsed = parse_adapter_request(
         _base_request(

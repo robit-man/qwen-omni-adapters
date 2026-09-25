@@ -249,6 +249,30 @@ def test_browser_profile_process_discovery_is_exact(tmp_path: Path) -> None:
     assert browser_module._profile_process_ids(Path("/tmp/unowned"), proc) == []
 
 
+def test_browser_discovers_only_runtime_owned_profiles(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    profiles = tmp_path / "profiles"
+    proc.mkdir()
+    profiles.mkdir()
+    owned = profiles / "omni-visible-chromium-stale"
+    unrelated = profiles / "ordinary-chromium"
+    outside = tmp_path / "omni-visible-chromium-outside"
+    for pid, arguments in {
+        "201": [b"chromium", f"--user-data-dir={owned}".encode()],
+        "202": [b"bwrap", f"--user-data-dir={owned}".encode()],
+        "203": [b"chromium", f"--user-data-dir={unrelated}".encode()],
+        "204": [b"chromium", f"--user-data-dir={outside}".encode()],
+        "205": [b"python", f"--user-data-dir={owned}".encode()],
+    }.items():
+        process = proc / pid
+        process.mkdir()
+        (process / "cmdline").write_bytes(b"\0".join(arguments) + b"\0")
+
+    assert browser_module._owned_profile_processes(proc, profiles) == {
+        owned.resolve(): [201, 202]
+    }
+
+
 def test_browser_keeps_the_controlled_tab_when_chromium_adds_a_blank_tab(
     monkeypatch,
 ) -> None:
