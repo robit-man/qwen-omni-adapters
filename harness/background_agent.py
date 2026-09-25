@@ -83,6 +83,11 @@ def _task_system_prompt(task: Mapping[str, Any]) -> str:
 TASK_CHECKPOINT_TOOL = context_value("control_tools", "task_checkpoint")
 TASK_COMPACT_TOOL = context_value("control_tools", "task_compact")
 TASK_RECOVERY_TOOL = context_value("control_tools", "task_recovery")
+LOCAL_CONTROL_TOOL_NAMES = {
+    "task_checkpoint",
+    "task_compact",
+    "task_recovery",
+}
 
 
 class _ForegroundPreempted(RuntimeError):
@@ -1785,6 +1790,12 @@ class BackgroundAgent:
                     *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
                 ]
             )
+            offered_tool_names = {
+                str(function.get("name") or "")
+                for schema in schemas
+                if isinstance(schema, Mapping)
+                and isinstance((function := schema.get("function")), Mapping)
+            }
             # A discovery result already chose the capability. Once a concrete
             # contract is active, every round is an action/checkpoint round,
             # not an open-ended deliberation round. Keep native thinking for
@@ -1994,6 +2005,35 @@ class BackgroundAgent:
                         arguments, round_visual_observation
                     )
                 call_id = str(call.get("id") or secrets.token_hex(6))
+                if (
+                    name in LOCAL_CONTROL_TOOL_NAMES
+                    and name not in offered_tool_names
+                ):
+                    rejected_result = {
+                        "error": "tool_not_offered",
+                        "message": (
+                            "This tool was not in the action contract for the current "
+                            "inference round. Use one of the currently offered tools."
+                        ),
+                        "offered_tools": sorted(offered_tool_names),
+                    }
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_name": name or "unknown",
+                            "tool_call_id": call_id,
+                            "content": json.dumps(rejected_result),
+                        }
+                    )
+                    self._record_action(
+                        task_id,
+                        call_id,
+                        name or "unknown",
+                        arguments,
+                        rejected_result,
+                    )
+                    stalls += 1
+                    continue
                 if name == "task_compact":
                     latest = self.store.get(task_id) or task
                     before = copy.deepcopy(messages)

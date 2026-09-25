@@ -1058,6 +1058,89 @@ def test_background_agent_can_invoke_deterministic_compaction(
     assert current["actions"][-1]["tool"] == "task_compact"
 
 
+def test_background_agent_rejects_tool_absent_from_current_action_contract(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Continue through the current browser page.")
+    seeded = store.claim_next("seed")
+    assert seeded is not None
+    store.checkpoint(
+        task["task_id"],
+        "seed",
+        messages=[
+            {"role": "system", "content": "policy"},
+            {"role": "user", "content": "browser task"},
+            *(
+                {"role": "user", "content": f"retained result {index}"}
+                for index in range(20)
+            ),
+        ],
+        active_tools=["browser_interact"],
+        status="pending",
+    )
+
+    stop = threading.Event()
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _request: (_ for _ in ()).throw(
+                AssertionError("an off-contract control call must remain local")
+            )
+        )
+    )
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=stop,
+        client=client,
+    )
+    claimed = store.claim_next(agent.owner)
+    assert claimed is not None
+    record_action = agent._record_action
+
+    def record_and_stop(*args, **kwargs) -> None:
+        record_action(*args, **kwargs)
+        stop.set()
+
+    agent._record_action = record_and_stop  # type: ignore[method-assign]
+
+    def hallucinate_compaction(payload: dict[str, object]) -> dict[str, object]:
+        offered = {
+            item["function"]["name"]  # type: ignore[index]
+            for item in payload["tools"]  # type: ignore[union-attr]
+        }
+        assert "browser_interact" in offered
+        assert "task_compact" not in offered
+        return {
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "off-contract-compact",
+                        "function": {
+                            "name": "task_compact",
+                            "arguments": {"reason": "long_task"},
+                        },
+                    }
+                ],
+            }
+        }
+
+    agent._chat = hallucinate_compaction  # type: ignore[method-assign]
+    agent._execute(claimed)
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert "compaction" not in current
+    assert current["actions"][-1]["tool"] == "task_compact"
+    assert '"error": "tool_not_offered"' in current["actions"][-1]["outcome"]
+
+
 def test_terminal_announcement_survives_restart_until_marked_spoken(
     tmp_path: Path,
 ) -> None:
