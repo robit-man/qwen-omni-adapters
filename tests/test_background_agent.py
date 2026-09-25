@@ -27,6 +27,7 @@ from harness.background_agent import (
     _compact_task_messages,
     _compaction_available,
     _compaction_receipt,
+    _compaction_tool_available,
     _computer_action_messages,
     _context_metrics,
     _direct_alternative_tools,
@@ -332,6 +333,22 @@ def test_context_metrics_charge_visual_tokens_not_raw_base64_transport() -> None
     assert metrics["messages"] == 3
     assert 8 * 1024 < metrics["bytes"] < 12 * 1024
     assert _compaction_available(messages) is False
+
+
+def test_manual_compaction_is_hidden_during_scoped_computer_action_loop() -> None:
+    messages = [
+        {"role": "system", "content": "task policy"},
+        {"role": "user", "content": "objective"},
+        *(
+            {"role": "user", "content": f"old result {index}"}
+            for index in range(20)
+        ),
+    ]
+
+    assert _compaction_available(messages) is True
+    assert _compaction_tool_available(messages, ["browser_interact"]) is False
+    assert _compaction_tool_available(messages, ["gui_interact"]) is False
+    assert _compaction_tool_available(messages, ["shell"]) is True
 
 
 def test_visual_frame_is_discarded_only_for_a_real_replacement() -> None:

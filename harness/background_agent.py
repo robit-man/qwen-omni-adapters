@@ -714,6 +714,16 @@ def _compaction_available(messages: list[dict[str, Any]]) -> bool:
     return latest_compaction <= latest_external_result
 
 
+def _compaction_tool_available(
+    messages: list[dict[str, Any]], active_tools: list[str]
+) -> bool:
+    """Expose manual compaction only when no already-scoped computer loop is active."""
+
+    return _compaction_available(messages) and not COMPUTER_ACTION_TOOLS.intersection(
+        active_tools
+    )
+
+
 def _compaction_receipt(
     before: list[dict[str, Any]],
     after: list[dict[str, Any]],
@@ -1763,7 +1773,7 @@ class BackgroundAgent:
                 else [
                     *(
                         [copy.deepcopy(TASK_COMPACT_TOOL)]
-                        if _compaction_available(messages)
+                        if _compaction_tool_available(messages, active_tools)
                         else []
                     ),
                     *(
