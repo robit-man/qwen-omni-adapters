@@ -335,16 +335,10 @@ class SessionVirtualContext:
             reserved_tokens=self.request_envelope_tokens(payload),
         )
         if prepared is not None:
-            self.apply_active(payload, prepared, current_query=query)
+            self.apply_active(payload, prepared)
         return prepared
 
-    def apply_active(
-        self,
-        payload: dict[str, Any],
-        prepared: PreparedTurn,
-        *,
-        current_query: str | None = None,
-    ) -> None:
+    def apply_active(self, payload: dict[str, Any], prepared: PreparedTurn) -> None:
         if self.mode != "active":
             return
         messages = payload.get("messages")
@@ -360,21 +354,34 @@ class SessionVirtualContext:
         )
         if latest_user is None:
             return
-        # Keep the real query in the user turn.  A symbolic ``<current_query>``
-        # reference is not a template variable at the inference boundary and
-        # some language trunks correctly interpret it as missing input.  The
-        # packer already budgeted the query tokens; move that item from the
-        # packed system text into this user message rather than duplicating it.
-        if current_query and (
-            not _text_content(latest_user.get("content"))
-            or "<current_query>" in _text_content(latest_user.get("content"))
-        ):
-            latest_user["content"] = current_query
+        # Keep policy in the system role and present the bounded working set as
+        # one user message, with exact evidence immediately before the real
+        # query.  This matches the independently verified RULER path and avoids
+        # language trunks treating evidence embedded in a system policy as
+        # instructions rather than source material.
         bounded_system = "\n\n".join(
             item.text
             for item in prepared.context.items
-            if item.category != "current_query" and item.text
+            if item.category == "system_contract" and item.text
         )
+        working_text = "\n\n".join(
+            item.text
+            for item in prepared.context.items
+            if item.category != "system_contract" and item.text
+        )
+        original_content = latest_user.get("content")
+        if isinstance(original_content, list):
+            retained_media = [
+                dict(item)
+                for item in original_content
+                if isinstance(item, Mapping) and item.get("type") != "text"
+            ]
+            latest_user["content"] = [
+                {"type": "text", "text": working_text},
+                *retained_media,
+            ]
+        else:
+            latest_user["content"] = working_text
         payload["messages"] = [
             {"role": "system", "content": bounded_system},
             latest_user,

@@ -1413,8 +1413,9 @@ def test_virtual_context_active_repacks_each_tool_followup(tmp_path: Path) -> No
     assert len(requests) == 2
     assert len(requests[1]["messages"]) == 2
     assert requests[1]["messages"][0]["role"] == "system"
-    assert "get_portal_capabilities" in requests[1]["messages"][0]["content"]
-    assert "What can you do?" in requests[1]["messages"][0]["content"]
+    assert requests[1]["messages"][1]["role"] == "user"
+    assert "get_portal_capabilities" in requests[1]["messages"][1]["content"]
+    assert "What can you do?" in requests[1]["messages"][1]["content"]
     assert response.json["portal"]["virtual_context"]["working_tokens"] <= 16_384
 
 

@@ -82,9 +82,10 @@ def test_active_mode_replaces_history_with_bounded_pack_and_current_media(
 
     assert len(payload["messages"]) == 2
     assert payload["messages"][0]["role"] == "system"
-    assert "quartz-991" in payload["messages"][0]["content"]
-    assert "<current_query>" not in payload["messages"][0]["content"]
-    assert payload["messages"][1]["content"] == "What is the bus value?"
+    assert payload["messages"][0]["content"] == "Answer from exact evidence."
+    assert "quartz-991" in payload["messages"][1]["content"]
+    assert "<current_query>" in payload["messages"][1]["content"]
+    assert payload["messages"][1]["content"].count("What is the bus value?") == 1
     assert payload["messages"][1]["images"][0]["data"] == "current-frame"
     assert prepared.context.total_tokens <= prepared.context.max_tokens
 
@@ -111,6 +112,36 @@ def test_current_user_question_is_stored_but_never_self_replayed_as_evidence(
         and event["detail"].get("reason") == "current_query_is_not_evidence"
         for event in prepared.controller.trace
     )
+
+
+def test_active_mode_replaces_inline_text_but_keeps_current_media_parts(
+    tmp_path: Path,
+) -> None:
+    manager = SessionVirtualContext(tmp_path / "virtual", mode="active")
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What is in the current frame?"},
+                {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,AA=="}},
+            ],
+        }
+    ]
+    manager.observe_messages("session-inline-media", messages)
+    prepared = manager.prepare(
+        "session-inline-media",
+        messages,
+        system_contract="Use only current visual evidence.",
+    )
+    payload = {"messages": list(messages)}
+
+    manager.apply_active(payload, prepared)
+
+    content = payload["messages"][1]["content"]
+    assert isinstance(content, list)
+    assert content[0]["type"] == "text"
+    assert content[0]["text"].count("What is in the current frame?") == 1
+    assert content[1] == messages[0]["content"][1]
 
 
 def test_active_mode_recalls_early_fact_beyond_physical_history_window(
@@ -181,7 +212,9 @@ def test_active_tool_followup_is_repacked_with_result_and_original_query(
     assert followup.context.text.count("Find the actuator status.") == 1
     assert len(payload["messages"]) == 2
     assert "<current_query>" not in payload["messages"][0]["content"]
-    assert payload["messages"][1]["content"] == "Find the actuator status."
+    assert "cobalt-ready" in payload["messages"][1]["content"]
+    assert "Act on <current_query>." not in payload["messages"][1]["content"]
+    assert payload["messages"][1]["content"].count("Find the actuator status.") == 1
     assert followup.context.total_tokens <= followup.context.max_tokens
 
 
