@@ -565,16 +565,17 @@ class BrowserAutomationStore:
         return None
 
     @staticmethod
-    def _screenshot_details(encoded: str) -> tuple[int, int, bytes]:
-        """Decode one CDP screenshot into exact dimensions and a coarse sample."""
-
+    def _decode_screenshot(encoded: str) -> Image.Image:
         try:
             raw = base64.b64decode(encoded, validate=True)
-            image = Image.open(io.BytesIO(raw)).convert("RGB")
+            return Image.open(io.BytesIO(raw)).convert("RGB")
         except (ValueError, OSError) as exc:
             raise BrowserAutomationError(
                 "Chromium produced an invalid screenshot"
             ) from exc
+
+    @staticmethod
+    def _image_sample(image: Image.Image) -> bytes:
         resampling = getattr(Image, "Resampling", Image).BILINEAR
         reduced = image.resize((64, 64), resampling)
         pixels = (
@@ -582,8 +583,14 @@ class BrowserAutomationStore:
             if hasattr(reduced, "get_flattened_data")
             else reduced.getdata()
         )
-        sample = bytes(channel // 16 for pixel in pixels for channel in pixel)
-        return image.width, image.height, sample
+        return bytes(channel // 16 for pixel in pixels for channel in pixel)
+
+    @classmethod
+    def _screenshot_details(cls, encoded: str) -> tuple[int, int, bytes]:
+        """Decode one CDP screenshot into exact dimensions and a coarse sample."""
+
+        image = cls._decode_screenshot(encoded)
+        return image.width, image.height, cls._image_sample(image)
 
     def _snapshot(self, session: _BrowserSession, cdp: _Cdp) -> dict[str, Any]:
         raw = self._evaluate(cdp, _SNAPSHOT_SCRIPT)
@@ -644,6 +651,15 @@ class BrowserAutomationStore:
             "url": url,
             "css_width": int(viewport.get("width") or image_width),
             "css_height": int(viewport.get("height") or image_height),
+            "root_css_width": int(viewport.get("width") or image_width),
+            "root_css_height": int(viewport.get("height") or image_height),
+            "origin_css_x": 0.0,
+            "origin_css_y": 0.0,
+            "pixel_origin_x": 0,
+            "pixel_origin_y": 0,
+            "full_pixel_width": image_width,
+            "full_pixel_height": image_height,
+            "refinement_depth": 0,
         }
         session.visual_sample = sample
         result = {
@@ -728,7 +744,7 @@ class BrowserAutomationStore:
         session: _BrowserSession,
         cdp: _Cdp,
         arguments: dict[str, Any],
-    ) -> bool:
+    ) -> str:
         """Click a normalized point in the exact last CDP viewport frame."""
 
         frame = session.visual_frame
@@ -748,6 +764,12 @@ class BrowserAutomationStore:
             raise BrowserAutomationError("visual_click x and y must be integers") from exc
         if not 0 <= normalized_x <= 1000 or not 0 <= normalized_y <= 1000:
             raise BrowserAutomationError("visual_click x and y must be between 0 and 1000")
+        if int(frame.get("refinement_depth") or 0) == 0:
+            # Treat the first full-viewport point as a region proposal, not an
+            # executable click. Qwen-family grounding is trained in normalized
+            # image space and becomes materially more accurate after the target
+            # occupies a larger share of the perception frame.
+            return "refine"
         current = self._evaluate(
             cdp,
             "({url:location.href,width:innerWidth,height:innerHeight})",
@@ -755,8 +777,8 @@ class BrowserAutomationStore:
         if (
             not isinstance(current, dict)
             or str(current.get("url") or "") != str(frame.get("url") or "")
-            or int(current.get("width") or 0) != int(frame.get("css_width") or 0)
-            or int(current.get("height") or 0) != int(frame.get("css_height") or 0)
+            or int(current.get("width") or 0) != int(frame.get("root_css_width") or 0)
+            or int(current.get("height") or 0) != int(frame.get("root_css_height") or 0)
         ):
             raise BrowserAutomationError(
                 "The browser viewport changed after the last screenshot; take a fresh "
@@ -768,9 +790,15 @@ class BrowserAutomationStore:
         ).get("data")
         if not isinstance(latest_shot, str) or not latest_shot:
             raise BrowserAutomationError("Chromium produced no pre-action screenshot")
-        _width, _height, current_sample = self._screenshot_details(latest_shot)
+        current_image = self._decode_screenshot(latest_shot)
+        left = int(frame.get("pixel_origin_x") or 0)
+        top = int(frame.get("pixel_origin_y") or 0)
+        width = int(frame.get("width") or current_image.width)
+        height = int(frame.get("height") or current_image.height)
+        current_region = current_image.crop((left, top, left + width, top + height))
+        current_sample = self._image_sample(current_region)
         if len(current_sample) != len(session.visual_sample):
-            return False
+            return "stale"
         changed = sum(
             1
             for before, after in zip(
@@ -784,9 +812,13 @@ class BrowserAutomationStore:
         # of clicking stale pixels. A few quantized cells tolerate cursor hover
         # and raster jitter; larger changes invalidate the visual target.
         if changed >= 12:
-            return False
-        x = normalized_x * max(0, int(frame["css_width"]) - 1) / 1000
-        y = normalized_y * max(0, int(frame["css_height"]) - 1) / 1000
+            return "stale"
+        x = float(frame.get("origin_css_x") or 0.0) + (
+            normalized_x * max(0.0, float(frame["css_width"]) - 1.0) / 1000
+        )
+        y = float(frame.get("origin_css_y") or 0.0) + (
+            normalized_y * max(0.0, float(frame["css_height"]) - 1.0) / 1000
+        )
         for event_type, buttons in (("mousePressed", 1), ("mouseReleased", 0)):
             cdp.call(
                 "Input.dispatchMouseEvent",
@@ -799,7 +831,87 @@ class BrowserAutomationStore:
                     "clickCount": 1,
                 },
             )
-        return True
+        return "clicked"
+
+    def _refine_visual_result(
+        self,
+        session: _BrowserSession,
+        result: dict[str, Any],
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Replace a full browser frame with a bounded target-centered crop."""
+
+        screenshot = result.get("screenshot")
+        encoded = screenshot.get("data") if isinstance(screenshot, dict) else None
+        if not isinstance(encoded, str) or not encoded:
+            raise BrowserAutomationError("Visual refinement requires a browser screenshot")
+        image = self._decode_screenshot(encoded)
+        try:
+            normalized_x = int(arguments.get("x"))
+            normalized_y = int(arguments.get("y"))
+        except (TypeError, ValueError) as exc:
+            raise BrowserAutomationError("visual_click x and y must be integers") from exc
+        center_x = round(normalized_x * max(0, image.width - 1) / 1000)
+        center_y = round(normalized_y * max(0, image.height - 1) / 1000)
+        crop_width = min(image.width, 400)
+        crop_height = min(image.height, 300)
+        left = max(0, min(image.width - crop_width, center_x - crop_width // 2))
+        top = max(0, min(image.height - crop_height, center_y - crop_height // 2))
+        crop = image.crop((left, top, left + crop_width, top + crop_height))
+        buffer = io.BytesIO()
+        crop.save(buffer, format="PNG")
+        result["screenshot"] = {
+            "mime_type": "image/png",
+            "encoding": "base64",
+            "data": base64.b64encode(buffer.getvalue()).decode("ascii"),
+        }
+        root = dict(session.visual_frame)
+        root_css_width = float(root.get("root_css_width") or image.width)
+        root_css_height = float(root.get("root_css_height") or image.height)
+        css_left = left * root_css_width / image.width
+        css_top = top * root_css_height / image.height
+        css_width = crop_width * root_css_width / image.width
+        css_height = crop_height * root_css_height / image.height
+        coordinate_space = {
+            "name": "browser_viewport_region",
+            "origin_x": left,
+            "origin_y": top,
+            "width": crop_width,
+            "height": crop_height,
+            "coordinate_units": ["normalized_1000"],
+            "revision": root.get("revision"),
+            "parent": "browser_viewport",
+        }
+        result["coordinate_space"] = coordinate_space
+        result.update(
+            {
+                "action_executed": False,
+                "visual_refinement_required": True,
+                "next_action": (
+                    "No click was sent. This is a target-centered refinement crop "
+                    "from the same browser viewport. Re-locate the intended target "
+                    "inside this crop, then call visual_click once with normalized_1000 "
+                    "coordinates relative to this crop."
+                ),
+            }
+        )
+        session.visual_frame = {
+            **coordinate_space,
+            "url": root.get("url"),
+            "css_width": css_width,
+            "css_height": css_height,
+            "root_css_width": root_css_width,
+            "root_css_height": root_css_height,
+            "origin_css_x": css_left,
+            "origin_css_y": css_top,
+            "pixel_origin_x": left,
+            "pixel_origin_y": top,
+            "full_pixel_width": image.width,
+            "full_pixel_height": image.height,
+            "refinement_depth": 1,
+        }
+        session.visual_sample = self._image_sample(crop)
+        return result
 
     def _click(self, cdp: _Cdp, element: dict[str, Any]) -> None:
         x = float(element.get("x") or 0) + float(element.get("width") or 0) / 2
@@ -911,7 +1023,7 @@ class BrowserAutomationStore:
                 cdp = _Cdp(session.page_socket, self.timeout_s)
                 cdp.call("Page.enable")
                 cdp.call("Runtime.enable")
-                visual_click_executed: bool | None = None
+                visual_click_outcome: str | None = None
                 if action == "navigate":
                     url = str(arguments.get("url") or "").strip()
                     parsed = urlsplit(url)
@@ -977,7 +1089,7 @@ class BrowserAutomationStore:
                                     {"type": event_type, "key": "Enter", "code": "Enter"},
                                 )
                 elif action == "visual_click":
-                    visual_click_executed = self._visual_click(
+                    visual_click_outcome = self._visual_click(
                         session,
                         cdp,
                         arguments,
@@ -1001,7 +1113,13 @@ class BrowserAutomationStore:
                     self._evaluate(cdp, "history.back(); true")
                 self._wait_rendered(cdp, wait_ms)
                 result = self._snapshot(session, cdp)
-                if visual_click_executed is False:
+                if visual_click_outcome == "refine":
+                    result = self._refine_visual_result(
+                        session,
+                        result,
+                        arguments,
+                    )
+                elif visual_click_outcome == "stale":
                     result.update(
                         {
                             "action_executed": False,

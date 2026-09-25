@@ -145,12 +145,21 @@ def test_browser_visual_click_maps_normalized_point_into_exact_viewport() -> Non
             "url": "https://example.test/",
             "css_width": 1010,
             "css_height": 619,
+            "root_css_width": 1010,
+            "root_css_height": 619,
+            "origin_css_x": 0,
+            "origin_css_y": 0,
+            "width": 1010,
+            "height": 619,
+            "pixel_origin_x": 0,
+            "pixel_origin_y": 0,
+            "refinement_depth": 1,
         },
         visual_sample=sample,
     )
     cdp = Cdp(screenshot)
 
-    Store()._visual_click(
+    outcome = Store()._visual_click(
         session,  # type: ignore[arg-type]
         cdp,  # type: ignore[arg-type]
         {
@@ -161,9 +170,74 @@ def test_browser_visual_click_maps_normalized_point_into_exact_viewport() -> Non
     )
 
     events = [arguments for method, arguments in cdp.calls if method == "Input.dispatchMouseEvent"]
+    assert outcome == "clicked"
     assert len(events) == 2
     assert events[0]["x"] == pytest.approx(756.75)
     assert events[0]["y"] == pytest.approx(309.0)
+
+
+def test_browser_first_visual_point_returns_a_refinement_crop_without_clicking() -> None:
+    buffer = io.BytesIO()
+    Image.new("RGB", (1010, 619), "white").save(buffer, format="PNG")
+    screenshot = base64.b64encode(buffer.getvalue()).decode()
+    _width, _height, sample = BrowserAutomationStore._screenshot_details(screenshot)
+    session = SimpleNamespace(
+        visual_frame={
+            "url": "https://example.test/",
+            "refinement_depth": 0,
+        },
+        visual_sample=sample,
+    )
+
+    outcome = BrowserAutomationStore()._visual_click(
+        session,  # type: ignore[arg-type]
+        object(),  # type: ignore[arg-type]
+        {"x": 820, "y": 475, "coordinate_unit": "normalized_1000"},
+    )
+
+    assert outcome == "refine"
+
+
+def test_browser_refinement_crop_preserves_parent_viewport_transform() -> None:
+    buffer = io.BytesIO()
+    Image.new("RGB", (1010, 619), "white").save(buffer, format="PNG")
+    screenshot = base64.b64encode(buffer.getvalue()).decode()
+    session = SimpleNamespace(
+        visual_frame={
+            "url": "https://example.test/",
+            "revision": 4,
+            "root_css_width": 1010,
+            "root_css_height": 619,
+        },
+        visual_sample=b"",
+    )
+    result = {"screenshot": {"data": screenshot}}
+
+    refined = BrowserAutomationStore()._refine_visual_result(
+        session,  # type: ignore[arg-type]
+        result,
+        {"x": 820, "y": 475},
+    )
+
+    assert refined["action_executed"] is False
+    assert refined["visual_refinement_required"] is True
+    assert refined["coordinate_space"] == {
+        "name": "browser_viewport_region",
+        "origin_x": 610,
+        "origin_y": 144,
+        "width": 400,
+        "height": 300,
+        "coordinate_units": ["normalized_1000"],
+        "revision": 4,
+        "parent": "browser_viewport",
+    }
+    crop = Image.open(
+        io.BytesIO(base64.b64decode(refined["screenshot"]["data"]))
+    )
+    assert crop.size == (400, 300)
+    assert session.visual_frame["origin_css_x"] == pytest.approx(610.0)
+    assert session.visual_frame["origin_css_y"] == pytest.approx(144.0)
+    assert session.visual_frame["refinement_depth"] == 1
 
 
 def test_browser_dom_action_revalidates_live_box_and_hit_target() -> None:

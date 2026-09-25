@@ -244,10 +244,13 @@ refreshes its current viewport box, verifies visibility and enabled state, and
 confirms that the center hit-test is not occluded. Canvas, challenge, image-map, and
 other non-DOM targets stay in the exact CDP viewport screenshot instead of switching
 to a whole-window or desktop frame. Their `visual_click` points use Qwen's normalized
-0–1000 coordinate convention and are deterministically converted into the current
-viewport's CSS coordinates. Every browser action returns a new screenshot and visual
-change receipt; a changed frame is causal evidence, not proof that the intended state
-was reached.
+0–1000 coordinate convention. The first point on a full viewport is treated as a
+region proposal rather than a click: the executor returns a bounded 400×300 target crop,
+the model re-grounds within that higher-resolution region, and the second point is
+deterministically mapped through the crop into current viewport CSS coordinates. The
+executor rejects a crop whose pixels changed while the model was deciding. Every
+browser action returns a new screenshot and visual change receipt; a changed frame is
+causal evidence, not proof that the intended state was reached.
 
 `gui_interact` is reserved for controls outside the browser viewport. It returns an
 active-window crop by default and interprets its coordinates relative to that returned

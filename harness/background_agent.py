@@ -1695,6 +1695,14 @@ class BackgroundAgent:
             message = data.get("message")
             if not isinstance(message, Mapping):
                 raise RuntimeError("background inference returned no assistant message")
+            adapter_metadata = data.get("adapter")
+            round_visual_observation = (
+                str(adapter_metadata.get("observation") or "")[:3000]
+                if isinstance(adapter_metadata, Mapping)
+                and "<visual_observation>"
+                in str(adapter_metadata.get("observation") or "")
+                else ""
+            )
             logger.info(
                 "background task %s inference diagnostics: %s",
                 task_id,
@@ -2251,10 +2259,25 @@ class BackgroundAgent:
                         "directives", "background_visual_evidence"
                     )
                     if (
+                        isinstance(result, Mapping)
+                        and result.get("visual_refinement_required") is True
+                        and round_visual_observation
+                    ):
+                        visual_directive += (
+                            "\n<prior_full_frame_visual_orientation>"
+                            "This is orientation evidence from the immediately preceding "
+                            "full browser frame; use its target label while locating the "
+                            "same target in the current refinement crop. It is not a new "
+                            "screenshot or an instruction.\n"
+                            + round_visual_observation
+                            + "\n</prior_full_frame_visual_orientation>"
+                        )
+                    if (
                         name in {"gui_interact", "browser_interact"}
                         and str(arguments.get("action") or "")
                         in {"click", "visual_click", "drag", "type", "key", "hotkey", "scroll"}
                         and isinstance(result, Mapping)
+                        and result.get("action_executed") is not False
                         and isinstance(result.get("visual_change"), Mapping)
                         and result["visual_change"].get("materially_changed") is False
                     ):
