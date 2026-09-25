@@ -96,12 +96,33 @@ def score_domain_answer(
         rendered = str(value or "").casefold().replace("*", "").replace("`", "")
         return re.sub(r"\s*=\s*", "=", rendered)
 
+    def contains(term: str, text: str) -> bool:
+        expected = canonical(term)
+        if expected in text:
+            return True
+        if "=" not in expected:
+            return False
+        left, right = expected.split("=", 1)
+        if not left or not right:
+            return False
+        # Markdown tables and compact prose may render an exact assignment as
+        # ``KEY | VALUE`` or ``KEY: VALUE``. Keep direction and a tight span so
+        # values from another row cannot satisfy the relation accidentally.
+        return bool(
+            re.search(
+                rf"(?<![A-Za-z0-9_]){re.escape(left)}(?![A-Za-z0-9_])"
+                rf"[^A-Za-z0-9_]{{0,64}}"
+                rf"(?<![A-Za-z0-9_]){re.escape(right)}(?![A-Za-z0-9_])",
+                text,
+            )
+        )
+
     folded = canonical(prediction)
     required_matches = {
-        term: canonical(term) in folded for term in scenario.required_terms
+        term: contains(term, folded) for term in scenario.required_terms
     }
     forbidden_matches = {
-        term: canonical(term) in folded for term in scenario.forbidden_terms
+        term: contains(term, folded) for term in scenario.forbidden_terms
     }
     required_found = sum(required_matches.values())
     required_total = len(required_matches)

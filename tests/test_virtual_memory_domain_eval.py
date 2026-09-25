@@ -101,6 +101,36 @@ def test_domain_oracle_is_labelled_and_fifo_is_physically_bounded(
     assert fifo.exact_provenance is False
 
 
+def test_entity_graph_pages_terminal_fact_in_one_controller_round(
+    tmp_path: Path,
+) -> None:
+    corpus = build_adversarial_corpus(16_000)
+    scenario = next(
+        item for item in corpus.scenarios if item.name == "multi_hop_entity_graph"
+    )
+    with DomainVirtualContextHarness(
+        corpus,
+        database=tmp_path / "with-graph.sqlite3",
+        physical_context_tokens=4_096,
+        controller_rounds=1,
+        retrieval_profile="hybrid",
+    ) as harness:
+        with_graph = harness.prepare(scenario, baseline="hybrid")
+    with DomainVirtualContextHarness(
+        corpus,
+        database=tmp_path / "without-graph.sqlite3",
+        physical_context_tokens=4_096,
+        controller_rounds=1,
+        retrieval_profile="hybrid-no-graph",
+    ) as harness:
+        without_graph = harness.prepare(scenario, baseline="hybrid")
+
+    assert "CAN42_BITRATE_BPS=1000000" in with_graph.prompt
+    assert "CAN42_BITRATE_BPS=1000000" not in without_graph.prompt
+    assert with_graph.answer_allowed is True
+    assert without_graph.answer_allowed is False
+
+
 def test_domain_score_requires_all_exact_terms_and_rejects_decoys() -> None:
     corpus = build_adversarial_corpus(8_000)
     scenario = next(
@@ -137,3 +167,10 @@ def test_domain_score_ignores_presentation_whitespace_around_assignments() -> No
 
     assert score["required_recall"] == 1.0
     assert score["passed"] is True
+
+    table_score = score_domain_answer(
+        scenario,
+        "| NUM_ATLAS_W | 17 |\n| NUM_BOREAL_W | 23 |\n| NUM_CYGNUS_W | 31 |",
+    )
+    assert table_score["required_recall"] == 1.0
+    assert table_score["passed"] is True

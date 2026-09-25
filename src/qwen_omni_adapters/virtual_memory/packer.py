@@ -387,7 +387,13 @@ class WorkingContextPacker:
                 hit
                 for hit in candidates
                 if set(hit.channels)
-                & {"oracle", "oracle_reference_location", "memory_conflict"}
+                & {
+                    "code_graph",
+                    "graph",
+                    "memory_conflict",
+                    "oracle",
+                    "oracle_reference_location",
+                }
                 or any(
                     self._contains_focus_term(
                         hit.chunk.original_text,

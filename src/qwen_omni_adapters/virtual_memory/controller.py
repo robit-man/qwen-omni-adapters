@@ -191,11 +191,14 @@ class RecursiveMemoryController:
                 len(ranked) >= self.config.minimum_evidence
                 and score >= self.config.sufficiency_threshold
             )
-            additions = (
-                list(self.dependency_planner(query, ranked, tuple(queries)))
-                if self.dependency_planner is not None
-                else self._dependency_queries(query, ranked, queries)
-            )
+            if sufficient and self._has_terminal_graph_path(ranked):
+                additions = []
+            else:
+                additions = (
+                    list(self.dependency_planner(query, ranked, tuple(queries)))
+                    if self.dependency_planner is not None
+                    else self._dependency_queries(query, ranked, queries)
+                )
             new_dependencies = [
                 candidate.strip()
                 for candidate in additions
@@ -257,6 +260,29 @@ class RecursiveMemoryController:
             sufficient=sufficient,
             stopped_early=stopped_early,
             trace=collector.export(),
+        )
+
+    @staticmethod
+    def _has_terminal_graph_path(evidence: Sequence[RetrievalHit]) -> bool:
+        graph_hits = [
+            hit
+            for hit in evidence
+            if set(hit.channels) & {"code_graph", "graph"}
+        ]
+        graph_depth = max(
+            (hit.graph_distance or 0 for hit in graph_hits),
+            default=0,
+        )
+        terminal_relation = bool(
+            re.search(
+                r"\b[A-Za-z_][\w.:-]{2,}\s*(?:=|:)\s*"
+                r"[A-Za-z0-9_.:-]+",
+                "\n".join(hit.chunk.original_text for hit in graph_hits),
+            )
+        )
+        return (
+            (graph_depth >= 2 or len(graph_hits) >= 3)
+            and terminal_relation
         )
 
     def _sufficiency(self, query: str, evidence: Sequence[RetrievalHit]) -> float:
@@ -352,6 +378,16 @@ class RecursiveMemoryController:
             re.search(r"\b(?:changed\s+from|replaced|superseded|previously)\b", evidence_text, re.I)
         )
         if temporal_query and temporal_evidence and anchor_coverage >= 1.0:
+            score = max(score, 0.82)
+        # A bounded graph traversal can bridge vocabulary that does not appear
+        # in the root query (for example "numeric setting" -> a named bitrate
+        # field). When the query anchors are present, the index supplied a
+        # multi-hop path, and its terminal page contains an exact relation,
+        # treat that path as sufficient without guessing the relation value.
+        if (
+            self._has_terminal_graph_path(evidence)
+            and anchor_coverage >= 1.0
+        ):
             score = max(score, 0.82)
         # A previously asked but unanswered question can have perfect lexical
         # overlap with a new question.  It is not evidence for its own answer.
