@@ -55,6 +55,7 @@ def test_ruler_jsonl_preserves_official_record_and_reattaches_prefix(tmp_path: P
     assert sample.task == "niah_single_1"
     assert sample.answer_prefix in prepared.prompt
     assert "7319042" in prepared.prompt
+    assert "do not arbitrarily discard one" in prepared.prompt
     assert prepared.resident_tokens < 14_000
     assert prepared.source_tokens > 0
 

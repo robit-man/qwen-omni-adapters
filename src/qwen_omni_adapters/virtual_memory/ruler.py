@@ -273,8 +273,10 @@ class RulerVirtualContextHarness:
         question = sample.query + sample.answer_prefix
         contract = (
             "Answer the current query using only replayed source evidence. "
-            "Do not infer missing facts. Return only the shortest source-exact "
-            "answer span, preserving source spelling, punctuation, and ordering."
+            "Do not infer missing facts. Return only source-exact answer spans, "
+            "preserving source spelling, punctuation, and ordering. If several "
+            "distinct source-exact spans satisfy the requested relation, return all "
+            "of them concisely in source order; do not arbitrarily discard one."
         )
         source_tokens = sample.reported_tokens or self.token_counter(sample.source_text)
         if selected == "fifo":
