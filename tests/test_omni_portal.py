@@ -97,6 +97,9 @@ def test_browser_can_use_a_declarative_measured_launch_reserve() -> None:
 
 def test_browser_snapshot_exposes_collapsible_reasoning_and_tool_summaries() -> None:
     assert "select,summary," in _SNAPSHOT_SCRIPT
+    assert "el.labels" in _SNAPSHOT_SCRIPT
+    assert "type.toLowerCase() === 'password' ? ''" in _SNAPSHOT_SCRIPT
+    assert "[...el.options]" in _SNAPSHOT_SCRIPT
 
 
 def test_browser_drag_emits_a_pressed_mouse_path() -> None:
@@ -571,6 +574,65 @@ def test_completed_visual_click_returns_observation_and_exact_action_receipt(
         "target": "BLUE TRIANGLE",
         "executed": {"x": 734, "y": 468},
         "coordinate_unit": "normalized_1000",
+    }
+
+
+def test_browser_dom_action_returns_semantic_control_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Cdp:
+        def __init__(self, _url: str, _timeout_s: float) -> None:
+            pass
+
+        def call(self, _method: str, _arguments=None) -> dict[str, Any]:
+            return {}
+
+        def close(self) -> None:
+            pass
+
+    class Store(BrowserAutomationStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.session = SimpleNamespace(
+                port=9222,
+                target_id="page",
+                page_socket="ws://127.0.0.1/page/page",
+                visual_grounding={},
+            )
+
+        def _session_locked(self, _session_id: str):
+            return self.session
+
+        def _page_socket(self, _port: int, _target_id: str = "") -> str:
+            return "ws://127.0.0.1/page/page"
+
+        def _refresh_element(self, _session, _cdp, _element_id):
+            return {
+                "id": "e4",
+                "tag": "input",
+                "type": "text",
+                "name": "recipient",
+                "label": "Recipient — text",
+            }
+
+        def _click(self, _cdp, _element) -> None:
+            pass
+
+        def _wait_rendered(self, _cdp, _wait_ms: int) -> None:
+            pass
+
+        def _snapshot(self, _session, _cdp):
+            return {"screenshot": {"data": "current-frame"}}
+
+    monkeypatch.setattr("portal.browser._Cdp", Cdp)
+    result = Store().act(
+        "session",
+        {"action": "type", "element_id": "e4", "text": "Avery Morgan"},
+    )
+
+    assert result["action_receipt"] == {
+        "action": "type",
+        "target": "Recipient — text",
     }
 
 

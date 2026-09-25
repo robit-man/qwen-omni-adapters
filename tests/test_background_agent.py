@@ -238,7 +238,7 @@ def test_computer_action_scope_keeps_durable_state_and_two_fresh_motor_cycles() 
     assert '"target": "BLUE TRIANGLE"' in scoped[2]["content"]
     assert "gui-0" not in rendered
     assert "image-0" not in rendered
-    assert "gui-1" in rendered and "gui-2" in rendered
+    assert "gui-1" not in rendered and "gui-2" in rendered
     assert "image-1" not in rendered and "image-2" in rendered
 
 
@@ -257,6 +257,56 @@ def test_computer_action_scope_is_disabled_while_capability_recovery_is_required
         )
         is messages
     )
+
+
+def test_computer_action_scope_retains_completed_form_control_ledger() -> None:
+    messages = [
+        {"role": "system", "content": "task policy"},
+        {"role": "user", "content": "complete the rendered form"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "browser-1",
+                    "function": {
+                        "name": "browser_interact",
+                        "arguments": {"action": "snapshot"},
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_name": "browser_interact",
+            "tool_call_id": "browser-1",
+            "content": '{"rendered":true}',
+        },
+    ]
+    actions = [
+        {
+            "call_id": f"field-{index}",
+            "tool": "browser_interact",
+            "arguments": '{"action":"type","element_id":"expired"}',
+            "outcome": '{"rendered":true}',
+            "ok": True,
+            "receipt": {"action": "type", "target": f"field {index}"},
+        }
+        for index in range(28)
+    ]
+
+    scoped = _computer_action_messages(
+        messages,
+        {"actions": actions},
+        ["browser_interact"],
+        recovery_required=False,
+    )
+    state = str(scoped[2]["content"])
+
+    assert '"target": "field 27"' in state
+    assert '"target": "field 4"' in state
+    assert '"target": "field 3"' not in state
+    assert "element_id" not in state
 
 
 def test_visual_frame_is_discarded_only_for_a_real_replacement() -> None:

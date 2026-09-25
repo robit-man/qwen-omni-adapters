@@ -476,7 +476,7 @@ def _computer_action_state(task: Mapping[str, Any]) -> str:
     if isinstance(actions, list) and actions:
         verified_receipts = [
             action.get("receipt")
-            for action in actions[-12:]
+            for action in actions[-32:]
             if isinstance(action, Mapping)
             and isinstance(action.get("receipt"), Mapping)
             and action.get("ok") is True
@@ -488,7 +488,7 @@ def _computer_action_state(task: Mapping[str, Any]) -> str:
             )
             sections.extend(
                 f"- {json.dumps(receipt, ensure_ascii=False, sort_keys=True)}"
-                for receipt in verified_receipts[-8:]
+                for receipt in verified_receipts[-24:]
             )
         sections.append("Recent action receipts:")
         for action in actions[-6:]:
@@ -549,9 +549,13 @@ def _computer_action_messages(
 
     The task transcript remains authoritative and is still checkpointed in full.
     Only the inference view is narrowed: objective/policy, a bounded receipt
-    summary, and at most the two newest computer-use cycles. This prevents a
+    summary, and normally only the newest computer-use cycle. This prevents a
     miss several screenshots ago from competing with the current coordinate
-    frame without discarding long-horizon progress.
+    frame without discarding long-horizon progress. Visual refinement carries
+    its immediately preceding full-frame semantic orientation inside the newest
+    cycle, so retaining another complete DOM/screenshot result is unnecessary.
+    A locally rejected action that returned no replacement frame retains one
+    preceding cycle because that earlier screenshot is still current evidence.
     """
 
     if recovery_required or not COMPUTER_ACTION_TOOLS.intersection(active_tools):
@@ -576,7 +580,12 @@ def _computer_action_messages(
         elif "tool_search" in names:
             discovery_rounds.append(index)
     if motor_rounds:
-        tail_start = motor_rounds[-2] if len(motor_rounds) > 1 else motor_rounds[-1]
+        tail_start = motor_rounds[-1]
+        if len(motor_rounds) > 1 and not any(
+            isinstance(message.get("images"), list) and message.get("images")
+            for message in messages[tail_start:]
+        ):
+            tail_start = motor_rounds[-2]
     elif discovery_rounds:
         tail_start = discovery_rounds[-1]
     else:

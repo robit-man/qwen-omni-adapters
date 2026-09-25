@@ -350,13 +350,23 @@ _SNAPSHOT_SCRIPT = r"""
   )].filter(visible).slice(0, 120);
   const elements = candidates.map((el, i) => {
     const id = `e${i + 1}`, r = el.getBoundingClientRect();
+    const type = (el.getAttribute('type') || '').slice(0, 40);
+    const labels = el.labels ? [...el.labels].map(label => label.innerText.trim()).filter(Boolean) : [];
+    const label = (labels.join(' ') || el.getAttribute('aria-label') ||
+                   el.getAttribute('title') || el.getAttribute('placeholder') || '').trim();
+    const safeValue = type.toLowerCase() === 'password' ? '' : (el.value || '');
     el.setAttribute('data-omni-id', id);
     return {
       id,
       tag: el.tagName.toLowerCase(),
-      type: (el.getAttribute('type') || '').slice(0, 40),
-      text: (el.innerText || el.value || el.getAttribute('aria-label') ||
+      type,
+      name: (el.getAttribute('name') || '').slice(0, 120),
+      label: label.slice(0, 240),
+      text: (el.innerText || safeValue || el.getAttribute('aria-label') ||
              el.getAttribute('title') || el.getAttribute('placeholder') || '').trim().slice(0, 240),
+      options: el.tagName.toLowerCase() === 'select' ? [...el.options].slice(0, 64).map(option => ({
+        value: option.value.slice(0, 240), text: option.text.trim().slice(0, 240), selected: option.selected
+      })) : [],
       href: (el.href || '').slice(0, 800),
       disabled: !!el.disabled,
       x: Math.round(r.left), y: Math.round(r.top),
@@ -1548,6 +1558,7 @@ class BrowserAutomationStore:
                 cdp.call("Page.enable")
                 cdp.call("Runtime.enable")
                 visual_click_outcome: str | None = None
+                acted_element: dict[str, Any] | None = None
                 if action == "navigate":
                     url = str(arguments.get("url") or "").strip()
                     parsed = urlsplit(url)
@@ -1569,6 +1580,7 @@ class BrowserAutomationStore:
                         cdp,
                         arguments.get("element_id"),
                     )
+                    acted_element = element
                     if action == "drag":
                         try:
                             delta_x = max(-4000, min(4000, int(arguments.get("delta_x", 0))))
@@ -1650,6 +1662,22 @@ class BrowserAutomationStore:
                     self._evaluate(cdp, "history.back(); true")
                 self._wait_rendered(cdp, wait_ms)
                 result = self._snapshot(session, cdp)
+                if acted_element is not None:
+                    semantic_target = " ".join(
+                        str(
+                            acted_element.get("label")
+                            or acted_element.get("name")
+                            or acted_element.get("text")
+                            or acted_element.get("type")
+                            or acted_element.get("tag")
+                            or "control"
+                        ).split()
+                    )[:240]
+                    if semantic_target:
+                        result["action_receipt"] = {
+                            "action": action,
+                            "target": semantic_target,
+                        }
                 verify_returned_frame = action == "snapshot" or (
                     action == "visual_click" and visual_click_outcome == "clicked"
                 )
