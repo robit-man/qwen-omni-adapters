@@ -1085,6 +1085,53 @@ def test_duplicate_guard_is_scoped_to_the_immediately_preceding_external_call() 
     ) == _latest_tool_fingerprint([build, repair])
 
 
+def test_discovery_after_checkpoint_does_not_erase_last_concrete_call() -> None:
+    inspect = {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "inspect-1",
+                "function": {
+                    "name": "shell",
+                    "arguments": {"command": "find app -maxdepth 2 -type f"},
+                },
+            }
+        ],
+    }
+    checkpoint = {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "checkpoint-1",
+                "function": {
+                    "name": "task_checkpoint",
+                    "arguments": {"action": "progress"},
+                },
+            }
+        ],
+    }
+    discovery = {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "discovery-1",
+                "function": {
+                    "name": "tool_search",
+                    "arguments": {"query": "run a shell command"},
+                },
+            }
+        ],
+    }
+
+    expected = _call_fingerprint(
+        "shell", {"command": "find app -maxdepth 2 -type f"}
+    )
+    assert _latest_tool_fingerprint([inspect, checkpoint, discovery]) == expected
+
+
 def test_unchanged_fetch_result_routes_back_to_discovery() -> None:
     fetched = {
         "content": "same page",

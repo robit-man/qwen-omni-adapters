@@ -488,12 +488,14 @@ def _seen_tool_fingerprints(messages: list[dict[str, Any]]) -> set[str]:
 
 
 def _latest_tool_fingerprint(messages: list[dict[str, Any]]) -> str:
-    """Return the most recent external attempt for immediate-loop protection.
+    """Return the most recent concrete attempt for immediate-loop protection.
 
     A fingerprint is not a permanent prohibition. The same verification command
     is often exactly what should run after a repair changes the target state.
-    Only an unchanged, immediately repeated external call is rejected; any
+    Only an unchanged, immediately repeated concrete call is rejected; any
     intervening concrete attempt gives the worker a new causal state to assess.
+    Routing and local-control calls do not change the external target, so they
+    must not erase this boundary across checkpoints or worker restarts.
     """
 
     for message in reversed(messages):
@@ -509,11 +511,7 @@ def _latest_tool_fingerprint(messages: list[dict[str, Any]]) -> str:
                 if isinstance(function, Mapping)
                 else ""
             )
-            if name and name not in {
-                "task_checkpoint",
-                "task_compact",
-                "task_recovery",
-            }:
+            if name and name not in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}:
                 return _call_fingerprint(name, _arguments(call))
     return ""
 
@@ -2762,7 +2760,8 @@ class BackgroundAgent:
                     stalls += 1
                 else:
                     seen.add(fingerprint)
-                    last_tool_fingerprint = fingerprint
+                    if name not in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}:
+                        last_tool_fingerprint = fingerprint
                     slice_tool_calls += 1
                     self.store.update_stage(
                         task_id,
