@@ -269,6 +269,34 @@ standalone dense retriever. Exact condition manifests, non-perfect task scores, 
 report hashes are recorded in
 `.aiwg/testing/evidence/ruler-v1-256k-ablation-seed9137-jetson.json`.
 
+The topology-rich domain suite was then executed against a separate deterministic
+256K corpus at the same live 4,096-token physical window:
+
+| condition | tasks passed | answered / sufficient | prompt tokens | inference p50 / p95 |
+|---|---:|---:|---:|---:|
+| hybrid virtual context | 10 / 10 | 10 / 10 | 4,736 | 4.19s / 22.42s |
+| labelled oracle pages | 10 / 10 | 10 / 10 | 3,943 | 4.36s / 13.08s |
+| final-window FIFO | 0 / 10 | 10 / 10 | 17,230 | 7.23s / 11.07s |
+
+Hybrid matched the oracle ceiling at 307x-1,185x source-to-resident compression.
+Every hybrid/oracle answer retained exact provenance and passed a second sufficiency
+check over the pages that actually survived packing. This final check is also in the
+production portal engine: a promising retrieval candidate that is later evicted can
+no longer authorize generation.
+
+The entity-graph task has an isolated causal control. With graph channels, one
+retrieval round paged the three-hop terminal fact and passed. Without graph channels,
+the one-pass condition was evidence-insufficient and made no inference call. Recursive
+no-graph retrieval recovered through an exact bridge lookup in two rounds and passed,
+but took 10.69s versus 5.11s for graph-backed one-pass execution. Full reports,
+predictions, traces, source hash, and report hashes are recorded in
+`.aiwg/testing/evidence/virtual-context-domain-256k-jetson.json`.
+
+This suite is a development fixture, not held-out population evidence. It establishes
+that the implemented topology, constraint, chronology, conflict, and code-symbol paths
+work end to end on the deployed model; additional randomized domain seeds remain
+required for confidence intervals.
+
 The production portal was separately exercised after enabling the fully co-resident
 TTS and pointing stack. Its launcher selected a stricter 4,096-token physical window.
 An authenticated 1,748,926-character conversation with three exact values buried among
@@ -286,7 +314,8 @@ in `.aiwg/testing/evidence/virtual-context-portal-4k-jetson.json`.
 - Unresolvable derived content is marked unverified.
 - Compression generation reduces selection authority.
 - Conflicts remain separate until provenance or supersession resolves them.
-- Active constraints/current plans are deterministic pins, not similarity retrieval.
+- Task-relevant constraints/current plans are deterministic pins, not similarity retrieval.
+- Answer authority is recomputed after packing against the final resident evidence set.
 - Pinned overflow stops generation and asks for narrower scope.
 
 ## Experimental branches

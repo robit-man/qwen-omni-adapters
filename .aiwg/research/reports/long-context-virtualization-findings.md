@@ -449,8 +449,30 @@ run under a 4,096-token physical cap marked all ten tasks sufficient with exact
 provenance. During this work, a generic `kind=code` hint was found to override the more
 specific Python MIME/suffix and silently suppress AST call/import edges. The chunker
 now preserves the Python specialization; the same corpus indexes five code edges
-instead of zero. Model-answer, oracle, FIFO, and no-graph Jetson results remain to be
-recorded before making a domain-fidelity claim.
+instead of zero.
+
+The final Jetson run held physical context at 4,096 tokens over 256K source tokens.
+Production hybrid and the labelled oracle each passed all ten tasks; final-window FIFO
+passed none. Hybrid used 216--833 resident tokens per task (307x--1,185x compression),
+4,736 aggregate prompt tokens, and 4.19s p50 / 22.42s p95 inference. The oracle used
+3,943 prompt tokens and 4.36s / 13.08s p50/p95. The long hybrid tail is the 512-token
+cross-file code trace and is now a latency-optimization target rather than a fidelity
+failure.
+
+Graph value is causally visible on the domain fixture even though it was absent from
+RULER. The indexed three-hop path completed in one retrieval round and 5.11s. The
+same one-pass query without graph channels was evidence-insufficient and correctly
+suppressed generation. Recursive no-graph retrieval recovered the terminal page in
+two rounds and passed in 10.69s. This demonstrates that graph indexing accelerates
+address resolution while recursive raw retrieval remains a functioning fallback.
+
+The ablation also exposed a controller/packer boundary fault: sufficiency was assessed
+before content-aware eviction, allowing an evicted weak dense lead to authorize an
+answer. The production engine now reruns evidence sufficiency over the actual packed
+chunk IDs; compilation and scoped verified constraints remain separately auditable
+authority paths. Exact reports and hashes are preserved in
+`.aiwg/testing/evidence/virtual-context-domain-256k-jetson.json`. The fixture was used
+during development and is not claimed as held-out or population-level evidence.
 
 ## Required next experiments
 
@@ -459,13 +481,13 @@ recorded before making a domain-fidelity claim.
   three samples per RULER task class.
 - Extend the completed BM25/dense/graph/recursion/aggregation/compiler ablations to
   all three sealed samples per task, additional seeds and lengths, no-replay and
-  fixed-budget conditions, plus topology-rich code/entity suites.
+  fixed-budget conditions, plus randomized topology-rich code/entity suites.
 - Continue using oracle-context answers to distinguish model faults from retrieval faults.
 - Add answer-quality curves to the completed 512/1K/2K/4K recurrent-memory by
   2K/4K/8K chunk-budget integrity matrix.
 - Replace the weak hashing-dense lane with a production-quality embedding model and
   rerun dense/hybrid ablations without changing the immutable corpus.
-- Run and seal the new code-topology, chronology, supersession, contradiction, and
-  100K+ constraint answer suite on the Jetson for hybrid, no-graph, FIFO, and oracle.
+- Generate held-out randomized variants of the completed code-topology, chronology,
+  supersession, contradiction, and 100K+ constraint answer suite.
 - Measure latency, inference tokens, RAM/VRAM, SQLite/index size, and evidence tokens.
 - Prototype latent compilation only after the training-free V1 has a stable fidelity curve.
