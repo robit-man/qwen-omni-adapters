@@ -7,6 +7,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from qwen_omni_adapters.virtual_memory.compilation import QueryEvidenceCompiler
 from qwen_omni_adapters.virtual_memory.controller import (
     ControllerResult,
     RecursiveMemoryController,
@@ -160,7 +161,15 @@ class VirtualContextEngine:
             trace=trace,
             excluded_chunk_ids=excluded_chunk_ids,
         )
-        memories = self._active_memories(query, active_subjects)
+        compilation = QueryEvidenceCompiler(self.store).compile(
+            query,
+            controller_result.evidence,
+            trace=trace,
+        )
+        memories = [
+            *self._active_memories(query, active_subjects),
+            *compilation.memories,
+        ]
         conflicts = self._conflicts(memories)
         conflict_hits: list[RetrievalHit] = []
         for key, competing in conflicts.items():
@@ -182,9 +191,12 @@ class VirtualContextEngine:
                                 channel_scores={"memory_conflict": 1.1},
                             )
                         )
+        controller_evidence = (
+            () if compilation.consume_evidence else controller_result.evidence
+        )
         combined_evidence = {
             hit.chunk.chunk_id: hit
-            for hit in (*controller_result.evidence, *conflict_hits)
+            for hit in (*controller_evidence, *conflict_hits)
         }
         context = self.packer.pack(
             query,
@@ -199,16 +211,17 @@ class VirtualContextEngine:
             reserved_tokens=reserved_tokens,
             trace=trace,
         )
+        evidence_sufficient = controller_result.sufficient or compilation.complete
         return PreparedTurn(
             context=context,
             controller=controller_result,
-            answer_allowed=controller_result.sufficient and not conflicts,
+            answer_allowed=evidence_sufficient and not conflicts,
             unresolved_reason=(
                 "conflicting active memory requires provenance/chronology resolution"
                 if conflicts
                 else (
                     None
-                    if controller_result.sufficient
+                    if evidence_sufficient
                     else "retrieval budget exhausted before evidence sufficiency"
                 )
             ),

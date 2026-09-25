@@ -196,6 +196,34 @@ def test_frequency_task_uses_reference_free_provenance_bearing_aggregation() -> 
     assert any(event["operation"] == "AGGREGATE" for event in oracle.trace)
 
 
+def test_multi_key_values_compile_without_reference_answers() -> None:
+    record = {
+        "index": 9,
+        "input": (
+            "Archive text. The number for alpha-key is: 1234567. More text. "
+            "The number for beta-key is: 7654321.\n"
+            "What are all the numbers for alpha-key and beta-key?"
+        ),
+        # Preparation must derive only from source evidence.
+        "outputs": ["WRONG_REFERENCE"],
+        "answer_prefix": " Answer:",
+    }
+    sample = sample_from_record(record, task="custom_values", ordinal=0)
+
+    prepared = RulerVirtualContextHarness().prepare(sample, baseline="hybrid")
+
+    assert prepared.sufficient is True
+    assert "WRONG_REFERENCE" not in prepared.prompt
+    assert "key=alpha-key values=[1234567]" in prepared.prompt
+    assert "key=beta-key values=[7654321]" in prepared.prompt
+    assert prepared.evidence_chunk_ids == ()
+    assert any(
+        event["operation"] == "COMPILE_RELATIONS"
+        and event["detail"]["operator"] == "exact_value_lookup"
+        for event in prepared.trace
+    )
+
+
 def test_ruler_string_match_scoring_matches_all_and_qa_part_semantics() -> None:
     assert ruler_string_match_score("vt", "A, C", ("A", "B", "C")) == 66.67
     assert ruler_string_match_score("qa_1", "The answer is France.", ("France",)) == 100.0

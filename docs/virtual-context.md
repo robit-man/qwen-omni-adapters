@@ -22,6 +22,9 @@ The `qwen_omni_adapters.virtual_memory` package provides:
   duplicate page cannot evict another explicitly requested key or dependency;
 - deterministic corpus-wide word-frequency aggregation with full immutable
   provenance for questions that cannot be answered by sparse top-k retrieval;
+- query-time exact-value and assignment-graph compilation: complete relations
+  become small verified memories with reconstructable source offsets, while
+  partial or conflicting relations fall back to raw evidence;
 - query-focused exact-span replay adjacent to the current query;
 - a hard context allocator that pins active constraints, reserves verified
   structured memory before evidence expansion, and reserves output headroom;
@@ -78,6 +81,9 @@ At reduced physical windows, whole-corpus deterministic operations are paged in 
 verified structured views with pointers to every contributing immutable chunk.
 Arbitrary local source pages are not replayed as if they prove a global aggregate;
 the raw corpus remains lossless and selectively expandable.
+The same rule applies to multi-key lookups and assignment chains only when every
+requested relation resolves from retrieved evidence. The compiler never reads
+benchmark references or expected answers.
 
 ## Benchmark
 

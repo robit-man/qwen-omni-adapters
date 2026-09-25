@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from qwen_omni_adapters.virtual_memory.aggregation import FrequencyAggregationBuilder
+from qwen_omni_adapters.virtual_memory.compilation import QueryEvidenceCompiler
 from qwen_omni_adapters.virtual_memory.controller import (
     ControllerConfig,
     RecursiveMemoryController,
@@ -377,6 +378,19 @@ class RulerVirtualContextHarness:
                         if aggregation is not None
                         else result.trace
                     )
+                compilation = (
+                    QueryEvidenceCompiler(store).compile(sample.query, hits)
+                    if aggregation is None
+                    else None
+                )
+                if compilation is not None and compilation.complete:
+                    memories.extend(compilation.memories)
+                    sufficient = True
+                    retrieval_queries = (
+                        *retrieval_queries,
+                        *(f"compiled:{operator}" for operator in compilation.operators),
+                    )
+                    trace = (*trace, *compilation.trace)
                 context: WorkingContext = self.packer.pack(
                     question,
                     system_contract=contract,
@@ -385,7 +399,12 @@ class RulerVirtualContextHarness:
                     # source pages beside it is incomplete and can falsely
                     # overrule the verified global count.  All raw chunks stay
                     # immutable and EXPAND-able through the memory provenance.
-                    evidence=[] if aggregation is not None else hits,
+                    evidence=(
+                        []
+                        if aggregation is not None
+                        or (compilation is not None and compilation.consume_evidence)
+                        else hits
+                    ),
                     retrieval_queries=retrieval_queries,
                     memories=memories,
                 )

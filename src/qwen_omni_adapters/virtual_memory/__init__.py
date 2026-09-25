@@ -11,6 +11,10 @@ from qwen_omni_adapters.virtual_memory.aggregation import (
     requested_frequency_count,
 )
 from qwen_omni_adapters.virtual_memory.chunking import ChunkDraft, StructureAwareChunker
+from qwen_omni_adapters.virtual_memory.compilation import (
+    QueryCompilation,
+    QueryEvidenceCompiler,
+)
 from qwen_omni_adapters.virtual_memory.controller import (
     ControllerConfig,
     RecursiveMemoryController,
@@ -68,6 +72,8 @@ __all__ = [
     "MemoryPolicy",
     "MemoryRecord",
     "PreparedTurn",
+    "QueryCompilation",
+    "QueryEvidenceCompiler",
     "QueryPlan",
     "RecurrentConfig",
     "RecurrentMemoryBuilder",

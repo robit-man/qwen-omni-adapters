@@ -15,6 +15,7 @@ from qwen_omni_adapters.virtual_memory import (
     ImmutableEvidenceStore,
     MemoryClass,
     MemoryHierarchy,
+    QueryEvidenceCompiler,
     RecurrentConfig,
     RecurrentMemoryBuilder,
     RecursiveMemoryController,
@@ -262,6 +263,74 @@ def test_controller_requires_all_explicit_addresses_before_answer(
     assert result.evidence
     assert result.sufficient is False
     assert result.trace[-1]["detail"]["allowed"] is False
+    store.close()
+
+
+def test_query_compiler_builds_complete_multi_key_values_with_exact_provenance(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "compiled-values.sqlite3")
+    for anchor, value in (
+        ("alpha-key", "1234567"),
+        ("beta-key", "7654321"),
+        ("gamma-key", "2468135"),
+    ):
+        store.ingest(
+            f"The immutable number for {anchor} is: {value}.",
+            source="records.txt",
+            document_id=anchor,
+        )
+    query = "What are the numbers for alpha-key, beta-key, and gamma-key?"
+    evidence = HybridRetriever(store, source_cap=1).retrieve(query)
+
+    compiled = QueryEvidenceCompiler(store).compile(query, evidence)
+
+    assert compiled.complete is True
+    assert compiled.consume_evidence is True
+    assert compiled.operators == ("exact_value_lookup",)
+    content = compiled.memories[0].content
+    assert "key=alpha-key values=[1234567]" in content
+    assert "key=beta-key values=[7654321]" in content
+    assert "key=gamma-key values=[2468135]" in content
+    recovered = store.reconstruct(compiled.memories[0].memory_id)
+    assert len(recovered) == 3
+    assert all(pointer.exact and text for pointer, text in recovered)
+    store.close()
+
+
+def test_query_compiler_resolves_assignment_graph_and_ignores_other_target(
+    tmp_path: Path,
+) -> None:
+    store = ImmutableEvidenceStore(tmp_path / "compiled-chain.sqlite3")
+    chunks = []
+    for index, line in enumerate(
+        (
+            "VAR LEBYM = 77969",
+            "VAR VKBQB = VAR LEBYM",
+            "VAR DOHZD = VAR VKBQB",
+            "VAR TPUFN = VAR DOHZD",
+            "VAR LLWZH = VAR TPUFN",
+            "VAR DISTRACTOR = 11223",
+        )
+    ):
+        chunks.extend(store.ingest(line, source=f"event-{index}.log", kind="log"))
+    evidence = tuple(
+        RetrievalHit(chunk, 1.0, ("exact",), {"exact": 1.0})
+        for chunk in chunks
+    )
+
+    compiled = QueryEvidenceCompiler(store).compile(
+        "Find all variables that are assigned the value 77969.",
+        evidence,
+    )
+
+    assert compiled.complete is True
+    assert compiled.operators == ("assignment_resolution",)
+    content = compiled.memories[0].content
+    for variable in ("LEBYM", "VKBQB", "DOHZD", "TPUFN", "LLWZH"):
+        assert f"variable={variable} " in content
+    assert "DISTRACTOR" not in content
+    assert len(store.reconstruct(compiled.memories[0].memory_id)) == 5
     store.close()
 
 
