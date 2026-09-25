@@ -217,6 +217,10 @@ def test_computer_action_scope_keeps_durable_state_and_two_fresh_motor_cycles() 
                     "arguments": '{"action":"click","x":730,"y":527}',
                     "outcome": '{"rendered":true}',
                     "ok": True,
+                    "receipt": {
+                        "action": "visual_click",
+                        "target": "BLUE TRIANGLE",
+                    },
                 }
             ],
         },
@@ -231,6 +235,7 @@ def test_computer_action_scope_keeps_durable_state_and_two_fresh_motor_cycles() 
     assert "Reached the site" in scoped[2]["content"]
     assert '"x":730' not in scoped[2]["content"]
     assert "action=click" in scoped[2]["content"]
+    assert '"target": "BLUE TRIANGLE"' in scoped[2]["content"]
     assert "gui-0" not in rendered
     assert "image-0" not in rendered
     assert "gui-1" in rendered and "gui-2" in rendered

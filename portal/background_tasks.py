@@ -423,6 +423,7 @@ class BackgroundTaskStore:
         arguments: str,
         outcome: str,
         ok: bool,
+        receipt: Mapping[str, Any] | None = None,
         recorded_at: float | None = None,
     ) -> dict[str, Any] | None:
         """Append one bounded tool-call audit entry while its task lease is held."""
@@ -449,6 +450,8 @@ class BackgroundTaskStore:
                     "outcome": str(outcome)[:1200],
                     "ok": bool(ok),
                 }
+                if receipt:
+                    action["receipt"] = copy.deepcopy(dict(receipt))
                 action_time = now if recorded_at is None else float(recorded_at)
                 if action_time > 0:
                     action["at"] = action_time

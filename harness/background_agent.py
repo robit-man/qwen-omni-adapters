@@ -474,6 +474,22 @@ def _computer_action_state(task: Mapping[str, Any]) -> str:
         )
     actions = task.get("actions")
     if isinstance(actions, list) and actions:
+        verified_receipts = [
+            action.get("receipt")
+            for action in actions[-12:]
+            if isinstance(action, Mapping)
+            and isinstance(action.get("receipt"), Mapping)
+            and action.get("ok") is True
+        ]
+        if verified_receipts:
+            sections.append(
+                "Verified historical action target ledger for progress reports only; "
+                "copy target text exactly and never reuse it as current coordinates:"
+            )
+            sections.extend(
+                f"- {json.dumps(receipt, ensure_ascii=False, sort_keys=True)}"
+                for receipt in verified_receipts[-8:]
+            )
         sections.append("Recent action receipts:")
         for action in actions[-6:]:
             if not isinstance(action, Mapping):
@@ -1111,6 +1127,19 @@ class BackgroundAgent:
         historical: bool = False,
     ) -> None:
         try:
+            receipt = None
+            if name in COMPUTER_ACTION_TOOLS and isinstance(result, Mapping):
+                raw_receipt = result.get("action_receipt")
+                if isinstance(raw_receipt, Mapping):
+                    action = str(raw_receipt.get("action") or "")[:80]
+                    target = " ".join(
+                        str(raw_receipt.get("target") or "").split()
+                    )[:240]
+                    if action and target:
+                        # Coordinates expire with their screenshot. Persist only
+                        # the verified semantic action identity needed for task
+                        # continuity and accurate reporting after scope reduction.
+                        receipt = {"action": action, "target": target}
             self.store.record_action(
                 task_id,
                 self.owner,
@@ -1119,6 +1148,7 @@ class BackgroundAgent:
                 arguments=_audit_json(arguments, MAX_ACTION_ARGUMENT_CHARS),
                 outcome=_audit_json(result, MAX_ACTION_OUTCOME_CHARS),
                 ok=not _result_failed_or_blocked(result),
+                receipt=receipt,
                 recorded_at=0 if historical else None,
             )
         except Exception as error:  # noqa: BLE001 - auditing must not stop the task
