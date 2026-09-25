@@ -84,17 +84,39 @@ def test_hybrid_never_exposes_reference_field_to_responder() -> None:
     assert results[0]["outputs"] == ["SECRET_REFERENCE_NOT_IN_SOURCE"]
 
 
-def test_oracle_uses_reference_only_to_locate_source_chunk() -> None:
+def test_oracle_adds_reference_location_to_recursive_support() -> None:
     sample = sample_from_record(_record(), task="niah_single_1", ordinal=0)
     prepared = RulerVirtualContextHarness().prepare(sample, baseline="oracle")
 
     assert prepared.answer_allowed is True
     assert "7319042" in prepared.prompt
     assert prepared.evidence_chunk_ids
-    assert prepared.retrieval_queries == (
-        "oracle_reference_location",
-        "7319042",
-    )
+    assert prepared.retrieval_queries[0] == "oracle_assisted_recursive_retrieval"
+    assert sample.query in prepared.retrieval_queries
+    assert "oracle_reference_location" in prepared.retrieval_queries
+    assert "7319042" in prepared.retrieval_queries
+
+
+def test_oracle_treats_short_derived_answer_as_conclusion_not_source_locator() -> None:
+    record = {
+        "index": 9,
+        "input": (
+            "Document 1:\nScott Derrickson is an American film director.\n\n"
+            "Document 2:\nEd Wood was an American filmmaker.\n\n"
+            "Question: Were Scott Derrickson and Ed Wood of the same nationality?"
+        ),
+        "outputs": ["yes"],
+        "answer_prefix": " Answer:",
+    }
+    sample = sample_from_record(record, task="qa_2", ordinal=0)
+
+    prepared = RulerVirtualContextHarness().prepare(sample, baseline="oracle")
+
+    assert prepared.answer_allowed is True
+    assert "Scott Derrickson is an American" in prepared.prompt
+    assert "Ed Wood was an American" in prepared.prompt
+    assert "oracle_reference_location" not in prepared.retrieval_queries
+    assert "yes" not in prepared.prompt.casefold()
 
 
 def test_fifo_baseline_is_hard_bounded() -> None:

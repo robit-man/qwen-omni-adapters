@@ -169,11 +169,26 @@ def _reference_terms(references: Sequence[str]) -> list[str]:
     return list(dict.fromkeys(terms))
 
 
+def _locatable_reference_terms(references: Sequence[str]) -> list[str]:
+    """Return answer strings specific enough to locate source evidence.
+
+    Short class labels such as ``yes`` and ``no`` are conclusions, not useful
+    source locators. Searching an entire corpus for them creates a misleading
+    oracle pack from unrelated prose.
+    """
+
+    return [
+        term
+        for term in _reference_terms(references)
+        if len(re.sub(r"[^A-Za-z0-9]", "", term)) >= 4
+    ]
+
+
 def _oracle_hits(
     store: ImmutableEvidenceStore, references: Sequence[str]
 ) -> list[RetrievalHit]:
     chunks = {}
-    for term in _reference_terms(references):
+    for term in _locatable_reference_terms(references):
         for chunk in store.exact_search(term, limit=200):
             chunks[chunk.chunk_id] = chunk
     return [
@@ -185,6 +200,31 @@ def _oracle_hits(
         )
         for chunk in chunks.values()
     ]
+
+
+def _merge_hits(*groups: Sequence[RetrievalHit]) -> list[RetrievalHit]:
+    """Merge support and oracle hits without duplicating immutable chunks."""
+
+    merged: dict[str, RetrievalHit] = {}
+    for group in groups:
+        for hit in group:
+            previous = merged.get(hit.chunk.chunk_id)
+            if previous is None:
+                merged[hit.chunk.chunk_id] = hit
+                continue
+            distances = tuple(
+                distance
+                for distance in (previous.graph_distance, hit.graph_distance)
+                if distance is not None
+            )
+            merged[hit.chunk.chunk_id] = RetrievalHit(
+                chunk=previous.chunk,
+                score=max(previous.score, hit.score),
+                channels=tuple(dict.fromkeys((*previous.channels, *hit.channels))),
+                channel_scores={**previous.channel_scores, **hit.channel_scores},
+                graph_distance=min(distances) if distances else None,
+            )
+    return list(merged.values())
 
 
 def _tail_within_tokens(value: str, maximum: int) -> str:
@@ -273,21 +313,35 @@ class RulerVirtualContextHarness:
                     chunks,
                 )
                 memories = [aggregation.memory] if aggregation is not None else []
+                controller = RecursiveMemoryController(
+                    retriever,
+                    config=ControllerConfig(max_rounds=6),
+                )
                 if selected == "oracle":
-                    hits = _oracle_hits(store, sample.references)
-                    sufficient = bool(hits)
+                    # Literal answer location is not an evidence oracle for a
+                    # derived relation (for example yes/no QA or a variable
+                    # chain). Recursive query support supplies dependencies;
+                    # high-information reference strings only add exact source
+                    # locations. Answers are never written into the prompt.
+                    support = controller.gather(sample.query)
+                    oracle_hits = _oracle_hits(store, sample.references)
+                    hits = _merge_hits(support.evidence, oracle_hits)
+                    sufficient = (
+                        support.sufficient
+                        or bool(oracle_hits)
+                        or aggregation is not None
+                    )
+                    locators = _locatable_reference_terms(sample.references)
                     retrieval_queries = (
-                        "oracle_reference_location",
-                        *sample.references,
+                        "oracle_assisted_recursive_retrieval",
+                        *support.queries,
+                        *(("oracle_reference_location", *locators) if oracle_hits else ()),
                     )
                     trace: tuple[dict[str, Any], ...] = (
-                        aggregation.trace if aggregation is not None else ()
+                        *support.trace,
+                        *(aggregation.trace if aggregation is not None else ()),
                     )
                 else:
-                    controller = RecursiveMemoryController(
-                        retriever,
-                        config=ControllerConfig(max_rounds=6),
-                    )
                     result = controller.gather(sample.query)
                     hits = list(result.evidence)
                     sufficient = result.sufficient or aggregation is not None
