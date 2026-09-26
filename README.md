@@ -425,6 +425,11 @@ once in the pinned system contract rather than duplicating it in a recurrent
 checkpoint. If an omitted record's evidence ID is no longer resident,
 `task_expand` also accepts a distinctive exact path, URL, symbol, error, or
 other query and returns the highest-scoring immutable receipts.
+It is a one-shot page-in, never capability discovery: after either a successful
+expansion or `evidence_not_found`, it leaves the next action surface until a new
+concrete result makes older evidence relevant again. Missing tool schemas route
+through `tool_search`, preventing a failed lexical page query from becoming a
+maintenance loop.
 The ledger applies the same evidence authority as checkpoints: search results
 marked discovery-only never become acquired-source successes, and an empty
 `about:blank` browser snapshot remains an inspection. A blank visible browser

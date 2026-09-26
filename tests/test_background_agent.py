@@ -62,6 +62,7 @@ from harness.background_agent import (
     _structured_action_phase,
     _successor_tools,
     _task_context_limits,
+    _task_expand_available,
     _task_system_prompt,
     _task_virtual_query,
     _tool_evidence,
@@ -247,6 +248,68 @@ def test_constrained_action_contract_keeps_json_rules_without_prose_bloat() -> N
         {"empty_browser_page": True, "task_progress": False}
     )
     assert _include_discovery_with_active_tool(routed, ["browser_interact"]) is False
+
+
+def test_evidence_paging_cannot_loop_or_replace_capability_discovery() -> None:
+    checkpoint = [
+        {
+            "role": "tool",
+            "tool_name": "task_checkpoint",
+            "content": '{"accepted": true}',
+        }
+    ]
+    assert _task_expand_available(checkpoint, compacted=False) is False
+    assert _task_expand_available(checkpoint, compacted=True) is True
+
+    expanded = [
+        *checkpoint,
+        {
+            "role": "tool",
+            "tool_name": "task_expand",
+            "content": '{"expanded": [{"evidence_id": "source-1"}]}',
+        },
+    ]
+    assert _task_expand_available(expanded, compacted=True) is False
+
+    missing = [
+        *checkpoint,
+        {
+            "role": "tool",
+            "tool_name": "task_expand",
+            "content": '{"error": "evidence_not_found"}',
+        },
+    ]
+    assert _task_expand_available(missing, compacted=True) is False
+
+    routed = [
+        *checkpoint,
+        {
+            "role": "tool",
+            "tool_name": "tool_search",
+            "content": '{"available_tools": ["workspace_file"]}',
+        },
+    ]
+    assert _task_expand_available(routed, compacted=True) is False
+
+    changed = [
+        *checkpoint,
+        {
+            "role": "tool",
+            "tool_name": "workspace_file",
+            "content": '{"action": "mkdir", "path": "/tmp/app"}',
+        },
+    ]
+    assert _task_expand_available(changed, compacted=True) is True
+
+    failed = [
+        *checkpoint,
+        {
+            "role": "tool",
+            "tool_name": "workspace_file",
+            "content": '{"error": "duplicate_tool_call"}',
+        },
+    ]
+    assert _task_expand_available(failed, compacted=True) is False
 
 
 def test_web_fetch_preflight_allows_a_user_supplied_url_but_not_self_authorization() -> None:

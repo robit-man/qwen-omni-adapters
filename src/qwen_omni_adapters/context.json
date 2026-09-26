@@ -140,7 +140,7 @@
       "type": "function",
       "function": {
         "name": "task_expand",
-        "description": "Page exact retained tool receipts back into working context after compaction. Use evidence_ids for a tagged resident item, or query to locate omitted immutable evidence by exact path, URL, symbol, error, or other distinctive text. Expansion restores evidence; it is not new progress and must not be cited as a fresh external result.",
+        "description": "Page exact retained tool receipts back into working context after compaction. Use evidence_ids for a tagged resident item, or query to locate omitted immutable evidence by exact path, URL, symbol, error, or other distinctive text. This retrieves prior task evidence only: it never discovers a tool or schema, never changes external state, and is not new progress. Use tool_search for a missing interaction capability.",
         "parameters": {
           "type": "object",
           "properties": {

@@ -417,6 +417,40 @@ def _include_discovery_with_active_tool(
     return False
 
 
+def _task_expand_available(
+    messages: list[dict[str, Any]], *, compacted: bool
+) -> bool:
+    """Offer one evidence page-in, then force a return to task actions.
+
+    ``task_expand`` reads immutable receipts; it does not discover capabilities or
+    change external state. Leaving it resident immediately after a page-in lets a
+    small controller mistake repeated lexical queries for forward progress. A new
+    concrete result (or phase boundary) can make older evidence relevant again, but
+    routing and failed actions must recover through ``tool_search`` instead.
+    """
+
+    if not compacted:
+        return False
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            continue
+        name = str(message.get("tool_name") or "")
+        if name == "task_expand":
+            return False
+        if name == "tool_search":
+            return False
+        if name in {"task_checkpoint", "task_compact", "task_recovery"}:
+            continue
+        if not name:
+            continue
+        try:
+            result = json.loads(str(message.get("content") or "{}"))
+        except ValueError:
+            result = {}
+        return not _result_failed_or_blocked(result)
+    return True
+
+
 TASK_CHECKPOINT_TOOL = context_value("control_tools", "task_checkpoint")
 TASK_COMPACT_TOOL = context_value("control_tools", "task_compact")
 TASK_EXPAND_TOOL = context_value("control_tools", "task_expand")
@@ -3078,7 +3112,10 @@ class BackgroundAgent:
             # ordinary transcript. Offer paging only after older turns may
             # have left L0; otherwise the maintenance action needlessly
             # competes with the next concrete task action.
-            expand_available = bool(current.get("compaction"))
+            expand_available = _task_expand_available(
+                messages,
+                compacted=bool(current.get("compaction")),
+            )
             resident_context_tokens = _resident_task_context_tokens()
             schemas = _background_tool_contract(
                 active_tools,

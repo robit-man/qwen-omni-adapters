@@ -144,6 +144,11 @@ exact/lexical `task_expand` query path, then replayed verbatim. `task_compact`
 receipts report the live resident token tier, working-set limits, before/after
 message and byte counts, and retained evidence IDs so budget movement is
 observable rather than inferred.
+One page-in is offered at a time. After `task_expand` succeeds or returns
+`evidence_not_found`, it is removed until a new concrete external result makes
+another page-in relevant. It cannot retrieve capabilities or schemas;
+`tool_search` is the only route for those. This keeps evidence paging from
+becoming a self-reinforcing action loop after compaction.
 
 Focus categories preserve evidence authority. `web_search` discovery is a
 route to source-bearing fetch/browser evidence, not a completed research
