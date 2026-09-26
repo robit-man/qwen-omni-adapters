@@ -1263,6 +1263,53 @@ def _without_retired_action_families(
     return narrowed
 
 
+def _tool_call_contract_error(
+    name: str,
+    arguments: Mapping[str, Any],
+    schemas: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Reject calls outside the exact tool/operation grammar shown this round."""
+
+    offered: dict[str, Mapping[str, Any]] = {}
+    for schema in schemas:
+        function = schema.get("function") if isinstance(schema, Mapping) else None
+        if isinstance(function, Mapping) and str(function.get("name") or ""):
+            offered[str(function["name"])] = function
+    function = offered.get(str(name))
+    if function is None:
+        return {
+            "error": "tool_not_offered",
+            "message": "The proposed tool is outside the current closed action contract.",
+            "offered_tools": sorted(offered),
+            "task_progress": False,
+            "failure_scope": "plan",
+        }
+    parameters = function.get("parameters")
+    properties = parameters.get("properties") if isinstance(parameters, Mapping) else None
+    if isinstance(properties, Mapping):
+        for key in ("action", "intent", "decision"):
+            definition = properties.get(key)
+            permitted = definition.get("enum") if isinstance(definition, Mapping) else None
+            if not isinstance(permitted, list) or key not in arguments:
+                continue
+            proposed = arguments.get(key)
+            if proposed not in permitted:
+                return {
+                    "error": "operation_not_offered",
+                    "message": (
+                        f"{name}.{key}={proposed!s} is outside the current closed "
+                        "action contract. Select one currently admitted operation."
+                    ),
+                    "tool": name,
+                    "operation_key": key,
+                    "proposed_operation": proposed,
+                    "allowed_operations": list(permitted),
+                    "task_progress": False,
+                    "failure_scope": "plan",
+                }
+    return None
+
+
 def _task_expand_available(
     messages: list[dict[str, Any]], *, compacted: bool
 ) -> bool:
@@ -5156,6 +5203,28 @@ class BackgroundAgent:
                     )
                     stalls += 1
                     continue
+                if self.manage_execute_audit and name != "task_manage":
+                    contract_error = _tool_call_contract_error(
+                        name, arguments, schemas
+                    )
+                    if contract_error is not None:
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_name": name or "unknown",
+                                "tool_call_id": call_id,
+                                "content": json.dumps(contract_error),
+                            }
+                        )
+                        self._record_action(
+                            task_id,
+                            call_id,
+                            name or "unknown",
+                            arguments,
+                            contract_error,
+                        )
+                        stalls += 1
+                        continue
                 if name == "task_manage":
                     latest_task = self.store.get(task_id) or current
                     manage_error = _manage_transition_error(latest_task, arguments)

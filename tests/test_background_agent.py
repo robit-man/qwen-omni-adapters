@@ -82,6 +82,7 @@ from harness.background_agent import (
     _task_expand_available,
     _task_system_prompt,
     _task_virtual_query,
+    _tool_call_contract_error,
     _tool_evidence,
     _trailing_capability_failures,
     _uncheckpointed_action_count,
@@ -2081,6 +2082,31 @@ def test_many_small_messages_do_not_trigger_message_count_compaction() -> None:
 
     assert _context_metrics(messages)["messages"] > 128
     assert _compaction_available(messages) is False
+
+
+def test_closed_tool_contract_rejects_excluded_operation_before_execution() -> None:
+    schemas = _background_tool_contract(
+        ["workspace_file"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+        retired_action_families={"workspace_file:list"},
+    )
+
+    rejection = _tool_call_contract_error(
+        "workspace_file",
+        {"action": "list", "path": "/tmp/project"},
+        schemas,
+    )
+    assert rejection is not None
+    assert rejection["error"] == "operation_not_offered"
+    assert "list" not in rejection["allowed_operations"]
+    assert _tool_call_contract_error(
+        "workspace_file",
+        {"action": "write", "path": "/tmp/project/app.ts", "content": "ok"},
+        schemas,
+    ) is None
 
 
 def test_failed_contract_retires_route_and_requires_one_explicit_replan(
