@@ -178,6 +178,7 @@ def test_resource_pressure_never_becomes_task_evidence_or_a_blocker(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -256,6 +257,7 @@ def test_background_compacts_before_soft_floor_admission(
         )
     )
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -314,6 +316,7 @@ def test_idle_background_scheduler_does_not_poll_memory_or_log_pressure(
         )
     )
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",

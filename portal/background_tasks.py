@@ -54,10 +54,14 @@ def _initial_task_state(
         "knowledge": {"version": 0, "records": []},
         "environment": {"version": 0, "artifacts": []},
         "controller": {
+            "contract_protocol": 1,
             "phase": "prethink",
             "active_requirement_id": "root",
             "current_subtask": objective,
             "next_transition": "prethink",
+            "manage_generation": 0,
+            "pending_contract": None,
+            "last_contract": None,
             "unresolved_evidence": [],
             "closed_evidence_slots": [],
             "last_audit_id": "",
@@ -70,6 +74,76 @@ def _initial_task_state(
     }
 
 
+def _apply_manage_transition(
+    task: dict[str, Any], transition: Mapping[str, Any]
+) -> None:
+    """Persist a bounded manager contract without treating its prose as evidence."""
+
+    state = _ensure_task_state(task)
+    controller = state.setdefault("controller", {})
+    knowledge = state.setdefault("knowledge", {"version": 0, "records": []})
+    environment = state.setdefault("environment", {"version": 0, "artifacts": []})
+    decision = str(transition.get("decision") or "")[:24]
+    subtask = " ".join(str(transition.get("subtask") or "").split())[:300]
+    generation = int(controller.get("manage_generation") or 0) + 1
+    contract = {
+        "contract_id": str(transition.get("contract_id") or "")[:128],
+        "generation": generation,
+        "decision": decision,
+        "subtask": subtask,
+        "active_requirement_id": str(
+            controller.get("active_requirement_id") or "root"
+        )[:80],
+        "capability_family": str(
+            transition.get("capability_family") or "uncertain"
+        )[:40],
+        "expected_effect": str(transition.get("expected_effect") or "none")[:40],
+        "effect_target": " ".join(
+            str(transition.get("effect_target") or "").split()
+        )[:500],
+        "target_kind": str(transition.get("target_kind") or "")[:24],
+        "target_scope": str(transition.get("target_scope") or "exact")[:24],
+        "acceptance_test": " ".join(
+            str(transition.get("acceptance_test") or "").split()
+        )[:500],
+        "verification_family": str(
+            transition.get("verification_family") or "uncertain"
+        )[:40],
+        "reason": " ".join(str(transition.get("reason") or "").split())[:500],
+        "question": " ".join(str(transition.get("question") or "").split())[:500],
+        "knowledge_version_at_plan": int(knowledge.get("version") or 0),
+        "environment_version_at_plan": int(environment.get("version") or 0),
+        "state_version_at_plan": int(state.get("version") or 0),
+        "status": "planned",
+    }
+    controller["manage_generation"] = generation
+    controller["current_subtask"] = subtask
+    controller["last_manage_decision"] = decision
+    if decision == "replan":
+        contract["status"] = "replanned"
+        controller["last_contract"] = contract
+        controller["pending_contract"] = None
+        controller["phase"] = "prethink"
+        controller["next_transition"] = "prethink"
+        controller["consecutive_replans"] = int(
+            controller.get("consecutive_replans") or 0
+        ) + 1
+    elif decision == "ask":
+        contract["status"] = "waiting_input"
+        controller["pending_contract"] = contract
+        controller["phase"] = "waiting_input"
+        controller["next_transition"] = "ask"
+        controller["consecutive_replans"] = 0
+    else:
+        controller["pending_contract"] = contract
+        controller["phase"] = "execute"
+        controller["next_transition"] = decision
+        controller["consecutive_replans"] = 0
+        if decision == "retrieve":
+            controller["unresolved_evidence"] = [contract["effect_target"]]
+    state["version"] = int(state.get("version") or 0) + 1
+
+
 def _ensure_task_state(task: dict[str, Any]) -> dict[str, Any]:
     state = task.get("task_state")
     if not isinstance(state, dict) or state.get("schema") != (
@@ -80,6 +154,11 @@ def _ensure_task_state(task: dict[str, Any]) -> dict[str, Any]:
             str(task.get("completion_criteria") or ""),
         )
         task["task_state"] = state
+    controller = state.setdefault("controller", {})
+    controller.setdefault("contract_protocol", 1)
+    controller.setdefault("manage_generation", 0)
+    controller.setdefault("pending_contract", None)
+    controller.setdefault("last_contract", None)
     return state
 
 
@@ -186,16 +265,109 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
     normalized["environment_version_before"] = environment_before
     normalized["environment_version_after"] = int(environment.get("version") or 0)
     normalized["stagnation_count"] = int(stagnation.get("count") or 0)
+
+    pending = controller.get("pending_contract")
+    contract_transition_applied = False
+    if isinstance(pending, Mapping):
+        contract = copy.deepcopy(dict(pending))
+        contract_id = str(contract.get("contract_id") or "")
+        report_contract_id = str(normalized.get("contract_id") or "")
+        phase = str(controller.get("phase") or "")
+        decision = str(contract.get("decision") or "")
+        contract_matches = bool(contract_id) and contract_id == report_contract_id
+        executor_succeeded = normalized.get("executor_succeeded") is True
+        normalized["contract_phase"] = phase
+        normalized["contract_satisfied"] = False
+
+        if contract_matches and phase == "execute":
+            contract_transition_applied = True
+            contract["action_evidence_id"] = evidence_id
+            contract["environment_version_after_action"] = int(
+                environment.get("version") or 0
+            )
+            if not executor_succeeded:
+                contract["status"] = "action_failed"
+                controller["last_contract"] = contract
+                controller["pending_contract"] = None
+                controller["phase"] = "prethink"
+                controller["next_transition"] = "replan"
+                normalized["milestone_progress"] = False
+            elif decision == "retrieve" and epistemic_progress:
+                contract["status"] = "evidence_acquired"
+                contract["evidence_id"] = evidence_id
+                controller["last_contract"] = contract
+                controller["pending_contract"] = None
+                controller["unresolved_evidence"] = []
+                normalized["contract_satisfied"] = True
+                if normalized.get("milestone_progress") is True:
+                    controller["phase"] = "checkpoint"
+                    controller["next_transition"] = "checkpoint"
+                else:
+                    controller["phase"] = "prethink"
+                    controller["next_transition"] = "prethink"
+            elif decision == "act" and (
+                normalized.get("contract_effect_matched") is True
+                and (environmental_progress or authority in {"concrete", "mutation"})
+            ):
+                # Changed bytes or a successful external interaction are only
+                # an action receipt. They become milestone evidence after a
+                # fresh read-only audit satisfies the declared acceptance test.
+                contract["status"] = "awaiting_audit"
+                controller["pending_contract"] = contract
+                controller["phase"] = "audit"
+                controller["next_transition"] = "verify"
+                normalized["milestone_progress"] = False
+            else:
+                contract["status"] = "expected_effect_missing"
+                controller["last_contract"] = contract
+                controller["pending_contract"] = None
+                controller["phase"] = "prethink"
+                controller["next_transition"] = "replan"
+                normalized["milestone_progress"] = False
+        elif contract_matches and phase == "audit":
+            contract_transition_applied = True
+            expected_effect = str(contract.get("expected_effect") or "")
+            action_version = int(
+                contract.get("environment_version_after_action") or 0
+            )
+            version_matches = (
+                expected_effect != "change_environment"
+                or action_version > int(contract.get("environment_version_at_plan") or 0)
+                and int(environment.get("version") or 0) == action_version
+            )
+            if (
+                executor_succeeded
+                and authority == "verification"
+                and normalized.get("contract_verification_matched") is True
+                and version_matches
+            ):
+                contract["status"] = "verified"
+                contract["verification_evidence_id"] = evidence_id
+                controller["last_contract"] = contract
+                controller["pending_contract"] = None
+                controller["phase"] = "checkpoint"
+                controller["next_transition"] = "checkpoint"
+                controller["unresolved_evidence"] = []
+                normalized["contract_satisfied"] = True
+                normalized["milestone_progress"] = True
+            else:
+                contract["status"] = "audit_failed"
+                contract["verification_evidence_id"] = evidence_id
+                controller["last_contract"] = contract
+                controller["pending_contract"] = None
+                controller["phase"] = "prethink"
+                controller["next_transition"] = "replan"
+                normalized["milestone_progress"] = False
+
     retired = [
         str(value)[:160]
         for value in controller.get("retired_action_families", [])
         if str(value)
     ]
-    # New information can be useful without repairing the failed execution
-    # path that triggered recovery. Keep retirement per typed action family
-    # until an audited milestone or environment mutation advances the task;
-    # an unrelated clock/system lookup must not reopen the stagnant route.
-    if environmental_progress or normalized.get("milestone_progress") is True:
+    # New information and changed bytes can be useful without satisfying the
+    # active subtask. Keep retirement until a contract-backed milestone is
+    # independently verified; arbitrary rewrites must not reopen dead routes.
+    if normalized.get("milestone_progress") is True:
         retired = []
     elif normalized["stagnation_count"] >= STAGNANT_ACTION_RETIRE_THRESHOLD:
         action_family = str(normalized.get("action_family") or "")[:160]
@@ -205,8 +377,9 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
     reports.append(normalized)
     state["audit_reports"] = reports[-MAX_TASK_STATE_RECORDS:]
     state["version"] = int(state.get("version") or 0) + 1
-    controller["phase"] = "prethink"
-    controller["next_transition"] = "prethink"
+    if not contract_transition_applied:
+        controller["phase"] = "prethink"
+        controller["next_transition"] = "prethink"
     controller["last_audit_id"] = audit_id
     controller["last_transition"] = str(normalized.get("transition") or "")[:40]
 
@@ -257,6 +430,8 @@ def _apply_checkpoint_state(
     controller = state.setdefault("controller", {})
     controller["phase"] = "terminal" if action in {"complete", "blocked"} else "prethink"
     controller["next_transition"] = "stop" if action in {"complete", "blocked"} else "prethink"
+    controller["pending_contract"] = None
+    controller["consecutive_replans"] = 0
     if remaining:
         controller["current_subtask"] = remaining[0]
     controller["remaining_requirements"] = remaining
@@ -267,6 +442,7 @@ def _apply_checkpoint_state(
         ) + 1
         controller["stagnation"] = {"fingerprint": "", "count": 0}
         controller["retired_action_families"] = []
+    if action in {"progress", "complete"}:
         environment = state.setdefault("environment", {"version": 0, "artifacts": []})
         environment_version = int(environment.get("version") or 0)
         reports = state.get("audit_reports")
@@ -279,6 +455,7 @@ def _apply_checkpoint_state(
             and str(report.get("evidence_id") or "") in evidence_ids
             and str(report.get("authority") or "") == "verification"
             and report.get("milestone_progress") is True
+            and report.get("contract_satisfied") is True
             and int(report.get("environment_version_after") or -1)
             == environment_version
             for report in reports
@@ -859,6 +1036,31 @@ class BackgroundTaskStore:
 
         return self._mutate(record)
 
+    def manage_transition(
+        self,
+        task_id: str,
+        owner: str,
+        transition: Mapping[str, Any],
+        *,
+        lease_s: float = 60.0,
+    ) -> dict[str, Any] | None:
+        """Persist one model-selected controller contract without creating evidence."""
+
+        def manage(value: dict[str, Any]) -> dict[str, Any] | None:
+            for item in value.get("tasks", []):
+                if item.get("task_id") != task_id or item.get("owner") != owner:
+                    continue
+                if item.get("status") != "running":
+                    return self._public(item)
+                _apply_manage_transition(item, transition)
+                now = time.time()
+                item["updated_at"] = now
+                item["lease_until"] = now + max(5.0, lease_s)
+                return self._public(item)
+            return None
+
+        return self._mutate(manage)
+
     def renew_executor_context(
         self,
         task_id: str,
@@ -973,6 +1175,17 @@ class BackgroundTaskStore:
                         "provenance": str(provenance)[:80],
                     }
                 )
+                state = _ensure_task_state(item)
+                controller = state.setdefault("controller", {})
+                pending = controller.get("pending_contract")
+                if isinstance(pending, Mapping):
+                    invalidated = copy.deepcopy(dict(pending))
+                    invalidated["status"] = "invalidated_by_user_guidance"
+                    controller["last_contract"] = invalidated
+                    controller["pending_contract"] = None
+                    controller["phase"] = "prethink"
+                    controller["next_transition"] = "prethink"
+                    state["version"] = int(state.get("version") or 0) + 1
                 if item.get("status") == "waiting_input":
                     item["status"] = "pending"
                     item["current_stage"] = context_text("task_stages", "queued")

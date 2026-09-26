@@ -332,6 +332,7 @@ def test_background_worker_replans_generic_discovery_without_camera_capture(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -758,6 +759,7 @@ def test_nonsticky_milestone_closes_before_discovery_reopens() -> None:
                     "evidence_id": "source-1",
                     "action_family": "web_fetch:execute",
                     "milestone_progress": True,
+                    "contract_satisfied": True,
                 }
             ]
         }
@@ -1300,6 +1302,7 @@ def test_foreground_preemption_releases_a_blocked_stream_reader_promptly(
     foreground = threading.Event()
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=BackgroundTaskStore(tmp_path / "tasks.json"),
         portal_url="http://portal.test",
         token="token",
@@ -1433,6 +1436,7 @@ def test_nonretryable_worker_request_quiesces_until_restart(tmp_path: Path) -> N
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -1681,6 +1685,7 @@ def test_agent_releases_lease_before_waiting_for_worker_join(tmp_path: Path) -> 
     stop = threading.Event()
     client = httpx.Client(transport=httpx.MockTransport(lambda _request: httpx.Response(200)))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -1930,6 +1935,298 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     assert raw["tasks"][0]["messages"][0]["content"] == "fresh audited frontier"
 
 
+def test_contract_protocol_does_not_reward_changed_bytes_until_fresh_audit(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create(
+        "Build and verify the application.",
+        "The application artifact exists and its acceptance test passes.",
+    )
+    current = store.claim_next("worker")
+    assert current is not None
+
+    def record(
+        call_id: str,
+        name: str,
+        arguments: dict[str, Any],
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        nonlocal current
+        report = _action_audit_report(
+            current,
+            call_id=call_id,
+            name=name,
+            arguments=arguments,
+            result=result,
+            require_contract=True,
+        )
+        updated = store.record_action(
+            created["task_id"],
+            "worker",
+            call_id=call_id,
+            tool=name,
+            arguments=json.dumps(arguments),
+            outcome=json.dumps(result),
+            ok=not bool(result.get("error")),
+            audit_report=report,
+        )
+        assert updated is not None
+        current = updated
+        return report
+
+    inspection = {"intent": "inspect", "cwd": str(tmp_path)}
+    inspection_result = {
+        "exit_code": 0,
+        "evidence_authority": "inspection",
+        "task_progress": False,
+    }
+    record("inspect-1", "shell", inspection, inspection_result)
+    record("inspect-2", "shell", inspection, inspection_result)
+    record("inspect-3", "shell", inspection, inspection_result)
+    assert _retired_action_families(current) == {"shell:inspect"}
+
+    managed = store.manage_transition(
+        created["task_id"],
+        "worker",
+        {
+            "contract_id": "contract-build",
+            "decision": "act",
+            "subtask": "Create the application entry point.",
+            "capability_family": "filesystem",
+            "expected_effect": "change_environment",
+            "effect_target": str(tmp_path / "src/app/page.tsx"),
+            "target_kind": "path",
+            "target_scope": "exact",
+            "acceptance_test": "Read the file and verify the expected export exists.",
+            "verification_family": "shell",
+            "reason": "The entry point is the earliest missing prerequisite.",
+        },
+    )
+    assert managed is not None
+    current = managed
+    mutation = record(
+        "rewrite-research",
+        "workspace_file",
+        {"action": "write", "path": str(tmp_path / "RESEARCH.md")},
+        {
+            "path": str(tmp_path / "RESEARCH.md"),
+            "evidence_authority": "mutation",
+        },
+    )
+    assert mutation["milestone_progress"] is False
+    assert current["task_state"]["environment"]["version"] == 1
+    assert current["task_state"]["controller"]["phase"] == "prethink"
+    assert mutation["contract_effect_matched"] is False
+    assert current["task_state"]["controller"]["retired_action_families"] == [
+        "shell:inspect"
+    ]
+    assert not _checkpoint_has_milestone(current, ["rewrite-research"])
+
+    managed = store.manage_transition(
+        created["task_id"],
+        "worker",
+        {
+            "contract_id": "contract-build-correct-target",
+            "decision": "act",
+            "subtask": "Create the application entry point.",
+            "capability_family": "filesystem",
+            "expected_effect": "change_environment",
+            "effect_target": str(tmp_path / "src/app/page.tsx"),
+            "target_kind": "path",
+            "target_scope": "exact",
+            "acceptance_test": "Read the file and verify the expected export exists.",
+            "verification_family": "shell",
+            "reason": "The previous write changed a different resource.",
+        },
+    )
+    assert managed is not None
+    current = managed
+    correct_mutation = record(
+        "write-entrypoint",
+        "workspace_file",
+        {"action": "write", "path": str(tmp_path / "src/app/page.tsx")},
+        {
+            "path": str(tmp_path / "src/app/page.tsx"),
+            "evidence_authority": "mutation",
+        },
+    )
+    assert correct_mutation["contract_effect_matched"] is True
+    assert current["task_state"]["controller"]["phase"] == "audit"
+
+    verification = record(
+        "verify-contract",
+        "shell",
+        {
+            "intent": "verify",
+            "cwd": str(tmp_path),
+            "verification_targets": [str(tmp_path / "src/app/page.tsx")],
+        },
+        {"exit_code": 0, "evidence_authority": "verification"},
+    )
+    assert verification["contract_satisfied"] is True
+    assert verification["milestone_progress"] is True
+    assert current["task_state"]["controller"]["phase"] == "checkpoint"
+    assert current["task_state"]["controller"]["retired_action_families"] == []
+    assert _checkpoint_has_milestone(current, ["verify-contract"])
+
+
+def test_many_small_messages_do_not_trigger_message_count_compaction() -> None:
+    messages = [
+        {"role": "user", "content": f"bounded causal event {index}"}
+        for index in range(180)
+    ]
+
+    assert _context_metrics(messages)["messages"] > 128
+    assert _compaction_available(messages) is False
+
+
+def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create(
+        "Create artifact.txt and verify it.",
+        "artifact.txt exists and a current read-only verification succeeds.",
+    )
+    chat_round = 0
+
+    def tool_call(call_id: str, name: str, arguments: dict[str, Any]) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "function": {"name": name, "arguments": arguments},
+                        }
+                    ],
+                }
+            },
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        payload = json.loads(request.content)
+        if request.url.path == "/api/tools/workspace_file/call":
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "action": "write",
+                        "path": str(tmp_path / "artifact.txt"),
+                        "bytes": 6,
+                        "evidence_authority": "mutation",
+                    }
+                },
+            )
+        if request.url.path == "/api/tools/shell/call":
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "exit_code": 0,
+                        "stdout": "artifact verified",
+                        "evidence_authority": "verification",
+                    }
+                },
+            )
+
+        chat_round += 1
+        offered = [item["function"]["name"] for item in payload["tools"]]
+        if chat_round == 1:
+            assert offered == ["task_manage"]
+            return tool_call(
+                "manage-1",
+                "task_manage",
+                {
+                    "decision": "act",
+                    "subtask": "Create artifact.txt.",
+                    "capability_family": "filesystem",
+                    "expected_effect": "change_environment",
+                    "effect_target": str(tmp_path / "artifact.txt"),
+                    "target_kind": "path",
+                    "target_scope": "exact",
+                    "acceptance_test": "Verify artifact.txt exists and contains ready.",
+                    "verification_family": "shell",
+                    "reason": "The artifact is the earliest missing prerequisite.",
+                },
+            )
+        if chat_round == 2:
+            assert offered == ["workspace_file"]
+            assert len(payload["messages"]) == 2
+            assert "execute-request.v1" in payload["messages"][1]["content"]
+            return tool_call(
+                "action-1",
+                "workspace_file",
+                {
+                    "action": "write",
+                    "path": str(tmp_path / "artifact.txt"),
+                    "content": "ready\n",
+                },
+            )
+        if chat_round == 3:
+            assert offered == ["shell"]
+            assert len(payload["messages"]) == 2
+            assert "audit-request.v1" in payload["messages"][1]["content"]
+            shell_schema = payload["tools"][0]["function"]["parameters"]
+            assert shell_schema["properties"]["intent"]["enum"] == ["verify"]
+            return tool_call(
+                "audit-1",
+                "shell",
+                {
+                    "intent": "verify",
+                    "command": "test -f artifact.txt && grep -q ready artifact.txt",
+                    "cwd": str(tmp_path),
+                    "verification_targets": [str(tmp_path / "artifact.txt")],
+                },
+            )
+        assert offered == ["task_checkpoint"]
+        return _checkpoint_response(
+            "complete",
+            "I created artifact.txt and its current acceptance check passed.",
+            ["audit-1"],
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        retry_initial_s=0.01,
+        retry_max_s=0.02,
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.01)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    controller = current["task_state"]["controller"]
+    assert controller["last_contract"]["status"] == "verified"
+    assert controller["frontier_environment_version"] == 1
+    reports = current["task_state"]["audit_reports"]
+    mutation = next(item for item in reports if item["evidence_id"] == "action-1")
+    audit = next(item for item in reports if item["evidence_id"] == "audit-1")
+    assert mutation["milestone_progress"] is False
+    assert audit["contract_satisfied"] is True
+    assert audit["milestone_progress"] is True
+
+
 def test_control_call_cannot_inherit_a_previous_receipt_audit() -> None:
     task = {
         "task_state": {
@@ -2176,6 +2473,7 @@ def test_audited_stagnation_renews_context_and_recovers_to_completion(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -2293,6 +2591,7 @@ def test_selected_alternative_survives_audited_context_reset(tmp_path: Path) -> 
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -3431,6 +3730,7 @@ def test_background_agent_compacts_deterministically_before_inference(
         )
     )
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -3493,6 +3793,7 @@ def test_background_agent_rejects_tool_absent_from_current_action_contract(
         )
     )
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -3785,6 +4086,7 @@ def test_background_agent_yields_between_inference_and_tool_steps(
     stop = threading.Event()
     completed: list[dict[str, object]] = []
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -3908,6 +4210,7 @@ def test_background_agent_repeats_verification_after_an_intervening_repair(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -4063,6 +4366,7 @@ def test_capability_failure_triggers_generic_recovery_and_headed_browser(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -4197,6 +4501,7 @@ def test_background_web_fetch_must_follow_user_or_tool_evidence(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -4303,6 +4608,7 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -4418,6 +4724,7 @@ def test_background_agent_executes_one_external_action_before_self_check(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -4503,6 +4810,7 @@ def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -4626,6 +4934,7 @@ def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -4718,6 +5027,7 @@ def test_current_browser_screenshot_is_not_persisted_as_base64(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -4842,6 +5152,7 @@ def test_duplicate_snapshot_keeps_current_frame_and_verified_visual_text(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -4925,6 +5236,7 @@ def test_background_agent_rejects_a_completion_with_no_action_evidence(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -5032,6 +5344,7 @@ def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -5133,6 +5446,7 @@ def test_background_agent_rejects_completion_after_latest_action_failed(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -5247,6 +5561,7 @@ def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
@@ -5345,6 +5660,7 @@ def test_human_interjection_redirects_before_a_stale_action_and_then_resumes(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",

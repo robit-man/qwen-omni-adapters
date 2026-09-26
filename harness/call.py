@@ -1184,6 +1184,7 @@ def run_call_loop(
                 {**pending_announcement, "_kind": "terminal"}
             )
         session.background_agent = BackgroundAgent(
+            manage_execute_audit=True,
             store=background_store,
             portal_url=config.portal_url,
             token=config.token,

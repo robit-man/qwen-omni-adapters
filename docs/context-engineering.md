@@ -128,8 +128,8 @@ their declared admission policies.
 
 Background transcript limits are derived from the live resident comprehension
 window on every turn. Compaction starts from measured working-set pressure at
-72 percent of the current resident token tier, not from a small count of chat
-messages; 128 messages remain only as a defensive ceiling. The compacted chain
+72 percent of the current resident token tier, never from a count of chat
+messages. The compacted chain
 retains at least the two newest complete action/observation cycles plus the
 current typed frontier. At the 4K floor, that frontier receives roughly 1.2 KiB
 of text; larger KV tiers expand it up to 8 KiB. The constrained focus contract
@@ -148,8 +148,16 @@ can close one knowledge slot without changing the environment, while repeating
 that same slot against the same environment version does not advance either
 ledger. Model prose cannot increment these versions.
 
-The state loop is `PRETHINK -> RETRIEVE or ACT -> AUDIT -> PRETHINK`. A
-deterministic auditor classifies every external receipt as discovery,
+The state loop is `MANAGE/PRETHINK -> RETRIEVE or ACT -> AUDIT -> PRETHINK`.
+`task_manage` is the only executable transition at a fresh frontier. It records
+one bounded subtask, one typed capability family, an expected effect on an exact
+resource, and an independent acceptance test. This model-authored contract is
+controller state, never evidence. The executor then receives a fresh two-message
+working context containing the contract and selected exact receipts. An ACT
+receipt enters another fresh context whose tool grammar is mechanically narrowed
+to read-only verification operations. The same model can fill all three roles,
+but no role inherits another role's private reasoning trajectory. A deterministic
+auditor classifies every external receipt as discovery,
 inspection, mutation, verification, concrete evidence, or failure. After a
 mutation, a terminal checkpoint requires a verification receipt from the
 current environment version. A verification is itself new milestone evidence
@@ -178,7 +186,12 @@ untrusted evidence, never instructions. This implements evidence replay rather
 than summary-of-summary continuity.
 
 Milestone progress is narrower than tool success, new knowledge, or environment
-change. A checkpoint milestone must cite a typed source acquisition, verified
+change. Changed bytes are only an action receipt. For path-scoped work, the
+runtime normalizes the contract target and executor `changed_paths` and requires
+an exact or explicitly declared subtree relationship; it never uses suffix,
+keyword, or prose similarity. A write to an unrelated file therefore fails its
+contract even though the environment ledger records the change. A checkpoint
+milestone must cite a typed source acquisition, verified
 mutation, external interaction, or verification receipt. A clock lookup,
 system snapshot, repeated inspection, or other successful information probe
 may be useful evidence but cannot advance or complete an execution phase by
@@ -269,7 +282,8 @@ evidence slot, environment version, and deterministic progress classification.
 Repeated no-progress actions with the same current subtask, environment
 version, unresolved evidence, and action family increment a stagnation counter.
 The second repeat forces replanning and retires that exact typed action family
-until either the knowledge or environment ledger advances. The next executable
+until a contract-backed audited milestone advances the controller frontier. The
+next executable
 tool grammar removes only the retired enum value—for example, a stagnant
 `shell:inspect` leaves `shell:mutate_filesystem`, `shell:mutate_runtime`, and
 `shell:verify` available. A call that disregards the narrowed grammar is
@@ -277,9 +291,9 @@ rejected before external execution. This policy reads audit fields, not command
 text or task-specific keywords. The third repeat also discards the renewable
 executor context and restarts from the audited state, while preserving a typed
 alternative capability already selected by the retry controller. Retirement
-is stored per action family and is not cleared by arbitrary new knowledge such
-as a clock or system lookup; only a typed milestone or verified environment
-change reopens it.
+is stored per action family and is not cleared by arbitrary new knowledge,
+changed bytes, a clock lookup, or a system lookup; only a contract-backed
+audited milestone reopens it.
 
 The local voice foreground and its background worker use one stable, opaque
 portal-session scope derived from the daemon capability, so a handed-off task

@@ -84,7 +84,8 @@ TASK_START_REQUEST = (
 MAX_VIRTUAL_QUERY_CHARS = 1_200
 MAX_PHASE_ACTIONS = 8
 
-_TYPED_TOOL_FAMILIES = frozenset(configured_tool_families())
+_TOOL_FAMILY_CONTRACT = configured_tool_families()
+_TYPED_TOOL_FAMILIES = frozenset(_TOOL_FAMILY_CONTRACT)
 _CAMERA_DEVICE_RE = re.compile(r"\b(?:camera|webcam|video\s+feed)\b", re.IGNORECASE)
 _CAMERA_DEVICE_ACTION_RE = re.compile(
     r"\b(?:capture|check|describe|identify|look|observe|see|show|use|view|watch)\b",
@@ -376,6 +377,16 @@ def _audited_task_state(task: Mapping[str, Any]) -> str:
             ),
             "stagnation": stagnation,
             "retired_action_families": sorted(_retired_action_families(task)),
+            "pending_contract": (
+                dict(controller.get("pending_contract"))
+                if isinstance(controller.get("pending_contract"), Mapping)
+                else None
+            ),
+            "last_contract": (
+                dict(controller.get("last_contract"))
+                if isinstance(controller.get("last_contract"), Mapping)
+                else None
+            ),
         },
         "environment": {
             "version": int(environment.get("version") or 0),
@@ -444,6 +455,14 @@ def _task_system_prompt(
         # next action round so ordinary transcript growth cannot make the
         # controller rediscover or recreate it.
         contract.append(focus_memory)
+    if int(_task_controller(task).get("contract_protocol") or 0) == 1:
+        contract.append(
+            "<manage_execute_audit>A pending controller contract is a plan, never "
+            "task evidence. Execute only its one bounded subtask. Changed bytes are "
+            "an action receipt, not milestone progress; a fresh read-only audit must "
+            "satisfy the declared acceptance test before checkpointing."
+            "</manage_execute_audit>"
+        )
     constrained = limits["resident_context_tokens"] <= 8_192
     contract.extend(
         [
@@ -497,7 +516,11 @@ def _milestone_evidence_ids(
         "interaction": [],
     }
     for item in reports:
-        if not isinstance(item, Mapping) or item.get("milestone_progress") is not True:
+        if (
+            not isinstance(item, Mapping)
+            or item.get("milestone_progress") is not True
+            or item.get("contract_satisfied") is not True
+        ):
             continue
         evidence_id = str(item.get("evidence_id") or "")[:128]
         if not evidence_id:
@@ -529,7 +552,11 @@ def _milestone_evidence_ids(
     selected_set = set(selected)
     if len(selected) < limit:
         for item in reversed(reports):
-            if not isinstance(item, Mapping) or item.get("milestone_progress") is not True:
+            if (
+                not isinstance(item, Mapping)
+                or item.get("milestone_progress") is not True
+                or item.get("contract_satisfied") is not True
+            ):
                 continue
             evidence_id = str(item.get("evidence_id") or "")[:128]
             if evidence_id and evidence_id not in selected_set:
@@ -653,6 +680,63 @@ def _fresh_executor_messages(
             "content": continuation,
         },
     ]
+
+
+def _fresh_managed_messages(
+    task: Mapping[str, Any],
+    *,
+    stage: str,
+    evidence_records: list[Mapping[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Create isolated MANAGE, EXECUTE, or AUDIT working context."""
+
+    replay = _executor_evidence_replay(
+        evidence_records or [], max_chars=_task_context_limits()["replay_chars"]
+    )
+    if stage == "manage":
+        instruction = (
+            '<manage_request schema="robit.omni.manage-request.v1">Select exactly '
+            "one bounded transition with task_manage. RETRIEVE closes one declared "
+            "unknown. ACT declares one observable effect plus a different read-only "
+            "verification family. REPLAN is only for the newest audited non-progress; "
+            "ASK is only for missing user input proven by a failed receipt. The plan "
+            "does not establish facts.</manage_request>"
+        )
+    elif stage == "audit":
+        instruction = (
+            '<audit_request schema="robit.omni.audit-request.v1">Use exactly one '
+            "supplied read-only verifier to test the pending contract's acceptance_test "
+            "against its action receipt and current external state. Do not mutate, "
+            "repair, broaden, or merely repeat the executor's claim.</audit_request>"
+        )
+    else:
+        instruction = (
+            '<execute_request schema="robit.omni.execute-request.v1">Execute exactly '
+            "the pending contract's bounded subtask with one supplied concrete tool. "
+            "Do not widen the goal, checkpoint, or claim that the acceptance test "
+            "passed; an isolated auditor runs next.</execute_request>"
+        )
+    content = instruction
+    if replay:
+        content += "\n" + replay
+    return [
+        {"role": "system", "content": _task_system_prompt(task)},
+        {"role": "user", "content": content},
+    ]
+
+
+def _controller_replay_ids(task: Mapping[str, Any], *, newest: str = "") -> list[str]:
+    """Select exact causal receipts for the next isolated controller role."""
+
+    selected = _milestone_evidence_ids(task, limit=MAX_EXECUTOR_REPLAY_RECORDS - 2)
+    audit = _latest_audit(task)
+    latest_id = str(audit.get("evidence_id") or "")
+    pending = _pending_task_contract(task)
+    action_id = str(pending.get("action_evidence_id") or "")
+    for evidence_id in (latest_id, action_id, str(newest)):
+        if evidence_id and evidence_id not in selected:
+            selected.append(evidence_id)
+    return selected[-MAX_EXECUTOR_REPLAY_RECORDS:]
 
 
 def _background_discovery_preflight(arguments: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -789,9 +873,173 @@ def _compact_tool_schema(value: Any) -> Any:
     return copy.deepcopy(value)
 
 
+def _task_controller(task: Mapping[str, Any]) -> Mapping[str, Any]:
+    state = task.get("task_state")
+    if not isinstance(state, Mapping):
+        return {}
+    controller = state.get("controller")
+    return controller if isinstance(controller, Mapping) else {}
+
+
+def _pending_task_contract(task: Mapping[str, Any]) -> dict[str, Any]:
+    pending = _task_controller(task).get("pending_contract")
+    return dict(pending) if isinstance(pending, Mapping) else {}
+
+
+def _family_tool_names(family: str) -> list[str]:
+    definition = _TOOL_FAMILY_CONTRACT.get(str(family))
+    members = definition.get("tools") if isinstance(definition, Mapping) else []
+    return [
+        str(name)
+        for name in members
+        if str(name) != "background_task" and tool_schemas([str(name)])
+    ][:4]
+
+
+def _audit_tool_schemas(active_tools: list[str]) -> list[dict[str, Any]]:
+    """Return a read-only grammar for a fresh acceptance-test context."""
+
+    disallowed = {
+        "background_task",
+        "memory_write",
+        "request_camera_view",
+        "subagent_delegate",
+        "subagent_forget",
+        "task_list",
+        "working_notes",
+    }
+    operation_limits = {
+        "browser_interact": {"snapshot"},
+        "gui_interact": {"snapshot"},
+        "shell": {"verify"},
+        "workspace_file": {"list", "read"},
+    }
+    schemas: list[dict[str, Any]] = []
+    for raw in tool_schemas(active_tools):
+        schema = copy.deepcopy(raw)
+        function = schema.get("function")
+        if not isinstance(function, dict):
+            continue
+        name = str(function.get("name") or "")
+        if name in disallowed:
+            continue
+        permitted = operation_limits.get(name)
+        if permitted is not None:
+            parameters = function.get("parameters")
+            properties = (
+                parameters.get("properties")
+                if isinstance(parameters, dict)
+                else None
+            )
+            operation_key = "intent" if name == "shell" else "action"
+            operation = (
+                properties.get(operation_key)
+                if isinstance(properties, dict)
+                else None
+            )
+            values = operation.get("enum") if isinstance(operation, dict) else None
+            if not isinstance(values, list):
+                continue
+            narrowed = [value for value in values if str(value) in permitted]
+            if not narrowed:
+                continue
+            operation["enum"] = narrowed
+            if name == "shell" and isinstance(parameters, dict):
+                required = parameters.setdefault("required", [])
+                if "verification_targets" not in required:
+                    required.append("verification_targets")
+        schemas.append(schema)
+    return schemas
+
+
+def _manage_transition_error(
+    task: Mapping[str, Any], arguments: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """Validate controller structure without judging model-authored prose."""
+
+    decision = str(arguments.get("decision") or "")
+    subtask = " ".join(str(arguments.get("subtask") or "").split())
+    family = str(arguments.get("capability_family") or "")
+    effect = str(arguments.get("expected_effect") or "")
+    target = " ".join(str(arguments.get("effect_target") or "").split())
+    target_kind = str(arguments.get("target_kind") or "")
+    target_scope = str(arguments.get("target_scope") or "")
+    acceptance = " ".join(str(arguments.get("acceptance_test") or "").split())
+    verifier = str(arguments.get("verification_family") or "")
+    reason = " ".join(str(arguments.get("reason") or "").split())
+    question = " ".join(str(arguments.get("question") or "").split())
+    error = ""
+    if not subtask or not reason:
+        error = "subtask_and_reason_required"
+    elif decision in {"retrieve", "act"} and (
+        family not in _TYPED_TOOL_FAMILIES
+        or family == "background"
+        or not _family_tool_names(family)
+    ):
+        error = "executable_capability_family_required"
+    elif decision == "retrieve" and (
+        effect != "resolve_unknown"
+        or not target
+        or not acceptance
+        or target_kind not in {"path", "url", "service", "process", "ui_state", "record"}
+        or target_scope not in {"exact", "subtree"}
+    ):
+        error = "retrieve_requires_one_unknown_and_closure_test"
+    elif decision == "act" and (
+        effect not in {"change_environment", "change_external_state"}
+        or not target
+        or target_kind not in {"path", "url", "service", "process", "ui_state", "record"}
+        or target_scope not in {"exact", "subtree"}
+        or not acceptance
+        or verifier not in _TYPED_TOOL_FAMILIES
+        or verifier in {"background", "camera"}
+        or not _audit_tool_schemas(_family_tool_names(verifier))
+    ):
+        error = "act_requires_effect_and_read_only_verifier"
+    elif decision == "replan":
+        controller = _task_controller(task)
+        last_contract = controller.get("last_contract")
+        last_status = (
+            str(last_contract.get("status") or "")
+            if isinstance(last_contract, Mapping)
+            else ""
+        )
+        audit = _latest_audit(task)
+        audited_nonprogress = bool(audit) and (
+            audit.get("contract_satisfied") is not True
+            or audit.get("executor_succeeded") is not True
+        )
+        if (
+            last_status
+            not in {"action_failed", "expected_effect_missing", "audit_failed"}
+            and not audited_nonprogress
+        ) or int(controller.get("consecutive_replans") or 0) >= 1:
+            error = "replan_requires_fresh_audited_nonprogress"
+    elif decision == "ask":
+        audit = _latest_audit(task)
+        if not question or not audit or audit.get("executor_succeeded") is True:
+            error = "ask_requires_question_and_concrete_failed_evidence"
+    elif decision not in {"retrieve", "act", "replan", "ask"}:
+        error = "invalid_manage_decision"
+    if not error:
+        return None
+    return {
+        "error": "invalid_manage_transition",
+        "reason": error,
+        "message": (
+            "Commit one bounded RETRIEVE or ACT contract. REPLAN requires a fresh "
+            "audited failure and cannot repeat; ASK requires concrete failed evidence."
+        ),
+        "task_progress": False,
+        "failure_scope": "plan",
+    }
+
+
 def _background_tool_contract(
     active_tools: list[str],
     *,
+    manage_required: bool = False,
+    audit_required: bool = False,
     recovery_required: bool,
     phase_boundary: bool,
     expand_available: bool,
@@ -805,7 +1053,11 @@ def _background_tool_contract(
     resident = _task_context_limits(resident_context_tokens)[
         "resident_context_tokens"
     ]
-    if recovery_required:
+    if manage_required:
+        schemas = [copy.deepcopy(TASK_MANAGE_TOOL)]
+    elif audit_required:
+        schemas = _audit_tool_schemas(active_tools)
+    elif recovery_required:
         schemas = [copy.deepcopy(TASK_RECOVERY_TOOL)]
     elif phase_boundary:
         schemas = [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
@@ -966,11 +1218,13 @@ def _task_expand_available(
     return True
 
 
+TASK_MANAGE_TOOL = context_value("control_tools", "task_manage")
 TASK_CHECKPOINT_TOOL = context_value("control_tools", "task_checkpoint")
 TASK_COMPACT_TOOL = context_value("control_tools", "task_compact")
 TASK_EXPAND_TOOL = context_value("control_tools", "task_expand")
 TASK_RECOVERY_TOOL = context_value("control_tools", "task_recovery")
 LOCAL_CONTROL_TOOL_NAMES = {
+    "task_manage",
     "task_checkpoint",
     "task_compact",
     "task_expand",
@@ -1367,9 +1621,7 @@ def _compact_task_messages(
         <= limits["compaction_high_water_tokens"] // 2
     ) or (
         not force
-        and len(messages) <= MAX_TASK_CONTEXT_MESSAGES
-        and metrics["estimated_tokens"]
-        < limits["compaction_high_water_tokens"]
+        and metrics["estimated_tokens"] < limits["compaction_high_water_tokens"]
     ):
         return messages
     head = copy.deepcopy(messages[:2])
@@ -1696,7 +1948,6 @@ def _compaction_available(
     metrics = _context_metrics(messages)
     large_enough = (
         metrics["estimated_tokens"] >= limits["compaction_high_water_tokens"]
-        or metrics["messages"] > MAX_TASK_CONTEXT_MESSAGES
     )
     if not large_enough:
         return False
@@ -2826,6 +3077,133 @@ def _source_receipt_has_evidence(name: str, result: Any) -> bool:
     return False
 
 
+def _normalized_contract_path(value: Any, cwd: Any) -> Path | None:
+    raw = str(value or "").strip()
+    if not raw or "\x00" in raw:
+        return None
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        base = Path(str(cwd or Path.cwd())).expanduser()
+        path = base / path
+    try:
+        return path.resolve(strict=False)
+    except OSError:
+        return None
+
+
+def _contract_effect_matches(
+    contract: Mapping[str, Any],
+    arguments: Mapping[str, Any],
+    result: Any,
+) -> bool:
+    """Match an executor receipt to its declared resource without prose heuristics."""
+
+    if not isinstance(result, Mapping):
+        return False
+    expected = str(contract.get("effect_target") or "").strip()
+    kind = str(contract.get("target_kind") or "")
+    scope = str(contract.get("target_scope") or "exact")
+    if not expected:
+        return False
+    effect = result.get("effect_receipt")
+    effect = effect if isinstance(effect, Mapping) else {}
+    if kind == "path":
+        cwd = arguments.get("cwd") or result.get("cwd") or Path.cwd()
+        expected_path = _normalized_contract_path(expected, cwd)
+        if expected_path is None:
+            return False
+        raw_paths = effect.get("changed_paths")
+        candidates = (
+            [str(value) for value in raw_paths if str(value)]
+            if isinstance(raw_paths, list)
+            else []
+        )
+        if not candidates and str(result.get("path") or ""):
+            candidates = [str(result["path"])]
+        for raw_path in candidates:
+            actual = _normalized_contract_path(raw_path, cwd)
+            if actual is None:
+                continue
+            if scope == "exact" and actual == expected_path:
+                return True
+            if scope == "subtree":
+                try:
+                    if os.path.commonpath((str(expected_path), str(actual))) == str(
+                        expected_path
+                    ):
+                        return True
+                except ValueError:
+                    continue
+        return False
+
+    candidates: list[str] = []
+    for source in (result, effect, result.get("action_receipt")):
+        if not isinstance(source, Mapping):
+            continue
+        for key in ("url", "target", "service", "process", "record", "resource"):
+            value = " ".join(str(source.get(key) or "").split())
+            if value:
+                candidates.append(value)
+    return expected in candidates
+
+
+def _contract_verification_matches(
+    contract: Mapping[str, Any],
+    arguments: Mapping[str, Any],
+    result: Any,
+) -> bool:
+    """Require the isolated verifier to address the contract's exact resource."""
+
+    if not isinstance(result, Mapping):
+        return False
+    expected = str(contract.get("effect_target") or "").strip()
+    kind = str(contract.get("target_kind") or "")
+    scope = str(contract.get("target_scope") or "exact")
+    if not expected:
+        return False
+    if kind == "path":
+        cwd = arguments.get("cwd") or result.get("cwd") or Path.cwd()
+        expected_path = _normalized_contract_path(expected, cwd)
+        if expected_path is None:
+            return False
+        raw_targets = arguments.get("verification_targets")
+        candidates = (
+            [str(value) for value in raw_targets if str(value)]
+            if isinstance(raw_targets, list)
+            else []
+        )
+        if str(arguments.get("path") or ""):
+            candidates.append(str(arguments["path"]))
+        for candidate in candidates:
+            actual = _normalized_contract_path(candidate, cwd)
+            if actual is None:
+                continue
+            if scope == "exact" and actual == expected_path:
+                return True
+            if scope == "subtree":
+                try:
+                    if os.path.commonpath((str(expected_path), str(actual))) == str(
+                        expected_path
+                    ):
+                        return True
+                except ValueError:
+                    continue
+        return False
+
+    candidates: list[str] = []
+    raw_targets = arguments.get("verification_targets")
+    if isinstance(raw_targets, list):
+        candidates.extend(" ".join(str(value).split()) for value in raw_targets)
+    for source in (arguments, result, result.get("action_receipt")):
+        if not isinstance(source, Mapping):
+            continue
+        for key in ("url", "target", "service", "process", "record", "resource"):
+            value = " ".join(str(source.get(key) or "").split())
+            if value:
+                candidates.append(value)
+    return expected in candidates
+
+
 def _action_audit_report(
     task: Mapping[str, Any],
     *,
@@ -2833,6 +3211,7 @@ def _action_audit_report(
     name: str,
     arguments: Mapping[str, Any],
     result: Any,
+    require_contract: bool = False,
 ) -> dict[str, Any]:
     """Create an executor-independent, typed state-transition audit."""
 
@@ -2841,6 +3220,21 @@ def _action_audit_report(
     operation = action_family.partition(":")[2]
     environment_version = _task_environment_version(task)
     frontier_environment_version = _task_frontier_environment_version(task)
+    pending_contract = _pending_task_contract(task)
+    contract_id = str(pending_contract.get("contract_id") or "")[:128]
+    contract_phase = str(_task_controller_value(task, "phase") or "")
+    contract_decision = str(pending_contract.get("decision") or "")
+    contract_effect_matched = bool(
+        contract_id
+        and contract_phase == "execute"
+        and contract_decision == "act"
+        and _contract_effect_matches(pending_contract, arguments, result)
+    )
+    contract_verification_matched = bool(
+        contract_id
+        and contract_phase == "audit"
+        and _contract_verification_matches(pending_contract, arguments, result)
+    )
 
     if name == "shell":
         # The typed shell intent defines the state domain.  A caller can name a
@@ -2888,34 +3282,74 @@ def _action_audit_report(
         elif authority == "mutation" and str(result.get("path") or ""):
             changed_paths = [str(result["path"])]
 
-    milestone_progress = bool(
-        authority == "mutation"
-        or (
-            authority == "verification"
-            and environment_version > frontier_environment_version
+    source_milestone = bool(
+        authority == "concrete"
+        and name in MILESTONE_SOURCE_TOOLS
+        and _source_receipt_has_evidence(name, result)
+    )
+    contract_satisfied = bool(
+        contract_id
+        and (
+            (
+                contract_phase == "execute"
+                and contract_decision == "retrieve"
+                and authority in {"discovery", "inspection", "concrete", "verification"}
+                and not _result_failed_or_blocked(result)
+            )
+            or (
+                contract_phase == "audit"
+                and authority == "verification"
+                and contract_verification_matched
+                and not _result_failed_or_blocked(result)
+            )
         )
-        or (
-            authority == "concrete"
+    )
+    if require_contract:
+        # An action receipt, including changed bytes, is not a milestone. Only
+        # a source-acquisition contract or the fresh verifier for an ACT
+        # contract can cross the controller frontier.
+        milestone_progress = bool(
+            contract_satisfied
             and (
-                (
-                    name in MILESTONE_SOURCE_TOOLS
-                    and _source_receipt_has_evidence(name, result)
-                )
+                source_milestone
                 or (
-                    name in COMPUTER_ACTION_TOOLS
+                    contract_phase == "audit"
+                    and authority == "verification"
                     and (
-                        operation != "snapshot"
-                        or (
-                            isinstance(result, Mapping)
-                            and isinstance(
-                                result.get("verified_visual_observation"), Mapping
-                            )
+                        str(pending_contract.get("expected_effect") or "")
+                        == "change_external_state"
+                        or environment_version > frontier_environment_version
+                    )
+                )
+            )
+        )
+    else:
+        # Compatibility for explicitly legacy harnesses and unit-level audit
+        # fixtures. The deployed worker always enables the contract protocol.
+        milestone_progress = bool(
+            authority == "mutation"
+            or (
+                authority == "verification"
+                and environment_version > frontier_environment_version
+            )
+            or source_milestone
+            or (
+                authority == "concrete"
+                and name in COMPUTER_ACTION_TOOLS
+                and (
+                    operation != "snapshot"
+                    or (
+                        isinstance(result, Mapping)
+                        and isinstance(
+                            result.get("verified_visual_observation"), Mapping
                         )
                     )
                 )
             )
         )
-    )
+        contract_satisfied = milestone_progress
+        if milestone_progress and not contract_id:
+            contract_id = "legacy-audit"
 
     transition = (
         "replan"
@@ -2965,6 +3399,12 @@ def _action_audit_report(
         "state_fingerprint": state_fingerprint,
         "changed_paths": changed_paths,
         "executor_succeeded": not _result_failed_or_blocked(result),
+        "contract_id": contract_id,
+        "contract_phase": contract_phase,
+        "contract_decision": contract_decision,
+        "contract_satisfied": contract_satisfied,
+        "contract_effect_matched": contract_effect_matched,
+        "contract_verification_matched": contract_verification_matched,
         # A tool can succeed and even close a new knowledge slot without
         # satisfying a durable phase. This typed bit is deliberately narrower
         # than epistemic/environmental progress and is checked independently
@@ -3024,7 +3464,11 @@ def _completion_is_audited(
     ]
     if not selected:
         return False
-    if not any(item.get("milestone_progress") is True for item in selected):
+    if not any(
+        item.get("milestone_progress") is True
+        and item.get("contract_satisfied") is True
+        for item in selected
+    ):
         return False
     if environment_version <= 0:
         return any(
@@ -3053,6 +3497,7 @@ def _checkpoint_has_milestone(
         isinstance(item, Mapping)
         and str(item.get("evidence_id") or "") in selected_ids
         and item.get("milestone_progress") is True
+        and item.get("contract_satisfied") is True
         for item in reports
     )
 
@@ -3092,6 +3537,7 @@ def _latest_receipt_requires_checkpoint(
         isinstance(item, Mapping)
         and str(item.get("evidence_id") or "") == latest_evidence_id
         and item.get("milestone_progress") is True
+        and item.get("contract_satisfied") is True
         for item in reports
     )
 
@@ -3363,6 +3809,7 @@ class BackgroundAgent:
         client: httpx.Client | None = None,
         decision_plane: DecisionPlane | None = None,
         prepare_action_residency: Callable[[], None] | None = None,
+        manage_execute_audit: bool = True,
     ) -> None:
         self.store = store
         self.portal_url = portal_url.rstrip("/")
@@ -3374,6 +3821,7 @@ class BackgroundAgent:
         self.await_language = await_language
         self.decision_plane = decision_plane
         self.prepare_action_residency = prepare_action_residency
+        self.manage_execute_audit = bool(manage_execute_audit)
         if self.decision_plane is None and os.environ.get(
             "OMNI_DECISION_PLANE_ENABLED", "0"
         ).strip().lower() not in {"0", "false", "no", "off"}:
@@ -3561,6 +4009,7 @@ class BackgroundAgent:
                     name=name or "unknown",
                     arguments=arguments,
                     result=result,
+                    require_contract=self.manage_execute_audit,
                 )
             )
             return self.store.record_action(
@@ -4206,6 +4655,8 @@ class BackgroundAgent:
                     task_id,
                     repaired_history,
                 )
+            controller_phase = str(_task_controller(current).get("phase") or "prethink")
+            pending_contract = _pending_task_contract(current)
             latest_receipt_is_milestone = _latest_receipt_requires_checkpoint(
                 current, messages
             )
@@ -4218,6 +4669,36 @@ class BackgroundAgent:
                 phase_action_count >= MAX_PHASE_ACTIONS
                 or not active_tools
             )
+            if self.manage_execute_audit and controller_phase == "checkpoint" and can_checkpoint:
+                phase_boundary = True
+            manage_required = self.manage_execute_audit and (
+                controller_phase
+                not in {
+                    "execute",
+                    "audit",
+                    "checkpoint",
+                    "waiting_input",
+                    "terminal",
+                }
+                or (controller_phase == "checkpoint" and not can_checkpoint)
+            )
+            audit_required = bool(
+                self.manage_execute_audit
+                and controller_phase == "audit"
+                and pending_contract
+            )
+            if self.manage_execute_audit and controller_phase == "execute" and pending_contract:
+                active_tools = _family_tool_names(
+                    str(pending_contract.get("capability_family") or "")
+                )
+            elif audit_required:
+                active_tools = _family_tool_names(
+                    str(pending_contract.get("verification_family") or "")
+                )
+            elif manage_required or (
+                self.manage_execute_audit and controller_phase == "checkpoint"
+            ):
+                active_tools = []
             # Before compaction the exact result is still resident in the
             # ordinary transcript. Offer paging only after older turns may
             # have left L0; otherwise the maintenance action needlessly
@@ -4236,6 +4717,8 @@ class BackgroundAgent:
             replan_after_inspection = _latest_result_requires_replan(messages)
             schemas = _background_tool_contract(
                 active_tools,
+                manage_required=manage_required,
+                audit_required=audit_required,
                 recovery_required=recovery_required,
                 phase_boundary=phase_boundary,
                 expand_available=expand_available,
@@ -4264,6 +4747,12 @@ class BackgroundAgent:
             structured_action_phase = action_after_discovery or _structured_action_phase(
                 messages, active_tools
             )
+            if manage_required:
+                structured_action_phase = False
+                round_token_limit = min(round_token_limit, 1_536)
+            elif audit_required:
+                structured_action_phase = True
+                round_token_limit = min(round_token_limit, 2_048)
             inference_messages = _computer_action_messages(
                 messages,
                 current,
@@ -4306,7 +4795,11 @@ class BackgroundAgent:
                 # waste far more time than deliberation costs. Native thinking
                 # remains a separate backend channel and is never spoken or
                 # copied into the durable task transcript.
-                "think": not structured_action_phase or replan_after_inspection,
+                "think": (
+                    manage_required
+                    or (not structured_action_phase)
+                    or (replan_after_inspection and not audit_required)
+                ),
                 "options": {"num_predict": round_token_limit},
                 # Background rounds are independently checkpointed. Reusing a
                 # llama.cpp prompt slot keeps discarded history resident and
@@ -4537,6 +5030,97 @@ class BackgroundAgent:
                         rejected_result,
                     )
                     stalls += 1
+                    continue
+                if name == "task_manage":
+                    latest_task = self.store.get(task_id) or current
+                    manage_error = _manage_transition_error(latest_task, arguments)
+                    if manage_error is not None:
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_name": name,
+                                "tool_call_id": call_id,
+                                "content": json.dumps(manage_error),
+                            }
+                        )
+                        self._record_action(
+                            task_id, call_id, name, arguments, manage_error
+                        )
+                        stalls += 1
+                        continue
+                    transition = {
+                        **dict(arguments),
+                        "contract_id": f"contract-{call_id}"[:128],
+                    }
+                    managed = self.store.manage_transition(
+                        task_id, self.owner, transition
+                    )
+                    if managed is None or managed.get("status") == "cancelled":
+                        return
+                    decision = str(arguments.get("decision") or "")
+                    accepted = {
+                        "accepted": True,
+                        "contract_id": transition["contract_id"],
+                        "decision": decision,
+                        "task_progress": False,
+                    }
+                    self._record_action(task_id, call_id, name, arguments, accepted)
+                    if decision == "ask":
+                        question = " ".join(
+                            str(arguments.get("question") or "").split()
+                        )[:500]
+                        waiting = self.store.checkpoint(
+                            task_id,
+                            self.owner,
+                            messages=_fresh_managed_messages(
+                                managed, stage="manage"
+                            ),
+                            active_tools=[],
+                            tools_used=tools_used,
+                            applied_guidance_ids=list(seen_guidance),
+                            progress=f"Required user input: {question}",
+                            current_stage=context_text(
+                                "task_stages", "waiting_user_input"
+                            ),
+                            status="waiting_input",
+                        )
+                        if waiting is not None and self.on_progress is not None:
+                            self.on_progress(
+                                {
+                                    "task_id": task_id,
+                                    "status": "waiting_input",
+                                    "result": question,
+                                }
+                            )
+                        return
+                    replay_ids = _controller_replay_ids(managed)
+                    replay_records = self.store.expand_evidence(task_id, replay_ids)
+                    stage = "manage" if decision == "replan" else "execute"
+                    messages = _fresh_managed_messages(
+                        managed,
+                        stage=stage,
+                        evidence_records=replay_records,
+                    )
+                    active_tools = (
+                        []
+                        if decision == "replan"
+                        else _family_tool_names(
+                            str(arguments.get("capability_family") or "")
+                        )
+                    )
+                    renewed = self.store.renew_executor_context(
+                        task_id,
+                        self.owner,
+                        messages=_durable_task_messages(messages),
+                        current_stage=context_text(
+                            "task_stages", "managing" if decision == "replan" else "planning"
+                        ),
+                    )
+                    if renewed is None or renewed.get("status") == "cancelled":
+                        return
+                    phase_action_count = 0
+                    recovery_required = False
+                    stalls = 0 if decision != "replan" else stalls + 1
                     continue
                 if name == "task_compact":
                     latest = self.store.get(task_id) or task
@@ -5144,6 +5728,23 @@ class BackgroundAgent:
                             }
                         else:
                             result["visual_grounding"] = grounding_receipt
+                    audit_task = self.store.get(task_id) or latest or current
+                    audit_contract = _pending_task_contract(audit_task)
+                    if (
+                        str(_task_controller(audit_task).get("phase") or "")
+                        == "audit"
+                        and audit_contract
+                        and isinstance(result, Mapping)
+                        and not _result_failed_or_blocked(result)
+                    ):
+                        # The schema for this round was mechanically narrowed to
+                        # read-only operations. Mark its receipt as verification;
+                        # the store still checks contract identity and versions.
+                        result = dict(result)
+                        result["evidence_authority"] = "verification"
+                        result["audit_contract_id"] = str(
+                            audit_contract.get("contract_id") or ""
+                        )[:128]
                     if (
                         isinstance(result, Mapping)
                         and result.get("error") == "resource_pressure"
@@ -5430,6 +6031,57 @@ class BackgroundAgent:
                         ).format(evidence_ids=",".join(newest_evidence_ids)),
                     }
                 )
+
+            latest_managed_task = self.store.get(task_id) or current
+            managed_phase = str(
+                _task_controller(latest_managed_task).get("phase") or "prethink"
+            )
+            if (
+                self.manage_execute_audit
+                and observed_actions
+                and managed_phase in {"audit", "prethink"}
+            ):
+                replay_ids = _controller_replay_ids(
+                    latest_managed_task,
+                    newest=newest_evidence_ids[-1] if newest_evidence_ids else "",
+                )
+                replay_records = self.store.expand_evidence(task_id, replay_ids)
+                managed_stage = "audit" if managed_phase == "audit" else "manage"
+                messages = _fresh_managed_messages(
+                    latest_managed_task,
+                    stage=managed_stage,
+                    evidence_records=replay_records,
+                )
+                pending = _pending_task_contract(latest_managed_task)
+                active_tools = (
+                    _family_tool_names(
+                        str(pending.get("verification_family") or "")
+                    )
+                    if managed_phase == "audit"
+                    else []
+                )
+                renewed = self.store.renew_executor_context(
+                    task_id,
+                    self.owner,
+                    messages=_durable_task_messages(messages),
+                    current_stage=context_text(
+                        "task_stages",
+                        "auditing" if managed_phase == "audit" else "managing",
+                    ),
+                )
+                if renewed is None or renewed.get("status") == "cancelled":
+                    return
+                phase_action_count = 0
+                recovery_required = False
+                reset_executor_context = False
+            elif (
+                self.manage_execute_audit
+                and observed_actions
+                and managed_phase == "checkpoint"
+            ):
+                # Keep the fresh verifier receipt resident for the immediately
+                # following evidence-backed checkpoint call.
+                active_tools = []
 
             if reset_executor_context:
                 latest_task = self.store.get(task_id) or current

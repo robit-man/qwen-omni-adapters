@@ -110,6 +110,9 @@
     "yielded_slice": "Yielded a bounded work slice; retrying in {delay:.1f}s",
     "waiting_language": "Waiting for the language model",
     "planning": "Planning the next step",
+    "managing": "Selecting one bounded subtask",
+    "auditing": "Independently auditing the last effect",
+    "waiting_user_input": "Waiting for required user input",
     "replanning": "Replanning after the spoken update",
     "continuing_checkpoint": "Continuing from a verified checkpoint",
     "running_tool": "Running {tool}",
@@ -117,6 +120,75 @@
     "self_check": "Sanity-checking task evidence"
   },
   "control_tools": {
+    "task_manage": {
+      "type": "function",
+      "function": {
+        "name": "task_manage",
+        "description": "Commit one bounded Manage step before execution. This creates a controller contract, never task evidence. RETRIEVE must name one unresolved fact and how its receipt closes that evidence slot. ACT must name one expected external/environmental change and an independent acceptance test. REPLAN is allowed only after audited non-progress. ASK pauses only for genuinely missing user input or authority.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "enum": ["retrieve", "act", "replan", "ask"]
+            },
+            "subtask": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "capability_family": {
+              "type": "string",
+              "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
+            },
+            "expected_effect": {
+              "type": "string",
+              "enum": ["resolve_unknown", "change_environment", "change_external_state", "none"]
+            },
+            "effect_target": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "target_kind": {
+              "type": "string",
+              "enum": ["path", "url", "service", "process", "ui_state", "record"]
+            },
+            "target_scope": {
+              "type": "string",
+              "enum": ["exact", "subtree"]
+            },
+            "acceptance_test": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "verification_family": {
+              "type": "string",
+              "enum": ["system", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "question": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "decision",
+            "subtask",
+            "capability_family",
+            "expected_effect",
+            "effect_target",
+            "target_kind",
+            "target_scope",
+            "acceptance_test",
+            "verification_family",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
     "task_compact": {
       "type": "function",
       "function": {
@@ -1154,6 +1226,16 @@
                 "minItems": 1,
                 "maxItems": 16,
                 "description": "Exact files or directories expected to change. Required only for mutate_filesystem; prefer narrow paths over a repository root."
+              },
+              "verification_targets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "minItems": 1,
+                "maxItems": 16,
+                "description": "Exact contract resources checked by a verify step. Required by audited background verification; it declares scope and never changes command execution."
               },
               "cwd": {
                 "type": "string",

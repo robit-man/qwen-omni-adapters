@@ -85,6 +85,7 @@ def _run_scripted_task(
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     agent = BackgroundAgent(
+        manage_execute_audit=False,
         store=store,
         portal_url="http://portal.test",
         token="token",
