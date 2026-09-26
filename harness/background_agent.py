@@ -1140,6 +1140,24 @@ def _persisted_replan_error(contract: Any) -> str:
     )
 
 
+def _transition_route(
+    decision: str,
+    family: str,
+    effect: str,
+    target: str,
+    target_kind: str,
+    target_scope: str,
+) -> tuple[str, str, str, str, str, str]:
+    """Return a typed route identity without inspecting model-authored prose."""
+
+    route_family = (
+        "local_path"
+        if target_kind == "path" and family in {"filesystem", "shell"}
+        else family
+    )
+    return (decision, route_family, effect, target, target_kind, target_scope)
+
+
 def _manage_transition_error(
     task: Mapping[str, Any], arguments: Mapping[str, Any]
 ) -> dict[str, Any] | None:
@@ -1215,6 +1233,28 @@ def _manage_transition_error(
                 acceptance=acceptance,
                 verifier=verifier,
             )
+        if (
+            not error
+            and last_status == "expected_effect_missing"
+            and isinstance(last_contract, Mapping)
+            and _transition_route(
+                next_decision,
+                family,
+                effect,
+                target,
+                target_kind,
+                target_scope,
+            )
+            == _transition_route(
+                str(last_contract.get("decision") or ""),
+                str(last_contract.get("capability_family") or ""),
+                str(last_contract.get("expected_effect") or ""),
+                " ".join(str(last_contract.get("effect_target") or "").split()),
+                str(last_contract.get("target_kind") or ""),
+                str(last_contract.get("target_scope") or ""),
+            )
+        ):
+            error = "replan_repeats_missing_effect"
         if not error and (
             (
                 last_status
@@ -1254,9 +1294,15 @@ def _manage_transition_error(
             "different bounded RETRIEVE or ACT contract now."
             if error == "replan_requires_fresh_audited_nonprogress"
             else (
+                "The prior admitted action produced no declared effect. Replan "
+                "to a different exact target/effect route or RETRIEVE one bounded "
+                "unknown; changing only filesystem versus shell is the same route."
+                if error == "replan_repeats_missing_effect"
+                else (
                 "Commit one bounded RETRIEVE or ACT contract. REPLAN requires a "
                 "fresh audited failure and cannot repeat; ASK requires concrete "
                 "failed evidence."
+            )
             )
             )
             )
@@ -1613,14 +1659,14 @@ class _MalformedToolCall(RuntimeError):
 def _background_portal_session(seed: str, task_id: str) -> str:
     """Return a stable task-local portal namespace without exposing either input."""
 
-    # v4 abandons corpora created before renewable controller envelopes,
-    # failed-plan prose, and read-only mutation attempts were excluded from the
+    # v5 abandons corpora created before renewable controller envelopes,
+    # failed-plan prose, and locally rejected operations were excluded from the
     # working set. Keeping the migration
     # in the opaque hash provides a clean working set immediately on a
     # harness-only upgrade; no old database is deleted and the task's immutable
     # audit store is unchanged.
     digest = hashlib.sha256(
-        f"{seed}\0{task_id}\0background-controller-v4".encode()
+        f"{seed}\0{task_id}\0background-controller-v5".encode()
     ).hexdigest()
     return f"background-{digest[:40]}"
 
@@ -4378,6 +4424,7 @@ class BackgroundAgent:
         result: Any,
         *,
         historical: bool = False,
+        external_execution: bool = True,
     ) -> dict[str, Any] | None:
         try:
             receipt = None
@@ -4394,7 +4441,7 @@ class BackgroundAgent:
                         # continuity and accurate reporting after scope reduction.
                         receipt = {"action": action, "target": target}
             evidence_record = None
-            if name not in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}:
+            if external_execution and name not in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}:
                 evidence_result = json.dumps(
                     _bounded_tool_result(result),
                     ensure_ascii=False,
@@ -4412,7 +4459,8 @@ class BackgroundAgent:
             current = self.store.get(task_id) or {}
             audit_report = (
                 None
-                if name in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}
+                if not external_execution
+                or name in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}
                 else _action_audit_report(
                     current,
                     call_id=call_id,
@@ -5444,6 +5492,7 @@ class BackgroundAgent:
                         name or "unknown",
                         arguments,
                         rejected_result,
+                        external_execution=False,
                     )
                     stalls += 1
                     continue
@@ -5466,7 +5515,41 @@ class BackgroundAgent:
                             name or "unknown",
                             arguments,
                             contract_error,
+                            external_execution=False,
                         )
+                        # JSON-schema/admission rejection means no external
+                        # operation ran. Keep the pending contract and give a
+                        # fresh isolated executor the exact allowed grammar;
+                        # do not mis-audit this local planning error as an
+                        # action failure that requires another manager cycle.
+                        latest_task = self.store.get(task_id) or current
+                        replay_ids = _controller_replay_ids(latest_task)
+                        replay_records = self.store.expand_evidence(
+                            task_id, replay_ids
+                        )
+                        controller = _task_controller(latest_task)
+                        stage = (
+                            "audit"
+                            if str(controller.get("phase") or "") == "audit"
+                            else "execute"
+                        )
+                        messages = _fresh_managed_messages(
+                            latest_task,
+                            stage=stage,
+                            evidence_records=replay_records,
+                        )
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": (
+                                    '<executor_rejection schema="robit.omni.executor-rejection.v1" '
+                                    f'reason="{contract_error["error"]}">'
+                                    + contract_error["message"]
+                                    + "</executor_rejection>"
+                                ),
+                            }
+                        )
+                        phase_action_count = 0
                         stalls += 1
                         continue
                 if name == "task_manage":

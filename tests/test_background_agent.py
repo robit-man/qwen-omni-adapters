@@ -2399,6 +2399,55 @@ def test_local_path_change_requires_mutating_and_verifying_path_families(
     assert _manage_transition_error(task, contract) is None
 
 
+def test_replan_after_no_effect_must_change_the_typed_route(tmp_path: Path) -> None:
+    root = str(tmp_path / "app")
+    task = {
+        "task_state": {
+            "controller": {
+                "phase": "prethink",
+                "consecutive_replans": 0,
+                "last_contract": {
+                    "contract_id": "no-effect",
+                    "decision": "act",
+                    "status": "expected_effect_missing",
+                    "capability_family": "filesystem",
+                    "expected_effect": "change_environment",
+                    "effect_target": root,
+                    "target_kind": "path",
+                    "target_scope": "exact",
+                },
+            },
+            "audit_reports": [
+                {
+                    "audit_id": "no-effect-audit",
+                    "executor_succeeded": True,
+                    "contract_satisfied": False,
+                }
+            ],
+        }
+    }
+    replan = {
+        "decision": "replan",
+        "next_decision": "act",
+        "subtask": "Change the project through another local tool.",
+        "capability_family": "shell",
+        "expected_effect": "change_environment",
+        "effect_target": root,
+        "target_kind": "path",
+        "target_scope": "exact",
+        "acceptance_test": "The declared target changes and passes verification.",
+        "verification_family": "shell",
+        "reason": "Recover from the admitted no-op.",
+    }
+
+    rejection = _manage_transition_error(task, replan)
+    assert rejection is not None
+    assert rejection["reason"] == "replan_repeats_missing_effect"
+
+    replan["effect_target"] = str(tmp_path / "app" / "src" / "app" / "page.tsx")
+    assert _manage_transition_error(task, replan) is None
+
+
 def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
     tmp_path: Path,
 ) -> None:
@@ -2478,6 +2527,16 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
             assert len(payload["messages"]) == 2
             assert "execute-request.v1" in payload["messages"][1]["content"]
             return tool_call(
+                "rejected-read",
+                "workspace_file",
+                {"action": "read", "path": str(tmp_path / "artifact.txt")},
+            )
+        if chat_round == 3:
+            assert offered == ["workspace_file"]
+            assert len(payload["messages"]) == 3
+            assert "execute-request.v1" in payload["messages"][1]["content"]
+            assert "executor-rejection.v1" in payload["messages"][2]["content"]
+            return tool_call(
                 "action-1",
                 "workspace_file",
                 {
@@ -2486,7 +2545,7 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
                     "content": "ready\n",
                 },
             )
-        if chat_round == 3:
+        if chat_round == 4:
             assert offered == ["shell"]
             assert len(payload["messages"]) == 2
             assert "audit-request.v1" in payload["messages"][1]["content"]
@@ -2538,6 +2597,11 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
     assert controller["last_contract"]["status"] == "verified"
     assert controller["frontier_environment_version"] == 1
     reports = current["task_state"]["audit_reports"]
+    assert any(
+        item["call_id"] == "rejected-read" and item["ok"] is False
+        for item in current["actions"]
+    )
+    assert all(item["evidence_id"] != "rejected-read" for item in reports)
     mutation = next(item for item in reports if item["evidence_id"] == "action-1")
     audit = next(item for item in reports if item["evidence_id"] == "audit-1")
     assert mutation["milestone_progress"] is False

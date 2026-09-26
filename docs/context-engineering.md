@@ -191,6 +191,12 @@ The executor grammar is also effect-specific: an environment-changing ACT can
 offer filesystem writes or `shell:mutate_filesystem`, never list/read/inspect or
 verify operations. RETRIEVE receives the complementary read-only grammar, and
 the independent AUDIT role remains verification-only.
+Rejecting a proposed call at this local grammar boundary does not consume or
+fail the pending contract because no external operation occurred. A fresh
+executor retries against the same contract and exact allowed operations. If an
+admitted action runs but produces no declared effect, its typed target/effect
+route is retired for the next replan; swapping filesystem for shell cannot
+disguise the same no-op route as new progress.
 
 Retrieval contracts close an evidence slot only when their typed receipt carries
 resolving evidence. An empty search result therefore cannot establish the
