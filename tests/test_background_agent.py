@@ -3972,7 +3972,7 @@ def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
             return _checkpoint_response(
                 "complete",
                 "I finished the artifact and verified that the file exists.",
-                ["step-3"],
+                ["step-1", "step-3"],
             )
         return httpx.Response(
             200,
