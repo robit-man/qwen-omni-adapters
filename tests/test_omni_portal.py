@@ -2494,6 +2494,9 @@ def test_capability_and_research_requests_do_not_collapse_to_weather() -> None:
     assert "get_user_location" not in capabilities
     assert "web_search" in research
     assert "get_user_location" not in research
+    assert discover_tool_names(
+        "best field service dispatch SaaS software 2025 technician scheduling jobs"
+    ) == ["web_search"]
 
 
 def test_actionable_text_match_requires_a_structured_tool_call() -> None:

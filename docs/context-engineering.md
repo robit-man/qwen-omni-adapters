@@ -129,6 +129,10 @@ so a later phase can choose another capability. At constrained tiers it and
 `task_expand` alternate as secondary controls. Tests account for the complete
 system/query/tool/output envelope at 4K; an active background overflow is a
 visible retryable failure, never an unreported native-context fallback.
+`tool_search.query` is capability-only: it describes the missing mechanism,
+while the subject remains in the pinned task. Catalog hints explicitly route
+current product/SaaS, comparison, interface, and design research to public-web
+discovery so topical words cannot win an unrelated shell/service match.
 
 The deterministic compacted chain contains one current system contract, one
 small page marker, and the newest native tool cycles. It never duplicates the

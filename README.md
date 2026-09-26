@@ -436,9 +436,14 @@ and `additionalProperties` remain exact while repeated prose annotations are
 removed. Only one selected concrete capability is exposed per action round;
 discovery is suppressed until that leaf receives one concrete attempt, then
 returns as the route to a different capability. At constrained tiers discovery
-and evidence expansion alternate instead of crowding the same envelope. A background
-request that still cannot fit the live pack fails explicitly and retries from
+and evidence expansion alternate instead of crowding the same envelope. A
+background request that still cannot fit the live pack fails explicitly and retries from
 its checkpoint—it never silently falls back to native FIFO truncation.
+Discovery queries describe only the missing interaction mechanism (for example,
+public-web search, file editing, shell execution, or visible-browser control),
+not the task topic. The deterministic router also recognizes product/SaaS,
+comparison, interface, and design research as web discovery, preventing a word
+such as “service” in the subject from accidentally selecting system shell.
 Background web fetches are provenance-bound as well: a target must appear in
 the accepted task/user input or prior search, browser, crawl, or fetch evidence.
 An invented address is rejected before network access and returned beside the

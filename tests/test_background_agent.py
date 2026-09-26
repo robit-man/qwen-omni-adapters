@@ -188,6 +188,7 @@ def test_constrained_task_contract_and_query_fit_the_resident_tier() -> None:
 
     assert prompt.endswith(COMPACT_AGENT_SYSTEM_PROMPT)
     assert AGENT_SYSTEM_PROMPT not in prompt
+    assert "query names only the missing mechanism" in prompt
     assert len(query) <= 420
     assert "Build and verify" in prompt
     assert "tests pass" in prompt
