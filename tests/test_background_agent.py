@@ -480,6 +480,23 @@ def test_evidence_paging_cannot_loop_or_replace_capability_discovery() -> None:
     ]
     assert _task_expand_available(changed, compacted=True) is True
 
+    inspected = [
+        *checkpoint,
+        {
+            "role": "tool",
+            "tool_name": "shell",
+            "content": json.dumps(
+                {
+                    "exit_code": 0,
+                    "stdout": "target is empty",
+                    "task_progress": False,
+                    "evidence_authority": "inspection",
+                }
+            ),
+        },
+    ]
+    assert _task_expand_available(inspected, compacted=True) is False
+
     failed = [
         *checkpoint,
         {
@@ -1741,6 +1758,25 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
                 "outcome": json.dumps({"accepted": True}),
                 "ok": True,
             },
+            {
+                "call_id": "shell-inspection",
+                "tool": "shell",
+                "arguments": json.dumps(
+                    {"command": "node -v && ls -la", "cwd": "/tmp/project"}
+                ),
+                "outcome": json.dumps(
+                    {
+                        "command": "node -v && ls -la",
+                        "cwd": "/tmp/project",
+                        "exit_code": 0,
+                        "stdout": "v20.1.0\ntotal 0\n",
+                        "stderr": "",
+                        "task_progress": False,
+                        "evidence_authority": "inspection",
+                    }
+                ),
+                "ok": True,
+            },
         ]
     }
 
@@ -1760,6 +1796,12 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
     assert "list-1" in focus.split("<inspections>", 1)[1].split(
         "</inspections>", 1
     )[0]
+    inspections = focus.split("<inspections>", 1)[1].split(
+        "</inspections>", 1
+    )[0]
+    assert "shell-inspection" in inspections
+    assert "v20.1.0" in inspections
+    assert "<other_successes>" not in focus
     assert "Research satisfied; plan remains." not in focus
     assert "declared_remaining_requirements" not in focus
     assert "Write docs/plan.md." not in focus

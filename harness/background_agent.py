@@ -547,7 +547,10 @@ def _task_expand_available(
             result = json.loads(str(message.get("content") or "{}"))
         except ValueError:
             result = {}
-        return not _result_failed_or_blocked(result)
+        return (
+            not _result_failed_or_blocked(result)
+            and _evidence_authority({"name": name, "result": result}) == "concrete"
+        )
     return True
 
 
@@ -1651,6 +1654,40 @@ def _focus_memory(
                         "authority": "model_checkpoint_control_not_task_evidence",
                     }
                 )
+        elif ok and authority == "inspection":
+            target = str(
+                outcome.get("path")
+                or arguments.get("path")
+                or outcome.get("url")
+                or arguments.get("url")
+                or outcome.get("cwd")
+                or arguments.get("cwd")
+                or tool
+            ).strip()[:500]
+            observation = {
+                field: outcome[field]
+                for field in (
+                    "action",
+                    "path",
+                    "cwd",
+                    "exit_code",
+                    "stdout",
+                    "stderr",
+                    "timed_out",
+                )
+                if field in outcome
+            }
+            key = (tool, target)
+            inspections_by_target.pop(key, None)
+            inspections_by_target[key] = {
+                "evidence_id": call_id,
+                "status": "inspected",
+                "tool": tool,
+                "target": target,
+                "observation": observation,
+                "task_progress": False,
+                **expansion_pointer(call_id),
+            }
         elif (
             ok
             and authority != "discovery"
@@ -4210,6 +4247,15 @@ class BackgroundAgent:
                         and _shell_observation_only(
                             str(result.get("command") or arguments.get("command") or "")
                         )
+                    ):
+                        result = dict(result)
+                        result["task_progress"] = False
+                        result["evidence_authority"] = "inspection"
+                    if (
+                        name == "workspace_file"
+                        and str(arguments.get("action") or "") in {"list", "read"}
+                        and isinstance(result, Mapping)
+                        and not _result_failed_or_blocked(result)
                     ):
                         result = dict(result)
                         result["task_progress"] = False
