@@ -2635,6 +2635,42 @@ def _task_controller_value(task: Mapping[str, Any], key: str) -> Any:
     return controller.get(key)
 
 
+def _source_receipt_has_evidence(name: str, result: Any) -> bool:
+    """Require a typed non-empty payload, not merely successful transport."""
+
+    if not isinstance(result, Mapping):
+        return False
+    if name == "web_fetch":
+        return bool(str(result.get("content") or "").strip())
+    if name == "web_crawl":
+        pages = result.get("pages")
+        return isinstance(pages, list) and any(
+            isinstance(page, Mapping)
+            and any(
+                str(page.get(field) or "").strip()
+                for field in ("content", "text", "title")
+            )
+            for page in pages
+        )
+    if name == "document_search":
+        results = result.get("results")
+        return isinstance(results, list) and any(
+            isinstance(item, Mapping)
+            and bool(str(item.get("content") or "").strip())
+            for item in results
+        )
+    if name == "structured_read":
+        data = result.get("data")
+        return data not in (None, "", [], {})
+    if name == "ocr_pdf":
+        try:
+            characters = int(result.get("characters") or 0)
+        except (TypeError, ValueError):
+            characters = 0
+        return bool(str(result.get("preview") or "").strip()) and characters > 0
+    return False
+
+
 def _action_audit_report(
     task: Mapping[str, Any],
     *,
@@ -2703,7 +2739,10 @@ def _action_audit_report(
         or (
             authority == "concrete"
             and (
-                name in MILESTONE_SOURCE_TOOLS
+                (
+                    name in MILESTONE_SOURCE_TOOLS
+                    and _source_receipt_has_evidence(name, result)
+                )
                 or (
                     name in COMPUTER_ACTION_TOOLS
                     and (

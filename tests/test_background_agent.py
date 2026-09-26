@@ -68,6 +68,7 @@ from harness.background_agent import (
     _sanitize_checkpoint_history,
     _search_task_evidence,
     _seen_tool_fingerprints,
+    _source_receipt_has_evidence,
     _stream_error,
     _structured_action_phase,
     _successor_tools,
@@ -1695,6 +1696,22 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     assert not _completion_is_audited(
         {"task_state": {"environment": {"version": 0}, "audit_reports": [clock_audit]}},
         ["clock-1"],
+    )
+
+    empty_fetch = _action_audit_report(
+        current,
+        call_id="empty-source",
+        name="web_fetch",
+        arguments={"url": "https://example.test/client-rendered"},
+        result={"content": "", "receipt": {"status": 200}},
+    )
+    assert empty_fetch["executor_succeeded"] is True
+    assert empty_fetch["milestone_progress"] is False
+    assert not _source_receipt_has_evidence(
+        "web_fetch", {"content": "", "receipt": {"status": 200}}
+    )
+    assert _source_receipt_has_evidence(
+        "web_fetch", {"content": "Exact source-bearing text."}
     )
 
     def record(
