@@ -1690,6 +1690,20 @@ def _required_tool_retry_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
 
     retry = copy.deepcopy(dict(payload))
     retry["stream"] = False
+    # The original pass already had its opportunity to deliberate. Some local
+    # reasoning models consume that pass in prose even with tool_choice set to
+    # required. Keep its evidence and closed action contract, but make the one
+    # retry an execution pass rather than reproducing the same thought cycle.
+    # These are the native controls for the Ollama- and OpenAI-shaped backends;
+    # no prompt token or synthetic tool call substitutes for them.
+    if "think" in retry:
+        retry["think"] = False
+    template_kwargs = retry.get("chat_template_kwargs")
+    if isinstance(template_kwargs, Mapping) and "enable_thinking" in template_kwargs:
+        retry["chat_template_kwargs"] = {
+            **template_kwargs,
+            "enable_thinking": False,
+        }
     names = [
         str(tool.get("function", {}).get("name") or "")
         for tool in retry.get("tools", [])

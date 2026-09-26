@@ -2715,6 +2715,31 @@ def test_native_think_true_still_enables_reasoning_on_the_openai_path() -> None:
     assert "reasoning_format" not in payload
 
 
+def test_required_tool_retry_switches_from_deliberation_to_execution() -> None:
+    from runtime import adapter_server
+
+    retry = adapter_server._required_tool_retry_payload(
+        {
+            "messages": [{"role": "user", "content": "Do the next step."}],
+            "tools": [
+                {"type": "function", "function": {"name": "shell"}}
+            ],
+            "tool_choice": "required",
+            "think": True,
+            "chat_template_kwargs": {"enable_thinking": True},
+            "stream": True,
+        }
+    )
+
+    assert retry["think"] is False
+    assert retry["chat_template_kwargs"] == {"enable_thinking": False}
+    assert retry["tool_choice"] == "required"
+    assert retry["tools"][0]["function"]["name"] == "shell"
+    assert retry["messages"][-1]["content"].startswith(
+        "<adapter_execution_context authority=\"system\">"
+    )
+
+
 def test_ornith_profile_explicitly_disables_hidden_reasoning_for_think_false() -> None:
     from runtime import adapter_server
 
