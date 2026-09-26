@@ -132,6 +132,11 @@
               "type": "string",
               "enum": ["retrieve", "act", "replan", "ask"]
             },
+            "next_decision": {
+              "type": "string",
+              "enum": ["retrieve", "act"],
+              "description": "Required only for REPLAN. Commits the one executable transition that must follow this replan."
+            },
             "subtask": {
               "type": "string",
               "maxLength": 300

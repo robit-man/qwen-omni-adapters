@@ -958,6 +958,7 @@ def _manage_transition_error(
     """Validate controller structure without judging model-authored prose."""
 
     decision = str(arguments.get("decision") or "")
+    next_decision = str(arguments.get("next_decision") or "")
     subtask = " ".join(str(arguments.get("subtask") or "").split())
     family = str(arguments.get("capability_family") or "")
     effect = str(arguments.get("expected_effect") or "")
@@ -1015,7 +1016,9 @@ def _manage_transition_error(
             audit.get("contract_satisfied") is not True
             or audit.get("executor_succeeded") is not True
         )
-        if (
+        if next_decision not in {"retrieve", "act"}:
+            error = "replan_requires_next_decision"
+        elif (
             last_status
             not in {"action_failed", "expected_effect_missing", "audit_failed"}
             and not audited_nonprogress
@@ -1070,6 +1073,19 @@ def _manage_decision_contract(task: Mapping[str, Any]) -> list[str]:
     ):
         return ["replan"]
     if consecutive_replans >= 1:
+        committed = str(last_contract.get("next_decision") or "") if isinstance(
+            last_contract, Mapping
+        ) else ""
+        if committed in {"retrieve", "act"}:
+            return [committed]
+        # Migration for a replan persisted before next_decision was explicit.
+        expected = str(last_contract.get("expected_effect") or "") if isinstance(
+            last_contract, Mapping
+        ) else ""
+        if expected in {"change_environment", "change_external_state"}:
+            return ["act"]
+        if expected == "resolve_unknown":
+            return ["retrieve"]
         return ["retrieve", "act", "ask"]
     return ["retrieve", "act", "replan", "ask"]
 
@@ -1096,9 +1112,20 @@ def _background_tool_contract(
     if manage_required:
         manager = copy.deepcopy(TASK_MANAGE_TOOL)
         if manage_decisions:
-            manager["function"]["parameters"]["properties"]["decision"]["enum"] = list(
-                manage_decisions
-            )
+            parameters = manager["function"]["parameters"]
+            properties = parameters["properties"]
+            properties["decision"]["enum"] = list(manage_decisions)
+            if manage_decisions == ["replan"]:
+                required = parameters.setdefault("required", [])
+                if "next_decision" not in required:
+                    required.append("next_decision")
+            elif manage_decisions == ["act"]:
+                properties["expected_effect"]["enum"] = [
+                    "change_environment",
+                    "change_external_state",
+                ]
+            elif manage_decisions == ["retrieve"]:
+                properties["expected_effect"]["enum"] = ["resolve_unknown"]
         schemas = [manager]
     elif audit_required:
         schemas = _audit_tool_schemas(active_tools)

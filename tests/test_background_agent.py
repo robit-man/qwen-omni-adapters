@@ -2160,6 +2160,7 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
 
     replan = {
         "decision": "replan",
+        "next_decision": "act",
         "subtask": "Use the local filesystem for the local plan.",
         "capability_family": "uncertain",
         "expected_effect": "none",
@@ -2176,7 +2177,7 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
     )
     assert replanned is not None
     assert _manage_transition_error(replanned, retry_without_replan) is None
-    assert _manage_decision_contract(replanned) == ["retrieve", "act", "ask"]
+    assert _manage_decision_contract(replanned) == ["act"]
     second_replan = _manage_transition_error(replanned, replan)
     assert second_replan is not None
     assert second_replan["reason"] == "replan_requires_fresh_audited_nonprogress"

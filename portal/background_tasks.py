@@ -90,6 +90,7 @@ def _apply_manage_transition(
         "contract_id": str(transition.get("contract_id") or "")[:128],
         "generation": generation,
         "decision": decision,
+        "next_decision": str(transition.get("next_decision") or "")[:24],
         "subtask": subtask,
         "active_requirement_id": str(
             controller.get("active_requirement_id") or "root"

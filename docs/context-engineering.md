@@ -303,9 +303,11 @@ audited milestone reopens it.
 
 A bounded contract that fails, misses its declared effect, or fails audit retires
 that exact typed action family immediately and requires one explicit `REPLAN`
-transition before another executable contract. This state transition is keyed by
-the audit and action family, so paraphrasing a subtask cannot make the same dead
-route admissible again.
+transition before another executable contract. The replan commits whether its
+next transition is `RETRIEVE` or `ACT`; the following JSON grammar exposes only
+that choice and its compatible expected-effect values. This state transition is
+keyed by the audit and action family, so paraphrasing a subtask cannot make the
+same dead route admissible again.
 
 The local voice foreground and its background worker use one stable, opaque
 portal-session scope derived from the daemon capability, so a handed-off task
