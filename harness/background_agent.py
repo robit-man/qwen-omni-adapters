@@ -1002,23 +1002,24 @@ def _manage_transition_error(
         or target_scope not in {"exact", "subtree"}
     ):
         error = "retrieve_requires_one_unknown_and_closure_test"
+    elif (
+        decision == "act"
+        and effect == "change_environment"
+        and target_kind == "path"
+        and (
+            family not in {"filesystem", "shell"}
+            or verifier not in {"filesystem", "shell"}
+        )
+    ):
+        error = "local_path_effect_contract_incompatible"
     elif decision == "act" and (
         effect not in {"change_environment", "change_external_state"}
         or not target
         or target_kind not in {"path", "url", "service", "process", "ui_state", "record"}
         or target_scope not in {"exact", "subtree"}
         or not acceptance
-        or (
-            effect == "change_environment"
-            and target_kind == "path"
-            and family not in {"filesystem", "shell"}
-        )
         or verifier not in _TYPED_TOOL_FAMILIES
         or verifier in {"background", "camera"}
-        or (
-            target_kind == "path"
-            and verifier not in {"filesystem", "shell"}
-        )
         or not _audit_tool_schemas(_family_tool_names(verifier))
     ):
         error = "act_requires_effect_and_read_only_verifier"
@@ -1049,6 +1050,11 @@ def _manage_transition_error(
         "another RETRIEVE or ACT."
         if error == "audited_failure_requires_replan"
         else (
+            "A local-path environment change requires capability_family and "
+            "verification_family to each be filesystem or shell. Attached-document "
+            "tools cannot write or audit a host path."
+            if error == "local_path_effect_contract_incompatible"
+            else (
             "The durable controller currently admits only: "
             + ", ".join(value.upper() for value in allowed_decisions)
             + ". Emit one of those decisions and do not replay the rejected call."
@@ -1063,6 +1069,7 @@ def _manage_transition_error(
                 "failed evidence."
             )
             )
+            )
         )
     )
     return {
@@ -1072,6 +1079,11 @@ def _manage_transition_error(
         "task_progress": False,
         "failure_scope": "plan",
         "allowed_decisions": allowed_decisions,
+        "allowed_path_families": (
+            ["filesystem", "shell"]
+            if error == "local_path_effect_contract_incompatible"
+            else []
+        ),
     }
 
 

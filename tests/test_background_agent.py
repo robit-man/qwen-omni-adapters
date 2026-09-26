@@ -2293,7 +2293,8 @@ def test_local_path_change_requires_mutating_and_verifying_path_families(
     }
     rejection = _manage_transition_error(task, contract)
     assert rejection is not None
-    assert rejection["reason"] == "act_requires_effect_and_read_only_verifier"
+    assert rejection["reason"] == "local_path_effect_contract_incompatible"
+    assert rejection["allowed_path_families"] == ["filesystem", "shell"]
     contract.update(
         capability_family="filesystem",
         verification_family="filesystem",
