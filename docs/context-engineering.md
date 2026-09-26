@@ -136,13 +136,15 @@ prose, leaving room for the freshest typed receipt. This is working-set eviction
 only. Exact bounded tool receipts are archived append-only before their turns
 leave L0 and remain recoverable with `task_expand`.
 
-The background action surface is tier-aware too. At 4K/8K it exposes one
-already-selected concrete tool plus an eligible checkpoint, removes only
+The background action surface is tier-aware too. It exposes one already-selected
+concrete family plus an eligible checkpoint, removes only
 documentation annotations from their schemas, and preserves names, types,
 enums, required fields, bounds, and object closure. Discovery is suppressed on
-the immediate post-routing round, then returns after one concrete leaf attempt
-so a later phase can choose another capability. At constrained tiers it and
-`task_expand` alternate as secondary controls. Tests account for the complete
+every round while a concrete family remains active; it returns only after an
+accepted phase checkpoint, a typed capability failure, or loss of the active
+leaf. This makes the scoped action space stable across a multi-action phase
+instead of repeatedly reclassifying the same task. `task_expand` remains a
+bounded secondary control. Tests account for the complete
 system/query/tool/output envelope at 4K; an active background overflow is a
 visible retryable failure, never an unreported native-context fallback.
 `tool_search.family` is a closed capability-family enum selected by the model.

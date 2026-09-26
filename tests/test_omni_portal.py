@@ -1648,7 +1648,6 @@ def test_4k_background_action_stays_inside_active_virtual_context(tmp_path: Path
         phase_boundary=False,
         expand_available=True,
         can_checkpoint=True,
-        include_discovery=True,
         resident_context_tokens=4_096,
     )
     app = create_app(
@@ -1694,7 +1693,7 @@ def test_4k_background_action_stays_inside_active_virtual_context(tmp_path: Path
     assert requests[0]["messages"][-1]["role"] == "user"
     assert [item["function"]["name"] for item in requests[0]["tools"]] == [
         "browser_interact",
-        "tool_search",
+        "task_expand",
         "task_checkpoint",
     ]
 

@@ -478,7 +478,6 @@ def _background_tool_contract(
     phase_boundary: bool,
     expand_available: bool,
     can_checkpoint: bool,
-    include_discovery: bool,
     resident_context_tokens: int | None = None,
 ) -> list[dict[str, Any]]:
     """Expose the smallest complete action space for one controller round."""
@@ -498,54 +497,24 @@ def _background_tool_contract(
             if tool_schemas([name])
         ][:tool_limit]
         schemas = tool_schemas(concrete)
-        # Discovery is a router, not a second action alongside an already
-        # selected concrete capability. If no leaf remains, always restore the
-        # router so a duplicate discovery cannot strand tool_choice=required.
-        if not concrete or include_discovery:
+        # A routed family is the current phase's action space, not a hint that
+        # competes with the router on every subsequent step. Keep using the
+        # concrete capability until a checkpoint resets the phase or its
+        # executor returns a typed capability failure. This prevents repeated
+        # classify -> inspect -> classify loops while preserving a general,
+        # model-selected transition at the phase boundary.
+        if not concrete:
             schemas.extend(copy.deepcopy(DISCOVERY_TOOLS))
-        # On a constrained tier, discovery and paging are alternate secondary
-        # controls. Exposing both beside a browser schema would consume the
-        # evidence space they are intended to recover. A newly routed leaf gets
-        # paging; after that leaf runs, discovery returns so the controller can
-        # change capability. At larger tiers both controls can coexist.
-        if expand_available and (
-            resident > 8_192 or not concrete or not include_discovery
-        ):
+        # On a constrained tier, paging remains available beside the one active
+        # leaf; broad discovery does not. Larger tiers use the same state
+        # machine so behavior is independent of the current KV allocation.
+        if expand_available:
             schemas.append(copy.deepcopy(TASK_EXPAND_TOOL))
         if can_checkpoint:
             schemas.append(copy.deepcopy(TASK_CHECKPOINT_TOOL))
     if resident <= 8_192:
         return [_compact_tool_schema(schema) for schema in schemas]
     return schemas
-
-
-def _include_discovery_with_active_tool(
-    messages: list[dict[str, Any]], active_tools: list[str]
-) -> bool:
-    """Restore routing only after the selected leaf has received one attempt."""
-
-    if not active_tools:
-        return True
-    active = set(active_tools)
-    for message in reversed(messages):
-        if message.get("role") != "tool":
-            continue
-        name = str(message.get("tool_name") or "")
-        if name not in active:
-            return False
-        try:
-            result = json.loads(str(message.get("content") or "{}"))
-        except ValueError:
-            result = {}
-        # A snapshot of an unloaded browser is not the concrete leaf attempt
-        # selected by routing. Keep the browser schema isolated for the
-        # required navigate call instead of letting broad discovery pull the
-        # controller into an unrelated capability.
-        return not (
-            isinstance(result, Mapping)
-            and result.get("empty_browser_page") is True
-        )
-    return False
 
 
 def _task_expand_available(
@@ -3459,9 +3428,6 @@ class BackgroundAgent:
                 phase_boundary=phase_boundary,
                 expand_available=expand_available,
                 can_checkpoint=can_checkpoint,
-                include_discovery=_include_discovery_with_active_tool(
-                    messages, active_tools
-                ),
                 resident_context_tokens=resident_context_tokens,
             )
             offered_tool_names = {

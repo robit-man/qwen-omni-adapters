@@ -50,7 +50,6 @@ from harness.background_agent import (
     _freshest_evidence_id,
     _ground_visual_click,
     _guard_repeated_unchanged_result,
-    _include_discovery_with_active_tool,
     _inference_diagnostics,
     _latest_external_result_digest,
     _latest_tool_fingerprint,
@@ -399,12 +398,11 @@ def test_constrained_action_contract_keeps_json_rules_without_prose_bloat() -> N
         phase_boundary=False,
         expand_available=True,
         can_checkpoint=True,
-        include_discovery=True,
         resident_context_tokens=4_096,
     )
     names = [item["function"]["name"] for item in schemas]
 
-    assert names == ["browser_interact", "tool_search", "task_checkpoint"]
+    assert names == ["browser_interact", "task_expand", "task_checkpoint"]
     serialized = json.dumps(schemas, sort_keys=True)
     assert '"required"' in serialized
     assert '"enum"' in serialized
@@ -418,7 +416,6 @@ def test_constrained_action_contract_keeps_json_rules_without_prose_bloat() -> N
         phase_boundary=False,
         expand_available=True,
         can_checkpoint=False,
-        include_discovery=True,
         resident_context_tokens=4_096,
     )
     assert [item["function"]["name"] for item in discovery] == [
@@ -431,20 +428,6 @@ def test_constrained_action_contract_keeps_json_rules_without_prose_bloat() -> N
         "enum": ["a"],
         "required": ["x"],
     }
-
-    routed = [
-        {"role": "tool", "tool_name": "tool_search", "content": "{}"},
-    ]
-    assert _include_discovery_with_active_tool(routed, ["browser_interact"]) is False
-    routed.append(
-        {"role": "tool", "tool_name": "browser_interact", "content": "{}"}
-    )
-    assert _include_discovery_with_active_tool(routed, ["browser_interact"]) is True
-    routed[-1]["content"] = json.dumps(
-        {"empty_browser_page": True, "task_progress": False}
-    )
-    assert _include_discovery_with_active_tool(routed, ["browser_interact"]) is False
-
 
 def test_evidence_paging_cannot_loop_or_replace_capability_discovery() -> None:
     checkpoint = [
@@ -3308,7 +3291,6 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
             assert payload["think"] is False
             assert tool_names == [
                 "browser_interact",
-                "tool_search",
                 "task_checkpoint",
             ]
             return _checkpoint_response(

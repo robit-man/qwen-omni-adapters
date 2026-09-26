@@ -160,13 +160,29 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
             },
         ),
         (
+            "checkpoint-files",
+            "task_checkpoint",
+            {
+                "action": "progress",
+                "report": "The requested source and data files now exist.",
+                "criteria_assessment": (
+                    "File creation and editing are complete; runtime verification "
+                    "is the earliest unmet requirement."
+                ),
+                "remaining_requirements": [
+                    "Run the verification command and confirm every file."
+                ],
+                "evidence_ids": ["edit-python"],
+            },
+        ),
+        (
             "discover-verification",
             "tool_search",
             {"family": "shell"},
         ),
-            (
-                "verify-files",
-                "shell",
+        (
+            "verify-files",
+            "shell",
             {
                 "command": (
                     "python3 -m py_compile app.py "
@@ -211,6 +227,7 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
         "workspace_file",
         "workspace_file",
         "workspace_file",
+        "task_checkpoint",
         "tool_search",
         "shell",
         "task_checkpoint",
