@@ -51,6 +51,13 @@ VISUAL_CONTEXT_ACCOUNTING_BYTES = 8 * 1024
 COMPACTION_HIGH_WATER_FRACTION = 0.72
 COMPUTER_ACTION_TOOLS = {"browser_interact", "gui_interact"}
 WEB_EVIDENCE_TOOLS = {"browser_interact", "web_crawl", "web_fetch", "web_search"}
+MILESTONE_SOURCE_TOOLS = {
+    "document_search",
+    "ocr_pdf",
+    "structured_read",
+    "web_crawl",
+    "web_fetch",
+}
 
 _HTTP_URL = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 
@@ -2525,6 +2532,28 @@ def _action_audit_report(
         elif authority == "mutation" and str(result.get("path") or ""):
             changed_paths = [str(result["path"])]
 
+    milestone_progress = bool(
+        authority in {"mutation", "verification"}
+        or (
+            authority == "concrete"
+            and (
+                name in MILESTONE_SOURCE_TOOLS
+                or (
+                    name in COMPUTER_ACTION_TOOLS
+                    and (
+                        operation != "snapshot"
+                        or (
+                            isinstance(result, Mapping)
+                            and isinstance(
+                                result.get("verified_visual_observation"), Mapping
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+
     transition = (
         "replan"
         if authority == "failed"
@@ -2573,6 +2602,11 @@ def _action_audit_report(
         "state_fingerprint": state_fingerprint,
         "changed_paths": changed_paths,
         "executor_succeeded": not _result_failed_or_blocked(result),
+        # A tool can succeed and even close a new knowledge slot without
+        # satisfying a durable phase. This typed bit is deliberately narrower
+        # than epistemic/environmental progress and is checked independently
+        # at every checkpoint.
+        "milestone_progress": milestone_progress,
     }
 
 
@@ -2611,6 +2645,8 @@ def _completion_is_audited(
     ]
     if not selected:
         return False
+    if not any(item.get("milestone_progress") is True for item in selected):
+        return False
     if environment_version <= 0:
         return any(
             str(item.get("authority") or "")
@@ -2621,6 +2657,24 @@ def _completion_is_audited(
         str(item.get("authority") or "") == "verification"
         and int(item.get("environment_version_after") or -1) == environment_version
         for item in selected
+    )
+
+
+def _checkpoint_has_milestone(
+    task: Mapping[str, Any], evidence_ids: list[str]
+) -> bool:
+    state = task.get("task_state")
+    if not isinstance(state, Mapping):
+        return False
+    reports = state.get("audit_reports")
+    if not isinstance(reports, list):
+        return False
+    selected_ids = {str(value) for value in evidence_ids}
+    return any(
+        isinstance(item, Mapping)
+        and str(item.get("evidence_id") or "") in selected_ids
+        and item.get("milestone_progress") is True
+        for item in reports
     )
 
 
@@ -4263,6 +4317,9 @@ class BackgroundAgent:
                         authority in {"concrete", "mutation", "verification"}
                         for authority in evidence_authorities
                     )
+                    supports_milestone = _checkpoint_has_milestone(
+                        latest or current, evidence_ids
+                    )
                     supports_completion = (
                         supports_progress
                         and all(
@@ -4309,7 +4366,11 @@ class BackgroundAgent:
                         and valid_refs
                         and cites_freshest
                         and (
-                            (action == "progress" and supports_progress)
+                            (
+                                action == "progress"
+                                and supports_progress
+                                and supports_milestone
+                            )
                             or (action == "complete" and supports_completion)
                             or action == "blocked"
                         )
@@ -4348,10 +4409,11 @@ class BackgroundAgent:
                                 "non-empty for progress/blocked; empty for complete"
                             ),
                             "evidence_authority_required": (
-                                "progress requires a concrete result; completion requires "
-                                "concrete evidence and, after any environment mutation, a "
-                                "verification receipt from the current environment version; "
-                                "discovery metadata never proves progress"
+                                "progress requires a typed milestone receipt (source "
+                                "acquisition, verified mutation, external interaction, or "
+                                "verification); completion requires the same and, after any "
+                                "environment mutation, verification from the current version; "
+                                "a successful information probe alone never proves a milestone"
                             ),
                             "retryable": retryable,
                         }

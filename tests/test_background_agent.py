@@ -32,6 +32,7 @@ from harness.background_agent import (
     _bounded_tool_result,
     _call_fingerprint,
     _checkpoint_available,
+    _checkpoint_has_milestone,
     _checkpoint_retry_pending,
     _compact_task_messages,
     _compact_tool_schema,
@@ -250,7 +251,23 @@ def test_background_worker_replans_generic_discovery_without_camera_capture(
         if request.url.path == "/api/tools/workspace_file/call":
             return httpx.Response(
                 200,
-                json={"result": {"operation": "write", "path": "/workspace/app/page.tsx"}},
+                json={
+                    "result": {
+                        "operation": "write",
+                        "path": "/workspace/app/page.tsx",
+                        "evidence_authority": "mutation",
+                    }
+                },
+            )
+        if request.url.path == "/api/tools/shell/call":
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "exit_code": 0,
+                        "evidence_authority": "verification",
+                    }
+                },
             )
 
         chat_round += 1
@@ -281,10 +298,28 @@ def test_background_worker_replans_generic_discovery_without_camera_capture(
                     "content": "export default function Page() { return <main>Ready</main> }",
                 },
             )
+        if chat_round == 4:
+            return _checkpoint_response(
+                "progress",
+                "I created the application file; verification remains.",
+                ["write-app"],
+            )
+        if chat_round == 5:
+            return call(
+                "discover-verification",
+                "tool_search",
+                {"family": "shell"},
+            )
+        if chat_round == 6:
+            return call(
+                "verify-app",
+                "shell",
+                {"command": "test -f /workspace/app/page.tsx", "intent": "verify"},
+            )
         return _checkpoint_response(
             "complete",
             "I created and verified the requested application file.",
-            ["write-app"],
+            ["verify-app"],
         )
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -312,7 +347,7 @@ def test_background_worker_replans_generic_discovery_without_camera_capture(
     current = store.get(task["task_id"])
     assert current is not None
     assert current["status"] == "completed"
-    assert discovery_posts == 1
+    assert discovery_posts == 2
     assert camera_posts == 0
 
 
@@ -1544,6 +1579,22 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     current = store.claim_next("worker")
     assert current is not None
     assert current["task_state"]["environment"]["version"] == 0
+    clock_audit = _action_audit_report(
+        current,
+        call_id="clock-1",
+        name="get_current_time",
+        arguments={},
+        result={"date": "2026-09-26", "time": "12:00:00"},
+    )
+    assert clock_audit["executor_succeeded"] is True
+    assert clock_audit["milestone_progress"] is False
+    assert not _checkpoint_has_milestone(
+        {"task_state": {"audit_reports": [clock_audit]}}, ["clock-1"]
+    )
+    assert not _completion_is_audited(
+        {"task_state": {"environment": {"version": 0}, "audit_reports": [clock_audit]}},
+        ["clock-1"],
+    )
 
     def record(
         call_id: str,
@@ -3152,16 +3203,16 @@ def test_background_agent_yields_between_inference_and_tool_steps(
     store = BackgroundTaskStore(tmp_path / "tasks.json")
     task = store.create("Write a marker file and verify it.")
     requests: list[str] = []
+    chat_round = 0
 
     def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
         requests.append(request.url.path)
         if request.url.path == "/api/chat/stream":
+            chat_round += 1
             payload = json.loads(request.content)
             assert payload["tool_choice"] == "required"
-            tool_results = [
-                item for item in payload["messages"] if item.get("role") == "tool"
-            ]
-            if not tool_results:
+            if chat_round == 1:
                 assert payload["think"] is True
                 return httpx.Response(
                     200,
@@ -3176,7 +3227,9 @@ def test_background_agent_yields_between_inference_and_tool_steps(
                                     "function": {
                                         "name": "shell",
                                         "arguments": {
-                                            "command": "printf ready > marker.txt"
+                                            "command": "printf ready > marker.txt",
+                                            "intent": "mutate_filesystem",
+                                            "mutation_paths": ["marker.txt"],
                                         },
                                     },
                                 }
@@ -3184,21 +3237,63 @@ def test_background_agent_yields_between_inference_and_tool_steps(
                         }
                     },
                 )
-            assert payload["think"] is False
-            assert any(
-                "<task_self_check" in str(item.get("content") or "")
-                and "write-1" in str(item.get("content") or "")
-                for item in payload["messages"]
-            )
+            if chat_round == 2:
+                assert payload["think"] is False
+                assert any(
+                    "<task_self_check" in str(item.get("content") or "")
+                    and "write-1" in str(item.get("content") or "")
+                    for item in payload["messages"]
+                )
+                return _checkpoint_response(
+                    "progress",
+                    "I created marker.txt; verification remains.",
+                    ["write-1"],
+                )
+            if chat_round == 3:
+                assert "verified_phase_checkpoint" in payload["messages"][1]["content"]
+                return httpx.Response(
+                    200,
+                    json={
+                        "message": {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "id": "verify-1",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "shell",
+                                        "arguments": {
+                                            "command": "test -f marker.txt",
+                                            "intent": "verify",
+                                        },
+                                    },
+                                }
+                            ],
+                        }
+                    },
+                )
             return _checkpoint_response(
                 "complete",
                 "I created marker.txt and verified the write succeeded.",
-                ["write-1"],
+                ["verify-1"],
             )
         if request.url.path == "/api/tools/shell/call":
+            arguments = json.loads(request.content)["arguments"]
+            mutation = arguments.get("intent") == "mutate_filesystem"
             return httpx.Response(
                 200,
-                json={"result": {"stdout": "", "stderr": "", "exit_code": 0}},
+                json={
+                    "result": {
+                        "stdout": "",
+                        "stderr": "",
+                        "exit_code": 0,
+                        "evidence_authority": "mutation" if mutation else "verification",
+                        "effect_receipt": {
+                            "changed_paths": ["marker.txt"] if mutation else []
+                        },
+                    }
+                },
             )
         return httpx.Response(404)
 
@@ -3238,6 +3333,9 @@ def test_background_agent_yields_between_inference_and_tool_steps(
         "/api/chat/stream",
         "/api/tools/shell/call",
         "/api/chat/stream",
+        "/api/chat/stream",
+        "/api/tools/shell/call",
+        "/api/chat/stream",
     ]
     assert completed[0]["task_id"] == task["task_id"]
 
@@ -3259,6 +3357,13 @@ def test_background_agent_repeats_verification_after_an_intervening_repair(
     commands: list[str] = []
 
     def call(call_id: str, command: str) -> httpx.Response:
+        repair = command.startswith("sed ")
+        arguments: dict[str, Any] = {
+            "command": command,
+            "intent": "mutate_filesystem" if repair else "verify",
+        }
+        if repair:
+            arguments["mutation_paths"] = ["app.js"]
         return httpx.Response(
             200,
             json={
@@ -3270,7 +3375,7 @@ def test_background_agent_repeats_verification_after_an_intervening_repair(
                             "id": call_id,
                             "function": {
                                 "name": "shell",
-                                "arguments": {"command": command},
+                                "arguments": arguments,
                             },
                         }
                     ],
@@ -3289,7 +3394,21 @@ def test_background_agent_repeats_verification_after_an_intervening_repair(
                     200,
                     json={"result": {"exit_code": 1, "stderr": "bad import"}},
                 )
-            return httpx.Response(200, json={"result": {"exit_code": 0}})
+            repair = command.startswith("sed ")
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "exit_code": 0,
+                        "evidence_authority": (
+                            "mutation" if repair else "verification"
+                        ),
+                        "effect_receipt": {
+                            "changed_paths": ["app.js"] if repair else []
+                        }
+                    }
+                },
+            )
         chat_round += 1
         if chat_round == 1:
             return call("build-before", "npm run build")
@@ -3731,7 +3850,7 @@ def test_background_agent_executes_one_external_action_before_self_check(
     tmp_path: Path,
 ) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
-    task = store.create("Create exactly the first marker.")
+    task = store.create("Verify exactly the first marker.")
     chat_round = 0
     discovery_families: list[str] = []
     commands: list[str] = []
@@ -3749,7 +3868,13 @@ def test_background_agent_executes_one_external_action_before_self_check(
             commands.append(payload["arguments"]["command"])
             return httpx.Response(
                 200,
-                json={"result": {"exit_code": 0, "stdout": "first marker verified"}},
+                json={
+                    "result": {
+                        "exit_code": 0,
+                        "stdout": "first marker verified",
+                        "evidence_authority": "verification",
+                    }
+                },
             )
         chat_round += 1
         if chat_round == 1:
@@ -3775,20 +3900,26 @@ def test_background_agent_executes_one_external_action_before_self_check(
                     "id": "write-first",
                     "function": {
                         "name": "shell",
-                        "arguments": {"command": "touch first-marker"},
+                        "arguments": {
+                            "command": "test -f first-marker",
+                            "intent": "verify",
+                        },
                     },
                 },
                 {
                     "id": "write-stale",
                     "function": {
                         "name": "shell",
-                        "arguments": {"command": "touch stale-second-marker"},
+                        "arguments": {
+                            "command": "test -f stale-second-marker",
+                            "intent": "verify",
+                        },
                     },
                 },
             ]
         else:
             return _checkpoint_response(
-                "complete", "I created and verified the first marker.", ["write-first"]
+                "complete", "I verified the first marker.", ["write-first"]
             )
         return httpx.Response(
             200,
@@ -3825,7 +3956,7 @@ def test_background_agent_executes_one_external_action_before_self_check(
     assert current is not None
     assert current["status"] == "completed"
     assert discovery_families == ["shell"]
-    assert commands == ["touch first-marker"]
+    assert commands == ["test -f first-marker"]
     assert [item["tool"] for item in current["actions"]] == [
         "tool_search",
         "shell",
@@ -3842,13 +3973,21 @@ def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
     tmp_path: Path,
 ) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
-    task = store.create("Create a marker after the backend recovers.")
+    task = store.create("Verify a marker after the backend recovers.")
     chat_round = 0
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal chat_round
         if request.url.path == "/api/tools/shell/call":
-            return httpx.Response(200, json={"result": {"exit_code": 0}})
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "exit_code": 0,
+                        "evidence_authority": "verification",
+                    }
+                },
+            )
         chat_round += 1
         if chat_round <= 3:
             return httpx.Response(502, json={"error": "temporarily unavailable"})
@@ -3864,7 +4003,10 @@ def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
                                 "id": "recovered-action",
                                 "function": {
                                     "name": "shell",
-                                    "arguments": {"command": "touch marker"},
+                                    "arguments": {
+                                        "command": "test -f marker",
+                                        "intent": "verify",
+                                    },
                                 },
                             }
                         ],
@@ -3872,7 +4014,7 @@ def test_background_agent_recovers_from_backend_outage_without_a_retry_storm(
                 },
             )
         return _checkpoint_response(
-            "complete", "Created and verified the marker.", ["recovered-action"]
+            "complete", "Verified the marker.", ["recovered-action"]
         )
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -3908,7 +4050,7 @@ def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
     tmp_path: Path,
 ) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
-    task = store.create("Create and verify a small application.", "The marker exists.")
+    task = store.create("Verify a small application marker.", "The marker exists.")
     chat_round = 0
     repair_seen = False
 
@@ -3926,7 +4068,15 @@ def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
                         }
                     },
                 )
-            return httpx.Response(200, json={"result": {"exit_code": 0}})
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "exit_code": 0,
+                        "evidence_authority": "verification",
+                    }
+                },
+            )
         chat_round += 1
         body = json.loads(request.content)
         if chat_round == 1:
@@ -3976,7 +4126,10 @@ def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
                                 "id": "recovered-action",
                                 "function": {
                                     "name": "shell",
-                                    "arguments": {"command": "touch marker"},
+                                    "arguments": {
+                                        "command": "test -f marker",
+                                        "intent": "verify",
+                                    },
                                 },
                             }
                         ],
@@ -3984,7 +4137,7 @@ def test_malformed_tool_json_replans_with_a_smaller_call_instead_of_replaying(
                 },
             )
         return _checkpoint_response(
-            "complete", "Created and verified the marker.", ["recovered-action"]
+            "complete", "Verified the marker.", ["recovered-action"]
         )
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -4239,13 +4392,21 @@ def test_background_agent_rejects_a_completion_with_no_action_evidence(
     tmp_path: Path,
 ) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
-    task = store.create("Create a marker using the shell.")
+    task = store.create("Verify a marker using the shell.")
     chat_round = 0
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal chat_round
         if request.url.path == "/api/tools/shell/call":
-            return httpx.Response(200, json={"result": {"exit_code": 0}})
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "exit_code": 0,
+                        "evidence_authority": "verification",
+                    }
+                },
+            )
         chat_round += 1
         if chat_round == 1:
             return httpx.Response(
@@ -4261,10 +4422,13 @@ def test_background_agent_rejects_a_completion_with_no_action_evidence(
                         "content": "",
                         "tool_calls": [
                             {
-                                "id": "real-action",
-                                "function": {
-                                    "name": "shell",
-                                    "arguments": {"command": "touch marker"},
+                                    "id": "real-action",
+                                    "function": {
+                                        "name": "shell",
+                                        "arguments": {
+                                            "command": "test -f marker",
+                                            "intent": "verify",
+                                        },
                                 },
                             }
                         ],
@@ -4272,7 +4436,7 @@ def test_background_agent_rejects_a_completion_with_no_action_evidence(
                 },
             )
         return _checkpoint_response(
-            "complete", "Created and verified the marker.", ["real-action"]
+            "complete", "Verified the marker.", ["real-action"]
         )
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -4313,10 +4477,26 @@ def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal chat_round
         if request.url.path == "/api/tools/shell/call":
-            return httpx.Response(200, json={"result": {"exit_code": 0}})
+            arguments = json.loads(request.content)["arguments"]
+            mutation = arguments.get("intent") == "mutate_filesystem"
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "exit_code": 0,
+                        "evidence_authority": (
+                            "mutation" if mutation else "verification"
+                        ),
+                        "effect_receipt": {
+                            "changed_paths": ["artifact"] if mutation else []
+                        },
+                    }
+                },
+            )
         chat_round += 1
         if chat_round == 1:
             content = "touch artifact"
+            intent = "mutate_filesystem"
         elif chat_round == 2:
             return _checkpoint_response(
                 "progress",
@@ -4332,6 +4512,7 @@ def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
                 payload["messages"]
             )
             content = "test -f artifact"
+            intent = "verify"
         else:
             return _checkpoint_response(
                 "complete",
@@ -4349,7 +4530,15 @@ def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
                             "id": f"step-{chat_round}",
                             "function": {
                                 "name": "shell",
-                                "arguments": {"command": content},
+                                "arguments": {
+                                    "command": content,
+                                    "intent": intent,
+                                    **(
+                                        {"mutation_paths": ["artifact"]}
+                                        if intent == "mutate_filesystem"
+                                        else {}
+                                    ),
+                                },
                             },
                         }
                     ],
@@ -4499,10 +4688,30 @@ def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:
         payload = json.loads(request.content)
         if request.url.path == "/api/tools/shell/call":
             commands.append(payload["arguments"]["command"])
-            return httpx.Response(200, json={"result": {"exit_code": 0}})
+            mutation = payload["arguments"].get("intent") == "mutate_filesystem"
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "exit_code": 0,
+                        "evidence_authority": (
+                            "mutation" if mutation else "verification"
+                        ),
+                        "effect_receipt": {
+                            "changed_paths": [
+                                payload["arguments"]["mutation_paths"][0]
+                            ]
+                            if mutation
+                            else []
+                        },
+                    }
+                },
+            )
         chat_round += 1
         if chat_round == 1:
             content = "touch base"
+            intent = "mutate_filesystem"
+            mutation_path = "base"
         elif chat_round == 2:
             stale_final_started.set()
             release_stale_final.wait(2)
@@ -4515,9 +4724,15 @@ def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:
                 for item in payload["messages"]
             )
             content = "touch typescript"
+            intent = "mutate_filesystem"
+            mutation_path = "typescript"
+        elif chat_round == 4:
+            content = "test -f typescript"
+            intent = "verify"
+            mutation_path = ""
         else:
             return _checkpoint_response(
-                "complete", "Applied the TypeScript update.", ["action-3"]
+                "complete", "Applied the TypeScript update.", ["action-4"]
             )
         return httpx.Response(
             200,
@@ -4527,10 +4742,18 @@ def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:
                     "content": "",
                     "tool_calls": [
                         {
-                            "id": f"action-{chat_round}",
-                            "function": {
-                                "name": "shell",
-                                "arguments": {"command": content},
+                                "id": f"action-{chat_round}",
+                                "function": {
+                                    "name": "shell",
+                                    "arguments": {
+                                        "command": content,
+                                        "intent": intent,
+                                        **(
+                                            {"mutation_paths": [mutation_path]}
+                                            if mutation_path
+                                            else {}
+                                        ),
+                                    },
                             },
                         }
                     ],
@@ -4564,7 +4787,7 @@ def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:
     current = store.get(task["task_id"])
     assert current is not None
     assert current["result"] == "Applied the TypeScript update."
-    assert commands == ["touch base", "touch typescript"]
+    assert commands == ["touch base", "touch typescript", "test -f typescript"]
     assert any("redirected" in item.lower() for item in current["progress"])
 
 
@@ -4572,7 +4795,7 @@ def test_human_interjection_redirects_before_a_stale_action_and_then_resumes(
     tmp_path: Path,
 ) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
-    task = store.create("Create the requested artifact.")
+    task = store.create("Verify the requested artifact.")
     inference_started = threading.Event()
     release_inference = threading.Event()
     foreground = threading.Event()
@@ -4584,26 +4807,34 @@ def test_human_interjection_redirects_before_a_stale_action_and_then_resumes(
         payload = json.loads(request.content)
         if request.url.path == "/api/tools/shell/call":
             commands.append(payload["arguments"]["command"])
-            return httpx.Response(200, json={"result": {"exit_code": 0}})
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "exit_code": 0,
+                        "evidence_authority": "verification",
+                    }
+                },
+            )
         chat_round += 1
         if chat_round == 1:
             inference_started.set()
             release_inference.wait(2)
-            command = "touch stale-artifact"
+            command = "test -f stale-artifact"
         elif chat_round == 2:
             assert any(
-                "make the redirected artifact" in str(item.get("content") or "")
+                "verify the redirected artifact" in str(item.get("content") or "")
                 for item in payload["messages"]
             )
             assert not any(
                 item.get("role") == "assistant" and item.get("tool_calls")
                 for item in payload["messages"]
             )
-            command = "touch redirected-artifact"
+            command = "test -f redirected-artifact"
         else:
             return _checkpoint_response(
                 "complete",
-                "I created and verified the redirected artifact.",
+                "I verified the redirected artifact.",
                 ["action-2"],
             )
         return httpx.Response(
@@ -4617,7 +4848,10 @@ def test_human_interjection_redirects_before_a_stale_action_and_then_resumes(
                             "id": f"action-{chat_round}",
                             "function": {
                                 "name": "shell",
-                                "arguments": {"command": command},
+                                "arguments": {
+                                    "command": command,
+                                    "intent": "verify",
+                                },
                             },
                         }
                     ],
@@ -4638,7 +4872,7 @@ def test_human_interjection_redirects_before_a_stale_action_and_then_resumes(
     agent.start()
     assert inference_started.wait(2)
     foreground.set()
-    store.add_guidance(task["task_id"], "Instead, make the redirected artifact.")
+    store.add_guidance(task["task_id"], "Instead, verify the redirected artifact.")
     release_inference.set()
     time.sleep(0.1)
     assert commands == []
@@ -4656,5 +4890,5 @@ def test_human_interjection_redirects_before_a_stale_action_and_then_resumes(
     current = store.get(task["task_id"])
     assert current is not None
     assert current["status"] == "completed"
-    assert commands == ["touch redirected-artifact"]
+    assert commands == ["test -f redirected-artifact"]
     assert not any("stale-artifact" in item for item in current["progress"])

@@ -158,6 +158,14 @@ previous executor's private reasoning. That fresh working set is persisted
 without inventing an extra task round, so a process restart cannot revive the
 discarded chain.
 
+Milestone progress is narrower than tool success, new knowledge, or environment
+change. A checkpoint milestone must cite a typed source acquisition, verified
+mutation, external interaction, or verification receipt. A clock lookup,
+system snapshot, repeated inspection, or other successful information probe
+may be useful evidence but cannot advance or complete an execution phase by
+itself. This separation prevents the model from converting an easy ancillary
+tool success into apparent application progress.
+
 The background action surface is tier-aware too. It exposes one already-selected
 concrete family plus an eligible checkpoint, removes only
 documentation annotations from their schemas, and preserves names, types,
