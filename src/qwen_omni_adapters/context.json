@@ -1132,13 +1132,28 @@
         "type": "function",
         "function": {
           "name": "shell",
-          "description": "Run an unrestricted Bash command on the portal host and return stdout, stderr, exit status, working directory, and timeout state. This is not a read-only sandbox. In a live foreground voice turn, use it only for one bounded command or immediate inspection; hand mutation, verification, retry, or multi-command work to background_task. Inside an already-delegated background task, use shell freely for the full job. For generated file content, pass it through stdin to a command such as tee instead of embedding multiline text in fragile shell quoting.",
+          "description": "Run one unrestricted Bash step on the portal host. Label the step's causal intent explicitly. A filesystem mutation counts as progress only when an executor snapshot proves that at least one declared mutation path changed. Runtime mutations require a later verify step; exit code alone is not proof. In a live foreground voice turn, use it only for one bounded command or immediate inspection; hand sustained work to background_task. For generated file content, pass it through stdin to a command such as tee instead of embedding multiline text in fragile shell quoting.",
           "parameters": {
             "type": "object",
             "properties": {
               "command": {
                 "type": "string",
                 "description": "Raw command passed to bash -lc."
+              },
+              "intent": {
+                "type": "string",
+                "enum": ["inspect", "mutate_filesystem", "mutate_runtime", "verify"],
+                "description": "Typed state transition: inspect reads state; mutate_filesystem must change a declared path; mutate_runtime starts or stops runtime state and needs later verification; verify checks a completion claim without pretending to mutate state."
+              },
+              "mutation_paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "minItems": 1,
+                "maxItems": 16,
+                "description": "Exact files or directories expected to change. Required only for mutate_filesystem; prefer narrow paths over a repository root."
               },
               "cwd": {
                 "type": "string",
@@ -1158,7 +1173,8 @@
             },
             "additionalProperties": false,
             "required": [
-              "command"
+              "command",
+              "intent"
             ]
           }
         }

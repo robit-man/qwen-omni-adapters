@@ -176,11 +176,16 @@ source. A rendered HTTP page can become an acquired source; `about:blank` is an
 inspection with `task_progress=false`. The browser then exposes only its
 `navigate` contract for the next action, preventing a blank viewport from being
 clicked or from opening an unrelated discovery branch.
-Successful read-only shell and workspace probes are likewise typed as
-inspections. Their bounded stdout or file observation is pinned directly in the
-inspection record rather than hidden behind command text or promoted to a
-completed success. An inspection does not make `task_expand` compete with the
-next action; paging returns after new concrete evidence or at a phase boundary.
+Shell calls carry an explicit inspect, filesystem-mutation, runtime-mutation,
+or verification intent. Filesystem mutations declare bounded effect paths; the
+executor fingerprints those paths before and after execution, and only an
+observed delta becomes mutation evidence. An exit code or command vocabulary is
+never interpreted as progress. Runtime mutations stay unverified until a
+separate verification succeeds. Read-only shell and workspace probes remain
+inspections, with their bounded observation pinned directly rather than hidden
+behind command text or promoted to a completed success. An inspection does not
+make `task_expand` compete with the next action; paging returns after new
+durable evidence or at a phase boundary.
 The round immediately following typed non-progress evidence receives a bounded
 private planning pass even when a concrete family remains active. Concrete
 action chains continue with thinking disabled for latency. This gives the

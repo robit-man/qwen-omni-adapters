@@ -61,7 +61,6 @@ from harness.background_agent import (
     _sanitize_checkpoint_history,
     _search_task_evidence,
     _seen_tool_fingerprints,
-    _shell_observation_only,
     _stream_error,
     _structured_action_phase,
     _successor_tools,
@@ -657,6 +656,26 @@ def test_checkpoint_evidence_authority_separates_discovery_inspection_and_progre
     assert _evidence_authority(
         {"name": "shell", "result": {"exit_code": 0}}
     ) == "concrete"
+    assert _evidence_authority(
+        {
+            "name": "shell",
+            "result": {
+                "exit_code": 0,
+                "task_progress": True,
+                "evidence_authority": "mutation",
+            },
+        }
+    ) == "mutation"
+    assert _evidence_authority(
+        {
+            "name": "shell",
+            "result": {
+                "exit_code": 0,
+                "task_progress": False,
+                "evidence_authority": "verification",
+            },
+        }
+    ) == "verification"
     assert _evidence_authority(
         {"name": "shell", "result": {"exit_code": 1}}
     ) == "failed"
@@ -2314,19 +2333,6 @@ def test_capability_retry_budget_requires_a_different_action_space() -> None:
     assert exhausted["alternative_tools"] == ["workspace_file"]
     assert exhausted["task_blocked"] is False
     assert exhausted["last_result"] == failed
-
-
-def test_shell_observations_are_not_construction_progress() -> None:
-    inspection = (
-        'echo "=== Node/npm ===" && node -v && npm -v; '
-        "ls -la /tmp/missing 2>/dev/null; "
-        "ss -ltnp 2>/dev/null | grep -E ':3000' || echo none"
-    )
-
-    assert _shell_observation_only(inspection)
-    assert not _shell_observation_only("mkdir -p /tmp/app")
-    assert not _shell_observation_only("printf '%s' value > /tmp/app/file")
-    assert not _shell_observation_only("npm run build")
 
 
 def test_repeated_shell_observations_exhaust_the_capability_budget() -> None:

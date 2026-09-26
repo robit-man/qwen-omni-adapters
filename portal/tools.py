@@ -79,6 +79,9 @@ MAX_MEMORY_ENTRY_CHARS = 4_096
 MAX_MEMORY_SESSION_CHARS = 32_768
 MAX_SHELL_OUTPUT_BYTES = 64 * 1024
 MAX_WORKSPACE_TEXT_CHARS = 65_536
+MAX_SHELL_EFFECT_PATHS = 16
+MAX_SHELL_EFFECT_ENTRIES = 2_048
+MAX_SHELL_EFFECT_FILE_BYTES = 8 * 1024 * 1024
 TOKEN_PATTERN = re.compile(r"[\w][\w'-]{1,}", re.UNICODE)
 
 
@@ -150,14 +153,137 @@ def _bounded_integer(
     return max(minimum, min(maximum, number))
 
 
+def _shell_effect_paths(value: Any, working_directory: str) -> list[Path]:
+    if value in (None, []):
+        return []
+    if not isinstance(value, list):
+        raise ToolInputError("mutation_paths must be an array")
+    if len(value) > MAX_SHELL_EFFECT_PATHS:
+        raise ToolInputError(
+            f"mutation_paths contains more than {MAX_SHELL_EFFECT_PATHS} paths"
+        )
+    paths: list[Path] = []
+    for raw in value:
+        text = _bounded_text(raw, "mutation path", 4096)
+        candidate = Path(text).expanduser()
+        if not candidate.is_absolute():
+            candidate = Path(working_directory) / candidate
+        paths.append(candidate.resolve(strict=False))
+    return list(dict.fromkeys(paths))
+
+
+def _shell_path_snapshot(path: Path) -> dict[str, Any]:
+    """Return a bounded structural fingerprint for one declared effect path."""
+
+    try:
+        root = path.lstat()
+    except FileNotFoundError:
+        return {"exists": False}
+    except OSError as exc:
+        return {"exists": None, "error": type(exc).__name__}
+    if path.is_symlink():
+        try:
+            target = os.readlink(path)
+        except OSError:
+            target = ""
+        return {
+            "exists": True,
+            "kind": "symlink",
+            "target": target,
+            "mtime_ns": root.st_mtime_ns,
+        }
+    if path.is_file():
+        digest = hashlib.sha256()
+        try:
+            with path.open("rb") as source:
+                remaining = MAX_SHELL_EFFECT_FILE_BYTES
+                while remaining > 0 and (
+                    chunk := source.read(min(1024 * 1024, remaining))
+                ):
+                    digest.update(chunk)
+                    remaining -= len(chunk)
+        except OSError as exc:
+            return {
+                "exists": True,
+                "kind": "file",
+                "bytes": root.st_size,
+                "mtime_ns": root.st_mtime_ns,
+                "error": type(exc).__name__,
+            }
+        return {
+            "exists": True,
+            "kind": "file",
+            "bytes": root.st_size,
+            "sha256": digest.hexdigest(),
+            "content_hash_truncated": root.st_size > MAX_SHELL_EFFECT_FILE_BYTES,
+        }
+    if not path.is_dir():
+        return {
+            "exists": True,
+            "kind": "other",
+            "mode": root.st_mode,
+            "mtime_ns": root.st_mtime_ns,
+        }
+
+    digest = hashlib.sha256()
+    entries = 0
+    truncated = False
+    try:
+        for current, directories, files in os.walk(path):
+            directories.sort()
+            files.sort()
+            current_path = Path(current)
+            for name in [*directories, *files]:
+                candidate = current_path / name
+                try:
+                    stat = candidate.lstat()
+                    relative = candidate.relative_to(path).as_posix()
+                    kind = (
+                        "l"
+                        if candidate.is_symlink()
+                        else "d"
+                        if candidate.is_dir()
+                        else "f"
+                    )
+                    digest.update(
+                        f"{relative}\0{kind}\0{stat.st_size}\0{stat.st_mtime_ns}\n".encode()
+                    )
+                except OSError as exc:
+                    digest.update(
+                        f"{candidate.name}\0error\0{type(exc).__name__}\n".encode()
+                    )
+                entries += 1
+                if entries >= MAX_SHELL_EFFECT_ENTRIES:
+                    truncated = True
+                    break
+            if truncated:
+                break
+    except OSError as exc:
+        return {
+            "exists": True,
+            "kind": "directory",
+            "error": type(exc).__name__,
+        }
+    return {
+        "exists": True,
+        "kind": "directory",
+        "entries": entries,
+        "truncated": truncated,
+        "digest": digest.hexdigest(),
+    }
+
+
 def _run_shell(
     command: Any,
     cwd: Any = None,
     timeout_seconds: Any = None,
     stdin: Any = None,
     memory_governor: MemoryGovernor | None = None,
+    *,
+    intent: Any = None,
+    mutation_paths: Any = None,
 ) -> dict[str, Any]:
-    """Run the requested shell verbatim, bounding only time and captured output."""
+    """Run Bash and return a typed, executor-observed effect receipt."""
 
     source = _bounded_text(command, "command", 32_768)
     working_directory = str(cwd or "").strip() or str(Path.cwd())
@@ -165,6 +291,28 @@ def _run_shell(
         raise ToolInputError("cwd exceeds 4096 characters")
     if not Path(working_directory).is_dir():
         raise ToolInputError(f"cwd is not a directory: {working_directory}")
+    step_intent = str(intent or "inspect").strip().lower()
+    if step_intent not in {
+        "inspect",
+        "mutate_filesystem",
+        "mutate_runtime",
+        "verify",
+    }:
+        raise ToolInputError(
+            "intent must be inspect, mutate_filesystem, mutate_runtime, or verify"
+        )
+    effect_paths = _shell_effect_paths(mutation_paths, working_directory)
+    if step_intent == "mutate_filesystem" and not effect_paths:
+        raise ToolInputError(
+            "mutate_filesystem requires at least one declared mutation_path"
+        )
+    if step_intent != "mutate_filesystem" and effect_paths:
+        raise ToolInputError(
+            "mutation_paths is valid only when intent is mutate_filesystem"
+        )
+    before_effects = {
+        str(path): _shell_path_snapshot(path) for path in effect_paths
+    }
     timeout = _bounded_integer(
         timeout_seconds,
         default=120,
@@ -264,6 +412,25 @@ def _run_shell(
             memory_governor.policy.hard_floor_gib,
         )
 
+    after_effects = {
+        str(path): _shell_path_snapshot(path) for path in effect_paths
+    }
+    changed_paths = [
+        path for path in before_effects if before_effects[path] != after_effects[path]
+    ]
+    succeeded = process.returncode == 0 and not timed_out
+    if step_intent == "mutate_filesystem" and succeeded and changed_paths:
+        authority = "mutation"
+        task_progress = True
+    elif step_intent == "verify" and succeeded:
+        authority = "verification"
+        task_progress = False
+    elif step_intent == "inspect":
+        authority = "inspection"
+        task_progress = False
+    else:
+        authority = "unverified_effect"
+        task_progress = False
     return {
         "command": source,
         "cwd": working_directory,
@@ -274,6 +441,14 @@ def _run_shell(
         "stderr": captured["stderr"].decode("utf-8", errors="replace"),
         "stdout_truncated": totals["stdout"] > MAX_SHELL_OUTPUT_BYTES,
         "stderr_truncated": totals["stderr"] > MAX_SHELL_OUTPUT_BYTES,
+        "intent": step_intent,
+        "task_progress": task_progress,
+        "evidence_authority": authority,
+        "effect_receipt": {
+            "declared_paths": [str(path) for path in effect_paths],
+            "changed_paths": changed_paths,
+            "filesystem_change_verified": bool(changed_paths),
+        },
     }
 
 
@@ -2255,6 +2430,8 @@ class PortalToolHarness:
                     arguments.get("timeout_seconds"),
                     arguments.get("stdin"),
                     self.memory_governor,
+                    intent=arguments.get("intent"),
+                    mutation_paths=arguments.get("mutation_paths"),
                 )
             elif name == "background_task":
                 if self.background_tasks is None:

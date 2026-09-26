@@ -549,7 +549,7 @@ def _task_expand_available(
             result = {}
         return (
             not _result_failed_or_blocked(result)
-            and _evidence_authority({"name": name, "result": result}) == "concrete"
+            and _supports_durable_progress({"name": name, "result": result})
         )
     return True
 
@@ -2285,13 +2285,22 @@ def _evidence_authority(item: Mapping[str, Any] | None) -> str:
             return "discovery"
         if result.get("mode") == "discover":
             return "discovery"
+        declared_authority = str(result.get("evidence_authority") or "")
+        if declared_authority in {"mutation", "verification"}:
+            return declared_authority
+        if declared_authority in {
+            "inspection",
+            "unchanged_effect",
+            "unverified_effect",
+        }:
+            return "inspection"
         if result.get("task_progress") is False:
             return "inspection"
     return "concrete"
 
 
 def _supports_durable_progress(item: Mapping[str, Any] | None) -> bool:
-    return _evidence_authority(item) == "concrete"
+    return _evidence_authority(item) in {"concrete", "mutation", "verification"}
 
 
 def _direct_alternative_tools(result: Mapping[str, Any]) -> list[str]:
@@ -2411,107 +2420,6 @@ def _result_failed_or_blocked(result: Any) -> bool:
         return True
     exit_code = result.get("exit_code")
     return exit_code is not None and exit_code != 0
-
-
-def _shell_observation_only(command: str) -> bool:
-    """Identify a shell call whose successful effect is only observation.
-
-    This is evidence-authority classification, not an execution allowlist: the
-    shell still runs verbatim. We deliberately recognize only an unambiguous
-    read-only subset. Anything involving file redirection, an unknown program,
-    a package/build command, or a state-changing subcommand remains concrete.
-    """
-
-    source = str(command or "").strip()
-    if not source:
-        return False
-    without_null_redirection = re.sub(
-        r"(?:\d*)>\s*/dev/null\b", "", source, flags=re.IGNORECASE
-    )
-    if re.search(r"(?<!<)[<>](?![>&])", without_null_redirection):
-        return False
-    segments = [
-        segment.strip().lstrip("(").rstrip(")").strip()
-        for segment in re.split(r"(?:&&|\|\||[;|])", without_null_redirection)
-        if segment.strip().lstrip("(").rstrip(")").strip()
-    ]
-    if not segments:
-        return False
-    simple = {
-        "[",
-        "date",
-        "df",
-        "du",
-        "echo",
-        "env",
-        "fd",
-        "file",
-        "find",
-        "free",
-        "grep",
-        "head",
-        "hostname",
-        "id",
-        "journalctl",
-        "ls",
-        "lsof",
-        "printenv",
-        "printf",
-        "ps",
-        "pwd",
-        "readlink",
-        "realpath",
-        "rg",
-        "ss",
-        "stat",
-        "tail",
-        "test",
-        "type",
-        "uname",
-        "wc",
-        "whereis",
-        "which",
-        "whoami",
-    }
-    version_only = {"node", "npm", "npx", "python", "python3", "pip", "pip3"}
-    git_inspections = {"branch", "diff", "log", "rev-parse", "show", "status"}
-    systemd_inspections = {
-        "is-active",
-        "is-enabled",
-        "list-unit-files",
-        "list-units",
-        "show",
-        "status",
-    }
-    for segment in segments:
-        try:
-            tokens = shlex.split(segment, posix=True)
-        except ValueError:
-            return False
-        while tokens and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", tokens[0]):
-            tokens.pop(0)
-        if not tokens:
-            continue
-        program = Path(tokens[0]).name
-        arguments = tokens[1:]
-        if program in simple:
-            continue
-        if program == "command" and arguments[:1] == ["-v"]:
-            continue
-        if program in version_only and arguments and all(
-            argument in {"-v", "--version", "version"} for argument in arguments
-        ):
-            continue
-        if program == "git" and arguments[:1] and arguments[0] in git_inspections:
-            continue
-        if (
-            program == "systemctl"
-            and arguments
-            and arguments[0] in systemd_inspections
-        ):
-            continue
-        return False
-    return True
 
 
 def _trailing_capability_failures(task: Mapping[str, Any]) -> dict[str, int]:
@@ -3998,13 +3906,14 @@ class BackgroundAgent:
                         _evidence_authority(item) for item in selected
                     ]
                     supports_progress = any(
-                        authority == "concrete"
+                        authority in {"concrete", "mutation", "verification"}
                         for authority in evidence_authorities
                     )
                     supports_completion = (
                         supports_progress
                         and all(
-                            authority in {"concrete", "inspection"}
+                            authority
+                            in {"concrete", "mutation", "verification", "inspection"}
                             for authority in evidence_authorities
                         )
                     )
@@ -4061,7 +3970,8 @@ class BackgroundAgent:
                         valid_ids = [
                             eid
                             for eid, item in evidence.items()
-                            if _evidence_authority(item) in {"concrete", "inspection"}
+                            if _evidence_authority(item)
+                            in {"concrete", "mutation", "verification", "inspection"}
                         ]
                         failed_ids = [eid for eid, item in evidence.items() if item is not None and _result_failed_or_blocked(item["result"])]
                         retryable = not _checkpoint_retry_pending(messages)
@@ -4262,17 +4172,6 @@ class BackgroundAgent:
                         result = _filter_background_discovery(
                             result, latest or current
                         )
-                    if (
-                        name == "shell"
-                        and isinstance(result, Mapping)
-                        and not _result_failed_or_blocked(result)
-                        and _shell_observation_only(
-                            str(result.get("command") or arguments.get("command") or "")
-                        )
-                    ):
-                        result = dict(result)
-                        result["task_progress"] = False
-                        result["evidence_authority"] = "inspection"
                     if (
                         name == "workspace_file"
                         and str(arguments.get("action") or "") in {"list", "read"}

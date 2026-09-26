@@ -2918,13 +2918,40 @@ def test_shell_stdin_writes_generated_content_without_shell_quoting(tmp_path: Pa
             "command": "tee plan.md >/dev/null && wc -c < plan.md",
             "cwd": str(tmp_path),
             "stdin": content,
+            "intent": "mutate_filesystem",
+            "mutation_paths": ["plan.md"],
         },
     )
 
     assert result["exit_code"] == 0
+    assert result["task_progress"] is True
+    assert result["evidence_authority"] == "mutation"
+    assert result["effect_receipt"]["changed_paths"] == [str(tmp_path / "plan.md")]
     assert result["stdin_bytes"] == len(content.encode())
     assert int(result["stdout"].strip()) == len(content.encode())
     assert (tmp_path / "plan.md").read_text(encoding="utf-8") == content
+
+
+def test_shell_exit_zero_without_observed_effect_is_not_progress(tmp_path: Path) -> None:
+    harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    target = tmp_path / "unchanged.txt"
+    target.write_text("same", encoding="utf-8")
+
+    result = harness.execute(
+        "one",
+        "shell",
+        {
+            "command": "true",
+            "cwd": str(tmp_path),
+            "intent": "mutate_filesystem",
+            "mutation_paths": ["unchanged.txt"],
+        },
+    )
+
+    assert result["exit_code"] == 0
+    assert result["task_progress"] is False
+    assert result["evidence_authority"] == "unverified_effect"
+    assert result["effect_receipt"]["changed_paths"] == []
 
 
 def test_workspace_file_compacts_create_read_replace_and_list(tmp_path: Path) -> None:

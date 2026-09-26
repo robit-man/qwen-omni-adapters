@@ -78,6 +78,10 @@ Do not restart or stop an existing deployment unless the user asked for it.
   never after rear padding. Run `runtime/verify_pcm_stream.py` against raw PCM
   after rebuilding; browser smoothing cannot satisfy this source-level gate.
 - Never synthesize reasoning or an unresolved tool call.
+- Never infer shell/task progress from command words, prefixes, suffixes, or an
+  exit code alone. Shell steps carry a typed intent; filesystem progress needs
+  an executor-observed before/after receipt for declared paths, and runtime
+  changes remain unverified until a separate verification step succeeds.
 
 ## CUDA deployment policy
 
