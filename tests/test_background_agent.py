@@ -29,6 +29,7 @@ from harness.background_agent import (
     _audit_json,
     _background_discovery_preflight,
     _background_portal_session,
+    _background_step_token_limit,
     _background_tool_contract,
     _bounded_tool_result,
     _call_fingerprint,
@@ -402,6 +403,33 @@ def test_task_context_limits_follow_the_live_resident_window(
 
     monkeypatch.setenv("OMNI_COMPREHENSION_CONTEXT_FILE", str(tmp_path / "missing"))
     assert _task_context_limits()["resident_context_tokens"] == 4_096
+
+
+def test_background_output_budget_tracks_selected_action_and_kv_tier() -> None:
+    assert (
+        _background_step_token_limit(
+            768, [], 16_384, allow_expansion=True
+        )
+        == 768
+    )
+    assert (
+        _background_step_token_limit(
+            768, ["workspace_file"], 16_384, allow_expansion=True
+        )
+        == 3_072
+    )
+    assert (
+        _background_step_token_limit(
+            768, ["workspace_file"], 4_096, allow_expansion=True
+        )
+        == 819
+    )
+    assert (
+        _background_step_token_limit(
+            256, ["workspace_file"], 16_384, allow_expansion=False
+        )
+        == 256
+    )
 
 
 def test_constrained_task_contract_and_query_fit_the_resident_tier() -> None:

@@ -197,6 +197,12 @@ instead of repeatedly reclassifying the same task. `task_expand` remains a
 bounded secondary control. Tests account for the complete
 system/query/tool/output envelope at 4K; an active background overflow is a
 visible retryable failure, never an unreported native-context fallback.
+The generation budget is action-aware as well. Routing and motor actions retain
+the small default ceiling, while a selected `workspace_file` capability may use
+up to 3,072 output tokens at the 16K tier (and proportionally less when KV is
+downshifted) so a research document or code-file JSON object can close cleanly.
+An explicit operator/test ceiling is never overridden. This changes output
+headroom, not the physical context length or evidence-retention budget.
 `tool_search.family` is a closed capability-family enum selected by the model.
 The runtime resolves that exact family and never interprets request words with
 prefixes, suffixes, stemming, prompt-specific vocabulary, or lexical scoring.

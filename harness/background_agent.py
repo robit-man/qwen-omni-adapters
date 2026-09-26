@@ -196,6 +196,32 @@ def _task_context_limits(
     }
 
 
+def _background_step_token_limit(
+    base_limit: int,
+    active_tools: list[str],
+    resident_context_tokens: int,
+    *,
+    allow_expansion: bool,
+) -> int:
+    """Reserve enough output for complete typed action payloads.
+
+    A small routing/click budget can truncate a source-backed document or code
+    file before the tool JSON closes. Expansion is tied to the selected schema
+    and physical KV tier. Explicit test/operator limits remain exact.
+    """
+
+    base = max(128, min(4_096, int(base_limit)))
+    if not allow_expansion:
+        return base
+    resident = max(4_096, int(resident_context_tokens))
+    selected = set(active_tools)
+    if "workspace_file" in selected:
+        return min(3_072, max(base, resident // 5))
+    if "shell" in selected:
+        return min(1_536, max(base, resident // 10))
+    return base
+
+
 def _resident_virtual_query_chars(
     resident_context_tokens: int | None = None,
 ) -> int:
@@ -3228,6 +3254,7 @@ class BackgroundAgent:
         self.retry_initial_s = max(0.01, retry_initial_s)
         self.retry_max_s = max(self.retry_initial_s, retry_max_s)
         configured_step_limit = step_token_limit
+        self._step_token_limit_explicit = step_token_limit is not None
         if configured_step_limit is None:
             try:
                 configured_step_limit = int(
@@ -4060,6 +4087,12 @@ class BackgroundAgent:
                 compacted=bool(current.get("compaction")),
             )
             resident_context_tokens = _resident_task_context_tokens()
+            round_token_limit = _background_step_token_limit(
+                self.step_token_limit,
+                active_tools,
+                resident_context_tokens,
+                allow_expansion=not self._step_token_limit_explicit,
+            )
             replan_after_inspection = _latest_result_requires_replan(messages)
             schemas = _background_tool_contract(
                 active_tools,
@@ -4133,7 +4166,7 @@ class BackgroundAgent:
                 # remains a separate backend channel and is never spoken or
                 # copied into the durable task transcript.
                 "think": not structured_action_phase or replan_after_inspection,
-                "options": {"num_predict": self.step_token_limit},
+                "options": {"num_predict": round_token_limit},
                 # Background rounds are independently checkpointed. Reusing a
                 # llama.cpp prompt slot keeps discarded history resident and
                 # defeats transcript compaction on unified-memory Jetsons.
@@ -4201,7 +4234,7 @@ class BackgroundAgent:
                 "background task %s inference diagnostics: %s",
                 task_id,
                 json.dumps(
-                    _inference_diagnostics(data, self.step_token_limit),
+                    _inference_diagnostics(data, round_token_limit),
                     sort_keys=True,
                 ),
             )
