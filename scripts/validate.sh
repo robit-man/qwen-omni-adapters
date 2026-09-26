@@ -16,6 +16,6 @@ cd "$REPO_ROOT"
 node portal/vad_harness.mjs >/dev/null
 node portal/call_queue_harness.mjs >/dev/null
 node portal/session_cache_harness.mjs >/dev/null
-bash -n deploy.sh deploy-macos.sh portal/start.sh scripts/bootstrap.sh scripts/bootstrap_pointing.sh scripts/build_llama_cpp.sh scripts/cleanup_runtime.sh scripts/validate.sh services/linux/install.sh services/linux/uninstall.sh services/macos/install.sh services/macos/uninstall.sh
+bash -n deploy.sh deploy-macos.sh portal/start.sh scripts/bootstrap.sh scripts/bootstrap_pointing.sh scripts/build_llama_cpp.sh scripts/cleanup_runtime.sh scripts/jetson_dev_refresh.sh scripts/validate.sh services/linux/install.sh services/linux/uninstall.sh services/macos/install.sh services/macos/uninstall.sh
 "$PYTHON" -m qwen_omni_adapters contract >/dev/null
 printf 'All source, contract, VAD, call-queue, browser-cache, and unit validation gates passed.\n'

@@ -226,6 +226,77 @@ def test_stop_command_uses_cross_platform_control_file(
     assert (state_dir / "stop.request").is_file()
 
 
+def test_reload_python_command_uses_nondestructive_control_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _config(tmp_path)
+    state_dir = config.runtime_root / "state"
+    state_dir.mkdir(parents=True)
+    (state_dir / "daemon-status.json").write_text(
+        json.dumps({"state": "ready", "pid": 1234}), encoding="utf-8"
+    )
+    monkeypatch.setattr(daemon, "_pid_alive", lambda pid: pid == 1234)
+    monkeypatch.setattr(
+        daemon.DaemonConfig,
+        "from_environment",
+        classmethod(lambda cls, **kwargs: config),
+    )
+    real_state = daemon._state
+
+    def acknowledged_state(current_config):
+        result = real_state(current_config)
+        request_file = state_dir / "reload-python.request"
+        if request_file.is_file():
+            result["python_reload_request_id"] = request_file.read_text(
+                encoding="utf-8"
+            ).strip()
+        return result
+
+    monkeypatch.setattr(daemon, "_state", acknowledged_state)
+    monkeypatch.setattr(daemon.time, "sleep", lambda _seconds: None)
+
+    assert daemon.main(["reload-python"]) == 0
+    assert (state_dir / "reload-python.request").is_file()
+    assert not (state_dir / "restart.request").exists()
+
+
+def test_python_reload_preserves_resident_model_children(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    supervisor = daemon.OmniDaemon(_config(tmp_path))
+    comprehension = SimpleNamespace(name="comprehension")
+    tts = SimpleNamespace(name="tts")
+    adapter = SimpleNamespace(name="adapter")
+    portal = SimpleNamespace(name="portal")
+    supervisor.children = [comprehension, tts, adapter, portal]  # type: ignore[list-item]
+    supervisor.reload_specs = {
+        "adapter": (["python", "adapter.py"], {"ROLE": "adapter"}),
+        "portal": (["python", "portal.py"], {"ROLE": "portal"}),
+    }
+    discarded: list[str] = []
+    spawned: list[str] = []
+
+    def discard(child) -> None:
+        discarded.append(child.name)
+        supervisor.children.remove(child)
+
+    def spawn(name, _command, _env):
+        child = SimpleNamespace(name=name)
+        spawned.append(name)
+        supervisor.children.append(child)  # type: ignore[arg-type]
+        return child
+
+    monkeypatch.setattr(supervisor, "_discard_child", discard)
+    monkeypatch.setattr(supervisor, "_spawn", spawn)
+    monkeypatch.setattr(supervisor, "_wait_http", lambda *_args: None)
+
+    assert supervisor._reload_python_children() is None
+    assert discarded == ["portal", "adapter"]
+    assert spawned == ["adapter", "portal"]
+    assert comprehension in supervisor.children
+    assert tts in supervisor.children
+
+
 def test_restart_control_file_exits_for_systemd_relaunch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

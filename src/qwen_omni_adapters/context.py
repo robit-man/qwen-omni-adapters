@@ -69,6 +69,40 @@ def load_context(path: Path | str | None = None) -> dict[str, Any]:
                 f"context executor tool {name} must declare memory_reserve_gib"
             )
         names.add(name)
+    families = value.get("tool_families")
+    if not isinstance(families, Mapping) or not families:
+        raise ContextConfigError("context catalog tool_families must be a non-empty object")
+    assigned: dict[str, str] = {}
+    for raw_family, raw_definition in families.items():
+        family = str(raw_family)
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", family) or family == "uncertain":
+            raise ContextConfigError(f"invalid tool family name {family!r}")
+        if not isinstance(raw_definition, Mapping):
+            raise ContextConfigError(f"tool family {family} must be an object")
+        description = raw_definition.get("description")
+        members = raw_definition.get("tools")
+        if not isinstance(description, str) or not description.strip():
+            raise ContextConfigError(f"tool family {family} requires a description")
+        if not isinstance(members, list) or not members or len(members) > 4:
+            raise ContextConfigError(
+                f"tool family {family} must contain between one and four tools"
+            )
+        for raw_member in members:
+            member = str(raw_member)
+            if member not in names or member == "tool_search":
+                raise ContextConfigError(
+                    f"tool family {family} contains unknown or gateway tool {member!r}"
+                )
+            if member in assigned:
+                raise ContextConfigError(
+                    f"tool {member} belongs to both {assigned[member]} and {family}"
+                )
+            assigned[member] = family
+    unassigned = sorted(names - {"tool_search"} - set(assigned))
+    if unassigned:
+        raise ContextConfigError(
+            f"context tools missing a typed family: {', '.join(unassigned)}"
+        )
     return value
 
 
@@ -153,99 +187,10 @@ def configured_tools() -> list[dict[str, Any]]:
     return [copy.deepcopy(entry) for entry in context_catalog()["tools"]]
 
 
-_TOOL_TOKEN_PATTERN = re.compile(r"[\w][\w'-]{1,}", re.UNICODE)
+def configured_tool_families() -> dict[str, dict[str, Any]]:
+    """Return the explicit capability-family contract used for tool paging."""
 
-
-def _ordered_tool_tokens(value: str) -> list[str]:
-    return _TOOL_TOKEN_PATTERN.findall(value.casefold())
-
-
-def _tool_relevance_score(query: str, document: str) -> float:
-    """Score a compact tool descriptor without invoking another model."""
-
-    query_terms = _ordered_tool_tokens(query)
-    document_terms = _ordered_tool_tokens(document)
-    if not query_terms or not document_terms:
-        return 0.0
-    document_set = set(document_terms)
-    document_bigrams = {
-        f"{document_terms[index]} {document_terms[index + 1]}"
-        for index in range(len(document_terms) - 1)
-    }
-    matched = 0.0
-    weight = float(len(query_terms))
-    for term in query_terms:
-        if term in document_set:
-            matched += 1.0
-        elif any(
-            len(term) >= 4
-            and len(candidate) >= 4
-            and (candidate.startswith(term) or term.startswith(candidate))
-            for candidate in document_set
-        ):
-            matched += 0.5
-    for index in range(len(query_terms) - 1):
-        weight += 2.0
-        if f"{query_terms[index]} {query_terms[index + 1]}" in document_bigrams:
-            matched += 2.0
-    phrase = " ".join(query_terms)
-    if len(query_terms) > 1 and phrase in " ".join(document_terms):
-        matched += 1.0
-        weight += 1.0
-    return min(1.0, matched / max(1.0, weight))
-
-
-def rank_tool_names(
-    query: str,
-    tools: Sequence[Mapping[str, Any]] | None = None,
-    *,
-    limit: int = 3,
-) -> list[str]:
-    """Return a bounded relevant subset of supplied tool schemas.
-
-    This is reversible prompt selection, not action selection: the language
-    model still chooses a tool and constructs its arguments, and policy still
-    authorizes execution. Catalog hints are observable configuration. Unknown
-    client-owned schemas participate through their name and description.
-    """
-
-    if re.search(
-        r"\b(?:what can (?:you|this (?:portal|system|assistant)) do|"
-        r"(?:your|portal|system) (?:capabilities|abilities))\b",
-        query.casefold(),
-    ):
-        query = f"{query} portal capabilities abilities available actions"
-    entries = configured_tools()
-    metadata = {
-        str(entry["schema"]["function"]["name"]): entry
-        for entry in entries
-        if isinstance(entry, Mapping)
-    }
-    candidates: Sequence[Mapping[str, Any]] = (
-        tools
-        if tools is not None
-        else [entry["schema"] for entry in entries if isinstance(entry, Mapping)]
-    )
-    ranked: list[tuple[float, str]] = []
-    for schema in candidates:
-        function = schema.get("function") if isinstance(schema, Mapping) else None
-        name = str(function.get("name") or "") if isinstance(function, Mapping) else ""
-        if not name or name == "tool_search":
-            continue
-        entry = metadata.get(name, {})
-        hints = str(entry.get("discovery_hints") or "")
-        description = str(function.get("description") or "")
-        positive = _tool_relevance_score(query, f"{name} {hints}")
-        descriptive = _tool_relevance_score(query, description)
-        score = positive * 2.0 + descriptive * 0.25
-        if score >= 0.06:
-            ranked.append((score, name))
-    ranked.sort(key=lambda item: (-item[0], item[1]))
-    if not ranked:
-        return []
-    minimum = max(0.06, ranked[0][0] * 0.6)
-    bounded = max(1, min(8, int(limit)))
-    return [name for score, name in ranked if score >= minimum][:bounded]
+    return copy.deepcopy(context_catalog()["tool_families"])
 
 
 def retained_tool_names(tools: Sequence[Mapping[str, Any]]) -> set[str]:

@@ -41,7 +41,6 @@ from qwen_omni_adapters.audio import (
 )
 from qwen_omni_adapters.context import (
     context_text,
-    rank_tool_names,
     retained_tool_names,
     runtime_agent_name,
     runtime_identity_context,
@@ -1600,34 +1599,29 @@ def build_language_payload(
     if parsed.tool_routing == "relevant":
         tools = payload.get("tools")
         if isinstance(tools, list):
-            transcript = _observation_transcript(observation)
-            latest_user = next(
-                (message for message in reversed(parsed.messages) if message.role == "user"),
-                None,
-            )
-            query = transcript or (
-                latest_user.content.strip() if latest_user is not None else ""
-            )
             gateways = retained_tool_names(tools)
+            supplied = {
+                str(tool.get("function", {}).get("name") or "")
+                for tool in tools
+                if isinstance(tool, Mapping)
+                and isinstance(tool.get("function"), Mapping)
+            }
             selected: set[str]
             if decision_tool_names:
-                supplied = {
-                    str(tool.get("function", {}).get("name") or "")
-                    for tool in tools
-                    if isinstance(tool, Mapping)
-                    and isinstance(tool.get("function"), Mapping)
-                }
                 selected = {
                     name for name in decision_tool_names if name in supplied
                 }
+            elif "tool_search" in supplied:
+                # The ordinary route is a typed two-stage decision: the
+                # deliberative model first selects one capability-family enum
+                # through tool_search, then receives only that family's leaf
+                # schemas. Never infer the family with lexical overlap.
+                selected = {"tool_search"}
             else:
-                selected = set(rank_tool_names(query, tools, limit=3))
-            # An empty relevance result is an ordinary answer/conversation
-            # turn, not an invitation to choose among every generic gateway.
-            # Supplying discovery/background/camera anyway overwhelmed the
-            # constrained trunk and turned simple arithmetic into a runaway
-            # tool-capability trajectory. A gateway remains available when it
-            # is itself relevant; a concrete leaf below is narrower still.
+                # A direct adapter client already owns and bounded this
+                # contract. Preserve it rather than reclassifying arbitrary
+                # client schemas with portal-specific logic.
+                selected = supplied
             keep = set(selected)
             if any(kind in {"image", "video"} for kind in parsed.input_modalities):
                 # A fresh visual attachment fulfills the bridge request. Do
@@ -1647,12 +1641,9 @@ def build_language_payload(
             concrete = selected - gateways
             if concrete:
                 # Relevant routing is used after recovering a spoken request.
-                # A concrete deterministic match is an evidence/action turn,
-                # Keep only those bounded candidates. Generic discovery and
-                # background gateways are useful when no leaf contract is
-                # known, but beside an exact match they dilute the decision and
-                # have caused small trunks to answer with a learned capability
-                # disclaimer instead of selecting the executable schema.
+                # A calibrated decision-plane family is an evidence/action
+                # turn. Keep only its bounded candidates; the normal path uses
+                # the typed tool_search gateway instead of guessing a family.
                 payload["tools"] = [
                     tool
                     for tool in payload["tools"]

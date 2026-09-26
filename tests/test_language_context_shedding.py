@@ -190,7 +190,7 @@ def test_shedding_preserves_the_capability_selected_by_tool_discovery() -> None:
                         "type": "function",
                         "function": {
                             "name": "tool_search",
-                            "arguments": {"query": "interactive browser"},
+                            "arguments": {"family": "browser"},
                         },
                     }
                 ],

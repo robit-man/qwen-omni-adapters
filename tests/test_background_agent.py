@@ -125,17 +125,16 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
     assert prompt.endswith(AGENT_SYSTEM_PROMPT)
 
 
-def test_background_discovery_requires_an_interaction_mechanism() -> None:
-    rejected = _background_discovery_preflight(
-        {"query": "what tools are available for this task"}
-    )
+def test_background_discovery_requires_an_exact_typed_family() -> None:
+    rejected = _background_discovery_preflight({"family": "not-a-family"})
 
     assert rejected is not None
-    assert rejected["error"] == "capability_query_too_generic"
+    assert rejected["error"] == "invalid_tool_family"
     assert rejected["task_progress"] is False
-    assert _background_discovery_preflight({"query": "edit workspace files"}) is None
-    assert _background_discovery_preflight({"query": "control visible browser"}) is None
-    assert _background_discovery_preflight({"query": "search public web"}) is None
+    assert _background_discovery_preflight({"family": "filesystem"}) is None
+    assert _background_discovery_preflight({"family": "browser"}) is None
+    assert _background_discovery_preflight({"family": "web"}) is None
+    assert _background_discovery_preflight({"family": "uncertain"}) is None
 
 
 def test_physical_camera_scope_is_distinct_from_browser_and_desktop_vision() -> None:
@@ -258,15 +257,15 @@ def test_background_worker_replans_generic_discovery_without_camera_capture(
             return call(
                 "generic-discovery",
                 "tool_search",
-                {"query": "available tools for this task"},
+                {"family": "not-a-family"},
             )
         if chat_round == 2:
             result = json.loads(payload["messages"][-1]["content"])
-            assert result["error"] == "capability_query_too_generic"
+            assert result["error"] == "invalid_tool_family"
             return call(
                 "specific-discovery",
                 "tool_search",
-                {"query": "edit workspace files"},
+                {"family": "filesystem"},
             )
         if chat_round == 3:
             exposed = {item["function"]["name"] for item in payload["tools"]}
@@ -386,7 +385,7 @@ def test_constrained_task_contract_and_query_fit_the_resident_tier() -> None:
 
     assert prompt.endswith(COMPACT_AGENT_SYSTEM_PROMPT)
     assert AGENT_SYSTEM_PROMPT not in prompt
-    assert "query names only the missing mechanism" in prompt
+    assert "select exactly one typed capability family by meaning" in prompt
     assert len(query) <= 420
     assert "Build and verify" in prompt
     assert "tests pass" in prompt
@@ -2092,7 +2091,7 @@ def test_discovery_after_checkpoint_does_not_erase_last_concrete_call() -> None:
                 "id": "discovery-1",
                 "function": {
                     "name": "tool_search",
-                    "arguments": {"query": "run a shell command"},
+                    "arguments": {"family": "shell"},
                 },
             }
         ],
@@ -2356,7 +2355,7 @@ def test_causal_result_boundary_survives_discovery_and_worker_restart() -> None:
                     "id": "search-1",
                     "function": {
                         "name": "tool_search",
-                        "arguments": {"query": "run a shell command"},
+                        "arguments": {"family": "shell"},
                     },
                 }
             ],
@@ -3000,10 +2999,8 @@ def test_capability_failure_triggers_generic_recovery_and_headed_browser(
         nonlocal chat_round
         payload = json.loads(request.content)
         if request.url.path == "/api/tools/tool_search/call":
-            query = payload["arguments"]["query"]
-            selected = (
-                "browser_interact" if "interactive rendered" in query else "web_search"
-            )
+            family = payload["arguments"]["family"]
+            selected = {"browser": "browser_interact", "web": "web_search"}[family]
             return httpx.Response(
                 200,
                 json={
@@ -3044,7 +3041,7 @@ def test_capability_failure_triggers_generic_recovery_and_headed_browser(
             return tool_call(
                 "discover-web",
                 "tool_search",
-                {"query": "public web research"},
+                {"family": "web"},
             )
         if chat_round == 2:
             assert "web_search" in exposed
@@ -3079,7 +3076,7 @@ def test_capability_failure_triggers_generic_recovery_and_headed_browser(
             return tool_call(
                 "discover-alternative",
                 "tool_search",
-                {"query": "interactive rendered public web navigation and inspection"},
+                {"family": "browser"},
             )
         if chat_round == 5:
             assert "browser_interact" in exposed
@@ -3194,7 +3191,7 @@ def test_background_web_fetch_must_follow_user_or_tool_evidence(
             return model_call(
                 "discover-web",
                 "tool_search",
-                {"query": "public web discovery"},
+                {"family": "web"},
             )
         if chat_round == 2:
             return model_call(
@@ -3301,7 +3298,7 @@ def test_background_agent_discovers_before_exposing_tools_and_acts_without_runaw
             assert payload["tool_choice"] == "required"
             assert tool_names == ["tool_search"]
             call_name = "tool_search"
-            arguments = {"query": "visual rendered browser navigation"}
+            arguments = {"family": "browser"}
         elif chat_round == 2:
             assert payload["think"] is False
             assert tool_names == ["browser_interact"]
@@ -3370,14 +3367,14 @@ def test_background_agent_executes_one_external_action_before_self_check(
     store = BackgroundTaskStore(tmp_path / "tasks.json")
     task = store.create("Create exactly the first marker.")
     chat_round = 0
-    discovery_queries: list[str] = []
+    discovery_families: list[str] = []
     commands: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal chat_round
         payload = json.loads(request.content)
         if request.url.path == "/api/tools/tool_search/call":
-            discovery_queries.append(payload["arguments"]["query"])
+            discovery_families.append(payload["arguments"]["family"])
             return httpx.Response(
                 200,
                 json={"result": {"available_tools": ["shell"], "results": []}},
@@ -3395,14 +3392,14 @@ def test_background_agent_executes_one_external_action_before_self_check(
                     "id": "discover-first",
                     "function": {
                         "name": "tool_search",
-                        "arguments": {"query": "shell command execution"},
+                        "arguments": {"family": "shell"},
                     },
                 },
                 {
                     "id": "discover-stale",
                     "function": {
                         "name": "tool_search",
-                        "arguments": {"query": "unrelated browser action"},
+                        "arguments": {"family": "browser"},
                     },
                 },
             ]
@@ -3461,7 +3458,7 @@ def test_background_agent_executes_one_external_action_before_self_check(
     current = store.get(task["task_id"])
     assert current is not None
     assert current["status"] == "completed"
-    assert discovery_queries == ["shell command execution"]
+    assert discovery_families == ["shell"]
     assert commands == ["touch first-marker"]
     assert [item["tool"] for item in current["actions"]] == [
         "tool_search",

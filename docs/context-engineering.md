@@ -17,7 +17,7 @@ not accepted.
 | Portal provenance and tool policy | `prompts.portal_behavior_system`, `directives.tool_result_policy`, `directives.tool_use` | `portal/environment.py`, `portal/app.py`, `portal/tools.py` |
 | Persistent execution policy | `prompts.background_agent_system`, background directives | `harness/background_agent.py` |
 | Isolated helper policy | `prompts.subagent_system` | portal sub-agent runner |
-| Public tool contracts and discovery vocabulary | `tools[].schema`, `tools[].discovery_hints` | portal discovery, foreground chaining, and background execution |
+| Public tool contracts and typed family membership | `tools[].schema`, top-level `tool_families` | portal discovery, foreground chaining, and background execution |
 | Structured checkpoint and compaction contracts | `control_tools` | background `task_checkpoint`, `task_compact` |
 | Human-visible durable-task phases | `task_stages` | task store, worker, and top-bar indicator |
 
@@ -94,13 +94,14 @@ the current intent depends on physical-scene facts. A successful request starts
 a new multimodal pass; unrelated turns never receive, describe, or carry an
 ambient frame merely because cameras are enabled.
 
-The durable worker applies the same boundary independently of the model. Its
-tool discovery query must identify a concrete interaction mechanism; generic
-catalog fishing such as asking for whatever tools are available is rejected and
-replanned. A physical-camera result is filtered from background discovery, and
-an attempted call is rejected before capture, unless the immutable task scope or
-a later human direction explicitly depends on a physical scene. Browser and
-desktop visual inspection authorize only their respective scoped tools.
+The durable worker applies the same boundary independently of the model. It
+must select one closed capability family or explicitly select `uncertain`; the
+runtime never interprets natural-language wording to accept, reject, or rewrite
+that selection. A physical-camera result is filtered from background discovery,
+and an attempted call is rejected before capture, unless the immutable task
+scope or a later human direction explicitly depends on a physical scene.
+Browser and desktop visual inspection authorize only their respective scoped
+tools.
 
 Trained audio bridges have an additional reproducibility boundary. Audio-only
 chat and direct ASR use the same tagged system/directive pair as projector
@@ -144,10 +145,12 @@ so a later phase can choose another capability. At constrained tiers it and
 `task_expand` alternate as secondary controls. Tests account for the complete
 system/query/tool/output envelope at 4K; an active background overflow is a
 visible retryable failure, never an unreported native-context fallback.
-`tool_search.query` is capability-only: it describes the missing mechanism,
-while the subject remains in the pinned task. Catalog hints explicitly route
-current product/SaaS, comparison, interface, and design research to public-web
-discovery so topical words cannot win an unrelated shell/service match.
+`tool_search.family` is a closed capability-family enum selected by the model.
+The runtime resolves that exact family and never interprets request words with
+prefixes, suffixes, stemming, prompt-specific vocabulary, or lexical scoring.
+When no single family is justified, `uncertain` returns the typed family
+descriptions without exposing a guessed leaf. The task subject remains pinned
+separately and is never transformed into routing keywords.
 
 The deterministic compacted chain contains one current system contract, one
 small page marker, and the newest native tool cycles. It never duplicates the

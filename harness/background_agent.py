@@ -25,6 +25,7 @@ import httpx
 from portal.background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
 from portal.tools import DISCOVERY_TOOLS, tool_schemas
 from qwen_omni_adapters.context import (
+    configured_tool_families,
     context_text,
     context_value,
     without_parent_frame_coordinates,
@@ -68,45 +69,7 @@ TASK_START_REQUEST = (
 MAX_VIRTUAL_QUERY_CHARS = 1_200
 MAX_PHASE_ACTIONS = 8
 
-_GENERIC_DISCOVERY_TERMS = {
-    "a",
-    "an",
-    "and",
-    "appropriate",
-    "are",
-    "available",
-    "can",
-    "capabilities",
-    "capability",
-    "continue",
-    "current",
-    "do",
-    "for",
-    "help",
-    "i",
-    "is",
-    "me",
-    "mechanism",
-    "need",
-    "needed",
-    "next",
-    "now",
-    "of",
-    "relevant",
-    "should",
-    "task",
-    "the",
-    "this",
-    "to",
-    "tool",
-    "tools",
-    "use",
-    "what",
-    "which",
-    "with",
-    "my",
-    "all",
-}
+_TYPED_TOOL_FAMILIES = frozenset(configured_tool_families())
 _CAMERA_DEVICE_RE = re.compile(r"\b(?:camera|webcam|video\s+feed)\b", re.IGNORECASE)
 _CAMERA_DEVICE_ACTION_RE = re.compile(
     r"\b(?:capture|check|describe|identify|look|observe|see|show|use|view|watch)\b",
@@ -375,30 +338,16 @@ def _task_system_prompt(
 
 
 def _background_discovery_preflight(arguments: Mapping[str, Any]) -> dict[str, Any] | None:
-    """Reject catalog fishing that does not identify an interaction mechanism.
+    """Validate the typed router input without interpreting request words."""
 
-    The background controller already receives its objective as pinned state. A
-    request such as ``available tools for this task`` therefore contains no
-    routing information and lets incidental catalog vocabulary choose an
-    unrelated sensor. This is an argument-quality boundary, not a task-topic
-    classifier: any concrete mechanism term (files, shell, browser, web, and so
-    on) remains model-selected and is ranked by the ordinary tool catalog.
-    """
-
-    query = " ".join(str(arguments.get("query") or "").split())[:500]
-    terms = {
-        token
-        for token in re.findall(r"[a-z0-9]+", query.lower())
-        if token not in _GENERIC_DISCOVERY_TERMS
-    }
-    if terms:
+    family = str(arguments.get("family") or "").strip()
+    if family in _TYPED_TOOL_FAMILIES or family == "uncertain":
         return None
     return {
-        "error": "capability_query_too_generic",
+        "error": "invalid_tool_family",
         "message": (
-            "Name the missing interaction mechanism only, for example search public "
-            "web, edit workspace files, run shell commands, control browser, or inspect "
-            "desktop. The pinned task subject is already available."
+            "Select one family from the tool_search schema, or choose uncertain. "
+            "Natural-language query routing is not supported."
         ),
         "retryable": True,
         "task_progress": False,

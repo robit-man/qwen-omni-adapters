@@ -149,6 +149,33 @@ As a service:
 .venv/bin/qwen-omni-daemon status
 ```
 
+For source iteration after the supervisor containing code-only reload support
+has been installed, run this from the development checkout:
+
+```bash
+OMNI_JETSON_PASSWORD='...' ./scripts/jetson_dev_refresh.sh
+./scripts/jetson_dev_refresh.sh tests/test_omni_portal.py
+```
+
+The refresh syncs tracked files, validates on the Jetson, requests
+`qwen-omni-daemon reload-python`, restarts the desktop harness, and proves that
+the comprehension, pointing, and TTS PIDs did not change. It never invokes the
+model installer or full service restart. A supervisor-code change itself needs
+one normal service restart; subsequent context, portal, adapter, and harness
+iterations use the code-only path.
+
+When editing directly in the Jetson checkout, the same inner loop is:
+
+```bash
+.venv/bin/python -m compileall -q src runtime portal harness clients
+.venv/bin/python -m ruff check src runtime portal harness clients
+.venv/bin/qwen-omni-daemon reload-python
+systemctl --user restart omni-call-harness.service
+```
+
+The reload command is synchronous: success means the matching request was
+acknowledged and the replacement adapter and portal passed local health checks.
+
 ## One Ollama slot
 
 Each trained bridge carries its sole language model in the standard Ollama

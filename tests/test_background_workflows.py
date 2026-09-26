@@ -117,7 +117,7 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
         (
             "discover-files",
             "tool_search",
-            {"query": "create several files edit Python code and verify them"},
+            {"family": "filesystem"},
         ),
         (
             "write-markdown",
@@ -162,7 +162,7 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
         (
             "discover-verification",
             "tool_search",
-            {"query": "run the project tests and verification commands"},
+            {"family": "shell"},
         ),
             (
                 "verify-files",
@@ -245,7 +245,7 @@ def test_asr_style_browser_navigation_and_form_filling_workflow(tmp_path: Path) 
         (
             "discover-browser",
             "tool_search",
-            {"query": "navigate a rendered browser fill a form and submit it"},
+            {"family": "browser"},
         ),
         (
             "navigate-form",

@@ -36,7 +36,11 @@ from urllib.parse import parse_qs, quote_plus, urljoin, urlsplit
 
 import httpx
 
-from qwen_omni_adapters.context import configured_tools, context_text, rank_tool_names
+from qwen_omni_adapters.context import (
+    configured_tool_families,
+    configured_tools,
+    context_text,
+)
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 try:
@@ -80,10 +84,7 @@ TOKEN_PATTERN = re.compile(r"[\w][\w'-]{1,}", re.UNICODE)
 
 _CONFIGURED_TOOL_ENTRIES = configured_tools()
 SAFE_TOOLS = [entry["schema"] for entry in _CONFIGURED_TOOL_ENTRIES]
-_TOOL_DISCOVERY_HINTS = {
-    entry["schema"]["function"]["name"]: str(entry.get("discovery_hints") or "")
-    for entry in _CONFIGURED_TOOL_ENTRIES
-}
+TOOL_FAMILIES = configured_tool_families()
 _TOOL_MEMORY_ADMISSION = {
     entry["schema"]["function"]["name"]: str(
         entry.get("memory_admission") or "standard"
@@ -572,10 +573,17 @@ def _term_match_score(query: str, document: str) -> float:
     return min(1.0, matched / max(1.0, weight))
 
 
-def discover_tool_names(query: str, limit: int = 3) -> list[str]:
-    """Rank the catalog without placing that catalog in the model context."""
+def discover_tool_names(family: str, limit: int = 4) -> list[str]:
+    """Resolve an exact typed family without interpreting natural language."""
 
-    return rank_tool_names(query, SAFE_TOOLS, limit=limit)
+    definition = TOOL_FAMILIES.get(str(family))
+    if not isinstance(definition, Mapping):
+        return []
+    members = definition.get("tools")
+    if not isinstance(members, list):
+        return []
+    bounded = max(1, min(4, int(limit)))
+    return [str(name) for name in members[:bounded]]
 
 
 @dataclass(frozen=True)
@@ -2140,18 +2148,33 @@ class PortalToolHarness:
                     ),
                 }
             elif name == "tool_search":
-                query = _bounded_text(arguments.get("query"), "query", 500)
-                names = discover_tool_names(query)
+                family = _bounded_text(arguments.get("family"), "family", 64)
+                if family == "uncertain":
+                    names: list[str] = []
+                else:
+                    names = discover_tool_names(family)
+                    if not names:
+                        raise ToolInputError(f"unknown tool family: {family}")
                 result = {
-                    "query": query,
+                    "family": family,
                     "allowlisted_only": True,
                     "suggested_tools": names,
                     "available_tools": names,
-                    "next_action": context_text(
-                        "directives", "tool_search_next_action"
+                    "next_action": (
+                        context_text("directives", "tool_family_uncertain_next_action")
+                        if family == "uncertain"
+                        else context_text("directives", "tool_search_next_action")
                     ),
                     "results": [{"name": discovered} for discovered in names],
                 }
+                if family == "uncertain":
+                    result["available_families"] = [
+                        {
+                            "name": family_name,
+                            "description": str(definition.get("description") or ""),
+                        }
+                        for family_name, definition in TOOL_FAMILIES.items()
+                    ]
             elif name == "safe_math_eval":
                 result = _safe_math_eval(arguments.get("expression"))
             elif name == "web_search":

@@ -1339,9 +1339,7 @@ def test_text_request_gets_relevant_concrete_schema_without_laya_fast_path() -> 
 
     assert response.status_code == 200
     names = {item["function"]["name"] for item in requests[0]["tools"]}
-    assert "browser_interact" in names
-    assert "background_task" in names
-    assert "tool_search" in names
+    assert names == {"tool_search"}
 
 
 def test_virtual_context_shadow_indexes_and_traces_without_replacing_live_prompt(
@@ -1873,7 +1871,7 @@ def test_social_text_does_not_gain_an_unrelated_leaf_tool() -> None:
     assert response.status_code == 200
     assert {
         item["function"]["name"] for item in requests[0]["tools"]
-    } == {"tool_search", "background_task"}
+    } == {"tool_search"}
 
 
 def test_model_facing_subagent_handoff_is_reference_only() -> None:
@@ -2575,27 +2573,34 @@ def test_document_search_tool_is_session_isolated() -> None:
     assert other["results"] == []
 
 
-def test_tool_search_discovers_allowlisted_tools_only() -> None:
+def test_tool_search_pages_exact_allowlisted_families_only() -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
-    result = harness.execute("one", "tool_search", {"query": "OCR scanned PDF"})
+    result = harness.execute("one", "tool_search", {"family": "documents"})
     assert result["allowlisted_only"] is True
     assert "task_complete" not in result
-    assert result["results"][0]["name"] == "ocr_pdf"
-    assert result["suggested_tools"][0] == "ocr_pdf"
+    assert result["family"] == "documents"
+    assert result["suggested_tools"] == [
+        "document_search",
+        "structured_read",
+        "ocr_pdf",
+    ]
     assert "Invoke the smallest relevant one now" in result["next_action"]
     assert {item["name"] for item in result["results"]} <= {item["function"]["name"] for item in SAFE_TOOLS}
 
-    assert discover_tool_names("delegate a fresh isolated critic subagent") == [
-        "subagent_delegate"
+    assert discover_tool_names("delegation") == [
+        "subagent_delegate",
+        "subagent_list",
+        "subagent_result",
+        "subagent_forget",
     ]
-    assert discover_tool_names("list completed subagent tasks") == ["subagent_list"]
-    assert discover_tool_names("retrieve a subagent result") == ["subagent_result"]
-    assert discover_tool_names("forget a delegated helper") == ["subagent_forget"]
+    rejected = harness.execute("one", "tool_search", {"query": "OCR scanned PDF"})
+    assert rejected["error"] == "ToolInputError"
+    assert "family is required" in rejected["message"]
 
 
 def test_tool_discovery_keeps_web_lookup_and_physical_vision_distinct() -> None:
-    news = discover_tool_names("search the web for current breaking news")
-    camera = discover_tool_names("fresh camera view of what I am physically holding")
+    news = discover_tool_names("web")
+    camera = discover_tool_names("camera")
 
     assert news[0] == "web_search"
     assert "request_camera_view" not in news
@@ -2609,26 +2614,50 @@ def test_tool_discovery_keeps_web_lookup_and_physical_vision_distinct() -> None:
     assert result["mode"] == "motion"
 
 
-def test_capability_and_research_requests_do_not_collapse_to_weather() -> None:
-    capabilities = discover_tool_names("what can you do and what abilities are available")
-    research = discover_tool_names("research the newest robotics papers and cite sources")
+def test_typed_system_and_web_families_do_not_collapse_to_location() -> None:
+    capabilities = discover_tool_names("system")
+    research = discover_tool_names("web")
 
-    assert capabilities[0] == "get_portal_capabilities"
-    assert "get_user_location" not in capabilities
+    assert set(capabilities) == {
+        "get_current_time",
+        "get_system_snapshot",
+        "get_user_location",
+        "get_portal_capabilities",
+    }
     assert "web_search" in research
     assert "get_user_location" not in research
-    assert discover_tool_names(
-        "best field service dispatch SaaS software 2025 technician scheduling jobs"
-    ) == ["web_search"]
+    assert discover_tool_names("unknown prose is not interpreted") == []
 
 
-def test_actionable_text_match_requires_a_structured_tool_call() -> None:
+def test_actionable_text_uses_typed_family_then_structured_tool_call() -> None:
     requests: list[dict[str, Any]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         requests.append(body)
         if len(requests) == 1:
+            names = {item["function"]["name"] for item in body["tools"]}
+            assert "tool_choice" not in body
+            assert names == {"tool_search"}
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "tool_search",
+                                    "arguments": {"family": "system"},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        if len(requests) == 2:
             names = {item["function"]["name"] for item in body["tools"]}
             assert body["tool_choice"] == "required"
             assert "get_portal_capabilities" in names
@@ -2688,7 +2717,7 @@ def test_successful_discovery_requires_a_concrete_leaf_before_final_answer() -> 
                                 "type": "function",
                                 "function": {
                                     "name": "tool_search",
-                                    "arguments": {"query": "calculator arithmetic"},
+                                    "arguments": {"family": "math"},
                                 },
                             }
                         ],
@@ -2774,7 +2803,7 @@ def test_rendered_browser_tool_is_discoverable_and_session_scoped() -> None:
         SessionDocumentStore(ttl_s=300), browser_automation=browser
     )
 
-    assert discover_tool_names("visually navigate and click a rendered webpage")[0] == (
+    assert discover_tool_names("browser")[0] == (
         "browser_interact"
     )
     result = harness.execute(
@@ -2815,7 +2844,7 @@ def test_desktop_gui_tool_is_discoverable_and_returns_visual_evidence() -> None:
         SessionDocumentStore(ttl_s=300), gui_automation=Gui()
     )
 
-    assert discover_tool_names("look at and control the desktop workspace")[0] == (
+    assert discover_tool_names("desktop")[0] == (
         "gui_interact"
     )
     result = harness.execute(
@@ -2963,18 +2992,18 @@ def test_workspace_file_rejects_invalid_source_before_overwrite(tmp_path: Path) 
 def test_shell_is_found_without_putting_its_schema_in_the_first_pass() -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
     result = harness.execute(
-        "one", "tool_search", {"query": "run a raw bash shell command"}
+        "one", "tool_search", {"family": "shell"}
     )
 
     assert result["available_tools"][0] == "shell"
 
     file_result = harness.execute(
-        "one", "tool_search", {"query": "write a file and encode it with ffmpeg"}
+        "one", "tool_search", {"family": "filesystem"}
     )
-    assert file_result["available_tools"] == ["workspace_file", "shell"]
+    assert file_result["available_tools"] == ["workspace_file"]
 
     workspace_result = harness.execute(
-        "one", "tool_search", {"query": "write docs/plan.md"}
+        "one", "tool_search", {"family": "filesystem"}
     )
     assert workspace_result["available_tools"] == ["workspace_file"]
 
@@ -3593,7 +3622,7 @@ def test_foreground_static_fetch_handoff_requires_rendered_browser_recovery(
                                 "type": "function",
                                 "function": {
                                     "name": "tool_search",
-                                    "arguments": {"query": "current public web research"},
+                                    "arguments": {"family": "web"},
                                 },
                             }
                         ],
@@ -3686,8 +3715,9 @@ def test_successful_search_exposes_source_reading_on_the_next_round(
     monkeypatch,
 ) -> None:
     requests: list[dict[str, Any]] = []
+    original_execute = PortalToolHarness.execute
 
-    def execute(_self, _session_id, name, _arguments):
+    def execute(self, session_id, name, arguments):
         if name == "web_search":
             return {
                 "results": [
@@ -3710,13 +3740,33 @@ def test_successful_search_exposes_source_reading_on_the_next_round(
                     "citation_ready": True,
                 },
             }
-        raise AssertionError(f"unexpected tool: {name}")
+        return original_execute(self, session_id, name, arguments)
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         requests.append(body)
         names = {item["function"]["name"] for item in body.get("tools", [])}
         if len(requests) == 1:
+            assert names == {"tool_search"}
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "tool_search",
+                                    "arguments": {"family": "web"},
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        if len(requests) == 2:
             assert "web_search" in names
             return httpx.Response(
                 200,
@@ -3736,7 +3786,7 @@ def test_successful_search_exposes_source_reading_on_the_next_round(
                     }
                 },
             )
-        if len(requests) == 2:
+        if len(requests) == 3:
             assert {"web_search", "web_fetch", "browser_interact"} <= names
             return httpx.Response(
                 200,
@@ -3779,7 +3829,7 @@ def test_successful_search_exposes_source_reading_on_the_next_round(
     assert response.json["message"]["content"] == "Forecast ready."
     assert [
         item["name"] for item in response.json["portal"]["safe_tools_executed"]
-    ] == ["web_search", "web_fetch"]
+    ] == ["tool_search", "web_search", "web_fetch"]
 
 
 def test_portal_enforces_server_voice_profile() -> None:
@@ -4014,10 +4064,10 @@ def test_portal_keeps_only_the_active_discovered_schema() -> None:
         names = {item["function"]["name"] for item in body.get("tools", [])}
         if len(requests) == 1:
             assert names == {"tool_search"}
-            call = {"name": "tool_search", "arguments": {"query": "current time"}}
+            call = {"name": "tool_search", "arguments": {"family": "system"}}
         elif len(requests) == 2:
             assert "get_current_time" in names
-            assert len(names) <= 4  # discovery plus at most three matches
+            assert len(names) <= 5  # discovery plus at most four family members
             call = {"name": "get_current_time", "arguments": {}}
         else:
             assert names == {"tool_search", "get_current_time"}
@@ -4076,7 +4126,7 @@ def test_embodied_client_gets_compact_physical_shell_and_background_bridges() ->
     assert response.status_code == 200
     assert {
         item["function"]["name"] for item in requests[0]["tools"]
-    } == {"tool_search", "request_camera_view", "shell", "background_task"}
+    } == {"tool_search"}
     assert "portal_camera_bridge" not in requests[0]
     assert "portal_shell_bridge" not in requests[0]
     assert "portal_background_bridge" not in requests[0]
@@ -4093,10 +4143,10 @@ def test_background_only_voice_profile_cannot_rediscover_or_call_foreground_shel
         if len(requests) == 1:
             assert {
                 item["function"]["name"] for item in body["tools"]
-            } == {"tool_search", "background_task"}
+            } == {"tool_search"}
             call = {
                 "name": "tool_search",
-                "arguments": {"query": "raw shell file creation"},
+                "arguments": {"family": "shell"},
             }
         elif len(requests) == 2:
             discovery = json.loads(body["messages"][-1]["content"])
@@ -4647,9 +4697,7 @@ def test_portal_stops_varying_tool_calls_that_never_make_progress() -> None:
                             "type": "function",
                             "function": {
                                 "name": "tool_search",
-                                "arguments": {
-                                    "query": f"missing capability {len(requests)}"
-                                },
+                                "arguments": {"family": "uncertain"},
                             },
                         }
                     ],
@@ -4678,7 +4726,7 @@ def test_active_tool_can_be_called_again_without_rediscovery() -> None:
         names = {item["function"]["name"] for item in body.get("tools", [])}
         if len(requests) == 1:
             assert names == {"tool_search"}
-            call = {"name": "tool_search", "arguments": {"query": "arithmetic"}}
+            call = {"name": "tool_search", "arguments": {"family": "math"}}
         elif len(requests) == 2:
             assert "safe_math_eval" in names
             call = {"name": "safe_math_eval", "arguments": {"expression": "6 * 7"}}

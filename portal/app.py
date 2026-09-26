@@ -58,7 +58,6 @@ try:
         SAFE_TOOLS,
         PortalToolHarness,
         ToolInputError,
-        discover_tool_names,
         tool_result_json,
         tool_schemas,
         tool_use_instructions,
@@ -73,7 +72,6 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
         SAFE_TOOLS,
         PortalToolHarness,
         ToolInputError,
-        discover_tool_names,
         tool_result_json,
         tool_schemas,
         tool_use_instructions,
@@ -1247,7 +1245,7 @@ def _tool_followup(
     # separate portal tools.
     concrete = list(
         dict.fromkeys(active if active else discovered if discovered else current)
-    )[:3]
+    )[:4]
     followup["tools"] = copy.deepcopy(
         [*DISCOVERY_TOOLS, *tool_schemas(concrete)]
     )
@@ -1578,7 +1576,8 @@ def create_app(
         text = _latest_user_context(messages if isinstance(messages, list) else [])
         if not text:
             return []
-        ranked = discover_tool_names(text)
+        if plane is None:
+            return []
         result = observe_decision_wave(
             "input_routing",
             DecisionState(
@@ -1595,10 +1594,10 @@ def create_app(
             wait=bool(plane is not None and not plane.shadow_mode),
         )
         if result is None:
-            return ranked
+            return []
         family = result.results.get("tool_family")
         if family is None or not family.fast_path_taken:
-            return ranked
+            return []
         family_map = plane.config.get("tool_families", {}) if plane is not None else {}
         members = family_map.get(str(family.value), []) if isinstance(family_map, Mapping) else []
         allowed = {
@@ -1606,10 +1605,10 @@ def create_app(
             for item in SAFE_TOOLS
             if isinstance(item, Mapping)
         }
-        selected = [str(name) for name in members if str(name) in allowed][:3]
+        selected = [str(name) for name in members if str(name) in allowed][:4]
         # This only exposes a small family; the deliberative model still picks
         # the exact tool and arguments, and policy still authorizes execution.
-        return selected or ranked
+        return selected
 
     def initial_tool_contract(
         payload: dict[str, Any],
@@ -1666,12 +1665,6 @@ def create_app(
                 # free to answer normally after concrete evidence arrives.
                 payload["tool_choice"] = "required"
             initial = [*DISCOVERY_TOOLS, *tool_schemas(routed)]
-            if camera_bridge:
-                initial.extend(tool_schemas(["request_camera_view"]))
-            if shell_bridge:
-                initial.extend(tool_schemas(["shell"]))
-            if background_bridge:
-                initial.extend(tool_schemas(["background_task"]))
         return list(
             {
                 str(item.get("function", {}).get("name") or ""): item

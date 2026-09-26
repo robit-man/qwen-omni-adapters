@@ -28,7 +28,7 @@ owns the schemas and implementations.
 | `memory_write` | Store a compact temporary fact or research note | Current browser session only |
 | `memory_read` | Read an exact temporary topic/key | Current browser session only |
 | `memory_search` | Lexically retrieve temporary memories by relevance | Current browser session only |
-| `tool_search` | Search the allowlisted catalog when capability mapping is unclear; discovery never completes an action request | Read-only runtime metadata |
+| `tool_search` | Page in one model-selected typed capability family; `uncertain` lists families without guessing a leaf | Read-only runtime metadata |
 | `background_task` | Hand an executable outcome to the persistent worker, which discovers and invokes the required allowlisted tools | Current voice session and durable local task store |
 | `safe_math_eval` | Evaluate bounded arithmetic and common math functions with an AST interpreter | Pure computation; no code execution |
 | `structured_read` | Read/query attached JSON, JSONL, CSV, TSV, or YAML | Current browser-session attachments only |
@@ -53,10 +53,11 @@ automatic execution is requested. A client cannot redefine a safe tool's
 implementation by changing its schema. The trusted tool-use contract is also
 injected only for opted-in turns; tools-off turns receive neither that contract
 nor schemas. The model-facing first pass contains only the compact `tool_search`
-contract (about 126 pessimistically estimated tokens, instead of about 3,900
-for the full catalog). Its result makes at most three matching concrete schemas
-visible for exactly the next inference; after a concrete call, the contract
-collapses to discovery again.
+contract instead of the full catalog. Its required `family` argument is a
+closed enum; the runtime performs no stemming, keyword matching, or lexical
+classification. The result makes at most four members of that exact family
+visible for the next inference; after a concrete call, the contract collapses
+to discovery again.
 
 Host awareness is deliberately tool-only. Ordinary turns receive a short,
 stable behavioral system policy and no hardware/utilization blob. When a user
@@ -93,10 +94,9 @@ come from a fetched `source_url` and be attributed to it.
 ```text
 user/media turn
   -> optional Qwen3-Omni comprehension
-  -> deterministic routing exposes a small matching schema set when confident
-  -> an actionable match requires one structured call (not a capability disclaimer)
-  -> otherwise Qwen3.8 calls tool_search when a capability is needed
-  -> portal exposes only matching concrete schema(s) for the next round
+  -> a calibrated decision plane may expose one typed family when confident
+  -> otherwise Qwen3.8 calls tool_search with one family enum when needed
+  -> portal exposes only that exact family's concrete schemas for the next round
   -> Qwen3.8 emits the concrete structured tool_call
   -> portal validates and executes allowlisted calls
   -> portal appends assistant tool_calls + role=tool results

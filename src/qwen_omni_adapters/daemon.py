@@ -302,10 +302,12 @@ class OmniDaemon:
         self.status_file = self.state_dir / "daemon-status.json"
         self.stop_file = self.state_dir / "stop.request"
         self.restart_file = self.state_dir / "restart.request"
+        self.reload_python_file = self.state_dir / "reload-python.request"
         self.context_file = self.state_dir / "comprehension-context-tokens"
         self.comprehension_pid_file = self.state_dir / "comprehension-worker.pid"
         self.token_file = self.state_dir / "access-token.txt"
         self.children: list[Child] = []
+        self.reload_specs: dict[str, tuple[list[str], dict[str, str] | None]] = {}
         self.stop_event = threading.Event()
         self.sidecar_resolution: dict[str, Any] | None = None
         # DaemonConfig is intentionally immutable.  Tunnel availability is a
@@ -509,6 +511,7 @@ class OmniDaemon:
         self._reclaim_from_prior_instance()
         self.stop_file.unlink(missing_ok=True)
         self.restart_file.unlink(missing_ok=True)
+        self.reload_python_file.unlink(missing_ok=True)
         self.comprehension_pid_file.unlink(missing_ok=True)
         self._write_status(state="preflight")
         self._preflight()
@@ -651,7 +654,71 @@ class OmniDaemon:
         )
         child = Child(name=name, process=process, log=log)
         self.children.append(child)
+        if name in {"adapter", "portal"}:
+            self.reload_specs[name] = (
+                list(command),
+                dict(env) if env is not None else None,
+            )
         return child
+
+    def _reload_python_children(self) -> str | None:
+        """Re-exec code-only services while preserving every resident model graph."""
+
+        names = ("adapter", "portal")
+        missing = [name for name in names if name not in self.reload_specs]
+        if missing:
+            return f"reload metadata is unavailable for: {', '.join(missing)}"
+        for name in reversed(names):
+            child = next((item for item in self.children if item.name == name), None)
+            if child is not None:
+                self._discard_child(child)
+        started: list[Child] = []
+        try:
+            for name, url in (
+                ("adapter", f"http://127.0.0.1:{self.config.adapter_port}/healthz"),
+                ("portal", f"http://127.0.0.1:{self.config.portal_port}/healthz"),
+            ):
+                command, env = self.reload_specs[name]
+                child = self._spawn(name, list(command), dict(env) if env else None)
+                started.append(child)
+                self._wait_http(child, url, 60)
+        except Exception as exc:  # noqa: BLE001 - keep resident graphs alive for repair
+            for child in list(reversed(started)):
+                self._discard_child(child)
+            return f"{type(exc).__name__}: {str(exc)[:500]}"
+        return None
+
+    def _live_status_fields(
+        self,
+        access_url: str,
+        *,
+        python_reload_request_id: str | None = None,
+    ) -> dict[str, Any]:
+        fields: dict[str, Any] = {
+            "state": "ready",
+            "access_url": access_url,
+            "startup_smoke": self.config.startup_smoke,
+            "comprehension_context_tokens": self._active_context_tokens(),
+            "comprehension_context_ceiling": self.config.context_tokens,
+            "comprehension_parallel_slots": self.config.comprehension_parallel_slots,
+            "comprehension_cache_type_k": self.config.comprehension_cache_type_k,
+            "comprehension_cache_type_v": self.config.comprehension_cache_type_v,
+            "children": [
+                {
+                    "name": child.name,
+                    "pid": child.resident_pid or child.process.pid,
+                    **(
+                        {"supervisor_pid": child.process.pid}
+                        if child.resident_pid is not None
+                        else {}
+                    ),
+                }
+                for child in self.children
+            ],
+        }
+        if python_reload_request_id:
+            fields["python_reload_request_id"] = python_reload_request_id
+        return fields
 
     def _laya_python(self) -> Path:
         configured = os.environ.get("OMNI_LAYA_PYTHON", "").strip()
@@ -1228,6 +1295,7 @@ class OmniDaemon:
         self.stop_children()
         self.stop_file.unlink(missing_ok=True)
         self.restart_file.unlink(missing_ok=True)
+        self.reload_python_file.unlink(missing_ok=True)
         self.comprehension_pid_file.unlink(missing_ok=True)
         self.pid_file.unlink(missing_ok=True)
         self.token_file.unlink(missing_ok=True)
@@ -1250,28 +1318,7 @@ class OmniDaemon:
         restart_requested = False
         try:
             access_url = self.start_children()
-            self._write_status(
-                state="ready",
-                access_url=access_url,
-                startup_smoke=self.config.startup_smoke,
-                comprehension_context_tokens=self._active_context_tokens(),
-                comprehension_context_ceiling=self.config.context_tokens,
-                comprehension_parallel_slots=self.config.comprehension_parallel_slots,
-                comprehension_cache_type_k=self.config.comprehension_cache_type_k,
-                comprehension_cache_type_v=self.config.comprehension_cache_type_v,
-                children=[
-                    {
-                        "name": child.name,
-                        "pid": child.resident_pid or child.process.pid,
-                        **(
-                            {"supervisor_pid": child.process.pid}
-                            if child.resident_pid is not None
-                            else {}
-                        ),
-                    }
-                    for child in self.children
-                ],
-            )
+            self._write_status(**self._live_status_fields(access_url))
             if sys.stdout.isatty() or os.environ.get("OMNI_PRINT_ACCESS_URL") == "1":
                 print(access_url, flush=True)
             else:
@@ -1282,6 +1329,34 @@ class OmniDaemon:
                     flush=True,
                 )
             while not self.stop_event.wait(1):
+                if self.reload_python_file.exists():
+                    try:
+                        reload_request_id = self.reload_python_file.read_text(
+                            encoding="utf-8"
+                        ).strip()
+                    except OSError:
+                        reload_request_id = ""
+                    self.reload_python_file.unlink(missing_ok=True)
+                    self._write_status(
+                        state="reloading-python",
+                        python_reload_request_id=reload_request_id,
+                    )
+                    reload_error = self._reload_python_children()
+                    if reload_error:
+                        self._write_status(
+                            state="python-reload-failed",
+                            detail=reload_error,
+                            python_reload_request_id=reload_request_id,
+                            children=self._live_status_fields(access_url)["children"],
+                        )
+                    else:
+                        self._write_status(
+                            **self._live_status_fields(
+                                access_url,
+                                python_reload_request_id=reload_request_id,
+                            )
+                        )
+                    continue
                 if self.restart_file.exists():
                     restart_requested = True
                     self._write_status(state="restarting")
@@ -1335,6 +1410,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub.add_parser("status", help="Print the daemon status record")
     sub.add_parser("stop", help="Request a graceful stop through the runtime control file")
+    reload_python = sub.add_parser(
+        "reload-python",
+        help="Reload only adapter and portal code while preserving resident model workers",
+    )
+    reload_python.add_argument(
+        "--timeout",
+        type=float,
+        default=120.0,
+        help="Seconds to wait for the daemon to acknowledge and finish the reload",
+    )
     return parser
 
 
@@ -1356,6 +1441,38 @@ def main(argv: list[str] | None = None) -> int:
         stop.write_text(f"requested {time.time()}\n", encoding="utf-8")
         print(f"stop requested for pid {state['pid']}")
         return 0
+    if args.command == "reload-python":
+        state = _state(config)
+        if not state.get("process_alive"):
+            print(json.dumps(state, indent=2, sort_keys=True))
+            return 1
+        if args.timeout <= 0:
+            print("qwen-omni-daemon: --timeout must be positive", file=sys.stderr)
+            return 2
+        reload_request = config.runtime_root / "state" / "reload-python.request"
+        request_id = secrets.token_hex(12)
+        reload_request.write_text(f"{request_id}\n", encoding="utf-8")
+        deadline = time.monotonic() + args.timeout
+        while time.monotonic() < deadline:
+            time.sleep(0.2)
+            state = _state(config)
+            if not state.get("process_alive"):
+                print(json.dumps(state, indent=2, sort_keys=True))
+                return 1
+            if state.get("python_reload_request_id") != request_id:
+                continue
+            if state.get("state") == "ready":
+                print(f"python reload completed for pid {state['pid']}")
+                return 0
+            if state.get("state") == "python-reload-failed":
+                print(json.dumps(state, indent=2, sort_keys=True), file=sys.stderr)
+                return 1
+        print(
+            f"qwen-omni-daemon: python reload {request_id} was not acknowledged "
+            f"within {args.timeout:g} seconds",
+            file=sys.stderr,
+        )
+        return 1
     try:
         return OmniDaemon(config).run()
     except (DaemonError, OSError, subprocess.SubprocessError) as exc:

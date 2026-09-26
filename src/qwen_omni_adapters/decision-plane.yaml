@@ -48,18 +48,24 @@ fallback:
 # Hierarchical family routing never chooses from the entire flat tool set.
 # A calibrated high-confidence Laya result exposes only the members of one
 # broad family; the deliberative model still selects the exact tool/arguments.
-# Until calibration activates that path, deterministic relevance is the
-# reversible fallback and authorization remains a separate policy decision.
+# Until calibration activates that path, the model selects one closed family
+# through tool_search. No lexical request classifier is a production fallback.
+# Authorization remains a separate policy decision.
 tool_families:
-  filesystem: [shell]
-  shell: [shell, safe_math_eval]
-  browser: [browser_interact, gui_interact]
+  filesystem: [workspace_file]
+  shell: [shell]
+  math: [safe_math_eval]
+  browser: [browser_interact]
+  desktop: [gui_interact]
   web: [web_search, web_fetch, web_crawl]
   documents: [document_search, structured_read, ocr_pdf]
   memory: [memory_read, memory_search, memory_write]
   system: [get_current_time, get_system_snapshot, get_user_location, get_portal_capabilities]
   camera: [request_camera_view]
+  session: [session_search, working_notes, task_list]
+  media: [audio_analyze, video_scan]
   background: [background_task]
+  delegation: [subagent_delegate, subagent_list, subagent_result, subagent_forget]
   other: []
   none: []
 
@@ -140,13 +146,18 @@ decisions:
       none: no tool is needed
       filesystem: inspect, create, move, or edit local files
       shell: run commands, programs, builds, tests, or local processes
+      math: evaluate arithmetic or mathematical expressions
       browser: interact with a rendered web page, controls, or forms
+      desktop: operate visible desktop applications or windows outside page-level browser controls
       web: search or fetch public web information without interactive control
       documents: inspect attached or indexed document contents
       memory: store or retrieve durable conversational memory
       system: inspect current host/runtime state, time, or capabilities
       camera: obtain current physical visual evidence
+      session: search session material or maintain working notes and task-list state
+      media: technically analyze an attached audio or video asset
       background: sustained multi-step work should continue durably
+      delegation: use an isolated text-only helper for analysis, planning, or review
       other: a tool may be needed but none of these families fits
     calibrated: false
     fast_accept: null

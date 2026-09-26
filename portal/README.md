@@ -134,12 +134,12 @@ enabled in the composer and voice configuration fields.
 
 For media turns with portal tools enabled, the portal supplies its allowlisted
 execution profile with `omni.tool_routing=relevant`. The adapter waits for the
-current transcript or observation, then retains routing gateways plus a bounded
-relevant schema set before language inference. A calibrated high-confidence
-Laya family decision is the primary selector when enabled; an uncalibrated
-deployment uses deterministic relevance as a reversible fallback. Exact tool
-choice and arguments remain with the language model, and portal policy remains
-the execution authority.
+current transcript or observation, then retains the typed family gateway before
+language inference. The model selects one closed family enum and receives only
+that family's schemas; the runtime does not stem or keyword-match the request.
+A calibrated high-confidence Laya decision may page in the same family directly.
+Exact tool choice and arguments remain with the language model, and portal
+policy remains the execution authority.
 
 The TTS stage status means the speech request has started. It changes to
 streaming only after the adapter receives the first actual PCM bytes; an

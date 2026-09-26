@@ -147,7 +147,14 @@ qwen-omni-daemon serve             # macOS/Windows foreground
 qwen-omni-daemon serve --no-tunnel
 qwen-omni-daemon status
 qwen-omni-daemon stop              # writes a graceful cross-platform stop request
+qwen-omni-daemon reload-python     # preserves model workers; re-execs adapter/portal
 ```
+
+`reload-python` waits for a matching request acknowledgement and for both
+replacement HTTP services to become healthy. On Jetson, edit tracked source in
+place, run this command, then restart `omni-call-harness.service` to reload its
+Python process. Environment, dependency, model, and supervisor changes still
+require their corresponding full install or service restart.
 
 The daemon does not expose a separate administration UI. The existing phone
 portal is its dashboard and test console, so local and Cloudflared users see the

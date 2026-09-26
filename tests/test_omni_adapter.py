@@ -1587,7 +1587,7 @@ def test_live_model_control_may_silence_ambiguous_room_speech() -> None:
     assert final["adapter"]["tts_skipped_reason"] == "empty_assistant_response"
 
 
-def test_ordinary_live_speech_with_no_relevant_capability_exposes_no_tools() -> None:
+def test_ordinary_live_speech_gets_only_the_typed_family_gateway() -> None:
     from runtime import adapter_server
 
     tools = [entry["schema"] for entry in configured_tools()]
@@ -1614,7 +1614,9 @@ def test_ordinary_live_speech_with_no_relevant_capability_exposes_no_tools() -> 
         config=_adapter_config(),
     )
 
-    assert "tools" not in payload
+    assert {item["function"]["name"] for item in payload["tools"]} == {
+        "tool_search"
+    }
     assert payload.get("tool_choice") != "required"
 
 
@@ -2383,8 +2385,8 @@ def test_relevant_tool_routing_uses_recovered_speech_and_narrows_to_leaf_tools()
     )
     names = {item["function"]["name"] for item in payload["tools"]}
 
-    assert names == {"browser_interact"}
-    assert payload["tool_choice"] == "required"
+    assert names == {"tool_search"}
+    assert payload.get("tool_choice") != "required"
 
     laya_selected = adapter_server.build_language_payload(
         parsed,
@@ -2427,14 +2429,11 @@ def test_live_camera_request_exposes_a_required_relevant_tool_contract() -> None
     )
 
     payload = build_language_payload(parsed, observation, "ornith", "ollama")
-    assert payload["tool_choice"] == "required"
-    assert "request_camera_view" in {
-        item["function"]["name"] for item in payload["tools"]
-    }
+    assert payload.get("tool_choice") != "required"
     assert [item["function"]["name"] for item in payload["tools"]] == [
-        "request_camera_view"
+        "tool_search"
     ]
-    assert "<required_tool_action>" in payload["messages"][0]["content"]
+    assert "<required_tool_action>" not in payload["messages"][0]["content"]
     assert "<audio_observation>" not in payload["messages"][-1]["content"]
 
 
