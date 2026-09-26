@@ -24,6 +24,7 @@ from harness.background_agent import (
     TASK_START_REQUEST,
     BackgroundAgent,
     _audit_json,
+    _background_discovery_preflight,
     _background_portal_session,
     _background_tool_contract,
     _bounded_tool_result,
@@ -42,6 +43,7 @@ from harness.background_agent import (
     _discard_visual_frames,
     _durable_task_messages,
     _evidence_authority,
+    _filter_background_discovery,
     _focus_memory,
     _ForegroundPreempted,
     _freshest_evidence_id,
@@ -61,6 +63,7 @@ from harness.background_agent import (
     _stream_error,
     _structured_action_phase,
     _successor_tools,
+    _task_allows_physical_camera,
     _task_context_limits,
     _task_expand_available,
     _task_system_prompt,
@@ -117,6 +120,197 @@ def test_task_system_prompt_pins_objective_and_latest_directions() -> None:
     assert "Ignore unrelated topics" in prompt
     assert "every qualifier in the completion criteria as a constraint" in prompt
     assert prompt.endswith(AGENT_SYSTEM_PROMPT)
+
+
+def test_background_discovery_requires_an_interaction_mechanism() -> None:
+    rejected = _background_discovery_preflight(
+        {"query": "what tools are available for this task"}
+    )
+
+    assert rejected is not None
+    assert rejected["error"] == "capability_query_too_generic"
+    assert rejected["task_progress"] is False
+    assert _background_discovery_preflight({"query": "edit workspace files"}) is None
+    assert _background_discovery_preflight({"query": "control visible browser"}) is None
+    assert _background_discovery_preflight({"query": "search public web"}) is None
+
+
+def test_physical_camera_scope_is_distinct_from_browser_and_desktop_vision() -> None:
+    assert not _task_allows_physical_camera(
+        {
+            "objective": "Build a polished SaaS dashboard and inspect it visually.",
+            "completion_criteria": "Verify the rendered browser and desktop window.",
+        }
+    )
+    assert not _task_allows_physical_camera(
+        {
+            "objective": "Build a camera settings page.",
+            "completion_criteria": "Do not use the physical camera.",
+        }
+    )
+    assert _task_allows_physical_camera(
+        {"objective": "Use the webcam to describe what I am holding."}
+    )
+    assert _task_allows_physical_camera(
+        {
+            "objective": "Continue the application build.",
+            "guidance": [{"content": "Now watch the room for motion."}],
+        }
+    )
+
+
+def test_background_discovery_filters_unauthorized_physical_camera() -> None:
+    task = {"objective": "Create and test a Next.js application."}
+    result = _filter_background_discovery(
+        {
+            "available_tools": ["request_camera_view", "workspace_file"],
+            "suggested_tools": ["request_camera_view", "workspace_file"],
+            "results": [
+                {"name": "request_camera_view"},
+                {"name": "workspace_file"},
+            ],
+        },
+        task,
+    )
+
+    assert result["available_tools"] == ["workspace_file"]
+    assert result["suggested_tools"] == ["workspace_file"]
+    assert result["results"] == [{"name": "workspace_file"}]
+    assert result["scope_filtered_tools"] == ["request_camera_view"]
+
+    rejected = _filter_background_discovery(
+        {
+            "available_tools": ["request_camera_view"],
+            "results": [{"name": "request_camera_view"}],
+        },
+        task,
+    )
+    assert rejected["error"] == "physical_camera_outside_task_scope"
+
+
+def test_background_worker_replans_generic_discovery_without_camera_capture(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create(
+        "Create a small Next.js application in the workspace.",
+        "The requested file exists and is verified.",
+    )
+    chat_round = 0
+    discovery_posts = 0
+    camera_posts = 0
+
+    def call(call_id: str, name: str, arguments: dict[str, Any]) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "function": {"name": name, "arguments": arguments},
+                        }
+                    ],
+                }
+            },
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round, discovery_posts, camera_posts
+        payload = json.loads(request.content)
+        if request.url.path == "/api/tools/tool_search/call":
+            discovery_posts += 1
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "available_tools": [
+                            "request_camera_view",
+                            "workspace_file",
+                        ],
+                        "suggested_tools": [
+                            "request_camera_view",
+                            "workspace_file",
+                        ],
+                        "results": [
+                            {"name": "request_camera_view"},
+                            {"name": "workspace_file"},
+                        ],
+                    }
+                },
+            )
+        if request.url.path == "/api/tools/request_camera_view/call":
+            camera_posts += 1
+            return httpx.Response(200, json={"result": {"camera_capture_requested": True}})
+        if request.url.path == "/api/tools/workspace_file/call":
+            return httpx.Response(
+                200,
+                json={"result": {"operation": "write", "path": "/workspace/app/page.tsx"}},
+            )
+
+        chat_round += 1
+        if chat_round == 1:
+            return call(
+                "generic-discovery",
+                "tool_search",
+                {"query": "available tools for this task"},
+            )
+        if chat_round == 2:
+            result = json.loads(payload["messages"][-1]["content"])
+            assert result["error"] == "capability_query_too_generic"
+            return call(
+                "specific-discovery",
+                "tool_search",
+                {"query": "edit workspace files"},
+            )
+        if chat_round == 3:
+            exposed = {item["function"]["name"] for item in payload["tools"]}
+            assert "workspace_file" in exposed
+            assert "request_camera_view" not in exposed
+            return call(
+                "write-app",
+                "workspace_file",
+                {
+                    "action": "write",
+                    "path": "/workspace/app/page.tsx",
+                    "content": "export default function Page() { return <main>Ready</main> }",
+                },
+            )
+        return _checkpoint_response(
+            "complete",
+            "I created and verified the requested application file.",
+            ["write-app"],
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        retry_initial_s=0.01,
+        retry_max_s=0.02,
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.01)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert discovery_posts == 1
+    assert camera_posts == 0
 
 
 def test_task_virtual_query_reserves_space_for_latest_direction() -> None:

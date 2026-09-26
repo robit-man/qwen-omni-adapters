@@ -87,6 +87,14 @@ the current intent depends on physical-scene facts. A successful request starts
 a new multimodal pass; unrelated turns never receive, describe, or carry an
 ambient frame merely because cameras are enabled.
 
+The durable worker applies the same boundary independently of the model. Its
+tool discovery query must identify a concrete interaction mechanism; generic
+catalog fishing such as asking for whatever tools are available is rejected and
+replanned. A physical-camera result is filtered from background discovery, and
+an attempted call is rejected before capture, unless the immutable task scope or
+a later human direction explicitly depends on a physical scene. Browser and
+desktop visual inspection authorize only their respective scoped tools.
+
 Trained audio bridges have an additional reproducibility boundary. Audio-only
 chat and direct ASR use the same tagged system/directive pair as projector
 training and release evaluation, with native `enable_thinking=false` prefill.

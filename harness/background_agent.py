@@ -67,6 +67,68 @@ TASK_START_REQUEST = (
 MAX_VIRTUAL_QUERY_CHARS = 1_200
 MAX_PHASE_ACTIONS = 8
 
+_GENERIC_DISCOVERY_TERMS = {
+    "a",
+    "an",
+    "and",
+    "appropriate",
+    "are",
+    "available",
+    "can",
+    "capabilities",
+    "capability",
+    "continue",
+    "current",
+    "do",
+    "for",
+    "help",
+    "i",
+    "is",
+    "me",
+    "mechanism",
+    "need",
+    "needed",
+    "next",
+    "now",
+    "of",
+    "relevant",
+    "should",
+    "task",
+    "the",
+    "this",
+    "to",
+    "tool",
+    "tools",
+    "use",
+    "what",
+    "which",
+    "with",
+    "my",
+    "all",
+}
+_CAMERA_DEVICE_RE = re.compile(r"\b(?:camera|webcam|video\s+feed)\b", re.IGNORECASE)
+_CAMERA_DEVICE_ACTION_RE = re.compile(
+    r"\b(?:capture|check|describe|identify|look|observe|see|show|use|view|watch)\b",
+    re.IGNORECASE,
+)
+_PHYSICAL_SCENE_RE = re.compile(
+    r"\b(?:holding|wearing|physical\s+scene|surroundings)\b", re.IGNORECASE
+)
+_PHYSICAL_SCENE_ACTION_RE = re.compile(
+    r"\b(?:describe|identify|look|monitor|observe|see|show|view|watch)\b",
+    re.IGNORECASE,
+)
+_ROOM_OBSERVATION_RE = re.compile(
+    r"\b(?:look|monitor|observe|see|watch)\b[^.?!\n]{0,80}\broom\b|"
+    r"\broom\b[^.?!\n]{0,80}\b(?:motion|moving|look|monitor|observe|see|watch)\b",
+    re.IGNORECASE,
+)
+_NEGATED_CAMERA_RE = re.compile(
+    r"\b(?:do\s+not|don't|never|no|without)\s+(?:use\s+)?(?:the\s+)?"
+    r"(?:physical\s+)?(?:camera|webcam|video\s+feed)\b",
+    re.IGNORECASE,
+)
+
 
 def _resident_task_context_tokens() -> int:
     """Read the live language window used by the background controller.
@@ -309,6 +371,125 @@ def _task_system_prompt(
         COMPACT_AGENT_SYSTEM_PROMPT if constrained else AGENT_SYSTEM_PROMPT
     )
     return f"{task_contract}\n\n{controller_policy}"
+
+
+def _background_discovery_preflight(arguments: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Reject catalog fishing that does not identify an interaction mechanism.
+
+    The background controller already receives its objective as pinned state. A
+    request such as ``available tools for this task`` therefore contains no
+    routing information and lets incidental catalog vocabulary choose an
+    unrelated sensor. This is an argument-quality boundary, not a task-topic
+    classifier: any concrete mechanism term (files, shell, browser, web, and so
+    on) remains model-selected and is ranked by the ordinary tool catalog.
+    """
+
+    query = " ".join(str(arguments.get("query") or "").split())[:500]
+    terms = {
+        token
+        for token in re.findall(r"[a-z0-9]+", query.lower())
+        if token not in _GENERIC_DISCOVERY_TERMS
+    }
+    if terms:
+        return None
+    return {
+        "error": "capability_query_too_generic",
+        "message": (
+            "Name the missing interaction mechanism only, for example search public "
+            "web, edit workspace files, run shell commands, control browser, or inspect "
+            "desktop. The pinned task subject is already available."
+        ),
+        "retryable": True,
+        "task_progress": False,
+        "failure_scope": "arguments",
+    }
+
+
+def _task_allows_physical_camera(task: Mapping[str, Any]) -> bool:
+    """Return whether durable task scope explicitly depends on a physical scene.
+
+    Browser screenshots and desktop frames are separate first-class tools and
+    never authorize an ambient camera. Authorization can come from the original
+    objective, its completion contract, or a later human direction; generated
+    summaries and tool results cannot broaden it.
+    """
+
+    scoped_text: list[str] = [
+        str(task.get("objective") or ""),
+        str(task.get("completion_criteria") or ""),
+    ]
+    guidance = task.get("guidance")
+    if isinstance(guidance, list):
+        scoped_text.extend(
+            str(item.get("content") or "")
+            for item in guidance[-8:]
+            if isinstance(item, Mapping)
+        )
+    for source in scoped_text:
+        for sentence in re.split(r"[.?!\n]+", source):
+            if not sentence.strip() or _NEGATED_CAMERA_RE.search(sentence):
+                continue
+            if (
+                _CAMERA_DEVICE_RE.search(sentence)
+                and _CAMERA_DEVICE_ACTION_RE.search(sentence)
+            ):
+                return True
+            if (
+                _PHYSICAL_SCENE_RE.search(sentence)
+                and _PHYSICAL_SCENE_ACTION_RE.search(sentence)
+            ):
+                return True
+            if _ROOM_OBSERVATION_RE.search(sentence):
+                return True
+    return False
+
+
+def _camera_scope_rejection() -> dict[str, Any]:
+    return {
+        "error": "physical_camera_outside_task_scope",
+        "message": (
+            "The durable task does not explicitly depend on the current physical scene. "
+            "Use browser_interact for a rendered webpage, gui_interact for the desktop, "
+            "or discover another task-relevant mechanism."
+        ),
+        "retryable": True,
+        "task_progress": False,
+        "failure_scope": "capability",
+    }
+
+
+def _filter_background_discovery(result: Any, task: Mapping[str, Any]) -> Any:
+    """Remove physical-camera routing when the pinned task did not authorize it."""
+
+    if not isinstance(result, Mapping) or _task_allows_physical_camera(task):
+        return result
+    filtered = dict(result)
+    removed = False
+    for field in ("available_tools", "suggested_tools"):
+        values = filtered.get(field)
+        if not isinstance(values, list):
+            continue
+        kept = [str(item) for item in values if str(item) != "request_camera_view"]
+        removed = removed or len(kept) != len(values)
+        filtered[field] = kept
+    results = filtered.get("results")
+    if isinstance(results, list):
+        kept_results = [
+            item
+            for item in results
+            if not (
+                isinstance(item, Mapping)
+                and str(item.get("name") or "") == "request_camera_view"
+            )
+        ]
+        removed = removed or len(kept_results) != len(results)
+        filtered["results"] = kept_results
+    if not removed:
+        return filtered
+    filtered["scope_filtered_tools"] = ["request_camera_view"]
+    if not filtered.get("available_tools"):
+        return _camera_scope_rejection()
+    return filtered
 
 
 _TOOL_SCHEMA_ANNOTATION_KEYS = {
@@ -3379,7 +3560,7 @@ class BackgroundAgent:
                     )
                 call_id = str(call.get("id") or secrets.token_hex(6))
                 if (
-                    name in LOCAL_CONTROL_TOOL_NAMES
+                    name in {*LOCAL_CONTROL_TOOL_NAMES, "request_camera_view"}
                     and name not in offered_tool_names
                 ):
                     rejected_result = {
@@ -3859,15 +4040,20 @@ class BackgroundAgent:
                             tool=name or "unknown"
                         ),
                     )
-                    preflight_result = (
-                        _web_fetch_preflight(
+                    if name == "tool_search":
+                        preflight_result = _background_discovery_preflight(arguments)
+                    elif name == "request_camera_view" and not _task_allows_physical_camera(
+                        latest or current
+                    ):
+                        preflight_result = _camera_scope_rejection()
+                    elif name == "web_fetch":
+                        preflight_result = _web_fetch_preflight(
                             messages,
                             latest or current,
                             arguments,
                         )
-                        if name == "web_fetch"
-                        else None
-                    )
+                    else:
+                        preflight_result = None
                     if preflight_result is not None:
                         # Discovery is evidence about where a fetch may go. A
                         # model-authored URL is not. Keep the leaf tool active
@@ -3892,6 +4078,10 @@ class BackgroundAgent:
                             )
                             raise
                         result = response.get("result", response)
+                    if name == "tool_search":
+                        result = _filter_background_discovery(
+                            result, latest or current
+                        )
                     if (
                         name in COMPUTER_ACTION_TOOLS
                         and str(arguments.get("action") or "") == "snapshot"
@@ -3982,6 +4172,8 @@ class BackgroundAgent:
                                 ]
                             )
                         )[:3]
+                    else:
+                        active_tools = []
                 elif name and name != "background_task":
                     active_tools = _successor_tools(name, result)
                 tool_message: dict[str, Any] = {
