@@ -166,6 +166,9 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
 - background work performs a task-alignment self-check after each concrete
   result, and terminal checkpoints assess criteria and cite the freshest
   evidence rather than an older successful action.
+- background audit state separates knowledge from environment mutation, repeated
+  evidence slots trigger replanning/context renewal, and post-mutation
+  completion cites verification from the current environment version.
 - TTS returns valid 24 kHz mono PCM16 WAV; streaming returns ordered PCM chunks,
   repeated matching-profile prompts reuse one resident worker PID, and an
   A → B → A synthesize/transcribe gate returns A → B → A without one-turn lag.

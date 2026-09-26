@@ -29,6 +29,7 @@ from portal.app import (
     create_app,
     load_voice_profile,
 )
+from portal.background_tasks import BackgroundTaskStore
 from portal.browser import (
     _SNAPSHOT_SCRIPT,
     BrowserAutomationError,
@@ -4290,6 +4291,70 @@ def test_live_tools_allow_plain_reply_or_execute_selected_tool(
     assert events[-1]["response"]["portal"]["safe_tools_executed"][0][
         "name"
     ] == "background_task"
+
+
+def test_background_update_persists_exact_user_text_not_model_paraphrase(
+    tmp_path: Path,
+) -> None:
+    task_path = tmp_path / "tasks.json"
+    store = BackgroundTaskStore(task_path)
+    task = store.create("Build the original application.")
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "background_task",
+                                    "arguments": {
+                                        "action": "update",
+                                        "task_id": task["task_id"],
+                                        "guidance": (
+                                            "Model-authored paraphrase that must not become "
+                                            "durable user instruction."
+                                        ),
+                                    },
+                                },
+                            }
+                        ],
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Updated."}},
+        )
+
+    app = create_app(
+        _config(background_task_path=task_path),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    exact_user_text = "Keep the backend, but change the account screens to cobalt blue."
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[{"role": "user", "content": exact_user_text}],
+            portal_auto_tools=True,
+            portal_background_bridge=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    updated = store.get(task["task_id"])
+    assert updated is not None
+    assert updated["guidance"][-1]["content"] == exact_user_text
+    assert updated["guidance"][-1]["provenance"] == "user_message_exact"
 
 
 def test_portal_executes_only_allowlisted_tool_and_strips_media_on_followup() -> None:

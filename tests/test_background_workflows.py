@@ -184,6 +184,7 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
             "verify-files",
             "shell",
             {
+                "intent": "verify",
                 "command": (
                     "python3 -m py_compile app.py "
                     "&& test \"$(python3 app.py)\" = \"sum=5\" "

@@ -25,6 +25,217 @@ from qwen_omni_adapters.context import context_text
 
 TERMINAL_STATUSES = {"completed", "blocked", "cancelled"}
 MAX_EXPIRED_RESUMES = 3
+MAX_TASK_STATE_RECORDS = 128
+
+
+def _initial_task_state(
+    objective: str, completion_criteria: str
+) -> dict[str, Any]:
+    """Create the externally owned state used across executor contexts.
+
+    This state is deliberately separate from the renewable model transcript.
+    Model prose cannot update it.  Only store operations backed by an executor
+    receipt or an accepted checkpoint are allowed to advance it.
+    """
+
+    requirement_text = completion_criteria or objective
+    return {
+        "schema": "robit.omni.background-task-state.v1",
+        "version": 0,
+        "requirements": [
+            {
+                "requirement_id": "root",
+                "text": requirement_text,
+                "status": "pending",
+                "evidence_ids": [],
+            }
+        ],
+        "knowledge": {"version": 0, "records": []},
+        "environment": {"version": 0, "artifacts": []},
+        "controller": {
+            "phase": "prethink",
+            "active_requirement_id": "root",
+            "current_subtask": objective,
+            "next_transition": "prethink",
+            "unresolved_evidence": [],
+            "closed_evidence_slots": [],
+            "last_audit_id": "",
+            "stagnation": {"fingerprint": "", "count": 0},
+            "executor_generation": 0,
+        },
+        "audit_reports": [],
+    }
+
+
+def _ensure_task_state(task: dict[str, Any]) -> dict[str, Any]:
+    state = task.get("task_state")
+    if not isinstance(state, dict) or state.get("schema") != (
+        "robit.omni.background-task-state.v1"
+    ):
+        state = _initial_task_state(
+            str(task.get("objective") or ""),
+            str(task.get("completion_criteria") or ""),
+        )
+        task["task_state"] = state
+    return state
+
+
+def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None:
+    """Advance durable state from one deterministic executor audit."""
+
+    state = _ensure_task_state(task)
+    audit_id = str(report.get("audit_id") or "")[:128]
+    if not audit_id:
+        return
+    reports = state.setdefault("audit_reports", [])
+    if any(
+        isinstance(item, Mapping) and str(item.get("audit_id") or "") == audit_id
+        for item in reports
+    ):
+        return
+
+    normalized = copy.deepcopy(dict(report))
+    controller = state.setdefault("controller", {})
+    knowledge = state.setdefault("knowledge", {"version": 0, "records": []})
+    environment = state.setdefault("environment", {"version": 0, "artifacts": []})
+    environment_before = int(environment.get("version") or 0)
+    authority = str(normalized.get("authority") or "missing")
+    evidence_id = str(normalized.get("evidence_id") or "")[:128]
+    evidence_slot = str(normalized.get("evidence_slot") or "")[:128]
+
+    closed_slots = controller.setdefault("closed_evidence_slots", [])
+    slot_is_new = bool(evidence_slot) and not any(
+        isinstance(item, Mapping)
+        and str(item.get("slot_id") or "") == evidence_slot
+        and int(item.get("environment_version") or 0) == environment_before
+        for item in closed_slots
+    )
+    epistemic_progress = bool(
+        slot_is_new
+        and authority in {"discovery", "inspection", "concrete", "verification"}
+    )
+    if epistemic_progress:
+        closed_slots.append(
+            {
+                "slot_id": evidence_slot,
+                "environment_version": environment_before,
+                "evidence_id": evidence_id,
+            }
+        )
+        controller["closed_evidence_slots"] = closed_slots[-MAX_TASK_STATE_RECORDS:]
+        records = knowledge.setdefault("records", [])
+        records.append(
+            {
+                "evidence_id": evidence_id,
+                "slot_id": evidence_slot,
+                "authority": authority,
+                "target": str(normalized.get("target") or "")[:500],
+                "environment_version": environment_before,
+            }
+        )
+        knowledge["records"] = records[-MAX_TASK_STATE_RECORDS:]
+        knowledge["version"] = int(knowledge.get("version") or 0) + 1
+
+    changed_paths = normalized.get("changed_paths")
+    changed_paths = (
+        [str(path)[:4096] for path in changed_paths if str(path)][:32]
+        if isinstance(changed_paths, list)
+        else []
+    )
+    environmental_progress = authority == "mutation" and bool(changed_paths)
+    if environmental_progress:
+        environment["version"] = environment_before + 1
+        artifacts = environment.setdefault("artifacts", [])
+        for path in changed_paths:
+            artifacts.append(
+                {
+                    "path": path,
+                    "evidence_id": evidence_id,
+                    "environment_version": environment["version"],
+                }
+            )
+        # The current artifact view is bounded; immutable versions remain in
+        # evidence_records and audit_reports.
+        current_by_path: dict[str, dict[str, Any]] = {}
+        for artifact in artifacts:
+            if isinstance(artifact, Mapping) and str(artifact.get("path") or ""):
+                current_by_path[str(artifact["path"])] = dict(artifact)
+        environment["artifacts"] = list(current_by_path.values())[-64:]
+
+    state_progress = epistemic_progress or environmental_progress
+    fingerprint = str(normalized.get("state_fingerprint") or "")[:128]
+    stagnation = controller.setdefault("stagnation", {})
+    if state_progress:
+        stagnation.update({"fingerprint": "", "count": 0})
+    elif fingerprint:
+        previous = str(stagnation.get("fingerprint") or "")
+        stagnation.update(
+            {
+                "fingerprint": fingerprint,
+                "count": int(stagnation.get("count") or 0) + 1
+                if previous == fingerprint
+                else 1,
+            }
+        )
+
+    normalized["epistemic_progress"] = epistemic_progress
+    normalized["environmental_progress"] = environmental_progress
+    normalized["environment_version_before"] = environment_before
+    normalized["environment_version_after"] = int(environment.get("version") or 0)
+    normalized["stagnation_count"] = int(stagnation.get("count") or 0)
+    reports.append(normalized)
+    state["audit_reports"] = reports[-MAX_TASK_STATE_RECORDS:]
+    state["version"] = int(state.get("version") or 0) + 1
+    controller["phase"] = "prethink"
+    controller["next_transition"] = "prethink"
+    controller["last_audit_id"] = audit_id
+    controller["last_transition"] = str(normalized.get("transition") or "")[:40]
+
+
+def _apply_checkpoint_state(
+    task: dict[str, Any], transition: Mapping[str, Any]
+) -> None:
+    """Record a checkpoint as controller state, never as environmental fact."""
+
+    state = _ensure_task_state(task)
+    action = str(transition.get("action") or "")
+    evidence_ids = [
+        str(value)[:128]
+        for value in transition.get("evidence_ids", [])
+        if str(value)
+    ][:16]
+    remaining = [
+        " ".join(str(value).split())[:300]
+        for value in transition.get("remaining_requirements", [])
+        if str(value).strip()
+    ][:8]
+    requirements = state.setdefault("requirements", [])
+    root = next(
+        (
+            item
+            for item in requirements
+            if isinstance(item, dict) and item.get("requirement_id") == "root"
+        ),
+        None,
+    )
+    if root is not None:
+        root["status"] = (
+            "completed" if action == "complete" else "blocked" if action == "blocked" else "pending"
+        )
+        root["evidence_ids"] = evidence_ids
+    controller = state.setdefault("controller", {})
+    controller["phase"] = "terminal" if action in {"complete", "blocked"} else "prethink"
+    controller["next_transition"] = "stop" if action in {"complete", "blocked"} else "prethink"
+    if remaining:
+        controller["current_subtask"] = remaining[0]
+    controller["remaining_requirements"] = remaining
+    controller["last_checkpoint_evidence_ids"] = evidence_ids
+    if action == "progress":
+        controller["executor_generation"] = int(
+            controller.get("executor_generation") or 0
+        ) + 1
+        controller["stagnation"] = {"fingerprint": "", "count": 0}
+    state["version"] = int(state.get("version") or 0) + 1
 
 
 class BackgroundTaskStore:
@@ -85,6 +296,8 @@ class BackgroundTaskStore:
 
     @staticmethod
     def _public(task: Mapping[str, Any]) -> dict[str, Any]:
+        if isinstance(task, dict):
+            _ensure_task_state(task)
         public = {
             key: copy.deepcopy(task.get(key))
             for key in (
@@ -102,6 +315,7 @@ class BackgroundTaskStore:
                 "actions",
                 "guidance",
                 "compaction",
+                "task_state",
                 "result",
                 "error",
             )
@@ -156,6 +370,7 @@ class BackgroundTaskStore:
                 # transcript, but never destroys their only task-local copy.
                 # Records are append-only and addressed by the original call ID.
                 "evidence_records": [],
+                "task_state": _initial_task_state(objective, completion_criteria),
             }
             tasks = value.setdefault("tasks", [])
             tasks.append(task)
@@ -296,6 +511,7 @@ class BackgroundTaskStore:
                     float(candidate[0].get("created_at") or 0),
                 ),
             )
+            _ensure_task_state(item)
             item["status"] = "running"
             item["owner"] = owner
             item["lease_until"] = now + max(5.0, lease_s)
@@ -327,6 +543,7 @@ class BackgroundTaskStore:
         error: str = "",
         status: str = "running",
         lease_s: float = 60.0,
+        controller_transition: Mapping[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         def update(value: dict[str, Any]) -> dict[str, Any] | None:
             for item in value.get("tasks", []):
@@ -391,6 +608,8 @@ class BackgroundTaskStore:
                     item["error"] = error[:2000]
                 else:
                     item.pop("error", None)
+                if controller_transition is not None:
+                    _apply_checkpoint_state(item, controller_transition)
                 return self._public(item)
             return None
 
@@ -535,6 +754,7 @@ class BackgroundTaskStore:
         ok: bool,
         receipt: Mapping[str, Any] | None = None,
         evidence_record: Mapping[str, Any] | None = None,
+        audit_report: Mapping[str, Any] | None = None,
         recorded_at: float | None = None,
     ) -> dict[str, Any] | None:
         """Append an audit entry and its immutable expandable evidence atomically."""
@@ -563,6 +783,10 @@ class BackgroundTaskStore:
                     }
                     if receipt:
                         action["receipt"] = copy.deepcopy(dict(receipt))
+                    if audit_report:
+                        action["audit_id"] = str(
+                            audit_report.get("audit_id") or ""
+                        )[:128]
                     action_time = now if recorded_at is None else float(recorded_at)
                     if action_time > 0:
                         action["at"] = action_time
@@ -578,11 +802,42 @@ class BackgroundTaskStore:
                     )
                     if evidence_id and not already_archived:
                         archived.append(copy.deepcopy(dict(evidence_record)))
+                if audit_report:
+                    _apply_audit_report(item, audit_report)
                 item["updated_at"] = now
                 return self._public(item)
             return None
 
         return self._mutate(record)
+
+    def renew_executor_context(
+        self,
+        task_id: str,
+        owner: str,
+        *,
+        messages: list[dict[str, Any]],
+        current_stage: str = "",
+        lease_s: float = 60.0,
+    ) -> dict[str, Any] | None:
+        """Persist a fresh executor working set without inventing a task round."""
+
+        def renew(value: dict[str, Any]) -> dict[str, Any] | None:
+            for item in value.get("tasks", []):
+                if item.get("task_id") != task_id or item.get("owner") != owner:
+                    continue
+                if item.get("status") != "running":
+                    return self._public(item)
+                now = time.time()
+                item["messages"] = copy.deepcopy(messages)
+                item["active_tools"] = []
+                item["updated_at"] = now
+                item["lease_until"] = now + max(5.0, lease_s)
+                if current_stage:
+                    item["current_stage"] = current_stage[:300]
+                return self._public(item)
+            return None
+
+        return self._mutate(renew)
 
     def update_stage(
         self,
@@ -641,7 +896,13 @@ class BackgroundTaskStore:
 
         return bool(self._mutate(mark))
 
-    def add_guidance(self, task_id: str, content: str) -> dict[str, Any] | None:
+    def add_guidance(
+        self,
+        task_id: str,
+        content: str,
+        *,
+        provenance: str = "external_control_request",
+    ) -> dict[str, Any] | None:
         content = str(content).strip()
         if not content:
             raise ValueError("guidance is required")
@@ -660,8 +921,12 @@ class BackgroundTaskStore:
                         "guidance_id": secrets.token_hex(5),
                         "content": content,
                         "received_at": time.time(),
+                        "provenance": str(provenance)[:80],
                     }
                 )
+                if item.get("status") == "waiting_input":
+                    item["status"] = "pending"
+                    item["current_stage"] = context_text("task_stages", "queued")
                 item["guidance"] = guidance[-64:]
                 item["updated_at"] = time.time()
                 item.setdefault("progress", []).append(

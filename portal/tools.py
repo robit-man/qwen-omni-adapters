@@ -26,7 +26,9 @@ import subprocess
 import tempfile
 import threading
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime
 from html.parser import HTMLParser
@@ -83,6 +85,25 @@ MAX_SHELL_EFFECT_PATHS = 16
 MAX_SHELL_EFFECT_ENTRIES = 2_048
 MAX_SHELL_EFFECT_FILE_BYTES = 8 * 1024 * 1024
 TOKEN_PATTERN = re.compile(r"[\w][\w'-]{1,}", re.UNICODE)
+_TOOL_USER_CONTEXT: ContextVar[str] = ContextVar(
+    "portal_tool_user_context", default=""
+)
+
+
+@contextmanager
+def scoped_tool_user_context(value: str) -> Iterator[None]:
+    """Attach exact user text to one synchronous tool-execution scope.
+
+    Keeping this out of tool arguments prevents the model from forging the
+    provenance field, while a ContextVar preserves the long-standing execute
+    method signature and remains isolated across concurrent Flask requests.
+    """
+
+    token = _TOOL_USER_CONTEXT.set(str(value or ""))
+    try:
+        yield
+    finally:
+        _TOOL_USER_CONTEXT.reset(token)
 
 
 _CONFIGURED_TOOL_ENTRIES = configured_tools()
@@ -495,6 +516,8 @@ def _workspace_file(
             "path": str(target),
             "created": not existed,
             "is_directory": True,
+            "task_progress": not existed,
+            "evidence_authority": "mutation" if not existed else "unchanged_effect",
         }
 
     if operation == "list":
@@ -524,6 +547,8 @@ def _workspace_file(
             "depth": maximum_depth,
             "entries": entries,
             "truncated": len(entries) >= 200,
+            "task_progress": False,
+            "evidence_authority": "inspection",
         }
 
     if not target.is_file() and operation in {"read", "replace"}:
@@ -550,6 +575,8 @@ def _workspace_file(
             "total_chars": len(source),
             "truncated": offset + len(segment) < len(source),
             "sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+            "task_progress": False,
+            "evidence_authority": "inspection",
         }
 
     if operation == "write":
@@ -573,6 +600,10 @@ def _workspace_file(
             )
         source = source.replace(old_text, new_text)
         existed = True
+
+    before_sha256 = (
+        hashlib.sha256(target.read_bytes()).hexdigest() if target.is_file() else ""
+    )
 
     if len(source) > MAX_WORKSPACE_TEXT_CHARS:
         raise ToolInputError(
@@ -601,14 +632,18 @@ def _workspace_file(
             os.unlink(temporary)
         except FileNotFoundError:
             pass
+    after_sha256 = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    changed = not existed or before_sha256 != after_sha256
     return {
         "action": operation,
         "path": str(target),
         "created": not existed,
         "chars": len(source),
         "bytes": len(source.encode("utf-8")),
-        "sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        "sha256": after_sha256,
         "validation": validation,
+        "task_progress": changed,
+        "evidence_authority": "mutation" if changed else "unchanged_effect",
     }
 
 
@@ -2478,10 +2513,22 @@ class PortalToolHarness:
                     )
                 elif action == "update":
                     task_id = _bounded_text(arguments.get("task_id"), "task_id", 80)
-                    guidance = _bounded_text(
-                        arguments.get("guidance"), "guidance", 4000
+                    exact_user_guidance = _TOOL_USER_CONTEXT.get().strip()
+                    if exact_user_guidance:
+                        guidance = _bounded_text(
+                            exact_user_guidance, "user guidance", 4000
+                        )
+                        provenance = "user_message_exact"
+                    else:
+                        guidance = _bounded_text(
+                            arguments.get("guidance"), "guidance", 4000
+                        )
+                        provenance = "external_control_request"
+                    task = self.background_tasks.add_guidance(
+                        task_id,
+                        guidance,
+                        provenance=provenance,
                     )
-                    task = self.background_tasks.add_guidance(task_id, guidance)
                     result = {
                         "found": task is not None,
                         "accepted": bool(

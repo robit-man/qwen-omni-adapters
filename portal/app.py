@@ -58,6 +58,7 @@ try:
         SAFE_TOOLS,
         PortalToolHarness,
         ToolInputError,
+        scoped_tool_user_context,
         tool_result_json,
         tool_schemas,
         tool_use_instructions,
@@ -72,6 +73,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
         SAFE_TOOLS,
         PortalToolHarness,
         ToolInputError,
+        scoped_tool_user_context,
         tool_result_json,
         tool_schemas,
         tool_use_instructions,
@@ -1109,7 +1111,8 @@ def _tool_followup(
         else:
             seen.add(fingerprint)
             made_progress = True
-            result = harness.execute(session_id, name, arguments)
+            with scoped_tool_user_context(_latest_user_context(messages)):
+                result = harness.execute(session_id, name, arguments)
             if name == "tool_search" and isinstance(result, Mapping):
                 # Discovery must respect the same execution profile as direct
                 # schemas. Otherwise hiding foreground shell only delays it by

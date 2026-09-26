@@ -127,14 +127,36 @@ runtime pressure watcher, while browser work and other substantive tools retain
 their declared admission policies.
 
 Background transcript limits are derived from the live resident comprehension
-window on every turn. At the 4K floor the raw recurrent chain is bounded to a
-32 KiB high-water mark, keeps four newest native messages after compaction, and
-allocates roughly 1.2 KiB of text to the pinned typed frontier; the limits expand
-at larger KV tiers up to 96 KiB, twelve messages, and an 8 KiB frontier. The
-constrained focus contract has the same authority and page-in rules in less
-prose, leaving room for the freshest typed receipt. This is working-set eviction
-only. Exact bounded tool receipts are archived append-only before their turns
-leave L0 and remain recoverable with `task_expand`.
+window on every turn. Compaction starts from measured working-set pressure at
+72 percent of the current resident token tier, not from a small count of chat
+messages; 128 messages remain only as a defensive ceiling. The compacted chain
+retains at least the two newest complete action/observation cycles plus the
+current typed frontier. At the 4K floor, that frontier receives roughly 1.2 KiB
+of text; larger KV tiers expand it up to 8 KiB. The constrained focus contract
+has the same authority and page-in rules in less prose, leaving room for the
+freshest typed receipt. This is working-set eviction only. Exact bounded tool
+receipts are archived append-only before their turns leave L0 and remain
+recoverable with `task_expand`.
+
+The renewable model transcript is not the task database. Every durable task has
+an external `robit.omni.background-task-state.v1` record with three separately
+versioned ledgers: knowledge for newly closed evidence slots, environment for
+executor-observed mutations and their changed paths, and controller state for
+the current requirement, next transition, and stagnation fingerprint. Tool
+success and task progress are deliberately different: a successful inspection
+can close one knowledge slot without changing the environment, while repeating
+that same slot against the same environment version does not advance either
+ledger. Model prose cannot increment these versions.
+
+The state loop is `PRETHINK -> RETRIEVE or ACT -> AUDIT -> PRETHINK`. A
+deterministic auditor classifies every external receipt as discovery,
+inspection, mutation, verification, concrete evidence, or failure. After a
+mutation, a terminal checkpoint requires a verification receipt from the
+current environment version. Accepted phase checkpoints create a fresh
+executor working set from the external state rather than carrying forward the
+previous executor's private reasoning. That fresh working set is persisted
+without inventing an extra task round, so a process restart cannot revive the
+discarded chain.
 
 The background action surface is tier-aware too. It exposes one already-selected
 concrete family plus an eligible checkpoint, removes only
@@ -199,8 +221,12 @@ control off, turning the retry into an execution pass instead of repeating the
 same thought cycle. The runtime never fabricates a tool call.
 
 Every concrete background call is retained as a bounded audit record containing
-call ID, exact tool name, bounded/redacted arguments, outcome, and success
-state. The local voice foreground and its background worker use one stable,
+call ID, exact tool name, bounded/redacted arguments, outcome, success state,
+evidence slot, environment version, and deterministic progress classification.
+Repeated no-progress actions with the same current subtask, environment
+version, unresolved evidence, and action family increment a stagnation counter.
+The second repeat forces replanning; the third discards the renewable executor
+context and restarts from the audited state. The local voice foreground and its background worker use one stable,
 opaque portal-session scope derived from the daemon capability, so a handed-off
 task can continue in the same visible browser without crossing into another
 user session. The top-bar task submenu shows those calls directly. A live task has a
@@ -209,11 +235,14 @@ user session. The top-bar task submenu shows those calls directly. A live task h
 
 After each concrete result, the worker injects a bounded `<task_self_check>`
 that requires the next reasoning pass to compare that result with the durable
-objective, completion criteria, and latest spoken guidance. The model must
-identify remaining work before choosing another structured action. Checkpoints
+objective, completion criteria, latest spoken guidance, and runtime-owned audit
+state. The model must identify remaining work before choosing another
+structured action, but it does not grade or version its own result. Checkpoints
 carry a separate criteria assessment and must cite the freshest concrete result;
-an older successful call cannot hide a newer failed verification. These checks
-remain private task-control context and are never synthesized as reasoning.
+an older successful call cannot hide a newer failed verification. Exact user
+text, rather than a model-authored paraphrase, becomes durable guidance when a
+foreground turn updates a task. These checks remain private task-control
+context and are never synthesized as reasoning.
 
 Eight concrete actions without an accepted progress checkpoint form a mandatory
 phase boundary. The next inference receives only the checkpoint control and must

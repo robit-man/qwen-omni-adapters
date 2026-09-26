@@ -35,7 +35,7 @@ from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 logger = logging.getLogger(__name__)
 
-MAX_TASK_CONTEXT_MESSAGES = 28
+MAX_TASK_CONTEXT_MESSAGES = 128
 MAX_TASK_CONTEXT_BYTES = 96 * 1024
 MAX_RETAINED_TASK_MESSAGES = 12
 MIN_TASK_CONTEXT_BYTES = 32 * 1024
@@ -48,6 +48,7 @@ MAX_CHECKPOINT_REPORT_CHARS = 1_000
 MAX_ACTION_ARGUMENT_CHARS = 2_000
 MAX_ACTION_OUTCOME_CHARS = 1_200
 VISUAL_CONTEXT_ACCOUNTING_BYTES = 8 * 1024
+COMPACTION_HIGH_WATER_FRACTION = 0.72
 COMPUTER_ACTION_TOOLS = {"browser_interact", "gui_interact"}
 WEB_EVIDENCE_TOOLS = {"browser_interact", "web_crawl", "web_fetch", "web_search"}
 
@@ -167,6 +168,13 @@ def _task_context_limits(
             MAX_FOCUS_MEMORY_CHARS,
             max(MIN_FOCUS_MEMORY_CHARS, (resident * 3) // 10),
         ),
+        # Leave the remaining window for the selected tool grammar, chat
+        # template, output headroom, and a fresh action result.  This is a
+        # token-pressure trigger, not a message-count trigger.
+        "compaction_high_water_tokens": max(
+            2_048,
+            int(resident * COMPACTION_HIGH_WATER_FRACTION),
+        ),
     }
 
 
@@ -271,6 +279,73 @@ def _task_virtual_query(
     )
 
 
+def _audited_task_state(task: Mapping[str, Any]) -> str:
+    """Render the external manager/auditor state without executor narration."""
+
+    state = task.get("task_state")
+    if not isinstance(state, Mapping):
+        return ""
+    controller = state.get("controller")
+    controller = controller if isinstance(controller, Mapping) else {}
+    environment = state.get("environment")
+    environment = environment if isinstance(environment, Mapping) else {}
+    knowledge = state.get("knowledge")
+    knowledge = knowledge if isinstance(knowledge, Mapping) else {}
+    requirements = state.get("requirements")
+    requirements = requirements if isinstance(requirements, list) else []
+    reports = state.get("audit_reports")
+    reports = reports if isinstance(reports, list) else []
+    last_audit = next(
+        (dict(item) for item in reversed(reports) if isinstance(item, Mapping)),
+        {},
+    )
+    artifacts = environment.get("artifacts")
+    artifacts = artifacts if isinstance(artifacts, list) else []
+    records = knowledge.get("records")
+    records = records if isinstance(records, list) else []
+    stagnation = controller.get("stagnation")
+    stagnation = dict(stagnation) if isinstance(stagnation, Mapping) else {}
+    compact = {
+        "state_version": int(state.get("version") or 0),
+        "requirements": [
+            {
+                "requirement_id": str(item.get("requirement_id") or "")[:80],
+                "status": str(item.get("status") or "")[:40],
+                "text": str(item.get("text") or "")[:500],
+                "evidence_ids": list(item.get("evidence_ids") or [])[:8],
+            }
+            for item in requirements[-8:]
+            if isinstance(item, Mapping)
+        ],
+        "controller": {
+            "phase": str(controller.get("phase") or "")[:40],
+            "current_subtask": str(controller.get("current_subtask") or "")[:500],
+            "next_transition": str(controller.get("next_transition") or "")[:40],
+            "remaining_requirements": list(
+                controller.get("remaining_requirements") or []
+            )[:8],
+            "executor_generation": int(controller.get("executor_generation") or 0),
+            "stagnation": stagnation,
+        },
+        "environment": {
+            "version": int(environment.get("version") or 0),
+            "artifacts": [dict(item) for item in artifacts[-12:] if isinstance(item, Mapping)],
+        },
+        "knowledge": {
+            "version": int(knowledge.get("version") or 0),
+            "recent_records": [
+                dict(item) for item in records[-8:] if isinstance(item, Mapping)
+            ],
+        },
+        "last_audit": last_audit,
+    }
+    return (
+        '<audited_task_state schema="robit.omni.background-task-state.v1">\n'
+        + json.dumps(compact, ensure_ascii=False, sort_keys=True, default=str)
+        + "\n</audited_task_state>"
+    )
+
+
 def _task_system_prompt(
     task: Mapping[str, Any],
     *,
@@ -287,6 +362,9 @@ def _task_system_prompt(
     ]
     if criteria:
         contract.append(f"Completion criteria: {criteria}")
+    audited_state = _audited_task_state(task)
+    if audited_state:
+        contract.append(audited_state)
     guidance = task.get("guidance")
     if isinstance(guidance, list):
         directions = [
@@ -335,6 +413,34 @@ def _task_system_prompt(
         COMPACT_AGENT_SYSTEM_PROMPT if constrained else AGENT_SYSTEM_PROMPT
     )
     return f"{task_contract}\n\n{controller_policy}"
+
+
+def _fresh_executor_messages(
+    task: Mapping[str, Any], *, reason: str
+) -> list[dict[str, Any]]:
+    """Start a clean bounded executor from external audited state."""
+
+    audit = _latest_audit(task)
+    handoff = {
+        "reason": reason,
+        "last_audit_id": str(audit.get("audit_id") or ""),
+        "last_evidence_id": str(audit.get("evidence_id") or ""),
+        "next_transition": _task_controller_value(task, "next_transition")
+        or "prethink",
+    }
+    return [
+        {"role": "system", "content": _task_system_prompt(task)},
+        {
+            "role": "user",
+            "content": (
+                '<executor_handoff schema="robit.omni.executor-handoff.v1">'
+                + json.dumps(handoff, ensure_ascii=False, sort_keys=True)
+                + "</executor_handoff>\n"
+                "Choose the next bounded evidence-producing action from the audited "
+                "state. Do not reconstruct or continue discarded private reasoning."
+            ),
+        },
+    ]
 
 
 def _background_discovery_preflight(arguments: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -902,6 +1008,41 @@ def _latest_tool_fingerprint(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
+def _causal_tail_start(
+    messages: list[dict[str, Any]], retained_messages: int
+) -> int:
+    """Keep two complete recent action/observation cycles across compaction."""
+
+    default_start = max(2, len(messages) - retained_messages)
+    paired_assistant: dict[str, int] = {}
+    external_pairs: list[int] = []
+    for index, message in enumerate(messages):
+        if message.get("role") == "assistant":
+            for call in message.get("tool_calls") or []:
+                if not isinstance(call, Mapping):
+                    continue
+                call_id = str(call.get("id") or "")
+                if call_id:
+                    paired_assistant[call_id] = index
+            continue
+        if message.get("role") != "tool":
+            continue
+        name = str(message.get("tool_name") or "")
+        if not name or name in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}:
+            continue
+        call_id = str(message.get("tool_call_id") or "")
+        external_pairs.append(paired_assistant.get(call_id, index))
+    if external_pairs:
+        default_start = min(default_start, external_pairs[-2])
+    if (
+        default_start > 2
+        and messages[default_start].get("role") == "tool"
+        and messages[default_start - 1].get("role") == "assistant"
+    ):
+        default_start -= 1
+    return max(2, default_start)
+
+
 def _compact_task_messages(
     messages: list[dict[str, Any]],
     task: Mapping[str, Any],
@@ -913,18 +1054,17 @@ def _compact_task_messages(
 
     limits = _task_context_limits(resident_context_tokens)
     retained_messages = limits["retained_messages"]
-    context_bytes = limits["context_bytes"]
-    serialized_bytes = len(
-        json.dumps(messages, ensure_ascii=False, default=str).encode("utf-8")
-    )
+    metrics = _context_metrics(messages)
     if len(messages) <= 3 or (
         force
         and len(messages) <= retained_messages + 3
-        and serialized_bytes <= context_bytes // 2
+        and metrics["estimated_tokens"]
+        <= limits["compaction_high_water_tokens"] // 2
     ) or (
         not force
         and len(messages) <= MAX_TASK_CONTEXT_MESSAGES
-        and serialized_bytes <= context_bytes
+        and metrics["estimated_tokens"]
+        < limits["compaction_high_water_tokens"]
     ):
         return messages
     head = copy.deepcopy(messages[:2])
@@ -940,13 +1080,7 @@ def _compact_task_messages(
                 expand_available=True,
             ),
         }
-    tail_start = max(2, len(messages) - retained_messages)
-    if (
-        tail_start > 2
-        and messages[tail_start].get("role") == "tool"
-        and messages[tail_start - 1].get("role") == "assistant"
-    ):
-        tail_start -= 1
+    tail_start = _causal_tail_start(messages, retained_messages)
     sections = [
         '<retained_checkpoint schema="robit.omni.task-page.v2">',
         "Older rounds were paged out losslessly. The current system contract contains "
@@ -1230,16 +1364,21 @@ def _context_metrics(messages: list[dict[str, Any]]) -> dict[str, int]:
                 for image in images
             ]
         measured.append(item)
+    accounted_bytes = len(
+        json.dumps(measured, ensure_ascii=False, default=str).encode("utf-8")
+    ) + image_count * VISUAL_CONTEXT_ACCOUNTING_BYTES
     return {
         "messages": len(messages),
         # Raw PNG/JPEG base64 bytes are transport size, not language context.
         # Charge one bounded multimodal-token estimate per live frame so a
         # single fresh screenshot does not falsely trigger transcript
         # compaction and discard the only actionable visual state.
-        "bytes": len(
-            json.dumps(measured, ensure_ascii=False, default=str).encode("utf-8")
-        )
-        + image_count * VISUAL_CONTEXT_ACCOUNTING_BYTES,
+        "bytes": accounted_bytes,
+        # The resident tokenizer remains authoritative at request packing
+        # time.  This conservative local estimate is only a high-water alarm;
+        # it prevents a tiny-message counter from compacting a half-empty KV
+        # window while still bounding a task before the packer rejects it.
+        "estimated_tokens": (accounted_bytes + 3) // 4,
     }
 
 
@@ -1251,8 +1390,8 @@ def _compaction_available(
     limits = _task_context_limits(resident_context_tokens)
     metrics = _context_metrics(messages)
     large_enough = (
-        metrics["messages"] > limits["retained_messages"] + 3
-        or metrics["bytes"] > limits["context_bytes"] // 2
+        metrics["estimated_tokens"] >= limits["compaction_high_water_tokens"]
+        or metrics["messages"] > MAX_TASK_CONTEXT_MESSAGES
     )
     if not large_enough:
         return False
@@ -1310,6 +1449,9 @@ def _compaction_receipt(
             "context_bytes": limits["context_bytes"],
             "retained_messages": limits["retained_messages"],
             "focus_chars": limits["focus_chars"],
+            "compaction_high_water_tokens": limits[
+                "compaction_high_water_tokens"
+            ],
         },
         "retained": {
             "objective": bool(str(task.get("objective") or "").strip()),
@@ -2300,6 +2442,188 @@ def _evidence_authority(item: Mapping[str, Any] | None) -> str:
     return "concrete"
 
 
+def _task_environment_version(task: Mapping[str, Any]) -> int:
+    state = task.get("task_state")
+    if not isinstance(state, Mapping):
+        return 0
+    environment = state.get("environment")
+    if not isinstance(environment, Mapping):
+        return 0
+    return int(environment.get("version") or 0)
+
+
+def _task_controller_value(task: Mapping[str, Any], key: str) -> Any:
+    state = task.get("task_state")
+    if not isinstance(state, Mapping):
+        return None
+    controller = state.get("controller")
+    if not isinstance(controller, Mapping):
+        return None
+    return controller.get(key)
+
+
+def _action_audit_report(
+    task: Mapping[str, Any],
+    *,
+    call_id: str,
+    name: str,
+    arguments: Mapping[str, Any],
+    result: Any,
+) -> dict[str, Any]:
+    """Create an executor-independent, typed state-transition audit."""
+
+    authority = _evidence_authority({"name": name, "result": result})
+    operation = str(
+        arguments.get("action") or arguments.get("intent") or "execute"
+    ).strip()[:80]
+    action_family = f"{name}:{operation}"
+    environment_version = _task_environment_version(task)
+
+    if name == "shell":
+        # The typed shell intent defines the state domain.  A caller can name a
+        # narrower evidence target explicitly; otherwise repeated inspections
+        # of the same working tree close one slot instead of becoming endless
+        # variations of ls/find/pwd.
+        target = str(
+            arguments.get("evidence_target")
+            or arguments.get("cwd")
+            or (result.get("cwd") if isinstance(result, Mapping) else "")
+            or Path.cwd()
+        )
+    elif name == "workspace_file":
+        target = f"{operation}:{arguments.get('path') or ''}"
+    elif name in {"web_fetch", "web_crawl"}:
+        target = str(arguments.get("url") or "")
+    elif name == "web_search":
+        target = str(arguments.get("query") or "")
+    elif name in COMPUTER_ACTION_TOOLS:
+        target = str(
+            (result.get("url") if isinstance(result, Mapping) else "")
+            or arguments.get("url")
+            or arguments.get("target")
+            or operation
+        )
+    else:
+        target = str(
+            arguments.get("path")
+            or arguments.get("url")
+            or arguments.get("query")
+            or arguments.get("document_id")
+            or name
+        )
+    target = " ".join(target.split())[:500]
+    slot_seed = f"{action_family}\0{target}\0{environment_version}"
+    evidence_slot = hashlib.sha256(slot_seed.encode()).hexdigest()[:24]
+
+    changed_paths: list[str] = []
+    if isinstance(result, Mapping):
+        effect = result.get("effect_receipt")
+        if isinstance(effect, Mapping) and isinstance(effect.get("changed_paths"), list):
+            changed_paths = [
+                str(path) for path in effect["changed_paths"] if str(path)
+            ][:32]
+        elif authority == "mutation" and str(result.get("path") or ""):
+            changed_paths = [str(result["path"])]
+
+    transition = (
+        "replan"
+        if authority == "failed"
+        else "retrieve"
+        if authority in {"discovery", "inspection", "concrete"}
+        and name in {
+            *WEB_EVIDENCE_TOOLS,
+            "document_search",
+            "memory_read",
+            "memory_search",
+            "structured_read",
+        }
+        else "verify"
+        if authority == "verification"
+        else "act"
+    )
+    current_subtask = str(
+        _task_controller_value(task, "current_subtask")
+        or task.get("completion_criteria")
+        or task.get("objective")
+        or ""
+    )
+    unresolved = _task_controller_value(task, "unresolved_evidence")
+    unresolved = unresolved if isinstance(unresolved, list) else []
+    state_fingerprint = hashlib.sha256(
+        json.dumps(
+            {
+                "subtask": current_subtask,
+                "environment_version": environment_version,
+                "unresolved_evidence": unresolved,
+                "action_family": action_family,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            default=str,
+        ).encode()
+    ).hexdigest()[:24]
+    return {
+        "audit_id": f"audit-{str(call_id)[:118]}",
+        "evidence_id": str(call_id)[:128],
+        "transition": transition,
+        "action_family": action_family,
+        "authority": authority,
+        "target": target,
+        "evidence_slot": evidence_slot,
+        "state_fingerprint": state_fingerprint,
+        "changed_paths": changed_paths,
+        "executor_succeeded": not _result_failed_or_blocked(result),
+    }
+
+
+def _latest_audit(task: Mapping[str, Any]) -> dict[str, Any]:
+    state = task.get("task_state")
+    if not isinstance(state, Mapping):
+        return {}
+    reports = state.get("audit_reports")
+    if not isinstance(reports, list):
+        return {}
+    return next(
+        (dict(item) for item in reversed(reports) if isinstance(item, Mapping)),
+        {},
+    )
+
+
+def _completion_is_audited(
+    task: Mapping[str, Any], evidence_ids: list[str]
+) -> bool:
+    """Require post-mutation verification before terminal completion."""
+
+    state = task.get("task_state")
+    if not isinstance(state, Mapping):
+        # Compatibility for tasks created before the audited-state schema.
+        return True
+    environment = state.get("environment")
+    environment = environment if isinstance(environment, Mapping) else {}
+    environment_version = int(environment.get("version") or 0)
+    reports = state.get("audit_reports")
+    reports = reports if isinstance(reports, list) else []
+    selected = [
+        item
+        for item in reports
+        if isinstance(item, Mapping)
+        and str(item.get("evidence_id") or "") in evidence_ids
+    ]
+    if not selected:
+        return False
+    if environment_version <= 0:
+        return any(
+            str(item.get("authority") or "")
+            in {"concrete", "verification", "inspection"}
+            for item in selected
+        )
+    return any(
+        str(item.get("authority") or "") == "verification"
+        and int(item.get("environment_version_after") or -1) == environment_version
+        for item in selected
+    )
+
+
 def _supports_durable_progress(item: Mapping[str, Any] | None) -> bool:
     return _evidence_authority(item) in {"concrete", "mutation", "verification"}
 
@@ -2433,7 +2757,7 @@ def _result_failed_or_blocked(result: Any) -> bool:
 
 
 def _trailing_capability_failures(task: Mapping[str, Any]) -> dict[str, int]:
-    """Recover per-capability failures since the last concrete success."""
+    """Recover actual executor failures, never successful inspections."""
 
     counts: dict[str, int] = {}
     actions = task.get("actions")
@@ -2446,9 +2770,10 @@ def _trailing_capability_failures(task: Mapping[str, Any]) -> dict[str, int]:
         if not name or name in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search", "web_search"}:
             continue
         outcome = _audit_mapping(action.get("outcome"))
-        if action.get("ok") is True and outcome.get("task_progress") is not False:
+        if action.get("ok") is True and not _result_failed_or_blocked(outcome):
             break
-        counts[name] = counts.get(name, 0) + 1
+        if _result_failed_or_blocked(outcome) or action.get("ok") is False:
+            counts[name] = counts.get(name, 0) + 1
     return counts
 
 
@@ -2467,11 +2792,14 @@ def _apply_capability_retry_budget(
 
     if not name or name in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search", "web_search"}:
         return result
-    observation_only = (
-        isinstance(result, Mapping) and result.get("task_progress") is False
-    )
-    if not _result_failed_or_blocked(result) and not observation_only:
-        failures.clear()
+    if not _result_failed_or_blocked(result):
+        # A successful inspection proves that the capability executed. Whether
+        # it advanced the task is tracked separately by the audited evidence
+        # slot and stagnation state; it is not a capability failure.
+        if _evidence_authority({"name": name, "result": result}) == "inspection":
+            failures.pop(name, None)
+        else:
+            failures.clear()
         return result
     failures[name] = failures.get(name, 0) + 1
     if failures[name] < MAX_FAILED_CAPABILITY_ATTEMPTS:
@@ -2484,8 +2812,8 @@ def _apply_capability_retry_budget(
     return {
         "error": "capability_retry_exhausted",
         "message": (
-            f"{name} failed or only inspected state {failures[name]} times "
-            "without a concrete success. "
+            f"{name} failed {failures[name]} times without a successful "
+            "executor result. "
             "Change capability before trying this action space again."
         ),
         "failure_scope": "capability",
@@ -2713,7 +3041,7 @@ class BackgroundAgent:
         result: Any,
         *,
         historical: bool = False,
-    ) -> None:
+    ) -> dict[str, Any] | None:
         try:
             receipt = None
             if name in COMPUTER_ACTION_TOOLS and isinstance(result, Mapping):
@@ -2744,7 +3072,19 @@ class BackgroundAgent:
                         evidence_result.encode("utf-8")
                     ).hexdigest(),
                 }
-            self.store.record_action(
+            current = self.store.get(task_id) or {}
+            audit_report = (
+                None
+                if name in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}
+                else _action_audit_report(
+                    current,
+                    call_id=call_id,
+                    name=name or "unknown",
+                    arguments=arguments,
+                    result=result,
+                )
+            )
+            return self.store.record_action(
                 task_id,
                 self.owner,
                 call_id=call_id,
@@ -2754,10 +3094,12 @@ class BackgroundAgent:
                 ok=not _result_failed_or_blocked(result),
                 receipt=receipt,
                 evidence_record=evidence_record,
+                audit_report=audit_report,
                 recorded_at=0 if historical else None,
             )
         except Exception as error:  # noqa: BLE001 - auditing must not stop the task
             logger.warning("could not audit background tool call %s: %s", name, error)
+            return None
 
     def _restore_action_audit(
         self, task_id: str, messages: list[dict[str, Any]]
@@ -3644,6 +3986,7 @@ class BackgroundAgent:
 
             progress_parts: list[str] = []
             observed_actions: list[dict[str, Any]] = []
+            reset_executor_context = False
             for call in calls:
                 function = call.get("function")
                 name = (
@@ -3927,6 +4270,9 @@ class BackgroundAgent:
                             in {"concrete", "mutation", "verification", "inspection"}
                             for authority in evidence_authorities
                         )
+                        and _completion_is_audited(
+                            latest or current, evidence_ids
+                        )
                     )
                     cites_freshest = bool(freshest_evidence_id) and (
                         freshest_evidence_id in evidence_ids
@@ -4003,8 +4349,9 @@ class BackgroundAgent:
                             ),
                             "evidence_authority_required": (
                                 "progress requires a concrete result; completion requires "
-                                "concrete and/or inspection receipts plus at least one "
-                                "concrete result; discovery metadata never proves progress"
+                                "concrete evidence and, after any environment mutation, a "
+                                "verification receipt from the current environment version; "
+                                "discovery metadata never proves progress"
                             ),
                             "retryable": retryable,
                         }
@@ -4070,6 +4417,11 @@ class BackgroundAgent:
                             current_stage=context_text(
                                 "task_stages", "continuing_checkpoint"
                             ),
+                            controller_transition={
+                                "action": action,
+                                "evidence_ids": evidence_ids,
+                                "remaining_requirements": remaining_requirements,
+                            },
                         )
                         if checkpoint is None or checkpoint.get("status") == "cancelled":
                             return
@@ -4082,6 +4434,21 @@ class BackgroundAgent:
                                     "result": neutral_progress,
                                 }
                             )
+                        latest_task = self.store.get(task_id) or current
+                        messages = _fresh_executor_messages(
+                            latest_task,
+                            reason="verified_phase_checkpoint",
+                        )
+                        renewed = self.store.renew_executor_context(
+                            task_id,
+                            self.owner,
+                            messages=_durable_task_messages(messages),
+                            current_stage=context_text(
+                                "task_stages", "continuing_checkpoint"
+                            ),
+                        )
+                        if renewed is None or renewed.get("status") == "cancelled":
+                            return
                         stalls = 0
                         continue
                     status = "completed" if action == "complete" else "blocked"
@@ -4108,6 +4475,11 @@ class BackgroundAgent:
                         ),
                         result=report,
                         status=status,
+                        controller_transition={
+                            "action": action,
+                            "evidence_ids": evidence_ids,
+                            "remaining_requirements": remaining_requirements,
+                        },
                     )
                     logger.info(
                         "background task %s %s: %s", task_id, status, report[:300]
@@ -4343,7 +4715,35 @@ class BackgroundAgent:
                         ),
                     )
                 result = _bounded_tool_result(result)
-                self._record_action(task_id, call_id, name, arguments, result)
+                audited_task = self._record_action(
+                    task_id, call_id, name, arguments, result
+                )
+                audit = _latest_audit(audited_task or {})
+                stagnation_count = int(audit.get("stagnation_count") or 0)
+                if (
+                    stagnation_count >= 2
+                    and audit.get("epistemic_progress") is not True
+                    and audit.get("environmental_progress") is not True
+                ):
+                    result = {
+                        "error": "audited_state_stagnation",
+                        "message": (
+                            "The audited task, environment, and evidence state did not "
+                            "advance through this action family. Re-plan from the pinned "
+                            "state and choose a materially different transition."
+                        ),
+                        "task_progress": False,
+                        "failure_scope": "plan",
+                        "disposition": "replan",
+                        "state_fingerprint": str(
+                            audit.get("state_fingerprint") or ""
+                        ),
+                        "stagnation_count": stagnation_count,
+                        "last_result": result,
+                    }
+                    active_tools = []
+                    stalls += 1
+                    reset_executor_context = stagnation_count >= 3
                 if (
                     name
                     and name not in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search"}
@@ -4484,6 +4884,20 @@ class BackgroundAgent:
                     }
                 )
 
+            if reset_executor_context:
+                latest_task = self.store.get(task_id) or current
+                messages = _fresh_executor_messages(
+                    latest_task,
+                    reason="audited_stagnation_reset",
+                )
+                active_tools = []
+                phase_action_count = 0
+                recovery_required = False
+                logger.info(
+                    "background task %s reset its executor context after audited "
+                    "state stagnation",
+                    task_id,
+                )
             checkpoint = self.store.checkpoint(
                 task_id,
                 self.owner,

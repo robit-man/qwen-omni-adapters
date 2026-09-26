@@ -46,6 +46,15 @@ FIFO truncation as a successful virtual-memory turn. At 4K/8K, the worker uses a
 semantically equivalent compact controller policy and strips documentation-only
 annotations from the single selected action schema while preserving all
 executable JSON constraints.
+
+Durable execution state is external to that renewable prompt. A versioned task
+record independently tracks learned evidence, executor-observed environment
+changes, and controller progress. Inspections never masquerade as mutations;
+repeated actions against the same evidence slot trigger replanning and then a
+fresh executor context. Compaction responds to the live resident-token
+high-water mark and preserves recent causal action/result pairs, while exact
+receipts remain available through task evidence expansion. Completion after a
+mutation requires verification against the current environment version.
 Current user media remains attached only to the newest user message. Deleting
 portal session diagnostics/Trash also deletes that session's complete virtual
 corpus, WAL, and shared-memory files.

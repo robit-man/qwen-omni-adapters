@@ -23,6 +23,7 @@ from harness.background_agent import (
     TASK_RECOVERY_TOOL,
     TASK_START_REQUEST,
     BackgroundAgent,
+    _action_audit_report,
     _apply_capability_retry_budget,
     _audit_json,
     _background_discovery_preflight,
@@ -38,6 +39,7 @@ from harness.background_agent import (
     _compaction_evidence_records,
     _compaction_receipt,
     _compaction_tool_available,
+    _completion_is_audited,
     _computer_action_messages,
     _context_metrics,
     _direct_alternative_tools,
@@ -346,6 +348,7 @@ def test_task_context_limits_follow_the_live_resident_window(
         "context_bytes": 32 * 1_024,
         "retained_messages": 4,
         "focus_chars": 1_228,
+        "compaction_high_water_tokens": 2_949,
     }
 
     state.write_text("8192\n", encoding="utf-8")
@@ -995,11 +998,21 @@ def test_context_metrics_charge_visual_tokens_not_raw_base64_transport() -> None
 
 
 def test_manual_compaction_is_hidden_during_scoped_computer_action_loop() -> None:
-    messages = [
+    small_messages = [
         {"role": "system", "content": "task policy"},
         {"role": "user", "content": "objective"},
         *(
             {"role": "user", "content": f"old result {index}"}
+            for index in range(20)
+        ),
+    ]
+    assert _compaction_available(small_messages) is False
+
+    messages = [
+        {"role": "system", "content": "task policy"},
+        {"role": "user", "content": "objective"},
+        *(
+            {"role": "user", "content": f"old result {index} " + "x" * 6_000}
             for index in range(20)
         ),
     ]
@@ -1521,6 +1534,255 @@ def test_background_task_store_records_bounded_action_audit(tmp_path: Path) -> N
             "ok": True,
         }
     ]
+
+
+def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Create and verify an artifact.", "The artifact passes checks.")
+    current = store.claim_next("worker")
+    assert current is not None
+    assert current["task_state"]["environment"]["version"] == 0
+
+    def record(
+        call_id: str,
+        arguments: dict[str, Any],
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        nonlocal current
+        report = _action_audit_report(
+            current,
+            call_id=call_id,
+            name="shell",
+            arguments=arguments,
+            result=result,
+        )
+        updated = store.record_action(
+            created["task_id"],
+            "worker",
+            call_id=call_id,
+            tool="shell",
+            arguments=json.dumps(arguments),
+            outcome=json.dumps(result),
+            ok=result.get("exit_code") == 0,
+            audit_report=report,
+        )
+        assert updated is not None
+        current = updated
+        return report
+
+    inspection = {
+        "intent": "inspect",
+        "cwd": str(tmp_path),
+    }
+    inspection_result = {
+        "exit_code": 0,
+        "evidence_authority": "inspection",
+        "task_progress": False,
+    }
+    first = record("inspect-1", inspection, inspection_result)
+    assert current["task_state"]["knowledge"]["version"] == 1
+    assert current["task_state"]["audit_reports"][-1]["epistemic_progress"] is True
+
+    second = record("inspect-2", inspection, inspection_result)
+    assert second["evidence_slot"] == first["evidence_slot"]
+    assert second["state_fingerprint"] == first["state_fingerprint"]
+    assert current["task_state"]["knowledge"]["version"] == 1
+    assert current["task_state"]["controller"]["stagnation"]["count"] == 1
+    record("inspect-3", inspection, inspection_result)
+    assert current["task_state"]["controller"]["stagnation"]["count"] == 2
+
+    record(
+        "mutate-1",
+        {"intent": "mutate_filesystem", "cwd": str(tmp_path)},
+        {
+            "exit_code": 0,
+            "evidence_authority": "mutation",
+            "effect_receipt": {"changed_paths": [str(tmp_path / "artifact.txt")]},
+        },
+    )
+    assert current["task_state"]["environment"]["version"] == 1
+    assert current["task_state"]["controller"]["stagnation"]["count"] == 0
+    assert not _completion_is_audited(current, ["mutate-1"])
+
+    record(
+        "verify-1",
+        {"intent": "verify", "cwd": str(tmp_path)},
+        {"exit_code": 0, "evidence_authority": "verification"},
+    )
+    assert _completion_is_audited(current, ["verify-1"])
+
+    checkpoint = store.checkpoint(
+        created["task_id"],
+        "worker",
+        progress="Artifact exists; perform the final acceptance check.",
+        controller_transition={
+            "action": "progress",
+            "evidence_ids": ["verify-1"],
+            "remaining_requirements": ["Run the final acceptance check."],
+        },
+    )
+    assert checkpoint is not None
+    controller = checkpoint["task_state"]["controller"]
+    assert controller["executor_generation"] == 1
+    assert controller["current_subtask"] == "Run the final acceptance check."
+    assert controller["next_transition"] == "prethink"
+
+    renewed = store.renew_executor_context(
+        created["task_id"],
+        "worker",
+        messages=[
+            {"role": "system", "content": "fresh audited frontier"},
+            {"role": "user", "content": "choose the next transition"},
+        ],
+    )
+    assert renewed is not None
+    assert renewed["round"] == checkpoint["round"]
+    raw = json.loads((tmp_path / "tasks.json").read_text(encoding="utf-8"))
+    assert raw["tasks"][0]["messages"][0]["content"] == "fresh audited frontier"
+
+
+def test_audited_stagnation_renews_context_and_recovers_to_completion(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create(
+        "Create artifact.txt, then verify it exists.",
+        "artifact.txt exists and a current verification succeeds.",
+    )
+    tool_harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    chat_round = 0
+    artifact = tmp_path / "artifact.txt"
+
+    def tool_response(call_id: str, name: str, arguments: dict[str, Any]) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "function": {"name": name, "arguments": arguments},
+                        }
+                    ],
+                }
+            },
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        if request.url.path.startswith("/api/tools/"):
+            name = request.url.path.split("/")[-2]
+            arguments = json.loads(request.content).get("arguments", {})
+            result = tool_harness.execute("stagnation-recovery", name, arguments)
+            return httpx.Response(200, json={"result": result})
+
+        chat_round += 1
+        payload = json.loads(request.content)
+        if chat_round == 1:
+            return tool_response("discover-shell-1", "tool_search", {"family": "shell"})
+        if chat_round in {2, 3, 4}:
+            return tool_response(
+                f"inspect-{chat_round - 1}",
+                "shell",
+                {
+                    "command": f"printf inspect-{chat_round - 1}",
+                    "intent": "inspect",
+                    "cwd": str(tmp_path),
+                },
+            )
+        if chat_round == 5:
+            last_result = json.loads(payload["messages"][-2]["content"])
+            assert last_result["error"] == "audited_state_stagnation"
+            assert last_result["stagnation_count"] == 2
+            return tool_response("discover-shell-2", "tool_search", {"family": "shell"})
+        if chat_round == 6:
+            return tool_response(
+                "inspect-4",
+                "shell",
+                {
+                    "command": "printf inspect-4",
+                    "intent": "inspect",
+                    "cwd": str(tmp_path),
+                },
+            )
+        if chat_round == 7:
+            assert len(payload["messages"]) == 2
+            assert "audited_stagnation_reset" in payload["messages"][1]["content"]
+            assert "printf inspect" not in json.dumps(payload["messages"])
+            persisted = json.loads(
+                (tmp_path / "tasks.json").read_text(encoding="utf-8")
+            )
+            assert len(persisted["tasks"][0]["messages"]) == 2
+            return tool_response(
+                "discover-files", "tool_search", {"family": "filesystem"}
+            )
+        if chat_round == 8:
+            return tool_response(
+                "write-after-reset",
+                "workspace_file",
+                {
+                    "action": "write",
+                    "path": str(artifact),
+                    "content": "recovered\n",
+                },
+            )
+        if chat_round == 9:
+            return _checkpoint_response(
+                "progress",
+                "I created the artifact after changing strategy.",
+                ["write-after-reset"],
+            )
+        if chat_round == 10:
+            assert len(payload["messages"]) == 2
+            assert "verified_phase_checkpoint" in payload["messages"][1]["content"]
+            return tool_response("discover-shell-3", "tool_search", {"family": "shell"})
+        if chat_round == 11:
+            return tool_response(
+                "verify-after-reset",
+                "shell",
+                {
+                    "command": "test -f artifact.txt",
+                    "intent": "verify",
+                    "cwd": str(tmp_path),
+                },
+            )
+        return _checkpoint_response(
+            "complete",
+            "I created artifact.txt and verified it in the current state.",
+            ["verify-after-reset"],
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.01)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert artifact.read_text(encoding="utf-8") == "recovered\n"
+    assert current["task_state"]["environment"]["version"] == 1
+    assert current["task_state"]["controller"]["executor_generation"] == 1
+    assert chat_round == 12
 
 
 def test_action_audit_redacts_credentials_and_bulk_payloads() -> None:
@@ -2363,7 +2625,7 @@ def test_capability_retry_budget_requires_a_different_action_space() -> None:
     assert exhausted["last_result"] == failed
 
 
-def test_repeated_shell_observations_exhaust_the_capability_budget() -> None:
+def test_successful_shell_observations_do_not_consume_capability_failures() -> None:
     failures: dict[str, int] = {}
     inspection = {
         "exit_code": 0,
@@ -2374,10 +2636,8 @@ def test_repeated_shell_observations_exhaust_the_capability_budget() -> None:
 
     assert _apply_capability_retry_budget("shell", inspection, failures) == inspection
     assert _apply_capability_retry_budget("shell", inspection, failures) == inspection
-    exhausted = _apply_capability_retry_budget("shell", inspection, failures)
-
-    assert exhausted["error"] == "capability_retry_exhausted"
-    assert exhausted["alternative_tools"] == ["workspace_file"]
+    assert _apply_capability_retry_budget("shell", inspection, failures) == inspection
+    assert failures == {}
 
 
 def test_concrete_success_resets_capability_retry_budget() -> None:
@@ -2544,7 +2804,7 @@ def test_a_single_tool_result_cannot_balloon_the_durable_task_context() -> None:
 
 def test_compaction_control_waits_for_new_external_evidence_after_receipt() -> None:
     messages = [
-        {"role": "user", "content": f"retained-{index}"}
+        {"role": "user", "content": f"retained-{index} " + "x" * 5_000}
         for index in range(MAX_RETAINED_TASK_MESSAGES + 4)
     ]
     assert _compaction_available(messages) is True
@@ -2609,12 +2869,14 @@ def test_background_agent_compacts_deterministically_before_inference(
                         }
                     ],
                 },
-                {
-                    "role": "tool",
-                    "tool_name": "shell",
-                    "tool_call_id": f"evidence-{index}",
-                    "content": '{"exit_code": 0}',
-                },
+                    {
+                        "role": "tool",
+                        "tool_name": "shell",
+                        "tool_call_id": f"evidence-{index}",
+                        "content": json.dumps(
+                            {"exit_code": 0, "stdout": "x" * 8_000}
+                        ),
+                    },
             ]
         )
     store.checkpoint(
@@ -4063,7 +4325,8 @@ def test_background_agent_speaks_a_sparse_checkpoint_then_resumes(
             )
         elif chat_round == 3:
             payload = json.loads(request.content)
-            assert '"accepted": true' in str(payload["messages"][-1]).lower()
+            assert "executor-handoff.v1" in str(payload["messages"][-1])
+            assert "audited_task_state" in str(payload["messages"][0])
             assert "I created the artifact" not in json.dumps(payload["messages"])
             assert "further required work remains" not in json.dumps(
                 payload["messages"]
@@ -4138,14 +4401,25 @@ def test_background_agent_rejects_completion_after_latest_action_failed(
         nonlocal chat_round
         if request.url.path == "/api/tools/shell/call":
             command = json.loads(request.content)["arguments"]["command"]
+            if command == "create artifact":
+                receipt = {
+                    "exit_code": 0,
+                    "evidence_authority": "mutation",
+                    "effect_receipt": {"changed_paths": ["artifact.txt"]},
+                }
+            elif command == "different successful verification":
+                receipt = {
+                    "exit_code": 0,
+                    "evidence_authority": "verification",
+                }
+            else:
+                receipt = {
+                    "exit_code": 1,
+                    "stderr": "failed",
+                }
             return httpx.Response(
                 200,
-                json={
-                    "result": {
-                        "exit_code": 1 if command == "bad verification" else 0,
-                        "stderr": "failed" if command == "bad verification" else "",
-                    }
-                },
+                json={"result": receipt},
             )
         chat_round += 1
         if chat_round == 1:

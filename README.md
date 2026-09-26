@@ -217,7 +217,8 @@ Current local-call behavior also includes:
 - crash-safe persistent background tasks that checkpoint after each
   bounded inference/tool slice, finalize only through referenced tool evidence,
   yield cancellable inference to foreground speech, accept later spoken
-  guidance, and use native thinking without speaking or storing it;
+  guidance, keep knowledge/environment/controller state outside renewable model
+  transcripts, and use native thinking without speaking or storing it;
 - bounded conversational history with time-based relevance reduction and
   explicit current-query memory tools rather than next-turn prefetch;
 - live memory-derived comprehension context selection and automatic
@@ -686,12 +687,14 @@ launches FFmpeg or activates a camera privacy indicator.
   Ornith/Omni chat weights have no embedding head and measured poorly when
   forced into that role, so the small dedicated encoder remains the deliberate
   exception and unloads after each job.
-- **Long work is checkpointed and self-checked.** The foreground turn can hand a sustained job
+- **Long work is externally audited, checkpointed, and self-checked.** The foreground turn can hand a sustained job
   to the persistent worker, acknowledge immediately, and keep listening. The
-  worker reasons and uses tools between speech turns, reassesses objective
-  alignment and remaining criteria after every concrete result, records
-  evidence-backed progress, accepts spoken refinements, and reports only after
-  the freshest result supports completion or a real blocker.
+  worker reasons and uses tools between speech turns, while a deterministic
+  state ledger separately records learned evidence, verified environment
+  mutations, controller transitions, and repeated-state stagnation. Accepted
+  phase boundaries renew the executor context from that ledger. Spoken
+  refinements retain exact user provenance, and completion after a mutation
+  requires fresh verification against the current environment version.
 - **Live host state is explicit.** Ordinary turns carry no eager clock,
   location, network, battery, or process blob. Current time, client-browser
   approximate location, and bounded hardware/load facts come from their
