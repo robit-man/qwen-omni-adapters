@@ -179,6 +179,9 @@ controller-only virtual-memory scope whose working set is assembled from the
 current role packet and explicitly replayed immutable receipts. This prevents a
 rejected plan from retrieving and reinforcing itself while leaving the original
 evidence and full audit history recoverable.
+The opaque task-local portal session is schema-versioned, so a harness-only
+upgrade can abandon a corpus polluted by an older controller without deleting
+it, restarting GPU workers, or discarding the authoritative task ledger.
 
 Retrieval contracts close an evidence slot only when their typed receipt carries
 resolving evidence. An empty search result therefore cannot establish the
