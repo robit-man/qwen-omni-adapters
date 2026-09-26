@@ -2167,6 +2167,60 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
     assert second_replan["reason"] == "replan_requires_fresh_audited_nonprogress"
 
 
+def test_empty_search_cannot_close_retrieval_contract(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Acquire the plan.", "The exact plan is available.")
+    assert store.claim_next("worker") is not None
+    managed = store.manage_transition(
+        created["task_id"],
+        "worker",
+        {
+            "contract_id": "contract-search-plan",
+            "decision": "retrieve",
+            "subtask": "Acquire the exact plan contents.",
+            "capability_family": "documents",
+            "expected_effect": "resolve_unknown",
+            "effect_target": "CareNest plan",
+            "target_kind": "record",
+            "target_scope": "exact",
+            "acceptance_test": "A source result contains the plan.",
+            "verification_family": "documents",
+            "reason": "The contents are not in the current evidence set.",
+        },
+    )
+    assert managed is not None
+    empty_result = {
+        "query": "CareNest plan",
+        "results": [],
+        "trust": "untrusted_document_content",
+    }
+    report = _action_audit_report(
+        managed,
+        call_id="empty-search",
+        name="document_search",
+        arguments={"query": "CareNest plan"},
+        result=empty_result,
+        require_contract=True,
+    )
+    assert report["retrieval_evidence_present"] is False
+    assert report["contract_satisfied"] is False
+    updated = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="empty-search",
+        tool="document_search",
+        arguments='{"query":"CareNest plan"}',
+        outcome=json.dumps(empty_result),
+        ok=True,
+        audit_report=report,
+    )
+    assert updated is not None
+    controller = updated["task_state"]["controller"]
+    assert controller["last_contract"]["status"] == "expected_effect_missing"
+    assert updated["task_state"]["knowledge"]["version"] == 0
+    assert _retired_action_families(updated) == {"document_search:execute"}
+
+
 def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
     tmp_path: Path,
 ) -> None:

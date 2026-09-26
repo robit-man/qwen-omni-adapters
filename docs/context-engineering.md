@@ -165,6 +165,12 @@ only when it checks an environment version newer than the last accepted phase
 frontier; the initial verify-only phase uses a `-1` frontier so pre-existing
 state can still be verified. Relabeling an unchanged inspection as verification
 therefore cannot reopen a retired transition or advance another checkpoint.
+
+Retrieval contracts close an evidence slot only when their typed receipt carries
+resolving evidence. An empty search result therefore cannot establish the
+contents of a requested source, while an exact filesystem listing may validly
+prove that a directory is empty.
+
 Accepted phase checkpoints create a fresh
 executor working set from the external state rather than carrying forward the
 previous executor's private reasoning. That fresh working set is persisted

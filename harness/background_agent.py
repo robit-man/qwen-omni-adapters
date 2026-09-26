@@ -3083,6 +3083,41 @@ def _source_receipt_has_evidence(name: str, result: Any) -> bool:
     return False
 
 
+def _retrieval_receipt_has_evidence(
+    name: str, arguments: Mapping[str, Any], result: Any
+) -> bool:
+    """Return whether a successful retrieval produced typed resolving evidence."""
+
+    if not isinstance(result, Mapping) or _result_failed_or_blocked(result):
+        return False
+    if name in MILESTONE_SOURCE_TOOLS:
+        return _source_receipt_has_evidence(name, result)
+    if name == "workspace_file":
+        operation = str(arguments.get("action") or result.get("action") or "")
+        if operation == "read":
+            # Presence of the field is meaningful: an exact read can prove that
+            # a file is empty without inventing content.
+            return "content" in result and bool(str(result.get("path") or ""))
+        if operation == "list":
+            return isinstance(result.get("entries"), list) and bool(
+                str(result.get("path") or "")
+            )
+    if name == "shell":
+        # The exit status is executor-produced evidence even when a predicate
+        # such as `test -e` intentionally emits no text.
+        return result.get("exit_code") is not None
+    # Other retrieval tools return narrow, structured snapshots. Require more
+    # than transport/control metadata so an empty envelope cannot close a slot.
+    ignored = {
+        "evidence_authority",
+        "task_progress",
+        "trust",
+        "query",
+        "action",
+    }
+    return any(value not in (None, "", [], {}) for key, value in result.items() if key not in ignored)
+
+
 def _normalized_contract_path(value: Any, cwd: Any) -> Path | None:
     raw = str(value or "").strip()
     if not raw or "\x00" in raw:
@@ -3241,6 +3276,9 @@ def _action_audit_report(
         and contract_phase == "audit"
         and _contract_verification_matches(pending_contract, arguments, result)
     )
+    retrieval_evidence_present = _retrieval_receipt_has_evidence(
+        name, arguments, result
+    )
 
     if name == "shell":
         # The typed shell intent defines the state domain.  A caller can name a
@@ -3300,6 +3338,7 @@ def _action_audit_report(
                 contract_phase == "execute"
                 and contract_decision == "retrieve"
                 and authority in {"discovery", "inspection", "concrete", "verification"}
+                and retrieval_evidence_present
                 and not _result_failed_or_blocked(result)
             )
             or (
@@ -3411,6 +3450,7 @@ def _action_audit_report(
         "contract_satisfied": contract_satisfied,
         "contract_effect_matched": contract_effect_matched,
         "contract_verification_matched": contract_verification_matched,
+        "retrieval_evidence_present": retrieval_evidence_present,
         # A tool can succeed and even close a new knowledge slot without
         # satisfying a durable phase. This typed bit is deliberately narrower
         # than epistemic/environmental progress and is checked independently

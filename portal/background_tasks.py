@@ -192,9 +192,15 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
         and int(item.get("environment_version") or 0) == environment_before
         for item in closed_slots
     )
+    retrieval_contract_without_evidence = bool(
+        str(normalized.get("contract_phase") or "") == "execute"
+        and str(normalized.get("contract_decision") or "") == "retrieve"
+        and normalized.get("retrieval_evidence_present") is not True
+    )
     epistemic_progress = bool(
         slot_is_new
         and authority in {"discovery", "inspection", "concrete", "verification"}
+        and not retrieval_contract_without_evidence
     )
     if epistemic_progress:
         closed_slots.append(
