@@ -24,6 +24,7 @@ from harness.background_agent import (
     TASK_START_REQUEST,
     BackgroundAgent,
     _action_audit_report,
+    _action_family,
     _apply_capability_retry_budget,
     _audit_for_evidence,
     _audit_json,
@@ -66,6 +67,7 @@ from harness.background_agent import (
     _NonRetryableBackgroundError,
     _normalize_progress_evidence,
     _recovery_required,
+    _retired_action_families,
     _sanitize_checkpoint_history,
     _search_task_evidence,
     _seen_tool_fingerprints,
@@ -507,6 +509,45 @@ def test_constrained_action_contract_keeps_json_rules_without_prose_bloat() -> N
         "enum": ["a"],
         "required": ["x"],
     }
+
+
+def test_audited_stagnation_retires_only_the_typed_transition() -> None:
+    task = {
+        "task_state": {
+            "controller": {"stagnation": {"fingerprint": "same", "count": 2}},
+            "audit_reports": [
+                {
+                    "action_family": "shell:inspect",
+                    "epistemic_progress": False,
+                    "environmental_progress": False,
+                }
+            ],
+        }
+    }
+    retired = _retired_action_families(task)
+
+    assert retired == {"shell:inspect"}
+    assert _action_family("shell", {"intent": "inspect"}) in retired
+    assert _action_family("shell", {"intent": "mutate_filesystem"}) not in retired
+
+    schemas = _background_tool_contract(
+        ["shell"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+        resident_context_tokens=16_384,
+        retired_action_families=retired,
+    )
+    shell = next(
+        item for item in schemas if item["function"]["name"] == "shell"
+    )
+    intents = shell["function"]["parameters"]["properties"]["intent"]["enum"]
+    assert "inspect" not in intents
+    assert intents == ["mutate_filesystem", "mutate_runtime", "verify"]
+
+    task["task_state"]["controller"]["stagnation"]["count"] = 0
+    assert _retired_action_families(task) == set()
 
 def test_evidence_paging_cannot_loop_or_replace_capability_discovery() -> None:
     checkpoint = [

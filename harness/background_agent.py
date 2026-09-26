@@ -79,6 +79,7 @@ TASK_START_REQUEST = (
 )
 MAX_VIRTUAL_QUERY_CHARS = 1_200
 MAX_PHASE_ACTIONS = 8
+STAGNANT_ACTION_RETIRE_THRESHOLD = 2
 
 _TYPED_TOOL_FAMILIES = frozenset(configured_tool_families())
 _CAMERA_DEVICE_RE = re.compile(r"\b(?:camera|webcam|video\s+feed)\b", re.IGNORECASE)
@@ -368,6 +369,7 @@ def _audited_task_state(task: Mapping[str, Any]) -> str:
             )[:8],
             "executor_generation": int(controller.get("executor_generation") or 0),
             "stagnation": stagnation,
+            "retired_action_families": sorted(_retired_action_families(task)),
         },
         "environment": {
             "version": int(environment.get("version") or 0),
@@ -407,6 +409,13 @@ def _task_system_prompt(
     audited_state = _audited_task_state(task)
     if audited_state:
         contract.append(audited_state)
+    if _retired_action_families(task):
+        contract.append(
+            "<recovery_frontier>A controller retired_action_families entry disables "
+            "that typed transition until audited task state advances. Choose a "
+            "different supplied transition, never a reworded equivalent."
+            "</recovery_frontier>"
+        )
     guidance = task.get("guidance")
     if isinstance(guidance, list):
         directions = [
@@ -783,6 +792,7 @@ def _background_tool_contract(
     can_checkpoint: bool,
     resident_context_tokens: int | None = None,
     recovery_exploration: bool = False,
+    retired_action_families: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Expose the smallest complete action space for one controller round."""
 
@@ -816,9 +826,96 @@ def _background_tool_contract(
             schemas.append(copy.deepcopy(TASK_EXPAND_TOOL))
         if can_checkpoint:
             schemas.append(copy.deepcopy(TASK_CHECKPOINT_TOOL))
+    if retired_action_families:
+        schemas = _without_retired_action_families(
+            schemas, retired_action_families
+        )
     if resident <= 8_192:
         return [_compact_tool_schema(schema) for schema in schemas]
     return schemas
+
+
+def _action_family(name: str, arguments: Mapping[str, Any]) -> str:
+    """Return the auditor's content-independent family for a proposed call."""
+
+    operation = str(
+        arguments.get("action") or arguments.get("intent") or "execute"
+    ).strip()[:80]
+    return f"{name}:{operation}"
+
+
+def _retired_action_families(task: Mapping[str, Any]) -> set[str]:
+    """Retire a repeatedly stagnant typed transition until state advances.
+
+    The decision is derived only from the runtime-owned audit, never from shell
+    text, path suffixes, or a task-specific keyword. Any epistemic or
+    environmental advance resets the controller's stagnation counter in the
+    durable store, which makes the family available again automatically.
+    """
+
+    state = task.get("task_state")
+    if not isinstance(state, Mapping):
+        return set()
+    controller = state.get("controller")
+    controller = controller if isinstance(controller, Mapping) else {}
+    stagnation = controller.get("stagnation")
+    stagnation = stagnation if isinstance(stagnation, Mapping) else {}
+    if int(stagnation.get("count") or 0) < STAGNANT_ACTION_RETIRE_THRESHOLD:
+        return set()
+    audit = _latest_audit(task)
+    if (
+        audit.get("epistemic_progress") is True
+        or audit.get("environmental_progress") is True
+    ):
+        return set()
+    family = str(audit.get("action_family") or "").strip()
+    return {family} if family else set()
+
+
+def _without_retired_action_families(
+    schemas: list[dict[str, Any]], retired: set[str]
+) -> list[dict[str, Any]]:
+    """Project retired typed operations out of the next executable grammar."""
+
+    narrowed: list[dict[str, Any]] = []
+    for raw_schema in schemas:
+        schema = copy.deepcopy(raw_schema)
+        function = schema.get("function")
+        if not isinstance(function, dict):
+            narrowed.append(schema)
+            continue
+        name = str(function.get("name") or "")
+        parameters = function.get("parameters")
+        properties = (
+            parameters.get("properties")
+            if isinstance(parameters, dict)
+            else None
+        )
+        if isinstance(properties, dict):
+            for operation_key in ("action", "intent"):
+                operation_schema = properties.get(operation_key)
+                if not isinstance(operation_schema, dict):
+                    continue
+                values = operation_schema.get("enum")
+                if not isinstance(values, list):
+                    continue
+                permitted = [
+                    value
+                    for value in values
+                    if f"{name}:{str(value)[:80]}" not in retired
+                ]
+                operation_schema["enum"] = permitted
+                if not permitted:
+                    break
+            else:
+                narrowed.append(schema)
+                continue
+            # A required typed operation with no legal value cannot be offered.
+            continue
+        if f"{name}:execute" in retired:
+            continue
+        narrowed.append(schema)
+    return narrowed
 
 
 def _task_expand_available(
@@ -2706,10 +2803,8 @@ def _action_audit_report(
     """Create an executor-independent, typed state-transition audit."""
 
     authority = _evidence_authority({"name": name, "result": result})
-    operation = str(
-        arguments.get("action") or arguments.get("intent") or "execute"
-    ).strip()[:80]
-    action_family = f"{name}:{operation}"
+    action_family = _action_family(name, arguments)
+    operation = action_family.partition(":")[2]
     environment_version = _task_environment_version(task)
 
     if name == "shell":
@@ -4100,6 +4195,7 @@ class BackgroundAgent:
                 can_checkpoint=can_checkpoint,
                 resident_context_tokens=resident_context_tokens,
                 recovery_exploration=replan_after_inspection,
+                retired_action_families=_retired_action_families(current),
             )
             offered_tool_names = {
                 str(function.get("name") or "")
@@ -4858,8 +4954,33 @@ class BackgroundAgent:
                     if completed is not None and self.on_complete is not None:
                         self.on_complete(completed)
                     return
+                retired_action_families = _retired_action_families(
+                    latest or current
+                )
+                proposed_action_family = _action_family(name, arguments)
                 fingerprint = _call_fingerprint(name, arguments)
-                if fingerprint == last_tool_fingerprint:
+                if proposed_action_family in retired_action_families:
+                    result = {
+                        "error": "retired_stagnant_action_family",
+                        "message": (
+                            "The deterministic audit retired this typed transition "
+                            "because it repeatedly left task knowledge and environment "
+                            "unchanged. Choose a different typed transition; the family "
+                            "becomes available again after audited state advances."
+                        ),
+                        "action_family": proposed_action_family,
+                        "retired_action_families": sorted(
+                            retired_action_families
+                        ),
+                        "task_progress": False,
+                        "failure_scope": "plan",
+                        "disposition": "replan",
+                    }
+                    if name in active_tools:
+                        active_tools = [
+                            item for item in active_tools if item != name
+                        ]
+                elif fingerprint == last_tool_fingerprint:
                     result: Any = {
                         "error": "duplicate_tool_call",
                         "message": (

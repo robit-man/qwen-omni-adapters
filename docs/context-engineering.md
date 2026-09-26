@@ -260,11 +260,19 @@ call ID, exact tool name, bounded/redacted arguments, outcome, success state,
 evidence slot, environment version, and deterministic progress classification.
 Repeated no-progress actions with the same current subtask, environment
 version, unresolved evidence, and action family increment a stagnation counter.
-The second repeat forces replanning; the third discards the renewable executor
-context and restarts from the audited state. The local voice foreground and its background worker use one stable,
-opaque portal-session scope derived from the daemon capability, so a handed-off
-task can continue in the same visible browser without crossing into another
-user session. The top-bar task submenu shows those calls directly. A live task has a
+The second repeat forces replanning and retires that exact typed action family
+until either the knowledge or environment ledger advances. The next executable
+tool grammar removes only the retired enum value—for example, a stagnant
+`shell:inspect` leaves `shell:mutate_filesystem`, `shell:mutate_runtime`, and
+`shell:verify` available. A call that disregards the narrowed grammar is
+rejected before external execution. This policy reads audit fields, not command
+text or task-specific keywords. The third repeat also discards the renewable
+executor context and restarts from the audited state.
+
+The local voice foreground and its background worker use one stable, opaque
+portal-session scope derived from the daemon capability, so a handed-off task
+can continue in the same visible browser without crossing into another user
+session. The top-bar task submenu shows those calls directly. A live task has a
 **Cancel task** action, and every task has **Clear task record**; the global
 **Clear finished tasks** action archives terminal records before removing them.
 
