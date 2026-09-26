@@ -171,6 +171,11 @@ After audited non-progress, `REPLAN` is an atomic replacement contract. Its
 fields are validated together, then the controller enters that executable
 transition directly. There is no intervening manager turn that can drift from
 the accepted recovery or preserve an incompatible route as authoritative state.
+Validation also projects the candidate through the current retired-operation
+grammar. A candidate with no legal executor operation is rejected before it can
+become pending. If an older deployment already persisted such a plan, resume
+marks it `plan_unexecutable` and returns to one typed `REPLAN` without recording
+an action, evidence receipt, or environment advance.
 
 Renewable MANAGE/EXECUTE/AUDIT request envelopes and typed rejection messages
 remain in the append-only task audit log, but they are not indexed as user
@@ -336,10 +341,15 @@ tool grammar removes only the retired enum value—for example, a stagnant
 rejected before external execution. This policy reads audit fields, not command
 text or task-specific keywords. The third repeat also discards the renewable
 executor context and restarts from the audited state, while preserving a typed
-alternative capability already selected by the retry controller. Retirement
-is stored per action family and is not cleared by arbitrary new knowledge,
-changed bytes, a clock lookup, or a system lookup; only a contract-backed
-audited milestone reopens it.
+alternative capability already selected by the retry controller. Retirement is
+stored per action family and is not cleared by arbitrary new knowledge, changed
+bytes, a clock lookup, or a system lookup; only a contract-backed audited
+milestone clears it. One narrower exception is required to make that milestone
+possible: after an ACT produces its declared effect, the selected read-only
+verifier operations are admitted once against the fresh action frontier even if
+the same operation was stagnant before the action. Unrelated retired operations
+remain closed, and a failed fresh audit returns through REPLAN rather than
+silently clearing retirement.
 
 A bounded contract that fails, misses its declared effect, or fails audit retires
 that exact typed action family immediately and requires one explicit `REPLAN`

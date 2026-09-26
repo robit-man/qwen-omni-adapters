@@ -2266,6 +2266,264 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
     assert second_replan["allowed_decisions"] == []
 
 
+def test_manager_rejects_contract_with_no_admissible_executor_operation(
+    tmp_path: Path,
+) -> None:
+    task = {
+        "task_state": {
+            "controller": {
+                "phase": "prethink",
+                "consecutive_replans": 0,
+                "last_contract": None,
+                "retired_action_families": [
+                    "workspace_file:list",
+                    "workspace_file:read",
+                ],
+                "stagnation": {"count": 0},
+            },
+            "audit_reports": [],
+        }
+    }
+    retrieve = {
+        "decision": "retrieve",
+        "subtask": "Inspect the exact application directory.",
+        "capability_family": "filesystem",
+        "expected_effect": "resolve_unknown",
+        "effect_target": str(tmp_path / "app"),
+        "target_kind": "path",
+        "target_scope": "subtree",
+        "acceptance_test": "The current directory contents are known.",
+        "verification_family": "filesystem",
+        "reason": "The next missing artifact must be identified.",
+    }
+
+    rejection = _manage_transition_error(task, retrieve)
+    assert rejection is not None
+    assert rejection["reason"] == "no_admissible_operations"
+
+    act = {
+        **retrieve,
+        "decision": "act",
+        "subtask": "Create the missing application entry point.",
+        "expected_effect": "change_environment",
+        "effect_target": str(tmp_path / "app" / "page.tsx"),
+        "target_scope": "exact",
+        "acceptance_test": "A fresh read returns the new source.",
+        "reason": "A mutation route remains available at this frontier.",
+    }
+    assert _manage_transition_error(task, act) is None
+
+
+def test_unexecutable_persisted_contract_returns_to_replan_without_evidence(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Build the application.", "The application passes audit.")
+    claimed = store.claim_next("worker")
+    assert claimed is not None
+    managed = store.manage_transition(
+        created["task_id"],
+        "worker",
+        {
+            "contract_id": "stale-retrieve",
+            "decision": "retrieve",
+            "subtask": "Inspect the application directory.",
+            "capability_family": "filesystem",
+            "expected_effect": "resolve_unknown",
+            "effect_target": str(tmp_path / "app"),
+            "target_kind": "path",
+            "target_scope": "subtree",
+            "acceptance_test": "The directory contents are known.",
+            "verification_family": "filesystem",
+            "reason": "The directory must be inspected before editing.",
+        },
+    )
+    assert managed is not None
+    before_state = managed["task_state"]
+
+    invalidated = store.invalidate_pending_contract(
+        created["task_id"],
+        "worker",
+        reason="execute_has_no_admissible_tool_operation",
+    )
+
+    assert invalidated is not None
+    controller = invalidated["task_state"]["controller"]
+    assert controller["phase"] == "prethink"
+    assert controller["next_transition"] == "replan"
+    assert controller["pending_contract"] is None
+    assert controller["last_contract"]["status"] == "plan_unexecutable"
+    assert controller["last_contract"]["invalid_reason"] == (
+        "execute_has_no_admissible_tool_operation"
+    )
+    assert _manage_decision_contract(invalidated) == ["replan"]
+    assert invalidated["task_state"]["environment"] == before_state["environment"]
+    assert invalidated["task_state"]["knowledge"] == before_state["knowledge"]
+    assert invalidated.get("actions") in (None, [])
+
+
+def test_fresh_audit_frontier_reopens_only_selected_verifier_operations() -> None:
+    task = {
+        "task_state": {
+            "controller": {
+                "phase": "audit",
+                "pending_contract": {
+                    "status": "awaiting_audit",
+                    "verification_family": "filesystem",
+                },
+                "retired_action_families": [
+                    "workspace_file:list",
+                    "workspace_file:read",
+                    "workspace_file:mkdir",
+                    "shell:verify",
+                ],
+                "stagnation": {"count": 0},
+            },
+            "audit_reports": [],
+        }
+    }
+
+    assert _retired_action_families(task) == {
+        "workspace_file:mkdir",
+        "shell:verify",
+    }
+
+
+def test_agent_migrates_empty_executor_grammar_before_inference(
+    tmp_path: Path,
+) -> None:
+    task_path = tmp_path / "tasks.json"
+    store = BackgroundTaskStore(task_path)
+    created = store.create("Build the application.", "The application passes audit.")
+    persisted = json.loads(task_path.read_text(encoding="utf-8"))
+    controller = persisted["tasks"][0]["task_state"]["controller"]
+    controller["phase"] = "execute"
+    controller["next_transition"] = "retrieve"
+    controller["pending_contract"] = {
+        "contract_id": "stale-plan",
+        "decision": "retrieve",
+        "subtask": "Inspect the exact application directory.",
+        "capability_family": "filesystem",
+        "expected_effect": "resolve_unknown",
+        "effect_target": str(tmp_path / "app"),
+        "target_kind": "path",
+        "target_scope": "subtree",
+        "acceptance_test": "The directory contents are known.",
+        "verification_family": "filesystem",
+        "status": "planned_after_replan",
+    }
+    controller["retired_action_families"] = [
+        "workspace_file:list",
+        "workspace_file:read",
+    ]
+    task_path.write_text(json.dumps(persisted), encoding="utf-8")
+
+    chat_round = 0
+
+    def tool_call(call_id: str, name: str, arguments: dict[str, Any]) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "function": {"name": name, "arguments": arguments},
+                        }
+                    ],
+                }
+            },
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        if request.url.path == "/api/tools/workspace_file/call":
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "action": "write",
+                        "path": str(tmp_path / "app" / "page.tsx"),
+                        "bytes": 6,
+                        "evidence_authority": "mutation",
+                    }
+                },
+            )
+        payload = json.loads(request.content)
+        offered = [schema["function"]["name"] for schema in payload["tools"]]
+        chat_round += 1
+        if chat_round == 1:
+            assert offered == ["task_manage"]
+            migrated = store.get(created["task_id"])
+            assert migrated is not None
+            assert migrated["task_state"]["controller"]["last_contract"][
+                "status"
+            ] == "plan_unexecutable"
+            return tool_call(
+                "replan-1",
+                "task_manage",
+                {
+                    "decision": "replan",
+                    "next_decision": "act",
+                    "subtask": "Create the missing entry point.",
+                    "capability_family": "filesystem",
+                    "expected_effect": "change_environment",
+                    "effect_target": str(tmp_path / "app" / "page.tsx"),
+                    "target_kind": "path",
+                    "target_scope": "exact",
+                    "acceptance_test": "A fresh read returns the entry point.",
+                    "verification_family": "filesystem",
+                    "reason": "The stale inspection route has no legal operation.",
+                },
+            )
+        assert offered == ["workspace_file"]
+        return tool_call(
+            "write-1",
+            "workspace_file",
+            {
+                "action": "write",
+                "path": str(tmp_path / "app" / "page.tsx"),
+                "content": "ready\n",
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        retry_initial_s=0.01,
+        retry_max_s=0.02,
+        max_slice_rounds=2,
+        slice_backoff_s=0.1,
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        live = store.get(created["task_id"])
+        if (
+            chat_round >= 2
+            and live is not None
+            and live["task_state"]["environment"]["version"] == 1
+        ):
+            break
+        time.sleep(0.01)
+    agent.close()
+    client.close()
+
+    assert chat_round == 2
+    current = store.get(created["task_id"])
+    assert current is not None
+    assert current["task_state"]["environment"]["version"] == 1
+    assert current["task_state"]["controller"]["phase"] == "audit"
+
+
 def test_invalid_legacy_replan_can_only_be_replaced_atomically(tmp_path: Path) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
     created = store.create("Build the app.", "The app files exist and pass audit.")

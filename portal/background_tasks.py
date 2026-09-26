@@ -1093,6 +1093,45 @@ class BackgroundTaskStore:
 
         return self._mutate(manage)
 
+    def invalidate_pending_contract(
+        self,
+        task_id: str,
+        owner: str,
+        *,
+        reason: str,
+        lease_s: float = 60.0,
+    ) -> dict[str, Any] | None:
+        """Return an unexecutable persisted plan to PRETHINK without evidence."""
+
+        def invalidate(value: dict[str, Any]) -> dict[str, Any] | None:
+            for item in value.get("tasks", []):
+                if item.get("task_id") != task_id or item.get("owner") != owner:
+                    continue
+                if item.get("status") != "running":
+                    return self._public(item)
+                state = _ensure_task_state(item)
+                controller = state.setdefault("controller", {})
+                pending = controller.get("pending_contract")
+                if not isinstance(pending, Mapping):
+                    return self._public(item)
+                contract = copy.deepcopy(dict(pending))
+                contract["status"] = "plan_unexecutable"
+                contract["invalid_reason"] = " ".join(str(reason).split())[:300]
+                controller["last_contract"] = contract
+                controller["pending_contract"] = None
+                controller["current_subtask"] = ""
+                controller["phase"] = "prethink"
+                controller["next_transition"] = "replan"
+                controller["consecutive_replans"] = 0
+                state["version"] = int(state.get("version") or 0) + 1
+                now = time.time()
+                item["updated_at"] = now
+                item["lease_until"] = now + max(5.0, lease_s)
+                return self._public(item)
+            return None
+
+        return self._mutate(invalidate)
+
     def renew_executor_context(
         self,
         task_id: str,

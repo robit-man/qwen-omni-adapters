@@ -357,7 +357,12 @@ def _audited_task_state(task: Mapping[str, Any]) -> str:
     failed_contract = bool(
         last_contract
         and str(last_contract.get("status") or "")
-        in {"action_failed", "expected_effect_missing", "audit_failed"}
+        in {
+            "action_failed",
+            "expected_effect_missing",
+            "audit_failed",
+            "plan_unexecutable",
+        }
     )
     if failed_contract and last_contract is not None:
         # A rejected executor plan is historical failure evidence, not the
@@ -1283,7 +1288,13 @@ def _manage_transition_error(
     )
     audited_failure_pending_replan = (
         controller_is_prethink
-        and last_status in {"action_failed", "expected_effect_missing", "audit_failed"}
+        and last_status
+        in {
+            "action_failed",
+            "expected_effect_missing",
+            "audit_failed",
+            "plan_unexecutable",
+        }
         and int(controller.get("consecutive_replans") or 0) == 0
     )
     repairing_invalid_legacy_replan = bool(
@@ -1354,7 +1365,12 @@ def _manage_transition_error(
         if not error and (
             (
                 last_status
-                not in {"action_failed", "expected_effect_missing", "audit_failed"}
+                not in {
+                    "action_failed",
+                    "expected_effect_missing",
+                    "audit_failed",
+                    "plan_unexecutable",
+                }
                 and not audited_nonprogress
             )
             or (
@@ -1369,40 +1385,58 @@ def _manage_transition_error(
             error = "ask_requires_question_and_concrete_failed_evidence"
     elif decision not in {"retrieve", "act", "replan", "ask"}:
         error = "invalid_manage_decision"
+    executable_decision = next_decision if decision == "replan" else decision
+    if not error and executable_decision in {"retrieve", "act"}:
+        candidate_contract = dict(arguments)
+        candidate_contract["decision"] = executable_decision
+        executable_schemas = _execution_tool_schemas(
+            _family_tool_names(family), candidate_contract
+        )
+        executable_schemas = _without_retired_action_families(
+            executable_schemas, _retired_action_families(task)
+        )
+        if not executable_schemas:
+            error = "no_admissible_operations"
     if not error:
         return None
-    message = (
-        "The newest audited contract failed. Emit one REPLAN transition before "
-        "another RETRIEVE or ACT."
-        if error == "audited_failure_requires_replan"
-        else (
+    messages_by_error = {
+        "audited_failure_requires_replan": (
+            "The newest audited contract failed. Emit one REPLAN transition before "
+            "another RETRIEVE or ACT."
+        ),
+        "local_path_effect_contract_incompatible": (
             "A local-path environment change requires capability_family and "
             "verification_family to each be filesystem or shell. Attached-document "
             "tools cannot write or audit a host path."
-            if error == "local_path_effect_contract_incompatible"
-            else (
+        ),
+        "no_admissible_operations": (
+            "Every typed operation in that proposed executor route is retired at "
+            "the current audited frontier. Choose a different capability/effect "
+            "route; do not merely paraphrase the same plan."
+        ),
+        "replan_requires_fresh_audited_nonprogress": (
+            "A REPLAN was already accepted for the newest failure. Commit a "
+            "different bounded RETRIEVE or ACT contract now."
+        ),
+        "replan_repeats_missing_effect": (
+            "The prior admitted action produced no declared effect. Replan to a "
+            "different exact target/effect route or RETRIEVE one bounded unknown; "
+            "changing only filesystem versus shell is the same route."
+        ),
+    }
+    message = messages_by_error.get(
+        error,
+        (
             "The durable controller currently admits only: "
             + ", ".join(value.upper() for value in allowed_decisions)
             + ". Emit one of those decisions and do not replay the rejected call."
             if error == "manage_decision_not_admissible"
             else (
-            "A REPLAN was already accepted for the newest failure. Commit a "
-            "different bounded RETRIEVE or ACT contract now."
-            if error == "replan_requires_fresh_audited_nonprogress"
-            else (
-                "The prior admitted action produced no declared effect. Replan "
-                "to a different exact target/effect route or RETRIEVE one bounded "
-                "unknown; changing only filesystem versus shell is the same route."
-                if error == "replan_repeats_missing_effect"
-                else (
                 "Commit one bounded RETRIEVE or ACT contract. REPLAN requires a "
                 "fresh audited failure and cannot repeat; ASK requires concrete "
                 "failed evidence."
             )
-            )
-            )
-            )
-        )
+        ),
     )
     return {
         "error": "invalid_manage_transition",
@@ -1433,7 +1467,13 @@ def _manage_decision_contract(task: Mapping[str, Any]) -> list[str]:
     )
     consecutive_replans = int(controller.get("consecutive_replans") or 0)
     if (
-        last_status in {"action_failed", "expected_effect_missing", "audit_failed"}
+        last_status
+        in {
+            "action_failed",
+            "expected_effect_missing",
+            "audit_failed",
+            "plan_unexecutable",
+        }
         and consecutive_replans == 0
     ):
         return ["replan"]
@@ -1549,9 +1589,10 @@ def _retired_action_families(task: Mapping[str, Any]) -> set[str]:
     """Retire a repeatedly stagnant typed transition until state advances.
 
     The decision is derived only from the runtime-owned audit, never from shell
-    text, path suffixes, or a task-specific keyword. Any epistemic or
-    environmental advance resets the controller's stagnation counter in the
-    durable store, which makes the family available again automatically.
+    text, path suffixes, or a task-specific keyword. A successfully admitted
+    action creates a fresh read-only audit frontier: verifier operations that
+    were stagnant before that action may inspect the new state once, while all
+    unrelated retired operations remain closed.
     """
 
     state = task.get("task_state")
@@ -1566,6 +1607,44 @@ def _retired_action_families(task: Mapping[str, Any]) -> set[str]:
         for value in controller.get("retired_action_families", [])
         if str(value)
     }
+    pending = controller.get("pending_contract")
+    if (
+        str(controller.get("phase") or "") == "audit"
+        and isinstance(pending, Mapping)
+        and str(pending.get("status") or "") == "awaiting_audit"
+    ):
+        verifier_schemas = _audit_tool_schemas(
+            _family_tool_names(str(pending.get("verification_family") or ""))
+        )
+        fresh_verifier_operations: set[str] = set()
+        for schema in verifier_schemas:
+            function = schema.get("function")
+            if not isinstance(function, Mapping):
+                continue
+            name = str(function.get("name") or "")
+            parameters = function.get("parameters")
+            properties = (
+                parameters.get("properties")
+                if isinstance(parameters, Mapping)
+                else None
+            )
+            operation_schema = None
+            if isinstance(properties, Mapping):
+                operation_schema = properties.get(
+                    "intent" if name == "shell" else "action"
+                )
+            operations = (
+                operation_schema.get("enum")
+                if isinstance(operation_schema, Mapping)
+                else None
+            )
+            if isinstance(operations, list):
+                fresh_verifier_operations.update(
+                    f"{name}:{str(operation)[:80]}" for operation in operations
+                )
+            elif name:
+                fresh_verifier_operations.add(f"{name}:execute")
+        persisted.difference_update(fresh_verifier_operations)
     if int(stagnation.get("count") or 0) < STAGNANT_ACTION_RETIRE_THRESHOLD:
         return persisted
     audit = _latest_audit(task)
@@ -5297,6 +5376,30 @@ class BackgroundAgent:
                     pending_contract if controller_phase == "execute" else None
                 ),
             )
+            if (
+                self.manage_execute_audit
+                and controller_phase in {"execute", "audit"}
+                and pending_contract
+                and not schemas
+            ):
+                invalidated = self.store.invalidate_pending_contract(
+                    task_id,
+                    self.owner,
+                    reason=f"{controller_phase}_has_no_admissible_tool_operation",
+                )
+                if invalidated is None or invalidated.get("status") == "cancelled":
+                    return
+                current = invalidated
+                active_tools = []
+                phase_action_count = 0
+                stalls = 0
+                logger.warning(
+                    "background task %s invalidated an unexecutable %s contract "
+                    "before inference; returning to REPLAN",
+                    task_id,
+                    controller_phase,
+                )
+                continue
             offered_tool_names = {
                 str(function.get("name") or "")
                 for schema in schemas
