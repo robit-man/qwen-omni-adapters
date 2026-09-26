@@ -1029,22 +1029,56 @@ def _manage_transition_error(
         error = "invalid_manage_decision"
     if not error:
         return None
+    message = (
+        "The newest audited contract failed. Emit one REPLAN transition before "
+        "another RETRIEVE or ACT."
+        if error == "audited_failure_requires_replan"
+        else (
+            "A REPLAN was already accepted for the newest failure. Commit a "
+            "different bounded RETRIEVE or ACT contract now."
+            if error == "replan_requires_fresh_audited_nonprogress"
+            else (
+                "Commit one bounded RETRIEVE or ACT contract. REPLAN requires a "
+                "fresh audited failure and cannot repeat; ASK requires concrete "
+                "failed evidence."
+            )
+        )
+    )
     return {
         "error": "invalid_manage_transition",
         "reason": error,
-        "message": (
-            "Commit one bounded RETRIEVE or ACT contract. REPLAN requires a fresh "
-            "audited failure and cannot repeat; ASK requires concrete failed evidence."
-        ),
+        "message": message,
         "task_progress": False,
         "failure_scope": "plan",
     }
+
+
+def _manage_decision_contract(task: Mapping[str, Any]) -> list[str]:
+    """Project durable controller state into the next manager grammar."""
+
+    controller = _task_controller(task)
+    last_contract = controller.get("last_contract")
+    last_status = (
+        str(last_contract.get("status") or "")
+        if isinstance(last_contract, Mapping)
+        else ""
+    )
+    consecutive_replans = int(controller.get("consecutive_replans") or 0)
+    if (
+        last_status in {"action_failed", "expected_effect_missing", "audit_failed"}
+        and consecutive_replans == 0
+    ):
+        return ["replan"]
+    if consecutive_replans >= 1:
+        return ["retrieve", "act", "ask"]
+    return ["retrieve", "act", "replan", "ask"]
 
 
 def _background_tool_contract(
     active_tools: list[str],
     *,
     manage_required: bool = False,
+    manage_decisions: list[str] | None = None,
     audit_required: bool = False,
     recovery_required: bool,
     phase_boundary: bool,
@@ -1060,7 +1094,12 @@ def _background_tool_contract(
         "resident_context_tokens"
     ]
     if manage_required:
-        schemas = [copy.deepcopy(TASK_MANAGE_TOOL)]
+        manager = copy.deepcopy(TASK_MANAGE_TOOL)
+        if manage_decisions:
+            manager["function"]["parameters"]["properties"]["decision"]["enum"] = list(
+                manage_decisions
+            )
+        schemas = [manager]
     elif audit_required:
         schemas = _audit_tool_schemas(active_tools)
     elif recovery_required:
@@ -4764,6 +4803,9 @@ class BackgroundAgent:
             schemas = _background_tool_contract(
                 active_tools,
                 manage_required=manage_required,
+                manage_decisions=(
+                    _manage_decision_contract(current) if manage_required else None
+                ),
                 audit_required=audit_required,
                 recovery_required=recovery_required,
                 phase_boundary=phase_boundary,

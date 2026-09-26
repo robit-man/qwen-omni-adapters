@@ -63,6 +63,7 @@ from harness.background_agent import (
     _latest_result_requires_replan,
     _latest_tool_fingerprint,
     _MalformedToolCall,
+    _manage_decision_contract,
     _manage_transition_error,
     _milestone_evidence_ids,
     _NonRetryableBackgroundError,
@@ -2143,6 +2144,19 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
     rejection = _manage_transition_error(failed, retry_without_replan)
     assert rejection is not None
     assert rejection["reason"] == "audited_failure_requires_replan"
+    assert _manage_decision_contract(failed) == ["replan"]
+    schema = _background_tool_contract(
+        [],
+        manage_required=True,
+        manage_decisions=_manage_decision_contract(failed),
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+    )
+    assert schema[0]["function"]["parameters"]["properties"]["decision"][
+        "enum"
+    ] == ["replan"]
 
     replan = {
         "decision": "replan",
@@ -2162,6 +2176,7 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
     )
     assert replanned is not None
     assert _manage_transition_error(replanned, retry_without_replan) is None
+    assert _manage_decision_contract(replanned) == ["retrieve", "act", "ask"]
     second_replan = _manage_transition_error(replanned, replan)
     assert second_replan is not None
     assert second_replan["reason"] == "replan_requires_fresh_audited_nonprogress"
