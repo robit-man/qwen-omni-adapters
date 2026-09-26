@@ -39,7 +39,7 @@ MAX_RETAINED_TASK_MESSAGES = 12
 MIN_TASK_CONTEXT_BYTES = 32 * 1024
 MIN_RETAINED_TASK_MESSAGES = 4
 MAX_FOCUS_MEMORY_CHARS = 8_000
-MIN_FOCUS_MEMORY_CHARS = 2_400
+MIN_FOCUS_MEMORY_CHARS = 900
 DEFAULT_RESIDENT_CONTEXT_TOKENS = 16_384
 MAX_TOOL_RESULT_CHARS = 24_000
 MAX_CHECKPOINT_REPORT_CHARS = 1_000
@@ -57,6 +57,9 @@ _SENSITIVE_AUDIT_KEY = re.compile(
 )
 
 AGENT_SYSTEM_PROMPT = context_text("prompts", "background_agent_system")
+COMPACT_AGENT_SYSTEM_PROMPT = context_text(
+    "prompts", "background_agent_system_compact"
+)
 TASK_START_REQUEST = (
     "<task_start>Begin the task pinned in <current_task>. Choose the smallest "
     "evidence-producing action and continue until its criteria are verified.</task_start>"
@@ -136,9 +139,20 @@ def _task_context_limits(
         # tiers can page in a broader frontier without changing raw storage.
         "focus_chars": min(
             MAX_FOCUS_MEMORY_CHARS,
-            max(MIN_FOCUS_MEMORY_CHARS, (resident * 3) // 4),
+            max(MIN_FOCUS_MEMORY_CHARS, (resident * 3) // 10),
         ),
     }
+
+
+def _resident_virtual_query_chars(
+    resident_context_tokens: int | None = None,
+) -> int:
+    """Bound the retrieval anchor without repeating the whole pinned task."""
+
+    resident = _task_context_limits(resident_context_tokens)[
+        "resident_context_tokens"
+    ]
+    return min(MAX_VIRTUAL_QUERY_CHARS, max(420, resident // 10))
 
 
 def _uncheckpointed_action_count(task: Mapping[str, Any]) -> int:
@@ -187,9 +201,12 @@ def _uncheckpointed_action_count(task: Mapping[str, Any]) -> int:
     )
 
 
-def _task_virtual_query(task: Mapping[str, Any]) -> str:
+def _task_virtual_query(
+    task: Mapping[str, Any], *, resident_context_tokens: int | None = None
+) -> str:
     """Keep paging anchored to the durable task, not a compaction artifact."""
 
+    query_chars = _resident_virtual_query_chars(resident_context_tokens)
     objective = " ".join(str(task.get("objective") or "").split())
     guidance = task.get("guidance")
     latest_direction = ""
@@ -205,7 +222,7 @@ def _task_virtual_query(task: Mapping[str, Any]) -> str:
         )
     prefix = "Advance and verify the pinned task. Objective: "
     if not latest_direction:
-        return f"{prefix}{objective}"[:MAX_VIRTUAL_QUERY_CHARS]
+        return f"{prefix}{objective}"[:query_chars]
 
     # A long objective must not crowd the newest correction out of the paging
     # query.  The objective remains pinned in full in the system contract; this
@@ -213,11 +230,11 @@ def _task_virtual_query(task: Mapping[str, Any]) -> str:
     direction_prefix = " Latest user direction: "
     direction_budget = min(
         len(latest_direction),
-        max(1, (MAX_VIRTUAL_QUERY_CHARS * 2) // 5),
+        max(1, (query_chars * 2) // 5),
     )
     objective_budget = max(
         0,
-        MAX_VIRTUAL_QUERY_CHARS
+        query_chars
         - len(prefix)
         - len(direction_prefix)
         - direction_budget,
@@ -266,21 +283,123 @@ def _task_system_prompt(
         # next action round so ordinary transcript growth cannot make the
         # controller rediscover or recreate it.
         contract.append(focus_memory)
+    constrained = limits["resident_context_tokens"] <= 8_192
     contract.extend(
         [
-            "<execution_frontier>Advance the earliest unmet prerequisite in the "
-            "task's stated sequence. A downstream verification, launch, or presentation "
-            "step cannot precede concrete evidence that its required artifact or input "
-            "exists. If a probe proves a downstream target absent, return to the "
-            "earliest missing prerequisite instead of probing variants of that absent "
-            "target.</execution_frontier>",
+            (
+                "<execution_frontier>Advance the earliest unmet prerequisite. Never "
+                "verify a downstream target before evidence shows its required artifact "
+                "or input exists; if absent, return to the missing prerequisite."
+                "</execution_frontier>"
+                if constrained
+                else "<execution_frontier>Advance the earliest unmet prerequisite in the "
+                "task's stated sequence. A downstream verification, launch, or presentation "
+                "step cannot precede concrete evidence that its required artifact or input "
+                "exists. If a probe proves a downstream target absent, return to the "
+                "earliest missing prerequisite instead of probing variants of that absent "
+                "target.</execution_frontier>"
+            ),
             "Keep every action causally relevant to this task. Ignore unrelated topics "
             "from model state or prior work.",
             "</current_task>",
         ]
     )
     task_contract = "\n".join(contract)
-    return f"{task_contract}\n\n{AGENT_SYSTEM_PROMPT}"
+    controller_policy = (
+        COMPACT_AGENT_SYSTEM_PROMPT if constrained else AGENT_SYSTEM_PROMPT
+    )
+    return f"{task_contract}\n\n{controller_policy}"
+
+
+_TOOL_SCHEMA_ANNOTATION_KEYS = {
+    "$comment",
+    "description",
+    "examples",
+    "title",
+}
+
+
+def _compact_tool_schema(value: Any) -> Any:
+    """Remove prose annotations while preserving executable JSON constraints.
+
+    The full catalog remains the source of truth and tool_search result. A
+    constrained worker has already selected one capability, so repeating every
+    property description in the next 4K action round wastes scarce L0 tokens.
+    Names, types, enums, required fields, bounds, and additionalProperties stay
+    exact; only non-executable documentation is projected out.
+    """
+
+    if isinstance(value, Mapping):
+        return {
+            str(key): _compact_tool_schema(item)
+            for key, item in value.items()
+            if str(key) not in _TOOL_SCHEMA_ANNOTATION_KEYS
+        }
+    if isinstance(value, list):
+        return [_compact_tool_schema(item) for item in value]
+    return copy.deepcopy(value)
+
+
+def _background_tool_contract(
+    active_tools: list[str],
+    *,
+    recovery_required: bool,
+    phase_boundary: bool,
+    expand_available: bool,
+    can_checkpoint: bool,
+    include_discovery: bool,
+    resident_context_tokens: int | None = None,
+) -> list[dict[str, Any]]:
+    """Expose the smallest complete action space for one controller round."""
+
+    resident = _task_context_limits(resident_context_tokens)[
+        "resident_context_tokens"
+    ]
+    if recovery_required:
+        schemas = [copy.deepcopy(TASK_RECOVERY_TOOL)]
+    elif phase_boundary:
+        schemas = [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
+    else:
+        tool_limit = 1 if resident <= 8_192 else 3
+        concrete = [
+            name
+            for name in dict.fromkeys(active_tools)
+            if tool_schemas([name])
+        ][:tool_limit]
+        schemas = tool_schemas(concrete)
+        # Discovery is a router, not a second action alongside an already
+        # selected concrete capability. If no leaf remains, always restore the
+        # router so a duplicate discovery cannot strand tool_choice=required.
+        if not concrete or include_discovery:
+            schemas.extend(copy.deepcopy(DISCOVERY_TOOLS))
+        # On a constrained tier, discovery and paging are alternate secondary
+        # controls. Exposing both beside a browser schema would consume the
+        # evidence space they are intended to recover. A newly routed leaf gets
+        # paging; after that leaf runs, discovery returns so the controller can
+        # change capability. At larger tiers both controls can coexist.
+        if expand_available and (
+            resident > 8_192 or not concrete or not include_discovery
+        ):
+            schemas.append(copy.deepcopy(TASK_EXPAND_TOOL))
+        if can_checkpoint:
+            schemas.append(copy.deepcopy(TASK_CHECKPOINT_TOOL))
+    if resident <= 8_192:
+        return [_compact_tool_schema(schema) for schema in schemas]
+    return schemas
+
+
+def _include_discovery_with_active_tool(
+    messages: list[dict[str, Any]], active_tools: list[str]
+) -> bool:
+    """Restore routing only after the selected leaf has received one attempt."""
+
+    if not active_tools:
+        return True
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            continue
+        return str(message.get("tool_name") or "") in set(active_tools)
+    return False
 
 
 TASK_CHECKPOINT_TOOL = context_value("control_tools", "task_checkpoint")
@@ -380,7 +499,7 @@ def _inference_diagnostics(
         classification = "thinking_only_without_action"
     else:
         classification = "required_action_missing"
-    return {
+    diagnostic = {
         "classification": classification,
         "done_reason": str(response.get("done_reason") or "")[:80],
         "prompt_eval_count": max(0, int(response.get("prompt_eval_count") or 0)),
@@ -390,6 +509,20 @@ def _inference_diagnostics(
         "content_chars": content_chars,
         "tool_call_count": tool_call_count,
     }
+    portal = response.get("portal")
+    virtual = portal.get("virtual_context") if isinstance(portal, Mapping) else None
+    if isinstance(virtual, Mapping):
+        diagnostic["virtual_context"] = {
+            key: virtual.get(key)
+            for key in (
+                "mode",
+                "physical_context_tokens",
+                "working_tokens",
+                "working_set_fallback",
+            )
+            if virtual.get(key) is not None
+        }
+    return diagnostic
 
 
 def _arguments(call: Mapping[str, Any]) -> dict[str, Any]:
@@ -1234,6 +1367,8 @@ def _focus_memory(
 
     if expand_available is None:
         expand_available = bool(task.get("compaction"))
+    bounded_max = max(MIN_FOCUS_MEMORY_CHARS, int(max_chars))
+    constrained = bounded_max <= 2_000
 
     def expansion_pointer(call_id: str) -> dict[str, Any]:
         if not expand_available:
@@ -1379,15 +1514,25 @@ def _focus_memory(
         ]
 
     paging_contract = (
-        "Some detailed receipts have left active context. To recover a missing "
-        "detail, invoke the separate task_expand control tool with "
-        '{"evidence_ids":["the page_in_evidence_id"]}. task_expand is never an action '
-        "or argument of workspace_file or another external tool. Expansion is "
-        "paging, not new progress. If the needed nonresident record is not listed, "
-        'invoke task_expand with {"query":"an exact path, URL, symbol, or error"}. '
+        (
+            "Recover omitted detail with task_expand using a page_in_evidence_id, or "
+            "query by exact path, URL, symbol, or error; paging is not task progress. "
+            "task_expand is never an action or argument of another tool. "
+            if constrained
+            else "Some detailed receipts have left active context. To recover a missing "
+            "detail, invoke the separate task_expand control tool with "
+            '{"evidence_ids":["the page_in_evidence_id"]}. task_expand is never an action '
+            "or argument of workspace_file or another external tool. Expansion is "
+            "paging, not new progress. If the needed nonresident record is not listed, "
+            'invoke task_expand with {"query":"an exact path, URL, symbol, or error"}. '
+        )
         if expand_available
-        else "Detailed recent receipts remain in the active tool transcript; no "
-        "paging control is available or needed. "
+        else (
+            "Exact recent receipts remain in the active tool transcript. "
+            if constrained
+            else "Detailed recent receipts remain in the active tool transcript; no "
+            "paging control is available or needed. "
+        )
     )
     selected = {
         "phase_checkpoints": checkpoints[-2:],
@@ -1411,13 +1556,14 @@ def _focus_memory(
             "failures": max(0, len(failures) - len(selected["failed_attempts"])),
             "inspections": max(0, len(inspections) - len(selected["inspections"])),
         }
-        sections = [
-            '<focus_memory schema="robit.omni.background-focus.v2" '
-            + " ".join(
-                f'omitted_{key}="{value}"' for key, value in omitted.items()
-            )
-            + ">",
-            "<focus_contract>These typed records remain authoritative across compaction. "
+        focus_contract = (
+            "Typed records are authoritative. Do not redo a retained source or "
+            "artifact. "
+            + paging_contract
+            + "Read/list is observation, not progress. Checkpoints are boundaries, "
+            "not proof. Omitted records remain lossless."
+            if constrained
+            else "These typed records remain authoritative across compaction. "
             "Do not redo an acquired source or artifact merely because its original "
             "turn is not resident. "
             + paging_contract
@@ -1425,7 +1571,15 @@ def _focus_memory(
             "repeat an equivalent inspection unless causal state changed. Phase "
             "checkpoints are control boundaries, not proof. Recompute task state from "
             "the pinned completion contract and typed records. Omitted residents remain "
-            "lossless in external evidence storage.</focus_contract>",
+            "lossless in external evidence storage."
+        )
+        sections = [
+            '<focus_memory schema="robit.omni.background-focus.v2" '
+            + " ".join(
+                f'omitted_{key}="{value}"' for key, value in omitted.items()
+            )
+            + ">",
+            f"<focus_contract>{focus_contract}</focus_contract>",
             *tagged("phase_checkpoints", selected["phase_checkpoints"]),
             *tagged("acquired_sources", selected["acquired_sources"]),
             *tagged("artifacts", selected["artifacts"]),
@@ -1442,8 +1596,8 @@ def _focus_memory(
     eviction_order = (
         "inspections",
         "phase_checkpoints",
-        "other_successes",
         "failed_attempts",
+        "other_successes",
         "artifacts",
         "acquired_sources",
     )
@@ -1456,7 +1610,6 @@ def _focus_memory(
         "acquired_sources": 0,
     }
     rendered = render()
-    bounded_max = max(MIN_FOCUS_MEMORY_CHARS, int(max_chars))
     while len(rendered) > bounded_max:
         removed = False
         for name in eviction_order:
@@ -2735,7 +2888,6 @@ class BackgroundAgent:
         tools_used = [
             name for name in task.get("tools_used", []) if isinstance(name, str) and name
         ]
-        suppress_discovery = False
         seen_guidance = {
             str(item) for item in task.get("applied_guidance_ids", []) if str(item)
         }
@@ -2799,7 +2951,6 @@ class BackgroundAgent:
             added_guidance = _append_guidance(messages, current, seen_guidance)
             if added_guidance:
                 active_tools = []
-                suppress_discovery = False
                 phase_action_count = 0
                 logger.info(
                     "background task %s accepted %d conversational update(s)",
@@ -2874,25 +3025,17 @@ class BackgroundAgent:
             # have left L0; otherwise the maintenance action needlessly
             # competes with the next concrete task action.
             expand_available = bool(current.get("compaction"))
-            schemas = (
-                [copy.deepcopy(TASK_RECOVERY_TOOL)]
-                if recovery_required
-                else [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
-                if phase_boundary
-                else [
-                    *tool_schemas(list(dict.fromkeys(active_tools))[:3]),
-                    *([] if suppress_discovery else copy.deepcopy(DISCOVERY_TOOLS)),
-                    *(
-                        [copy.deepcopy(TASK_EXPAND_TOOL)]
-                        if expand_available
-                        else []
-                    ),
-                    *(
-                        [copy.deepcopy(TASK_CHECKPOINT_TOOL)]
-                        if can_checkpoint
-                        else []
-                    ),
-                ]
+            resident_context_tokens = _resident_task_context_tokens()
+            schemas = _background_tool_contract(
+                active_tools,
+                recovery_required=recovery_required,
+                phase_boundary=phase_boundary,
+                expand_available=expand_available,
+                can_checkpoint=can_checkpoint,
+                include_discovery=_include_discovery_with_active_tool(
+                    messages, active_tools
+                ),
+                resident_context_tokens=resident_context_tokens,
             )
             offered_tool_names = {
                 str(function.get("name") or "")
@@ -2971,7 +3114,10 @@ class BackgroundAgent:
                 "tool_choice": "required",
                 "portal_auto_tools": False,
                 "portal_background_worker": True,
-                "portal_virtual_query": _task_virtual_query(current),
+                "portal_virtual_query": _task_virtual_query(
+                    current,
+                    resident_context_tokens=resident_context_tokens,
+                ),
                 "stream": False,
             }
             try:
@@ -3106,7 +3252,6 @@ class BackgroundAgent:
                 # prompt. Keep the newly appended human updates and replan.
                 del messages[-redirected - 1]
                 active_tools = []
-                suppress_discovery = False
                 phase_action_count = 0
                 checkpoint = self.store.checkpoint(
                     task_id,
@@ -3322,7 +3467,6 @@ class BackgroundAgent:
                     if valid:
                         recovery_required = False
                         active_tools = []
-                        suppress_discovery = False
                         stalls = 0
                         messages.append(
                             {
@@ -3513,7 +3657,6 @@ class BackgroundAgent:
                             )
                         )
                         active_tools = []
-                        suppress_discovery = False
                         phase_action_count = 0
                         accepted_result = {
                             "accepted": True,
@@ -3610,9 +3753,7 @@ class BackgroundAgent:
                             "changes or newly inspects relevant state."
                         ),
                     }
-                    if name == "tool_search":
-                        suppress_discovery = True
-                    elif name in active_tools:
+                    if name in active_tools:
                         active_tools = [item for item in active_tools if item != name]
                     stalls += 1
                 else:
@@ -3712,8 +3853,6 @@ class BackgroundAgent:
                         )
                     if name:
                         tools_used = list(dict.fromkeys([*tools_used, name]))[-16:]
-                    if name != "tool_search":
-                        suppress_discovery = False
                 (
                     result,
                     last_external_result_digest,
@@ -3734,11 +3873,9 @@ class BackgroundAgent:
                         # another classification and discovery pair only adds two
                         # generative rounds and lets small models retry a dead path.
                         active_tools = direct_alternatives
-                        suppress_discovery = True
                         recovery_required = False
                     else:
                         active_tools = []
-                        suppress_discovery = False
                         recovery_required = True
                 elif name == "tool_search" and isinstance(result, Mapping):
                     available = result.get("available_tools")
@@ -3754,16 +3891,8 @@ class BackgroundAgent:
                                 ]
                             )
                         )[:3]
-                        # Discovery is a routing result, not an invitation to
-                        # discover again. Require one concrete attempt before the
-                        # broad discovery schema returns to the action space.
-                        suppress_discovery = bool(active_tools)
                 elif name and name != "background_task":
                     active_tools = _successor_tools(name, result)
-                    suppress_discovery = bool(
-                        isinstance(result, Mapping)
-                        and _direct_alternative_tools(result)
-                    )
                 tool_message: dict[str, Any] = {
                     "role": "tool",
                     "tool_name": name or "unknown",

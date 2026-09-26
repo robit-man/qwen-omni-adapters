@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from harness.background_agent import (
     AGENT_SYSTEM_PROMPT,
+    COMPACT_AGENT_SYSTEM_PROMPT,
     MAX_CHECKPOINT_REPORT_CHARS,
     MAX_PHASE_ACTIONS,
     MAX_RETAINED_TASK_MESSAGES,
@@ -24,11 +25,13 @@ from harness.background_agent import (
     BackgroundAgent,
     _audit_json,
     _background_portal_session,
+    _background_tool_contract,
     _bounded_tool_result,
     _call_fingerprint,
     _checkpoint_available,
     _checkpoint_retry_pending,
     _compact_task_messages,
+    _compact_tool_schema,
     _compaction_available,
     _compaction_evidence_records,
     _compaction_receipt,
@@ -44,6 +47,7 @@ from harness.background_agent import (
     _freshest_evidence_id,
     _ground_visual_click,
     _guard_repeated_unchanged_result,
+    _include_discovery_with_active_tool,
     _inference_diagnostics,
     _latest_external_result_digest,
     _latest_tool_fingerprint,
@@ -145,7 +149,7 @@ def test_task_context_limits_follow_the_live_resident_window(
         "resident_context_tokens": 4_096,
         "context_bytes": 32 * 1_024,
         "retained_messages": 4,
-        "focus_chars": 3_072,
+        "focus_chars": 1_228,
     }
 
     state.write_text("8192\n", encoding="utf-8")
@@ -153,10 +157,91 @@ def test_task_context_limits_follow_the_live_resident_window(
     assert expanded["resident_context_tokens"] == 8_192
     assert expanded["context_bytes"] == 65_536
     assert expanded["retained_messages"] == 6
-    assert expanded["focus_chars"] == 6_144
+    assert expanded["focus_chars"] == 2_457
 
     monkeypatch.setenv("OMNI_COMPREHENSION_CONTEXT_FILE", str(tmp_path / "missing"))
     assert _task_context_limits()["resident_context_tokens"] == 4_096
+
+
+def test_constrained_task_contract_and_query_fit_the_resident_tier() -> None:
+    task = {
+        "objective": "Build and verify the requested application. " * 35,
+        "completion_criteria": "The application exists and its tests pass. " * 12,
+        "guidance": [{"content": "Keep the current workspace and repair it in place."}],
+        "actions": [
+            {
+                "call_id": "write-current",
+                "tool": "workspace_file",
+                "arguments": json.dumps({"action": "read", "path": "/tmp/app/page.tsx"}),
+                "outcome": json.dumps({"content": "export default function Page() {}"}),
+                "ok": True,
+            }
+        ],
+    }
+
+    prompt = _task_system_prompt(
+        task,
+        resident_context_tokens=4_096,
+        expand_available=True,
+    )
+    query = _task_virtual_query(task, resident_context_tokens=4_096)
+
+    assert prompt.endswith(COMPACT_AGENT_SYSTEM_PROMPT)
+    assert AGENT_SYSTEM_PROMPT not in prompt
+    assert len(query) <= 420
+    assert "Build and verify" in prompt
+    assert "tests pass" in prompt
+    assert "write-current" in prompt
+
+
+def test_constrained_action_contract_keeps_json_rules_without_prose_bloat() -> None:
+    schemas = _background_tool_contract(
+        ["browser_interact", "shell"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=True,
+        can_checkpoint=True,
+        include_discovery=True,
+        resident_context_tokens=4_096,
+    )
+    names = [item["function"]["name"] for item in schemas]
+
+    assert names == ["browser_interact", "tool_search", "task_checkpoint"]
+    serialized = json.dumps(schemas, sort_keys=True)
+    assert '"required"' in serialized
+    assert '"enum"' in serialized
+    assert '"additionalProperties": false' in serialized
+    assert '"description"' not in serialized
+    assert conservative_token_estimate(serialized) < 850
+
+    discovery = _background_tool_contract(
+        [],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=True,
+        can_checkpoint=False,
+        include_discovery=True,
+        resident_context_tokens=4_096,
+    )
+    assert [item["function"]["name"] for item in discovery] == [
+        "tool_search",
+        "task_expand",
+    ]
+
+    original = {"description": "omit", "enum": ["a"], "required": ["x"]}
+    assert _compact_tool_schema(original) == {
+        "enum": ["a"],
+        "required": ["x"],
+    }
+
+    routed = [
+        {"role": "tool", "tool_name": "tool_search", "content": "{}"},
+    ]
+    assert _include_discovery_with_active_tool(routed, ["browser_interact"]) is False
+    routed.append(
+        {"role": "tool", "tool_name": "browser_interact", "content": "{}"}
+    )
+    assert _include_discovery_with_active_tool(routed, ["browser_interact"]) is True
 
 
 def test_web_fetch_preflight_allows_a_user_supplied_url_but_not_self_authorization() -> None:
@@ -293,6 +378,25 @@ def test_background_inference_diagnostics_report_budget_without_reasoning_text()
         "tool_call_count": 0,
     }
     assert "private reasoning" not in json.dumps(diagnostic)
+
+    active = _inference_diagnostics(
+        {
+            "message": {"role": "assistant", "tool_calls": []},
+            "portal": {
+                "virtual_context": {
+                    "mode": "active",
+                    "physical_context_tokens": 4096,
+                    "working_tokens": 4012,
+                }
+            },
+        },
+        768,
+    )
+    assert active["virtual_context"] == {
+        "mode": "active",
+        "physical_context_tokens": 4096,
+        "working_tokens": 4012,
+    }
 
 
 def test_strict_current_visual_target_overrides_language_coordinate_guess() -> None:
@@ -1237,8 +1341,9 @@ def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> No
     assert compacted[1] == objective
     system = compacted[0]["content"]
     assert "Make the final version blue" in system
-    assert "failed-write" in system
     assert "fixed-write" in system
+    assert "failed-write" not in system
+    assert 'omitted_failures="1"' in system
     assert system.count("<focus_memory") == 1
     checkpoint = compacted[2]["content"]
     assert "Verified the latest artifact" not in checkpoint

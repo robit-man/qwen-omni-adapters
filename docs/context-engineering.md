@@ -113,10 +113,22 @@ their declared admission policies.
 Background transcript limits are derived from the live resident comprehension
 window on every turn. At the 4K floor the raw recurrent chain is bounded to a
 32 KiB high-water mark, keeps four newest native messages after compaction, and
-allocates roughly 3 KiB of text to the pinned typed frontier; the limits expand
-at larger KV tiers up to 96 KiB, twelve messages, and an 8 KiB frontier. This is
-working-set eviction only. Exact bounded tool receipts are archived append-only
-before their turns leave L0 and remain recoverable with `task_expand`.
+allocates roughly 1.2 KiB of text to the pinned typed frontier; the limits expand
+at larger KV tiers up to 96 KiB, twelve messages, and an 8 KiB frontier. The
+constrained focus contract has the same authority and page-in rules in less
+prose, leaving room for the freshest typed receipt. This is working-set eviction
+only. Exact bounded tool receipts are archived append-only before their turns
+leave L0 and remain recoverable with `task_expand`.
+
+The background action surface is tier-aware too. At 4K/8K it exposes one
+already-selected concrete tool plus an eligible checkpoint, removes only
+documentation annotations from their schemas, and preserves names, types,
+enums, required fields, bounds, and object closure. Discovery is suppressed on
+the immediate post-routing round, then returns after one concrete leaf attempt
+so a later phase can choose another capability. At constrained tiers it and
+`task_expand` alternate as secondary controls. Tests account for the complete
+system/query/tool/output envelope at 4K; an active background overflow is a
+visible retryable failure, never an unreported native-context fallback.
 
 The deterministic compacted chain contains one current system contract, one
 small page marker, and the newest native tool cycles. It never duplicates the

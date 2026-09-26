@@ -17,6 +17,11 @@ import httpx
 import pytest
 from PIL import Image
 
+from harness.background_agent import (
+    _background_tool_contract,
+    _task_system_prompt,
+    _task_virtual_query,
+)
 from portal.app import (
     DEFAULT_MODEL,
     PortalConfig,
@@ -1487,6 +1492,128 @@ def test_virtual_context_active_overflow_preserves_native_request(tmp_path: Path
     assert virtual["mode"] == "active"
     assert virtual["working_set_fallback"] == "native_bounded_prompt"
     assert "system contract and current query" in virtual["overflow"]
+
+
+def test_4k_background_action_stays_inside_active_virtual_context(tmp_path: Path) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "", "tool_calls": []}},
+        )
+
+    task = {
+        "objective": "Build a researched field-service application in place. " * 31,
+        "completion_criteria": "The app exists, tests pass, and the result is verified. " * 18,
+        "actions": [
+            {
+                "call_id": "current-file",
+                "tool": "workspace_file",
+                "arguments": json.dumps(
+                    {"action": "read", "path": "/tmp/app/src/app/page.tsx"}
+                ),
+                "outcome": json.dumps(
+                    {"content": "export default function Page() { return null }"}
+                ),
+                "ok": True,
+            }
+        ],
+    }
+    schemas = _background_tool_contract(
+        ["browser_interact"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=True,
+        can_checkpoint=True,
+        include_discovery=True,
+        resident_context_tokens=4_096,
+    )
+    app = create_app(
+        _config(
+            virtual_context_mode="active",
+            virtual_context_root=tmp_path / "virtual-context",
+            virtual_context_physical_tokens=4096,
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[
+                {
+                    "role": "system",
+                    "content": _task_system_prompt(
+                        task,
+                        resident_context_tokens=4_096,
+                        expand_available=True,
+                    ),
+                },
+                {"role": "user", "content": "Continue from the retained frontier."},
+            ],
+            tools=schemas,
+            tool_choice="required",
+            think=False,
+            portal_background_worker=True,
+            portal_virtual_query=_task_virtual_query(
+                task, resident_context_tokens=4_096
+            ),
+        ),
+    )
+
+    assert response.status_code == 200
+    virtual = response.json["portal"]["virtual_context"]
+    assert virtual["mode"] == "active"
+    assert "working_set_fallback" not in virtual
+    assert virtual["working_tokens"] <= 4096
+    assert len(requests) == 1
+    assert requests[0]["messages"][0]["role"] == "system"
+    assert requests[0]["messages"][-1]["role"] == "user"
+    assert [item["function"]["name"] for item in requests[0]["tools"]] == [
+        "browser_interact",
+        "tool_search",
+        "task_checkpoint",
+    ]
+
+
+def test_background_overflow_fails_visible_instead_of_using_native_fifo(
+    tmp_path: Path,
+) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "unexpected"}},
+        )
+
+    app = create_app(
+        _config(
+            virtual_context_mode="active",
+            virtual_context_root=tmp_path / "virtual-context",
+            virtual_context_physical_tokens=4096,
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[
+                {"role": "system", "content": "oversized pinned contract " * 1600},
+                {"role": "user", "content": "Continue the durable task."},
+            ],
+            portal_background_worker=True,
+            portal_virtual_query="continue durable task",
+        ),
+    )
+
+    assert response.status_code == 502
+    assert "background virtual working set overflow" in response.json["error"]
+    assert requests == []
 
 
 def test_synthesis_bypasses_virtual_conversation_context(tmp_path: Path) -> None:

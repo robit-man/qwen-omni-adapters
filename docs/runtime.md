@@ -39,6 +39,13 @@ When `OMNI_COMPREHENSION_CONTEXT_FILE` is present, the portal rereads that
 launcher-owned state before every pack and caps the working set to the resident
 KV window. A configured 16K ceiling therefore cannot emit a 16K prompt while
 the unified-memory governor has selected an 8K worker.
+Durable background turns are stricter than latency-critical foreground speech:
+if their pinned task/query/tool envelope cannot fit, active mode returns an
+explicit overflow and the checkpointed worker retries. It does not label native
+FIFO truncation as a successful virtual-memory turn. At 4K/8K, the worker uses a
+semantically equivalent compact controller policy and strips documentation-only
+annotations from the single selected action schema while preserving all
+executable JSON constraints.
 Current user media remains attached only to the newest user message. Deleting
 portal session diagnostics/Trash also deletes that session's complete virtual
 corpus, WAL, and shared-memory files.

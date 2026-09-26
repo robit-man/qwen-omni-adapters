@@ -7,6 +7,7 @@ import pytest
 
 from harness.background_agent import (
     AGENT_SYSTEM_PROMPT,
+    COMPACT_AGENT_SYSTEM_PROMPT,
     TASK_CHECKPOINT_TOOL,
     TASK_COMPACT_TOOL,
     TASK_EXPAND_TOOL,
@@ -50,6 +51,10 @@ def test_context_catalog_is_the_runtime_source_of_prompts_and_tools() -> None:
     assert catalog["prompts"]["live_call_system"] in LIVE_CALL_SYSTEM_PROMPT
     assert catalog["directives"]["live_response_control"] in LIVE_CALL_SYSTEM_PROMPT
     assert catalog["prompts"]["background_agent_system"] == AGENT_SYSTEM_PROMPT
+    assert (
+        catalog["prompts"]["background_agent_system_compact"]
+        == COMPACT_AGENT_SYSTEM_PROMPT
+    )
     assert catalog["prompts"]["media_encoder_system"] == MEDIA_CHAT_SYSTEM_PROMPT
     assert catalog["prompts"][
         "default_language_system"

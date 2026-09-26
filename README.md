@@ -425,6 +425,15 @@ once in the pinned system contract rather than duplicating it in a recurrent
 checkpoint. If an omitted record's evidence ID is no longer resident,
 `task_expand` also accepts a distinctive exact path, URL, symbol, error, or
 other query and returns the highest-scoring immutable receipts.
+At the 4K/8K tiers the worker also projects the already-selected tool schema to
+its executable JSON constraints: names, types, enums, required fields, bounds,
+and `additionalProperties` remain exact while repeated prose annotations are
+removed. Only one selected concrete capability is exposed per action round;
+discovery is suppressed until that leaf receives one concrete attempt, then
+returns as the route to a different capability. At constrained tiers discovery
+and evidence expansion alternate instead of crowding the same envelope. A background
+request that still cannot fit the live pack fails explicitly and retries from
+its checkpoint—it never silently falls back to native FIFO truncation.
 Background web fetches are provenance-bound as well: a target must appear in
 the accepted task/user input or prior search, browser, crawl, or fetch evidence.
 An invented address is rejected before network access and returned beside the

@@ -1958,9 +1958,15 @@ def create_app(
             # The lossless corpus has already observed this turn. When the
             # pinned system/query plus a deferred multimodal tool envelope do
             # not fit the live KV tier, there is no lower-authority virtual
-            # item left to evict. Preserve the authoritative native request
-            # and let the adapter's bounded prompt shedding/transcript routing
-            # handle it instead of turning a spoken interruption into HTTP 500.
+            # item left to evict. A foreground spoken turn may retain native
+            # bounded handling so an interruption never becomes HTTP 500. A
+            # durable worker must fail visibly instead: silently leaving the
+            # virtual packer lets native FIFO truncation discard its execution
+            # frontier while the task continues to claim memory is active.
+            if internal_background and runtime.virtual_context_mode == "active":
+                raise PortalError(
+                    f"background virtual working set overflow: {exc}"
+                ) from exc
             return None, {
                 **virtual_context.stats(session_id),
                 "working_set_fallback": "native_bounded_prompt",
@@ -1999,6 +2005,10 @@ def create_app(
                 include_assistant=not internal_background,
             )
         except ContextOverflow as exc:
+            if internal_background and runtime.virtual_context_mode == "active":
+                raise PortalError(
+                    f"background virtual follow-up overflow: {exc}"
+                ) from exc
             return None, {
                 "working_set_fallback": "native_bounded_prompt",
                 "overflow": str(exc)[:300],
