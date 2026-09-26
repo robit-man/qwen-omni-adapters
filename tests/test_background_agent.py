@@ -2110,6 +2110,49 @@ def test_closed_tool_contract_rejects_excluded_operation_before_execution() -> N
     ) is None
 
 
+def test_executor_contract_excludes_read_only_calls_from_mutation_phase() -> None:
+    contract = {
+        "decision": "act",
+        "expected_effect": "change_environment",
+        "effect_target": "/tmp/project/app.ts",
+    }
+    shell_schemas = _background_tool_contract(
+        ["shell"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+        execution_contract=contract,
+    )
+    shell_intent = shell_schemas[0]["function"]["parameters"]["properties"][
+        "intent"
+    ]
+    assert shell_intent["enum"] == ["mutate_filesystem"]
+    assert "mutation_paths" in shell_schemas[0]["function"]["parameters"][
+        "required"
+    ]
+    rejection = _tool_call_contract_error(
+        "shell",
+        {"command": "ls -la", "intent": "verify"},
+        shell_schemas,
+    )
+    assert rejection is not None
+    assert rejection["allowed_operations"] == ["mutate_filesystem"]
+
+    file_schemas = _background_tool_contract(
+        ["workspace_file"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+        execution_contract=contract,
+    )
+    file_actions = file_schemas[0]["function"]["parameters"]["properties"][
+        "action"
+    ]["enum"]
+    assert file_actions == ["mkdir", "write", "replace"]
+
+
 def test_failed_contract_retires_route_and_requires_one_explicit_replan(
     tmp_path: Path,
 ) -> None:

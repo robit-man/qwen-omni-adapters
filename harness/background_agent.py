@@ -982,6 +982,85 @@ def _audit_tool_schemas(active_tools: list[str]) -> list[dict[str, Any]]:
     return schemas
 
 
+def _execution_tool_schemas(
+    active_tools: list[str], contract: Mapping[str, Any] | None
+) -> list[dict[str, Any]]:
+    """Project an executor grammar that can cause only its declared effect."""
+
+    if not isinstance(contract, Mapping):
+        return tool_schemas(active_tools)
+    decision = str(contract.get("decision") or "")
+    effect = str(contract.get("expected_effect") or "")
+    operation_limits: dict[str, set[str]] = {}
+    if decision == "retrieve":
+        operation_limits = {
+            "workspace_file": {"list", "read"},
+            "shell": {"inspect"},
+            "browser_interact": {"navigate", "snapshot", "scroll", "back"},
+            "gui_interact": {"snapshot"},
+        }
+    elif decision == "act":
+        operation_limits = {
+            "workspace_file": {"mkdir", "write", "replace"},
+            "shell": (
+                {"mutate_filesystem"}
+                if effect == "change_environment"
+                else {"mutate_runtime"}
+            ),
+            "browser_interact": {
+                "navigate",
+                "click",
+                "visual_click",
+                "drag",
+                "type",
+                "set_value",
+                "select",
+                "upload",
+                "scroll",
+                "back",
+                "close",
+            },
+            "gui_interact": {"click", "drag", "type", "key", "hotkey", "scroll"},
+        }
+    schemas: list[dict[str, Any]] = []
+    for raw in tool_schemas(active_tools):
+        schema = copy.deepcopy(raw)
+        function = schema.get("function")
+        if not isinstance(function, dict):
+            continue
+        name = str(function.get("name") or "")
+        permitted = operation_limits.get(name)
+        if permitted is not None:
+            parameters = function.get("parameters")
+            properties = (
+                parameters.get("properties")
+                if isinstance(parameters, dict)
+                else None
+            )
+            operation_key = "intent" if name == "shell" else "action"
+            operation = (
+                properties.get(operation_key)
+                if isinstance(properties, dict)
+                else None
+            )
+            values = operation.get("enum") if isinstance(operation, dict) else None
+            if not isinstance(values, list):
+                continue
+            operation["enum"] = [value for value in values if str(value) in permitted]
+            if not operation["enum"]:
+                continue
+            if (
+                name == "shell"
+                and effect == "change_environment"
+                and isinstance(parameters, dict)
+            ):
+                required = parameters.setdefault("required", [])
+                if "mutation_paths" not in required:
+                    required.append("mutation_paths")
+        schemas.append(schema)
+    return schemas
+
+
 def _planned_transition_error(
     decision: str,
     *,
@@ -1252,6 +1331,7 @@ def _background_tool_contract(
     resident_context_tokens: int | None = None,
     recovery_exploration: bool = False,
     retired_action_families: set[str] | None = None,
+    execution_contract: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Expose the smallest complete action space for one controller round."""
 
@@ -1289,7 +1369,7 @@ def _background_tool_contract(
             for name in dict.fromkeys(active_tools)
             if tool_schemas([name])
         ][:tool_limit]
-        schemas = tool_schemas(concrete)
+        schemas = _execution_tool_schemas(concrete, execution_contract)
         # A routed family is the current phase's action space, not a hint that
         # competes with the router on every subsequent step. Keep using the
         # concrete capability until a checkpoint resets the phase or its
@@ -1533,13 +1613,14 @@ class _MalformedToolCall(RuntimeError):
 def _background_portal_session(seed: str, task_id: str) -> str:
     """Return a stable task-local portal namespace without exposing either input."""
 
-    # v3 abandons corpora created before renewable controller envelopes and
-    # failed-plan prose were excluded from current memory. Keeping the migration
+    # v4 abandons corpora created before renewable controller envelopes,
+    # failed-plan prose, and read-only mutation attempts were excluded from the
+    # working set. Keeping the migration
     # in the opaque hash provides a clean working set immediately on a
     # harness-only upgrade; no old database is deleted and the task's immutable
     # audit store is unchanged.
     digest = hashlib.sha256(
-        f"{seed}\0{task_id}\0background-controller-v3".encode()
+        f"{seed}\0{task_id}\0background-controller-v4".encode()
     ).hexdigest()
     return f"background-{digest[:40]}"
 
@@ -5058,6 +5139,9 @@ class BackgroundAgent:
                 resident_context_tokens=resident_context_tokens,
                 recovery_exploration=replan_after_inspection,
                 retired_action_families=_retired_action_families(current),
+                execution_contract=(
+                    pending_contract if controller_phase == "execute" else None
+                ),
             )
             offered_tool_names = {
                 str(function.get("name") or "")

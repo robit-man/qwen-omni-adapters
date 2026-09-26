@@ -187,6 +187,10 @@ version, and evidence pointers remain visible, but its rejected subtask,
 rationale, and acceptance prose are no longer projected as the current plan.
 Likewise, a successful no-op such as `mkdir` on an existing directory is kept as
 an unchanged inspection receipt and cannot enter the artifact ledger.
+The executor grammar is also effect-specific: an environment-changing ACT can
+offer filesystem writes or `shell:mutate_filesystem`, never list/read/inspect or
+verify operations. RETRIEVE receives the complementary read-only grammar, and
+the independent AUDIT role remains verification-only.
 
 Retrieval contracts close an evidence slot only when their typed receipt carries
 resolving evidence. An empty search result therefore cannot establish the
