@@ -28,6 +28,7 @@ from harness.background_agent import (
     _apply_capability_retry_budget,
     _audit_for_evidence,
     _audit_json,
+    _audited_task_state,
     _background_discovery_preflight,
     _background_portal_session,
     _background_step_token_limit,
@@ -2154,6 +2155,7 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
     )
     assert failed is not None
     assert _retired_action_families(failed) == {"structured_read:execute"}
+    assert failed["task_state"]["controller"]["current_subtask"] == ""
 
     retry_without_replan = {
         "decision": "retrieve",
@@ -3196,12 +3198,13 @@ def test_compaction_retains_typed_expandable_focus_records() -> None:
                     {"action": "write", "path": "/tmp/project/docs/research.md"}
                 ),
                 "outcome": json.dumps(
-                    {
-                        "action": "write",
-                        "path": "/tmp/project/docs/research.md",
-                        "sha256": "deadbeef",
-                        "validation": "text",
-                    }
+                        {
+                            "action": "write",
+                            "path": "/tmp/project/docs/research.md",
+                            "sha256": "deadbeef",
+                            "validation": "text",
+                            "evidence_authority": "mutation",
+                        }
                 ),
                 "ok": True,
             },
@@ -3285,7 +3288,12 @@ def test_focus_memory_is_bounded_and_keeps_latest_artifact_versions() -> None:
                 "tool": "workspace_file",
                 "arguments": json.dumps({"action": "write", "path": path}),
                 "outcome": json.dumps(
-                    {"action": "write", "path": path, "sha256": f"hash-{index}"}
+                    {
+                        "action": "write",
+                        "path": path,
+                        "sha256": f"hash-{index}",
+                        "evidence_authority": "mutation",
+                    }
                 ),
                 "ok": True,
             }
@@ -3319,6 +3327,7 @@ def test_focus_memory_is_bounded_and_keeps_latest_artifact_versions() -> None:
                         "action": "write",
                         "path": "/tmp/app/shared.py",
                         "sha256": "old-hash",
+                        "evidence_authority": "mutation",
                     }
                 ),
                 "ok": True,
@@ -3334,6 +3343,7 @@ def test_focus_memory_is_bounded_and_keeps_latest_artifact_versions() -> None:
                         "action": "replace",
                         "path": "/tmp/app/shared.py",
                         "sha256": "new-hash",
+                        "evidence_authority": "mutation",
                     }
                 ),
                 "ok": True,
@@ -3363,6 +3373,76 @@ def test_focus_memory_is_bounded_and_keeps_latest_artifact_versions() -> None:
     # A 4K tier reserves 768 tokens for output and still has ample room for
     # the current query/tool schema after pinning this system contract.
     assert conservative_token_estimate(system) < 2_200
+
+
+def test_failed_contract_prose_is_not_replayed_as_the_current_plan() -> None:
+    task = {
+        "task_state": {
+            "schema": "robit.omni.background-task-state.v1",
+            "controller": {
+                "phase": "prethink",
+                "current_subtask": "Repeat this stale failed inspection forever.",
+                "next_transition": "replan",
+                "last_contract": {
+                    "contract_id": "failed-contract",
+                    "generation": 8,
+                    "decision": "act",
+                    "subtask": "Repeat this stale failed inspection forever.",
+                    "reason": "Copy this stale rationale.",
+                    "acceptance_test": "List the existing directory again.",
+                    "capability_family": "filesystem",
+                    "expected_effect": "change_environment",
+                    "effect_target": "/tmp/app",
+                    "target_kind": "path",
+                    "target_scope": "exact",
+                    "status": "expected_effect_missing",
+                    "action_evidence_id": "unchanged-mkdir",
+                },
+            },
+            "environment": {"version": 3, "artifacts": []},
+            "knowledge": {"version": 2, "records": []},
+            "requirements": [],
+            "audit_reports": [],
+        }
+    }
+
+    rendered = _audited_task_state(task)
+
+    assert "Repeat this stale failed inspection forever" not in rendered
+    assert "Copy this stale rationale" not in rendered
+    assert "List the existing directory again" not in rendered
+    assert '"status": "expected_effect_missing"' in rendered
+    assert '"effect_target": "/tmp/app"' in rendered
+    assert '"action_evidence_id": "unchanged-mkdir"' in rendered
+
+
+def test_focus_memory_does_not_promote_an_unchanged_mkdir_to_artifact() -> None:
+    task = {
+        "actions": [
+            {
+                "call_id": "unchanged-mkdir",
+                "tool": "workspace_file",
+                "arguments": json.dumps({"action": "mkdir", "path": "/tmp/app"}),
+                "outcome": json.dumps(
+                    {
+                        "action": "mkdir",
+                        "path": "/tmp/app",
+                        "created": False,
+                        "evidence_authority": "unchanged_effect",
+                        "task_progress": False,
+                    }
+                ),
+                "ok": True,
+            }
+        ]
+    }
+
+    focus = _focus_memory(task, expand_available=True)
+
+    assert "<artifacts>" not in focus
+    assert "<inspections>" in focus
+    assert "unchanged_effect" in focus
+    assert "unchanged-mkdir" in focus
 
 
 def test_focus_memory_does_not_promote_discovery_or_blank_browser_state() -> None:

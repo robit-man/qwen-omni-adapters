@@ -182,6 +182,11 @@ evidence and full audit history recoverable.
 The opaque task-local portal session is schema-versioned, so a harness-only
 upgrade can abandon a corpus polluted by an older controller without deleting
 it, restarting GPU workers, or discarding the authoritative task ledger.
+When a contract fails, its typed status, target, capability, environment
+version, and evidence pointers remain visible, but its rejected subtask,
+rationale, and acceptance prose are no longer projected as the current plan.
+Likewise, a successful no-op such as `mkdir` on an existing directory is kept as
+an unchanged inspection receipt and cannot enter the artifact ledger.
 
 Retrieval contracts close an evidence slot only when their typed receipt carries
 resolving evidence. An empty search result therefore cannot establish the

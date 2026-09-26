@@ -352,6 +352,38 @@ def _audited_task_state(task: Mapping[str, Any]) -> str:
     records = records if isinstance(records, list) else []
     stagnation = controller.get("stagnation")
     stagnation = dict(stagnation) if isinstance(stagnation, Mapping) else {}
+    last_contract = controller.get("last_contract")
+    last_contract = dict(last_contract) if isinstance(last_contract, Mapping) else None
+    failed_contract = bool(
+        last_contract
+        and str(last_contract.get("status") or "")
+        in {"action_failed", "expected_effect_missing", "audit_failed"}
+    )
+    if failed_contract and last_contract is not None:
+        # A rejected executor plan is historical failure evidence, not the
+        # manager's next current plan. Preserve its typed causal coordinates
+        # while dropping prose that a small deterministic trunk can copy as a
+        # fresh instruction after compaction.
+        failure_fields = {
+            "contract_id",
+            "generation",
+            "decision",
+            "next_decision",
+            "active_requirement_id",
+            "capability_family",
+            "expected_effect",
+            "effect_target",
+            "target_kind",
+            "target_scope",
+            "status",
+            "action_evidence_id",
+            "verification_evidence_id",
+            "environment_version_at_plan",
+            "environment_version_after_action",
+        }
+        last_contract = {
+            key: value for key, value in last_contract.items() if key in failure_fields
+        }
     compact = {
         "state_version": int(state.get("version") or 0),
         "requirements": [
@@ -366,7 +398,9 @@ def _audited_task_state(task: Mapping[str, Any]) -> str:
         ],
         "controller": {
             "phase": str(controller.get("phase") or "")[:40],
-            "current_subtask": str(controller.get("current_subtask") or "")[:500],
+            "current_subtask": (
+                "" if failed_contract else str(controller.get("current_subtask") or "")[:500]
+            ),
             "next_transition": str(controller.get("next_transition") or "")[:40],
             "remaining_requirements": list(
                 controller.get("remaining_requirements") or []
@@ -382,11 +416,7 @@ def _audited_task_state(task: Mapping[str, Any]) -> str:
                 if isinstance(controller.get("pending_contract"), Mapping)
                 else None
             ),
-            "last_contract": (
-                dict(controller.get("last_contract"))
-                if isinstance(controller.get("last_contract"), Mapping)
-                else None
-            ),
+            "last_contract": last_contract,
         },
         "environment": {
             "version": int(environment.get("version") or 0),
@@ -2565,7 +2595,11 @@ def _focus_memory(
             action = str(
                 outcome.get("action") or arguments.get("action") or "changed"
             )
-            if path and action in {"mkdir", "write", "replace"}:
+            if (
+                path
+                and action in {"mkdir", "write", "replace"}
+                and authority == "mutation"
+            ):
                 artifacts_by_path.pop(path, None)
                 artifacts_by_path[path] = {
                     "evidence_id": call_id,
@@ -2573,6 +2607,16 @@ def _focus_memory(
                     "path": path,
                     "sha256": str(outcome.get("sha256") or "")[:128],
                     "validation": str(outcome.get("validation") or "")[:120],
+                    **expansion_pointer(call_id),
+                }
+            elif path and action in {"mkdir", "write", "replace"}:
+                key = ("unchanged_effect", path)
+                inspections_by_target.pop(key, None)
+                inspections_by_target[key] = {
+                    "evidence_id": call_id,
+                    "status": "unchanged_effect",
+                    "path": path,
+                    "task_progress": False,
                     **expansion_pointer(call_id),
                 }
             elif path and action in {"list", "read"}:

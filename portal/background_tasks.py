@@ -303,6 +303,7 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
                 contract["status"] = "action_failed"
                 controller["last_contract"] = contract
                 controller["pending_contract"] = None
+                controller["current_subtask"] = ""
                 controller["phase"] = "prethink"
                 controller["next_transition"] = "replan"
                 normalized["milestone_progress"] = False
@@ -335,6 +336,7 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
                 contract["status"] = "expected_effect_missing"
                 controller["last_contract"] = contract
                 controller["pending_contract"] = None
+                controller["current_subtask"] = ""
                 controller["phase"] = "prethink"
                 controller["next_transition"] = "replan"
                 normalized["milestone_progress"] = False
@@ -369,6 +371,7 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
                 contract["verification_evidence_id"] = evidence_id
                 controller["last_contract"] = contract
                 controller["pending_contract"] = None
+                controller["current_subtask"] = ""
                 controller["phase"] = "prethink"
                 controller["next_transition"] = "replan"
                 normalized["milestone_progress"] = False
