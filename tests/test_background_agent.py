@@ -2529,6 +2529,12 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
         if chat_round == 2:
             assert offered == ["workspace_file"]
             assert len(payload["messages"]) == 2
+            system = payload["messages"][0]["content"]
+            assert '<committed_role name="EXECUTE">' in system
+            assert '"decision": "act"' in system
+            assert str(tmp_path / "artifact.txt") in system
+            assert "audited_task_state" not in system
+            assert AGENT_SYSTEM_PROMPT not in system
             assert "execute-request.v1" in payload["messages"][1]["content"]
             return tool_call(
                 "rejected-read",
@@ -2552,6 +2558,10 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
         if chat_round == 4:
             assert offered == ["shell"]
             assert len(payload["messages"]) == 2
+            system = payload["messages"][0]["content"]
+            assert '<committed_role name="AUDIT">' in system
+            assert '"action_evidence_id": "action-1"' in system
+            assert "audited_task_state" not in system
             assert "audit-request.v1" in payload["messages"][1]["content"]
             shell_schema = payload["tools"][0]["function"]["parameters"]
             assert shell_schema["properties"]["intent"]["enum"] == ["verify"]

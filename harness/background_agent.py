@@ -521,6 +521,99 @@ def _task_system_prompt(
     return f"{task_contract}\n\n{controller_policy}"
 
 
+def _committed_role_system_prompt(
+    task: Mapping[str, Any],
+    *,
+    stage: str,
+) -> str:
+    """Render the small, closed prompt for an already committed transition.
+
+    MANAGE owns the broad task model.  Once it has committed an EXECUTE or
+    AUDIT contract, replaying the manager's complete focus memory and generic
+    autonomy policy only increases attention competition with the one legal
+    action.  This projection is selected from runtime controller state, not
+    task text: the immutable objective and criteria stay pinned, while the
+    executor receives only the current contract, environment version, and
+    newest human directions.  Raw history and receipts remain externally
+    recoverable and are replayed separately when relevant.
+    """
+
+    if stage not in {"execute", "audit"}:
+        return _task_system_prompt(task)
+    objective = " ".join(str(task.get("objective") or "").split())
+    criteria = " ".join(str(task.get("completion_criteria") or "").split())
+    pending = _pending_task_contract(task)
+    contract_fields = {
+        "contract_id",
+        "generation",
+        "decision",
+        "origin_decision",
+        "subtask",
+        "capability_family",
+        "expected_effect",
+        "effect_target",
+        "target_kind",
+        "target_scope",
+        "acceptance_test",
+        "verification_family",
+        "environment_version_at_plan",
+        "environment_version_after_action",
+        "action_evidence_id",
+        "status",
+    }
+    projected_contract = {
+        key: value for key, value in pending.items() if key in contract_fields
+    }
+    state = {
+        "role": stage,
+        "environment_version": _task_environment_version(task),
+        "pending_contract": projected_contract,
+    }
+    sections = [
+        '<current_task role="committed_transition">',
+        f"Objective: {objective}",
+    ]
+    if criteria:
+        sections.append(f"Completion criteria: {criteria}")
+    sections.append(
+        '<committed_controller_state authority="runtime">\n'
+        + json.dumps(state, ensure_ascii=False, sort_keys=True, default=str)
+        + "\n</committed_controller_state>"
+    )
+    guidance = task.get("guidance")
+    if isinstance(guidance, list):
+        directions = [
+            " ".join(str(item.get("content") or "").split())
+            for item in guidance[-4:]
+            if isinstance(item, Mapping) and str(item.get("content") or "").strip()
+        ]
+        if directions:
+            sections.append("Newest human directions, oldest to newest:")
+            sections.extend(f"- {direction}" for direction in directions)
+    sections.append("</current_task>")
+    if stage == "execute":
+        policy = (
+            '<committed_role name="EXECUTE">The manager has already selected one '
+            "bounded transition. Return exactly one native structured call to one of "
+            "the supplied tools; return no prose. Use the pending contract as the sole "
+            "subtask and the supplied JSON schema as the complete legal action grammar. "
+            "A RETRIEVE contract performs one read-only observation of its declared "
+            "target. An ACT contract performs one mutation that can produce its declared "
+            "effect. Do not plan, route, checkpoint, audit, broaden the task, repeat an "
+            "unchanged result, or claim success.</committed_role>"
+        )
+    else:
+        policy = (
+            '<committed_role name="AUDIT">Independently test the pending contract now. '
+            "Return exactly one native structured call to one of the supplied read-only "
+            "verification tools; return no prose. Address the declared target and "
+            "acceptance test exactly. Do not mutate, repair, plan, route, checkpoint, "
+            "broaden the task, or accept the executor's claim without current external "
+            "evidence.</committed_role>"
+        )
+    return "\n".join([*sections, policy])
+
+
 def _milestone_evidence_ids(
     task: Mapping[str, Any], *, limit: int = MAX_EXECUTOR_REPLAY_RECORDS
 ) -> list[str]:
@@ -750,7 +843,10 @@ def _fresh_managed_messages(
     if replay:
         content += "\n" + replay
     return [
-        {"role": "system", "content": _task_system_prompt(task)},
+        {
+            "role": "system",
+            "content": _committed_role_system_prompt(task, stage=stage),
+        },
         {"role": "user", "content": content},
     ]
 
@@ -5038,12 +5134,22 @@ class BackgroundAgent:
                 logger.info("background task %s cancelled", task_id)
                 return
             # The objective is stable, but accepted milestones and user
-            # directions evolve across a long task. Keep that current plan in
-            # the pinned system contract instead of hoping semantic retrieval
-            # will recover it from an old compacted turn.
+            # directions evolve across a long task. MANAGE receives the broad
+            # task model; a committed EXECUTE/AUDIT transition receives the
+            # much smaller controller projection plus exact replay evidence.
+            live_controller_phase = str(
+                _task_controller(current).get("phase") or "prethink"
+            )
             messages[0] = {
                 "role": "system",
-                "content": _task_system_prompt(current),
+                "content": _committed_role_system_prompt(
+                    current,
+                    stage=(
+                        live_controller_phase
+                        if live_controller_phase in {"execute", "audit"}
+                        else "manage"
+                    ),
+                ),
             }
             added_guidance = _append_guidance(messages, current, seen_guidance)
             if added_guidance:
