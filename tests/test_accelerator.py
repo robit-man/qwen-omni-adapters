@@ -225,7 +225,7 @@ def test_tegra_bridge_uses_a_bounded_virtual_memory_working_set(monkeypatch) -> 
     )
 
     monkeypatch.setattr(daemon, "is_tegra", lambda: True)
-    assert daemon.DaemonConfig.from_environment(cloudflare=False).context_tokens == 16384
+    assert daemon.DaemonConfig.from_environment(cloudflare=False).context_tokens == 65536
 
     monkeypatch.setattr(daemon, "is_tegra", lambda: False)
     assert daemon.DaemonConfig.from_environment(cloudflare=False).context_tokens == 65536

@@ -384,16 +384,15 @@ backup_service_unit() {
 
 install_environment() {
   local temporary cache_type=f16 background_residency_mode=conversation context_tokens=16384
-  # The Ornith bridge's q8 KV profile is qualified on the 32 GB AGX Orin:
-  # sealed 256K domain answers, text/audio/image, cloned streaming TTS,
-  # post-TTS ASR, and structured tool routing pass. A longer live soak proved
-  # that 16K remains a ceiling rather than a guaranteed steady tier; the
-  # launcher may downshift its physical working set. Keep f16 everywhere else
-  # until the exact model/platform pair has equivalent live evidence.
+  # The Ornith bridge's q8 KV profile on the 32 GB AGX Orin exposes a 64K
+  # ceiling. The launcher admits only a tier funded by measured live residency,
+  # the GGUF-derived KV slope, and the shared operational reserve, so this is
+  # not an unconditional 64K allocation. Keep f16 everywhere else until the
+  # exact model/platform pair has equivalent live evidence.
   if [[ $PROFILE == ornith15 ]] && is_tegra; then
     cache_type=q8_0
     background_residency_mode=action
-    context_tokens=32768
+    context_tokens=65536
   fi
   temporary=$(mktemp "$REPO_ROOT/.env.deploy.XXXXXX")
   if [[ -f "$REPO_ROOT/.env" ]]; then

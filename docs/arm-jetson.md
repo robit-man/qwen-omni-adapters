@@ -176,8 +176,9 @@ vision or other CUDA workloads.
 
 Legacy full bundles retain a 65,536-token ceiling. The compact Ornith GGUF
 declares a 262,144-token native range; the qualified 32 GB Orin profile offers
-a **32,768-token supervised ceiling** with q8 KV after measuring its live KV
-slope. The launcher may still select 16K/8K/4K under pressure. The larger
+a **65,536-token live-admitted ceiling** with q8 KV after measuring its KV
+slope and resident weight baseline. The launcher may still select
+32K/16K/8K/4K under pressure. The larger
 Qwen3.8 compact profile retains a 16,384-token ceiling. History beyond the
 selected physical tier is handled by the lossless
 virtual-context hierarchy instead of preallocating a nominal 256K KV cache in
@@ -190,20 +191,19 @@ default ceiling is `comprehension_context_ceiling`. The published
 `comprehension_parallel_slots` matches llama-server's `--parallel` value; the
 default is one so the planner cannot undercount four implicit KV slots. An
 explicit `OMNI_COMPREHENSION_CONTEXT_TOKENS` can still override the ceiling for
-controlled benchmarks, but 65K/256K are not supported defaults on a 32 GB
-module.
+controlled benchmarks, but a nominal 256K KV allocation is not a supported
+default on a 32 GB module.
 
 `OMNI_COMPREHENSION_CACHE_TYPE_K` and
 `OMNI_COMPREHENSION_CACHE_TYPE_V` separately control the llama.cpp L0 KV
 formats. The guided 32 GB Tegra deployment uses `q8_0` for the qualified Ornith
 audio bridge; other model/platform pairs retain the general `f16` default until
-they pass equivalent live gates. The qualified q8 run held a 16,384-token worker
+they pass equivalent live gates. The q8 profile held a 32,768-token worker
 through sealed 256K domain answers, text/audio/image comprehension, resident
 cloned and streamed TTS, post-TTS ASR, and structured tools without a restart or
-governor downshift. A later foreground plus medium-horizon action soak did
-downshift 16K to 8K and then 4K as the full working set became resident. This
-qualifies q8 as the cache format, not 16K as a permanent tier; 16K remains the
-ceiling and the live governor is authoritative. `q4_0` remains experimental:
+governor downshift. The 65,536 tier remains subject to the exact same live
+admission and post-load reserve gates; the configured ceiling never promises
+that a busy host will select it. `q4_0` remains experimental:
 its sealed domain answers passed, but the live tool gate selected an incorrect
 GUI route and was rejected. The launcher derives its admission slope from exact
 block bytes and resets its
@@ -227,7 +227,7 @@ normal TTS path; the next grounded browser action reloads the point head through
 its narrow local endpoint. `conversation` keeps both optional graphs warm and
 is the default on unqualified model/platform pairs. Tegra still does not resize
 the live llama process: action shedding supplies execution headroom inside the
-startup-selected KV tier without risky CUDA-process teardown. A 16K-to-32K
+startup-selected KV tier without risky CUDA-process teardown. A 32K-to-64K
 change therefore occurs only on a supervised service start, after optional
 graphs have been released.
 Intermediate background checkpoints remain visible in the indicator but are

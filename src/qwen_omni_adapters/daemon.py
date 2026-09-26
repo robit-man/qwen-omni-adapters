@@ -185,7 +185,12 @@ class DaemonConfig:
         # Compact bridges use a bounded resident working set. Long history is
         # paged through virtual memory instead of eagerly consuming Tegra's
         # unified pool with a nominal native-length KV allocation.
-        default_context = "16384" if tegra and "-audio-bridge:" in model else "65536"
+        if tegra and model == "robit/ornith-1.5-omni-audio-bridge:q4km":
+            default_context = "65536"
+        elif tegra and "-audio-bridge:" in model:
+            default_context = "16384"
+        else:
+            default_context = "65536"
         return cls(
             repo_root=root,
             runtime_root=runtime,

@@ -128,7 +128,7 @@ def test_guided_bridge_disables_legacy_eviction_and_blocking_smoke() -> None:
 
     assert "OMNI_CALL_SPEECH_EVICT_UNIT" in install_body
     assert "OMNI_ENABLE_COMPREHENSION=1" in install_body
-    assert "context_tokens=32768" in install_body
+    assert "context_tokens=65536" in install_body
     assert "OMNI_COMPREHENSION_CONTEXT_TOKENS=%s" in install_body
     assert "if [[ $PROFILE == ornith15 ]] && is_tegra" in install_body
     assert "cache_type=q8_0" in install_body

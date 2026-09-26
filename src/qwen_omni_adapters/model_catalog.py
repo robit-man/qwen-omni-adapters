@@ -29,11 +29,11 @@ MANAGED_MODELS: tuple[ManagedModel, ...] = (
         size_gib=8.15,
         generation="compact",
         # The virtual-context layer treats this resident window as L0.  The
-        # GGUF declares a 262K native range.  The qualified 32 GB Orin profile
-        # uses q8 KV and independently sheds TTS/pointing during action work,
-        # leaving enough measured headroom for a supervised 32K L0 tier.  The
-        # live launcher may still select a smaller tier under pressure.
-        max_context_tokens=32_768,
+        # GGUF declares a 262K native range.  The 32 GB Orin profile uses q8 KV
+        # and independently sheds TTS/pointing during action work.  Admission
+        # is still based on the model-derived KV slope and measured live
+        # residency, so 64K is a ceiling rather than an unconditional load.
+        max_context_tokens=65_536,
         language_disable_thinking=True,
     ),
     ManagedModel(
