@@ -23,6 +23,7 @@ from harness.background_agent import (
     TASK_RECOVERY_TOOL,
     TASK_START_REQUEST,
     BackgroundAgent,
+    _apply_capability_retry_budget,
     _audit_json,
     _background_discovery_preflight,
     _background_portal_session,
@@ -69,6 +70,7 @@ from harness.background_agent import (
     _task_system_prompt,
     _task_virtual_query,
     _tool_evidence,
+    _trailing_capability_failures,
     _uncheckpointed_action_count,
     _web_fetch_preflight,
 )
@@ -2210,6 +2212,47 @@ def test_failed_outcome_cannot_recur_after_an_intervening_failed_probe() -> None
     assert retry_digest == first_digest
     assert retained == second_last
     assert guarded["error"] == "repeated_unchanged_result"
+
+
+def test_trailing_capability_failures_survive_discovery_actions() -> None:
+    task = {
+        "actions": [
+            {"tool": "shell", "ok": False},
+            {"tool": "tool_search", "ok": True},
+            {"tool": "shell", "ok": False},
+            {"tool": "web_search", "ok": True},
+            {"tool": "shell", "ok": False},
+        ]
+    }
+
+    assert _trailing_capability_failures(task) == {"shell": 3}
+
+
+def test_capability_retry_budget_requires_a_different_action_space() -> None:
+    failures: dict[str, int] = {}
+    failed = {"exit_code": 2, "stderr": "target does not exist"}
+
+    assert _apply_capability_retry_budget("shell", failed, failures) == failed
+    assert _apply_capability_retry_budget("shell", failed, failures) == failed
+    exhausted = _apply_capability_retry_budget("shell", failed, failures)
+
+    assert exhausted["error"] == "capability_retry_exhausted"
+    assert exhausted["disposition"] == "change_capability"
+    assert exhausted["alternative_tools"] == ["workspace_file"]
+    assert exhausted["task_blocked"] is False
+    assert exhausted["last_result"] == failed
+
+
+def test_concrete_success_resets_capability_retry_budget() -> None:
+    failures = {"shell": 3}
+    success = {"action": "mkdir", "path": "/tmp/project", "ok": True}
+
+    assert _apply_capability_retry_budget("workspace_file", success, failures) == success
+    assert failures == {}
+    assert _apply_capability_retry_budget(
+        "shell", {"exit_code": 1}, failures
+    ) == {"exit_code": 1}
+    assert failures == {"shell": 1}
 
 
 def test_workspace_inspection_guard_ignores_cosmetic_defaults() -> None:

@@ -656,6 +656,11 @@ NON_STICKY_RESULT_TOOLS = {
     "web_fetch",
     "web_search",
 }
+CAPABILITY_RECOVERY_ALTERNATIVES = {
+    "shell": ["workspace_file"],
+    "workspace_file": ["shell"],
+}
+MAX_FAILED_CAPABILITY_ATTEMPTS = 3
 
 
 class _ForegroundPreempted(RuntimeError):
@@ -2424,6 +2429,65 @@ def _result_failed_or_blocked(result: Any) -> bool:
     return exit_code is not None and exit_code != 0
 
 
+def _trailing_capability_failures(task: Mapping[str, Any]) -> dict[str, int]:
+    """Recover per-capability failures since the last concrete success."""
+
+    counts: dict[str, int] = {}
+    actions = task.get("actions")
+    if not isinstance(actions, list):
+        return counts
+    for action in reversed(actions):
+        if not isinstance(action, Mapping):
+            continue
+        name = str(action.get("tool") or "")
+        if not name or name in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search", "web_search"}:
+            continue
+        if action.get("ok") is True:
+            break
+        counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
+def _apply_capability_retry_budget(
+    name: str,
+    result: Any,
+    failures: dict[str, int],
+) -> Any:
+    """Turn repeated capability failure into an observable route change.
+
+    This never upgrades failure into progress. It prevents a controller from
+    spending every renewed slice on superficial variants of the same dead
+    action space. A concrete success clears the budget and makes every
+    capability available again.
+    """
+
+    if not name or name in {*LOCAL_CONTROL_TOOL_NAMES, "tool_search", "web_search"}:
+        return result
+    if not _result_failed_or_blocked(result):
+        failures.clear()
+        return result
+    failures[name] = failures.get(name, 0) + 1
+    if failures[name] < MAX_FAILED_CAPABILITY_ATTEMPTS:
+        return result
+    alternatives = [
+        candidate
+        for candidate in CAPABILITY_RECOVERY_ALTERNATIVES.get(name, [])
+        if tool_schemas([candidate])
+    ]
+    return {
+        "error": "capability_retry_exhausted",
+        "message": (
+            f"{name} failed {failures[name]} times without a concrete success. "
+            "Change capability before trying this action space again."
+        ),
+        "failure_scope": "capability",
+        "disposition": "change_capability",
+        "alternative_tools": alternatives,
+        "task_blocked": False,
+        "last_result": _bounded_tool_result(result),
+    }
+
+
 def _append_guidance(
     messages: list[dict[str, Any]],
     task: Mapping[str, Any],
@@ -3174,6 +3238,7 @@ class BackgroundAgent:
         result_digests = {
             str(value) for value in task.get("result_digests", []) if value
         }
+        capability_failures = _trailing_capability_failures(task)
         last_external_result_digest = _latest_external_result_digest(messages)
         phase_action_count = _uncheckpointed_action_count(task)
         active_tools = [
@@ -4172,6 +4237,11 @@ class BackgroundAgent:
                     result,
                     last_external_result_digest,
                     result_digests,
+                )
+                result = _apply_capability_retry_budget(
+                    name,
+                    result,
+                    capability_failures,
                 )
                 change_capability = (
                     isinstance(result, Mapping)
