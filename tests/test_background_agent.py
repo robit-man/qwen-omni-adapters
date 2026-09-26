@@ -5105,7 +5105,7 @@ def test_background_agent_rejects_completion_after_latest_action_failed(
             )
         elif chat_round == 4:
             payload = json.loads(request.content)
-            assert "unsupported_checkpoint" in str(payload["messages"][-1])
+            assert "tool_not_offered" in str(payload["messages"][-1])
             assert "I finished it." not in json.dumps(payload["messages"])
             command = "different successful verification"
         else:
@@ -5156,7 +5156,7 @@ def test_background_agent_rejects_completion_after_latest_action_failed(
     assert current["status"] == "completed"
     assert current["result"] == "I finished it and the new check passed."
     assert chat_round == 5
-    assert "unsupported_checkpoint" in (tmp_path / "tasks.json").read_text()
+    assert "tool_not_offered" in (tmp_path / "tasks.json").read_text()
 
 
 def test_new_guidance_wins_over_an_inflight_completion(tmp_path: Path) -> None:

@@ -3072,6 +3072,10 @@ def _latest_receipt_requires_checkpoint(
     for message in reversed(messages):
         if message.get("role") != "tool":
             continue
+        if _is_duplicate_tool_result(message):
+            # A locally rejected duplicate performed no action and must not
+            # hide the newest real milestone from the checkpoint gate.
+            continue
         if str(message.get("tool_name") or "") in LOCAL_CONTROL_TOOL_NAMES:
             return False
         latest_evidence_id = str(message.get("tool_call_id") or "")
@@ -4202,13 +4206,17 @@ class BackgroundAgent:
                     task_id,
                     repaired_history,
                 )
-            can_checkpoint = _checkpoint_available(messages) and not recovery_required
+            latest_receipt_is_milestone = _latest_receipt_requires_checkpoint(
+                current, messages
+            )
+            can_checkpoint = (
+                _checkpoint_available(messages)
+                and not recovery_required
+                and latest_receipt_is_milestone
+            )
             phase_boundary = can_checkpoint and (
                 phase_action_count >= MAX_PHASE_ACTIONS
-                or (
-                    not active_tools
-                    and _latest_receipt_requires_checkpoint(current, messages)
-                )
+                or not active_tools
             )
             # Before compaction the exact result is still resident in the
             # ordinary transcript. Offer paging only after older turns may
@@ -4497,6 +4505,12 @@ class BackgroundAgent:
                     }
                     and name not in offered_tool_names
                 ):
+                    if name == "task_checkpoint":
+                        # A checkpoint proposed outside the evidence-sufficient
+                        # grammar is still model-authored status prose. Remove
+                        # it before returning the local rejection so it cannot
+                        # reappear as established task history.
+                        _sanitize_checkpoint_history(messages, call_id=call_id)
                     rejected_result = {
                         "error": "tool_not_offered",
                         "message": (

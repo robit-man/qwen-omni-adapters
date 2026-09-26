@@ -182,7 +182,10 @@ change. A checkpoint milestone must cite a typed source acquisition, verified
 mutation, external interaction, or verification receipt. A clock lookup,
 system snapshot, repeated inspection, or other successful information probe
 may be useful evidence but cannot advance or complete an execution phase by
-itself. This separation prevents the model from converting an easy ancillary
+itself. `task_checkpoint` is omitted from the executable grammar while the
+freshest receipt is not such a milestone, so an evidence-insufficient checkpoint
+cannot consume another inference round merely to be rejected. This separation
+prevents the model from converting an easy ancillary
 tool success into apparent application progress.
 When a typed milestone comes from a non-sticky capability such as source
 fetching, the next action contract contains only the checkpoint transition;
