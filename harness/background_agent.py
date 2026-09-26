@@ -1533,12 +1533,13 @@ class _MalformedToolCall(RuntimeError):
 def _background_portal_session(seed: str, task_id: str) -> str:
     """Return a stable task-local portal namespace without exposing either input."""
 
-    # v2 abandons corpora created before renewable controller envelopes were
-    # excluded from semantic memory. Keeping the migration in the opaque hash
-    # provides a clean working set immediately on a harness-only upgrade; no
-    # old database is deleted and the task's immutable audit store is unchanged.
+    # v3 abandons corpora created before renewable controller envelopes and
+    # failed-plan prose were excluded from current memory. Keeping the migration
+    # in the opaque hash provides a clean working set immediately on a
+    # harness-only upgrade; no old database is deleted and the task's immutable
+    # audit store is unchanged.
     digest = hashlib.sha256(
-        f"{seed}\0{task_id}\0background-controller-v2".encode()
+        f"{seed}\0{task_id}\0background-controller-v3".encode()
     ).hexdigest()
     return f"background-{digest[:40]}"
 
