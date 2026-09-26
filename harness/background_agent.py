@@ -1422,12 +1422,12 @@ def _background_tool_contract(
         # executor returns a typed capability failure. This prevents repeated
         # classify -> inspect -> classify loops while preserving a general,
         # model-selected transition at the phase boundary.
-        if not concrete or recovery_exploration:
+        if execution_contract is None and (not concrete or recovery_exploration):
             schemas.extend(copy.deepcopy(DISCOVERY_TOOLS))
         # On a constrained tier, paging remains available beside the one active
         # leaf; broad discovery does not. Larger tiers use the same state
         # machine so behavior is independent of the current KV allocation.
-        if expand_available:
+        if expand_available and execution_contract is None:
             schemas.append(copy.deepcopy(TASK_EXPAND_TOOL))
         if can_checkpoint:
             schemas.append(copy.deepcopy(TASK_CHECKPOINT_TOOL))
@@ -1659,14 +1659,14 @@ class _MalformedToolCall(RuntimeError):
 def _background_portal_session(seed: str, task_id: str) -> str:
     """Return a stable task-local portal namespace without exposing either input."""
 
-    # v5 abandons corpora created before renewable controller envelopes,
-    # failed-plan prose, and locally rejected operations were excluded from the
-    # working set. Keeping the migration
+    # v6 abandons corpora created before renewable controller envelopes,
+    # failed-plan prose, and maintenance tools were excluded from committed
+    # executor action space. Keeping the migration
     # in the opaque hash provides a clean working set immediately on a
     # harness-only upgrade; no old database is deleted and the task's immutable
     # audit store is unchanged.
     digest = hashlib.sha256(
-        f"{seed}\0{task_id}\0background-controller-v5".encode()
+        f"{seed}\0{task_id}\0background-controller-v6".encode()
     ).hexdigest()
     return f"background-{digest[:40]}"
 

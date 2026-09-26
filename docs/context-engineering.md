@@ -197,6 +197,10 @@ executor retries against the same contract and exact allowed operations. If an
 admitted action runs but produces no declared effect, its typed target/effect
 route is retired for the next replan; swapping filesystem for shell cannot
 disguise the same no-op route as new progress.
+Once a manager contract is pending, its executor action space contains only the
+selected concrete leaf operations. Capability discovery and evidence paging do
+not sit beside ACT as escape hatches; missing evidence must be declared as a
+separate RETRIEVE transition before execution.
 
 Retrieval contracts close an evidence slot only when their typed receipt carries
 resolving evidence. An empty search result therefore cannot establish the

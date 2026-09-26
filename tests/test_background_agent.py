@@ -2143,10 +2143,14 @@ def test_executor_contract_excludes_read_only_calls_from_mutation_phase() -> Non
         ["workspace_file"],
         recovery_required=False,
         phase_boundary=False,
-        expand_available=False,
+        expand_available=True,
         can_checkpoint=False,
+        recovery_exploration=True,
         execution_contract=contract,
     )
+    assert [schema["function"]["name"] for schema in file_schemas] == [
+        "workspace_file"
+    ]
     file_actions = file_schemas[0]["function"]["parameters"]["properties"][
         "action"
     ]["enum"]
