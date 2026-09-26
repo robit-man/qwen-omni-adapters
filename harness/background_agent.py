@@ -479,6 +479,7 @@ def _background_tool_contract(
     expand_available: bool,
     can_checkpoint: bool,
     resident_context_tokens: int | None = None,
+    recovery_exploration: bool = False,
 ) -> list[dict[str, Any]]:
     """Expose the smallest complete action space for one controller round."""
 
@@ -503,7 +504,7 @@ def _background_tool_contract(
         # executor returns a typed capability failure. This prevents repeated
         # classify -> inspect -> classify loops while preserving a general,
         # model-selected transition at the phase boundary.
-        if not concrete:
+        if not concrete or recovery_exploration:
             schemas.extend(copy.deepcopy(DISCOVERY_TOOLS))
         # On a constrained tier, paging remains available beside the one active
         # leaf; broad discovery does not. Larger tiers use the same state
@@ -3388,6 +3389,7 @@ class BackgroundAgent:
                 compacted=bool(current.get("compaction")),
             )
             resident_context_tokens = _resident_task_context_tokens()
+            replan_after_inspection = _latest_result_requires_replan(messages)
             schemas = _background_tool_contract(
                 active_tools,
                 recovery_required=recovery_required,
@@ -3395,6 +3397,7 @@ class BackgroundAgent:
                 expand_available=expand_available,
                 can_checkpoint=can_checkpoint,
                 resident_context_tokens=resident_context_tokens,
+                recovery_exploration=replan_after_inspection,
             )
             offered_tool_names = {
                 str(function.get("name") or "")
@@ -3416,7 +3419,6 @@ class BackgroundAgent:
             structured_action_phase = action_after_discovery or _structured_action_phase(
                 messages, active_tools
             )
-            replan_after_inspection = _latest_result_requires_replan(messages)
             inference_messages = _computer_action_messages(
                 messages,
                 current,

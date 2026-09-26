@@ -553,6 +553,24 @@ def test_only_typed_nonprogress_result_reenables_bounded_planning() -> None:
     )
 
 
+def test_nonprogress_replan_can_select_a_different_typed_family() -> None:
+    schemas = _background_tool_contract(
+        ["shell"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=True,
+        resident_context_tokens=16_384,
+        recovery_exploration=True,
+    )
+
+    assert [schema["function"]["name"] for schema in schemas] == [
+        "shell",
+        "tool_search",
+        "task_checkpoint",
+    ]
+
+
 def test_web_fetch_preflight_allows_a_user_supplied_url_but_not_self_authorization() -> None:
     task = {
         "objective": "Inspect https://example.test/direct/ and summarize it.",

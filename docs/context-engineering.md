@@ -187,10 +187,12 @@ behind command text or promoted to a completed success. An inspection does not
 make `task_expand` compete with the next action; paging returns after new
 durable evidence or at a phase boundary.
 The round immediately following typed non-progress evidence receives a bounded
-private planning pass even when a concrete family remains active. Concrete
-action chains continue with thinking disabled for latency. This gives the
-transformer room to change strategy after an observation without broadening the
-schema set or exposing private reasoning.
+private planning pass and can either continue with the current concrete family
+or invoke the small typed-family selector to recover through a different
+capability. Concrete successful action chains continue without discovery and
+with thinking disabled for latency. This gives the transformer room to change
+strategy after an observation without reopening the full tool catalog or
+exposing private reasoning.
 
 Every concrete background call is retained as a bounded audit record containing
 call ID, exact tool name, bounded/redacted arguments, outcome, and success
