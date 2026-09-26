@@ -2163,6 +2163,8 @@ def test_shell_failure_guard_ignores_cosmetic_argument_and_stream_changes() -> N
     assert retry_digest == last_digest
     assert retained == last_digest
     assert guarded["error"] == "repeated_unchanged_result"
+    assert guarded["disposition"] == "change_capability"
+    assert guarded["alternative_tools"] == ["workspace_file"]
 
 
 def test_failed_outcome_cannot_recur_after_an_intervening_failed_probe() -> None:

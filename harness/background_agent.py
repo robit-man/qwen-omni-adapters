@@ -2053,6 +2053,14 @@ def _guard_repeated_unchanged_result(
                 "alternative_tools": ["web_search", "browser_interact"],
             }
         )
+    elif name in CAPABILITY_RECOVERY_ALTERNATIVES:
+        recovery.update(
+            {
+                "failure_scope": "capability",
+                "disposition": "change_capability",
+                "alternative_tools": CAPABILITY_RECOVERY_ALTERNATIVES[name],
+            }
+        )
     return recovery, last_digest, digest, True
 
 
