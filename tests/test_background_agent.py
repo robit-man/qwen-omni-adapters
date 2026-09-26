@@ -56,6 +56,7 @@ from harness.background_agent import (
     _guard_repeated_unchanged_result,
     _inference_diagnostics,
     _latest_external_result_digest,
+    _latest_receipt_requires_checkpoint,
     _latest_result_requires_replan,
     _latest_tool_fingerprint,
     _MalformedToolCall,
@@ -670,6 +671,52 @@ def test_nonprogress_replan_can_select_a_different_typed_family() -> None:
         "web_search",
         "task_checkpoint",
     ]
+
+
+def test_nonsticky_milestone_closes_before_discovery_reopens() -> None:
+    task = {
+        "task_state": {
+            "audit_reports": [
+                {
+                    "evidence_id": "source-1",
+                    "action_family": "web_fetch:execute",
+                    "milestone_progress": True,
+                }
+            ]
+        }
+    }
+    source_messages = [
+        {
+            "role": "tool",
+            "tool_name": "web_fetch",
+            "tool_call_id": "source-1",
+            "content": '{"content":"exact acquired source"}',
+        },
+        {"role": "user", "content": "Assess the result."},
+    ]
+    assert _latest_receipt_requires_checkpoint(task, source_messages) is True
+    schemas = _background_tool_contract(
+        [],
+        recovery_required=False,
+        phase_boundary=True,
+        expand_available=False,
+        can_checkpoint=True,
+        resident_context_tokens=16_384,
+    )
+    assert [schema["function"]["name"] for schema in schemas] == [
+        "task_checkpoint"
+    ]
+
+    later_probe = [
+        *source_messages,
+        {
+            "role": "tool",
+            "tool_name": "get_system_snapshot",
+            "tool_call_id": "snapshot-1",
+            "content": '{"task_progress":false}',
+        },
+    ]
+    assert _latest_receipt_requires_checkpoint(task, later_probe) is False
 
 
 def test_web_fetch_preflight_allows_a_user_supplied_url_but_not_self_authorization() -> None:

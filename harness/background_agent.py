@@ -2844,6 +2844,41 @@ def _checkpoint_has_milestone(
     )
 
 
+def _latest_receipt_requires_checkpoint(
+    task: Mapping[str, Any], messages: list[dict[str, Any]]
+) -> bool:
+    """Close a non-sticky milestone before reopening broad discovery.
+
+    The auditor, not model prose or request vocabulary, decides whether the
+    newest external receipt is a milestone.  Sticky mutation tools can keep
+    their scoped action family for a multi-file phase; when no leaf remains,
+    the accepted evidence must be written into controller state first.
+    """
+
+    latest_evidence_id = ""
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            continue
+        if str(message.get("tool_name") or "") in LOCAL_CONTROL_TOOL_NAMES:
+            return False
+        latest_evidence_id = str(message.get("tool_call_id") or "")
+        break
+    if not latest_evidence_id:
+        return False
+    state = task.get("task_state")
+    if not isinstance(state, Mapping):
+        return False
+    reports = state.get("audit_reports")
+    if not isinstance(reports, list):
+        return False
+    return any(
+        isinstance(item, Mapping)
+        and str(item.get("evidence_id") or "") == latest_evidence_id
+        and item.get("milestone_progress") is True
+        for item in reports
+    )
+
+
 def _supports_durable_progress(item: Mapping[str, Any] | None) -> bool:
     return _evidence_authority(item) in {"concrete", "mutation", "verification"}
 
@@ -3954,8 +3989,12 @@ class BackgroundAgent:
                     repaired_history,
                 )
             can_checkpoint = _checkpoint_available(messages) and not recovery_required
-            phase_boundary = (
-                phase_action_count >= MAX_PHASE_ACTIONS and can_checkpoint
+            phase_boundary = can_checkpoint and (
+                phase_action_count >= MAX_PHASE_ACTIONS
+                or (
+                    not active_tools
+                    and _latest_receipt_requires_checkpoint(current, messages)
+                )
             )
             # Before compaction the exact result is still resident in the
             # ordinary transcript. Offer paging only after older turns may

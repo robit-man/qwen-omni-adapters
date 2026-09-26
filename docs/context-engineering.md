@@ -179,6 +179,12 @@ system snapshot, repeated inspection, or other successful information probe
 may be useful evidence but cannot advance or complete an execution phase by
 itself. This separation prevents the model from converting an easy ancillary
 tool success into apparent application progress.
+When a typed milestone comes from a non-sticky capability such as source
+fetching, the next action contract contains only the checkpoint transition;
+broad discovery reopens after the controller has written that evidence into
+durable state. A completed discovery transition likewise consumes the single
+post-inspection replan pass, so the selected leaf tools replace the router
+instead of competing with it on subsequent rounds.
 
 The background action surface is tier-aware too. It exposes one already-selected
 concrete family plus an eligible checkpoint, removes only
