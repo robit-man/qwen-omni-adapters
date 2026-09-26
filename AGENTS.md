@@ -49,6 +49,13 @@ Do not restart or stop an existing deployment unless the user asked for it.
   50-round/call bounds, per-session memory/web indexes, live bounded
   traces, and Trash/TTL cleanup. Direct adapter tools remain client-owned and
   must not be auto-executed by the adapter.
+- Never patch tool-routing failures with prompt-specific keyword lists,
+  prefix/suffix matching, hand-written stemming, or other brittle lexical
+  filters. Production routing must use typed capability-family contracts plus
+  an evaluated classifier/reranker; low-confidence decisions fall back to
+  bounded discovery. Validate routing changes against broad paraphrase,
+  ambiguity, distractor, and negative-control suites rather than only the
+  prompts that exposed the bug.
 - Runtime environment awareness is an explicit `get_system_snapshot` tool, not
   an eager per-turn system blob. Keep ordinary system policy compact and the
   tool privacy-bounded: never add hostnames, addresses, routes, sockets,
