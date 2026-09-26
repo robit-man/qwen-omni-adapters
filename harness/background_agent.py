@@ -395,10 +395,25 @@ def _include_discovery_with_active_tool(
 
     if not active_tools:
         return True
+    active = set(active_tools)
     for message in reversed(messages):
         if message.get("role") != "tool":
             continue
-        return str(message.get("tool_name") or "") in set(active_tools)
+        name = str(message.get("tool_name") or "")
+        if name not in active:
+            return False
+        try:
+            result = json.loads(str(message.get("content") or "{}"))
+        except ValueError:
+            result = {}
+        # A snapshot of an unloaded browser is not the concrete leaf attempt
+        # selected by routing. Keep the browser schema isolated for the
+        # required navigate call instead of letting broad discovery pull the
+        # controller into an unrelated capability.
+        return not (
+            isinstance(result, Mapping)
+            and result.get("empty_browser_page") is True
+        )
     return False
 
 
@@ -1392,6 +1407,7 @@ def _focus_memory(
         ok = action.get("ok") is True
         arguments = _audit_mapping(action.get("arguments"))
         outcome = _audit_mapping(action.get("outcome"))
+        authority = _evidence_authority({"name": tool, "result": outcome})
         if tool == "web_fetch" and ok:
             url = str(arguments.get("url") or "").strip()[:500]
             if url:
@@ -1402,6 +1418,39 @@ def _focus_memory(
                     "evidence_id": call_id,
                     "status": "acquired",
                     "source_url": url,
+                    **expansion_pointer(call_id),
+                }
+        elif tool == "browser_interact" and ok:
+            browser_action = str(arguments.get("action") or "snapshot")[:80]
+            url = _canonical_http_url(
+                outcome.get("url") or arguments.get("url")
+            )
+            if url and outcome.get("rendered") is True:
+                # A real rendered HTTP page is source-bearing browser evidence.
+                # A successful transport receipt for about:blank or another
+                # empty viewport is only an inspection and cannot satisfy a
+                # research/acquisition prerequisite.
+                sources_by_url.pop(url, None)
+                sources_by_url[url] = {
+                    "evidence_id": call_id,
+                    "status": "browser_rendered",
+                    "source_url": url,
+                    "title": str(outcome.get("title") or "")[:200],
+                    **expansion_pointer(call_id),
+                }
+            else:
+                target = str(
+                    outcome.get("url")
+                    or arguments.get("url")
+                    or browser_action
+                )[:500]
+                key = (f"browser_{browser_action}", target)
+                inspections_by_target.pop(key, None)
+                inspections_by_target[key] = {
+                    "evidence_id": call_id,
+                    "status": f"browser_{browser_action}",
+                    "target": target,
+                    "task_progress": False,
                     **expansion_pointer(call_id),
                 }
         elif tool == "workspace_file" and ok:
@@ -1443,7 +1492,12 @@ def _focus_memory(
                         "authority": "model_checkpoint_control_not_task_evidence",
                     }
                 )
-        elif ok and tool not in LOCAL_CONTROL_TOOL_NAMES and tool != "tool_search":
+        elif (
+            ok
+            and authority != "discovery"
+            and tool not in LOCAL_CONTROL_TOOL_NAMES
+            and tool != "tool_search"
+        ):
             target = str(
                 arguments.get("path")
                 or arguments.get("url")

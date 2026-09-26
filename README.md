@@ -425,6 +425,11 @@ once in the pinned system contract rather than duplicating it in a recurrent
 checkpoint. If an omitted record's evidence ID is no longer resident,
 `task_expand` also accepts a distinctive exact path, URL, symbol, error, or
 other query and returns the highest-scoring immutable receipts.
+The ledger applies the same evidence authority as checkpoints: search results
+marked discovery-only never become acquired-source successes, and an empty
+`about:blank` browser snapshot remains an inspection. A blank visible browser
+explicitly requires `navigate` to a grounded URL and cannot divert the next
+round into pixel clicking or unrelated capability discovery.
 At the 4K/8K tiers the worker also projects the already-selected tool schema to
 its executable JSON constraints: names, types, enums, required fields, bounds,
 and `additionalProperties` remain exact while repeated prose annotations are

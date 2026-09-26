@@ -242,6 +242,10 @@ def test_constrained_action_contract_keeps_json_rules_without_prose_bloat() -> N
         {"role": "tool", "tool_name": "browser_interact", "content": "{}"}
     )
     assert _include_discovery_with_active_tool(routed, ["browser_interact"]) is True
+    routed[-1]["content"] = json.dumps(
+        {"empty_browser_page": True, "task_progress": False}
+    )
+    assert _include_discovery_with_active_tool(routed, ["browser_interact"]) is False
 
 
 def test_web_fetch_preflight_allows_a_user_supplied_url_but_not_self_authorization() -> None:
@@ -1596,6 +1600,76 @@ def test_focus_memory_is_bounded_and_keeps_latest_artifact_versions() -> None:
     # A 4K tier reserves 768 tokens for output and still has ample room for
     # the current query/tool schema after pinning this system contract.
     assert conservative_token_estimate(system) < 2_200
+
+
+def test_focus_memory_does_not_promote_discovery_or_blank_browser_state() -> None:
+    task = {
+        "actions": [
+            {
+                "call_id": "search-discovery",
+                "tool": "web_search",
+                "arguments": json.dumps({"query": "field service SaaS"}),
+                "outcome": json.dumps(
+                    {
+                        "mode": "discover",
+                        "provenance": {
+                            "authority": "discovery_only",
+                            "citation_ready": False,
+                        },
+                        "results": [
+                            {"url": "https://example.test/field-service"}
+                        ],
+                    }
+                ),
+                "ok": True,
+            },
+            {
+                "call_id": "blank-snapshot",
+                "tool": "browser_interact",
+                "arguments": json.dumps({"action": "snapshot"}),
+                "outcome": json.dumps(
+                    {
+                        "rendered": True,
+                        "url": "about:blank",
+                        "visible_text": "",
+                    }
+                ),
+                "ok": True,
+            },
+            {
+                "call_id": "rendered-source",
+                "tool": "browser_interact",
+                "arguments": json.dumps(
+                    {
+                        "action": "navigate",
+                        "url": "https://example.test/field-service",
+                    }
+                ),
+                "outcome": json.dumps(
+                    {
+                        "rendered": True,
+                        "url": "https://example.test/field-service",
+                        "title": "Field Service",
+                        "visible_text": "Dispatch board and technician scheduling",
+                    }
+                ),
+                "ok": True,
+            },
+        ]
+    }
+
+    focus = _focus_memory(task, expand_available=True)
+
+    assert "search-discovery" not in focus
+    assert "blank-snapshot" in focus.split("<inspections>", 1)[1].split(
+        "</inspections>", 1
+    )[0]
+    sources = focus.split("<acquired_sources>", 1)[1].split(
+        "</acquired_sources>", 1
+    )[0]
+    assert "rendered-source" in sources
+    assert "https://example.test/field-service" in sources
+    assert "blank-snapshot" not in sources
 
 
 def test_nonresident_task_evidence_can_be_found_without_an_evidence_id() -> None:

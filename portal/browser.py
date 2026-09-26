@@ -176,12 +176,27 @@ def _navigation_error_metadata(url: str, visible_text: str) -> dict[str, Any]:
 
 
 def _visual_only_metadata(
-    visible_text: str, elements: list[dict[str, Any]]
+    visible_text: str,
+    elements: list[dict[str, Any]],
+    url: str = "",
 ) -> dict[str, Any]:
     """Hand rendered-only pages to the pixel-capable desktop executor."""
 
     if visible_text.strip() or elements:
         return {}
+    if str(url).strip().casefold() in {"", "about:blank"}:
+        return {
+            "visual_only": True,
+            "empty_browser_page": True,
+            "task_progress": False,
+            "task_blocked": False,
+            "interaction_mode": "browser_navigation",
+            "next_action": (
+                "No HTTP page is loaded in this browser session. Call "
+                "browser_interact action=navigate with the exact grounded target URL; "
+                "do not click or resnapshot the blank viewport."
+            ),
+        }
     return {
         "visual_only": True,
         "task_blocked": False,
@@ -1050,7 +1065,13 @@ class BrowserAutomationStore:
                 "data": shot,
             },
         }
-        result.update(_visual_only_metadata(visible_text, list(session.elements.values())))
+        result.update(
+            _visual_only_metadata(
+                visible_text,
+                list(session.elements.values()),
+                url,
+            )
+        )
         result.update(_challenge_metadata(title, url, visible_text))
         result.update(_navigation_error_metadata(url, visible_text))
         return result

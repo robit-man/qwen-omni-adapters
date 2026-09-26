@@ -314,7 +314,9 @@ def test_browser_challenge_stays_in_exact_browser_viewport() -> None:
 
 
 def test_visual_only_browser_page_stays_in_exact_browser_viewport() -> None:
-    metadata = browser_module._visual_only_metadata("", [])
+    metadata = browser_module._visual_only_metadata(
+        "", [], "https://example.test/canvas"
+    )
 
     assert metadata["visual_only"] is True
     assert metadata["task_blocked"] is False
@@ -322,6 +324,16 @@ def test_visual_only_browser_page_stays_in_exact_browser_viewport() -> None:
     assert "visual_click" in metadata["next_action"]
     assert browser_module._visual_only_metadata("Readable article", []) == {}
     assert browser_module._visual_only_metadata("", [{"id": "e1"}]) == {}
+
+
+def test_blank_browser_page_requires_navigation_not_a_visual_click() -> None:
+    metadata = browser_module._visual_only_metadata("", [], "about:blank")
+
+    assert metadata["empty_browser_page"] is True
+    assert metadata["task_progress"] is False
+    assert metadata["interaction_mode"] == "browser_navigation"
+    assert "action=navigate" in metadata["next_action"]
+    assert "do not click" in metadata["next_action"]
 
 
 def test_visual_only_browser_result_is_not_replaced_by_a_desktop_capture() -> None:

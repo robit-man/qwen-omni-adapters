@@ -141,6 +141,13 @@ receipts report the live resident token tier, working-set limits, before/after
 message and byte counts, and retained evidence IDs so budget movement is
 observable rather than inferred.
 
+Focus categories preserve evidence authority. `web_search` discovery is a
+route to source-bearing fetch/browser evidence, not a completed research
+source. A rendered HTTP page can become an acquired source; `about:blank` is an
+inspection with `task_progress=false`. The browser then exposes only its
+`navigate` contract for the next action, preventing a blank viewport from being
+clicked or from opening an unrelated discovery branch.
+
 Every concrete background call is retained as a bounded audit record containing
 call ID, exact tool name, bounded/redacted arguments, outcome, and success
 state. The local voice foreground and its background worker use one stable,
