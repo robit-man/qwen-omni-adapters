@@ -235,8 +235,8 @@ for the Ornith audio bridge. The pinned llama.cpp build also exposes `q8_0`, `q4
 `q5_0`, and `q5_1`; the launcher accounts for their exact block storage when
 choosing a context tier and invalidates live calibration when either format
 changes. This is a physical L0 optimization, not semantic memory. Quantized
-KV does not make the configured 16K ceiling a residency guarantee; the tested
-Orin selected lower tiers during a long foreground/action soak. Durable work
+KV does not make a configured 16K/32K ceiling a residency guarantee; the
+tested Orin selected lower tiers during a long foreground/action soak. Durable work
 continues against the lossless hierarchy when the physical tier shrinks.
 Lower-precision profiles must pass the same oracle/RULER/domain answer gates
 before adoption.

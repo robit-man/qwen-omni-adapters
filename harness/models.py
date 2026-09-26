@@ -336,6 +336,7 @@ class IndicatorModelManager:
             "OMNI_LANGUAGE_API": "ollama",
             "OMNI_ENABLE_COMPREHENSION": "1",
             "OMNI_COMPREHENSION_CONTEXT_TOKENS": str(model.max_context_tokens),
+            "OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS": str(model.max_context_tokens),
             "OMNI_STARTUP_SMOKE": "0",
             "OMNI_TTS_PERSISTENT": "1",
         }

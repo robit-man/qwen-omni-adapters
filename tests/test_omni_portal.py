@@ -1390,6 +1390,129 @@ def test_virtual_context_shadow_indexes_and_traces_without_replacing_live_prompt
     assert any(event["operation"] == "PAGE_IN" for event in virtual["trace"])
 
 
+def test_live_audio_bypasses_query_retrieval_until_speech_is_transcribed(
+    tmp_path: Path,
+) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "I heard you."}},
+        )
+
+    virtual_root = tmp_path / "virtual-context"
+    app = create_app(
+        _config(
+            virtual_context_mode="active",
+            virtual_context_root=virtual_root,
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    body = _request(
+        messages=[
+            {"role": "user", "content": "We were discussing weather."},
+            {"role": "assistant", "content": "It may rain."},
+            {
+                "role": "user",
+                "content": "The attached audio contains the latest spoken turn.",
+                "audios": [
+                    {
+                        "mime_type": "audio/wav",
+                        "encoding": "base64",
+                        "data": base64.b64encode(b"current-speech").decode(),
+                    }
+                ],
+            },
+        ],
+        omni={
+            "schema": "robit.ollama.omni-adapter.v1",
+            "task": "chat",
+            "require_speech": True,
+        },
+    )
+
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=body,
+    )
+
+    assert response.status_code == 200
+    # Policy adds one system message, but active virtual memory must not replace
+    # the bounded dialogue with a retrieval pack derived from the placeholder.
+    assert requests[0]["messages"][-len(body["messages"]) :] == body["messages"]
+    assert not list(virtual_root.glob("*.sqlite3"))
+    assert response.json["portal"]["virtual_context"] == {
+        "mode": "bypass",
+        "reason": "untranscribed_audio_input",
+    }
+
+
+def test_streaming_live_audio_bypasses_query_retrieval_until_transcribed(
+    tmp_path: Path,
+) -> None:
+    requests: list[dict[str, Any]] = []
+    wire = (
+        b'{"type":"delta","message":{"content":"I heard you."}}\n'
+        b'{"type":"final","response":{"message":{"content":"I heard you."}}}\n'
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            content=wire,
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    virtual_root = tmp_path / "virtual-context"
+    app = create_app(
+        _config(
+            virtual_context_mode="active",
+            virtual_context_root=virtual_root,
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    body = _request(
+        stream=True,
+        messages=[
+            {
+                "role": "user",
+                "content": "The attached audio contains the latest spoken turn.",
+                "audios": [
+                    {
+                        "mime_type": "audio/wav",
+                        "encoding": "base64",
+                        "data": base64.b64encode(b"current-speech").decode(),
+                    }
+                ],
+            }
+        ],
+        omni={
+            "schema": "robit.ollama.omni-adapter.v1",
+            "task": "chat",
+            "require_speech": True,
+        },
+    )
+
+    response = app.test_client().post(
+        "/api/chat/stream",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=body,
+    )
+
+    assert response.status_code == 200
+    events = [json.loads(line) for line in response.data.splitlines()]
+    assert requests[0]["messages"][-len(body["messages"]) :] == body["messages"]
+    assert not list(virtual_root.glob("*.sqlite3"))
+    assert events[-1]["response"]["portal"]["virtual_context"] == {
+        "mode": "bypass",
+        "reason": "untranscribed_audio_input",
+    }
+
+
 def test_virtual_context_active_repacks_each_tool_followup(tmp_path: Path) -> None:
     requests: list[dict[str, Any]] = []
 

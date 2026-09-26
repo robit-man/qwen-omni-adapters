@@ -703,6 +703,25 @@ def _request_diagnostic_fields(payload: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _has_untranscribed_audio_input(payload: Mapping[str, Any]) -> bool:
+    """Whether the current query exists only inside live-call audio.
+
+    The portal cannot retrieve against words that comprehension has not yet
+    transcribed.  Treating the transport sentence ("the attached audio...") as
+    a semantic query can page an unrelated old topic beside an ambiguous new
+    utterance.  The audio and bounded role-preserving dialogue still go to the
+    multimodal worker unchanged; only query-specific virtual-memory retrieval
+    is deferred for this pass.
+    """
+
+    omni = payload.get("omni")
+    return bool(
+        isinstance(omni, Mapping)
+        and omni.get("require_speech") is True
+        and _request_diagnostic_fields(payload).get("has_audio_input") is True
+    )
+
+
 def _request_media_digests(payload: Mapping[str, Any]) -> list[str]:
     """Return bounded content identities without retaining or decoding uploaded media."""
 
@@ -1892,6 +1911,15 @@ def create_app(
     ):
         if not virtual_context.enabled:
             return None, {"mode": "off"}
+        if (
+            not internal_background
+            and query_override is None
+            and _has_untranscribed_audio_input(payload)
+        ):
+            return None, {
+                "mode": "bypass",
+                "reason": "untranscribed_audio_input",
+            }
         ingested_messages = virtual_context.observe_messages(
             session_id,
             raw_messages,

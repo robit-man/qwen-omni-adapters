@@ -383,7 +383,7 @@ backup_service_unit() {
 }
 
 install_environment() {
-  local temporary cache_type=f16 background_residency_mode=conversation
+  local temporary cache_type=f16 background_residency_mode=conversation context_tokens=16384
   # The Ornith bridge's q8 KV profile is qualified on the 32 GB AGX Orin:
   # sealed 256K domain answers, text/audio/image, cloned streaming TTS,
   # post-TTS ASR, and structured tool routing pass. A longer live soak proved
@@ -393,6 +393,7 @@ install_environment() {
   if [[ $PROFILE == ornith15 ]] && is_tegra; then
     cache_type=q8_0
     background_residency_mode=action
+    context_tokens=32768
   fi
   temporary=$(mktemp "$REPO_ROOT/.env.deploy.XXXXXX")
   if [[ -f "$REPO_ROOT/.env" ]]; then
@@ -413,10 +414,10 @@ install_environment() {
     printf 'OMNI_LANGUAGE_MODEL=%s\n' "$OMNI_LANGUAGE_MODEL"
     printf 'OMNI_ENABLE_COMPREHENSION=1\n'
     printf 'OMNI_ENABLE_POINTING=1\n'
-    # Treat resident attention as L0 RAM. History beyond this bound belongs in
-    # the lossless virtual-context hierarchy rather than an oversized Tegra KV
-    # allocation that competes with vision, TTS, and the desktop.
-    printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=16384\n'
+    # Treat resident attention as L0 RAM. The ceiling is profile-qualified;
+    # the live launcher still picks the largest tier that measured weights,
+    # KV, and the shared operational reserve can safely fund.
+    printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=%s\n' "$context_tokens"
     printf 'OMNI_COMPREHENSION_CACHE_TYPE_K=%s\n' "$cache_type"
     printf 'OMNI_COMPREHENSION_CACHE_TYPE_V=%s\n' "$cache_type"
     # Silent durable work keeps the fused language/audio/vision trunk resident.
@@ -427,7 +428,7 @@ install_environment() {
     # the production working-set allocator. Operators can still explicitly
     # select shadow/off in .env for diagnostic comparison.
     printf 'OMNI_VIRTUAL_CONTEXT_MODE=active\n'
-    printf 'OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=16384\n'
+    printf 'OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=%s\n' "$context_tokens"
     printf 'OMNI_VIRTUAL_CONTEXT_TOKENIZE_URL=http://127.0.0.1:8901/tokenize\n'
     printf 'OMNI_VIRTUAL_CONTEXT_RECURRENT_TOKENS=512\n'
     printf 'OMNI_VIRTUAL_CONTEXT_RECURRENT_SOURCE_CHUNKS=200\n'

@@ -174,20 +174,24 @@ ample headroom. A **32 GB module is tight**: it fits the three workers, but
 not with much else resident, so budget carefully if the host is also running
 vision or other CUDA workloads.
 
-Legacy full bundles retain a 65,536-token ceiling. Compact bridge bundles may
-have a larger native positional range, but default to a **16,384-token resident
-working set**. History beyond that bound is handled by the lossless
+Legacy full bundles retain a 65,536-token ceiling. The compact Ornith GGUF
+declares a 262,144-token native range; the qualified 32 GB Orin profile offers
+a **32,768-token supervised ceiling** with q8 KV after measuring its live KV
+slope. The launcher may still select 16K/8K/4K under pressure. The larger
+Qwen3.8 compact profile retains a 16,384-token ceiling. History beyond the
+selected physical tier is handled by the lossless
 virtual-context hierarchy instead of preallocating a nominal 256K KV cache in
 the Jetson's shared pool. The direct Jetson daemon runs
 `runtime/comprehension_launcher.py`, derives KV bytes per token from the
 selected GGUF, and may select a smaller standard tier when current
-`MemAvailable` cannot fund 16K plus the shared runtime reserve. The selected
+`MemAvailable` cannot fund the requested tier plus the shared runtime reserve. The selected
 value is published in daemon status as `comprehension_context_tokens`; the
 default ceiling is `comprehension_context_ceiling`. The published
 `comprehension_parallel_slots` matches llama-server's `--parallel` value; the
 default is one so the planner cannot undercount four implicit KV slots. An
 explicit `OMNI_COMPREHENSION_CONTEXT_TOKENS` can still override the ceiling for
-controlled benchmarks, but larger values are not the supported Jetson default.
+controlled benchmarks, but 65K/256K are not supported defaults on a 32 GB
+module.
 
 `OMNI_COMPREHENSION_CACHE_TYPE_K` and
 `OMNI_COMPREHENSION_CACHE_TYPE_V` separately control the llama.cpp L0 KV
@@ -223,7 +227,9 @@ normal TTS path; the next grounded browser action reloads the point head through
 its narrow local endpoint. `conversation` keeps both optional graphs warm and
 is the default on unqualified model/platform pairs. Tegra still does not resize
 the live llama process: action shedding supplies execution headroom inside the
-startup-selected KV tier without risky CUDA-process teardown.
+startup-selected KV tier without risky CUDA-process teardown. A 16K-to-32K
+change therefore occurs only on a supervised service start, after optional
+graphs have been released.
 Intermediate background checkpoints remain visible in the indicator but are
 silent by default in action mode, because speaking an optional status sentence
 would immediately reload the graph that the task just shed. Terminal completion

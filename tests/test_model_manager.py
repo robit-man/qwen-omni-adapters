@@ -34,7 +34,7 @@ def test_catalog_contains_compact_and_legacy_models_but_not_rejected_ornith() ->
     ]
     assert not any("ornith-1.5-obliterated" in tag for tag in tags)
     assert [model.max_context_tokens for model in MANAGED_MODELS[:2]] == [
-        16_384,
+        32_768,
         16_384,
     ]
     assert [model.language_disable_thinking for model in MANAGED_MODELS] == [
@@ -88,7 +88,8 @@ def test_activation_selects_one_trunk_and_requests_a_managed_restart(
     )
     assert environment["OMNI_MODEL"] == selected.tag
     assert environment["OMNI_LANGUAGE_MODEL"] == selected.tag
-    assert environment["OMNI_COMPREHENSION_CONTEXT_TOKENS"] == "16384"
+    assert environment["OMNI_COMPREHENSION_CONTEXT_TOKENS"] == "32768"
+    assert environment["OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS"] == "32768"
     assert environment["OMNI_STARTUP_SMOKE"] == "0"
     request = json.loads(
         (tmp_path / "runtime-data/state/restart.request").read_text(encoding="utf-8")

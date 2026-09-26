@@ -66,6 +66,13 @@ set llama.cpp `cache_prompt:false`: the bounded messages in the request are the
 authoritative state, so a prior generated reply cannot survive as stale slot KV
 and discarded context can be reclaimed on unified-memory devices.
 
+For a live-call audio request, the portal does not run query-specific virtual
+memory retrieval before transcription. At that point its only textual query is
+a transport sentence describing an attachment; retrieving against it can page
+an unrelated old topic beside ambiguous speech. The bounded role-preserving
+dialogue and audio still reach comprehension unchanged. Text and durable-task
+queries continue to use the full provenance-preserving virtual hierarchy.
+
 Tool discovery is also context-bounded. Once `tool_search` selects concrete
 capabilities, its follow-up exposes those contracts instead of retaining the
 unrelated initial bridge schemas. The adapter estimates the fully rendered

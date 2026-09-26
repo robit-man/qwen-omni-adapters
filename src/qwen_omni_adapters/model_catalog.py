@@ -29,9 +29,11 @@ MANAGED_MODELS: tuple[ManagedModel, ...] = (
         size_gib=8.15,
         generation="compact",
         # The virtual-context layer treats this resident window as L0.  The
-        # tag may accept a larger native position range, but advertising that
-        # as the deploy default recreates the unified-memory eviction cycle.
-        max_context_tokens=16_384,
+        # GGUF declares a 262K native range.  The qualified 32 GB Orin profile
+        # uses q8 KV and independently sheds TTS/pointing during action work,
+        # leaving enough measured headroom for a supervised 32K L0 tier.  The
+        # live launcher may still select a smaller tier under pressure.
+        max_context_tokens=32_768,
         language_disable_thinking=True,
     ),
     ManagedModel(
