@@ -369,7 +369,22 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
     # independently verified; arbitrary rewrites must not reopen dead routes.
     if normalized.get("milestone_progress") is True:
         retired = []
-    elif normalized["stagnation_count"] >= STAGNANT_ACTION_RETIRE_THRESHOLD:
+    elif (
+        contract_transition_applied
+        and isinstance(controller.get("last_contract"), Mapping)
+        and (
+            str(controller["last_contract"].get("status") or "")
+            in {"action_failed", "audit_failed"}
+            or (
+                str(controller["last_contract"].get("status") or "")
+                == "expected_effect_missing"
+                and not environmental_progress
+            )
+        )
+    ) or normalized["stagnation_count"] >= STAGNANT_ACTION_RETIRE_THRESHOLD:
+        # A failed bounded contract has already supplied the observation needed
+        # to reject this exact typed route. Retire it immediately so rephrasing
+        # the subtask or target cannot reset state-based stagnation.
         action_family = str(normalized.get("action_family") or "")[:160]
         if action_family:
             retired = list(dict.fromkeys([*retired, action_family]))[-32:]

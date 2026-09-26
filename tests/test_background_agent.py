@@ -63,6 +63,7 @@ from harness.background_agent import (
     _latest_result_requires_replan,
     _latest_tool_fingerprint,
     _MalformedToolCall,
+    _manage_transition_error,
     _milestone_evidence_ids,
     _NonRetryableBackgroundError,
     _normalize_progress_evidence,
@@ -2079,6 +2080,91 @@ def test_many_small_messages_do_not_trigger_message_count_compaction() -> None:
 
     assert _context_metrics(messages)["messages"] > 128
     assert _compaction_available(messages) is False
+
+
+def test_failed_contract_retires_route_and_requires_one_explicit_replan(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Build the application.", "The application is verified.")
+    assert store.claim_next("worker") is not None
+    managed = store.manage_transition(
+        created["task_id"],
+        "worker",
+        {
+            "contract_id": "contract-read-plan",
+            "decision": "retrieve",
+            "subtask": "Read the local plan.",
+            "capability_family": "documents",
+            "expected_effect": "resolve_unknown",
+            "effect_target": str(tmp_path / "PLAN.md"),
+            "target_kind": "path",
+            "target_scope": "exact",
+            "acceptance_test": "The local plan is available.",
+            "verification_family": "filesystem",
+            "reason": "The plan is needed for implementation.",
+        },
+    )
+    assert managed is not None
+    failed_result = {"error": "DocumentError", "message": "not attached"}
+    report = _action_audit_report(
+        managed,
+        call_id="failed-structured-read",
+        name="structured_read",
+        arguments={"document_id": str(tmp_path / "PLAN.md")},
+        result=failed_result,
+        require_contract=True,
+    )
+    failed = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="failed-structured-read",
+        tool="structured_read",
+        arguments=json.dumps({"document_id": str(tmp_path / "PLAN.md")}),
+        outcome=json.dumps(failed_result),
+        ok=False,
+        audit_report=report,
+    )
+    assert failed is not None
+    assert _retired_action_families(failed) == {"structured_read:execute"}
+
+    retry_without_replan = {
+        "decision": "retrieve",
+        "subtask": "Inspect the plan contents instead.",
+        "capability_family": "documents",
+        "expected_effect": "resolve_unknown",
+        "effect_target": "Reworded PLAN.md contents",
+        "target_kind": "record",
+        "target_scope": "exact",
+        "acceptance_test": "The plan is available.",
+        "verification_family": "documents",
+        "reason": "Try the same route with a new description.",
+    }
+    rejection = _manage_transition_error(failed, retry_without_replan)
+    assert rejection is not None
+    assert rejection["reason"] == "audited_failure_requires_replan"
+
+    replan = {
+        "decision": "replan",
+        "subtask": "Use the local filesystem for the local plan.",
+        "capability_family": "uncertain",
+        "expected_effect": "none",
+        "effect_target": "none",
+        "target_kind": "record",
+        "target_scope": "exact",
+        "acceptance_test": "A different typed route is selected.",
+        "verification_family": "uncertain",
+        "reason": "The document store cannot address local filesystem paths.",
+    }
+    assert _manage_transition_error(failed, replan) is None
+    replanned = store.manage_transition(
+        created["task_id"], "worker", {**replan, "contract_id": "replan-1"}
+    )
+    assert replanned is not None
+    assert _manage_transition_error(replanned, retry_without_replan) is None
+    second_replan = _manage_transition_error(replanned, replan)
+    assert second_replan is not None
+    assert second_replan["reason"] == "replan_requires_fresh_audited_nonprogress"
 
 
 def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(

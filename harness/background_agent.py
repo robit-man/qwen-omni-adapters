@@ -968,9 +968,22 @@ def _manage_transition_error(
     verifier = str(arguments.get("verification_family") or "")
     reason = " ".join(str(arguments.get("reason") or "").split())
     question = " ".join(str(arguments.get("question") or "").split())
+    controller = _task_controller(task)
+    last_contract = controller.get("last_contract")
+    last_status = (
+        str(last_contract.get("status") or "")
+        if isinstance(last_contract, Mapping)
+        else ""
+    )
+    audited_failure_pending_replan = (
+        last_status in {"action_failed", "expected_effect_missing", "audit_failed"}
+        and int(controller.get("consecutive_replans") or 0) == 0
+    )
     error = ""
     if not subtask or not reason:
         error = "subtask_and_reason_required"
+    elif decision in {"retrieve", "act"} and audited_failure_pending_replan:
+        error = "audited_failure_requires_replan"
     elif decision in {"retrieve", "act"} and (
         family not in _TYPED_TOOL_FAMILIES
         or family == "background"
@@ -997,13 +1010,6 @@ def _manage_transition_error(
     ):
         error = "act_requires_effect_and_read_only_verifier"
     elif decision == "replan":
-        controller = _task_controller(task)
-        last_contract = controller.get("last_contract")
-        last_status = (
-            str(last_contract.get("status") or "")
-            if isinstance(last_contract, Mapping)
-            else ""
-        )
         audit = _latest_audit(task)
         audited_nonprogress = bool(audit) and (
             audit.get("contract_satisfied") is not True

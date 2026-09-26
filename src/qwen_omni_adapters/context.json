@@ -124,7 +124,7 @@
       "type": "function",
       "function": {
         "name": "task_manage",
-        "description": "Commit one bounded Manage step before execution. This creates a controller contract, never task evidence. RETRIEVE must name one unresolved fact and how its receipt closes that evidence slot. ACT must name one expected external/environmental change and an independent acceptance test. REPLAN is allowed only after audited non-progress. ASK pauses only for genuinely missing user input or authority.",
+        "description": "Commit one bounded Manage step before execution. This creates a controller contract, never task evidence. RETRIEVE must name one unresolved fact and how its receipt closes that evidence slot. ACT must name one expected external/environmental change and an independent acceptance test. After audited non-progress, REPLAN is the required next transition and may occur only once before a different RETRIEVE or ACT. ASK pauses only for genuinely missing user input or authority. For a local filesystem path choose filesystem, not documents; documents addresses files attached to the portal session. effect_target must be the exact resource locator itself (for target_kind=path, the exact path with no descriptive suffix).",
         "parameters": {
           "type": "object",
           "properties": {

@@ -295,6 +295,12 @@ is stored per action family and is not cleared by arbitrary new knowledge,
 changed bytes, a clock lookup, or a system lookup; only a contract-backed
 audited milestone reopens it.
 
+A bounded contract that fails, misses its declared effect, or fails audit retires
+that exact typed action family immediately and requires one explicit `REPLAN`
+transition before another executable contract. This state transition is keyed by
+the audit and action family, so paraphrasing a subtask cannot make the same dead
+route admissible again.
+
 The local voice foreground and its background worker use one stable, opaque
 portal-session scope derived from the daemon capability, so a handed-off task
 can continue in the same visible browser without crossing into another user
