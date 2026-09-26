@@ -11,6 +11,7 @@ import os
 import queue
 import re
 import secrets
+import shlex
 import threading
 import time
 from collections.abc import Callable, Mapping
@@ -889,6 +890,26 @@ def _append_malformed_tool_recovery(messages: list[dict[str, Any]]) -> None:
 
 
 def _call_fingerprint(name: str, arguments: Mapping[str, Any]) -> str:
+    fingerprint_arguments = dict(arguments)
+    if name == "shell":
+        # An absolute leading ``cd`` determines the command's execution root;
+        # changing the redundant tool-level cwd does not make the call a new
+        # action.  Without this normalization a controller can alternate the
+        # same inspection between ``cwd`` omitted/present forever while the
+        # duplicate guard sees distinct JSON.
+        command = str(fingerprint_arguments.get("command") or "")
+        try:
+            tokens = shlex.split(command, posix=True)
+        except ValueError:
+            tokens = []
+        target_index = 2 if tokens[:2] == ["cd", "--"] else 1
+        if (
+            tokens[:1] == ["cd"]
+            and len(tokens) > target_index
+            and Path(tokens[target_index]).is_absolute()
+        ):
+            fingerprint_arguments.pop("cwd", None)
+
     def normalized(value: Any) -> Any:
         if isinstance(value, str):
             return " ".join(value.casefold().split())
@@ -899,7 +920,7 @@ def _call_fingerprint(name: str, arguments: Mapping[str, Any]) -> str:
         return value
 
     return hashlib.sha256(
-        f"{name}\0{json.dumps(normalized(arguments), sort_keys=True, default=str)}".encode()
+        f"{name}\0{json.dumps(normalized(fingerprint_arguments), sort_keys=True, default=str)}".encode()
     ).hexdigest()
 
 

@@ -135,6 +135,7 @@ def test_guided_bridge_disables_legacy_eviction_and_blocking_smoke() -> None:
     assert "OMNI_COMPREHENSION_CACHE_TYPE_K=%s" in install_body
     assert "OMNI_COMPREHENSION_CACHE_TYPE_V=%s" in install_body
     assert "background_residency_mode=action" in install_body
+    assert "!/^OMNI_BACKGROUND_RESIDENCY_MODE=/" in install_body
     assert "OMNI_BACKGROUND_RESIDENCY_MODE=%s" in install_body
     assert "OMNI_VIRTUAL_CONTEXT_MODE=active" in install_body
     assert "OMNI_VIRTUAL_CONTEXT_PHYSICAL_TOKENS=%s" in install_body

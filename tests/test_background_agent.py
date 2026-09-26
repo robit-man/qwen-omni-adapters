@@ -1686,6 +1686,22 @@ def test_duplicate_guard_is_scoped_to_the_immediately_preceding_external_call() 
     ) == _latest_tool_fingerprint([build, repair])
 
 
+def test_shell_fingerprint_ignores_cwd_overridden_by_absolute_cd() -> None:
+    command = "cd /tmp/exact-target && pwd && ls -la"
+
+    assert _call_fingerprint("shell", {"command": command}) == _call_fingerprint(
+        "shell",
+        {"command": command, "cwd": "/tmp/exact-target"},
+    )
+    assert _call_fingerprint(
+        "shell",
+        {"command": "pwd && ls -la", "cwd": "/tmp/one"},
+    ) != _call_fingerprint(
+        "shell",
+        {"command": "pwd && ls -la", "cwd": "/tmp/two"},
+    )
+
+
 def test_compaction_retains_typed_expandable_focus_records() -> None:
     task = {
         "actions": [
