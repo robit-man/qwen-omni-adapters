@@ -309,6 +309,11 @@ that choice and its compatible expected-effect values. This state transition is
 keyed by the audit and action family, so paraphrasing a subtask cannot make the
 same dead route admissible again.
 
+Manager contracts also enforce typed effect compatibility. A local-path
+environment change must select a filesystem- or shell-backed executor and a
+filesystem- or shell-backed read-only verifier; attached-document search cannot
+be mislabeled as a local file writer or auditor.
+
 The local voice foreground and its background worker use one stable, opaque
 portal-session scope derived from the daemon capability, so a handed-off task
 can continue in the same visible browser without crossing into another user

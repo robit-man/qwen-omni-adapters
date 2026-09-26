@@ -1008,8 +1008,17 @@ def _manage_transition_error(
         or target_kind not in {"path", "url", "service", "process", "ui_state", "record"}
         or target_scope not in {"exact", "subtree"}
         or not acceptance
+        or (
+            effect == "change_environment"
+            and target_kind == "path"
+            and family not in {"filesystem", "shell"}
+        )
         or verifier not in _TYPED_TOOL_FAMILIES
         or verifier in {"background", "camera"}
+        or (
+            target_kind == "path"
+            and verifier not in {"filesystem", "shell"}
+        )
         or not _audit_tool_schemas(_family_tool_names(verifier))
     ):
         error = "act_requires_effect_and_read_only_verifier"

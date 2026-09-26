@@ -2266,6 +2266,41 @@ def test_empty_search_cannot_close_retrieval_contract(tmp_path: Path) -> None:
     assert _retired_action_families(updated) == {"document_search:execute"}
 
 
+def test_local_path_change_requires_mutating_and_verifying_path_families(
+    tmp_path: Path,
+) -> None:
+    task = {
+        "task_state": {
+            "controller": {
+                "phase": "prethink",
+                "consecutive_replans": 0,
+                "last_contract": None,
+            },
+            "audit_reports": [],
+        }
+    }
+    contract = {
+        "decision": "act",
+        "subtask": "Write the local application entry point.",
+        "capability_family": "documents",
+        "expected_effect": "change_environment",
+        "effect_target": str(tmp_path / "src/app/page.tsx"),
+        "target_kind": "path",
+        "target_scope": "exact",
+        "acceptance_test": "The file exists with the expected source.",
+        "verification_family": "documents",
+        "reason": "The entry point is missing.",
+    }
+    rejection = _manage_transition_error(task, contract)
+    assert rejection is not None
+    assert rejection["reason"] == "act_requires_effect_and_read_only_verifier"
+    contract.update(
+        capability_family="filesystem",
+        verification_family="filesystem",
+    )
+    assert _manage_transition_error(task, contract) is None
+
+
 def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
     tmp_path: Path,
 ) -> None:
