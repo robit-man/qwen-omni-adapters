@@ -5346,6 +5346,94 @@ def test_internal_background_worker_uses_the_compact_policy_envelope(
     assert second.json["portal"]["virtual_context"]["messages_ingested"] == 0
 
 
+def test_committed_background_role_preserves_its_closed_packet(
+    tmp_path: Path,
+) -> None:
+    seen: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "workspace_file",
+                                "arguments": {
+                                    "action": "list",
+                                    "path": "/tmp/project",
+                                },
+                            },
+                        }
+                    ],
+                }
+            },
+        )
+
+    app = create_app(
+        _config(
+            virtual_context_mode="active",
+            virtual_context_root=tmp_path / "virtual-context",
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    execute_request = (
+        '<execute_request schema="robit.omni.execute-request.v1">'
+        "List the exact target once.</execute_request>"
+    )
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            portal_background_worker=True,
+            portal_preserve_controller_packet=True,
+            portal_virtual_query=(
+                "Advance and verify the broad task; this must not replace EXECUTE."
+            ),
+            messages=[
+                {
+                    "role": "system",
+                    "content": '<committed_role name="EXECUTE">Call once.</committed_role>',
+                },
+                {"role": "user", "content": execute_request},
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "workspace_file",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "action": {"type": "string", "enum": ["list"]},
+                                "path": {"type": "string"},
+                            },
+                            "required": ["action", "path"],
+                        },
+                    },
+                }
+            ],
+            tool_choice="required",
+        ),
+    )
+
+    assert response.status_code == 200
+    assert len(seen) == 1
+    payload = seen[0]
+    assert "portal_preserve_controller_packet" not in payload
+    assert "portal_background_worker" not in payload
+    assert payload["messages"][-1]["content"] == execute_request
+    assert "<current_query>" not in json.dumps(payload["messages"])
+    virtual = response.json["portal"]["virtual_context"]
+    assert virtual["controller_packet_preserved"] is True
+    assert virtual["messages_ingested"] == 0
+
+
 def test_portal_stream_route_requires_auth_and_chains_session_tools() -> None:
     requests = []
 

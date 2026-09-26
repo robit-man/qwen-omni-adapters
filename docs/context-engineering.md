@@ -175,10 +175,14 @@ the accepted recovery or preserve an incompatible route as authoritative state.
 Renewable MANAGE/EXECUTE/AUDIT request envelopes and typed rejection messages
 remain in the append-only task audit log, but they are not indexed as user
 evidence by the portal's semantic-memory corpus. Each task uses a versioned,
-controller-only virtual-memory scope whose working set is assembled from the
-current role packet and explicitly replayed immutable receipts. This prevents a
-rejected plan from retrieving and reinforcing itself while leaving the original
-evidence and full audit history recoverable.
+controller-only virtual-memory scope for MANAGE retrieval. Once MANAGE commits
+an EXECUTE or AUDIT transition, the controller explicitly pages the selected
+immutable receipts into a closed two-message role packet. The generic virtual
+context packer must not rewrite that packet or replace its role request with a
+broad retrieval query. This prevents a rejected plan from retrieving and
+reinforcing itself, and prevents context virtualization from reopening a closed
+action space, while leaving the original evidence and full audit history
+recoverable.
 The opaque task-local portal session is schema-versioned, so a harness-only
 upgrade can abandon a corpus polluted by an older controller without deleting
 it, restarting GPU workers, or discarding the authoritative task ledger.

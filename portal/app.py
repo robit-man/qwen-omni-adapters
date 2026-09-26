@@ -2395,6 +2395,13 @@ def create_app(
             raw_messages = copy.deepcopy(list(payload.get("messages") or []))
             auto_tools = payload.pop("portal_auto_tools", False) is True
             internal_background = payload.pop("portal_background_worker", False) is True
+            preserve_controller_packet = (
+                payload.pop("portal_preserve_controller_packet", False) is True
+            )
+            if preserve_controller_packet and not internal_background:
+                raise PortalRequestError(
+                    "controller packet preservation is internal-background only"
+                )
             virtual_session_id = _virtual_memory_session_id(
                 session_id, internal_background=internal_background
             )
@@ -2452,20 +2459,31 @@ def create_app(
                     else []
                 )
                 accepted_documents = apply_document_context(payload, session_id)
-                _prepared_context, virtual_summary = safe_prepare_virtual_context(
-                    payload,
-                    session_id,
-                    raw_messages,
-                    accepted_documents,
-                    query_override=virtual_query_override,
-                    internal_background=internal_background,
-                    virtual_session_id=virtual_session_id,
-                )
-                virtual_query, virtual_contract = virtual_repack_inputs(
-                    _prepared_context,
-                    raw_messages,
-                    query_override=virtual_query_override,
-                )
+                if preserve_controller_packet:
+                    _prepared_context = None
+                    virtual_summary = {
+                        **virtual_context.stats(virtual_session_id),
+                        "messages_ingested": 0,
+                        "documents_ingested": 0,
+                        "controller_packet_preserved": True,
+                    }
+                    virtual_query = ""
+                    virtual_contract = ""
+                else:
+                    _prepared_context, virtual_summary = safe_prepare_virtual_context(
+                        payload,
+                        session_id,
+                        raw_messages,
+                        accepted_documents,
+                        query_override=virtual_query_override,
+                        internal_background=internal_background,
+                        virtual_session_id=virtual_session_id,
+                    )
+                    virtual_query, virtual_contract = virtual_repack_inputs(
+                        _prepared_context,
+                        raw_messages,
+                        query_override=virtual_query_override,
+                    )
             diagnostics.begin_request(
                 session_id,
                 request_id,
@@ -2642,6 +2660,20 @@ def create_app(
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
         auto_tools = payload.pop("portal_auto_tools", False) is True
         internal_background = payload.pop("portal_background_worker", False) is True
+        preserve_controller_packet = (
+            payload.pop("portal_preserve_controller_packet", False) is True
+        )
+        if preserve_controller_packet and not internal_background:
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "controller packet preservation is internal-background only"
+                        )
+                    }
+                ),
+                400,
+            )
         virtual_query_override = _pop_internal_virtual_query(
             payload, internal_background=internal_background
         )
@@ -2703,20 +2735,31 @@ def create_app(
                     else []
                 )
                 accepted_documents = apply_document_context(payload, session_id)
-                _prepared_context, virtual_summary = safe_prepare_virtual_context(
-                    payload,
-                    session_id,
-                    raw_messages,
-                    accepted_documents,
-                    query_override=virtual_query_override,
-                    internal_background=internal_background,
-                    virtual_session_id=virtual_session_id,
-                )
-                virtual_query, virtual_contract = virtual_repack_inputs(
-                    _prepared_context,
-                    raw_messages,
-                    query_override=virtual_query_override,
-                )
+                if preserve_controller_packet:
+                    _prepared_context = None
+                    virtual_summary = {
+                        **virtual_context.stats(virtual_session_id),
+                        "messages_ingested": 0,
+                        "documents_ingested": 0,
+                        "controller_packet_preserved": True,
+                    }
+                    virtual_query = ""
+                    virtual_contract = ""
+                else:
+                    _prepared_context, virtual_summary = safe_prepare_virtual_context(
+                        payload,
+                        session_id,
+                        raw_messages,
+                        accepted_documents,
+                        query_override=virtual_query_override,
+                        internal_background=internal_background,
+                        virtual_session_id=virtual_session_id,
+                    )
+                    virtual_query, virtual_contract = virtual_repack_inputs(
+                        _prepared_context,
+                        raw_messages,
+                        query_override=virtual_query_override,
+                    )
             diagnostics.begin_request(
                 session_id,
                 request_id,

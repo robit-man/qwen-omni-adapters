@@ -5390,6 +5390,13 @@ class BackgroundAgent:
                 ),
                 "stream": False,
             }
+            if controller_phase in {"execute", "audit"}:
+                # The controller already paged the selected exact receipts into
+                # this closed role packet. A second generic virtual-memory pass
+                # would replace <execute_request>/<audit_request> with its broad
+                # retrieval query and reopen the action space the manager just
+                # closed. MANAGE remains virtualized; committed roles are not.
+                payload["portal_preserve_controller_packet"] = True
             try:
                 data = self._chat(payload)
             except _MalformedToolCall as error:

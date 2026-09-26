@@ -2510,6 +2510,7 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
         offered = [item["function"]["name"] for item in payload["tools"]]
         if chat_round == 1:
             assert offered == ["task_manage"]
+            assert "portal_preserve_controller_packet" not in payload
             return tool_call(
                 "manage-1",
                 "task_manage",
@@ -2528,6 +2529,7 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
             )
         if chat_round == 2:
             assert offered == ["workspace_file"]
+            assert payload["portal_preserve_controller_packet"] is True
             assert len(payload["messages"]) == 2
             system = payload["messages"][0]["content"]
             assert '<committed_role name="EXECUTE">' in system
@@ -2543,6 +2545,7 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
             )
         if chat_round == 3:
             assert offered == ["workspace_file"]
+            assert payload["portal_preserve_controller_packet"] is True
             assert len(payload["messages"]) == 3
             assert "execute-request.v1" in payload["messages"][1]["content"]
             assert "executor-rejection.v1" in payload["messages"][2]["content"]
@@ -2557,6 +2560,7 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
             )
         if chat_round == 4:
             assert offered == ["shell"]
+            assert payload["portal_preserve_controller_packet"] is True
             assert len(payload["messages"]) == 2
             system = payload["messages"][0]["content"]
             assert '<committed_role name="AUDIT">' in system
