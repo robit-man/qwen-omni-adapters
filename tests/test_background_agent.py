@@ -577,6 +577,24 @@ def test_only_typed_nonprogress_result_reenables_bounded_planning() -> None:
                 *inspection,
                 {
                     "role": "tool",
+                    "tool_name": "tool_search",
+                    "content": json.dumps(
+                        {
+                            "family": "web",
+                            "available_tools": ["web_fetch", "web_search"],
+                        }
+                    ),
+                },
+            ]
+        )
+        is False
+    )
+    assert (
+        _latest_result_requires_replan(
+            [
+                *inspection,
+                {
+                    "role": "tool",
                     "tool_name": "workspace_file",
                     "content": json.dumps(
                         {"action": "write", "path": "/tmp/app/page.tsx"}
@@ -619,6 +637,37 @@ def test_nonprogress_replan_can_select_a_different_typed_family() -> None:
     assert [schema["function"]["name"] for schema in schemas] == [
         "shell",
         "tool_search",
+        "task_checkpoint",
+    ]
+
+    routed_messages = [
+        {
+            "role": "tool",
+            "tool_name": "shell",
+            "content": json.dumps(
+                {"exit_code": 0, "task_progress": False, "stdout": "empty"}
+            ),
+        },
+        {
+            "role": "tool",
+            "tool_name": "tool_search",
+            "content": json.dumps(
+                {"family": "web", "available_tools": ["web_fetch", "web_search"]}
+            ),
+        },
+    ]
+    routed = _background_tool_contract(
+        ["web_fetch", "web_search"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=True,
+        resident_context_tokens=16_384,
+        recovery_exploration=_latest_result_requires_replan(routed_messages),
+    )
+    assert [schema["function"]["name"] for schema in routed] == [
+        "web_fetch",
+        "web_search",
         "task_checkpoint",
     ]
 

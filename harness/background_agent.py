@@ -2916,7 +2916,13 @@ def _latest_result_requires_replan(messages: list[dict[str, Any]]) -> bool:
         if message.get("role") != "tool":
             continue
         name = str(message.get("tool_name") or "")
-        if name in {"", "tool_search", "task_checkpoint", "task_compact"}:
+        if name == "tool_search":
+            # Discovery is the typed transition out of the one bounded replan
+            # pass.  Its selected leaves must own the next action space; if we
+            # skip it here, the older inspection keeps discovery exposed and a
+            # small controller can classify the same family forever.
+            return False
+        if name in {"", "task_checkpoint", "task_compact"}:
             continue
         try:
             result = json.loads(str(message.get("content") or "{}"))
@@ -4222,14 +4228,21 @@ class BackgroundAgent:
                     )
                 call_id = str(call.get("id") or secrets.token_hex(6))
                 if (
-                    name in {*LOCAL_CONTROL_TOOL_NAMES, "request_camera_view"}
+                    name
+                    in {
+                        *LOCAL_CONTROL_TOOL_NAMES,
+                        "request_camera_view",
+                        "tool_search",
+                    }
                     and name not in offered_tool_names
                 ):
                     rejected_result = {
                         "error": "tool_not_offered",
                         "message": (
-                            "This tool was not in the action contract for the current "
-                            "inference round. Use one of the currently offered tools."
+                            "This tool was not in the closed action contract for the "
+                            "current inference round. Use one of the currently offered "
+                            "tools; a selected capability family must transition to its "
+                            "leaf action before routing again."
                         ),
                         "offered_tools": sorted(offered_tool_names),
                     }
