@@ -158,6 +158,20 @@ previous executor's private reasoning. That fresh working set is persisted
 without inventing an extra task round, so a process restart cannot revive the
 discarded chain.
 
+Fresh does not mean evidence-free. At every accepted phase checkpoint and
+audited stagnation reset, the controller selects a bounded, class-diverse set
+of typed milestone IDs and pages their exact stored tool-result text beside the
+next executor request. Source acquisitions, mutations, verifications, and
+external interactions have independent retention quotas, so a later directory
+creation cannot displace the research source needed to write its contents.
+Checkpoint evidence IDs accumulate as a bounded page table instead of being
+silently overwritten. The replay budget is derived from the live resident KV
+tier (about 4K characters at the 4K floor and 16K at the normal 16K tier), and
+working-set truncation is explicit; the append-only receipt and digest remain
+available through `task_expand`. Replayed web/document payloads remain
+untrusted evidence, never instructions. This implements evidence replay rather
+than summary-of-summary continuity.
+
 Milestone progress is narrower than tool success, new knowledge, or environment
 change. A checkpoint milestone must cite a typed source acquisition, verified
 mutation, external interaction, or verification receipt. A clock lookup,

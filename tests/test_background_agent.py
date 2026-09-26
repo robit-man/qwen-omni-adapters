@@ -50,6 +50,7 @@ from harness.background_agent import (
     _filter_background_discovery,
     _focus_memory,
     _ForegroundPreempted,
+    _fresh_executor_messages,
     _freshest_evidence_id,
     _ground_visual_click,
     _guard_repeated_unchanged_result,
@@ -58,6 +59,7 @@ from harness.background_agent import (
     _latest_result_requires_replan,
     _latest_tool_fingerprint,
     _MalformedToolCall,
+    _milestone_evidence_ids,
     _NonRetryableBackgroundError,
     _normalize_progress_evidence,
     _recovery_required,
@@ -383,6 +385,7 @@ def test_task_context_limits_follow_the_live_resident_window(
         "context_bytes": 32 * 1_024,
         "retained_messages": 4,
         "focus_chars": 1_228,
+        "replay_chars": 4_096,
         "compaction_high_water_tokens": 2_949,
     }
 
@@ -392,6 +395,7 @@ def test_task_context_limits_follow_the_live_resident_window(
     assert expanded["context_bytes"] == 65_536
     assert expanded["retained_messages"] == 6
     assert expanded["focus_chars"] == 2_457
+    assert expanded["replay_chars"] == 8_192
 
     monkeypatch.setenv("OMNI_COMPREHENSION_CONTEXT_FILE", str(tmp_path / "missing"))
     assert _task_context_limits()["resident_context_tokens"] == 4_096
@@ -1692,6 +1696,120 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     assert renewed["round"] == checkpoint["round"]
     raw = json.loads((tmp_path / "tasks.json").read_text(encoding="utf-8"))
     assert raw["tasks"][0]["messages"][0]["content"] == "fresh audited frontier"
+
+
+def test_phase_handoffs_replay_cumulative_exact_milestone_evidence(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create(
+        "Research a product and build an application from that evidence.",
+        "Research and application artifacts are complete and verified.",
+    )
+    current = store.claim_next("worker")
+    assert current is not None
+
+    source_result = {
+        "url": "https://example.test/features",
+        "content": "UNIQUE_SOURCE_DETAIL: intake automation reduces manual triage.",
+    }
+    source_audit = _action_audit_report(
+        current,
+        call_id="source-1",
+        name="web_fetch",
+        arguments={"url": "https://example.test/features"},
+        result=source_result,
+    )
+    current = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="source-1",
+        tool="web_fetch",
+        arguments='{"url":"https://example.test/features"}',
+        outcome='{"content":"bounded source audit"}',
+        ok=True,
+        evidence_record={
+            "evidence_id": "source-1",
+            "tool": "web_fetch",
+            "arguments": '{"url":"https://example.test/features"}',
+            "result": json.dumps(source_result),
+            "result_sha256": "source-digest",
+        },
+        audit_report=source_audit,
+    )
+    assert current is not None
+    current = store.checkpoint(
+        created["task_id"],
+        "worker",
+        controller_transition={
+            "action": "progress",
+            "evidence_ids": ["source-1"],
+            "remaining_requirements": ["Write the research artifact."],
+        },
+    )
+    assert current is not None
+
+    mutation_result = {
+        "path": str(tmp_path / "application"),
+        "action": "mkdir",
+        "evidence_authority": "mutation",
+        "effect_receipt": {"changed_paths": [str(tmp_path / "application")]},
+    }
+    mutation_audit = _action_audit_report(
+        current,
+        call_id="mkdir-1",
+        name="workspace_file",
+        arguments={"action": "mkdir", "path": str(tmp_path / "application")},
+        result=mutation_result,
+    )
+    current = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="mkdir-1",
+        tool="workspace_file",
+        arguments=json.dumps(
+            {"action": "mkdir", "path": str(tmp_path / "application")}
+        ),
+        outcome='{"action":"mkdir"}',
+        ok=True,
+        evidence_record={
+            "evidence_id": "mkdir-1",
+            "tool": "workspace_file",
+            "arguments": json.dumps(
+                {"action": "mkdir", "path": str(tmp_path / "application")}
+            ),
+            "result": json.dumps(mutation_result),
+            "result_sha256": "mkdir-digest",
+        },
+        audit_report=mutation_audit,
+    )
+    assert current is not None
+    current = store.checkpoint(
+        created["task_id"],
+        "worker",
+        controller_transition={
+            "action": "progress",
+            "evidence_ids": ["mkdir-1"],
+            "remaining_requirements": ["Write RESEARCH.md from acquired evidence."],
+        },
+    )
+    assert current is not None
+
+    root = current["task_state"]["requirements"][0]
+    assert root["evidence_ids"] == ["source-1", "mkdir-1"]
+    replay_ids = _milestone_evidence_ids(current)
+    assert replay_ids == ["source-1", "mkdir-1"]
+    records = store.expand_evidence(created["task_id"], replay_ids)
+    messages = _fresh_executor_messages(
+        current,
+        reason="verified_phase_checkpoint",
+        evidence_records=records,
+    )
+    handoff = messages[1]["content"]
+    assert "UNIQUE_SOURCE_DETAIL: intake automation reduces manual triage." in handoff
+    assert '"action": "mkdir"' in handoff
+    assert '"replayed_evidence_ids": ["source-1", "mkdir-1"]' in handoff
+    assert "use it instead of repeating acquisition" in handoff
 
 
 def test_audited_stagnation_renews_context_and_recovers_to_completion(

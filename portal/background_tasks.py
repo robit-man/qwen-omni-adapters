@@ -222,7 +222,19 @@ def _apply_checkpoint_state(
         root["status"] = (
             "completed" if action == "complete" else "blocked" if action == "blocked" else "pending"
         )
-        root["evidence_ids"] = evidence_ids
+        # A checkpoint advances the controller frontier; it must not erase
+        # evidence accepted at an earlier frontier.  Keep a bounded,
+        # insertion-ordered page table while the immutable receipts remain in
+        # evidence_records.  This lets a later filesystem milestone retain the
+        # source acquisition that justified it.
+        previous_ids = [
+            str(value)[:128]
+            for value in root.get("evidence_ids", [])
+            if str(value)
+        ]
+        root["evidence_ids"] = list(
+            dict.fromkeys([*previous_ids, *evidence_ids])
+        )[-32:]
     controller = state.setdefault("controller", {})
     controller["phase"] = "terminal" if action in {"complete", "blocked"} else "prethink"
     controller["next_transition"] = "stop" if action in {"complete", "blocked"} else "prethink"
