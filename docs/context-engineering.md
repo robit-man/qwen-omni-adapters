@@ -192,7 +192,9 @@ or invoke the small typed-family selector to recover through a different
 capability. Concrete successful action chains continue without discovery and
 with thinking disabled for latency. This gives the transformer room to change
 strategy after an observation without reopening the full tool catalog or
-exposing private reasoning.
+exposing private reasoning. If that one deliberate pass emits prose instead of
+a structured action, the retry retains its local plan and evidence but disables
+another identical thought cycle, forcing the next pass into the action contract.
 
 Every concrete background call is retained as a bounded audit record containing
 call ID, exact tool name, bounded/redacted arguments, outcome, and success

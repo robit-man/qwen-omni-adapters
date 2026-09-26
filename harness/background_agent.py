@@ -2360,6 +2360,15 @@ def _latest_result_requires_replan(messages: list[dict[str, Any]]) -> bool:
     """Give the model a bounded planning pass after typed non-progress evidence."""
 
     for message in reversed(messages):
+        if message.get("role") == "assistant":
+            calls = message.get("tool_calls")
+            if not isinstance(calls, list) or not calls:
+                # One native-thinking pass already had the chance to replan.
+                # If it emitted prose instead of an action, the local retry
+                # directive keeps that plan resident and the next pass must
+                # execute without reopening another identical thought cycle.
+                return False
+            continue
         if message.get("role") != "tool":
             continue
         name = str(message.get("tool_name") or "")

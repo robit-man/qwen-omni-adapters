@@ -523,6 +523,16 @@ def test_only_typed_nonprogress_result_reenables_bounded_planning() -> None:
         _latest_result_requires_replan(
             [
                 *inspection,
+                {"role": "assistant", "content": "I should change approach."},
+                {"role": "user", "content": "Make one structured call now."},
+            ]
+        )
+        is False
+    )
+    assert (
+        _latest_result_requires_replan(
+            [
+                *inspection,
                 {
                     "role": "tool",
                     "tool_name": "workspace_file",
