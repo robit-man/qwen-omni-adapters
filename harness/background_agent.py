@@ -980,11 +980,14 @@ def _manage_transition_error(
         last_status in {"action_failed", "expected_effect_missing", "audit_failed"}
         and int(controller.get("consecutive_replans") or 0) == 0
     )
+    allowed_decisions = _manage_decision_contract(task)
     error = ""
     if not subtask or not reason:
         error = "subtask_and_reason_required"
     elif decision in {"retrieve", "act"} and audited_failure_pending_replan:
         error = "audited_failure_requires_replan"
+    elif decision not in allowed_decisions:
+        error = "manage_decision_not_admissible"
     elif decision in {"retrieve", "act"} and (
         family not in _TYPED_TOOL_FAMILIES
         or family == "background"
@@ -1037,6 +1040,11 @@ def _manage_transition_error(
         "another RETRIEVE or ACT."
         if error == "audited_failure_requires_replan"
         else (
+            "The durable controller currently admits only: "
+            + ", ".join(value.upper() for value in allowed_decisions)
+            + ". Emit one of those decisions and do not replay the rejected call."
+            if error == "manage_decision_not_admissible"
+            else (
             "A REPLAN was already accepted for the newest failure. Commit a "
             "different bounded RETRIEVE or ACT contract now."
             if error == "replan_requires_fresh_audited_nonprogress"
@@ -1044,6 +1052,7 @@ def _manage_transition_error(
                 "Commit one bounded RETRIEVE or ACT contract. REPLAN requires a "
                 "fresh audited failure and cannot repeat; ASK requires concrete "
                 "failed evidence."
+            )
             )
         )
     )
@@ -1053,6 +1062,7 @@ def _manage_transition_error(
         "message": message,
         "task_progress": False,
         "failure_scope": "plan",
+        "allowed_decisions": allowed_decisions,
     }
 
 
@@ -5150,17 +5160,35 @@ class BackgroundAgent:
                     latest_task = self.store.get(task_id) or current
                     manage_error = _manage_transition_error(latest_task, arguments)
                     if manage_error is not None:
-                        messages.append(
-                            {
-                                "role": "tool",
-                                "tool_name": name,
-                                "tool_call_id": call_id,
-                                "content": json.dumps(manage_error),
-                            }
-                        )
                         self._record_action(
                             task_id, call_id, name, arguments, manage_error
                         )
+                        # Do not let a deterministic model copy its rejected
+                        # manager call from the next prompt. Rebuild from the
+                        # audited controller and carry only the typed rejection.
+                        latest_task = self.store.get(task_id) or latest_task
+                        replay_ids = _controller_replay_ids(latest_task)
+                        replay_records = self.store.expand_evidence(
+                            task_id, replay_ids
+                        )
+                        messages = _fresh_managed_messages(
+                            latest_task,
+                            stage="manage",
+                            evidence_records=replay_records,
+                        )
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": (
+                                    '<manage_rejection schema="robit.omni.manage-rejection.v1" '
+                                    f'reason="{manage_error["reason"]}" '
+                                    f'allowed_decisions="{",".join(manage_error["allowed_decisions"])}">'
+                                    f'{manage_error["message"]}</manage_rejection>'
+                                ),
+                            }
+                        )
+                        active_tools = []
+                        phase_action_count = 0
                         stalls += 1
                         continue
                     transition = {

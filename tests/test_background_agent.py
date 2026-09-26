@@ -2176,11 +2176,14 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
         created["task_id"], "worker", {**replan, "contract_id": "replan-1"}
     )
     assert replanned is not None
-    assert _manage_transition_error(replanned, retry_without_replan) is None
     assert _manage_decision_contract(replanned) == ["act"]
+    retry_rejection = _manage_transition_error(replanned, retry_without_replan)
+    assert retry_rejection is not None
+    assert retry_rejection["reason"] == "manage_decision_not_admissible"
     second_replan = _manage_transition_error(replanned, replan)
     assert second_replan is not None
-    assert second_replan["reason"] == "replan_requires_fresh_audited_nonprogress"
+    assert second_replan["reason"] == "manage_decision_not_admissible"
+    assert second_replan["allowed_decisions"] == ["act"]
 
 
 def test_empty_search_cannot_close_retrieval_contract(tmp_path: Path) -> None:
