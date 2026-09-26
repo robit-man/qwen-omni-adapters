@@ -4434,6 +4434,7 @@ class BackgroundAgent:
             progress_parts: list[str] = []
             observed_actions: list[dict[str, Any]] = []
             reset_executor_context = False
+            reset_active_tools: list[str] = []
             for call in calls:
                 function = call.get("function")
                 name = (
@@ -5137,6 +5138,7 @@ class BackgroundAgent:
                         # another classification and discovery pair only adds two
                         # generative rounds and lets small models retry a dead path.
                         active_tools = direct_alternatives
+                        reset_active_tools = list(direct_alternatives)
                         recovery_required = False
                     else:
                         active_tools = []
@@ -5385,7 +5387,12 @@ class BackgroundAgent:
                     reason="audited_stagnation_reset",
                     evidence_records=replay_records,
                 )
-                active_tools = []
+                # Context renewal removes the failed executor trajectory, not
+                # the typed alternative already selected from its receipt.
+                # Dropping that route here would send a small controller back
+                # through discovery, where it can choose the retired family
+                # again without ever reaching the recovery action.
+                active_tools = reset_active_tools
                 phase_action_count = 0
                 recovery_required = False
                 logger.info(

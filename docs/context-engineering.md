@@ -267,7 +267,8 @@ tool grammar removes only the retired enum value—for example, a stagnant
 `shell:verify` available. A call that disregards the narrowed grammar is
 rejected before external execution. This policy reads audit fields, not command
 text or task-specific keywords. The third repeat also discards the renewable
-executor context and restarts from the audited state.
+executor context and restarts from the audited state, while preserving a typed
+alternative capability already selected by the retry controller.
 
 The local voice foreground and its background worker use one stable, opaque
 portal-session scope derived from the daemon capability, so a handed-off task

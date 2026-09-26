@@ -2161,6 +2161,123 @@ def test_audited_stagnation_renews_context_and_recovers_to_completion(
     assert chat_round == 12
 
 
+def test_selected_alternative_survives_audited_context_reset(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create(
+        "Create recovered.txt, then verify it exists.",
+        "recovered.txt exists and a current verification succeeds.",
+    )
+    tool_harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    artifact = tmp_path / "recovered.txt"
+    chat_round = 0
+
+    def call(call_id: str, name: str, arguments: dict[str, Any]) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "function": {"name": name, "arguments": arguments},
+                        }
+                    ],
+                }
+            },
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal chat_round
+        if request.url.path.startswith("/api/tools/"):
+            name = request.url.path.split("/")[-2]
+            arguments = json.loads(request.content).get("arguments", {})
+            result = tool_harness.execute("alternative-reset", name, arguments)
+            return httpx.Response(200, json={"result": result})
+
+        chat_round += 1
+        payload = json.loads(request.content)
+        if chat_round in {1, 5, 7, 9, 13}:
+            return call(
+                f"discover-{chat_round}", "tool_search", {"family": "shell"}
+            )
+        if chat_round in {2, 3, 4, 6, 8, 10}:
+            return call(
+                f"inspect-{chat_round}",
+                "shell",
+                {
+                    "command": f"printf inspect-{chat_round}",
+                    "intent": "inspect",
+                    "cwd": str(tmp_path),
+                },
+            )
+        if chat_round == 11:
+            offered = {
+                item["function"]["name"] for item in payload.get("tools", [])
+            }
+            assert "workspace_file" in offered
+            assert "shell" not in offered
+            return call(
+                "write-after-alternative",
+                "workspace_file",
+                {
+                    "action": "write",
+                    "path": str(artifact),
+                    "content": "recovered\n",
+                },
+            )
+        if chat_round == 12:
+            return _checkpoint_response(
+                "progress",
+                "I created the requested artifact through the selected alternative.",
+                ["write-after-alternative"],
+            )
+        if chat_round == 14:
+            return call(
+                "verify-alternative",
+                "shell",
+                {
+                    "command": "test -f recovered.txt",
+                    "intent": "verify",
+                    "cwd": str(tmp_path),
+                },
+            )
+        return _checkpoint_response(
+            "complete",
+            "I created recovered.txt and verified it in the current state.",
+            ["verify-alternative"],
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    agent = BackgroundAgent(
+        store=store,
+        portal_url="http://portal.test",
+        token="token",
+        model="model",
+        foreground_active=threading.Event(),
+        stop=threading.Event(),
+        max_slice_rounds=30,
+        max_slice_stalls=30,
+        client=client,
+    )
+    agent.start()
+    deadline = time.monotonic() + 6
+    while time.monotonic() < deadline:
+        current = store.get(task["task_id"])
+        if current and current.get("status") == "completed":
+            break
+        time.sleep(0.01)
+    agent.close()
+    client.close()
+
+    current = store.get(task["task_id"])
+    assert current is not None
+    assert current["status"] == "completed"
+    assert artifact.read_text(encoding="utf-8") == "recovered\n"
+    assert chat_round == 15
+
+
 def test_action_audit_redacts_credentials_and_bulk_payloads() -> None:
     rendered = _audit_json(
         {
