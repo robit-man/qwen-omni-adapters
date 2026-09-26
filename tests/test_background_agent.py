@@ -1836,6 +1836,31 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     assert current["task_state"]["controller"]["stagnation"]["count"] == 1
     record("inspect-3", inspection, inspection_result)
     assert current["task_state"]["controller"]["stagnation"]["count"] == 2
+    assert current["task_state"]["controller"]["retired_action_families"] == [
+        "shell:inspect"
+    ]
+
+    unrelated_audit = _action_audit_report(
+        current,
+        call_id="clock-after-stagnation",
+        name="get_current_time",
+        arguments={},
+        result={"date": "2026-09-26", "time": "12:01:00"},
+    )
+    updated = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="clock-after-stagnation",
+        tool="get_current_time",
+        arguments="{}",
+        outcome='{"date":"2026-09-26","time":"12:01:00"}',
+        ok=True,
+        audit_report=unrelated_audit,
+    )
+    assert updated is not None
+    current = updated
+    assert current["task_state"]["controller"]["stagnation"]["count"] == 0
+    assert _retired_action_families(current) == {"shell:inspect"}
 
     record(
         "mutate-1",
@@ -1848,6 +1873,7 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     )
     assert current["task_state"]["environment"]["version"] == 1
     assert current["task_state"]["controller"]["stagnation"]["count"] == 0
+    assert current["task_state"]["controller"]["retired_action_families"] == []
     assert not _completion_is_audited(current, ["mutate-1"])
 
     record(

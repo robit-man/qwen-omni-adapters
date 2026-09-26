@@ -26,6 +26,7 @@ from qwen_omni_adapters.context import context_text
 TERMINAL_STATUSES = {"completed", "blocked", "cancelled"}
 MAX_EXPIRED_RESUMES = 3
 MAX_TASK_STATE_RECORDS = 128
+STAGNANT_ACTION_RETIRE_THRESHOLD = 2
 
 
 def _initial_task_state(
@@ -61,6 +62,7 @@ def _initial_task_state(
             "closed_evidence_slots": [],
             "last_audit_id": "",
             "stagnation": {"fingerprint": "", "count": 0},
+            "retired_action_families": [],
             "executor_generation": 0,
         },
         "audit_reports": [],
@@ -183,6 +185,22 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
     normalized["environment_version_before"] = environment_before
     normalized["environment_version_after"] = int(environment.get("version") or 0)
     normalized["stagnation_count"] = int(stagnation.get("count") or 0)
+    retired = [
+        str(value)[:160]
+        for value in controller.get("retired_action_families", [])
+        if str(value)
+    ]
+    # New information can be useful without repairing the failed execution
+    # path that triggered recovery. Keep retirement per typed action family
+    # until an audited milestone or environment mutation advances the task;
+    # an unrelated clock/system lookup must not reopen the stagnant route.
+    if environmental_progress or normalized.get("milestone_progress") is True:
+        retired = []
+    elif normalized["stagnation_count"] >= STAGNANT_ACTION_RETIRE_THRESHOLD:
+        action_family = str(normalized.get("action_family") or "")[:160]
+        if action_family:
+            retired = list(dict.fromkeys([*retired, action_family]))[-32:]
+    controller["retired_action_families"] = retired
     reports.append(normalized)
     state["audit_reports"] = reports[-MAX_TASK_STATE_RECORDS:]
     state["version"] = int(state.get("version") or 0) + 1
@@ -247,6 +265,7 @@ def _apply_checkpoint_state(
             controller.get("executor_generation") or 0
         ) + 1
         controller["stagnation"] = {"fingerprint": "", "count": 0}
+        controller["retired_action_families"] = []
     state["version"] = int(state.get("version") or 0) + 1
 
 

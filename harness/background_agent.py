@@ -22,7 +22,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from portal.background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
+from portal.background_tasks import (
+    STAGNANT_ACTION_RETIRE_THRESHOLD,
+    TERMINAL_STATUSES,
+    BackgroundTaskStore,
+)
 from portal.tools import DISCOVERY_TOOLS, tool_schemas
 from qwen_omni_adapters.context import (
     configured_tool_families,
@@ -79,7 +83,6 @@ TASK_START_REQUEST = (
 )
 MAX_VIRTUAL_QUERY_CHARS = 1_200
 MAX_PHASE_ACTIONS = 8
-STAGNANT_ACTION_RETIRE_THRESHOLD = 2
 
 _TYPED_TOOL_FAMILIES = frozenset(configured_tool_families())
 _CAMERA_DEVICE_RE = re.compile(r"\b(?:camera|webcam|video\s+feed)\b", re.IGNORECASE)
@@ -860,16 +863,21 @@ def _retired_action_families(task: Mapping[str, Any]) -> set[str]:
     controller = controller if isinstance(controller, Mapping) else {}
     stagnation = controller.get("stagnation")
     stagnation = stagnation if isinstance(stagnation, Mapping) else {}
+    persisted = {
+        str(value)
+        for value in controller.get("retired_action_families", [])
+        if str(value)
+    }
     if int(stagnation.get("count") or 0) < STAGNANT_ACTION_RETIRE_THRESHOLD:
-        return set()
+        return persisted
     audit = _latest_audit(task)
     if (
         audit.get("epistemic_progress") is True
         or audit.get("environmental_progress") is True
     ):
-        return set()
+        return persisted
     family = str(audit.get("action_family") or "").strip()
-    return {family} if family else set()
+    return persisted.union({family} if family else set())
 
 
 def _without_retired_action_families(

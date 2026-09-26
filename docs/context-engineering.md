@@ -268,7 +268,10 @@ tool grammar removes only the retired enum value—for example, a stagnant
 rejected before external execution. This policy reads audit fields, not command
 text or task-specific keywords. The third repeat also discards the renewable
 executor context and restarts from the audited state, while preserving a typed
-alternative capability already selected by the retry controller.
+alternative capability already selected by the retry controller. Retirement
+is stored per action family and is not cleared by arbitrary new knowledge such
+as a clock or system lookup; only a typed milestone or verified environment
+change reopens it.
 
 The local voice foreground and its background worker use one stable, opaque
 portal-session scope derived from the daemon capability, so a handed-off task
