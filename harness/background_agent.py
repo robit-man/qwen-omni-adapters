@@ -215,10 +215,8 @@ def _background_step_token_limit(
         return base
     resident = max(4_096, int(resident_context_tokens))
     selected = set(active_tools)
-    if "workspace_file" in selected:
+    if selected.intersection({"workspace_file", "shell"}):
         return min(3_072, max(base, resident // 5))
-    if "shell" in selected:
-        return min(1_536, max(base, resident // 10))
     return base
 
 

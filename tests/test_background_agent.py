@@ -420,6 +420,12 @@ def test_background_output_budget_tracks_selected_action_and_kv_tier() -> None:
     )
     assert (
         _background_step_token_limit(
+            768, ["shell"], 16_384, allow_expansion=True
+        )
+        == 3_072
+    )
+    assert (
+        _background_step_token_limit(
             768, ["workspace_file"], 4_096, allow_expansion=True
         )
         == 819
