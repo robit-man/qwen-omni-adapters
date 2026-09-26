@@ -2163,6 +2163,55 @@ def test_shell_failure_guard_ignores_cosmetic_argument_and_stream_changes() -> N
     assert guarded["error"] == "repeated_unchanged_result"
 
 
+def test_failed_outcome_cannot_recur_after_an_intervening_failed_probe() -> None:
+    missing_target = {
+        "command": "cd /missing && ls",
+        "cwd": "/repo",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "cd: /missing: No such file or directory",
+        "timed_out": False,
+    }
+    unavailable_runtime = {
+        "command": "missing-runtime --version",
+        "cwd": "/repo",
+        "exit_code": 127,
+        "stdout": "",
+        "stderr": "missing-runtime: command not found",
+        "timed_out": False,
+    }
+    _first, first_last, first_digest, first_repeated = (
+        _guard_repeated_unchanged_result(
+            "shell", {"command": missing_target["command"]}, missing_target, ""
+        )
+    )
+    _second, second_last, second_digest, second_repeated = (
+        _guard_repeated_unchanged_result(
+            "shell",
+            {"command": unavailable_runtime["command"]},
+            unavailable_runtime,
+            first_last,
+            {first_digest},
+        )
+    )
+    guarded, retained, retry_digest, retry_repeated = (
+        _guard_repeated_unchanged_result(
+            "shell",
+            {"command": missing_target["command"], "stdin": "irrelevant"},
+            {**missing_target, "stdin_bytes": 10},
+            second_last,
+            {first_digest, second_digest},
+        )
+    )
+
+    assert first_repeated is False
+    assert second_repeated is False
+    assert retry_repeated is True
+    assert retry_digest == first_digest
+    assert retained == second_last
+    assert guarded["error"] == "repeated_unchanged_result"
+
+
 def test_workspace_inspection_guard_ignores_cosmetic_defaults() -> None:
     result = {
         "action": "list",

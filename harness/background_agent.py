@@ -2012,6 +2012,7 @@ def _guard_repeated_unchanged_result(
     arguments: Mapping[str, Any],
     result: Any,
     last_digest: str,
+    prior_digests: set[str] | None = None,
 ) -> tuple[Any, str, str, bool]:
     """Require a causal boundary between identical non-visual tool results."""
 
@@ -2023,13 +2024,18 @@ def _guard_repeated_unchanged_result(
         or name in COMPUTER_ACTION_TOOLS
     ):
         return result, last_digest, digest, False
-    if not last_digest or digest != last_digest:
+    repeated_failed_outcome = bool(
+        prior_digests
+        and digest in prior_digests
+        and _result_failed_or_blocked(result)
+    )
+    if (not last_digest or digest != last_digest) and not repeated_failed_outcome:
         return result, digest, digest, False
     recovery: dict[str, Any] = {
         "error": "repeated_unchanged_result",
         "message": (
-            "This call returned the same bounded result as the preceding concrete "
-            "action; it produced no new task evidence. Reassess the retained result "
+            "This call repeated a previously observed failed or unchanged bounded "
+            "result without producing new task evidence. Reassess retained evidence "
             "and choose an action that changes or inspects different state."
         ),
         "task_blocked": False,
@@ -4161,7 +4167,11 @@ class BackgroundAgent:
                     digest,
                     repeated_result,
                 ) = _guard_repeated_unchanged_result(
-                    name, arguments, result, last_external_result_digest
+                    name,
+                    arguments,
+                    result,
+                    last_external_result_digest,
+                    result_digests,
                 )
                 change_capability = (
                     isinstance(result, Mapping)
