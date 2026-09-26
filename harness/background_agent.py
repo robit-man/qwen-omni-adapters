@@ -371,6 +371,9 @@ def _audited_task_state(task: Mapping[str, Any]) -> str:
                 controller.get("remaining_requirements") or []
             )[:8],
             "executor_generation": int(controller.get("executor_generation") or 0),
+            "frontier_environment_version": _task_frontier_environment_version(
+                task
+            ),
             "stagnation": stagnation,
             "retired_action_families": sorted(_retired_action_families(task)),
         },
@@ -2754,6 +2757,29 @@ def _task_environment_version(task: Mapping[str, Any]) -> int:
     return int(environment.get("version") or 0)
 
 
+def _task_frontier_environment_version(task: Mapping[str, Any]) -> int:
+    """Return the environment version already accepted at the task frontier."""
+
+    state = task.get("task_state")
+    if not isinstance(state, Mapping):
+        return -1
+    controller = state.get("controller")
+    if not isinstance(controller, Mapping):
+        return -1
+    explicit = controller.get("frontier_environment_version")
+    if explicit is not None:
+        try:
+            return int(explicit)
+        except (TypeError, ValueError):
+            pass
+    # Migration for tasks checkpointed before the field existed. An accepted
+    # executor generation necessarily made the then-current environment part
+    # of its frontier; same-version verification cannot become new progress.
+    if int(controller.get("executor_generation") or 0) > 0:
+        return _task_environment_version(task)
+    return -1
+
+
 def _task_controller_value(task: Mapping[str, Any], key: str) -> Any:
     state = task.get("task_state")
     if not isinstance(state, Mapping):
@@ -2814,6 +2840,7 @@ def _action_audit_report(
     action_family = _action_family(name, arguments)
     operation = action_family.partition(":")[2]
     environment_version = _task_environment_version(task)
+    frontier_environment_version = _task_frontier_environment_version(task)
 
     if name == "shell":
         # The typed shell intent defines the state domain.  A caller can name a
@@ -2862,7 +2889,11 @@ def _action_audit_report(
             changed_paths = [str(result["path"])]
 
     milestone_progress = bool(
-        authority in {"mutation", "verification"}
+        authority == "mutation"
+        or (
+            authority == "verification"
+            and environment_version > frontier_environment_version
+        )
         or (
             authority == "concrete"
             and (

@@ -152,7 +152,12 @@ The state loop is `PRETHINK -> RETRIEVE or ACT -> AUDIT -> PRETHINK`. A
 deterministic auditor classifies every external receipt as discovery,
 inspection, mutation, verification, concrete evidence, or failure. After a
 mutation, a terminal checkpoint requires a verification receipt from the
-current environment version. Accepted phase checkpoints create a fresh
+current environment version. A verification is itself new milestone evidence
+only when it checks an environment version newer than the last accepted phase
+frontier; the initial verify-only phase uses a `-1` frontier so pre-existing
+state can still be verified. Relabeling an unchanged inspection as verification
+therefore cannot reopen a retired transition or advance another checkpoint.
+Accepted phase checkpoints create a fresh
 executor working set from the external state rather than carrying forward the
 previous executor's private reasoning. That fresh working set is persisted
 without inventing an extra task round, so a process restart cannot revive the

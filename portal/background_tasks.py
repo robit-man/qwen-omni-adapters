@@ -63,6 +63,7 @@ def _initial_task_state(
             "last_audit_id": "",
             "stagnation": {"fingerprint": "", "count": 0},
             "retired_action_families": [],
+            "frontier_environment_version": -1,
             "executor_generation": 0,
         },
         "audit_reports": [],
@@ -266,6 +267,23 @@ def _apply_checkpoint_state(
         ) + 1
         controller["stagnation"] = {"fingerprint": "", "count": 0}
         controller["retired_action_families"] = []
+        environment = state.setdefault("environment", {"version": 0, "artifacts": []})
+        environment_version = int(environment.get("version") or 0)
+        reports = state.get("audit_reports")
+        reports = reports if isinstance(reports, list) else []
+        # A mutation checkpoint preserves recoverable task state, but does not
+        # make that environment verified. Keep the earlier verified frontier
+        # until a cited current-version verification receipt is accepted.
+        if any(
+            isinstance(report, Mapping)
+            and str(report.get("evidence_id") or "") in evidence_ids
+            and str(report.get("authority") or "") == "verification"
+            and report.get("milestone_progress") is True
+            and int(report.get("environment_version_after") or -1)
+            == environment_version
+            for report in reports
+        ):
+            controller["frontier_environment_version"] = environment_version
     state["version"] = int(state.get("version") or 0) + 1
 
 

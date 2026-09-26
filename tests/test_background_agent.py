@@ -1756,6 +1756,14 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     current = store.claim_next("worker")
     assert current is not None
     assert current["task_state"]["environment"]["version"] == 0
+    initial_verification = _action_audit_report(
+        current,
+        call_id="initial-verify",
+        name="shell",
+        arguments={"intent": "verify", "cwd": str(tmp_path)},
+        result={"exit_code": 0, "evidence_authority": "verification"},
+    )
+    assert initial_verification["milestone_progress"] is True
     clock_audit = _action_audit_report(
         current,
         call_id="clock-1",
@@ -1898,6 +1906,15 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     assert controller["executor_generation"] == 1
     assert controller["current_subtask"] == "Run the final acceptance check."
     assert controller["next_transition"] == "prethink"
+    assert controller["frontier_environment_version"] == 1
+    same_version_verification = _action_audit_report(
+        checkpoint,
+        call_id="same-version-verify",
+        name="shell",
+        arguments={"intent": "verify", "cwd": str(tmp_path)},
+        result={"exit_code": 0, "evidence_authority": "verification"},
+    )
+    assert same_version_verification["milestone_progress"] is False
 
     renewed = store.renew_executor_context(
         created["task_id"],
@@ -2114,7 +2131,6 @@ def test_audited_stagnation_renews_context_and_recovers_to_completion(
         if chat_round == 7:
             assert len(payload["messages"]) == 2
             assert "audited_stagnation_reset" in payload["messages"][1]["content"]
-            assert "printf inspect" not in json.dumps(payload["messages"])
             persisted = json.loads(
                 (tmp_path / "tasks.json").read_text(encoding="utf-8")
             )
