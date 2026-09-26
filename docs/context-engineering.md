@@ -181,6 +181,11 @@ inspections. Their bounded stdout or file observation is pinned directly in the
 inspection record rather than hidden behind command text or promoted to a
 completed success. An inspection does not make `task_expand` compete with the
 next action; paging returns after new concrete evidence or at a phase boundary.
+The round immediately following typed non-progress evidence receives a bounded
+private planning pass even when a concrete family remains active. Concrete
+action chains continue with thinking disabled for latency. This gives the
+transformer room to change strategy after an observation without broadening the
+schema set or exposing private reasoning.
 
 Every concrete background call is retained as a bounded audit record containing
 call ID, exact tool name, bounded/redacted arguments, outcome, and success

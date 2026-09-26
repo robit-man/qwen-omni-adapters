@@ -2346,6 +2346,27 @@ def _structured_action_phase(
     return False
 
 
+def _latest_result_requires_replan(messages: list[dict[str, Any]]) -> bool:
+    """Give the model a bounded planning pass after typed non-progress evidence."""
+
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            continue
+        name = str(message.get("tool_name") or "")
+        if name in {"", "tool_search", "task_checkpoint", "task_compact"}:
+            continue
+        try:
+            result = json.loads(str(message.get("content") or "{}"))
+        except ValueError:
+            return False
+        return (
+            isinstance(result, Mapping)
+            and result.get("task_progress") is False
+            and not _result_failed_or_blocked(result)
+        )
+    return False
+
+
 def _recovery_required(messages: list[dict[str, Any]]) -> bool:
     """Whether a capability failure still needs a typed recovery transition."""
 
@@ -3487,6 +3508,7 @@ class BackgroundAgent:
             structured_action_phase = action_after_discovery or _structured_action_phase(
                 messages, active_tools
             )
+            replan_after_inspection = _latest_result_requires_replan(messages)
             inference_messages = _computer_action_messages(
                 messages,
                 current,
@@ -3529,7 +3551,7 @@ class BackgroundAgent:
                 # waste far more time than deliberation costs. Native thinking
                 # remains a separate backend channel and is never spoken or
                 # copied into the durable task transcript.
-                "think": not structured_action_phase,
+                "think": not structured_action_phase or replan_after_inspection,
                 "options": {"num_predict": self.step_token_limit},
                 # Background rounds are independently checkpointed. Reusing a
                 # llama.cpp prompt slot keeps discarded history resident and

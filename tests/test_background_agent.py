@@ -52,6 +52,7 @@ from harness.background_agent import (
     _guard_repeated_unchanged_result,
     _inference_diagnostics,
     _latest_external_result_digest,
+    _latest_result_requires_replan,
     _latest_tool_fingerprint,
     _MalformedToolCall,
     _NonRetryableBackgroundError,
@@ -506,6 +507,51 @@ def test_evidence_paging_cannot_loop_or_replace_capability_discovery() -> None:
         },
     ]
     assert _task_expand_available(failed, compacted=True) is False
+
+
+def test_only_typed_nonprogress_result_reenables_bounded_planning() -> None:
+    inspection = [
+        {
+            "role": "tool",
+            "tool_name": "shell",
+            "content": json.dumps(
+                {"exit_code": 0, "stdout": "empty", "task_progress": False}
+            ),
+        }
+    ]
+    assert _latest_result_requires_replan(inspection) is True
+    assert (
+        _latest_result_requires_replan(
+            [
+                *inspection,
+                {
+                    "role": "tool",
+                    "tool_name": "workspace_file",
+                    "content": json.dumps(
+                        {"action": "write", "path": "/tmp/app/page.tsx"}
+                    ),
+                },
+            ]
+        )
+        is False
+    )
+    assert (
+        _latest_result_requires_replan(
+            [
+                {
+                    "role": "tool",
+                    "tool_name": "shell",
+                    "content": json.dumps(
+                        {
+                            "error": "permission denied",
+                            "task_progress": False,
+                        }
+                    ),
+                }
+            ]
+        )
+        is False
+    )
 
 
 def test_web_fetch_preflight_allows_a_user_supplied_url_but_not_self_authorization() -> None:
