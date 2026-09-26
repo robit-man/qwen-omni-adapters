@@ -25,6 +25,7 @@ from harness.background_agent import (
     BackgroundAgent,
     _action_audit_report,
     _apply_capability_retry_budget,
+    _audit_for_evidence,
     _audit_json,
     _background_discovery_preflight,
     _background_portal_session,
@@ -1792,6 +1793,24 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     assert renewed["round"] == checkpoint["round"]
     raw = json.loads((tmp_path / "tasks.json").read_text(encoding="utf-8"))
     assert raw["tasks"][0]["messages"][0]["content"] == "fresh audited frontier"
+
+
+def test_control_call_cannot_inherit_a_previous_receipt_audit() -> None:
+    task = {
+        "task_state": {
+            "audit_reports": [
+                {
+                    "audit_id": "audit-inspect-3",
+                    "evidence_id": "inspect-3",
+                    "stagnation_count": 2,
+                    "milestone_progress": False,
+                }
+            ]
+        }
+    }
+
+    assert _audit_for_evidence(task, "inspect-3")["stagnation_count"] == 2
+    assert _audit_for_evidence(task, "router-1") == {}
 
 
 def test_phase_handoffs_replay_cumulative_exact_milestone_evidence(

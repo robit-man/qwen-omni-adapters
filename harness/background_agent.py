@@ -2789,6 +2789,22 @@ def _latest_audit(task: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
+def _audit_for_evidence(
+    task: Mapping[str, Any], evidence_id: str
+) -> dict[str, Any]:
+    """Return only the audit produced by this exact external receipt.
+
+    Router and local-control calls deliberately do not create task-evidence
+    audits.  Falling back to the preceding action's audit would transfer its
+    stagnation or progress classification onto an unrelated control result.
+    """
+
+    audit = _latest_audit(task)
+    if str(audit.get("evidence_id") or "") != str(evidence_id):
+        return {}
+    return audit
+
+
 def _completion_is_audited(
     task: Mapping[str, Any], evidence_ids: list[str]
 ) -> bool:
@@ -5003,7 +5019,7 @@ class BackgroundAgent:
                 audited_task = self._record_action(
                     task_id, call_id, name, arguments, result
                 )
-                audit = _latest_audit(audited_task or {})
+                audit = _audit_for_evidence(audited_task or {}, call_id)
                 stagnation_count = int(audit.get("stagnation_count") or 0)
                 if (
                     stagnation_count >= 2
