@@ -28,7 +28,11 @@ from harness.camera_view import CameraLiveView
 from harness.indicator import ThreadedIndicator, build_indicator, probe_indicator
 from harness.location import BrowserLocationProvider
 from harness.models import IndicatorModelManager
-from harness.residency import BackgroundTTSResidency, SpeechResidency
+from harness.residency import (
+    BackgroundPointingResidency,
+    BackgroundTTSResidency,
+    SpeechResidency,
+)
 from harness.respeaker import find_source
 from harness.update import RepositoryUpdateManager
 from portal.background_tasks import BackgroundTaskStore
@@ -321,6 +325,23 @@ def main(argv: list[str] | None = None) -> int:
         if background_residency_mode == "action"
         else None
     )
+    background_pointing = (
+        BackgroundPointingResidency(
+            os.environ.get(
+                "OMNI_POINTING_URL", "http://127.0.0.1:8940"
+            )
+        )
+        if background_residency_mode == "action"
+        and os.environ.get("OMNI_ENABLE_POINTING", "1").strip().lower()
+        not in {"0", "false", "no", "off"}
+        else None
+    )
+
+    def prepare_background_action() -> None:
+        if background_tts is not None:
+            background_tts.shed()
+        if background_pointing is not None:
+            background_pointing.shed()
 
     def content_trace(event: str, text: str, details: dict[str, Any]) -> None:
         logger.info(
@@ -362,7 +383,9 @@ def main(argv: list[str] | None = None) -> int:
             or str(_repo_root() / "runtime-data/state/background-tasks.json")
         ),
         prepare_background_action=(
-            background_tts.shed if background_tts is not None else None
+            prepare_background_action
+            if background_tts is not None or background_pointing is not None
+            else None
         ),
         background_progress_speech=(
             str(

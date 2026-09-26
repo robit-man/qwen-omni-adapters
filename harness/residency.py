@@ -205,3 +205,25 @@ class BackgroundTTSResidency:
         payload = response.json()
         if not isinstance(payload, dict) or payload.get("persistent_ready") is not False:
             raise RuntimeError("TTS residency endpoint did not confirm graph shedding")
+
+
+@dataclass
+class BackgroundPointingResidency:
+    """Free the reloadable visual point head during non-GUI action work."""
+
+    pointing_url: str
+    timeout_s: float = 30.0
+
+    def shed(self) -> None:
+        endpoint = f"{self.pointing_url.rstrip('/')}/residency"
+        response = httpx.post(
+            endpoint,
+            json={"action": "shed"},
+            timeout=self.timeout_s,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get("resident") is not False:
+            raise RuntimeError(
+                "pointing residency endpoint did not confirm weight shedding"
+            )

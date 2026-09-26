@@ -412,6 +412,7 @@ def test_abnormal_exit_caps_the_next_load_at_the_next_standard_window(
 
     assert calibration["context_cap"] == 16_384
     assert calibration["last_failure"]["context_tokens"] == 32_768
+    assert calibration["last_failure"]["reason"] == "child_exit"
 
 
 def test_crash_cap_lifts_only_when_live_memory_can_fund_the_failed_tier() -> None:
@@ -440,6 +441,78 @@ def test_crash_cap_lifts_only_when_live_memory_can_fund_the_failed_tier() -> Non
     ) == 65_536
     assert "context_cap" not in calibration
     assert "last_failure" not in calibration
+
+
+def test_transient_pressure_cap_retries_after_healthy_lower_tier_and_cooldown() -> None:
+    calibration = {
+        "context_cap": 4096,
+        "safe_context_tokens": 16_384,
+        "last_failure": {
+            "context_tokens": 8192,
+            "available_before_gib": 16.0,
+            "failed_at": 100.0,
+        },
+        "last_sample": {
+            "context_tokens": 4096,
+            "available_after_gib": 7.8,
+            "sampled_at": 120.0,
+        },
+    }
+    kv = 0.25 / 4096
+
+    assert _effective_context_maximum(
+        calibration,
+        configured_maximum=16_384,
+        available_gib=14.8,
+        kv_gib_per_token=kv,
+        parallel_slots=1,
+        live_base_gib=7.4,
+        runtime_reserve_gib=3.0,
+        now=399.0,
+        pressure_retry_cooldown_s=300.0,
+    ) == 4096
+    assert _effective_context_maximum(
+        calibration,
+        configured_maximum=16_384,
+        available_gib=14.8,
+        kv_gib_per_token=kv,
+        parallel_slots=1,
+        live_base_gib=7.4,
+        runtime_reserve_gib=3.0,
+        now=400.0,
+        pressure_retry_cooldown_s=300.0,
+    ) == 16_384
+    assert "context_cap" not in calibration
+
+
+def test_abnormal_exit_cap_does_not_retry_from_a_lower_sample_alone() -> None:
+    calibration = {
+        "context_cap": 4096,
+        "safe_context_tokens": 16_384,
+        "last_failure": {
+            "context_tokens": 8192,
+            "available_before_gib": 16.0,
+            "failed_at": 100.0,
+            "reason": "child_exit",
+        },
+        "last_sample": {
+            "context_tokens": 4096,
+            "available_after_gib": 7.8,
+            "sampled_at": 120.0,
+        },
+    }
+
+    assert _effective_context_maximum(
+        calibration,
+        configured_maximum=16_384,
+        available_gib=14.8,
+        kv_gib_per_token=0.25 / 4096,
+        parallel_slots=1,
+        live_base_gib=7.4,
+        runtime_reserve_gib=3.0,
+        now=1000.0,
+        pressure_retry_cooldown_s=300.0,
+    ) == 4096
 
 
 def test_memavailable_is_read_in_gib(tmp_path: Path) -> None:

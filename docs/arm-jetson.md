@@ -207,15 +207,23 @@ calibration when the format contract changes. The pinned build has no 2-bit KV
 format, so q4 testing is only a lower-precision cache ablation inspired by the
 KIVI direction, not a reproduction of KIVI's 2-bit method.
 
+A sustained runtime low-water mark records a one-tier pressure cap for the next
+supervised start. That cap is not permanent: after a healthy lower-tier sample
+and a cooldown, the launcher may retry a previously proven tier when calibrated
+weights + KV + the operating reserve fit current capacity. An abnormal child
+exit remains capped until the stricter live-capacity increase gate is met.
+
 Guided Ornith/Tegra deployment also sets
 `OMNI_BACKGROUND_RESIDENCY_MODE=action`. Before a silent durable-task slice,
-the harness asks the loopback TTS wrapper to shed only its independently
-reloadable speech graph. The shared Omni language/ASR/vision trunk and the
-pointing worker stay resident. A later synthesis request reloads the shipped
-voice-clone profile through the normal TTS path. `conversation` keeps TTS warm
-and is the default on unqualified model/platform pairs. Action mode does not by
-itself authorize automatic context expansion while TTS is absent; expansion
-needs a coordinated foreground downshift before speech can safely return.
+the harness asks the loopback TTS and point-head wrappers to shed their
+independently reloadable weights. The shared Omni language/ASR/vision trunk
+stays resident, so verbal interruption and task cognition remain available. A
+later synthesis request reloads the shipped voice-clone profile through the
+normal TTS path; the next grounded browser action reloads the point head through
+its narrow local endpoint. `conversation` keeps both optional graphs warm and
+is the default on unqualified model/platform pairs. Tegra still does not resize
+the live llama process: action shedding supplies execution headroom inside the
+startup-selected KV tier without risky CUDA-process teardown.
 Intermediate background checkpoints remain visible in the indicator but are
 silent by default in action mode, because speaking an optional status sentence
 would immediately reload the graph that the task just shed. Terminal completion

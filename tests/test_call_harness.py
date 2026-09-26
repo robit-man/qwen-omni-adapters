@@ -1751,6 +1751,31 @@ def test_background_tts_residency_requires_a_confirmed_shed(monkeypatch) -> None
     ]
 
 
+def test_background_pointing_residency_requires_a_confirmed_shed(monkeypatch) -> None:
+    import httpx
+
+    from harness.residency import BackgroundPointingResidency
+
+    seen: list[tuple[str, dict[str, str]]] = []
+
+    def post(url: str, *, json: dict[str, str], timeout: float):
+        seen.append((url, json))
+        return httpx.Response(
+            200,
+            json={"ok": True, "resident": False},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr("harness.residency.httpx.post", post)
+    residency = BackgroundPointingResidency("http://127.0.0.1:8940/")
+
+    residency.shed()
+
+    assert seen == [
+        ("http://127.0.0.1:8940/residency", {"action": "shed"})
+    ]
+
+
 def test_background_progress_speech_can_be_disabled_without_disabling_tasks() -> None:
     config = CallConfig(
         background_task_path="/tmp/background-tasks.json",

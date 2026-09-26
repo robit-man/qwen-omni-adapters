@@ -506,6 +506,7 @@ def _record_failed_context(
     minimum: int,
     maximum: int,
     available_gib: float,
+    reason: str = "child_exit",
 ) -> None:
     """Step down after an abnormal child exit instead of crash-looping."""
 
@@ -520,6 +521,7 @@ def _record_failed_context(
         "available_before_gib": available_gib,
         "context_tokens": context_tokens,
         "failed_at": time.time(),
+        "reason": reason,
     }
     _atomic_json(path, calibration)
 
@@ -531,8 +533,18 @@ def _effective_context_maximum(
     available_gib: float,
     kv_gib_per_token: float,
     parallel_slots: int,
+    live_base_gib: float | None = None,
+    runtime_reserve_gib: float = 0.0,
+    now: float | None = None,
+    pressure_retry_cooldown_s: float | None = None,
 ) -> int:
-    """Honor crash backoff until live capacity can fund retrying that tier."""
+    """Honor crash backoff while allowing a measured pressure cap to recover.
+
+    A transient tool/browser low-water mark is not evidence that the same KV
+    tier cannot start. After a healthy lower-tier sample and a cooldown, retry
+    it when calibrated base + KV + the runtime reserve fit current capacity.
+    Abnormal child exits retain the older, stricter capacity-increase rule.
+    """
 
     cap = calibration.get("context_cap")
     failure = calibration.get("last_failure")
@@ -543,7 +555,53 @@ def _effective_context_maximum(
     if not isinstance(failed_context, int) or not isinstance(failed_available, (int, float)):
         return min(configured_maximum, cap)
     retry_cost = max(0, failed_context - cap) * kv_gib_per_token * max(1, parallel_slots)
-    if available_gib >= float(failed_available) + retry_cost:
+    capacity_increased = available_gib >= float(failed_available) + retry_cost
+    failed_at = failure.get("failed_at")
+    reason = str(failure.get("reason") or "")
+    safe = calibration.get("safe_context_tokens")
+    # Calibration written before failure reasons were persisted can still be
+    # identified as transient pressure when that exact tier was already proven.
+    pressure_failure = reason == "runtime_pressure" or (
+        not reason and isinstance(safe, int) and safe >= failed_context
+    )
+    sample = calibration.get("last_sample")
+    cooldown = (
+        max(0.0, pressure_retry_cooldown_s)
+        if pressure_retry_cooldown_s is not None
+        else max(
+            0.0,
+            float(os.environ.get("OMNI_COMPREHENSION_PRESSURE_RETRY_SECONDS", "300")),
+        )
+    )
+    current_time = time.time() if now is None else now
+    healthy_lower_sample = (
+        isinstance(sample, Mapping)
+        and isinstance(failed_at, (int, float))
+        and isinstance(sample.get("sampled_at"), (int, float))
+        and float(sample["sampled_at"]) >= float(failed_at)
+        and isinstance(sample.get("context_tokens"), int)
+        and int(sample["context_tokens"]) <= cap
+        and isinstance(sample.get("available_after_gib"), (int, float))
+        and float(sample["available_after_gib"]) >= runtime_reserve_gib
+    )
+    calibrated_retry_fits = (
+        isinstance(live_base_gib, (int, float))
+        and available_gib
+        >= estimated_resident_gib(
+            failed_context,
+            base_gib=float(live_base_gib),
+            kv_gib_per_token=kv_gib_per_token,
+            parallel_slots=parallel_slots,
+        )
+        + runtime_reserve_gib
+    )
+    cooled = (
+        isinstance(failed_at, (int, float))
+        and current_time - float(failed_at) >= cooldown
+    )
+    if capacity_increased or (
+        pressure_failure and cooled and healthy_lower_sample and calibrated_retry_fits
+    ):
         calibration.pop("context_cap", None)
         calibration.pop("last_failure", None)
         return configured_maximum
@@ -774,6 +832,8 @@ def main(argv: list[str] | None = None) -> int:
         available_gib=available,
         kv_gib_per_token=kv,
         parallel_slots=args.parallel_slots,
+        live_base_gib=float(base) if isinstance(base, (int, float)) else None,
+        runtime_reserve_gib=runtime_reserve,
     )
     if isinstance(base, (int, float)):
         safe_context = _safe_context_tokens(
@@ -954,6 +1014,7 @@ def main(argv: list[str] | None = None) -> int:
                         minimum=args.min_context,
                         maximum=args.max_context,
                         available_gib=available,
+                        reason="post_load_headroom",
                     )
                     if runtime_resize:
                         print(
@@ -1010,6 +1071,7 @@ def main(argv: list[str] | None = None) -> int:
                         # would immediately reselect the unsafe tier after the
                         # old process released its pages.
                         available_gib=available,
+                        reason="runtime_pressure",
                     )
                     if runtime_resize:
                         print(
@@ -1106,6 +1168,7 @@ def main(argv: list[str] | None = None) -> int:
             minimum=args.min_context,
             maximum=args.max_context,
             available_gib=available,
+            reason="child_exit",
         )
     if stopping:
         return 0

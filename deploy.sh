@@ -419,9 +419,9 @@ install_environment() {
     printf 'OMNI_COMPREHENSION_CONTEXT_TOKENS=16384\n'
     printf 'OMNI_COMPREHENSION_CACHE_TYPE_K=%s\n' "$cache_type"
     printf 'OMNI_COMPREHENSION_CACHE_TYPE_V=%s\n' "$cache_type"
-    # Silent durable work needs the language/vision/pointing path, not a
-    # permanently resident speech decoder. Action mode sheds only the
-    # independently reloadable TTS graph before a background slice.
+    # Silent durable work keeps the fused language/audio/vision trunk resident.
+    # Action mode sheds the independently reloadable TTS and point-head graphs
+    # before a background slice, preserving headroom for prompt/KV work.
     printf 'OMNI_BACKGROUND_RESIDENCY_MODE=%s\n' "$background_residency_mode"
     # The 16K/256K live RULER gate is accepted: use the lossless hierarchy as
     # the production working-set allocator. Operators can still explicitly

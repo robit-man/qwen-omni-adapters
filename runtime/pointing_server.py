@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import gc
 import inspect
 import io
 import json
@@ -107,17 +108,47 @@ class PointingModel:
         self.model_id = model_id
         self.revision = revision
         self._torch = torch
-        self._model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            revision=revision,
+        self._model_type = AutoModelForCausalLM
+        self._model: Any | None = None
+        self._lock = threading.Lock()
+        with self._lock:
+            self._load_locked()
+
+    @property
+    def resident(self) -> bool:
+        with self._lock:
+            return self._model is not None
+
+    def _load_locked(self) -> None:
+        if self._model is not None:
+            return
+        self._model = self._model_type.from_pretrained(
+            self.model_id,
+            revision=self.revision,
             trust_remote_code=True,
-            torch_dtype=torch.bfloat16,
+            torch_dtype=self._torch.bfloat16,
             device_map={"": "cuda"},
         ).eval()
-        self._lock = threading.Lock()
+
+    def warm(self) -> None:
+        with self._lock:
+            self._load_locked()
+
+    def shed(self) -> None:
+        """Release optional pointing weights while retaining the HTTP control plane."""
+
+        with self._lock:
+            if self._model is None:
+                return
+            self._torch.cuda.synchronize()
+            self._model = None
+            gc.collect()
+            self._torch.cuda.empty_cache()
 
     def point(self, image: Image.Image, target: str) -> list[dict[str, float]]:
         with self._lock, self._torch.inference_mode():
+            self._load_locked()
+            assert self._model is not None
             result = self._model.point(image, target)
         raw_points = result.get("points") if isinstance(result, dict) else None
         if not isinstance(raw_points, list):
@@ -138,6 +169,8 @@ class PointingModel:
         """Return a bounded semantic reading of the exact supplied frame."""
 
         with self._lock, self._torch.inference_mode():
+            self._load_locked()
+            assert self._model is not None
             result = self._model.query(image, OBSERVATION_PROMPT)
         answer = result.get("answer") if isinstance(result, dict) else result
         if not isinstance(answer, str) or not answer.strip():
@@ -212,12 +245,13 @@ class PointingHandler(BaseHTTPRequestHandler):
                 "model": self.server.model.model_id,
                 "revision": self.server.model.revision,
                 "device": "cuda",
+                "resident": self.server.model.resident,
                 "capabilities": ["point", "observe"],
             },
         )
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path not in {"/point", "/observe"}:
+        if self.path not in {"/point", "/observe", "/residency"}:
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         try:
@@ -229,9 +263,25 @@ class PointingHandler(BaseHTTPRequestHandler):
             return
         try:
             raw = self.rfile.read(length)
-            if self.path == "/point":
-                image, target = _decode_request(raw)
+            if self.path == "/residency":
+                payload = json.loads(raw)
+                if not isinstance(payload, dict):
+                    raise ValueError("request body must be one JSON object")
+                action = str(payload.get("action") or "").strip().lower()
+                if action == "shed":
+                    self.server.model.shed()
+                elif action == "warm":
+                    self.server.model.warm()
+                else:
+                    raise ValueError("residency action must be shed or warm")
                 result: dict[str, Any] = {
+                    "ok": True,
+                    "action": action,
+                    "resident": self.server.model.resident,
+                }
+            elif self.path == "/point":
+                image, target = _decode_request(raw)
+                result = {
                     "points": self.server.model.point(image, target)
                 }
             else:
