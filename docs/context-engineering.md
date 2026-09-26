@@ -172,6 +172,14 @@ fields are validated together, then the controller enters that executable
 transition directly. There is no intervening manager turn that can drift from
 the accepted recovery or preserve an incompatible route as authoritative state.
 
+Renewable MANAGE/EXECUTE/AUDIT request envelopes and typed rejection messages
+remain in the append-only task audit log, but they are not indexed as user
+evidence by the portal's semantic-memory corpus. Each task uses a versioned,
+controller-only virtual-memory scope whose working set is assembled from the
+current role packet and explicitly replayed immutable receipts. This prevents a
+rejected plan from retrieving and reinforcing itself while leaving the original
+evidence and full audit history recoverable.
+
 Retrieval contracts close an evidence slot only when their typed receipt carries
 resolving evidence. An empty search result therefore cannot establish the
 contents of a requested source, while an exact filesystem listing may validly

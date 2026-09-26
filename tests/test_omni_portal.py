@@ -5288,7 +5288,8 @@ def test_internal_background_worker_uses_the_compact_policy_envelope(
         httpx.Client(transport=httpx.MockTransport(handler)),
     )
     task_query = "Advance and verify the pinned task. Objective: Build it."
-    response = app.test_client().post(
+    client = app.test_client()
+    response = client.post(
         "/api/chat",
         headers={"Authorization": f"Bearer {TOKEN}"},
         json=_request(
@@ -5320,6 +5321,29 @@ def test_internal_background_worker_uses_the_compact_policy_envelope(
     assert f"<current_query>\n{task_query}\n</current_query>" in payload["messages"][1][
         "content"
     ]
+    assert response.json["portal"]["virtual_context"]["messages_ingested"] == 0
+
+    # A subsequent manager role in the same task/browser scope must not page
+    # the prior synthetic user-role controller envelope back into its working
+    # set. Durable state and exact receipts are replayed explicitly instead.
+    second = client.post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            portal_background_worker=True,
+            portal_virtual_query=task_query,
+            messages=[
+                {"role": "system", "content": "<current_task>Build it.</current_task>"},
+                {
+                    "role": "user",
+                    "content": "<manage_request>Select the next bounded transition.</manage_request>",
+                },
+            ],
+        ),
+    )
+    assert second.status_code == 200
+    assert "Old failed probe" not in json.dumps(seen[1])
+    assert second.json["portal"]["virtual_context"]["messages_ingested"] == 0
 
 
 def test_portal_stream_route_requires_auth_and_chains_session_tools() -> None:

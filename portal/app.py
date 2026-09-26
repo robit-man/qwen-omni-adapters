@@ -416,6 +416,18 @@ def _pop_internal_virtual_query(
     return query[:MAX_INTERNAL_VIRTUAL_QUERY_CHARS] or None
 
 
+def _virtual_memory_session_id(session_id: str, *, internal_background: bool) -> str:
+    """Separate renewable controller context from the interactive corpus."""
+
+    if not internal_background:
+        return session_id
+    # Versioning starts a clean store after older releases indexed synthetic
+    # MANAGE/EXECUTE/AUDIT prompts. The opaque session itself is already
+    # task-scoped by BackgroundAgent, while browser/tool state keeps using the
+    # original cookie session.
+    return f"{session_id}\0background-controller-v2"
+
+
 @dataclass
 class _InferenceTicket:
     session_id: str
@@ -1904,6 +1916,7 @@ def create_app(
         *,
         query_override: str | None = None,
         internal_background: bool = False,
+        virtual_session_id: str | None = None,
     ):
         if not virtual_context.enabled:
             return None, {"mode": "off"}
@@ -1916,14 +1929,26 @@ def create_app(
                 "mode": "bypass",
                 "reason": "untranscribed_audio_input",
             }
-        ingested_messages = virtual_context.observe_messages(
-            session_id,
-            raw_messages,
-            include_assistant=not internal_background,
+        memory_session_id = virtual_session_id or session_id
+        # Background MANAGE/EXECUTE/AUDIT envelopes are renewable controller
+        # state, not conversation evidence. Their authoritative state and exact
+        # receipts live in BackgroundTaskStore and are explicitly replayed in
+        # the current role packet. Indexing these synthetic user-role messages
+        # makes rejected plans retrieve themselves and crowd real evidence out
+        # of a constrained window.
+        ingested_messages = (
+            0
+            if internal_background
+            else virtual_context.observe_messages(
+                memory_session_id,
+                raw_messages,
+                include_assistant=True,
+            )
         )
         document_ids = [str(item.get("id") or "") for item in accepted_documents]
         ingested_documents = virtual_context.observe_documents(
-            session_id, documents.evidence_documents(session_id, document_ids)
+            memory_session_id,
+            documents.evidence_documents(session_id, document_ids),
         )
         current_messages = payload.get("messages")
         system_contract = ""
@@ -1933,7 +1958,7 @@ def create_app(
                     system_contract = str(message.get("content") or "")
                     break
         prepared = virtual_context.prepare(
-            session_id,
+            memory_session_id,
             raw_messages,
             system_contract=system_contract,
             query_override=query_override,
@@ -1943,7 +1968,7 @@ def create_app(
         if prepared is not None:
             virtual_context.apply_active(payload, prepared)
         summary: dict[str, Any] = {
-            **virtual_context.stats(session_id),
+            **virtual_context.stats(memory_session_id),
             "messages_ingested": ingested_messages,
             "documents_ingested": ingested_documents,
         }
@@ -1968,6 +1993,7 @@ def create_app(
         *,
         query_override: str | None = None,
         internal_background: bool = False,
+        virtual_session_id: str | None = None,
     ):
         try:
             return prepare_virtual_context(
@@ -1977,6 +2003,7 @@ def create_app(
                 accepted_documents,
                 query_override=query_override,
                 internal_background=internal_background,
+                virtual_session_id=virtual_session_id,
             )
         except ContextOverflow as exc:
             # The lossless corpus has already observed this turn. When the
@@ -1992,7 +2019,7 @@ def create_app(
                     f"background virtual working set overflow: {exc}"
                 ) from exc
             return None, {
-                **virtual_context.stats(session_id),
+                **virtual_context.stats(virtual_session_id or session_id),
                 "working_set_fallback": "native_bounded_prompt",
                 "overflow": str(exc)[:300],
             }
@@ -2017,16 +2044,18 @@ def create_app(
         query: str,
         system_contract: str,
         internal_background: bool = False,
+        virtual_session_id: str | None = None,
     ):
         if not virtual_context.enabled or not query or not system_contract:
             return None, {}
         try:
             prepared = virtual_context.repack_followup(
-                session_id,
+                virtual_session_id or session_id,
                 payload,
                 query=query,
                 system_contract=system_contract,
                 include_assistant=not internal_background,
+                ingest_messages=not internal_background,
             )
         except ContextOverflow as exc:
             if internal_background and runtime.virtual_context_mode == "active":
@@ -2366,6 +2395,9 @@ def create_app(
             raw_messages = copy.deepcopy(list(payload.get("messages") or []))
             auto_tools = payload.pop("portal_auto_tools", False) is True
             internal_background = payload.pop("portal_background_worker", False) is True
+            virtual_session_id = _virtual_memory_session_id(
+                session_id, internal_background=internal_background
+            )
             virtual_query_override = _pop_internal_virtual_query(
                 payload, internal_background=internal_background
             )
@@ -2427,6 +2459,7 @@ def create_app(
                     accepted_documents,
                     query_override=virtual_query_override,
                     internal_background=internal_background,
+                    virtual_session_id=virtual_session_id,
                 )
                 virtual_query, virtual_contract = virtual_repack_inputs(
                     _prepared_context,
@@ -2534,6 +2567,7 @@ def create_app(
                             query=virtual_query,
                             system_contract=virtual_contract,
                             internal_background=internal_background,
+                            virtual_session_id=virtual_session_id,
                         )
                         virtual_summary.update(repack_summary)
                         continue
@@ -2562,6 +2596,7 @@ def create_app(
                     query=virtual_query,
                     system_contract=virtual_contract,
                     internal_background=internal_background,
+                    virtual_session_id=virtual_session_id,
                 )
                 virtual_summary.update(repack_summary)
 
@@ -2619,6 +2654,9 @@ def create_app(
         if payload.get("stream") is not True:
             return jsonify({"error": "stream endpoint requires stream=true"}), 400
         session_id = request_session_id()
+        virtual_session_id = _virtual_memory_session_id(
+            session_id, internal_background=internal_background
+        )
         request_id = secrets.token_urlsafe(9)
         started = time.monotonic()
         diagnostic_fields = _request_diagnostic_fields(payload)
@@ -2672,6 +2710,7 @@ def create_app(
                     accepted_documents,
                     query_override=virtual_query_override,
                     internal_background=internal_background,
+                    virtual_session_id=virtual_session_id,
                 )
                 virtual_query, virtual_contract = virtual_repack_inputs(
                     _prepared_context,
@@ -3005,6 +3044,7 @@ def create_app(
                         query=virtual_query,
                         system_contract=virtual_contract,
                         internal_background=internal_background,
+                        virtual_session_id=virtual_session_id,
                     )
                     virtual_summary.update(repack_summary)
                     stream_retries = 0

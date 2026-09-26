@@ -451,6 +451,7 @@ class SessionVirtualContext:
         query: str,
         system_contract: str,
         include_assistant: bool = True,
+        ingest_messages: bool = True,
     ) -> PreparedTurn | None:
         """Page tool-loop results into a fresh bounded working set."""
 
@@ -459,11 +460,12 @@ class SessionVirtualContext:
         messages = payload.get("messages")
         if not isinstance(messages, list):
             return None
-        self.observe_messages(
-            session_id,
-            messages,
-            include_assistant=include_assistant,
-        )
+        if ingest_messages:
+            self.observe_messages(
+                session_id,
+                messages,
+                include_assistant=include_assistant,
+            )
         protocol_tail, protocol_ordinals = _latest_tool_protocol_tail(messages)
         prepared = self.prepare(
             session_id,
