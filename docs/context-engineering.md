@@ -166,6 +166,12 @@ frontier; the initial verify-only phase uses a `-1` frontier so pre-existing
 state can still be verified. Relabeling an unchanged inspection as verification
 therefore cannot reopen a retired transition or advance another checkpoint.
 
+After audited non-progress, `REPLAN` is an atomic replacement contract. Its
+`next_decision` and all capability, effect, target, acceptance, and verifier
+fields are validated together, then the controller enters that executable
+transition directly. There is no intervening manager turn that can drift from
+the accepted recovery or preserve an incompatible route as authoritative state.
+
 Retrieval contracts close an evidence slot only when their typed receipt carries
 resolving evidence. An empty search result therefore cannot establish the
 contents of a requested source, while an exact filesystem listing may validly

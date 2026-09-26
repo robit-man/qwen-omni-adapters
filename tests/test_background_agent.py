@@ -2187,14 +2187,14 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
     replan = {
         "decision": "replan",
         "next_decision": "act",
-        "subtask": "Use the local filesystem for the local plan.",
-        "capability_family": "uncertain",
-        "expected_effect": "none",
-        "effect_target": "none",
-        "target_kind": "record",
+        "subtask": "Write the local artifact through the filesystem.",
+        "capability_family": "filesystem",
+        "expected_effect": "change_environment",
+        "effect_target": str(tmp_path / "artifact.txt"),
+        "target_kind": "path",
         "target_scope": "exact",
-        "acceptance_test": "A different typed route is selected.",
-        "verification_family": "uncertain",
+        "acceptance_test": "A read returns the newly written artifact bytes.",
+        "verification_family": "filesystem",
         "reason": "The document store cannot address local filesystem paths.",
     }
     assert _manage_transition_error(failed, replan) is None
@@ -2202,14 +2202,66 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
         created["task_id"], "worker", {**replan, "contract_id": "replan-1"}
     )
     assert replanned is not None
-    assert _manage_decision_contract(replanned) == ["act"]
+    replanned_controller = replanned["task_state"]["controller"]
+    assert replanned_controller["phase"] == "execute"
+    assert replanned_controller["next_transition"] == "act"
+    assert replanned_controller["pending_contract"]["decision"] == "act"
+    assert replanned_controller["pending_contract"]["origin_decision"] == "replan"
+    assert _manage_decision_contract(replanned) == []
     retry_rejection = _manage_transition_error(replanned, retry_without_replan)
     assert retry_rejection is not None
     assert retry_rejection["reason"] == "manage_decision_not_admissible"
     second_replan = _manage_transition_error(replanned, replan)
     assert second_replan is not None
     assert second_replan["reason"] == "manage_decision_not_admissible"
-    assert second_replan["allowed_decisions"] == ["act"]
+    assert second_replan["allowed_decisions"] == []
+
+
+def test_invalid_legacy_replan_can_only_be_replaced_atomically(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Build the app.", "The app files exist and pass audit.")
+    assert store.claim_next("worker") is not None
+    task = store.get(created["task_id"])
+    assert task is not None
+    controller = task["task_state"]["controller"]
+    controller["phase"] = "prethink"
+    controller["consecutive_replans"] = 1
+    controller["last_contract"] = {
+        "contract_id": "legacy-replan",
+        "decision": "replan",
+        "next_decision": "act",
+        "status": "replanned",
+        "capability_family": "documents",
+        "expected_effect": "change_environment",
+        "effect_target": str(tmp_path / "app" / "page.tsx"),
+        "target_kind": "path",
+        "target_scope": "exact",
+        "acceptance_test": "The page exists.",
+        "verification_family": "documents",
+    }
+    task["task_state"]["audit_reports"] = [
+        {
+            "audit_id": "failed-audit",
+            "executor_succeeded": False,
+            "contract_satisfied": False,
+        }
+    ]
+
+    assert _manage_decision_contract(task) == ["replan"]
+    corrected = {
+        "decision": "replan",
+        "next_decision": "act",
+        "subtask": "Write the page through the local filesystem.",
+        "capability_family": "filesystem",
+        "expected_effect": "change_environment",
+        "effect_target": str(tmp_path / "app" / "page.tsx"),
+        "target_kind": "path",
+        "target_scope": "exact",
+        "acceptance_test": "A filesystem read returns the page source.",
+        "verification_family": "filesystem",
+        "reason": "The prior document capability cannot mutate a host path.",
+    }
+    assert _manage_transition_error(task, corrected) is None
 
 
 def test_empty_search_cannot_close_retrieval_contract(tmp_path: Path) -> None:

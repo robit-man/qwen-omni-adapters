@@ -121,14 +121,21 @@ def _apply_manage_transition(
     controller["current_subtask"] = subtask
     controller["last_manage_decision"] = decision
     if decision == "replan":
-        contract["status"] = "replanned"
-        controller["last_contract"] = contract
-        controller["pending_contract"] = None
-        controller["phase"] = "prethink"
-        controller["next_transition"] = "prethink"
-        controller["consecutive_replans"] = int(
-            controller.get("consecutive_replans") or 0
-        ) + 1
+        # REPLAN is an atomic replacement contract, not an advisory record
+        # followed by another manager turn. Validation has already proved that
+        # all executor and verifier fields fit next_decision. Enter execution
+        # directly so a later inference cannot drift from or copy an invalid
+        # persisted route.
+        executable_decision = str(contract.get("next_decision") or "")[:24]
+        contract["origin_decision"] = "replan"
+        contract["decision"] = executable_decision
+        contract["status"] = "planned_after_replan"
+        controller["pending_contract"] = contract
+        controller["phase"] = "execute"
+        controller["next_transition"] = executable_decision
+        controller["consecutive_replans"] = 0
+        if executable_decision == "retrieve":
+            controller["unresolved_evidence"] = [contract["effect_target"]]
     elif decision == "ask":
         contract["status"] = "waiting_input"
         controller["pending_contract"] = contract

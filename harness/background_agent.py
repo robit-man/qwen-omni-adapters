@@ -952,6 +952,85 @@ def _audit_tool_schemas(active_tools: list[str]) -> list[dict[str, Any]]:
     return schemas
 
 
+def _planned_transition_error(
+    decision: str,
+    *,
+    family: str,
+    effect: str,
+    target: str,
+    target_kind: str,
+    target_scope: str,
+    acceptance: str,
+    verifier: str,
+) -> str:
+    """Validate one executable transition independently of manager prose."""
+
+    if (
+        decision not in {"retrieve", "act"}
+        or family not in _TYPED_TOOL_FAMILIES
+        or family == "background"
+        or not _family_tool_names(family)
+    ):
+        return "executable_capability_family_required"
+    if decision == "retrieve":
+        if (
+            effect != "resolve_unknown"
+            or not target
+            or not acceptance
+            or target_kind
+            not in {"path", "url", "service", "process", "ui_state", "record"}
+            or target_scope not in {"exact", "subtree"}
+        ):
+            return "retrieve_requires_one_unknown_and_closure_test"
+        return ""
+    if (
+        effect == "change_environment"
+        and target_kind == "path"
+        and (
+            family not in {"filesystem", "shell"}
+            or verifier not in {"filesystem", "shell"}
+        )
+    ):
+        return "local_path_effect_contract_incompatible"
+    if (
+        effect not in {"change_environment", "change_external_state"}
+        or not target
+        or target_kind
+        not in {"path", "url", "service", "process", "ui_state", "record"}
+        or target_scope not in {"exact", "subtree"}
+        or not acceptance
+        or verifier not in _TYPED_TOOL_FAMILIES
+        or verifier in {"background", "camera"}
+        or not _audit_tool_schemas(_family_tool_names(verifier))
+    ):
+        return "act_requires_effect_and_read_only_verifier"
+    return ""
+
+
+def _persisted_replan_error(contract: Any) -> str:
+    """Return the structural error in a legacy two-step replan, if any."""
+
+    if not isinstance(contract, Mapping):
+        return ""
+    decision = str(contract.get("next_decision") or "")
+    if decision not in {"retrieve", "act"}:
+        expected = str(contract.get("expected_effect") or "")
+        if expected == "resolve_unknown":
+            decision = "retrieve"
+        elif expected in {"change_environment", "change_external_state"}:
+            decision = "act"
+    return _planned_transition_error(
+        decision,
+        family=str(contract.get("capability_family") or ""),
+        effect=str(contract.get("expected_effect") or ""),
+        target=" ".join(str(contract.get("effect_target") or "").split()),
+        target_kind=str(contract.get("target_kind") or ""),
+        target_scope=str(contract.get("target_scope") or ""),
+        acceptance=" ".join(str(contract.get("acceptance_test") or "").split()),
+        verifier=str(contract.get("verification_family") or ""),
+    )
+
+
 def _manage_transition_error(
     task: Mapping[str, Any], arguments: Mapping[str, Any]
 ) -> dict[str, Any] | None:
@@ -976,9 +1055,18 @@ def _manage_transition_error(
         if isinstance(last_contract, Mapping)
         else ""
     )
+    controller_is_prethink = (
+        str(controller.get("phase") or "prethink") == "prethink"
+    )
     audited_failure_pending_replan = (
-        last_status in {"action_failed", "expected_effect_missing", "audit_failed"}
+        controller_is_prethink
+        and last_status in {"action_failed", "expected_effect_missing", "audit_failed"}
         and int(controller.get("consecutive_replans") or 0) == 0
+    )
+    repairing_invalid_legacy_replan = bool(
+        last_status == "replanned"
+        and int(controller.get("consecutive_replans") or 0) >= 1
+        and _persisted_replan_error(last_contract)
     )
     allowed_decisions = _manage_decision_contract(task)
     error = ""
@@ -988,41 +1076,17 @@ def _manage_transition_error(
         error = "audited_failure_requires_replan"
     elif decision not in allowed_decisions:
         error = "manage_decision_not_admissible"
-    elif decision in {"retrieve", "act"} and (
-        family not in _TYPED_TOOL_FAMILIES
-        or family == "background"
-        or not _family_tool_names(family)
-    ):
-        error = "executable_capability_family_required"
-    elif decision == "retrieve" and (
-        effect != "resolve_unknown"
-        or not target
-        or not acceptance
-        or target_kind not in {"path", "url", "service", "process", "ui_state", "record"}
-        or target_scope not in {"exact", "subtree"}
-    ):
-        error = "retrieve_requires_one_unknown_and_closure_test"
-    elif (
-        decision == "act"
-        and effect == "change_environment"
-        and target_kind == "path"
-        and (
-            family not in {"filesystem", "shell"}
-            or verifier not in {"filesystem", "shell"}
+    elif decision in {"retrieve", "act"}:
+        error = _planned_transition_error(
+            decision,
+            family=family,
+            effect=effect,
+            target=target,
+            target_kind=target_kind,
+            target_scope=target_scope,
+            acceptance=acceptance,
+            verifier=verifier,
         )
-    ):
-        error = "local_path_effect_contract_incompatible"
-    elif decision == "act" and (
-        effect not in {"change_environment", "change_external_state"}
-        or not target
-        or target_kind not in {"path", "url", "service", "process", "ui_state", "record"}
-        or target_scope not in {"exact", "subtree"}
-        or not acceptance
-        or verifier not in _TYPED_TOOL_FAMILIES
-        or verifier in {"background", "camera"}
-        or not _audit_tool_schemas(_family_tool_names(verifier))
-    ):
-        error = "act_requires_effect_and_read_only_verifier"
     elif decision == "replan":
         audit = _latest_audit(task)
         audited_nonprogress = bool(audit) and (
@@ -1031,11 +1095,28 @@ def _manage_transition_error(
         )
         if next_decision not in {"retrieve", "act"}:
             error = "replan_requires_next_decision"
-        elif (
-            last_status
-            not in {"action_failed", "expected_effect_missing", "audit_failed"}
-            and not audited_nonprogress
-        ) or int(controller.get("consecutive_replans") or 0) >= 1:
+        else:
+            error = _planned_transition_error(
+                next_decision,
+                family=family,
+                effect=effect,
+                target=target,
+                target_kind=target_kind,
+                target_scope=target_scope,
+                acceptance=acceptance,
+                verifier=verifier,
+            )
+        if not error and (
+            (
+                last_status
+                not in {"action_failed", "expected_effect_missing", "audit_failed"}
+                and not audited_nonprogress
+            )
+            or (
+                int(controller.get("consecutive_replans") or 0) >= 1
+                and not repairing_invalid_legacy_replan
+            )
+        ):
             error = "replan_requires_fresh_audited_nonprogress"
     elif decision == "ask":
         audit = _latest_audit(task)
@@ -1091,6 +1172,8 @@ def _manage_decision_contract(task: Mapping[str, Any]) -> list[str]:
     """Project durable controller state into the next manager grammar."""
 
     controller = _task_controller(task)
+    if str(controller.get("phase") or "prethink") != "prethink":
+        return []
     last_contract = controller.get("last_contract")
     last_status = (
         str(last_contract.get("status") or "")
@@ -1104,6 +1187,11 @@ def _manage_decision_contract(task: Mapping[str, Any]) -> list[str]:
     ):
         return ["replan"]
     if consecutive_replans >= 1:
+        if last_status == "replanned" and _persisted_replan_error(last_contract):
+            # Upgrade an invalid contract persisted by the former two-step
+            # protocol. Its replacement is still one replan for the same
+            # audited failure, not permission to execute the invalid route.
+            return ["replan"]
         committed = str(last_contract.get("next_decision") or "") if isinstance(
             last_contract, Mapping
         ) else ""
@@ -5328,32 +5416,27 @@ class BackgroundAgent:
                         return
                     replay_ids = _controller_replay_ids(managed)
                     replay_records = self.store.expand_evidence(task_id, replay_ids)
-                    stage = "manage" if decision == "replan" else "execute"
                     messages = _fresh_managed_messages(
                         managed,
-                        stage=stage,
+                        stage="execute",
                         evidence_records=replay_records,
                     )
-                    active_tools = (
-                        []
-                        if decision == "replan"
-                        else _family_tool_names(
-                            str(arguments.get("capability_family") or "")
-                        )
+                    active_tools = _family_tool_names(
+                        str(arguments.get("capability_family") or "")
                     )
                     renewed = self.store.renew_executor_context(
                         task_id,
                         self.owner,
                         messages=_durable_task_messages(messages),
                         current_stage=context_text(
-                            "task_stages", "managing" if decision == "replan" else "planning"
+                            "task_stages", "planning"
                         ),
                     )
                     if renewed is None or renewed.get("status") == "cancelled":
                         return
                     phase_action_count = 0
                     recovery_required = False
-                    stalls = 0 if decision != "replan" else stalls + 1
+                    stalls = 0
                     continue
                 if name == "task_compact":
                     latest = self.store.get(task_id) or task
