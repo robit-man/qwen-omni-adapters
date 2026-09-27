@@ -1,0 +1,40 @@
+{
+  "name": "omnindicator",
+  "version": "0.1.0",
+  "description": "Guarded host doctor and installer for the Qwen Omni desktop indicator runtime",
+  "license": "Apache-2.0",
+  "author": "Robit",
+  "homepage": "https://github.com/robit-man/qwen-omni-adapters#readme",
+  "bugs": {
+    "url": "https://github.com/robit-man/qwen-omni-adapters/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/robit-man/qwen-omni-adapters.git"
+  },
+  "bin": {
+    "omnindicator": "npm/omnindicator/bin/omnindicator.js"
+  },
+  "files": [
+    "npm/omnindicator/bin",
+    "npm/omnindicator/lib",
+    "docs/npm-installer.md"
+  ],
+  "scripts": {
+    "test": "node --test npm/omnindicator/test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18.18"
+  },
+  "keywords": [
+    "qwen",
+    "omni",
+    "jetson",
+    "ollama",
+    "voice-assistant",
+    "appindicator"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

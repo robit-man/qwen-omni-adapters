@@ -25,6 +25,38 @@ Robit's open-source edge-AI hardware and software platform. EGG is the larger
 robot/peripheral system; this repository is the independently installable Omni
 model runtime.
 
+## npm guided installer
+
+The published `omnindicator` package provides a guarded one-command entry point
+for a new host:
+
+```bash
+npx omnindicator@latest
+```
+
+It detects the platform, architecture, Tegra unified-memory versus discrete
+NVIDIA topology, broker availability, host/GPU memory class, free disk space,
+desktop-session signal, and required tools **before** cloning this repository
+or pulling model weights. It then selects one of the two trained bridge
+profiles and hands off to the native deployment script. On Linux the default
+is the core service plus the visible always-listening AppIndicator harness;
+only `--core-only` opts out.
+
+The package does not pretend that platform support is identical. macOS and
+Windows can install the accelerated core runtime, managed service, and portal,
+but this repository does not yet ship a native tray indicator for either, so
+the installer discloses that boundary and requires a core-only acknowledgement.
+It also does not bundle weights or bypass the deployer's exact live-memory,
+GPU-residency, readiness, and rollback checks. See the complete
+[npm installer scope and capacity policy](docs/npm-installer.md).
+
+For a persistent command instead of `npx`:
+
+```bash
+npm install --global omnindicator
+omnindicator
+```
+
 ## Agent quick start
 
 An automation agent starting from a clean checkout should read `AGENTS.md`,
