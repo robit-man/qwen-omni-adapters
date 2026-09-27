@@ -65,6 +65,7 @@ from harness.background_agent import (
     _latest_tool_fingerprint,
     _MalformedToolCall,
     _manage_decision_contract,
+    _manage_recovery_next_decisions,
     _manage_transition_error,
     _milestone_evidence_ids,
     _NonRetryableBackgroundError,
@@ -2312,6 +2313,75 @@ def test_manager_rejects_contract_with_no_admissible_executor_operation(
         "reason": "A mutation route remains available at this frontier.",
     }
     assert _manage_transition_error(task, act) is None
+
+
+def test_repeated_exhausted_manager_route_closes_that_next_decision() -> None:
+    rejected = {
+        "tool": "task_manage",
+        "arguments": json.dumps(
+            {"decision": "replan", "next_decision": "retrieve"}
+        ),
+        "outcome": json.dumps(
+            {
+                "error": "invalid_manage_transition",
+                "reason": "no_admissible_operations",
+            }
+        ),
+        "ok": False,
+    }
+    task = {
+        "actions": [{**rejected, "call_id": "reject-1"}, {**rejected, "call_id": "reject-2"}],
+        "task_state": {
+            "controller": {
+                "phase": "prethink",
+                "consecutive_replans": 0,
+                "last_contract": {
+                    "status": "expected_effect_missing",
+                    "decision": "retrieve",
+                },
+                "retired_action_families": [],
+            },
+            "audit_reports": [
+                {
+                    "audit_id": "failed-retrieve",
+                    "executor_succeeded": True,
+                    "contract_satisfied": False,
+                }
+            ],
+        },
+    }
+
+    assert _manage_recovery_next_decisions(task) == ["act"]
+    schema = _background_tool_contract(
+        [],
+        manage_required=True,
+        manage_decisions=["replan"],
+        manage_next_decisions=_manage_recovery_next_decisions(task),
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+    )
+    assert schema[0]["function"]["parameters"]["properties"]["next_decision"][
+        "enum"
+    ] == ["act"]
+
+    rejected_transition = {
+        "decision": "replan",
+        "next_decision": "retrieve",
+        "subtask": "Inspect another route.",
+        "capability_family": "web",
+        "expected_effect": "resolve_unknown",
+        "effect_target": "current primary-source evidence",
+        "target_kind": "record",
+        "target_scope": "exact",
+        "acceptance_test": "The source evidence is available.",
+        "verification_family": "web",
+        "reason": "Try another retrieval route.",
+    }
+    rejection = _manage_transition_error(task, rejected_transition)
+    assert rejection is not None
+    assert rejection["reason"] == "replan_next_decision_not_admissible"
 
 
 def test_unexecutable_persisted_contract_returns_to_replan_without_evidence(

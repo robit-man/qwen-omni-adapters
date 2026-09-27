@@ -1261,6 +1261,36 @@ def _transition_route(
     return (decision, route_family, effect, target, target_kind, target_scope)
 
 
+def _manage_recovery_next_decisions(task: Mapping[str, Any]) -> list[str] | None:
+    """Narrow REPLAN after repeated typed manager-route exhaustion."""
+
+    actions = task.get("actions")
+    if not isinstance(actions, list):
+        return None
+    rejected_decision = ""
+    consecutive = 0
+    for action in reversed(actions):
+        if not isinstance(action, Mapping) or str(action.get("tool") or "") != "task_manage":
+            break
+        outcome = _audit_mapping(action.get("outcome"))
+        arguments = _audit_mapping(action.get("arguments"))
+        if (
+            action.get("ok") is True
+            or str(outcome.get("reason") or "") != "no_admissible_operations"
+        ):
+            break
+        candidate = str(arguments.get("next_decision") or arguments.get("decision") or "")
+        if candidate not in {"retrieve", "act"}:
+            break
+        if rejected_decision and candidate != rejected_decision:
+            break
+        rejected_decision = candidate
+        consecutive += 1
+    if consecutive < 2:
+        return None
+    return ["act" if rejected_decision == "retrieve" else "retrieve"]
+
+
 def _manage_transition_error(
     task: Mapping[str, Any], arguments: Mapping[str, Any]
 ) -> dict[str, Any] | None:
@@ -1329,7 +1359,10 @@ def _manage_transition_error(
             audit.get("contract_satisfied") is not True
             or audit.get("executor_succeeded") is not True
         )
-        if next_decision not in {"retrieve", "act"}:
+        recovery_next_decisions = _manage_recovery_next_decisions(task)
+        if recovery_next_decisions and next_decision not in recovery_next_decisions:
+            error = "replan_next_decision_not_admissible"
+        elif next_decision not in {"retrieve", "act"}:
             error = "replan_requires_next_decision"
         else:
             error = _planned_transition_error(
@@ -1429,6 +1462,10 @@ def _manage_transition_error(
             "different exact target/effect route or RETRIEVE one bounded unknown; "
             "changing only filesystem versus shell is the same route."
         ),
+        "replan_next_decision_not_admissible": (
+            "Repeated typed route exhaustion closed that next-decision class for "
+            "this recovery. Use the remaining next_decision exposed by the grammar."
+        ),
     }
     message = messages_by_error.get(
         error,
@@ -1515,6 +1552,7 @@ def _background_tool_contract(
     *,
     manage_required: bool = False,
     manage_decisions: list[str] | None = None,
+    manage_next_decisions: list[str] | None = None,
     audit_required: bool = False,
     recovery_required: bool,
     phase_boundary: bool,
@@ -1540,6 +1578,10 @@ def _background_tool_contract(
                 required = parameters.setdefault("required", [])
                 if "next_decision" not in required:
                     required.append("next_decision")
+                if manage_next_decisions:
+                    properties["next_decision"]["enum"] = list(
+                        manage_next_decisions
+                    )
             elif manage_decisions == ["act"]:
                 properties["expected_effect"]["enum"] = [
                     "change_environment",
@@ -5377,6 +5419,11 @@ class BackgroundAgent:
                 manage_required=manage_required,
                 manage_decisions=(
                     _manage_decision_contract(current) if manage_required else None
+                ),
+                manage_next_decisions=(
+                    _manage_recovery_next_decisions(current)
+                    if manage_required
+                    else None
                 ),
                 audit_required=audit_required,
                 recovery_required=recovery_required,

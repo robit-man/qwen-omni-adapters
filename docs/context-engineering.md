@@ -177,6 +177,10 @@ operation is rejected before it can become pending. If an older deployment
 already persisted such a plan, resume revalidates the complete typed contract,
 marks it `plan_unexecutable`, and returns to one typed `REPLAN` without recording
 an action, evidence receipt, or environment advance.
+If the manager itself proposes the same exhausted RETRIEVE or ACT class twice in
+succession, the following REPLAN grammar removes that class and admits only the
+opposite typed transition. This escalation is keyed by rejected controller
+receipts, not by task prose, paths, filenames, or model-authored rationales.
 
 Renewable MANAGE/EXECUTE/AUDIT request envelopes and typed rejection messages
 remain in the append-only task audit log, but they are not indexed as user
