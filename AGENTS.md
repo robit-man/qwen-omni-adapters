@@ -16,6 +16,23 @@ Do not restart or stop an existing deployment unless the user asked for it.
 `portal/start.sh --status` is read-only. A new checkout uses its own
 `runtime-data` directory and ports may conflict with an already running copy.
 
+## Iteration discipline
+
+Prevent over-iteration. Before editing, state one concrete failing acceptance
+criterion, the evidence for it, and one bounded hypothesis. Apply the smallest
+patch that tests that hypothesis, run the relevant local gate, deploy at most
+once, and observe one bounded live evidence window. When that criterion passes,
+stop changing code and report the verified milestone. A newly exposed follow-on
+defect is a separate hypothesis and must not silently extend the current cycle.
+
+Do not stack speculative fixes, restart a healthy service repeatedly, or keep
+patching merely because more improvement is imaginable. Continue immediately
+only when the same acceptance criterion still fails and fresh evidence identifies
+a specific cause. Otherwise preserve the checkpoint, distinguish completed work
+from remaining work, and wait for an explicit next objective. For long-running
+agent tasks, prefer observation and recovery through the deployed controller over
+editing the controller during every difficult trajectory.
+
 ## Architectural invariants
 
 - `robit/qwen3.8-27b-e03-obliterated-omni:q4km` is one logical Ollama tag.
