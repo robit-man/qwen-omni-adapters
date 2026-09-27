@@ -172,9 +172,10 @@ fields are validated together, then the controller enters that executable
 transition directly. There is no intervening manager turn that can drift from
 the accepted recovery or preserve an incompatible route as authoritative state.
 Validation also projects the candidate through the current retired-operation
-grammar. A candidate with no legal executor operation is rejected before it can
-become pending. If an older deployment already persisted such a plan, resume
-marks it `plan_unexecutable` and returns to one typed `REPLAN` without recording
+grammar. A structurally incompatible candidate or one with no legal executor
+operation is rejected before it can become pending. If an older deployment
+already persisted such a plan, resume revalidates the complete typed contract,
+marks it `plan_unexecutable`, and returns to one typed `REPLAN` without recording
 an action, evidence receipt, or environment advance.
 
 Renewable MANAGE/EXECUTE/AUDIT request envelopes and typed rejection messages

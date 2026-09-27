@@ -2389,7 +2389,7 @@ def test_fresh_audit_frontier_reopens_only_selected_verifier_operations() -> Non
     }
 
 
-def test_agent_migrates_empty_executor_grammar_before_inference(
+def test_agent_migrates_invalid_executor_contract_before_inference(
     tmp_path: Path,
 ) -> None:
     task_path = tmp_path / "tasks.json"
@@ -2403,19 +2403,15 @@ def test_agent_migrates_empty_executor_grammar_before_inference(
         "contract_id": "stale-plan",
         "decision": "retrieve",
         "subtask": "Inspect the exact application directory.",
-        "capability_family": "filesystem",
+        "capability_family": "session",
         "expected_effect": "resolve_unknown",
         "effect_target": str(tmp_path / "app"),
         "target_kind": "path",
         "target_scope": "subtree",
         "acceptance_test": "The directory contents are known.",
-        "verification_family": "filesystem",
+        "verification_family": "session",
         "status": "planned_after_replan",
     }
-    controller["retired_action_families"] = [
-        "workspace_file:list",
-        "workspace_file:read",
-    ]
     task_path.write_text(json.dumps(persisted), encoding="utf-8")
 
     chat_round = 0
@@ -2461,6 +2457,9 @@ def test_agent_migrates_empty_executor_grammar_before_inference(
             assert migrated["task_state"]["controller"]["last_contract"][
                 "status"
             ] == "plan_unexecutable"
+            assert migrated["task_state"]["controller"]["last_contract"][
+                "invalid_reason"
+            ] == "local_path_retrieval_contract_incompatible"
             return tool_call(
                 "replan-1",
                 "task_manage",

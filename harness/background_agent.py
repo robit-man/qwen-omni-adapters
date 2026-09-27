@@ -5390,16 +5390,24 @@ class BackgroundAgent:
                     pending_contract if controller_phase == "execute" else None
                 ),
             )
+            persisted_contract_error = (
+                _persisted_replan_error(pending_contract)
+                if pending_contract
+                else ""
+            )
             if (
                 self.manage_execute_audit
                 and controller_phase in {"execute", "audit"}
                 and pending_contract
-                and not schemas
+                and (persisted_contract_error or not schemas)
             ):
                 invalidated = self.store.invalidate_pending_contract(
                     task_id,
                     self.owner,
-                    reason=f"{controller_phase}_has_no_admissible_tool_operation",
+                    reason=(
+                        persisted_contract_error
+                        or f"{controller_phase}_has_no_admissible_tool_operation"
+                    ),
                 )
                 if invalidated is None or invalidated.get("status") == "cancelled":
                     return
