@@ -7,7 +7,7 @@ const { spawnSync } = require("node:child_process");
 const { getModel } = require("./models");
 
 const REPOSITORY_URL = "https://github.com/robit-man/qwen-omni-adapters.git";
-const RELEASE_REF = "npm-v0.1.3";
+const RELEASE_REF = "npm-v0.1.4";
 
 function dataRoot(platform = process.platform, env = process.env) {
   if (env.OMNINDICATOR_HOME) return path.resolve(env.OMNINDICATOR_HOME);
