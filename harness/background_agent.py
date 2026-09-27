@@ -1311,6 +1311,7 @@ def _manage_recovery_next_decisions(task: Mapping[str, Any]) -> list[str] | None
                 "local_path_effect_contract_incompatible",
                 "local_path_retrieval_contract_incompatible",
                 "exact_directory_act_requires_subtree_or_child",
+                "replan_repeats_missing_effect",
             }
         ):
             # The model selected a viable transition class but supplied
@@ -1522,9 +1523,10 @@ def _manage_transition_error(
             "different bounded RETRIEVE or ACT contract now."
         ),
         "replan_repeats_missing_effect": (
-            "The prior admitted action produced no declared effect. Replan to a "
-            "different exact target/effect route or RETRIEVE one bounded unknown; "
-            "changing only filesystem versus shell is the same route."
+            "The prior admitted action produced no declared effect. For a directory "
+            "mutation, declare target_scope=subtree; otherwise name a different exact "
+            "child/effect route. Changing only filesystem versus shell is the same "
+            "route."
         ),
         "replan_next_decision_not_admissible": (
             "Repeated typed route exhaustion closed that next-decision class for "
