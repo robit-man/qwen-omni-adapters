@@ -2259,9 +2259,16 @@ def _tool_call_contract_error(
                 execution_contract.get("effect_target"), arguments.get("cwd")
             )
             scope = str(execution_contract.get("target_scope") or "exact")
+            normalized_proposals = [
+                (raw_path, _normalized_contract_path(raw_path, arguments.get("cwd")))
+                for raw_path in proposed_paths
+            ]
+            exact_target_declared = bool(
+                expected is not None
+                and any(proposed == expected for _, proposed in normalized_proposals)
+            )
             outside: list[str] = []
-            for raw_path in proposed_paths:
-                proposed = _normalized_contract_path(raw_path, arguments.get("cwd"))
+            for raw_path, proposed in normalized_proposals:
                 within = bool(
                     expected is not None
                     and proposed is not None
@@ -2269,6 +2276,9 @@ def _tool_call_contract_error(
                         proposed == expected
                         or scope == "subtree"
                         and proposed.is_relative_to(expected)
+                        or scope == "exact"
+                        and exact_target_declared
+                        and _is_missing_ancestor(proposed, expected)
                     )
                 )
                 if not within:
@@ -4311,6 +4321,17 @@ def _normalized_contract_path(value: Any, cwd: Any) -> Path | None:
         return path.resolve(strict=False)
     except OSError:
         return None
+
+
+def _is_missing_ancestor(path: Path, target: Path) -> bool:
+    """Return whether *path* is a not-yet-created parent required by *target*."""
+
+    if path == target or path.exists():
+        return False
+    try:
+        return target.is_relative_to(path)
+    except (OSError, ValueError):
+        return False
 
 
 def _contract_effect_matches(

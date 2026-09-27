@@ -2956,6 +2956,68 @@ def test_executor_rejects_mutation_outside_committed_path_scope(
     )
 
 
+def test_exact_file_act_allows_only_its_required_missing_parent_chain(
+    tmp_path: Path,
+) -> None:
+    missing_parent = tmp_path / "new" / "nested"
+    target = missing_parent / "result.txt"
+    sibling = tmp_path / "other"
+    contract = {
+        "decision": "act",
+        "expected_effect": "change_environment",
+        "effect_target": str(target),
+        "target_kind": "path",
+        "target_scope": "exact",
+    }
+    schemas = _background_tool_contract(
+        ["shell"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+        execution_contract=contract,
+    )
+
+    assert (
+        _tool_call_contract_error(
+            "shell",
+            {
+                "intent": "mutate_filesystem",
+                "mutation_paths": [str(tmp_path / "new"), str(missing_parent), str(target)],
+            },
+            schemas,
+            contract,
+        )
+        is None
+    )
+
+    sibling_rejection = _tool_call_contract_error(
+        "shell",
+        {
+            "intent": "mutate_filesystem",
+            "mutation_paths": [str(missing_parent), str(target), str(sibling)],
+        },
+        schemas,
+        contract,
+    )
+    assert sibling_rejection is not None
+    assert sibling_rejection["error"] == "effect_target_not_authorized"
+    assert sibling_rejection["rejected_paths"] == [str(sibling)]
+
+    missing_parent.mkdir(parents=True)
+    existing_parent_rejection = _tool_call_contract_error(
+        "shell",
+        {
+            "intent": "mutate_filesystem",
+            "mutation_paths": [str(missing_parent), str(target)],
+        },
+        schemas,
+        contract,
+    )
+    assert existing_parent_rejection is not None
+    assert existing_parent_rejection["rejected_paths"] == [str(missing_parent)]
+
+
 def test_repeated_exhausted_manager_route_closes_that_next_decision() -> None:
     rejected = {
         "tool": "task_manage",
