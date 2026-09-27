@@ -58,6 +58,7 @@ from harness.background_agent import (
     _focus_memory,
     _ForegroundPreempted,
     _fresh_executor_messages,
+    _fresh_managed_messages,
     _freshest_evidence_id,
     _ground_visual_click,
     _guard_repeated_unchanged_result,
@@ -2295,6 +2296,33 @@ def test_terminal_manage_schemas_do_not_expose_successor_contracts() -> None:
         parameters = schema[0]["function"]["parameters"]
         assert "successor_contracts" not in parameters["required"]
         assert "successor_contracts" not in parameters["properties"]
+
+
+def test_checkpoint_role_uses_a_fresh_single_action_context(tmp_path: Path) -> None:
+    task = {
+        "objective": "Create and verify the requested artifact.",
+        "completion_criteria": "The exact artifact bytes are verified.",
+        "task_state": {"controller": {"phase": "checkpoint"}},
+    }
+    messages = _fresh_managed_messages(
+        task,
+        stage="checkpoint",
+        evidence_records=[
+            {
+                "evidence_id": "verify-1",
+                "tool": "workspace_file",
+                "arguments": '{"action":"read","path":"artifact.txt"}',
+                "result": '{"content":"ready\\n"}',
+                "result_sha256": "a" * 64,
+            }
+        ],
+    )
+
+    assert len(messages) == 2
+    assert "checkpoint_request" in messages[1]["content"]
+    assert "exactly one task_checkpoint" in messages[1]["content"]
+    assert "Do not call task_manage" in messages[1]["content"]
+    assert "verify-1" in messages[1]["content"]
 
 
 def test_frontier_survives_compaction_release_and_reclaim(tmp_path: Path) -> None:

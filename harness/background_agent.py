@@ -831,6 +831,16 @@ def _fresh_managed_messages(
             "ASK is only for missing user input proven by a failed receipt. The plan "
             "does not establish facts.</manage_request>"
         )
+    elif stage == "checkpoint":
+        instruction = (
+            '<checkpoint_request schema="robit.omni.checkpoint-request.v1">'
+            "Consolidate the audited phase with exactly one task_checkpoint call. "
+            "Use action=progress when requirements remain, action=complete only when "
+            "all criteria have current evidence, or action=blocked only for a proven "
+            "task-level blocker. Do not call task_manage and do not use ACT/RETRIEVE "
+            "as checkpoint actions. Cite the freshest replayed evidence and, for "
+            "progress, commit one finite next_frontier.</checkpoint_request>"
+        )
     elif stage == "audit":
         instruction = (
             '<audit_request schema="robit.omni.audit-request.v1">Use exactly one '
@@ -6298,12 +6308,23 @@ class BackgroundAgent:
             elif audit_required:
                 structured_action_phase = True
                 round_token_limit = min(round_token_limit, 2_048)
-            inference_messages = _computer_action_messages(
-                messages,
-                current,
-                active_tools,
-                recovery_required=recovery_required,
-            )
+            if controller_phase == "checkpoint" and phase_boundary:
+                checkpoint_ids = _milestone_evidence_ids(current)
+                checkpoint_records = self.store.expand_evidence(
+                    task_id, checkpoint_ids
+                )
+                inference_messages = _fresh_managed_messages(
+                    current,
+                    stage="checkpoint",
+                    evidence_records=checkpoint_records,
+                )
+            else:
+                inference_messages = _computer_action_messages(
+                    messages,
+                    current,
+                    active_tools,
+                    recovery_required=recovery_required,
+                )
             if phase_boundary:
                 inference_messages = [*inference_messages]
                 inference_messages.append(
@@ -6589,6 +6610,20 @@ class BackgroundAgent:
                         name, arguments, schemas, pending_contract
                     )
                     if contract_error is not None:
+                        if name == "task_checkpoint":
+                            # A malformed control call did not consume or
+                            # invalidate the audited milestone. Keep exactly
+                            # one correction in the isolated CHECKPOINT role;
+                            # never reopen MANAGE with an empty decision set.
+                            _sanitize_checkpoint_history(messages, call_id=call_id)
+                            schema_error = str(
+                                contract_error.get("error") or "invalid_checkpoint"
+                            )
+                            contract_error["schema_error"] = schema_error
+                            contract_error["error"] = "unsupported_checkpoint"
+                            contract_error["retryable"] = not _checkpoint_retry_pending(
+                                messages
+                            )
                         contract_id = str(pending_contract.get("contract_id") or "")
                         contract_error["contract_id"] = contract_id
                         messages.append(
@@ -6607,6 +6642,9 @@ class BackgroundAgent:
                             contract_error,
                             external_execution=False,
                         )
+                        if name == "task_checkpoint":
+                            stalls += 1
+                            continue
                         controller = _task_controller(rejected_task or current)
                         if (
                             str(controller.get("phase") or "") == "execute"
