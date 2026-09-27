@@ -47,6 +47,7 @@ from harness.background_agent import (
     _completion_is_audited,
     _computer_action_messages,
     _context_metrics,
+    _contract_route_key,
     _direct_alternative_tools,
     _discard_visual_frames,
     _durable_task_messages,
@@ -1916,7 +1917,7 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     controller = checkpoint["task_state"]["controller"]
     assert controller["executor_generation"] == 1
     assert controller["current_subtask"] == "Run the final acceptance check."
-    assert controller["next_transition"] == "prethink"
+    assert controller["next_transition"] == "frontier"
     assert controller["frontier_environment_version"] == 1
     same_version_verification = _action_audit_report(
         checkpoint,
@@ -1939,6 +1940,387 @@ def test_audited_task_state_tracks_knowledge_environment_and_stagnation(
     assert renewed["round"] == checkpoint["round"]
     raw = json.loads((tmp_path / "tasks.json").read_text(encoding="utf-8"))
     assert raw["tasks"][0]["messages"][0]["content"] == "fresh audited frontier"
+
+
+def _frontier_contract(
+    tmp_path: Path,
+    *,
+    decision: str,
+    target: str,
+    subtask: str,
+) -> dict[str, Any]:
+    return {
+        "decision": decision,
+        "subtask": subtask,
+        "capability_family": "filesystem",
+        "expected_effect": (
+            "resolve_unknown" if decision == "retrieve" else "change_environment"
+        ),
+        "effect_target": target,
+        "target_kind": "path",
+        "target_scope": "exact",
+        "acceptance_test": f"The exact resource {target} satisfies the bounded step.",
+        "verification_family": "filesystem",
+        "reason": "Advance the committed generic test frontier.",
+    }
+
+
+def test_progress_checkpoint_atomically_installs_next_frontier(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Advance one bounded frontier.", "The artifact is verified.")
+    current = store.claim_next("worker")
+    assert current is not None
+    artifact = str(tmp_path / "artifact.txt")
+
+    checkpoint = store.checkpoint(
+        created["task_id"],
+        "worker",
+        controller_transition={
+            "action": "progress",
+            "evidence_ids": ["verified-prior-step"],
+            "remaining_requirements": ["Create the next artifact."],
+            "next_frontier": {
+                "steps": [
+                    _frontier_contract(
+                        tmp_path,
+                        decision="act",
+                        target=artifact,
+                        subtask="Create the next artifact.",
+                    )
+                ]
+            },
+        },
+    )
+
+    assert checkpoint is not None
+    controller = checkpoint["task_state"]["controller"]
+    assert controller["contract_protocol"] == 2
+    assert controller["phase"] == "execute"
+    assert controller["next_transition"] == "act"
+    assert controller["pending_contract"]["decision"] == "act"
+    assert controller["pending_contract"]["effect_target"] == artifact
+    assert controller["frontier"]["step_index"] == 0
+
+
+def test_retrieval_consumes_declared_gap_and_activates_successor(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Inspect once, then mutate.", "The artifact is verified.")
+    current = store.claim_next("worker")
+    assert current is not None
+    source = tmp_path / "source.txt"
+    artifact = tmp_path / "artifact.txt"
+    source.write_text("stable evidence\n", encoding="utf-8")
+    retrieve = _frontier_contract(
+        tmp_path,
+        decision="retrieve",
+        target=str(source),
+        subtask="Read the declared source once.",
+    )
+    retrieve["successor_contracts"] = [
+        _frontier_contract(
+            tmp_path,
+            decision="act",
+            target=str(artifact),
+            subtask="Create the artifact from the acquired evidence.",
+        )
+    ]
+    retrieve["contract_id"] = "contract-retrieve-once"
+    managed = store.manage_transition(created["task_id"], "worker", retrieve)
+    assert managed is not None
+
+    result = {
+        "action": "read",
+        "path": str(source),
+        "content": "stable evidence\n",
+        "sha256": "stable-source-sha",
+        "evidence_authority": "inspection",
+    }
+    audit = _action_audit_report(
+        managed,
+        call_id="read-source-once",
+        name="workspace_file",
+        arguments={"action": "read", "path": str(source)},
+        result=result,
+        require_contract=True,
+    )
+    advanced = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="read-source-once",
+        tool="workspace_file",
+        arguments=json.dumps({"action": "read", "path": str(source)}),
+        outcome=json.dumps(result),
+        ok=True,
+        audit_report=audit,
+    )
+
+    assert advanced is not None
+    controller = advanced["task_state"]["controller"]
+    assert controller["phase"] == "execute"
+    assert controller["next_transition"] == "act"
+    assert controller["pending_contract"]["effect_target"] == str(artifact)
+    assert controller["frontier"]["step_index"] == 1
+
+
+def test_unrelated_mutation_does_not_refresh_unchanged_resource_evidence(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Use stable evidence.", "The final artifact is verified.")
+    current = store.claim_next("worker")
+    assert current is not None
+    stable = tmp_path / "stable.txt"
+    other = tmp_path / "other.txt"
+    stable_result = {
+        "action": "read",
+        "path": str(stable),
+        "content": "unchanged\n",
+        "sha256": "unchanged-resource-sha",
+        "evidence_authority": "inspection",
+    }
+
+    first = _action_audit_report(
+        current,
+        call_id="stable-read-1",
+        name="workspace_file",
+        arguments={"action": "read", "path": str(stable)},
+        result=stable_result,
+    )
+    current = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="stable-read-1",
+        tool="workspace_file",
+        arguments=json.dumps({"action": "read", "path": str(stable)}),
+        outcome=json.dumps(stable_result),
+        ok=True,
+        audit_report=first,
+    )
+    assert current is not None
+    knowledge_version = current["task_state"]["knowledge"]["version"]
+
+    mutation_result = {
+        "action": "write",
+        "path": str(other),
+        "evidence_authority": "mutation",
+        "effect_receipt": {"changed_paths": [str(other)]},
+    }
+    mutation = _action_audit_report(
+        current,
+        call_id="unrelated-write",
+        name="workspace_file",
+        arguments={"action": "write", "path": str(other)},
+        result=mutation_result,
+    )
+    current = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="unrelated-write",
+        tool="workspace_file",
+        arguments=json.dumps({"action": "write", "path": str(other)}),
+        outcome=json.dumps(mutation_result),
+        ok=True,
+        audit_report=mutation,
+    )
+    assert current is not None
+
+    second = _action_audit_report(
+        current,
+        call_id="stable-read-2",
+        name="workspace_file",
+        arguments={"action": "read", "path": str(stable)},
+        result=stable_result,
+    )
+    current = store.record_action(
+        created["task_id"],
+        "worker",
+        call_id="stable-read-2",
+        tool="workspace_file",
+        arguments=json.dumps({"action": "read", "path": str(stable)}),
+        outcome=json.dumps(stable_result),
+        ok=True,
+        audit_report=second,
+    )
+
+    assert current is not None
+    assert first["resource_key"] == second["resource_key"]
+    assert first["resource_fingerprint"] == second["resource_fingerprint"]
+    assert first["evidence_slot"] == second["evidence_slot"]
+    assert current["task_state"]["knowledge"]["version"] == knowledge_version
+    assert current["task_state"]["audit_reports"][-1]["epistemic_progress"] is False
+
+
+def test_equivalent_local_path_route_is_retired_across_tool_families(
+    tmp_path: Path,
+) -> None:
+    target = str(tmp_path / "application")
+    filesystem = _frontier_contract(
+        tmp_path,
+        decision="retrieve",
+        target=target,
+        subtask="Inspect the application once.",
+    )
+    shell = {**filesystem, "capability_family": "shell"}
+    successor = _frontier_contract(
+        tmp_path,
+        decision="act",
+        target=str(tmp_path / "application" / "page.tsx"),
+        subtask="Create the missing entry point.",
+    )
+    shell["successor_contracts"] = [successor]
+    retired_route = _contract_route_key(filesystem)
+    task = {
+        "task_state": {
+            "controller": {
+                "phase": "frontier",
+                "retired_routes": [retired_route],
+                "retired_action_families": [],
+                "stagnation": {"count": 0},
+            },
+            "audit_reports": [],
+        }
+    }
+
+    assert _contract_route_key(shell) == retired_route
+    rejection = _manage_transition_error(task, shell)
+    assert rejection is not None
+    assert rejection["reason"] == "frontier_uses_retired_route"
+
+
+def test_manager_rejections_persist_across_mixed_reasons_and_force_other_class(
+    tmp_path: Path,
+) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Recover without inspecting forever.", "Artifact verified.")
+    current = store.claim_next("worker")
+    assert current is not None
+
+    current = store.record_manage_rejection(
+        created["task_id"],
+        "worker",
+        candidate_decision="retrieve",
+        route_key="filesystem:stable-resource",
+        reason="no_admissible_operations",
+    )
+    assert current is not None
+    current = store.record_manage_rejection(
+        created["task_id"],
+        "worker",
+        candidate_decision="retrieve",
+        route_key="filesystem:stable-resource",
+        reason="local_path_retrieval_contract_incompatible",
+    )
+    assert current is not None
+
+    assert _manage_recovery_next_decisions(current) == ["act"]
+    rejections = current["task_state"]["controller"]["manage_rejections"]
+    assert rejections["retrieve"]["count"] == 2
+    assert rejections["retrieve"]["reasons"] == [
+        "no_admissible_operations",
+        "local_path_retrieval_contract_incompatible",
+    ]
+
+
+def test_frontier_survives_compaction_release_and_reclaim(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Preserve a committed mutation.", "Artifact verified.")
+    current = store.claim_next("worker-a")
+    assert current is not None
+    artifact = str(tmp_path / "artifact.txt")
+    checkpoint = store.checkpoint(
+        created["task_id"],
+        "worker-a",
+        controller_transition={
+            "action": "progress",
+            "evidence_ids": ["verified-prior-step"],
+            "remaining_requirements": ["Create artifact.txt."],
+            "next_frontier": {
+                "steps": [
+                    _frontier_contract(
+                        tmp_path,
+                        decision="act",
+                        target=artifact,
+                        subtask="Create artifact.txt.",
+                    )
+                ]
+            },
+        },
+    )
+    assert checkpoint is not None
+    pending_id = checkpoint["task_state"]["controller"]["pending_contract"][
+        "contract_id"
+    ]
+    compacted = store.compact_context(
+        created["task_id"],
+        "worker-a",
+        messages=[{"role": "system", "content": "compacted"}],
+        receipt={"reason": "test"},
+    )
+    assert compacted is not None
+    preempted = store.checkpoint(
+        created["task_id"],
+        "worker-a",
+        status="pending",
+        current_stage="Paused for a foreground turn.",
+    )
+    assert preempted is not None
+    resumed = store.claim_next("worker-b")
+    assert resumed is not None
+    controller = resumed["task_state"]["controller"]
+    assert controller["phase"] == "execute"
+    assert controller["next_transition"] == "act"
+    assert controller["pending_contract"]["contract_id"] == pending_id
+    assert store.release_owner("worker-b") == 1
+    restarted = store.claim_next("worker-c")
+    assert restarted is not None
+    assert restarted["task_state"]["controller"]["pending_contract"][
+        "contract_id"
+    ] == pending_id
+
+
+def test_protocol_one_pending_contract_migrates_without_losing_frontier(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "tasks.json"
+    store = BackgroundTaskStore(path)
+    created = store.create("Resume the persisted action.", "Artifact verified.")
+    persisted = json.loads(path.read_text(encoding="utf-8"))
+    controller = persisted["tasks"][0]["task_state"]["controller"]
+    controller["contract_protocol"] = 1
+    controller["phase"] = "execute"
+    controller["next_transition"] = "act"
+    controller["pending_contract"] = {
+        **_frontier_contract(
+            tmp_path,
+            decision="act",
+            target=str(tmp_path / "artifact.txt"),
+            subtask="Create the persisted artifact.",
+        ),
+        "contract_id": "legacy-contract",
+        "status": "planned",
+    }
+    for field in (
+        "frontier",
+        "frontier_generation",
+        "manage_rejections",
+        "exhausted_decisions",
+        "retired_routes",
+    ):
+        controller.pop(field, None)
+    path.write_text(json.dumps(persisted), encoding="utf-8")
+
+    migrated = store.claim_next("migration-worker")
+
+    assert migrated is not None
+    assert migrated["task_id"] == created["task_id"]
+    controller = migrated["task_state"]["controller"]
+    assert controller["contract_protocol"] == 2
+    assert controller["migrated_from_contract_protocol"] == 1
+    assert controller["phase"] == "execute"
+    assert controller["pending_contract"]["contract_id"] == "legacy-contract"
+    assert controller["frontier"]["steps"][0]["contract_id"] == "legacy-contract"
 
 
 def test_contract_protocol_does_not_reward_changed_bytes_until_fresh_audit(

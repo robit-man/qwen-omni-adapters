@@ -1004,6 +1004,64 @@ def _compact_tool_schema(value: Any) -> Any:
     return copy.deepcopy(value)
 
 
+def _compact_frontier_tool_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep frontier field names resident without duplicating their full grammar.
+
+    The controller validates every frontier step against the authoritative full
+    schema before it can become durable state. At the 4K/8K execution tier the
+    nested copy only needs to expose required field names; repeating all enums
+    and bounds crowds evidence out of the working context.
+    """
+
+    compact = _compact_tool_schema(schema)
+    function = compact.get("function")
+    parameters = (
+        function.get("parameters") if isinstance(function, dict) else None
+    )
+    properties = (
+        parameters.get("properties") if isinstance(parameters, dict) else None
+    )
+    if not isinstance(properties, dict):
+        return compact
+    for property_name, steps_key in (
+        ("successor_contracts", None),
+        ("next_frontier", "steps"),
+    ):
+        frontier = properties.get(property_name)
+        if not isinstance(frontier, dict):
+            continue
+        steps = (
+            frontier.get("properties", {}).get(steps_key)
+            if steps_key is not None
+            and isinstance(frontier.get("properties"), dict)
+            else frontier
+        )
+        items = steps.get("items") if isinstance(steps, dict) else None
+        required = items.get("required") if isinstance(items, dict) else None
+        if isinstance(steps, dict) and isinstance(required, list):
+            steps["items"] = {
+                "type": "object",
+                "required": list(required),
+            }
+    if str(function.get("name") or "") == "task_checkpoint":
+        # The runtime enforces these bounds before installation. Dropping the
+        # repeated numeric annotations keeps the full action grammar within the
+        # constrained-tier contract budget.
+        def drop_bounds(value: Any) -> Any:
+            if isinstance(value, dict):
+                return {
+                    key: drop_bounds(item)
+                    for key, item in value.items()
+                    if key not in {"maxLength", "minItems", "maxItems"}
+                }
+            if isinstance(value, list):
+                return [drop_bounds(item) for item in value]
+            return value
+
+        compact = drop_bounds(compact)
+    return compact
+
+
 def _task_controller(task: Mapping[str, Any]) -> Mapping[str, Any]:
     state = task.get("task_state")
     if not isinstance(state, Mapping):
@@ -1228,6 +1286,152 @@ def _planned_transition_error(
     return ""
 
 
+def _contract_route_key(contract: Mapping[str, Any], *, decision: str = "") -> str:
+    selected = decision or str(contract.get("decision") or "")
+    target_kind = str(contract.get("target_kind") or "")
+    target = _canonical_resource_locator(
+        str(contract.get("effect_target") or ""), kind=target_kind or "record"
+    )
+    encoded = json.dumps(
+        _transition_route(
+            selected,
+            str(contract.get("capability_family") or ""),
+            str(contract.get("expected_effect") or ""),
+            target,
+            target_kind,
+            str(contract.get("target_scope") or ""),
+        ),
+        separators=(",", ":"),
+    ).encode()
+    return "route:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _paths_intersect(left: str, right: str) -> bool:
+    try:
+        a = Path(left).expanduser().resolve(strict=False)
+        b = Path(right).expanduser().resolve(strict=False)
+        common = os.path.commonpath((str(a), str(b)))
+    except (OSError, ValueError):
+        return False
+    return common in {str(a), str(b)}
+
+
+def _retrieve_target_already_closed(
+    task: Mapping[str, Any], contract: Mapping[str, Any]
+) -> bool:
+    """Return whether a local evidence resource remains valid and already known."""
+
+    if str(contract.get("target_kind") or "") != "path":
+        return False
+    candidate = _canonical_resource_locator(
+        str(contract.get("effect_target") or ""), kind="path"
+    )
+    if not candidate:
+        return False
+    state = task.get("task_state")
+    state = state if isinstance(state, Mapping) else {}
+    controller = state.get("controller")
+    controller = controller if isinstance(controller, Mapping) else {}
+    for item in controller.get("closed_evidence_slots", []):
+        if not isinstance(item, Mapping) or item.get("invalidated") is True:
+            continue
+        locator = _canonical_resource_locator(
+            str(item.get("resource_locator") or ""), kind="path"
+        )
+        if locator and locator == candidate:
+            return True
+
+    knowledge = state.get("knowledge")
+    knowledge = knowledge if isinstance(knowledge, Mapping) else {}
+    environment = state.get("environment")
+    environment = environment if isinstance(environment, Mapping) else {}
+    artifacts = environment.get("artifacts")
+    artifacts = artifacts if isinstance(artifacts, list) else []
+    for record in reversed(knowledge.get("records", [])):
+        if not isinstance(record, Mapping):
+            continue
+        locator = _canonical_resource_locator(
+            str(record.get("resource_locator") or record.get("target") or ""),
+            kind="path",
+        )
+        if locator != candidate:
+            continue
+        observed_version = int(record.get("environment_version") or 0)
+        invalidated = any(
+            isinstance(artifact, Mapping)
+            and int(artifact.get("environment_version") or 0) > observed_version
+            and _paths_intersect(candidate, str(artifact.get("path") or ""))
+            for artifact in artifacts
+        )
+        if not invalidated:
+            return True
+    return False
+
+
+def _frontier_steps_error(
+    task: Mapping[str, Any], steps: list[Mapping[str, Any]]
+) -> str:
+    """Validate one finite frontier without interpreting model-authored prose."""
+
+    if not steps or len(steps) > 8:
+        return "frontier_requires_one_to_eight_steps"
+    decisions = [str(step.get("decision") or "") for step in steps]
+    if decisions[-1] != "act" or any(value != "retrieve" for value in decisions[:-1]):
+        return "frontier_must_end_in_one_act"
+    seen_routes: set[str] = set()
+    retired_routes = {
+        str(value)
+        for value in _task_controller(task).get("retired_routes", [])
+        if str(value)
+    }
+    required_fields = {
+        "decision",
+        "subtask",
+        "capability_family",
+        "expected_effect",
+        "effect_target",
+        "target_kind",
+        "target_scope",
+        "acceptance_test",
+        "verification_family",
+        "reason",
+    }
+    for step in steps:
+        if set(step) != required_fields:
+            return "frontier_step_shape_invalid"
+        if (
+            not str(step.get("subtask") or "").strip()
+            or len(str(step.get("subtask") or "")) > 300
+            or len(str(step.get("effect_target") or "")) > 500
+            or len(str(step.get("acceptance_test") or "")) > 500
+            or not str(step.get("reason") or "").strip()
+            or len(str(step.get("reason") or "")) > 500
+        ):
+            return "frontier_step_shape_invalid"
+        decision = str(step.get("decision") or "")
+        error = _planned_transition_error(
+            decision,
+            family=str(step.get("capability_family") or ""),
+            effect=str(step.get("expected_effect") or ""),
+            target=" ".join(str(step.get("effect_target") or "").split()),
+            target_kind=str(step.get("target_kind") or ""),
+            target_scope=str(step.get("target_scope") or ""),
+            acceptance=" ".join(str(step.get("acceptance_test") or "").split()),
+            verifier=str(step.get("verification_family") or ""),
+        )
+        if error:
+            return error
+        route = _contract_route_key(step)
+        if route in seen_routes:
+            return "frontier_repeats_route"
+        if route in retired_routes:
+            return "frontier_uses_retired_route"
+        seen_routes.add(route)
+        if decision == "retrieve" and _retrieve_target_already_closed(task, step):
+            return "evidence_gap_already_closed"
+    return ""
+
+
 def _persisted_replan_error(contract: Any) -> str:
     """Return the structural error in a legacy two-step replan, if any."""
 
@@ -1297,6 +1501,16 @@ def _known_directory_paths(task: Mapping[str, Any]) -> set[str]:
 
 def _manage_recovery_next_decisions(task: Mapping[str, Any]) -> list[str] | None:
     """Narrow REPLAN after repeated typed manager-route exhaustion."""
+
+    exhausted = {
+        str(value)
+        for value in _task_controller(task).get("exhausted_decisions", [])
+        if str(value)
+    }
+    if "retrieve" in exhausted and "act" not in exhausted:
+        return ["act"]
+    if "act" in exhausted and "retrieve" not in exhausted:
+        return ["retrieve"]
 
     actions = task.get("actions")
     if not isinstance(actions, list):
@@ -1531,6 +1745,39 @@ def _manage_transition_error(
         )
         if not executable_schemas:
             error = "no_admissible_operations"
+    if not error and executable_decision in {"retrieve", "act"}:
+        successors = arguments.get("successor_contracts")
+        invalid_successor_shape = successors is not None and (
+            not isinstance(successors, list)
+            or any(not isinstance(value, Mapping) for value in successors)
+        )
+        successor_steps = (
+            [value for value in successors if isinstance(value, Mapping)]
+            if isinstance(successors, list)
+            else []
+        )
+        first_step = {
+            key: arguments.get(key)
+            for key in {
+                "decision",
+                "subtask",
+                "capability_family",
+                "expected_effect",
+                "effect_target",
+                "target_kind",
+                "target_scope",
+                "acceptance_test",
+                "verification_family",
+                "reason",
+            }
+        }
+        first_step["decision"] = executable_decision
+        if invalid_successor_shape:
+            error = "frontier_step_shape_invalid"
+        elif executable_decision == "retrieve":
+            error = _frontier_steps_error(task, [first_step, *successor_steps])
+        elif successor_steps:
+            error = "act_cannot_have_successor_contracts"
     if not error:
         return None
     messages_by_error = {
@@ -1551,6 +1798,31 @@ def _manage_transition_error(
             "Every typed operation in that proposed executor route is retired at "
             "the current audited frontier. Choose a different capability/effect "
             "route; do not merely paraphrase the same plan."
+        ),
+        "frontier_requires_one_to_eight_steps": (
+            "A RETRIEVE must commit a finite successor frontier ending in ACT."
+        ),
+        "frontier_must_end_in_one_act": (
+            "A finite frontier may contain bounded RETRIEVE steps followed by "
+            "exactly one final ACT step."
+        ),
+        "frontier_repeats_route": (
+            "The finite frontier repeats the same typed route. Keep one occurrence."
+        ),
+        "frontier_step_shape_invalid": (
+            "Every frontier entry must contain exactly the required bounded "
+            "contract fields and no untyped values."
+        ),
+        "frontier_uses_retired_route": (
+            "That typed route already failed at this audited frontier. Choose a "
+            "different bounded route."
+        ),
+        "evidence_gap_already_closed": (
+            "That resource is already known and no intersecting mutation invalidated "
+            "it. Commit the required ACT instead of inspecting it again."
+        ),
+        "act_cannot_have_successor_contracts": (
+            "ACT is the final step in a finite frontier and cannot carry successors."
         ),
         "replan_requires_fresh_audited_nonprogress": (
             "A REPLAN was already accepted for the newest failure. Commit a "
@@ -1609,7 +1881,7 @@ def _manage_decision_contract(task: Mapping[str, Any]) -> list[str]:
     """Project durable controller state into the next manager grammar."""
 
     controller = _task_controller(task)
-    if str(controller.get("phase") or "prethink") != "prethink":
+    if str(controller.get("phase") or "prethink") not in {"prethink", "frontier"}:
         return []
     last_contract = controller.get("last_contract")
     last_status = (
@@ -1649,7 +1921,13 @@ def _manage_decision_contract(task: Mapping[str, Any]) -> list[str]:
         if expected == "resolve_unknown":
             return ["retrieve"]
         return ["retrieve", "act", "ask"]
-    return ["retrieve", "act", "replan", "ask"]
+    exhausted = {
+        str(value)
+        for value in controller.get("exhausted_decisions", [])
+        if str(value)
+    }
+    choices = ["retrieve", "act", "replan", "ask"]
+    return [value for value in choices if value not in exhausted]
 
 
 def _background_tool_contract(
@@ -1743,7 +2021,7 @@ def _background_tool_contract(
             schemas, retired_action_families
         )
     if resident <= 8_192:
-        return [_compact_tool_schema(schema) for schema in schemas]
+        return [_compact_frontier_tool_schema(schema) for schema in schemas]
     return schemas
 
 
@@ -4088,6 +4366,167 @@ def _contract_verification_matches(
     return expected in candidates
 
 
+def _canonical_resource_locator(
+    target: str,
+    *,
+    kind: str,
+    cwd: str | Path | None = None,
+) -> str:
+    """Return a tool-independent resource identity for controller evidence."""
+
+    raw = str(target or "").strip()
+    if kind != "path":
+        return " ".join(raw.split())[:4096]
+    for operation_prefix in ("read:", "list:", "verify:"):
+        if raw.startswith(operation_prefix):
+            raw = raw[len(operation_prefix) :]
+            break
+    normalized = _normalized_contract_path(raw, cwd or Path.cwd())
+    return str(normalized) if normalized is not None else ""
+
+
+def _resource_identity(
+    name: str,
+    arguments: Mapping[str, Any],
+    result: Any,
+    *,
+    target: str,
+) -> tuple[str, str, str, str]:
+    """Return resource key, fingerprint, locator, and kind from one receipt."""
+
+    kind = "record"
+    locator = target
+    if name in {"workspace_file", "shell"}:
+        kind = "path"
+        raw = (
+            arguments.get("path")
+            if name == "workspace_file"
+            else arguments.get("evidence_target") or arguments.get("cwd")
+        )
+        locator = _canonical_resource_locator(
+            str(raw or target),
+            kind="path",
+            cwd=(
+                arguments.get("cwd")
+                or (result.get("cwd") if isinstance(result, Mapping) else None)
+                or Path.cwd()
+            ),
+        )
+    elif name in {"web_fetch", "web_crawl"}:
+        kind = "url"
+        locator = " ".join(
+            str(
+                (result.get("url") if isinstance(result, Mapping) else "")
+                or arguments.get("url")
+                or target
+            ).split()
+        )[:4096]
+    elif name == "web_search":
+        kind = "record"
+        locator = " ".join(str(arguments.get("query") or target).split())[:4096]
+    elif name in COMPUTER_ACTION_TOOLS:
+        kind = "ui_state"
+        base = " ".join(
+            str(
+                (result.get("url") if isinstance(result, Mapping) else "")
+                or arguments.get("url")
+                or target
+            ).split()
+        )[:2048]
+        locator = json.dumps(
+            [
+                base,
+                str(arguments.get("action") or "snapshot")[:80],
+                str(
+                    arguments.get("element_id")
+                    or arguments.get("target")
+                    or ""
+                )[:500],
+            ],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+
+    stable: Any = result
+    if isinstance(result, Mapping):
+        explicit = str(
+            result.get("sha256")
+            or result.get("content_sha256")
+            or result.get("original_sha256")
+            or ""
+        )
+        if explicit:
+            fingerprint = explicit[:128]
+        elif name == "workspace_file" and isinstance(result.get("entries"), list):
+            stable = {
+                "entries": result.get("entries"),
+                "truncated": bool(result.get("truncated")),
+            }
+            fingerprint = hashlib.sha256(
+                json.dumps(
+                    stable, ensure_ascii=False, sort_keys=True, default=str
+                ).encode()
+            ).hexdigest()
+        elif name == "shell" and kind == "path":
+            # An arbitrary shell probe can echo different command text while
+            # observing the same resource. Treat the canonical path as the
+            # resource fingerprint unless the tool supplied an authoritative
+            # content digest above. Scoped mutation invalidation makes a later
+            # verification of an intersecting changed path fresh again.
+            fingerprint = hashlib.sha256(
+                f"path\0{locator}".encode()
+            ).hexdigest()
+        else:
+            volatile = {
+                "audit_contract_id",
+                "task_progress",
+                "evidence_authority",
+                "elapsed_ms",
+                "duration_ms",
+                "timestamp",
+                "updated_at",
+            }
+            stable = {
+                key: value
+                for key, value in result.items()
+                if str(key) not in volatile
+            }
+            fingerprint = hashlib.sha256(
+                json.dumps(
+                    stable, ensure_ascii=False, sort_keys=True, default=str
+                ).encode()
+            ).hexdigest()
+    else:
+        fingerprint = hashlib.sha256(str(stable).encode()).hexdigest()
+    resource_key = f"{kind}:" + hashlib.sha256(locator.encode()).hexdigest()
+    return resource_key, fingerprint[:128], locator[:4096], kind
+
+
+def _contract_retrieval_matches(
+    contract: Mapping[str, Any],
+    *,
+    resource_locator: str,
+) -> bool:
+    expected = _canonical_resource_locator(
+        str(contract.get("effect_target") or ""),
+        kind=str(contract.get("target_kind") or "record"),
+    )
+    actual = _canonical_resource_locator(
+        resource_locator,
+        kind=str(contract.get("target_kind") or "record"),
+    )
+    if not expected or not actual:
+        return False
+    if str(contract.get("target_scope") or "exact") == "exact":
+        return actual == expected
+    if str(contract.get("target_kind") or "") == "path":
+        try:
+            return os.path.commonpath((expected, actual)) == expected
+        except ValueError:
+            return False
+    return actual == expected
+
+
 def _action_audit_report(
     task: Mapping[str, Any],
     *,
@@ -4158,8 +4597,20 @@ def _action_audit_report(
             or name
         )
     target = " ".join(target.split())[:500]
-    slot_seed = f"{action_family}\0{target}\0{environment_version}"
+    resource_key, resource_fingerprint, resource_locator, resource_kind = (
+        _resource_identity(name, arguments, result, target=target)
+    )
+    slot_seed = resource_key
     evidence_slot = hashlib.sha256(slot_seed.encode()).hexdigest()[:24]
+    retrieval_contract_matched = bool(
+        contract_id
+        and contract_phase == "execute"
+        and contract_decision == "retrieve"
+        and _contract_retrieval_matches(
+            pending_contract, resource_locator=resource_locator
+        )
+    )
+    route_key = _contract_route_key(pending_contract, decision=contract_decision)
 
     changed_paths: list[str] = []
     if isinstance(result, Mapping):
@@ -4184,6 +4635,7 @@ def _action_audit_report(
                 and contract_decision == "retrieve"
                 and authority in {"discovery", "inspection", "concrete", "verification"}
                 and retrieval_evidence_present
+                and retrieval_contract_matched
                 and not _result_failed_or_blocked(result)
             )
             or (
@@ -4285,7 +4737,12 @@ def _action_audit_report(
         "action_family": action_family,
         "authority": authority,
         "target": target,
+        "resource_key": resource_key,
+        "resource_fingerprint": resource_fingerprint,
+        "resource_locator": resource_locator,
+        "resource_kind": resource_kind,
         "evidence_slot": evidence_slot,
+        "route_key": route_key,
         "state_fingerprint": state_fingerprint,
         "changed_paths": changed_paths,
         "executor_succeeded": not _result_failed_or_blocked(result),
@@ -4296,6 +4753,7 @@ def _action_audit_report(
         "contract_effect_matched": contract_effect_matched,
         "contract_verification_matched": contract_verification_matched,
         "retrieval_evidence_present": retrieval_evidence_present,
+        "retrieval_contract_matched": retrieval_contract_matched,
         # A tool can succeed and even close a new knowledge slot without
         # satisfying a durable phase. This typed bit is deliberately narrower
         # than epistemic/environmental progress and is checked independently
@@ -6055,10 +6513,29 @@ class BackgroundAgent:
                         self._record_action(
                             task_id, call_id, name, arguments, manage_error
                         )
+                        candidate_decision = str(
+                            arguments.get("next_decision")
+                            if arguments.get("decision") == "replan"
+                            else arguments.get("decision")
+                            or ""
+                        )
+                        rejected_state = self.store.record_manage_rejection(
+                            task_id,
+                            self.owner,
+                            candidate_decision=candidate_decision,
+                            route_key=_contract_route_key(
+                                arguments, decision=candidate_decision
+                            ),
+                            reason=str(manage_error.get("reason") or ""),
+                        )
                         # Do not let a deterministic model copy its rejected
                         # manager call from the next prompt. Rebuild from the
                         # audited controller and carry only the typed rejection.
-                        latest_task = self.store.get(task_id) or latest_task
+                        latest_task = (
+                            rejected_state
+                            or self.store.get(task_id)
+                            or latest_task
+                        )
                         replay_ids = _controller_replay_ids(latest_task)
                         replay_records = self.store.expand_evidence(
                             task_id, replay_ids
@@ -6345,6 +6822,41 @@ class BackgroundAgent:
                         )
                         continue
                     action = str(arguments.get("action") or "")
+                    raw_frontier = arguments.get("next_frontier")
+                    raw_frontier_steps = (
+                        raw_frontier.get("steps")
+                        if isinstance(raw_frontier, Mapping)
+                        else None
+                    )
+                    invalid_frontier_shape = raw_frontier is not None and (
+                        not isinstance(raw_frontier, Mapping)
+                        or set(raw_frontier) != {"steps"}
+                        or not isinstance(raw_frontier_steps, list)
+                        or any(
+                            not isinstance(value, Mapping)
+                            for value in raw_frontier_steps
+                        )
+                    )
+                    frontier_steps = (
+                        [
+                            value
+                            for value in raw_frontier_steps
+                            if isinstance(value, Mapping)
+                        ]
+                        if isinstance(raw_frontier_steps, list)
+                        else []
+                    )
+                    frontier_error = ""
+                    if invalid_frontier_shape:
+                        frontier_error = "frontier_step_shape_invalid"
+                    elif action == "progress" and (
+                        self.manage_execute_audit or raw_frontier is not None
+                    ):
+                        frontier_error = _frontier_steps_error(
+                            latest or current, frontier_steps
+                        )
+                    elif action != "progress" and raw_frontier is not None:
+                        frontier_error = "terminal_checkpoint_has_frontier"
                     report = " ".join(str(arguments.get("report") or "").split())
                     criteria_assessment = " ".join(
                         str(arguments.get("criteria_assessment") or "").split()
@@ -6438,6 +6950,7 @@ class BackgroundAgent:
                                 action == "progress"
                                 and supports_progress
                                 and supports_milestone
+                                and not frontier_error
                             )
                             or (action == "complete" and supports_completion)
                             or action == "blocked"
@@ -6484,6 +6997,7 @@ class BackgroundAgent:
                                 "a successful information probe alone never proves a milestone"
                             ),
                             "retryable": retryable,
+                            "frontier_error": frontier_error,
                         }
                         messages.append(
                             {
@@ -6551,6 +7065,7 @@ class BackgroundAgent:
                                 "action": action,
                                 "evidence_ids": evidence_ids,
                                 "remaining_requirements": remaining_requirements,
+                                "next_frontier": {"steps": frontier_steps},
                             },
                         )
                         if checkpoint is None or checkpoint.get("status") == "cancelled":

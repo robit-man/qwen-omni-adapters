@@ -69,6 +69,17 @@ def test_context_catalog_is_the_runtime_source_of_prompts_and_tools() -> None:
     assert [item["schema"] for item in catalog["tools"]] == SAFE_TOOLS
 
 
+def test_progress_checkpoint_requires_a_finite_next_frontier() -> None:
+    parameters = TASK_CHECKPOINT_TOOL["function"]["parameters"]
+    properties = parameters["properties"]
+
+    assert "next_frontier" in properties
+    frontier = properties["next_frontier"]
+    assert frontier["type"] == "object"
+    assert frontier["properties"]["steps"]["maxItems"] == 8
+    assert "steps" in frontier["required"]
+
+
 def test_runtime_identity_uses_configured_or_os_account_not_a_fixed_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

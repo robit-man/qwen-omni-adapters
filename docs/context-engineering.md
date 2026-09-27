@@ -145,10 +145,21 @@ executor-observed mutations and their changed paths, and controller state for
 the current requirement, next transition, and stagnation fingerprint. Tool
 success and task progress are deliberately different: a successful inspection
 can close one knowledge slot without changing the environment, while repeating
-that same slot against the same environment version does not advance either
-ledger. Model prose cannot increment these versions.
+the same resource fingerprint does not advance either ledger. Mutations
+invalidate only intersecting path resources; changing an unrelated file cannot
+make every old inspection fresh. Model prose cannot increment these versions.
 
-The state loop is `MANAGE/PRETHINK -> RETRIEVE or ACT -> AUDIT -> PRETHINK`.
+Controller protocol v2 uses the finite state loop
+`MANAGE/FRONTIER -> RETRIEVE* -> ACT -> AUDIT -> CHECKPOINT`. A RETRIEVE must
+commit its remaining bounded successors and end in exactly one ACT; successful
+retrieval consumes that declared gap and activates the next persisted step
+without reopening free planning. A progress checkpoint likewise installs its
+next finite frontier atomically. The frontier lives in the external task record,
+so transcript compaction, foreground preemption, lease release, and process
+restart cannot erase it. Protocol-v1 tasks migrate in place: an executing or
+auditing pending contract is wrapped as the active one-step frontier without
+discarding its contract ID or evidence ledger.
+
 `task_manage` is the only executable transition at a fresh frontier. It records
 one bounded subtask, one typed capability family, an expected effect on an exact
 resource, and an independent acceptance test. This model-authored contract is
@@ -177,10 +188,12 @@ operation is rejected before it can become pending. If an older deployment
 already persisted such a plan, resume revalidates the complete typed contract,
 marks it `plan_unexecutable`, and returns to one typed `REPLAN` without recording
 an action, evidence receipt, or environment advance.
-If the manager itself proposes the same exhausted RETRIEVE or ACT class twice in
-succession, the following REPLAN grammar removes that class and admits only the
-opposite typed transition. This escalation is keyed by rejected controller
-receipts, not by task prose, paths, filenames, or model-authored rationales.
+If the manager itself proposes the same exhausted RETRIEVE or ACT class twice,
+even with different structural rejection reasons or across process slices, the
+following REPLAN grammar removes that class and admits only the opposite typed
+transition. The rejection ledger is durable controller state. This escalation
+is keyed by typed decision/route receipts, not by task prose, filenames, suffix
+tests, or model-authored rationales.
 Likewise, repeated exact-directory effect mismatches narrow the next recovery
 grammar to `target_scope=subtree`, preventing another off-contract child write.
 
@@ -275,9 +288,11 @@ post-inspection replan pass, so the selected leaf tools replace the router
 instead of competing with it on subsequent rounds.
 
 The background action surface is tier-aware too. It exposes one already-selected
-concrete family plus an eligible checkpoint, removes only
-documentation annotations from their schemas, and preserves names, types,
-enums, required fields, bounds, and object closure. Discovery is suppressed on
+concrete family plus an eligible checkpoint. At constrained tiers it removes
+documentation annotations and deduplicates the nested frontier-step grammar;
+required frontier field names stay resident and the runtime validates every
+enum, bound, route, and object field against the authoritative full contract
+before durable installation. Discovery is suppressed on
 every round while a concrete family remains active; it returns only after an
 accepted phase checkpoint, a typed capability failure, or loss of the active
 leaf. This makes the scoped action space stable across a multi-action phase
@@ -372,8 +387,9 @@ that exact typed action family immediately and requires one explicit `REPLAN`
 transition before another executable contract. The replan commits whether its
 next transition is `RETRIEVE` or `ACT`; the following JSON grammar exposes only
 that choice and its compatible expected-effect values. This state transition is
-keyed by the audit and action family, so paraphrasing a subtask cannot make the
-same dead route admissible again.
+keyed by the audit and canonical resource route. Local filesystem and shell
+contracts share the same path-route identity, so changing read to list or
+filesystem to shell cannot make the same dead inspection admissible again.
 
 Manager contracts also enforce typed effect compatibility. A local-path
 environment change must select a filesystem- or shell-backed executor and a
@@ -403,10 +419,11 @@ context and are never synthesized as reasoning.
 
 Eight concrete actions without an accepted progress checkpoint form a mandatory
 phase boundary. The next inference receives only the checkpoint control and must
-name the earliest unmet requirement before external work can continue. An
-accepted progress boundary clears the prior active-tool scope so the next phase
-is planned from the durable milestone instead of inheriting a research, shell,
-or browser loop. For progress only, the runtime may replace malformed or invented
+name the earliest unmet requirement and a finite next frontier before external
+work can continue. An accepted progress boundary atomically replaces the prior
+active-tool scope with that frontier instead of returning to unrestricted
+planning or inheriting a research, shell, or browser loop. For progress only,
+the runtime may replace malformed or invented
 provenance with the actual freshest successful tool-call ID; it records that
 normalization explicitly. Completion and blocked checkpoints never receive this
 repair and still require exact, valid evidence.

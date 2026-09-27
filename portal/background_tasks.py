@@ -27,6 +27,8 @@ TERMINAL_STATUSES = {"completed", "blocked", "cancelled"}
 MAX_EXPIRED_RESUMES = 3
 MAX_TASK_STATE_RECORDS = 128
 STAGNANT_ACTION_RETIRE_THRESHOLD = 2
+CONTROLLER_CONTRACT_PROTOCOL = 2
+MAX_FRONTIER_STEPS = 8
 
 
 def _initial_task_state(
@@ -54,7 +56,7 @@ def _initial_task_state(
         "knowledge": {"version": 0, "records": []},
         "environment": {"version": 0, "artifacts": []},
         "controller": {
-            "contract_protocol": 1,
+            "contract_protocol": CONTROLLER_CONTRACT_PROTOCOL,
             "phase": "prethink",
             "active_requirement_id": "root",
             "current_subtask": objective,
@@ -67,11 +69,134 @@ def _initial_task_state(
             "last_audit_id": "",
             "stagnation": {"fingerprint": "", "count": 0},
             "retired_action_families": [],
+            "retired_routes": [],
+            "frontier": None,
+            "frontier_generation": 0,
+            "manage_rejections": {},
+            "exhausted_decisions": [],
             "frontier_environment_version": -1,
             "executor_generation": 0,
         },
         "audit_reports": [],
     }
+
+
+def _bounded_contract(
+    task: Mapping[str, Any],
+    raw: Mapping[str, Any],
+    *,
+    contract_id: str,
+    generation: int,
+) -> dict[str, Any]:
+    """Normalize one controller-owned frontier step."""
+
+    state = task.get("task_state")
+    state = state if isinstance(state, Mapping) else {}
+    knowledge = state.get("knowledge")
+    knowledge = knowledge if isinstance(knowledge, Mapping) else {}
+    environment = state.get("environment")
+    environment = environment if isinstance(environment, Mapping) else {}
+    controller = state.get("controller")
+    controller = controller if isinstance(controller, Mapping) else {}
+    return {
+        "contract_id": str(contract_id)[:128],
+        "generation": generation,
+        "decision": str(raw.get("decision") or "")[:24],
+        "next_decision": "",
+        "subtask": " ".join(str(raw.get("subtask") or "").split())[:300],
+        "active_requirement_id": str(
+            controller.get("active_requirement_id") or "root"
+        )[:80],
+        "capability_family": str(raw.get("capability_family") or "uncertain")[:40],
+        "expected_effect": str(raw.get("expected_effect") or "none")[:40],
+        "effect_target": " ".join(
+            str(raw.get("effect_target") or "").split()
+        )[:500],
+        "target_kind": str(raw.get("target_kind") or "")[:24],
+        "target_scope": str(raw.get("target_scope") or "exact")[:24],
+        "acceptance_test": " ".join(
+            str(raw.get("acceptance_test") or "").split()
+        )[:500],
+        "verification_family": str(
+            raw.get("verification_family") or "uncertain"
+        )[:40],
+        "reason": " ".join(str(raw.get("reason") or "").split())[:500],
+        "question": "",
+        "knowledge_version_at_plan": int(knowledge.get("version") or 0),
+        "environment_version_at_plan": int(environment.get("version") or 0),
+        "state_version_at_plan": int(state.get("version") or 0),
+        "status": "planned",
+        **(
+            {"origin_decision": str(raw.get("origin_decision") or "")[:24]}
+            if str(raw.get("origin_decision") or "")
+            else {}
+        ),
+    }
+
+
+def _activate_frontier_step(task: dict[str, Any], step_index: int) -> None:
+    """Activate exactly one previously committed frontier step."""
+
+    state = _ensure_task_state(task)
+    controller = state.setdefault("controller", {})
+    frontier = controller.get("frontier")
+    if not isinstance(frontier, dict):
+        return
+    steps = frontier.get("steps")
+    if not isinstance(steps, list) or not (0 <= step_index < len(steps)):
+        return
+    contract = copy.deepcopy(steps[step_index])
+    if not isinstance(contract, dict):
+        return
+    contract["status"] = "planned"
+    frontier["step_index"] = step_index
+    frontier["status"] = "active"
+    controller["pending_contract"] = contract
+    controller["current_subtask"] = str(contract.get("subtask") or "")[:300]
+    controller["phase"] = "execute"
+    controller["next_transition"] = str(contract.get("decision") or "")[:24]
+    controller["unresolved_evidence"] = (
+        [str(contract.get("effect_target") or "")[:500]]
+        if contract.get("decision") == "retrieve"
+        else []
+    )
+
+
+def _install_frontier(
+    task: dict[str, Any],
+    raw_steps: list[Mapping[str, Any]],
+    *,
+    frontier_id: str,
+) -> None:
+    """Install a finite controller frontier and immediately activate step zero."""
+
+    state = _ensure_task_state(task)
+    controller = state.setdefault("controller", {})
+    generation = int(controller.get("frontier_generation") or 0) + 1
+    steps = [
+        _bounded_contract(
+            task,
+            raw,
+            contract_id=f"{frontier_id}-step-{index}",
+            generation=generation,
+        )
+        for index, raw in enumerate(raw_steps[:MAX_FRONTIER_STEPS])
+        if isinstance(raw, Mapping)
+    ]
+    controller["frontier_generation"] = generation
+    controller["frontier"] = {
+        "frontier_id": str(frontier_id)[:128],
+        "generation": generation,
+        "step_index": 0,
+        "steps": steps,
+        "status": "planned",
+    }
+    controller["contract_protocol"] = CONTROLLER_CONTRACT_PROTOCOL
+    controller["manage_rejections"] = {}
+    controller["exhausted_decisions"] = []
+    controller["consecutive_replans"] = 0
+    if steps:
+        _activate_frontier_step(task, 0)
 
 
 def _apply_manage_transition(
@@ -120,6 +245,12 @@ def _apply_manage_transition(
     controller["manage_generation"] = generation
     controller["current_subtask"] = subtask
     controller["last_manage_decision"] = decision
+    successors = transition.get("successor_contracts")
+    successor_steps = (
+        [dict(value) for value in successors if isinstance(value, Mapping)]
+        if isinstance(successors, list)
+        else []
+    )
     if decision == "replan":
         # REPLAN is an atomic replacement contract, not an advisory record
         # followed by another manager turn. Validation has already proved that
@@ -130,12 +261,15 @@ def _apply_manage_transition(
         contract["origin_decision"] = "replan"
         contract["decision"] = executable_decision
         contract["status"] = "planned_after_replan"
-        controller["pending_contract"] = contract
-        controller["phase"] = "execute"
-        controller["next_transition"] = executable_decision
-        controller["consecutive_replans"] = 0
-        if executable_decision == "retrieve":
-            controller["unresolved_evidence"] = [contract["effect_target"]]
+        first = dict(transition)
+        first["decision"] = executable_decision
+        first["origin_decision"] = "replan"
+        _install_frontier(
+            task,
+            [first, *successor_steps],
+            frontier_id=str(transition.get("contract_id") or secrets.token_hex(8)),
+        )
+        controller["frontier"]["origin_decision"] = "replan"
     elif decision == "ask":
         contract["status"] = "waiting_input"
         controller["pending_contract"] = contract
@@ -143,12 +277,11 @@ def _apply_manage_transition(
         controller["next_transition"] = "ask"
         controller["consecutive_replans"] = 0
     else:
-        controller["pending_contract"] = contract
-        controller["phase"] = "execute"
-        controller["next_transition"] = decision
-        controller["consecutive_replans"] = 0
-        if decision == "retrieve":
-            controller["unresolved_evidence"] = [contract["effect_target"]]
+        _install_frontier(
+            task,
+            [transition, *successor_steps],
+            frontier_id=str(transition.get("contract_id") or secrets.token_hex(8)),
+        )
     state["version"] = int(state.get("version") or 0) + 1
 
 
@@ -163,10 +296,38 @@ def _ensure_task_state(task: dict[str, Any]) -> dict[str, Any]:
         )
         task["task_state"] = state
     controller = state.setdefault("controller", {})
-    controller.setdefault("contract_protocol", 1)
+    previous_protocol = int(controller.get("contract_protocol") or 1)
+    if previous_protocol < CONTROLLER_CONTRACT_PROTOCOL:
+        controller["migrated_from_contract_protocol"] = previous_protocol
+        pending = controller.get("pending_contract")
+        if (
+            isinstance(pending, Mapping)
+            and not isinstance(controller.get("frontier"), Mapping)
+            and str(controller.get("phase") or "") in {"execute", "audit"}
+        ):
+            generation = int(controller.get("frontier_generation") or 0) + 1
+            migrated = copy.deepcopy(dict(pending))
+            migrated["generation"] = generation
+            controller["frontier_generation"] = generation
+            controller["frontier"] = {
+                "frontier_id": (
+                    "migrated-"
+                    + str(migrated.get("contract_id") or secrets.token_hex(8))
+                )[:128],
+                "generation": generation,
+                "step_index": 0,
+                "steps": [migrated],
+                "status": "active",
+            }
+    controller["contract_protocol"] = CONTROLLER_CONTRACT_PROTOCOL
     controller.setdefault("manage_generation", 0)
     controller.setdefault("pending_contract", None)
     controller.setdefault("last_contract", None)
+    controller.setdefault("frontier", None)
+    controller.setdefault("frontier_generation", 0)
+    controller.setdefault("manage_rejections", {})
+    controller.setdefault("exhausted_decisions", [])
+    controller.setdefault("retired_routes", [])
     return state
 
 
@@ -194,16 +355,27 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
     evidence_slot = str(normalized.get("evidence_slot") or "")[:128]
 
     closed_slots = controller.setdefault("closed_evidence_slots", [])
+    resource_key = str(normalized.get("resource_key") or evidence_slot)[:500]
+    resource_fingerprint = str(
+        normalized.get("resource_fingerprint") or "legacy"
+    )[:128]
+    resource_locator = str(normalized.get("resource_locator") or "")[:4096]
+    resource_kind = str(normalized.get("resource_kind") or "")[:24]
     slot_is_new = bool(evidence_slot) and not any(
         isinstance(item, Mapping)
-        and str(item.get("slot_id") or "") == evidence_slot
-        and int(item.get("environment_version") or 0) == environment_before
+        and str(item.get("resource_key") or item.get("slot_id") or "")
+        == resource_key
+        and str(item.get("fingerprint") or "legacy") == resource_fingerprint
+        and item.get("invalidated") is not True
         for item in closed_slots
     )
     retrieval_contract_without_evidence = bool(
         str(normalized.get("contract_phase") or "") == "execute"
         and str(normalized.get("contract_decision") or "") == "retrieve"
-        and normalized.get("retrieval_evidence_present") is not True
+        and (
+            normalized.get("retrieval_evidence_present") is not True
+            or normalized.get("retrieval_contract_matched") is not True
+        )
     )
     epistemic_progress = bool(
         slot_is_new
@@ -214,6 +386,10 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
         closed_slots.append(
             {
                 "slot_id": evidence_slot,
+                "resource_key": resource_key,
+                "fingerprint": resource_fingerprint,
+                "resource_locator": resource_locator,
+                "resource_kind": resource_kind,
                 "environment_version": environment_before,
                 "evidence_id": evidence_id,
             }
@@ -224,6 +400,10 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
             {
                 "evidence_id": evidence_id,
                 "slot_id": evidence_slot,
+                "resource_key": resource_key,
+                "fingerprint": resource_fingerprint,
+                "resource_locator": resource_locator,
+                "resource_kind": resource_kind,
                 "authority": authority,
                 "target": str(normalized.get("target") or "")[:500],
                 "environment_version": environment_before,
@@ -241,6 +421,26 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
     environmental_progress = authority == "mutation" and bool(changed_paths)
     if environmental_progress:
         environment["version"] = environment_before + 1
+        for slot in closed_slots:
+            if not isinstance(slot, dict) or slot.get("resource_kind") != "path":
+                continue
+            locator = str(slot.get("resource_locator") or "")
+            if not locator:
+                continue
+            try:
+                resource_path = Path(locator).expanduser().resolve(strict=False)
+            except OSError:
+                continue
+            for changed_path in changed_paths:
+                try:
+                    changed = Path(changed_path).expanduser().resolve(strict=False)
+                    shared = os.path.commonpath((str(resource_path), str(changed)))
+                except (OSError, ValueError):
+                    continue
+                if shared in {str(resource_path), str(changed)}:
+                    slot["invalidated"] = True
+                    slot["invalidated_by_environment_version"] = environment_before + 1
+                    break
         artifacts = environment.setdefault("artifacts", [])
         for path in changed_paths:
             artifacts.append(
@@ -315,15 +515,35 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
                 contract["status"] = "evidence_acquired"
                 contract["evidence_id"] = evidence_id
                 controller["last_contract"] = contract
-                controller["pending_contract"] = None
                 controller["unresolved_evidence"] = []
                 normalized["contract_satisfied"] = True
-                if normalized.get("milestone_progress") is True:
+                frontier = controller.get("frontier")
+                frontier_steps = (
+                    frontier.get("steps") if isinstance(frontier, dict) else None
+                )
+                frontier_index = (
+                    int(frontier.get("step_index") or 0)
+                    if isinstance(frontier, dict)
+                    else -1
+                )
+                if (
+                    isinstance(frontier_steps, list)
+                    and frontier_index + 1 < len(frontier_steps)
+                ):
+                    frontier_steps[frontier_index]["status"] = "evidence_acquired"
+                    frontier_steps[frontier_index]["evidence_id"] = evidence_id
+                    _activate_frontier_step(task, frontier_index + 1)
+                elif normalized.get("milestone_progress") is True:
+                    controller["pending_contract"] = None
                     controller["phase"] = "checkpoint"
                     controller["next_transition"] = "checkpoint"
                 else:
-                    controller["phase"] = "prethink"
-                    controller["next_transition"] = "prethink"
+                    # Legacy protocol-one retrievals have no committed
+                    # successor. They return to one frontier-selection turn,
+                    # never an unrestricted chain of reads.
+                    controller["pending_contract"] = None
+                    controller["phase"] = "frontier"
+                    controller["next_transition"] = "frontier"
             elif decision == "act" and (
                 normalized.get("contract_effect_matched") is True
                 and (environmental_progress or authority in {"concrete", "mutation"})
@@ -340,6 +560,9 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
                 contract["status"] = "expected_effect_missing"
                 controller["last_contract"] = contract
                 controller["pending_contract"] = None
+                frontier = controller.get("frontier")
+                if isinstance(frontier, dict):
+                    frontier["status"] = "failed"
                 controller["current_subtask"] = ""
                 controller["phase"] = "prethink"
                 controller["next_transition"] = "replan"
@@ -368,6 +591,9 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
                 controller["phase"] = "checkpoint"
                 controller["next_transition"] = "checkpoint"
                 controller["unresolved_evidence"] = []
+                frontier = controller.get("frontier")
+                if isinstance(frontier, dict):
+                    frontier["status"] = "verified"
                 normalized["contract_satisfied"] = True
                 normalized["milestone_progress"] = True
             else:
@@ -388,7 +614,10 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
     # New information and changed bytes can be useful without satisfying the
     # active subtask. Keep retirement until a contract-backed milestone is
     # independently verified; arbitrary rewrites must not reopen dead routes.
-    if normalized.get("milestone_progress") is True:
+    if (
+        normalized.get("milestone_progress") is True
+        and normalized.get("contract_satisfied") is True
+    ):
         retired = []
     elif (
         contract_transition_applied
@@ -410,6 +639,26 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
         if action_family:
             retired = list(dict.fromkeys([*retired, action_family]))[-32:]
     controller["retired_action_families"] = retired
+    retired_routes = [
+        str(value)[:256]
+        for value in controller.get("retired_routes", [])
+        if str(value)
+    ]
+    if (
+        normalized.get("milestone_progress") is True
+        and normalized.get("contract_satisfied") is True
+    ):
+        retired_routes = []
+    elif (
+        contract_transition_applied
+        and isinstance(controller.get("last_contract"), Mapping)
+        and str(controller["last_contract"].get("status") or "")
+        in {"action_failed", "expected_effect_missing", "audit_failed"}
+    ):
+        route_key = str(normalized.get("route_key") or "")[:256]
+        if route_key:
+            retired_routes = list(dict.fromkeys([*retired_routes, route_key]))[-32:]
+    controller["retired_routes"] = retired_routes
     reports.append(normalized)
     state["audit_reports"] = reports[-MAX_TASK_STATE_RECORDS:]
     state["version"] = int(state.get("version") or 0) + 1
@@ -464,8 +713,9 @@ def _apply_checkpoint_state(
             dict.fromkeys([*previous_ids, *evidence_ids])
         )[-32:]
     controller = state.setdefault("controller", {})
-    controller["phase"] = "terminal" if action in {"complete", "blocked"} else "prethink"
-    controller["next_transition"] = "stop" if action in {"complete", "blocked"} else "prethink"
+    terminal = action in {"complete", "blocked"}
+    controller["phase"] = "terminal" if terminal else "frontier"
+    controller["next_transition"] = "stop" if terminal else "frontier"
     controller["pending_contract"] = None
     controller["consecutive_replans"] = 0
     if remaining:
@@ -477,7 +727,18 @@ def _apply_checkpoint_state(
             controller.get("executor_generation") or 0
         ) + 1
         controller["stagnation"] = {"fingerprint": "", "count": 0}
-        controller["retired_action_families"] = []
+        raw_frontier = transition.get("next_frontier")
+        raw_steps = (
+            raw_frontier.get("steps")
+            if isinstance(raw_frontier, Mapping)
+            else None
+        )
+        if isinstance(raw_steps, list) and raw_steps:
+            _install_frontier(
+                task,
+                [value for value in raw_steps if isinstance(value, Mapping)],
+                frontier_id=f"frontier-{secrets.token_hex(8)}",
+            )
     if action in {"progress", "complete"}:
         environment = state.setdefault("environment", {"version": 0, "artifacts": []})
         environment_version = int(environment.get("version") or 0)
@@ -1096,6 +1357,65 @@ class BackgroundTaskStore:
             return None
 
         return self._mutate(manage)
+
+    def record_manage_rejection(
+        self,
+        task_id: str,
+        owner: str,
+        *,
+        candidate_decision: str,
+        route_key: str,
+        reason: str,
+        lease_s: float = 60.0,
+    ) -> dict[str, Any] | None:
+        """Persist structural manager non-progress across slices and restarts."""
+
+        candidate = str(candidate_decision)[:24]
+        bounded_route = str(route_key)[:256]
+        bounded_reason = str(reason)[:160]
+
+        def reject(value: dict[str, Any]) -> dict[str, Any] | None:
+            for item in value.get("tasks", []):
+                if item.get("task_id") != task_id or item.get("owner") != owner:
+                    continue
+                if item.get("status") != "running":
+                    return self._public(item)
+                state = _ensure_task_state(item)
+                controller = state.setdefault("controller", {})
+                ledger = controller.setdefault("manage_rejections", {})
+                entry = ledger.setdefault(
+                    candidate,
+                    {"count": 0, "routes": [], "reasons": []},
+                )
+                entry["count"] = int(entry.get("count") or 0) + 1
+                if bounded_route:
+                    entry["routes"] = list(
+                        dict.fromkeys([*entry.get("routes", []), bounded_route])
+                    )[-16:]
+                if bounded_reason:
+                    entry["reasons"] = list(
+                        dict.fromkeys([*entry.get("reasons", []), bounded_reason])
+                    )[-16:]
+                if (
+                    candidate in {"retrieve", "act"}
+                    and entry["count"] >= STAGNANT_ACTION_RETIRE_THRESHOLD
+                ):
+                    exhausted = [
+                        str(item)[:24]
+                        for item in controller.get("exhausted_decisions", [])
+                        if str(item)
+                    ]
+                    controller["exhausted_decisions"] = list(
+                        dict.fromkeys([*exhausted, candidate])
+                    )[-4:]
+                state["version"] = int(state.get("version") or 0) + 1
+                now = time.time()
+                item["updated_at"] = now
+                item["lease_until"] = now + max(5.0, lease_s)
+                return self._public(item)
+            return None
+
+        return self._mutate(reject)
 
     def invalidate_pending_contract(
         self,
