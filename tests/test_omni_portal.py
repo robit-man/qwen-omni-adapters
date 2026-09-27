@@ -2935,8 +2935,15 @@ def test_shell_and_workspace_relative_paths_start_from_user_workspace(
     desktop = user_workspace / "Desktop"
     runtime_checkout = tmp_path / "runtime-checkout"
     desktop.mkdir(parents=True)
+    (desktop / "nested").mkdir()
+    (desktop / "nested" / "deep.txt").write_text("do not traverse\n")
     runtime_checkout.mkdir()
     monkeypatch.chdir(runtime_checkout)
+
+    def reject_unbounded_rglob(_self: Path, _pattern: str):
+        raise AssertionError("bounded workspace listing must not call Path.rglob")
+
+    monkeypatch.setattr(Path, "rglob", reject_unbounded_rglob)
     harness = PortalToolHarness(
         SessionDocumentStore(ttl_s=300),
         workspace_root=user_workspace,

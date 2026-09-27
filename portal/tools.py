@@ -646,22 +646,35 @@ def _workspace_file(
             raise ToolInputError(f"path is not a directory: {target}")
         maximum_depth = _bounded_integer(depth, default=2, minimum=1, maximum=5)
         entries: list[dict[str, Any]] = []
-        for candidate in sorted(target.rglob("*")):
-            relative = candidate.relative_to(target)
-            if len(relative.parts) > maximum_depth:
+        pending: list[tuple[Path, int]] = [(target, 0)]
+        while pending and len(entries) < 200:
+            directory, parent_depth = pending.pop(0)
+            try:
+                children = sorted(directory.iterdir(), key=lambda item: item.name.casefold())
+            except OSError:
                 continue
-            item: dict[str, Any] = {
-                "path": str(relative),
-                "kind": "directory" if candidate.is_dir() else "file",
-            }
-            if candidate.is_file():
-                try:
-                    item["bytes"] = candidate.stat().st_size
-                except OSError:
-                    item["bytes"] = None
-            entries.append(item)
-            if len(entries) >= 200:
-                break
+            for candidate in children:
+                relative = candidate.relative_to(target)
+                is_directory = candidate.is_dir()
+                item: dict[str, Any] = {
+                    "path": str(relative),
+                    "kind": "directory" if is_directory else "file",
+                }
+                if candidate.is_file():
+                    try:
+                        item["bytes"] = candidate.stat().st_size
+                    except OSError:
+                        item["bytes"] = None
+                entries.append(item)
+                child_depth = parent_depth + 1
+                if (
+                    is_directory
+                    and not candidate.is_symlink()
+                    and child_depth < maximum_depth
+                ):
+                    pending.append((candidate, child_depth))
+                if len(entries) >= 200:
+                    break
         return {
             "action": operation,
             "path": str(target),
