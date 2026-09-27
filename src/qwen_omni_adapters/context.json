@@ -179,8 +179,9 @@
             },
             "successor_contracts": {
               "type": "array",
+              "minItems": 0,
               "maxItems": 7,
-              "description": "Finite controller-owned steps that follow a successful RETRIEVE. Every entry before the last must be RETRIEVE and the last must be ACT. Omit for ACT and ASK. The runtime activates these steps without returning to open planning.",
+              "description": "Required on every call. For RETRIEVE, provide one or more finite controller-owned successors: every entry before the last must be RETRIEVE and the last must be ACT. For ACT and ASK, provide an empty array. The runtime activates committed steps without returning to open planning.",
               "items": {
                 "type": "object",
                 "properties": {
@@ -228,7 +229,8 @@
             "target_scope",
             "acceptance_test",
             "verification_family",
-            "reason"
+            "reason",
+            "successor_contracts"
           ],
           "additionalProperties": false
         }

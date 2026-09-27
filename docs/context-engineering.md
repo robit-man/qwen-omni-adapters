@@ -188,12 +188,14 @@ operation is rejected before it can become pending. If an older deployment
 already persisted such a plan, resume revalidates the complete typed contract,
 marks it `plan_unexecutable`, and returns to one typed `REPLAN` without recording
 an action, evidence receipt, or environment advance.
-If the manager itself proposes the same exhausted RETRIEVE or ACT class twice,
-even with different structural rejection reasons or across process slices, the
-following REPLAN grammar removes that class and admits only the opposite typed
-transition. The rejection ledger is durable controller state. This escalation
-is keyed by typed decision/route receipts, not by task prose, filenames, suffix
-tests, or model-authored rationales.
+`successor_contracts` is required in every MANAGE call: RETRIEVE requires a
+non-empty finite frontier ending in ACT, while ACT and ASK carry an empty list.
+A malformed shape or incompatible field narrows the retry grammar to the same
+decision class; it does not prove that all RETRIEVE or ACT routes are exhausted.
+Only repeated `no_admissible_operations` evidence may close a decision class.
+The rejection ledger is durable controller state and is keyed by typed
+decision/route receipts, not task prose, filenames, suffix tests, or
+model-authored rationales.
 Likewise, repeated exact-directory effect mismatches narrow the next recovery
 grammar to `target_scope=subtree`, preventing another off-contract child write.
 
@@ -229,10 +231,13 @@ audit of the changed bytes. The isolated verifier grammar admits a fresh read of
 the changed file (or a shell verification receipt that explicitly targets every
 changed path), and the controller retains those action paths in its pending
 contract until verification completes.
-Rejecting a proposed call at this local grammar boundary does not consume or
-fail the pending contract because no external operation occurred. A fresh
-executor retries against the same contract and exact allowed operations. If an
-admitted action runs but produces no declared effect, its typed target/effect
+Rejecting a proposed call at this local grammar boundary does not create task
+evidence because no external operation occurred. One fresh executor may retry
+against the same contract and exact allowed operations. Two consecutive local
+admission mismatches for the same contract mark that plan unexecutable and
+return the controller to a typed REPLAN instead of yielding and reclaiming the
+same bad EXECUTE state forever. If an admitted action runs but produces no
+declared effect, its typed target/effect
 route is retired for the next replan; swapping filesystem for shell cannot
 disguise the same no-op route as new progress.
 Once a manager contract is pending, its executor action space contains only the

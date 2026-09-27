@@ -52,6 +52,7 @@ from harness.background_agent import (
     _discard_visual_frames,
     _durable_task_messages,
     _evidence_authority,
+    _executor_admission_rejection_count,
     _filter_background_discovery,
     _focus_memory,
     _ForegroundPreempted,
@@ -2189,7 +2190,7 @@ def test_equivalent_local_path_route_is_retired_across_tool_families(
     assert rejection["reason"] == "frontier_uses_retired_route"
 
 
-def test_manager_rejections_persist_across_mixed_reasons_and_force_other_class(
+def test_manager_shape_rejections_do_not_exhaust_an_executable_decision_class(
     tmp_path: Path,
 ) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
@@ -2202,7 +2203,7 @@ def test_manager_rejections_persist_across_mixed_reasons_and_force_other_class(
         "worker",
         candidate_decision="retrieve",
         route_key="filesystem:stable-resource",
-        reason="no_admissible_operations",
+        reason="retrieve_requires_successor_frontier",
     )
     assert current is not None
     current = store.record_manage_rejection(
@@ -2214,13 +2215,67 @@ def test_manager_rejections_persist_across_mixed_reasons_and_force_other_class(
     )
     assert current is not None
 
-    assert _manage_recovery_next_decisions(current) == ["act"]
+    assert "retrieve" in _manage_decision_contract(current)
+    assert current["task_state"]["controller"]["exhausted_decisions"] == []
     rejections = current["task_state"]["controller"]["manage_rejections"]
     assert rejections["retrieve"]["count"] == 2
     assert rejections["retrieve"]["reasons"] == [
-        "no_admissible_operations",
+        "retrieve_requires_successor_frontier",
         "local_path_retrieval_contract_incompatible",
     ]
+
+
+def test_retrieve_recovery_schema_requires_a_nonempty_successor_frontier() -> None:
+    schema = _background_tool_contract(
+        [],
+        manage_required=True,
+        manage_decisions=["retrieve"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+        resident_context_tokens=16_384,
+    )
+    parameters = schema[0]["function"]["parameters"]
+    assert "successor_contracts" in parameters["required"]
+    assert parameters["properties"]["successor_contracts"]["minItems"] == 1
+
+    task = {
+        "task_state": {
+            "controller": {
+                "phase": "prethink",
+                "consecutive_replans": 0,
+                "retired_action_families": [],
+            },
+            "audit_reports": [],
+        }
+    }
+    retrieve = {
+        "decision": "retrieve",
+        "subtask": "Read the source once.",
+        "capability_family": "filesystem",
+        "expected_effect": "resolve_unknown",
+        "effect_target": "/tmp/source.txt",
+        "target_kind": "path",
+        "target_scope": "exact",
+        "acceptance_test": "The source bytes are known.",
+        "verification_family": "filesystem",
+        "reason": "The source is required by the action.",
+        "successor_contracts": [],
+    }
+    rejection = _manage_transition_error(task, retrieve)
+    assert rejection is not None
+    assert rejection["reason"] == "retrieve_requires_successor_frontier"
+    task["actions"] = [
+        {
+            "tool": "task_manage",
+            "arguments": json.dumps(retrieve),
+            "outcome": json.dumps(rejection),
+            "ok": False,
+        }
+    ]
+    assert _manage_recovery_next_decisions(task) == ["retrieve"]
+    assert _manage_decision_contract(task) == ["retrieve"]
 
 
 def test_frontier_survives_compaction_release_and_reclaim(tmp_path: Path) -> None:
@@ -2524,6 +2579,47 @@ def test_closed_tool_contract_rejects_excluded_operation_before_execution() -> N
         {"action": "write", "path": "/tmp/project/app.ts", "content": "ok"},
         schemas,
     ) is None
+
+
+def test_executor_admission_rejections_are_bounded_per_pending_contract() -> None:
+    first = {
+        "call_id": "executor-reject-1",
+        "tool": "shell",
+        "arguments": json.dumps({"intent": "inspect"}),
+        "outcome": json.dumps(
+            {
+                "error": "operation_not_offered",
+                "contract_id": "contract-a",
+            }
+        ),
+        "ok": False,
+    }
+    second = {
+        "call_id": "executor-reject-2",
+        "tool": "shell",
+        "arguments": json.dumps({"intent": "mutate_filesystem"}),
+        "outcome": json.dumps(
+            {
+                "error": "effect_target_not_authorized",
+                "contract_id": "contract-a",
+            }
+        ),
+        "ok": False,
+    }
+
+    assert _executor_admission_rejection_count({"actions": [first]}, "contract-a") == 1
+    assert (
+        _executor_admission_rejection_count(
+            {"actions": [first, second]}, "contract-a"
+        )
+        == 2
+    )
+    assert (
+        _executor_admission_rejection_count(
+            {"actions": [first, second]}, "contract-b"
+        )
+        == 0
+    )
 
 
 def test_executor_contract_excludes_read_only_calls_from_mutation_phase() -> None:
@@ -2943,6 +3039,23 @@ def test_exact_directory_recovery_grammar_requires_subtree_scope() -> None:
     assert schema[0]["function"]["parameters"]["properties"]["target_scope"][
         "enum"
     ] == ["subtree"]
+
+    invalidated_task = {
+        "task_state": {
+            "controller": {
+                "last_contract": {
+                    "status": "plan_unexecutable",
+                    "invalid_reason": (
+                        "executor_admission_rejected:effect_target_not_authorized"
+                    ),
+                    "decision": "act",
+                    "target_kind": "path",
+                    "target_scope": "exact",
+                }
+            }
+        }
+    }
+    assert _manage_recovery_target_scopes(invalidated_task) == ["subtree"]
 
 
 def test_unexecutable_persisted_contract_returns_to_replan_without_evidence(

@@ -83,6 +83,7 @@ TASK_START_REQUEST = (
 )
 MAX_VIRTUAL_QUERY_CHARS = 1_200
 MAX_PHASE_ACTIONS = 8
+MAX_EXECUTOR_ADMISSION_REJECTIONS = 2
 
 _TOOL_FAMILY_CONTRACT = configured_tool_families()
 _TYPED_TOOL_FAMILIES = frozenset(_TOOL_FAMILY_CONTRACT)
@@ -1376,6 +1377,8 @@ def _frontier_steps_error(
     if not steps or len(steps) > 8:
         return "frontier_requires_one_to_eight_steps"
     decisions = [str(step.get("decision") or "") for step in steps]
+    if decisions == ["retrieve"]:
+        return "retrieve_requires_successor_frontier"
     if decisions[-1] != "act" or any(value != "retrieve" for value in decisions[:-1]):
         return "frontier_must_end_in_one_act"
     seen_routes: set[str] = set()
@@ -1531,6 +1534,9 @@ def _manage_recovery_next_decisions(task: Mapping[str, Any]) -> list[str] | None
             in {
                 "act_requires_effect_and_read_only_verifier",
                 "retrieve_requires_one_unknown_and_closure_test",
+                "retrieve_requires_successor_frontier",
+                "frontier_must_end_in_one_act",
+                "frontier_step_shape_invalid",
                 "local_path_effect_contract_incompatible",
                 "local_path_retrieval_contract_incompatible",
                 "exact_directory_act_requires_subtree_or_child",
@@ -1567,6 +1573,20 @@ def _manage_recovery_next_decisions(task: Mapping[str, Any]) -> list[str] | None
 
 def _manage_recovery_target_scopes(task: Mapping[str, Any]) -> list[str] | None:
     """Close an exact-directory scope after typed mismatch feedback."""
+
+    controller = _task_controller(task)
+    last_contract = controller.get("last_contract")
+    if (
+        isinstance(last_contract, Mapping)
+        and str(last_contract.get("status") or "") == "plan_unexecutable"
+        and str(last_contract.get("invalid_reason") or "").endswith(
+            "effect_target_not_authorized"
+        )
+        and str(last_contract.get("decision") or "") == "act"
+        and str(last_contract.get("target_kind") or "") == "path"
+        and str(last_contract.get("target_scope") or "") == "exact"
+    ):
+        return ["subtree"]
 
     actions = task.get("actions")
     latest = actions[-1] if isinstance(actions, list) and actions else None
@@ -1802,6 +1822,9 @@ def _manage_transition_error(
         "frontier_requires_one_to_eight_steps": (
             "A RETRIEVE must commit a finite successor frontier ending in ACT."
         ),
+        "retrieve_requires_successor_frontier": (
+            "A RETRIEVE must include non-empty successor_contracts ending in ACT."
+        ),
         "frontier_must_end_in_one_act": (
             "A finite frontier may contain bounded RETRIEVE steps followed by "
             "exactly one final ACT step."
@@ -1921,6 +1944,9 @@ def _manage_decision_contract(task: Mapping[str, Any]) -> list[str]:
         if expected == "resolve_unknown":
             return ["retrieve"]
         return ["retrieve", "act", "ask"]
+    narrowed_retry = _manage_recovery_next_decisions(task)
+    if narrowed_retry:
+        return narrowed_retry
     exhausted = {
         str(value)
         for value in controller.get("exhausted_decisions", [])
@@ -1954,12 +1980,15 @@ def _background_tool_contract(
     ]
     if manage_required:
         manager = copy.deepcopy(TASK_MANAGE_TOOL)
+        parameters = manager["function"]["parameters"]
+        properties = parameters["properties"]
+        required = parameters.setdefault("required", [])
+        if "successor_contracts" not in required:
+            required.append("successor_contracts")
+        successor_schema = properties["successor_contracts"]
         if manage_decisions:
-            parameters = manager["function"]["parameters"]
-            properties = parameters["properties"]
             properties["decision"]["enum"] = list(manage_decisions)
             if manage_decisions == ["replan"]:
-                required = parameters.setdefault("required", [])
                 if "next_decision" not in required:
                     required.append("next_decision")
                 if manage_next_decisions:
@@ -1971,10 +2000,12 @@ def _background_tool_contract(
                             "change_environment",
                             "change_external_state",
                         ]
+                        successor_schema["maxItems"] = 0
                     elif manage_next_decisions == ["retrieve"]:
                         properties["expected_effect"]["enum"] = [
                             "resolve_unknown"
                         ]
+                        successor_schema["minItems"] = 1
                 if manage_target_scopes:
                     properties["target_scope"]["enum"] = list(
                         manage_target_scopes
@@ -1984,8 +2015,12 @@ def _background_tool_contract(
                     "change_environment",
                     "change_external_state",
                 ]
+                successor_schema["maxItems"] = 0
             elif manage_decisions == ["retrieve"]:
                 properties["expected_effect"]["enum"] = ["resolve_unknown"]
+                successor_schema["minItems"] = 1
+            elif manage_decisions == ["ask"]:
+                successor_schema["maxItems"] = 0
         schemas = [manager]
     elif audit_required:
         schemas = _audit_tool_schemas(active_tools, execution_contract)
@@ -2248,6 +2283,37 @@ def _tool_call_contract_error(
                     "failure_scope": "plan",
                 }
     return None
+
+
+def _executor_admission_rejection_count(
+    task: Mapping[str, Any], contract_id: str
+) -> int:
+    """Count consecutive local executor/contract mismatches for one contract."""
+
+    if not contract_id:
+        return 0
+    count = 0
+    actions = task.get("actions")
+    if not isinstance(actions, list):
+        return 0
+    for action in reversed(actions):
+        if not isinstance(action, Mapping):
+            break
+        if str(action.get("tool") or "") == "task_manage":
+            break
+        outcome = _audit_mapping(action.get("outcome"))
+        if action.get("ok") is True:
+            break
+        if str(outcome.get("contract_id") or "") != contract_id:
+            break
+        if str(outcome.get("error") or "") not in {
+            "tool_not_offered",
+            "operation_not_offered",
+            "effect_target_not_authorized",
+        }:
+            break
+        count += 1
+    return count
 
 
 def _task_expand_available(
@@ -6455,6 +6521,8 @@ class BackgroundAgent:
                         name, arguments, schemas, pending_contract
                     )
                     if contract_error is not None:
+                        contract_id = str(pending_contract.get("contract_id") or "")
+                        contract_error["contract_id"] = contract_id
                         messages.append(
                             {
                                 "role": "tool",
@@ -6463,7 +6531,7 @@ class BackgroundAgent:
                                 "content": json.dumps(contract_error),
                             }
                         )
-                        self._record_action(
+                        rejected_task = self._record_action(
                             task_id,
                             call_id,
                             name or "unknown",
@@ -6471,12 +6539,50 @@ class BackgroundAgent:
                             contract_error,
                             external_execution=False,
                         )
+                        controller = _task_controller(rejected_task or current)
+                        if (
+                            str(controller.get("phase") or "") == "execute"
+                            and _executor_admission_rejection_count(
+                                rejected_task or current, contract_id
+                            )
+                            >= MAX_EXECUTOR_ADMISSION_REJECTIONS
+                        ):
+                            invalidated = self.store.invalidate_pending_contract(
+                                task_id,
+                                self.owner,
+                                reason=(
+                                    "executor_admission_rejected:"
+                                    + str(contract_error.get("error") or "unknown")
+                                ),
+                            )
+                            if invalidated is None or invalidated.get("status") == "cancelled":
+                                return
+                            replay_ids = _controller_replay_ids(invalidated)
+                            replay_records = self.store.expand_evidence(
+                                task_id, replay_ids
+                            )
+                            messages = _fresh_managed_messages(
+                                invalidated,
+                                stage="manage",
+                                evidence_records=replay_records,
+                            )
+                            active_tools = []
+                            phase_action_count = 0
+                            stalls = 0
+                            logger.warning(
+                                "background task %s invalidated contract %s after "
+                                "repeated executor admission rejection: %s",
+                                task_id,
+                                contract_id,
+                                contract_error.get("error"),
+                            )
+                            continue
                         # JSON-schema/admission rejection means no external
-                        # operation ran. Keep the pending contract and give a
-                        # fresh isolated executor the exact allowed grammar;
-                        # do not mis-audit this local planning error as an
-                        # action failure that requires another manager cycle.
-                        latest_task = self.store.get(task_id) or current
+                        # operation ran. One repair attempt keeps the pending
+                        # contract and gives a fresh isolated executor the
+                        # exact grammar. Repeated mismatch is invalidated above
+                        # so the durable controller cannot stay in EXECUTE.
+                        latest_task = rejected_task or self.store.get(task_id) or current
                         replay_ids = _controller_replay_ids(latest_task)
                         replay_records = self.store.expand_evidence(
                             task_id, replay_ids

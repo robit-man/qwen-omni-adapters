@@ -1396,9 +1396,16 @@ class BackgroundTaskStore:
                     entry["reasons"] = list(
                         dict.fromkeys([*entry.get("reasons", []), bounded_reason])
                     )[-16:]
+                # A malformed contract is not evidence that the whole
+                # RETRIEVE or ACT class is exhausted.  Only repeated proof
+                # that the selected class has no executable operation may
+                # close that class.  Shape, scope, and field errors remain
+                # recoverable through a narrowed manager grammar.
                 if (
                     candidate in {"retrieve", "act"}
                     and entry["count"] >= STAGNANT_ACTION_RETIRE_THRESHOLD
+                    and set(entry.get("reasons", []))
+                    == {"no_admissible_operations"}
                 ):
                     exhausted = [
                         str(item)[:24]
