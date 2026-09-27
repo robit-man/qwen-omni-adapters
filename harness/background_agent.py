@@ -2008,7 +2008,11 @@ def _background_tool_contract(
                             "change_environment",
                             "change_external_state",
                         ]
-                        successor_schema["maxItems"] = 0
+                        # Some grammar backends do not enforce maxItems=0 and
+                        # still synthesize a second ACT. Remove the field from
+                        # the closed terminal-transition schema altogether.
+                        properties.pop("successor_contracts", None)
+                        required.remove("successor_contracts")
                     elif manage_next_decisions == ["retrieve"]:
                         properties["expected_effect"]["enum"] = [
                             "resolve_unknown"
@@ -2023,12 +2027,14 @@ def _background_tool_contract(
                     "change_environment",
                     "change_external_state",
                 ]
-                successor_schema["maxItems"] = 0
+                properties.pop("successor_contracts", None)
+                required.remove("successor_contracts")
             elif manage_decisions == ["retrieve"]:
                 properties["expected_effect"]["enum"] = ["resolve_unknown"]
                 successor_schema["minItems"] = 1
             elif manage_decisions == ["ask"]:
-                successor_schema["maxItems"] = 0
+                properties.pop("successor_contracts", None)
+                required.remove("successor_contracts")
         schemas = [manager]
     elif audit_required:
         schemas = _audit_tool_schemas(active_tools, execution_contract)

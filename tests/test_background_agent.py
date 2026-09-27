@@ -2279,6 +2279,24 @@ def test_retrieve_recovery_schema_requires_a_nonempty_successor_frontier() -> No
     assert _manage_decision_contract(task) == ["retrieve"]
 
 
+def test_terminal_manage_schemas_do_not_expose_successor_contracts() -> None:
+    for decisions, next_decisions in ((["act"], None), (["replan"], ["act"])):
+        schema = _background_tool_contract(
+            [],
+            manage_required=True,
+            manage_decisions=decisions,
+            manage_next_decisions=next_decisions,
+            recovery_required=False,
+            phase_boundary=False,
+            expand_available=False,
+            can_checkpoint=False,
+            resident_context_tokens=16_384,
+        )
+        parameters = schema[0]["function"]["parameters"]
+        assert "successor_contracts" not in parameters["required"]
+        assert "successor_contracts" not in parameters["properties"]
+
+
 def test_frontier_survives_compaction_release_and_reclaim(tmp_path: Path) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
     created = store.create("Preserve a committed mutation.", "Artifact verified.")
