@@ -348,6 +348,8 @@
     cacheTimer: null,
     cacheWrite: Promise.resolve(),
     cacheErrorReported: false,
+    serverSequence: 0,
+    sessionSyncing: false,
     call: null,
     camera: null,
     voice: {
@@ -424,7 +426,11 @@
       savedAt: Date.now(),
       history: state.history
         .filter(item => item && ["user", "assistant"].includes(item.role))
-        .map(item => ({ role: item.role, content: String(item.content || "") })),
+        .map(item => ({
+          role: item.role,
+          content: String(item.content || ""),
+          turnId: String(item.turnId || ""),
+        })),
       messages: state.messages
         .filter(record => record.node.isConnected)
         .map(record => ({
@@ -438,9 +444,11 @@
           audio: record.audio && record.audio.data ? { ...record.audio } : null,
           media: (record.media || []).map(item => mediaCacheValue(item)),
           error: Boolean(record.error),
+          turnId: String(record.turnId || ""),
         })),
       attachments: state.attachments.map(item => mediaCacheValue(item, { pending: true })),
       draft: elements.prompt.value,
+      serverSequence: state.serverSequence,
     };
   }
 
@@ -509,8 +517,13 @@
       state.history = Array.isArray(snapshot.history)
         ? snapshot.history
           .filter(item => item && ["user", "assistant"].includes(item.role))
-          .map(item => ({ role: item.role, content: String(item.content || "") }))
+          .map(item => ({
+            role: item.role,
+            content: String(item.content || ""),
+            turnId: String(item.turnId || ""),
+          }))
         : [];
+      state.serverSequence = Math.max(0, Number(snapshot.serverSequence) || 0);
       for (const item of Array.isArray(snapshot.messages) ? snapshot.messages : []) {
         if (!item || !["user", "assistant"].includes(item.role)) continue;
         addMessage({
@@ -525,6 +538,7 @@
           media: (Array.isArray(item.media) ? item.media : []).map(hydrateMediaValue),
           error: Boolean(item.error),
           autoplayAudio: false,
+          turnId: String(item.turnId || ""),
         });
       }
       state.attachments = (Array.isArray(snapshot.attachments) ? snapshot.attachments : [])
@@ -539,6 +553,129 @@
     state.cacheReady = true;
     await window.OmniSessionCache.touch(state.cacheScope).catch(() => false);
     scrollConversationToBottom({ smooth: false });
+  }
+
+  function valueContainsTaskId(value, taskId) {
+    if (Array.isArray(value)) return value.some(item => valueContainsTaskId(item, taskId));
+    if (!value || typeof value !== "object") return false;
+    if (String(value.task_id || "") === taskId) return true;
+    return Object.values(value).some(item => valueContainsTaskId(item, taskId));
+  }
+
+  function mergeBackgroundTaskUpdates(tasks) {
+    let changed = false;
+    for (const task of Array.isArray(tasks) ? tasks : []) {
+      const taskId = String((task || {}).task_id || "");
+      if (!taskId) continue;
+      for (const record of state.messages.filter(item => item.role === "assistant")) {
+        const trace = normalizedToolTrace(record.toolTrace);
+        let traceChanged = false;
+        for (const item of trace) {
+          if (item.name !== "background_task" || !item.resultIsJson) continue;
+          if (!valueContainsTaskId(item.resultJson, taskId)) continue;
+          if (Number((item.resultJson.latest_task || {}).updated_at) === Number(task.updated_at)) {
+            continue;
+          }
+          item.resultJson = { ...item.resultJson, latest_task: task };
+          item.result = JSON.stringify(item.resultJson);
+          item.resultIsJson = true;
+          item.status = ["completed", "blocked", "cancelled"].includes(String(task.status || ""))
+            ? "complete"
+            : "running";
+          traceChanged = true;
+        }
+        if (traceChanged) {
+          updateMessage(record, { toolTrace: trace, streaming: record.streaming });
+          changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
+  function upsertTurnHistory(turn) {
+    const turnId = String(turn.turn_id || "");
+    if (!turnId || turn.status !== "complete") return;
+    const userContent = String(((turn.user || {}).content) || "");
+    const assistantContent = String(((turn.assistant || {}).content) || "");
+    state.history = state.history.filter(item => String(item.turnId || "") !== turnId);
+    if (userContent) state.history.push({ role: "user", content: userContent, turnId });
+    if (assistantContent) state.history.push({ role: "assistant", content: assistantContent, turnId });
+  }
+
+  function applyServerTurn(turn) {
+    if (!turn || typeof turn !== "object") return false;
+    const turnId = String(turn.turn_id || "");
+    if (!turnId) return false;
+    const userState = turn.user || {};
+    const assistantState = turn.assistant || {};
+    let user = state.messages.find(item => item.role === "user" && item.turnId === turnId);
+    let assistant = state.messages.find(item => item.role === "assistant" && item.turnId === turnId);
+    if (!user) {
+      user = addMessage({
+        role: "user",
+        content: String(userState.content || "Submitted turn"),
+        turnId,
+      });
+    } else {
+      updateMessage(user, {
+        content: String(userState.content || user.content || ""),
+        audioObservation: String(turn.audio_observation || user.audioObservation || ""),
+        soundOnly: !turn.input_transcript && Boolean(turn.audio_observation),
+      });
+    }
+    const failed = turn.status === "error";
+    if (!assistant) {
+      assistant = addMessage({
+        role: "assistant",
+        content: failed
+          ? String(turn.error || "The detached turn failed")
+          : String(assistantState.content || ""),
+        thinking: String(assistantState.thinking || ""),
+        toolTrace: assistantState.tool_trace || [],
+        error: failed,
+        streaming: turn.status === "running",
+        turnId,
+      });
+    } else {
+      assistant.error = failed;
+      assistant.node.classList.toggle("error", failed);
+      updateMessage(assistant, {
+        content: failed
+          ? String(turn.error || assistantState.content || "The detached turn failed")
+          : String(assistantState.content || ""),
+        thinking: String(assistantState.thinking || ""),
+        toolTrace: assistantState.tool_trace || [],
+        streaming: turn.status === "running",
+      });
+      revealMessage(assistant);
+    }
+    upsertTurnHistory(turn);
+    return true;
+  }
+
+  async function syncSessionState() {
+    if (!state.token || !state.cacheReady || state.cacheDeleted || state.sessionSyncing) return;
+    state.sessionSyncing = true;
+    try {
+      const response = await fetch(`/api/session-state?after=${state.serverSequence}`, {
+        headers: authHeaders(),
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      let changed = false;
+      for (const turn of Array.isArray(data.turns) ? data.turns : []) {
+        changed = applyServerTurn(turn) || changed;
+      }
+      changed = mergeBackgroundTaskUpdates(data.tasks) || changed;
+      state.serverSequence = Math.max(state.serverSequence, Number(data.sequence) || 0);
+      if (changed) scheduleBrowserSessionSave(0);
+    } catch (_error) {
+      // A reconnect is opportunistic. The next activity tick retries it.
+    } finally {
+      state.sessionSyncing = false;
+    }
   }
 
   function setComposerStatus(text, error = false) {
@@ -1222,6 +1359,22 @@
     return parts.join("\n") || fallback;
   }
 
+  function newPortalTurnId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    const bytes = new Uint8Array(18);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("");
+  }
+
+  function modelHistory() {
+    return state.history.slice(-12).map(item => ({
+      role: item.role,
+      content: String(item.content || ""),
+    }));
+  }
+
   function loopingVideo(item, { ownsUrl = false } = {}) {
     if (item.mime === "image/gif") {
       const image = document.createElement("img");
@@ -1326,6 +1479,7 @@
     error = false,
     streaming = false,
     autoplayAudio = true,
+    turnId = "",
   }) {
     const node = elements.template.content.firstElementChild.cloneNode(true);
     node.classList.add(role === "user" ? "user" : "assistant");
@@ -1346,6 +1500,7 @@
       media,
       streaming,
       playback: Promise.resolve(),
+      turnId: String(turnId || ""),
     };
     const copyButton = node.querySelector(".message-copy-button");
     copyButton.addEventListener("click", () => {
@@ -1666,8 +1821,11 @@
   }
 
   async function streamChat(payload, { signal, onEvent } = {}) {
-    let replayUnsafe = false;
+    let replayUnsafe = payload.portal_detached_turn === true;
     const observe = event => {
+      if (Number.isFinite(Number(event.server_seq))) {
+        state.serverSequence = Math.max(state.serverSequence, Number(event.server_seq));
+      }
       if (event.type === "audio_start") replayUnsafe = true;
       if (event.type === "tool" && event.phase === "complete") {
         for (const item of event.tools || []) {
@@ -2670,7 +2828,7 @@
     if (frame) message.images = [frame];
     const callMessages = [
       { role: "system", content: LIVE_CALL_SYSTEM_PROMPT },
-      ...state.history.slice(-12),
+      ...modelHistory(),
       message,
     ];
     const user = addMessage({
@@ -3119,10 +3277,10 @@
     const messages = hasMedia
       ? [
         { role: "system", content: MEDIA_CONVERSATION_SYSTEM_PROMPT },
-        ...state.history.slice(-12),
+        ...modelHistory(),
         message,
       ]
-      : [...state.history.slice(-12), message];
+      : [...modelHistory(), message];
     return {
       task,
       hasMedia,
@@ -3167,6 +3325,9 @@
       return showError(error);
     }
 
+    const turnId = newPortalTurnId();
+    built.payload.portal_turn_id = turnId;
+    built.payload.portal_detached_turn = true;
     const requestSequence = ++state.requestSequence;
     if (state.call) supersedeCallAudio(state.call, state.call.nextSequence);
     stopCurrentPlayback();
@@ -3176,6 +3337,7 @@
       role: "user",
       content: built.display,
       media: sentMedia,
+      turnId,
     });
     state.attachments = [];
     renderAttachments();
@@ -3187,7 +3349,9 @@
         ? "Transcribing audio…"
         : (built.wantsThinking ? "Reasoning…" : "Replying…"),
     );
-    const assistant = addMessage({ role: "assistant", content: "", streaming: true });
+    const assistant = addMessage({
+      role: "assistant", content: "", streaming: true, turnId,
+    });
     assistant.node.hidden = true;
     let streamedContent = "";
     let streamedThinking = "";
@@ -3222,6 +3386,7 @@
       if (historyRecorded || !(built.task === "chat" || built.hasMedia)) return;
       state.history.push({
         role: "user",
+        turnId,
         content: built.audioOnly
           ? audioEvidenceHistory(
             inputTranscript,
@@ -3230,7 +3395,9 @@
           )
           : built.message.content,
       });
-      if (replyContent) state.history.push({ role: "assistant", content: replyContent });
+      if (replyContent) {
+        state.history.push({ role: "assistant", content: replyContent, turnId });
+      }
       historyRecorded = true;
     };
     const preserveStreamedAssistant = () => {
@@ -3620,6 +3787,7 @@
     clearSessionDiagnostics();
     state.cacheSuppress = true;
     state.history = [];
+    state.serverSequence = 0;
     state.clientLocation = undefined;
     state.clientLocationPromise = null;
     state.clientLocationRetryAt = 0;
@@ -3659,15 +3827,20 @@
     persistBrowserSessionOnLeave();
     reportDiagnostic("page_leave");
   });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) persistBrowserSessionOnLeave();
+  });
 
   async function initializePortal() {
     state.token = accessToken();
     applyVoiceDefaults();
     await restoreBrowserSession();
     if (!state.token) showError(new Error("This link is missing its access fragment"));
+    await syncSessionState();
     refreshStatus();
     refreshActivity();
     setInterval(refreshActivity, 2_000);
+    setInterval(syncSessionState, 2_000);
     setInterval(refreshStatus, 15_000);
     setInterval(() => {
       if (state.cacheReady && !state.cacheDeleted && window.OmniSessionCache) {

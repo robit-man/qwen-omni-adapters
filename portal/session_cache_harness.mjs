@@ -10,7 +10,7 @@ const { createSessionCache, memoryStorage } = globalThis.OmniSessionCacheFactory
 async function main() {
   let now = 10_000;
   const storage = memoryStorage();
-  const cache = createSessionCache({ storage, now: () => now, ttlMs: 300_000 });
+  const cache = createSessionCache({ storage, now: () => now });
   const scope = "test-session-scope";
 
   await cache.save(scope, {
@@ -21,8 +21,10 @@ async function main() {
 
   now += 120_000;
   await cache.markLeft(scope);
-  now += 299_999;
+  now += 7 * 24 * 60 * 60 * 1000;
   assert.equal((await cache.load(scope)).messages[0].media[0].kind, "video");
+  now += cache.ttlMs - (7 * 24 * 60 * 60 * 1000) - 1;
+  assert.equal((await cache.load(scope)).history[0].content, "remember this");
   now += 2;
   assert.equal(await cache.load(scope), null);
 

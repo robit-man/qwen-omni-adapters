@@ -182,10 +182,15 @@ to that source rather than described as something the assistant sees.
 
 Same-origin IndexedDB persists rendered messages, text context, drafts, reply
 audio, pending attachments, and bounded media previews across reload. Its key
-contains a one-way scope derived from the Secure cookie. Active pages renew a
-five-minute lease; page leave starts expiry, and trash deletes browser cache,
-document index, and diagnostics immediately. Restored media is display-only and
-never enters a new request automatically.
+contains a one-way scope derived from the Secure cookie. Active pages and
+returning visits renew a 30-day lease; page leave persists the latest snapshot,
+and trash deletes browser cache, document index, and diagnostics immediately.
+Restored media is display-only and never enters a new request automatically.
+Ordinary submitted turns use stable IDs and a detached server relay. A returning
+page requests sequence-numbered model/tool updates newer than its IndexedDB
+snapshot, merges them once, and continues polling associated background-task
+state. Live-call streams are deliberately excluded so speech barge-in still
+cancels obsolete inference.
 
 Each request receives a compact stable behavioral policy, not an eager runtime
 snapshot. With tools enabled, `get_system_snapshot` explicitly samples current
@@ -207,9 +212,10 @@ The default portal admits four simultaneous HTTP requests and serializes them
 through one GPU inference lane. The number beside **ONLINE** counts distinct
 browser sessions with active or queued work. Request bodies, streams, media,
 voice overrides, tool rounds, and responses remain request-local. Conversation
-history exists only in each session-scoped IndexedDB record; the server has no
-shared conversation or media history to bleed into another user. Records expire
-five minutes after page leave and trash removes them immediately. The optional in-memory document
+presentation history exists in each session-scoped IndexedDB record. The server
+keeps only a bounded text/tool continuation journal under a hashed session key;
+it never retains media and cannot be read from another browser session. Both
+records survive page leave for 30 days and trash removes them immediately. The optional in-memory document
 index is keyed by the hashed opaque session cookie, has independent bounds and
 expiry, and is never searched across sessions.
 

@@ -870,15 +870,18 @@ separate so environmental sounds are never misrouted as the user's words.
   for local-browser public-web discovery/fetch, attached-document retrieval,
   current time/capabilities, on-demand host snapshots, and temporary session
   web/memory recall and isolated text-only sub-agent delegation. Tool chains
-  continue until a final answer, request timeout, or client disconnect. Exact
-  duplicate side effects are blocked without terminating recovery; live collapsible execution
-  evidence appears in the response and phone UI. No hosted search API is used.
+  continue until a final answer or request timeout. Repeated calls execute as
+  requested; live collapsible execution evidence appears in the response and
+  phone UI. No hosted search API is used.
 - Same-origin IndexedDB restores messages, drafts, pending attachments, reply
   audio, and bounded image/video previews after reload. It is keyed by a
-  one-way cookie-derived scope, begins a five-minute expiry on page leave, and
+  one-way cookie-derived scope, survives page leave for 30 days, and
   is deleted immediately by trash. Restored media is display-only and is never
-  submitted automatically. The server has no shared model conversation state.
-  The document index follows the same session partition and expiry policy.
+  submitted automatically. Ordinary submitted turns continue in a detached
+  relay and publish bounded text/tool snapshots to a hashed-cookie continuation
+  journal; reconnect merges newer sequence numbers exactly once. Live-call
+  inference remains cancelable for verbal interruption. The document index
+  follows the same session partition and expiry policy.
 - Long speech is split before the per-generation codec-frame ceiling, streamed
   with continuous sequence numbers, and assembled into one complete final WAV.
 - Trained-bridge runtime loads the matching shipped Qwen3-TTS voice profile for

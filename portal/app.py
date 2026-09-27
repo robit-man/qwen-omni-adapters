@@ -62,6 +62,7 @@ try:
     from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import portal_behavior_system_message
+    from portal.session_state import SessionContinuationStore
     from portal.tools import (
         DISCOVERY_TOOLS,
         SAFE_TOOLS,
@@ -78,6 +79,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from deliveries import FileDeliveryError, SessionFileDeliveryStore
     from documents import DocumentError, SessionDocumentStore
     from environment import portal_behavior_system_message
+    from session_state import SessionContinuationStore
     from tools import (
         DISCOVERY_TOOLS,
         SAFE_TOOLS,
@@ -118,6 +120,7 @@ VOICE_CLIENT_FIELDS = {
 MAX_SPEAKER_REFERENCE_BYTES = 10 * 1024 * 1024
 MAX_INTERNAL_VIRTUAL_QUERY_CHARS = 1_200
 SESSION_COOKIE_NAME = "omni_portal_session"
+BROWSER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 DIAGNOSTIC_TTL_SECONDS = 5 * 60
 MAX_STREAM_NETWORK_RETRIES = 1
 DIAGNOSTIC_NUMERIC_FIELDS = {
@@ -744,6 +747,53 @@ class _SessionDiagnostics:
         if self.directory is not None:
             (self.directory / f"{key}.json").unlink(missing_ok=True)
             (self.directory / f"{key}.tmp").unlink(missing_ok=True)
+
+
+class _DetachedStream:
+    """One bounded producer buffer whose lifetime is independent of the page."""
+
+    def __init__(self, max_bytes: int = 64 * 1024 * 1024) -> None:
+        self.max_bytes = max(1024 * 1024, int(max_bytes))
+        self._condition = threading.Condition()
+        self._chunks: deque[tuple[int, bytes]] = deque()
+        self._next_index = 0
+        self._stored_bytes = 0
+        self._done = False
+
+    def publish(self, chunk: bytes) -> None:
+        if not chunk:
+            return
+        with self._condition:
+            self._chunks.append((self._next_index, chunk))
+            self._next_index += 1
+            self._stored_bytes += len(chunk)
+            while len(self._chunks) > 1 and self._stored_bytes > self.max_bytes:
+                _index, removed = self._chunks.popleft()
+                self._stored_bytes -= len(removed)
+            self._condition.notify_all()
+
+    def finish(self) -> None:
+        with self._condition:
+            self._done = True
+            self._condition.notify_all()
+
+    def iter_bytes(self):
+        cursor = 0
+        while True:
+            with self._condition:
+                self._condition.wait_for(
+                    lambda expected=cursor: self._done
+                    or (self._chunks and self._chunks[-1][0] >= expected)
+                )
+                if self._chunks and cursor < self._chunks[0][0]:
+                    cursor = self._chunks[0][0]
+                available = [chunk for index, chunk in self._chunks if index >= cursor]
+                if available:
+                    cursor += len(available)
+                done = self._done and cursor >= self._next_index
+            yield from available
+            if done:
+                return
 
 
 def _diagnostic_fields(raw: Mapping[str, Any]) -> dict[str, Any]:
@@ -1866,16 +1916,26 @@ def create_app(
             ),
         }
 
+    background_tasks = (
+        BackgroundTaskStore(runtime.background_task_path)
+        if runtime.background_task_path is not None
+        else None
+    )
+    continuation_root = (
+        runtime.background_task_path.parent
+        if runtime.background_task_path is not None
+        else Path("runtime-data/state")
+    ) / "browser-sessions"
+    continuations = SessionContinuationStore(
+        continuation_root,
+        ttl_s=BROWSER_SESSION_TTL_SECONDS,
+    )
     tool_harness = PortalToolHarness(
         documents,
         ttl_s=runtime.session_log_ttl_s,
         web_client=web_client,
         subagent_runner=run_subagent,
-        background_tasks=(
-            BackgroundTaskStore(runtime.background_task_path)
-            if runtime.background_task_path is not None
-            else None
-        ),
+        background_tasks=background_tasks,
         memory_governor=(
             MemoryGovernor(runtime.memory_policy)
             if runtime.memory_policy is not None
@@ -2284,7 +2344,7 @@ def create_app(
         response.set_cookie(
             SESSION_COOKIE_NAME,
             browser_session,
-            max_age=24 * 60 * 60,
+            max_age=BROWSER_SESSION_TTL_SECONDS,
             secure=True,
             httponly=True,
             samesite="Strict",
@@ -2444,6 +2504,23 @@ def create_app(
         diagnostics.touch(request_session_id())
         return jsonify(inference_queue.snapshot())
 
+    @app.get("/api/session-state")
+    def session_state():
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        try:
+            after = max(0, int(request.args.get("after", "0")))
+        except ValueError:
+            return jsonify({"error": "after must be a non-negative integer"}), 400
+        snapshot = continuations.snapshot(request_session_id(), after=after)
+        snapshot["tasks"] = [
+            task
+            for task_id in snapshot.pop("task_ids", [])
+            if background_tasks is not None
+            and (task := background_tasks.get(task_id)) is not None
+        ]
+        return jsonify(snapshot)
+
     @app.route("/api/diagnostics", methods=["GET", "POST", "DELETE"])
     def session_diagnostics():
         if not authorized():
@@ -2454,6 +2531,7 @@ def create_app(
             documents.clear(session_id)
             tool_harness.clear(session_id)
             virtual_context.clear(session_id)
+            continuations.clear(session_id)
             return Response(status=204)
         if request.method == "GET":
             return jsonify(diagnostics.snapshot(session_id))
@@ -2808,8 +2886,13 @@ def create_app(
         if not isinstance(payload, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
+        detached_turn = payload.pop("portal_detached_turn", False) is True
+        supplied_turn_id = str(payload.pop("portal_turn_id", "") or "").strip()
+        if detached_turn and not re.fullmatch(r"[A-Za-z0-9_-]{12,96}", supplied_turn_id):
+            return jsonify({"error": "detached portal turn requires a valid turn ID"}), 400
         auto_tools = payload.pop("portal_auto_tools", False) is True
         internal_background = payload.pop("portal_background_worker", False) is True
+        continuation_enabled = detached_turn and not internal_background
         preserve_controller_packet = (
             payload.pop("portal_preserve_controller_packet", False) is True
         )
@@ -2915,6 +2998,13 @@ def create_app(
                 request_id,
                 diagnostic_fields,
             )
+            if continuation_enabled:
+                continuations.begin(
+                    session_id,
+                    supplied_turn_id,
+                    request_id,
+                    _latest_user_context(raw_messages),
+                )
             _record_media_diagnostics(
                 diagnostics, session_id, request_id, diagnostic_media_ids
             )
@@ -2936,6 +3026,12 @@ def create_app(
         queue_started = time.monotonic()
         ticket = inference_queue.acquire(session_id, runtime.timeout_s)
         if ticket is None:
+            if continuation_enabled:
+                continuations.event(
+                    session_id,
+                    supplied_turn_id,
+                    {"type": "error", "error": "inference queue is full or timed out"},
+                )
             diagnostics.record(
                 session_id,
                 "request_complete",
@@ -2974,6 +3070,12 @@ def create_app(
             )
         except httpx.HTTPError as exc:
             inference_queue.release(ticket)
+            if continuation_enabled:
+                continuations.event(
+                    session_id,
+                    supplied_turn_id,
+                    {"type": "error", "error": str(exc)[:500]},
+                )
             diagnostics.record(
                 session_id,
                 "request_complete",
@@ -2998,7 +3100,13 @@ def create_app(
             stream_retries = 0
 
             def event_bytes(event: Mapping[str, Any]) -> bytes:
-                return (json.dumps(event, separators=(",", ":")) + "\n").encode()
+                emitted = copy.deepcopy(dict(event))
+                if continuation_enabled:
+                    emitted["server_seq"] = continuations.event(
+                        session_id, supplied_turn_id, emitted
+                    )
+                    emitted["turn_id"] = supplied_turn_id
+                return (json.dumps(emitted, separators=(",", ":")) + "\n").encode()
 
             try:
                 if current_upstream.status_code >= 400:
@@ -3257,8 +3365,41 @@ def create_app(
                     request_id=request_id,
                 )
 
+        response_iterable: Any
+        if continuation_enabled:
+            detached = _DetachedStream()
+
+            def produce_detached() -> None:
+                try:
+                    for chunk in relay():
+                        detached.publish(chunk)
+                except Exception as exc:  # noqa: BLE001 - preserve reconnect evidence
+                    logger.exception("detached portal turn failed")
+                    error_event: dict[str, Any] = {
+                        "type": "error",
+                        "error": f"detached turn failed: {type(exc).__name__}",
+                    }
+                    error_event["server_seq"] = continuations.event(
+                        session_id, supplied_turn_id, error_event
+                    )
+                    error_event["turn_id"] = supplied_turn_id
+                    detached.publish(
+                        (json.dumps(error_event, separators=(",", ":")) + "\n").encode()
+                    )
+                finally:
+                    detached.finish()
+
+            threading.Thread(
+                target=produce_detached,
+                name=f"portal-turn-{request_id}",
+                daemon=True,
+            ).start()
+            response_iterable = detached.iter_bytes()
+        else:
+            response_iterable = stream_with_context(relay())
+
         return Response(
-            stream_with_context(relay()),
+            response_iterable,
             status=upstream.status_code,
             content_type=upstream.headers.get(
                 "content-type", "application/x-ndjson; charset=utf-8"
@@ -3266,6 +3407,11 @@ def create_app(
             headers={
                 "X-Accel-Buffering": "no",
                 "X-Omni-Request-ID": request_id,
+                **(
+                    {"X-Omni-Turn-ID": supplied_turn_id}
+                    if continuation_enabled
+                    else {}
+                ),
             },
         )
 

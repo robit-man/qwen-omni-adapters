@@ -1986,6 +1986,7 @@ def test_portal_index_has_mobile_security_headers_and_no_token() -> None:
     assert "Secure" in cookie
     assert "HttpOnly" in cookie
     assert "SameSite=Strict" in cookie
+    assert "Max-Age=2592000" in cookie
 
     asset = client.get("/assets/portal.js")
     assert asset.status_code == 200
@@ -2165,6 +2166,12 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert 'item.mime === "image/gif"' in javascript
     assert "function restoreBrowserSession" in javascript
     assert "function persistBrowserSessionOnLeave" in javascript
+    assert "function syncSessionState" in javascript
+    assert "function applyServerTurn" in javascript
+    assert "portal_detached_turn = true" in javascript
+    assert "setInterval(syncSessionState, 2_000)" in javascript
+    assert 'document.addEventListener("visibilitychange"' in javascript
+    assert "if (document.hidden) persistBrowserSessionOnLeave();" in javascript
     assert "function clearBrowserSessionCache" in javascript
     assert "window.OmniSessionCache.clear(state.cacheScope)" in javascript
     assert "state.cacheDeleted = true" in javascript
@@ -2183,7 +2190,7 @@ def test_browser_session_cache_harness_restores_expires_and_clears() -> None:
     )
 
     result = json.loads(completed.stdout)
-    assert result == {"status": "passed", "ttl_ms": 300_000}
+    assert result == {"status": "passed", "ttl_ms": 2_592_000_000}
 
 
 def test_mock_call_vad_harness_rejects_noise_and_accepts_confirmed_events() -> None:
@@ -6007,6 +6014,101 @@ def test_portal_stream_route_requires_auth_and_chains_session_tools() -> None:
     assert complete_events[0]["tools"][0]["status"] == "complete"
     assert complete_events[0]["tools"][0]["result"]
     assert events[-1]["response"]["message"]["content"] == "Violet."
+
+
+def test_detached_portal_turn_survives_page_disconnect_and_replays_once(
+    tmp_path: Path,
+) -> None:
+    class SlowStream(httpx.SyncByteStream):
+        def __iter__(self):
+            yield (
+                json.dumps(
+                    {
+                        "type": "delta",
+                        "message": {"role": "assistant", "content": "Working"},
+                    }
+                )
+                + "\n"
+            ).encode()
+            time.sleep(0.08)
+            yield (
+                json.dumps(
+                    {
+                        "type": "final",
+                        "response": {
+                            "message": {
+                                "role": "assistant",
+                                "content": "Finished while the page was away.",
+                            }
+                        },
+                    }
+                )
+                + "\n"
+            ).encode()
+
+    seen: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            stream=SlowStream(),
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    app = create_app(
+        _config(
+            session_log_dir=tmp_path / "logs",
+            background_task_path=tmp_path / "state" / "tasks.json",
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    browser = app.test_client()
+    other_browser = app.test_client()
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    browser.get("/")
+    other_browser.get("/")
+
+    response = browser.post(
+        "/api/chat/stream",
+        headers=headers,
+        json=_request(
+            stream=True,
+            portal_turn_id="turn_disconnect_1234",
+            portal_detached_turn=True,
+        ),
+        buffered=False,
+    )
+    first = json.loads(next(response.response))
+    assert first["type"] == "delta"
+    assert first["turn_id"] == "turn_disconnect_1234"
+    response.close()
+
+    deadline = time.monotonic() + 2
+    state = {}
+    while time.monotonic() < deadline:
+        state = browser.get("/api/session-state?after=0", headers=headers).get_json()
+        if state.get("turns") and state["turns"][0].get("status") == "complete":
+            break
+        time.sleep(0.02)
+
+    assert seen and "portal_turn_id" not in seen[0]
+    assert "portal_detached_turn" not in seen[0]
+    assert state["turns"][0]["assistant"]["content"] == (
+        "Finished while the page was away."
+    )
+    sequence = state["sequence"]
+    assert browser.get(
+        f"/api/session-state?after={sequence}", headers=headers
+    ).get_json()["turns"] == []
+    assert other_browser.get(
+        "/api/session-state?after=0", headers=headers
+    ).get_json()["turns"] == []
+
+    assert browser.delete("/api/diagnostics", headers=headers).status_code == 204
+    assert browser.get(
+        "/api/session-state?after=0", headers=headers
+    ).get_json()["turns"] == []
 
 
 def test_portal_stream_tool_chain_has_no_legacy_fifty_call_cap() -> None:

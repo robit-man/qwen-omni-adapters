@@ -47,8 +47,10 @@ browser, portal, control tools, and discovery schemas read the same packaged
 configuration. Conversation-trace tests inject a mock sink and cover heard,
 generated, TTS-input, and playback events without enabling content logging by
 default.
-The browser-cache harness covers restore, five-minute logical expiry, media
-preview retention, and explicit clear. Environment tests assert bounded output
+The browser-cache harness covers restore, 30-day leave-and-return expiry, media
+preview retention, and explicit clear. Portal tests also disconnect a page
+mid-generation, prove the detached turn reaches a final state, replay it only
+to the originating session, and prove Trash removes the journal. Environment tests assert bounded output
 and the omission of IP/MAC data. The persistent-TTS harness proves that two
 prompts reuse one process while returning independent framed PCM sequences.
 The real-component gate also synthesizes distinct A, B, A sentinel prompts and

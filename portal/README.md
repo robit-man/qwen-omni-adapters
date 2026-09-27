@@ -186,9 +186,9 @@ used as conversation state.
 
 Conversation history, rendered messages, reply audio, drafts, and bounded media
 previews live in same-origin IndexedDB under a one-way cookie-derived scope.
-Reload restores them without re-sending old media. Page leave starts a
-five-minute expiry, and trash deletes browser cache, documents, and diagnostics
-immediately.
+Reload or a returning visit restores them without re-sending old media. Page
+leave persists them for 30 days, and trash deletes browser cache, documents,
+and diagnostics immediately.
 
 Ordinary turns receive a compact stable behavioral policy rather than a
 telemetry dump. With tools explicitly enabled, `get_system_snapshot` samples a
@@ -511,11 +511,11 @@ media base64 or the access token.
   responses, streaming iterators, voice settings, and tool rounds are
   request-local.
 - Conversation history is browser-session-local. IndexedDB restores it after
-  reload and expires it five minutes after page leave. Cached media is
-  display-only and never replayed into inference; nothing is shared server state.
-  Its only content-bearing server session state is the bounded in-memory
-  document chunk index, keyed by a hash of the opaque session cookie and never
-  addressable across sessions.
+  reload or page leave for up to 30 days. Ordinary submitted turns continue in
+  a detached relay and write bounded text/tool snapshots to a hashed-cookie
+  server journal. Reconnect merges only sequence numbers newer than the local
+  snapshot; live-call streams stay cancelable for barge-in. Cached media is
+  display-only and never enters that journal or replays into inference.
 - A random, Secure, HttpOnly, SameSite=Strict cookie partitions the aggregate
   activity count and ephemeral diagnostic journal. It is never supplied to a
   model or used to recover conversation context. `/api/activity` exposes only
@@ -530,8 +530,7 @@ media base64 or the access token.
   are purged five minutes after the session heartbeat stops.
 - The trash button aborts the page's active request/call, stops playback,
   deletes the IndexedDB browser session, and deletes that session's diagnostic
-  journal and document index immediately. A late completion from the aborted request cannot
-  recreate the deleted journal; a genuinely new request starts a new one.
+  journal, continuation journal, and document index immediately.
 - Encoded JSON is limited to 96 MiB.
 - The browser caps decoded image, video, and audio sizes below adapter limits.
 - CSP, frame denial, no-referrer, no-store, and same-origin camera/microphone
