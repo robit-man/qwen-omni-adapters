@@ -991,7 +991,7 @@
           }
         }
       },
-      "memory_admission": "bounded"
+      "memory_admission": "fixed"
     },
     {
       "schema": {

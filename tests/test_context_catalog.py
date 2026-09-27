@@ -167,6 +167,7 @@ def test_file_delivery_is_a_typed_session_scoped_action() -> None:
     parameters = entry["schema"]["function"]["parameters"]
     assert parameters["properties"]["action"]["enum"] == ["stage", "inspect"]
     assert "explicitly requested" in entry["schema"]["function"]["description"]
+    assert entry["memory_admission"] == "fixed"
 
 
 def test_live_context_forbids_support_boilerplate_and_unsolicited_transport_meta() -> None:
