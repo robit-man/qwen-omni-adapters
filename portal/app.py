@@ -1105,6 +1105,13 @@ def _tool_followup(
     discovered: list[str] = []
     active: list[str] = []
     discovery_called = False
+    supplied_gateways = retained_tool_names(
+        [
+            item
+            for item in followup.get("tools", [])
+            if isinstance(item, Mapping)
+        ]
+    )
     known_names = {item["function"]["name"] for item in SAFE_TOOLS}
     made_progress = False
     blocked_tools = blocked_tools or set()
@@ -1181,9 +1188,15 @@ def _tool_followup(
                 # schemas. Otherwise hiding foreground shell only delays it by
                 # one model round, which is how a synchronous loop returned.
                 result = dict(result)
+                blocked_discovered: set[str] = set()
                 for field in ("available_tools", "suggested_tools"):
                     values = result.get(field)
                     if isinstance(values, list):
+                        blocked_discovered.update(
+                            str(item)
+                            for item in values
+                            if str(item) in blocked_tools
+                        )
                         result[field] = [
                             str(item) for item in values if str(item) not in blocked_tools
                         ]
@@ -1195,6 +1208,29 @@ def _tool_followup(
                         if not isinstance(item, Mapping)
                         or str(item.get("name") or "") not in blocked_tools
                     ]
+                # A background-only voice profile intentionally removes direct
+                # shell execution.  Resolve that profile substitution during
+                # discovery: the model made the right capability decision and
+                # must receive the executable durable gateway, not an empty
+                # result that invites another routing round.
+                if blocked_discovered and "background_task" in supplied_gateways:
+                    for field in ("available_tools", "suggested_tools"):
+                        values = result.get(field)
+                        if isinstance(values, list) and "background_task" not in values:
+                            values.append("background_task")
+                    results = result.get("results")
+                    if isinstance(results, list) and not any(
+                        isinstance(item, Mapping)
+                        and str(item.get("name") or "") == "background_task"
+                        for item in results
+                    ):
+                        results.append(
+                            {
+                                "name": "background_task",
+                                "delegated_for": sorted(blocked_discovered),
+                            }
+                        )
+                    result["execution_profile"] = "durable_background_handoff"
                 available = result.get("available_tools")
                 if isinstance(available, list):
                     discovered.extend(str(item) for item in available)
@@ -1293,13 +1329,7 @@ def _tool_followup(
     # allowing iterative shell work without paying for another discovery
     # inference. A filtered/empty discovery does not retain arbitrary leaves
     # from the broad initial audio contract; its durable gateway remains.
-    retained_gateways = retained_tool_names(
-        [
-            item
-            for item in followup.get("tools", [])
-            if isinstance(item, Mapping)
-        ]
-    ) - {"tool_search"}
+    retained_gateways = supplied_gateways - {"tool_search", *blocked_tools}
     current = [
         str(item.get("function", {}).get("name") or "")
         for item in followup.get("tools", [])
@@ -1322,8 +1352,13 @@ def _tool_followup(
         candidates = current
     concrete = list(dict.fromkeys(candidates))[:4]
     followup_names = list(dict.fromkeys([*concrete, *sorted(retained_gateways)]))
+    next_tools = tool_schemas(followup_names)
+    # A discovery result creates an isolated action window.  Omitting the
+    # discovery gateway for exactly this required-selection round prevents a
+    # small model from satisfying ``tool_choice=required`` by searching again
+    # instead of invoking one of the schemas it just requested.
     followup["tools"] = copy.deepcopy(
-        [*DISCOVERY_TOOLS, *tool_schemas(followup_names)]
+        next_tools if discovered and not active else [*DISCOVERY_TOOLS, *next_tools]
     )
     if discovered and not active and concrete:
         # Discovery is an address-resolution step, not task evidence. The
@@ -1344,6 +1379,12 @@ def _tool_round_productive(executed: list[dict[str, Any]]) -> bool:
         if item.get("duplicate") or item.get("ok") is not True:
             continue
         if str(item.get("name") or "") == "tool_search":
+            try:
+                discovery = json.loads(str(item.get("result") or "{}"))
+            except ValueError:
+                continue
+            if isinstance(discovery, Mapping) and discovery.get("available_tools"):
+                return True
             continue
         try:
             result = json.loads(str(item.get("result") or "{}"))
@@ -1744,7 +1785,11 @@ def create_app(
                 # with a learned capability disclaimer. Follow-up rounds are
                 # free to answer normally after concrete evidence arrives.
                 payload["tool_choice"] = "required"
-            initial = [*DISCOVERY_TOOLS, *tool_schemas(routed)]
+            initial = [
+                *DISCOVERY_TOOLS,
+                *tool_schemas(["shell"] if shell_bridge else []),
+                *tool_schemas(routed),
+            ]
         return list(
             {
                 str(item.get("function", {}).get("name") or ""): item
@@ -1813,6 +1858,10 @@ def create_app(
             MemoryGovernor(runtime.memory_policy)
             if runtime.memory_policy is not None
             else None
+        ),
+        shell_evidence_root=(
+            (runtime.background_task_path.parent if runtime.background_task_path else Path("runtime-data/state"))
+            / "shell-evidence"
         ),
     )
     app.config["MAX_CONTENT_LENGTH"] = runtime.max_body_bytes

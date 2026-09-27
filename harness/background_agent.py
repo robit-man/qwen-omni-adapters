@@ -3970,6 +3970,8 @@ def _bounded_tool_result(result: Any) -> Any:
             "url",
             "title",
             "rendered",
+            "output_artifacts",
+            "output_visibility",
         }
     }
     remaining = MAX_TOOL_RESULT_CHARS - len(

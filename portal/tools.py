@@ -20,6 +20,7 @@ import json
 import math
 import os
 import re
+import shutil
 import signal
 import socket
 import subprocess
@@ -79,7 +80,9 @@ DUCKDUCKGO_HTML_URL = "https://html.duckduckgo.com/html/"
 MAX_MEMORY_ENTRIES = 64
 MAX_MEMORY_ENTRY_CHARS = 4_096
 MAX_MEMORY_SESSION_CHARS = 32_768
-MAX_SHELL_OUTPUT_BYTES = 64 * 1024
+# Exact shell streams live outside the transformer working set.  These bytes
+# are only the immediate preview; output artifacts retain the full raw stream.
+MAX_SHELL_OUTPUT_BYTES = 12 * 1024
 MAX_WORKSPACE_TEXT_CHARS = 65_536
 MAX_SHELL_EFFECT_PATHS = 16
 MAX_SHELL_EFFECT_ENTRIES = 2_048
@@ -303,6 +306,8 @@ def _run_shell(
     *,
     intent: Any = None,
     mutation_paths: Any = None,
+    output_directory: Path | None = None,
+    output_session: str = "",
 ) -> dict[str, Any]:
     """Run Bash and return a typed, executor-observed effect receipt."""
 
@@ -352,6 +357,28 @@ def _run_shell(
         memory_governor.require_capacity(
             "shell", _TOOL_MEMORY_RESERVE_GIB.get("shell", 0.5)
         )
+    artifact_directory: Path | None = None
+    artifact_streams: dict[str, Any] = {}
+    artifact_hashes = {"stdout": hashlib.sha256(), "stderr": hashlib.sha256()}
+    if output_directory is not None:
+        root = Path(output_directory).expanduser().resolve(strict=False)
+        session_key = hashlib.sha256(str(output_session).encode()).hexdigest()
+        session_directory = root / session_key
+        try:
+            session_directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+            session_directory.chmod(0o700)
+            artifact_directory = Path(
+                tempfile.mkdtemp(prefix="shell-", dir=session_directory)
+            )
+            artifact_directory.chmod(0o700)
+            for stream_name in ("stdout", "stderr"):
+                artifact_path = artifact_directory / f"{stream_name}.bin"
+                artifact_streams[stream_name] = artifact_path.open("xb")
+                artifact_path.chmod(0o600)
+        except OSError as exc:
+            if artifact_directory is not None:
+                shutil.rmtree(artifact_directory, ignore_errors=True)
+            raise ToolInputError(f"could not create shell evidence artifacts: {exc}") from exc
     try:
         process = subprocess.Popen(
             ["/bin/bash", "-lc", source],
@@ -362,6 +389,10 @@ def _run_shell(
             start_new_session=True,
         )
     except OSError as exc:
+        for stream in artifact_streams.values():
+            stream.close()
+        if artifact_directory is not None:
+            shutil.rmtree(artifact_directory, ignore_errors=True)
         raise ToolInputError(f"could not start shell: {exc}") from exc
 
     captured = {"stdout": bytearray(), "stderr": bytearray()}
@@ -373,6 +404,10 @@ def _run_shell(
             if not chunk:
                 return
             totals[name] += len(chunk)
+            artifact_hashes[name].update(chunk)
+            artifact = artifact_streams.get(name)
+            if artifact is not None:
+                artifact.write(chunk)
             room = MAX_SHELL_OUTPUT_BYTES - len(captured[name])
             if room > 0:
                 captured[name].extend(chunk[:room])
@@ -422,7 +457,14 @@ def _run_shell(
         if watcher is not None:
             watcher.join(timeout=1.0)
     for thread in threads:
-        thread.join(timeout=2.0)
+        # The process has exited, so both pipes will reach EOF.  Waiting here
+        # guarantees the referenced artifact is complete rather than exposing
+        # a racing partial file to the next reasoning step.
+        thread.join()
+    for stream in artifact_streams.values():
+        stream.flush()
+        os.fsync(stream.fileno())
+        stream.close()
     if writer is not None:
         writer.join(timeout=2.0)
 
@@ -452,6 +494,17 @@ def _run_shell(
     else:
         authority = "unverified_effect"
         task_progress = False
+    output_artifacts = {
+        name: {
+            "path": str(artifact_directory / f"{name}.bin"),
+            "bytes": totals[name],
+            "sha256": artifact_hashes[name].hexdigest(),
+            "encoding": "raw_bytes",
+            "complete": True,
+        }
+        for name in ("stdout", "stderr")
+        if artifact_directory is not None
+    }
     return {
         "command": source,
         "cwd": working_directory,
@@ -462,6 +515,12 @@ def _run_shell(
         "stderr": captured["stderr"].decode("utf-8", errors="replace"),
         "stdout_truncated": totals["stdout"] > MAX_SHELL_OUTPUT_BYTES,
         "stderr_truncated": totals["stderr"] > MAX_SHELL_OUTPUT_BYTES,
+        "output_artifacts": output_artifacts,
+        "output_visibility": (
+            "exact_artifacts_with_bounded_context_preview"
+            if output_artifacts
+            else "bounded_context_preview"
+        ),
         "intent": step_intent,
         "task_progress": task_progress,
         "evidence_authority": authority,
@@ -2238,6 +2297,7 @@ class PortalToolHarness:
         browser_automation: Any | None = None,
         gui_automation: Any | None = None,
         memory_governor: MemoryGovernor | None = None,
+        shell_evidence_root: Path | None = None,
     ) -> None:
         self.documents = documents
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
@@ -2251,6 +2311,11 @@ class PortalToolHarness:
         self.location = SessionLocationStore(ttl_s=ttl_s)
         self.background_tasks = background_tasks
         self.memory_governor = memory_governor
+        self.shell_evidence_root = (
+            Path(shell_evidence_root).expanduser().resolve(strict=False)
+            if shell_evidence_root is not None
+            else None
+        )
         self.browser = browser_automation or BrowserAutomationStore(
             ttl_s=max(900.0, ttl_s),
             memory_governor=memory_governor,
@@ -2266,6 +2331,15 @@ class PortalToolHarness:
         self.location.clear(session_id)
         self.browser.clear(session_id)
         self.gui.clear(session_id)
+        if self.shell_evidence_root is not None:
+            session_key = hashlib.sha256(str(session_id).encode()).hexdigest()
+            session_directory = self.shell_evidence_root / session_key
+            try:
+                session_directory.relative_to(self.shell_evidence_root)
+            except ValueError:  # pragma: no cover - hash-derived child invariant
+                pass
+            else:
+                shutil.rmtree(session_directory, ignore_errors=True)
 
     def memory_stats(self, session_id: str) -> dict[str, int]:
         return self.memory.stats(session_id)
@@ -2467,6 +2541,8 @@ class PortalToolHarness:
                     self.memory_governor,
                     intent=arguments.get("intent"),
                     mutation_paths=arguments.get("mutation_paths"),
+                    output_directory=self.shell_evidence_root,
+                    output_session=session_id,
                 )
             elif name == "background_task":
                 if self.background_tasks is None:

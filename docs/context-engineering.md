@@ -98,6 +98,14 @@ honors user overrides and hidden tombstones, resolves advertised executables,
 and can query MIME handlers. Neither routing nor inventory depends on a list of
 expected application names.
 
+Shell is an unrestricted, sticky first-order gateway beside `tool_search` on
+every tool-enabled live turn; it does not need to be rediscovered. The durable
+worker uses the same shell for sustained work. Shell stdout and stderr are
+written losslessly as raw, SHA-256-addressed evidence artifacts with restrictive
+filesystem permissions. Only a bounded preview and the artifact receipts enter
+the active transformer context; later shell steps can page exact ranges from
+those paths. Clearing the owning portal session removes its artifact directory.
+
 Camera availability is likewise a gateway, not eager evidence. The local
 harness sends the spoken turn without a room image and exposes only
 `request_camera_view`. The model may request a still or bounded clip only when

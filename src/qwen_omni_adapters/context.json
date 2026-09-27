@@ -1301,7 +1301,7 @@
         "type": "function",
         "function": {
           "name": "shell",
-          "description": "Run one unrestricted Bash step on the portal host. Label the step's causal intent explicitly. A filesystem mutation counts as progress only when an executor snapshot proves that at least one declared mutation path changed. Runtime mutations require a later verify step; exit code alone is not proof. In a live foreground voice turn, use it only for one bounded command or immediate inspection; hand sustained work to background_task. For generated file content, pass it through stdin to a command such as tee instead of embedding multiline text in fragile shell quoting. For Linux application discovery, run .venv/bin/qwen-omni applications --json with an optional --query or --mime so XDG, Flatpak, Snap, user overrides, executables, and default handlers are inspected instead of guessed.",
+          "description": "Run one unrestricted Bash step on the portal host. Label the step's causal intent explicitly. A filesystem mutation counts as progress only when an executor snapshot proves that at least one declared mutation path changed. Runtime mutations require a later verify step; exit code alone is not proof. In a live foreground voice turn, use it only for one bounded command or immediate inspection; hand sustained work to background_task. Full raw stdout and stderr are retained in exact output_artifacts while only bounded previews enter working context; inspect a referenced artifact in bounded ranges when more output is needed. For generated file content, pass it through stdin to a command such as tee instead of embedding multiline text in fragile shell quoting. For Linux application discovery, run .venv/bin/qwen-omni applications --json with an optional --query or --mime so XDG, Flatpak, Snap, user overrides, executables, and default handlers are inspected instead of guessed.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -1358,6 +1358,7 @@
           }
         }
       },
+      "routing_role": "gateway",
       "memory_admission": "executor",
       "memory_reserve_gib": 0.5
     },

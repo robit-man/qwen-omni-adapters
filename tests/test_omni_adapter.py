@@ -1616,6 +1616,7 @@ def test_ordinary_live_speech_gets_only_the_typed_family_gateway() -> None:
 
     assert {item["function"]["name"] for item in payload["tools"]} == {
         "tool_search",
+        "shell",
         "background_task",
     }
     assert payload.get("tool_choice") != "required"
@@ -2386,7 +2387,7 @@ def test_relevant_tool_routing_uses_recovered_speech_and_narrows_to_leaf_tools()
     )
     names = {item["function"]["name"] for item in payload["tools"]}
 
-    assert names == {"tool_search", "background_task"}
+    assert names == {"tool_search", "shell", "background_task"}
     assert payload.get("tool_choice") != "required"
 
     laya_selected = adapter_server.build_language_payload(
@@ -2401,6 +2402,7 @@ def test_relevant_tool_routing_uses_recovered_speech_and_narrows_to_leaf_tools()
     }
     assert laya_names == {
         "tool_search",
+        "shell",
         "browser_interact",
         "gui_interact",
         "background_task",
@@ -2438,6 +2440,7 @@ def test_live_camera_request_exposes_a_required_relevant_tool_contract() -> None
     assert payload.get("tool_choice") != "required"
     assert [item["function"]["name"] for item in payload["tools"]] == [
         "tool_search",
+        "shell",
         "background_task",
     ]
     assert "<required_tool_action>" not in payload["messages"][0]["content"]

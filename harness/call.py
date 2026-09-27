@@ -530,12 +530,10 @@ class CallSession:
                 and self._frame_grabber is not None
                 and frame is None
             ),
-            # Host execution belongs to the checkpointed worker. Giving the
-            # foreground both shell and background_task let a small model pick
-            # shell, enter a synchronous retry loop, and strand the spoken
-            # turn. The worker still receives unrestricted raw Bash and every
-            # result; only the latency-critical selection is made structural.
-            "portal_shell_bridge": False,
+            # Shell is a first-order live capability. Its exact output is
+            # stored outside the working context, while sustained work can
+            # still move through the checkpointed background gateway.
+            "portal_shell_bridge": bool(with_tools),
             # One compact handoff contract lets a spoken turn return promptly
             # while a checkpointed worker performs sustained tool chains.
             "portal_background_bridge": bool(

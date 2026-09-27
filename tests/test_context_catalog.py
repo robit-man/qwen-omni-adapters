@@ -113,11 +113,17 @@ def test_foreground_gateway_is_described_as_execution_capability() -> None:
         for item in catalog["tools"]
         if item["schema"]["function"]["name"] == "background_task"
     )
+    shell_entry = next(
+        item
+        for item in catalog["tools"]
+        if item["schema"]["function"]["name"] == "shell"
+    )
 
     assert "undiscovered, not unavailable" in live
     assert "Report a capability blocker only after a relevant tool attempt" in live
     assert "full allowed tool catalog" in execution
     assert "execution gateway" in background["description"]
+    assert shell_entry["routing_role"] == "gateway"
 
 
 def test_background_task_is_a_sticky_routing_gateway_only_when_supplied() -> None:
@@ -126,9 +132,11 @@ def test_background_task_is_a_sticky_routing_gateway_only_when_supplied() -> Non
         schema for schema in schemas if schema["function"]["name"] == "background_task"
     )
     search = next(schema for schema in schemas if schema["function"]["name"] == "tool_search")
+    shell = next(schema for schema in schemas if schema["function"]["name"] == "shell")
 
-    assert retained_tool_names([search, background]) == {
+    assert retained_tool_names([search, shell, background]) == {
         "tool_search",
+        "shell",
         "background_task",
     }
     assert retained_tool_names([search]) == {"tool_search"}

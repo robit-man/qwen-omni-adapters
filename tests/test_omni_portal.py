@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 import re
@@ -2660,6 +2661,7 @@ def test_actionable_text_uses_typed_family_then_structured_tool_call() -> None:
         if len(requests) == 2:
             names = {item["function"]["name"] for item in body["tools"]}
             assert body["tool_choice"] == "required"
+            assert "tool_search" not in names
             assert "get_portal_capabilities" in names
             return httpx.Response(
                 200,
@@ -2727,6 +2729,7 @@ def test_successful_discovery_requires_a_concrete_leaf_before_final_answer() -> 
         if len(requests) == 2:
             assert body["tool_choice"] == "required"
             names = {item["function"]["name"] for item in body["tools"]}
+            assert "tool_search" not in names
             assert "safe_math_eval" in names
             assert body["messages"][-1]["role"] == "tool"
             return httpx.Response(
@@ -2890,7 +2893,11 @@ def test_tool_screenshot_is_native_media_not_base64_tool_text() -> None:
 
 
 def test_shell_tool_returns_command_context(tmp_path: Path) -> None:
-    harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    artifact_root = tmp_path / "shell-evidence"
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        shell_evidence_root=artifact_root,
+    )
     result = harness.execute(
         "one",
         "shell",
@@ -2906,6 +2913,40 @@ def test_shell_tool_returns_command_context(tmp_path: Path) -> None:
     assert result["exit_code"] == 7
     assert result["timed_out"] is False
     assert result["stdout_truncated"] is False
+    assert result["output_visibility"] == "exact_artifacts_with_bounded_context_preview"
+    stdout_artifact = Path(result["output_artifacts"]["stdout"]["path"])
+    stderr_artifact = Path(result["output_artifacts"]["stderr"]["path"])
+    assert stdout_artifact.read_bytes() == b"shell-out"
+    assert stderr_artifact.read_bytes() == b"shell-err"
+
+    harness.clear("one")
+    assert not stdout_artifact.exists()
+    assert not stderr_artifact.exists()
+
+
+def test_shell_large_output_is_lossless_outside_bounded_context(tmp_path: Path) -> None:
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        shell_evidence_root=tmp_path / "shell-evidence",
+    )
+    result = harness.execute(
+        "large-output",
+        "shell",
+        {
+            "command": "head -c 100000 /dev/zero | tr '\\0' A",
+            "cwd": str(tmp_path),
+            "intent": "inspect",
+        },
+    )
+
+    artifact = result["output_artifacts"]["stdout"]
+    exact = Path(artifact["path"]).read_bytes()
+    assert result["stdout_truncated"] is True
+    assert len(result["stdout"]) < len(exact)
+    assert exact == b"A" * 100_000
+    assert artifact["bytes"] == len(exact)
+    assert artifact["sha256"] == hashlib.sha256(exact).hexdigest()
+    assert artifact["complete"] is True
 
 
 def test_shell_stdin_writes_generated_content_without_shell_quoting(tmp_path: Path) -> None:
@@ -4155,7 +4196,8 @@ def test_portal_keeps_only_the_active_discovered_schema() -> None:
             call = {"name": "tool_search", "arguments": {"family": "system"}}
         elif len(requests) == 2:
             assert "get_current_time" in names
-            assert len(names) <= 5  # discovery plus at most four family members
+            assert "tool_search" not in names
+            assert len(names) <= 4
             call = {"name": "get_current_time", "arguments": {}}
         else:
             assert names == {"tool_search", "get_current_time"}
@@ -4214,7 +4256,7 @@ def test_embodied_client_gets_compact_physical_shell_and_background_bridges() ->
     assert response.status_code == 200
     assert {
         item["function"]["name"] for item in requests[0]["tools"]
-    } == {"tool_search"}
+    } == {"tool_search", "shell"}
     assert "portal_camera_bridge" not in requests[0]
     assert "portal_shell_bridge" not in requests[0]
     assert "portal_background_bridge" not in requests[0]
@@ -4304,8 +4346,9 @@ def test_background_only_audio_routes_blocked_shell_discovery_to_durable_gateway
             call = {"name": "tool_search", "arguments": {"family": "shell"}}
         elif len(requests) == 2:
             discovery = json.loads(body["messages"][-1]["content"])
-            assert discovery["available_tools"] == []
-            assert names == {"tool_search", "background_task"}
+            assert discovery["available_tools"] == ["background_task"]
+            assert discovery["execution_profile"] == "durable_background_handoff"
+            assert names == {"background_task"}
             call = {
                 "name": "background_task",
                 "arguments": {
