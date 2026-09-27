@@ -1949,6 +1949,10 @@ def test_portal_index_has_mobile_security_headers_and_no_token() -> None:
     assert b'id="active-user-count"' in response.data
     assert b'class="audio-observation-output"' in response.data
     assert b'class="tool-output"' in response.data
+    assert b'class="message-deliveries"' in response.data
+    assert response.data.index(b'class="message-deliveries"') < response.data.index(
+        b'class="tool-output"'
+    )
     assert b"Sounds heard" in response.data
     assert b"application/pdf" in response.data
     assert b"image/gif" in response.data
@@ -2007,8 +2011,13 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert "function appendToolJsonRows" in javascript
     assert "function fileDeliveryFromTrace" in javascript
     assert "function downloadDeliveredFile" in javascript
-    assert 'headers: authHeaders()' in javascript
-    assert ".tool-download-button" in css
+    assert "function renderDeliveredFiles" in javascript
+    assert 'link.download = delivery.name' in javascript
+    assert "link.textContent = delivery.name" in javascript
+    assert "fetch(delivery.url" not in javascript
+    assert ".message-download-link" in css
+    assert ".message-preview-link" in css
+    assert 'preview.href = `${delivery.url}?preview=1`' in javascript
     assert "MAX_TOOL_TRACE_ITEMS" not in javascript
     assert ".tool-json-row" in css
     assert ".tool-json-branch" in css
@@ -3152,7 +3161,37 @@ def test_authenticated_file_delivery_download_and_trash_cleanup(tmp_path: Path) 
     result = staged.json["result"]
     assert result["evidence_authority"] == "staged_file"
 
-    assert owner.get(result["download_url"]).status_code == 401
+    downloaded = owner.get(result["download_url"])
+    assert downloaded.status_code == 200
+    assert downloaded.data == b"deliver me\n"
+    first_range = owner.get(
+        result["download_url"], headers={"Range": "bytes=0-4"}
+    )
+    second_range = owner.get(
+        result["download_url"], headers={"Range": "bytes=5-10"}
+    )
+    assert first_range.status_code == 206
+    assert first_range.headers["Content-Range"] == "bytes 0-4/11"
+    assert second_range.status_code == 206
+    assert second_range.headers["Content-Range"] == "bytes 5-10/11"
+    assert first_range.data + second_range.data == b"deliver me\n"
+    assert first_range.headers["Accept-Ranges"] == "bytes"
+    preview = owner.get(result["download_url"] + "?preview=1")
+    assert preview.status_code == 200
+    assert preview.data == b"deliver me\n"
+    assert preview.headers["Content-Disposition"].startswith("inline")
+
+    active_svg = tmp_path / "active.svg"
+    active_svg.write_text("<svg xmlns='http://www.w3.org/2000/svg'><script/></svg>")
+    svg_stage = owner.post(
+        "/api/tools/file_deliver/call",
+        headers=headers,
+        json={"arguments": {"action": "stage", "path": str(active_svg)}},
+    ).json["result"]
+    svg_preview = owner.get(svg_stage["download_url"] + "?preview=1")
+    assert svg_preview.status_code == 200
+    assert svg_preview.headers["Content-Disposition"].startswith("attachment")
+    assert outsider.get(result["download_url"]).status_code == 404
     assert outsider.get(result["download_url"], headers=headers).status_code == 404
     downloaded = owner.get(result["download_url"], headers=headers)
     assert downloaded.status_code == 200

@@ -1194,38 +1194,66 @@
     if (!result || typeof result !== "object") return null;
     const url = String(result.download_url || "");
     const name = String(result.download_name || "download").slice(0, 255);
+    const mediaType = String(result.media_type || "application/octet-stream").toLowerCase();
     if (!/^\/api\/files\/[A-Za-z0-9_-]{16,128}$/.test(url)) return null;
-    return { url, name };
+    const previewable = mediaType.startsWith("audio/")
+      || mediaType.startsWith("video/")
+      || (mediaType.startsWith("image/") && mediaType !== "image/svg+xml")
+      || ["application/json", "application/pdf", "text/csv", "text/plain"].includes(mediaType);
+    return {
+      url,
+      name,
+      bytes: Math.max(0, Number(result.bytes) || 0),
+      mediaType,
+      previewable,
+    };
   }
 
-  async function downloadDeliveredFile(delivery, button) {
-    const previous = button.textContent;
-    button.disabled = true;
-    button.textContent = "Downloading…";
-    try {
-      const response = await fetch(delivery.url, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error(`File download failed (${response.status})`);
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = objectUrl;
-      anchor.download = delivery.name;
-      anchor.hidden = true;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
-      button.textContent = "Downloaded";
-    } catch (error) {
-      button.textContent = previous;
-      showError(error);
-    } finally {
-      button.disabled = false;
+  function downloadDeliveredFile(delivery, link) {
+    link.classList.add("requested");
+    transientComposerStatus(`Downloading ${delivery.name}…`);
+  }
+
+  function renderDeliveredFiles(record) {
+    const container = record.node.querySelector(".message-deliveries");
+    if (!container) return;
+    const deliveries = [];
+    const seen = new Set();
+    for (const item of record.toolTrace || []) {
+      const delivery = item.ok ? fileDeliveryFromTrace(item) : null;
+      if (!delivery || seen.has(delivery.url)) continue;
+      seen.add(delivery.url);
+      deliveries.push(delivery);
+    }
+    container.replaceChildren();
+    container.hidden = deliveries.length === 0;
+    if (!deliveries.length) return;
+    const heading = document.createElement("strong");
+    heading.className = "message-deliveries-title";
+    heading.textContent = deliveries.length === 1 ? "File ready" : "Files ready";
+    container.appendChild(heading);
+    for (const delivery of deliveries) {
+      const row = document.createElement("div");
+      row.className = "message-delivery-row";
+      const link = document.createElement("a");
+      link.className = "message-download-link";
+      link.href = delivery.url;
+      link.download = delivery.name;
+      link.textContent = delivery.name;
+      link.setAttribute("aria-label", `Download ${delivery.name}`);
+      link.addEventListener("click", () => downloadDeliveredFile(delivery, link));
+      row.appendChild(link);
+      if (delivery.previewable) {
+        const preview = document.createElement("a");
+        preview.className = "message-preview-link";
+        preview.href = `${delivery.url}?preview=1`;
+        preview.target = "_blank";
+        preview.rel = "noopener";
+        preview.textContent = "Preview";
+        preview.setAttribute("aria-label", `Preview ${delivery.name}`);
+        row.appendChild(preview);
+      }
+      container.appendChild(row);
     }
   }
 
@@ -1235,7 +1263,7 @@
     if (!box || !content) return;
     const trace = record.toolTrace || [];
     box.hidden = trace.length === 0;
-    if (trace.some(item => item.ok && fileDeliveryFromTrace(item))) box.open = true;
+    renderDeliveredFiles(record);
     content.replaceChildren();
     const completed = trace.filter(item => item.status !== "running").length;
     box.querySelector("summary").textContent = completed === trace.length
@@ -1257,15 +1285,6 @@
       argumentsNode.appendChild(argumentsLabel);
       appendToolJsonRows(argumentsNode, item.arguments);
       row.append(name, stateNode, argumentsNode);
-      const delivery = item.ok ? fileDeliveryFromTrace(item) : null;
-      if (delivery) {
-        const download = document.createElement("button");
-        download.type = "button";
-        download.className = "tool-download-button";
-        download.textContent = `Download ${delivery.name}`;
-        download.addEventListener("click", () => downloadDeliveredFile(delivery, download));
-        row.appendChild(download);
-      }
       if (item.result) {
         const resultNode = document.createElement("div");
         resultNode.className = "tool-result";

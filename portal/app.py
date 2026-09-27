@@ -123,6 +123,12 @@ SESSION_COOKIE_NAME = "omni_portal_session"
 BROWSER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 DIAGNOSTIC_TTL_SECONDS = 5 * 60
 MAX_STREAM_NETWORK_RETRIES = 1
+INLINE_PREVIEW_MEDIA_TYPES = {
+    "application/json",
+    "application/pdf",
+    "text/csv",
+    "text/plain",
+}
 DIAGNOSTIC_NUMERIC_FIELDS = {
     "queue_wait_ms",
     "upstream_headers_ms",
@@ -2597,24 +2603,30 @@ def create_app(
 
     @app.get("/api/files/<delivery_id>")
     def download_file(delivery_id: str):
-        """Download one staged file owned by this authenticated browser session."""
+        """Stream one capability-addressed file to its owning browser session."""
 
-        if not authorized():
-            return jsonify({"error": "unauthorized"}), 401
         try:
             delivery = file_deliveries.resolve(request_session_id(), delivery_id)
         except FileDeliveryError:
             return jsonify({"error": "file delivery was not found"}), 404
+        media_type = str(delivery["media_type"])
+        preview_requested = request.args.get("preview") == "1"
+        preview_allowed = (
+            media_type.startswith(("audio/", "video/"))
+            or (media_type.startswith("image/") and media_type != "image/svg+xml")
+            or media_type in INLINE_PREVIEW_MEDIA_TYPES
+        )
         response = send_file(
             delivery["path"],
-            mimetype=str(delivery["media_type"]),
-            as_attachment=True,
+            mimetype=media_type,
+            as_attachment=not (preview_requested and preview_allowed),
             download_name=str(delivery["download_name"]),
             conditional=True,
             etag=str(delivery["sha256"]),
             max_age=0,
         )
         response.headers["X-Content-SHA256"] = str(delivery["sha256"])
+        response.headers["Accept-Ranges"] = "bytes"
         return response
 
     @app.post("/api/chat")

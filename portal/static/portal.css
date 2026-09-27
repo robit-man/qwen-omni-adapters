@@ -320,19 +320,58 @@ button { color: inherit; }
 .tool-entry.running .tool-state { color: var(--accent); }
 .tool-entry.failed strong,
 .tool-entry.failed .tool-state { color: var(--danger); }
-.tool-download-button {
-  grid-column: 1 / -1;
-  justify-self: start;
-  min-height: 32px;
-  padding: 7px 11px;
+.message-deliveries {
+  display: grid;
+  gap: 7px;
+  margin-top: 11px;
+  padding: 10px;
+  border: 1px solid rgba(134,239,172,.28);
+  border-radius: 10px;
+  background: rgba(134,239,172,.07);
+}
+.message-deliveries[hidden] { display: none; }
+.message-deliveries-title {
+  color: var(--ok);
+  font: 700 9px var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.message-delivery-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: stretch;
+}
+.message-download-link {
+  justify-self: stretch;
+  min-height: 38px;
+  padding: 9px 12px;
   border: 1px solid rgba(134,239,172,.4);
   border-radius: 9px;
   background: rgba(134,239,172,.12);
   color: var(--text);
-  font: 700 10px var(--mono);
+  font: 700 11px/1.4 var(--mono);
+  text-align: center;
+  text-decoration: none;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
-.tool-download-button:disabled { cursor: wait; opacity: .65; }
+.message-download-link:hover,
+.message-download-link:focus-visible { background: rgba(134,239,172,.2); }
+.message-download-link.requested { border-color: var(--ok); }
+.message-preview-link {
+  display: grid;
+  min-height: 38px;
+  padding: 9px 12px;
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  color: var(--muted);
+  font: 700 10px var(--mono);
+  text-decoration: none;
+}
+.message-preview-link:hover,
+.message-preview-link:focus-visible { color: var(--text); border-color: var(--muted); }
 .message.user.sound-only .message-content { opacity: .5; font-style: italic; }
 
 .audio-output { margin-top: 10px; }

@@ -42,7 +42,7 @@ owns the schemas and implementations.
 | `workspace_file` | List, read, create, or replace one bounded filesystem target with a compact receipt | Absolute paths remain explicit; relative paths start at `OMNI_TOOL_WORKSPACE_ROOT`, which defaults to the service user's home |
 | `shell` | Run one typed `bash -lc` inspect/mutate/verify step and return stdout, stderr, exit status, cwd, timeout state, and an executor-observed effect receipt; optional bounded stdin supports safe generated-file writes | Unrestricted portal-host shell; exact stdout/stderr are retained as session artifacts while only 12-KiB previews enter model context |
 | `system_applications` | Query current XDG/Freedesktop, Flatpak, and Snap desktop launchers by role or MIME type | Read-only current host inventory with resolved executable evidence |
-| `file_deliver` | Stage or inspect one explicit local file for a Download button in the connected portal | Authenticated browser session only; immutable staged copy, configured source roots, size bound, five-minute TTL, and Trash cleanup |
+| `file_deliver` | Stage or inspect one explicit local file for a native download link beneath the response | Capability ID bound to the owning browser session; immutable staged copy, configured source roots, size bound, five-minute TTL, and Trash cleanup |
 | `subagent_delegate` | Run one fresh helper completion for isolated analysis, planning, synthesis, or critique | Synchronous text-only model call; no tools, media, host access, or parent history; result stored in the current browser session |
 | `subagent_list` | List completed helper delegations | Current browser session only |
 | `subagent_result` | Retrieve one completed helper result by task ID | Current browser session only |
@@ -86,9 +86,14 @@ unavailable location requires an explicit city from the user.
 File delivery is explicit and tool-only. `file_deliver(action=stage)` accepts
 one exact regular file under `OMNI_FILE_DELIVERY_ROOTS`, copies its current
 bytes into a read-only session staging area, hashes them, and returns an opaque
-delivery ID. The browser renders a Download button and fetches the bytes from
-the same-origin `/api/files/<id>` route with the portal bearer token and the
-owning Secure session cookie. The route never accepts a host path. A delivery
+delivery ID. The browser renders a native link beneath the final response and
+streams bytes from the same-origin `/api/files/<id>` route without buffering
+the file into JavaScript. The unguessable ID remains bound to the owning Secure
+session cookie. The route advertises byte ranges, allowing download managers to
+request discrete chunks, retry them, and reassemble the original bytes while
+verifying the supplied whole-file SHA-256. Safe playable/viewable types expose
+an adjacent streaming Preview action; active HTML and SVG never render inline.
+It never accepts a host path. A delivery
 is invisible to another browser session, expires after five minutes by default,
 and is removed immediately by Trash. Tunnel obscurity is not treated as access
 control.

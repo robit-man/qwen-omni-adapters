@@ -254,12 +254,15 @@ sanitized value with the request. Raw IP, ISP/connection, security, and currency
 metadata never reach the portal or model. The result is session-scoped,
 approximate, VPN/carrier-sensitive, and cleared by Trash or five-minute expiry.
 
-`file_deliver` turns one user-requested local file into a visible Download
-button in the assistant's expanded Tools trace. The server stages an immutable
-copy under a configured delivery root; the browser downloads it through the
-same Cloudflare-backed portal using both the bearer token and its Secure session
-cookie. IDs are session-isolated, the download endpoint never accepts arbitrary
-paths, and staged copies expire or clear with Trash.
+`file_deliver` turns one user-requested local file into a prominent native
+download link directly beneath the assistant response; the detailed receipt
+remains in the Tools trace. The server stages an immutable copy under a
+configured delivery root, and the browser streams it directly through the same
+Cloudflare-backed portal. The unguessable delivery ID is bound to the owning
+Secure session cookie, the endpoint never accepts arbitrary paths, and staged
+copies expire or clear with Trash. Browser-safe audio, video, raster-image,
+PDF, plain-text, CSV, and JSON files also expose an adjacent Preview link;
+active HTML/SVG remains download-only.
 
 Web discovery uses Omnius's direct no-key DuckDuckGo HTML results path—there is
 no search API client, key, provider fallback, or browser dependency. A separate

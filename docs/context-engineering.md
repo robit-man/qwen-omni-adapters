@@ -109,10 +109,12 @@ those paths. Clearing the owning portal session removes its artifact directory.
 
 User-requested output files cross the tunnel through the separate
 `file_deliver` family. The tool copies one allowlisted local regular file into
-an immutable, hashed, expiring session artifact; the UI opens the tool trace
-and renders a Download button. The authenticated endpoint resolves only an
-opaque delivery ID plus the owning Secure session cookie, never a caller-owned
-filesystem path. Trash removes both delivery metadata and staged bytes.
+an immutable, hashed, expiring session artifact; the UI renders a native
+download link beneath the response while retaining the receipt in Tools. The
+endpoint resolves only an unguessable delivery ID bound to the owning Secure
+session cookie, never a caller-owned filesystem path. Safe media/documents may
+stream through an adjacent Preview action; active web formats remain
+download-only. Trash removes both delivery metadata and staged bytes.
 
 Camera availability is likewise a gateway, not eager evidence. The local
 harness sends the spoken turn without a room image and exposes only
