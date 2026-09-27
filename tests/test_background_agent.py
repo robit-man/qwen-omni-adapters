@@ -25,6 +25,7 @@ from harness.background_agent import (
     BackgroundAgent,
     _action_audit_report,
     _action_family,
+    _annotate_workspace_text_shape,
     _apply_capability_retry_budget,
     _audit_for_evidence,
     _audit_json,
@@ -2620,6 +2621,54 @@ def test_executor_admission_rejections_are_bounded_per_pending_contract() -> Non
         )
         == 0
     )
+
+
+def test_workspace_read_shape_exposes_exact_trailing_boundaries() -> None:
+    annotated = _annotate_workspace_text_shape(
+        {
+            "content": "immutable=alpha\nverified=beta\n\n",
+            "offset_chars": 0,
+            "truncated": False,
+        }
+    )
+
+    assert annotated["text_shape"] == {
+        "returned_chars": 31,
+        "returned_lines": 3,
+        "ends_with_linefeed": True,
+        "trailing_linefeeds": 2,
+        "complete_file": True,
+    }
+
+
+def test_session_bookkeeping_cannot_be_declared_as_task_act_effect() -> None:
+    task = {
+        "task_state": {
+            "controller": {
+                "phase": "prethink",
+                "consecutive_replans": 0,
+                "retired_action_families": [],
+            },
+            "audit_reports": [],
+        }
+    }
+    contract = {
+        "decision": "act",
+        "subtask": "Write an internal note instead of changing the task resource.",
+        "capability_family": "session",
+        "expected_effect": "change_environment",
+        "effect_target": "task completion state",
+        "target_kind": "record",
+        "target_scope": "exact",
+        "acceptance_test": "The task is complete.",
+        "verification_family": "session",
+        "reason": "Record completion.",
+        "successor_contracts": [],
+    }
+
+    rejection = _manage_transition_error(task, contract)
+    assert rejection is not None
+    assert rejection["reason"] == "session_state_is_not_task_effect"
 
 
 def test_executor_contract_excludes_read_only_calls_from_mutation_phase() -> None:

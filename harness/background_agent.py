@@ -1263,6 +1263,8 @@ def _planned_transition_error(
         if target_kind == "path" and family not in {"filesystem", "shell"}:
             return "local_path_retrieval_contract_incompatible"
         return ""
+    if family == "session":
+        return "session_state_is_not_task_effect"
     if (
         effect == "change_environment"
         and target_kind == "path"
@@ -1539,6 +1541,7 @@ def _manage_recovery_next_decisions(task: Mapping[str, Any]) -> list[str] | None
                 "frontier_step_shape_invalid",
                 "local_path_effect_contract_incompatible",
                 "local_path_retrieval_contract_incompatible",
+                "session_state_is_not_task_effect",
                 "exact_directory_act_requires_subtree_or_child",
                 "replan_repeats_missing_effect",
             }
@@ -1813,6 +1816,11 @@ def _manage_transition_error(
         "local_path_retrieval_contract_incompatible": (
             "A local-path retrieval requires capability_family filesystem or shell. "
             "Session, memory, and document tools cannot inspect a host path."
+        ),
+        "session_state_is_not_task_effect": (
+            "Session search, working notes, and task-list bookkeeping are controller "
+            "support state, not an external ACT effect. Choose the capability that "
+            "changes the task resource, or complete at CHECKPOINT."
         ),
         "no_admissible_operations": (
             "Every typed operation in that proposed executor route is retired at "
@@ -2314,6 +2322,24 @@ def _executor_admission_rejection_count(
             break
         count += 1
     return count
+
+
+def _annotate_workspace_text_shape(result: Any) -> Any:
+    """Expose exact text boundaries without interpreting task-specific content."""
+
+    if not isinstance(result, Mapping) or not isinstance(result.get("content"), str):
+        return result
+    content = str(result["content"])
+    annotated = dict(result)
+    annotated["text_shape"] = {
+        "returned_chars": len(content),
+        "returned_lines": len(content.splitlines()),
+        "ends_with_linefeed": content.endswith("\n"),
+        "trailing_linefeeds": len(content) - len(content.rstrip("\n")),
+        "complete_file": not bool(result.get("truncated"))
+        and int(result.get("offset_chars") or 0) == 0,
+    }
+    return annotated
 
 
 def _task_expand_available(
@@ -4818,6 +4844,10 @@ def _action_audit_report(
         "contract_satisfied": contract_satisfied,
         "contract_effect_matched": contract_effect_matched,
         "contract_verification_matched": contract_verification_matched,
+        # The deterministic auditor proves resource/version alignment. It
+        # cannot decide arbitrary natural-language acceptance semantics; the
+        # isolated checkpoint role must still compare the exact receipt.
+        "acceptance_semantics_checked": False,
         "retrieval_evidence_present": retrieval_evidence_present,
         "retrieval_contract_matched": retrieval_contract_matched,
         # A tool can succeed and even close a new knowledge slot without
@@ -7356,6 +7386,8 @@ class BackgroundAgent:
                         result = dict(result)
                         result["task_progress"] = False
                         result["evidence_authority"] = "inspection"
+                        if str(arguments.get("action") or "") == "read":
+                            result = _annotate_workspace_text_shape(result)
                     if (
                         name in COMPUTER_ACTION_TOOLS
                         and str(arguments.get("action") or "") == "snapshot"
