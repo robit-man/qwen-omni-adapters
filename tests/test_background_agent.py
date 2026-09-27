@@ -2467,6 +2467,26 @@ def test_repeated_exhausted_manager_route_closes_that_next_decision() -> None:
     assert rejection is not None
     assert rejection["reason"] == "replan_next_decision_not_admissible"
 
+    structural_retry = {
+        "actions": [
+            {
+                "call_id": "bad-act-fields",
+                "tool": "task_manage",
+                "arguments": json.dumps(
+                    {"decision": "replan", "next_decision": "act"}
+                ),
+                "outcome": json.dumps(
+                    {
+                        "error": "invalid_manage_transition",
+                        "reason": "act_requires_effect_and_read_only_verifier",
+                    }
+                ),
+                "ok": False,
+            }
+        ]
+    }
+    assert _manage_recovery_next_decisions(structural_retry) == ["act"]
+
 
 def test_unexecutable_persisted_contract_returns_to_replan_without_evidence(
     tmp_path: Path,

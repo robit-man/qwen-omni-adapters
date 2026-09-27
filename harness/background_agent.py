@@ -1292,6 +1292,31 @@ def _manage_recovery_next_decisions(task: Mapping[str, Any]) -> list[str] | None
     actions = task.get("actions")
     if not isinstance(actions, list):
         return None
+    latest = actions[-1] if actions else None
+    if isinstance(latest, Mapping) and str(latest.get("tool") or "") == "task_manage":
+        latest_outcome = _audit_mapping(latest.get("outcome"))
+        latest_arguments = _audit_mapping(latest.get("arguments"))
+        latest_candidate = str(
+            latest_arguments.get("next_decision")
+            or latest_arguments.get("decision")
+            or ""
+        )
+        if (
+            latest.get("ok") is not True
+            and latest_candidate in {"retrieve", "act"}
+            and str(latest_outcome.get("reason") or "")
+            in {
+                "act_requires_effect_and_read_only_verifier",
+                "retrieve_requires_one_unknown_and_closure_test",
+                "local_path_effect_contract_incompatible",
+                "local_path_retrieval_contract_incompatible",
+                "exact_directory_act_requires_subtree_or_child",
+            }
+        ):
+            # The model selected a viable transition class but supplied
+            # incompatible fields. Keep the class stable while its schema
+            # narrows the fields, rather than reopening unrelated strategies.
+            return [latest_candidate]
     rejected_decision = ""
     consecutive = 0
     for action in reversed(actions):
