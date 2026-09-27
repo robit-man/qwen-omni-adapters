@@ -269,10 +269,10 @@ speaker-embedding cloning and separate VoiceDesign/CustomVoice checkpoints.
 | PDF/DOCX/text | relevant extracted chunks answer the query; another session retrieves none |
 | Sequential video isolation | red → blue → red clips describe red → blue → red; `cache_prompt=false` |
 | TTS | valid 24 kHz mono PCM16 WAV playable on phone |
-| TTS first PCM | two-frame window, resident worker reuse, and browser first-audio milestone recorded |
+| TTS first PCM | two-frame window, one-utterance worker reuse, browser first-audio milestone, then child exit |
 | Concurrent sessions | two users show active/queued counts and receive only their own marker |
 | Diagnostic lifecycle | journals are session-isolated; trash deletes immediately; idle data expires in 300 s |
-| CUDA scope | comprehension and each TTS process resident on reserved UUID |
+| CUDA scope | comprehension resident on its reserved UUID; request-scoped TTS uses only that scope and exits afterward |
 
 Use `portal/smoke.py` for the machine-verifiable form of these
 checks. Browser microphone/camera permission and phone speaker output require a

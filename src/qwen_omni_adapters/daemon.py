@@ -249,7 +249,7 @@ class DaemonConfig:
             language_api=os.environ.get("OMNI_LANGUAGE_API", "ollama").strip().lower(),
             # The optional shadow router retains roughly 1.5--2 GiB on its
             # own. On a unified-memory Tegra that cushion is needed by the
-            # co-resident comprehension/TTS graphs and bounded GUI/shell
+            # resident comprehension graph and bounded GUI/shell
             # tools. Keep Laya opt-in there; larger Jetsons can explicitly set
             # OMNI_DECISION_PLANE_ENABLED=1 after measuring their workload.
             decision_plane_enabled=os.environ.get(
@@ -912,45 +912,10 @@ class OmniDaemon:
         self._wait_http(tts, f"http://127.0.0.1:{self.config.tts_port}/healthz", 60)
         return tts
 
-    def _wait_resident_tts(self, tts: Child, *, timeout_s: float = 600) -> int:
-        """Wait until the cloned voice graph, not just its HTTP wrapper, is resident."""
-
-        deadline = time.monotonic() + timeout_s
-        diagnostic = "TTS health did not report a ready persistent worker"
-        while time.monotonic() < deadline:
-            if tts.process.poll() is not None:
-                raise DaemonError("TTS wrapper exited before its cloned voice graph was ready")
-            try:
-                response = httpx.get(
-                    f"http://127.0.0.1:{self.config.tts_port}/healthz", timeout=10
-                )
-                response.raise_for_status()
-                health = response.json()
-            except (httpx.HTTPError, ValueError) as exc:
-                diagnostic = f"could not verify resident cloned TTS: {exc}"
-                time.sleep(0.2)
-                continue
-            if not isinstance(health, dict):
-                diagnostic = "TTS health returned no object"
-                time.sleep(0.2)
-                continue
-            tts_pid = health.get("persistent_pid")
-            if (
-                health.get("persistent_ready") is True
-                and health.get("speaker_reference_configured") is True
-                and health.get("speaker_reference_active") is True
-                and isinstance(tts_pid, int)
-                and tts_pid > 0
-                and _pid_alive(tts_pid)
-            ):
-                if platform.system() != "Darwin":
-                    self._verify_direct_gpu(tts_pid, "tts")
-                return tts_pid
-            time.sleep(0.2)
-        raise DaemonError(diagnostic)
-
-    def _verify_co_resident_stack(self, comprehension: Child | None, tts: Child) -> dict[str, Any]:
-        """Prove cloned TTS did not evict the comprehension worker."""
+    def _verify_on_demand_stack(
+        self, comprehension: Child | None, tts: Child
+    ) -> dict[str, Any]:
+        """Prove comprehension stayed resident and optional TTS weights were shed."""
 
         if comprehension is not None:
             if comprehension.process.poll() is not None:
@@ -962,16 +927,31 @@ class OmniDaemon:
                 comprehension.resident_pid or comprehension.process.pid,
                 "comprehension",
             )
-        tts_pid = self._wait_resident_tts(tts, timeout_s=10)
+        if tts.process.poll() is not None:
+            raise DaemonError("TTS control plane exited after startup smoke")
+        try:
+            response = httpx.get(
+                f"http://127.0.0.1:{self.config.tts_port}/healthz", timeout=10
+            )
+            response.raise_for_status()
+            health = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise DaemonError(f"could not verify on-demand TTS state: {exc}") from exc
+        if not isinstance(health, dict):
+            raise DaemonError("TTS health returned no object")
+        if health.get("persistent_ready") is not False or health.get("persistent_pid") is not None:
+            raise DaemonError("TTS weights remained resident after startup smoke")
         return {
             "comprehension_pid": (
                 (comprehension.resident_pid or comprehension.process.pid)
                 if comprehension is not None
                 else None
             ),
-            "tts_pid": tts_pid,
+            "tts_pid": None,
+            "tts_wrapper_pid": tts.process.pid,
+            "tts_residency": "on-demand",
             "gpu_residency": residency_backend(),
-            "speaker_reference_active": True,
+            "speaker_reference_active": False,
         }
 
     def start_children(self) -> str:
@@ -1020,17 +1000,13 @@ class OmniDaemon:
                 f"http://127.0.0.1:{self.config.pointing_port}/healthz",
                 600,
             )
-            self._verify_direct_gpu(pointing.process.pid, "pointing")
-        # The Tegra launcher must measure the pool after every fixed resident
-        # sidecar is warm. Starting comprehension first caused its context
-        # calibration to count memory that persistent cloned TTS consumed a few
-        # seconds later, admitting a KV tier that stalled ordinary GUI work.
+        # Start only the small TTS control plane before Tegra context
+        # calibration. The cloned-voice graph is loaded for synthesis and shed
+        # when that response finishes, so it must not reduce the steady-state
+        # comprehension/KV budget.
         tts: Child | None = None
         if is_tegra():
             tts = self._start_tts(common)
-            # Publish the actual persistent cloned-voice worker, not its small
-            # HTTP supervisor, in daemon status and residency diagnostics.
-            tts.resident_pid = self._wait_resident_tts(tts)
         comprehension_model, comprehension_projector = self._comprehension_artifacts()
         comprehension: Child | None = None
         if self.config.enable_comprehension:
@@ -1107,12 +1083,10 @@ class OmniDaemon:
 
         if tts is None:
             tts = self._start_tts(common)
-        if pointing is not None:
-            if pointing.process.poll() is not None:
-                raise DaemonError(
-                    "structured pointing exited while the co-resident voice stack loaded"
-                )
-            self._verify_direct_gpu(pointing.process.pid, "pointing")
+        if pointing is not None and pointing.process.poll() is not None:
+            raise DaemonError(
+                "structured pointing control plane exited during startup"
+            )
 
         language_api, language_url, language_model = self._language_route()
         # The direct llama.cpp route intentionally uses the runtime alias
@@ -1233,7 +1207,7 @@ class OmniDaemon:
                     ]
                 )
             self._command(smoke, timeout=1200)
-            resident_stack = self._verify_co_resident_stack(comprehension, tts)
+            resident_stack = self._verify_on_demand_stack(comprehension, tts)
         else:
             resident_stack = None
         self._write_status(

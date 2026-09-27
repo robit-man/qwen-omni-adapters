@@ -177,10 +177,9 @@ semantic sampler is created, the MTMD audio RNG is explicitly reset, and a fresh
 audio-generation helper is constructed for every prompt. The helper must not be
 reused: its decoded-output state otherwise makes audio trail the
 displayed response by one request. Inline request-local speaker audio uses the
-isolated single-shot fallback, after which the configured default profile is
-rewarmed. Cancelling an active PCM response invalidates the framed worker
-session before its lock is released; the next prompt cannot consume abandoned
-audio.
+isolated single-shot fallback. The framed model child is request-scoped and is
+closed after a completed or cancelled WAV/PCM response; the next prompt cannot
+consume abandoned audio or inherit idle GPU residency.
 
 ## 4. Start the unified adapter
 

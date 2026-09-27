@@ -8,12 +8,14 @@ import sys
 import threading
 from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "runtime"))
 
+import pointing_server  # noqa: E402
 from pointing_server import (  # noqa: E402
     PointingModel,
     _decode_observation_request,
@@ -52,7 +54,37 @@ def test_pointing_request_rejects_missing_or_unbounded_input(payload: bytes) -> 
         _decode_request(payload)
 
 
-def test_pointing_weights_shed_and_reload_before_the_next_grounded_action() -> None:
+def test_pointing_control_plane_starts_without_loading_weights(monkeypatch) -> None:
+    loads: list[str] = []
+
+    class FakeCuda:
+        @staticmethod
+        def is_available() -> bool:
+            return True
+
+    class FakeFactory:
+        @staticmethod
+        def from_pretrained(*_args, **_kwargs):
+            loads.append("load")
+            return SimpleNamespace(eval=lambda: None)
+
+    monkeypatch.setattr(
+        pointing_server, "_install_torch_24_gqa_compatibility", lambda: None
+    )
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(cuda=FakeCuda()))
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        SimpleNamespace(AutoModelForCausalLM=FakeFactory),
+    )
+
+    model = PointingModel("test/point-head", "revision-1")
+
+    assert model.resident is False
+    assert loads == []
+
+
+def test_pointing_weights_load_for_one_grounded_action_then_shed() -> None:
     events: list[str] = []
 
     class FakeCuda:
@@ -99,5 +131,9 @@ def test_pointing_weights_shed_and_reload_before_the_next_grounded_action() -> N
 
     points = model.point(Image.new("RGB", (16, 16)), "target")
     assert points == [{"x": 0.25, "y": 0.75}]
-    assert model.resident is True
-    assert events[-1] == "load:test/point-head:revision-1"
+    assert model.resident is False
+    assert events[-3:] == [
+        "load:test/point-head:revision-1",
+        "synchronize",
+        "empty_cache",
+    ]

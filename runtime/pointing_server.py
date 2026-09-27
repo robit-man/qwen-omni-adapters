@@ -96,7 +96,7 @@ def _install_torch_24_gqa_compatibility() -> None:
 
 
 class PointingModel:
-    """Persistent Moondream point head with serialized CUDA inference."""
+    """On-demand Moondream point head with serialized CUDA inference."""
 
     def __init__(self, model_id: str, revision: str) -> None:
         _install_torch_24_gqa_compatibility()
@@ -111,8 +111,6 @@ class PointingModel:
         self._model_type = AutoModelForCausalLM
         self._model: Any | None = None
         self._lock = threading.Lock()
-        with self._lock:
-            self._load_locked()
 
     @property
     def resident(self) -> bool:
@@ -134,22 +132,28 @@ class PointingModel:
         with self._lock:
             self._load_locked()
 
+    def _shed_locked(self) -> None:
+        if self._model is None:
+            return
+        self._torch.cuda.synchronize()
+        self._model = None
+        gc.collect()
+        self._torch.cuda.empty_cache()
+
     def shed(self) -> None:
         """Release optional pointing weights while retaining the HTTP control plane."""
 
         with self._lock:
-            if self._model is None:
-                return
-            self._torch.cuda.synchronize()
-            self._model = None
-            gc.collect()
-            self._torch.cuda.empty_cache()
+            self._shed_locked()
 
     def point(self, image: Image.Image, target: str) -> list[dict[str, float]]:
         with self._lock, self._torch.inference_mode():
-            self._load_locked()
-            assert self._model is not None
-            result = self._model.point(image, target)
+            try:
+                self._load_locked()
+                assert self._model is not None
+                result = self._model.point(image, target)
+            finally:
+                self._shed_locked()
         raw_points = result.get("points") if isinstance(result, dict) else None
         if not isinstance(raw_points, list):
             raise RuntimeError("Moondream returned no structured point list")
@@ -169,9 +173,12 @@ class PointingModel:
         """Return a bounded semantic reading of the exact supplied frame."""
 
         with self._lock, self._torch.inference_mode():
-            self._load_locked()
-            assert self._model is not None
-            result = self._model.query(image, OBSERVATION_PROMPT)
+            try:
+                self._load_locked()
+                assert self._model is not None
+                result = self._model.query(image, OBSERVATION_PROMPT)
+            finally:
+                self._shed_locked()
         answer = result.get("answer") if isinstance(result, dict) else result
         if not isinstance(answer, str) or not answer.strip():
             raise RuntimeError("Moondream returned no visual observation")

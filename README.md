@@ -215,8 +215,9 @@ before TTS, stops the comprehension service to make room, streams decoder PCM
 with a small startup lead, and starts restoring comprehension while audio is
 still playing. If the user interrupts, playback ducks and then pauses/fades;
 the microphone remains active throughout. This is a safe memory arrangement,
-not the theoretical minimum-latency arrangement. Hosts with enough memory keep
-matching TTS and language workers resident.
+not the theoretical minimum-latency arrangement. The managed runtime now uses
+the same safety invariant on every host: the TTS graph is loaded for one
+utterance and shed when that response completes.
 
 The essential constrained-host overrides are:
 
@@ -588,10 +589,11 @@ dynamic inside the allocated KV window; new work is admission-gated, and the
 next supervised start reselects its tier from live memory. This avoids process
 churn without reverting to a board-specific context limit.
 
-The trained-bridge runtime keeps TTS and comprehension simultaneously resident,
-but guided deployment does not block the desktop on generation probes. It marks
+The trained-bridge runtime keeps comprehension resident while TTS and pointing
+weights are request-scoped. Guided deployment does not block the desktop on
+generation probes. It marks
 the core ready after local component health and starts the indicator service as
-soon as the core unit starts. The full ASR/cloned-TTS/co-residency smoke remains
+soon as the core unit starts. The full ASR/cloned-TTS/on-demand-residency smoke remains
 available as an explicit diagnostic. Legacy/manual constrained profiles may
 still opt into explicit eviction callbacks and non-persistent TTS. Service
 managers restart failed workers; the harness waits
@@ -766,9 +768,9 @@ The core daemon's optional smoke uses a tracked speech fixture and requires a
 tagged transcript, a direct ASR-to-cloned-TTS route using the shipped default
 speaker reference, valid 24 kHz mono PCM16 output, the normal streamed TTS gate,
 and another tagged-ASR pass after speech. It then proves that the original
-comprehension PID and persistent clone-profile TTS PID remain GPU-resident
-together. A generic sound observation or unconditioned WAV cannot satisfy the
-gate. Set `OMNI_STARTUP_SMOKE=1` only when this blocking diagnostic is wanted.
+comprehension PID remains GPU-resident and the clone-profile TTS child has
+exited after synthesis. A generic sound observation or unconditioned WAV cannot
+satisfy the gate. Set `OMNI_STARTUP_SMOKE=1` only when this blocking diagnostic is wanted.
 Guided deployment sets it to `0`, starts the indicator in parallel with core
 readiness, and does not wait for inference. On Jetson diagnostic requests run
 against the installed arm64/CUDA workers;
@@ -809,12 +811,11 @@ These environment variables are worth knowing:
 | `OMNI_CALL_LOG_CONTENT` | Opt in to exact structured heard/generated/TTS traces; disabled by default |
 | `OMNI_UPDATE_INTERVAL_SECONDS` | Indicator Git update polling interval; minimum 60 seconds, default 900 |
 
-Keep `OMNI_TTS_PERSISTENT=1` only when speech and comprehension genuinely fit
-together. On constrained unified-memory hosts, use `OMNI_TTS_PERSISTENT=0` and
-set `OMNI_CALL_SPEECH_EVICT_UNIT`: the harness completes hearing, reasoning and
-tools as text, stops comprehension, synthesizes once, lets TTS exit, and restores
-comprehension before listening again. This is slower than resident TTS, but it
-prevents the kernel from overcommitting the machine.
+`OMNI_TTS_PERSISTENT=1` selects the framed worker protocol within one synthesis
+request; it no longer means idle GPU residency. The worker exits after the WAV
+or PCM stream completes. `OMNI_TTS_PERSISTENT=0` keeps the isolated single-shot
+fallback. Legacy deployments that cannot fit comprehension and active TTS may
+still set `OMNI_CALL_SPEECH_EVICT_UNIT` to swap comprehension around synthesis.
 
 Tool resource admission is declared beside each tool in `context.json`.
 Standard work must clear the soft floor, bounded continuations may run within
@@ -879,12 +880,11 @@ separate so environmental sounds are never misrouted as the user's words.
   The document index follows the same session partition and expiry policy.
 - Long speech is split before the per-generation codec-frame ceiling, streamed
   with continuous sequence numbers, and assembled into one complete final WAV.
-- Trained-bridge runtime keeps the matching shipped Qwen3-TTS voice profile
-  resident alongside comprehension on its
-  assigned GPU and emits two codec frames (about 160 ms) per stream window by
-  default. A voice-profile change intentionally replaces the resident worker.
-  Non-persistent workers and explicit residency handoff remain legacy/manual
-  escape hatches. Guided startup does not run a blocking generation gate.
+- Trained-bridge runtime loads the matching shipped Qwen3-TTS voice profile for
+  one utterance, emits two codec frames (about 160 ms) per stream window, and
+  sheds the TTS child when the response completes. Moondream follows the same
+  request-scoped rule for explicit point/observe calls. Comprehension remains
+  resident. Guided startup does not run a blocking generation gate.
 - Ordinary turns receive only a compact stable behavioral system policy. With
   tools enabled, `get_system_snapshot` can explicitly sample current date/time,
   OS/architecture, CPU/load, RAM, interface counters, and NVIDIA utilization.

@@ -899,23 +899,8 @@ def create_app(config: Config | None = None) -> Flask:
     persistent = PersistentTTSWorker(runtime) if runtime.persistent else None
     warm_spec = _warm_spec(runtime)
 
-    def warm_persistent_worker() -> None:
-        if persistent is None or warm_spec is None:
-            return
-        try:
-            with lock:
-                persistent.ensure(warm_spec)
-        except (TTSError, subprocess.TimeoutExpired, OSError) as exc:
-            print(f"warning: persistent TTS warmup failed: {exc}", file=sys.stderr)
-
     if persistent is not None:
         atexit.register(persistent.close)
-    if persistent is not None and warm_spec is not None:
-        threading.Thread(
-            target=warm_persistent_worker,
-            name="qwen3-tts-warmup",
-            daemon=True,
-        ).start()
 
     @app.get("/healthz")
     def healthz():
@@ -929,6 +914,7 @@ def create_app(config: Config | None = None) -> Flask:
                 "ok": not missing,
                 "missing": missing,
                 "persistent": bool(persistent),
+                "residency_policy": "request",
                 "persistent_ready": bool(persistent and persistent.ready),
                 "persistent_pid": persistent.pid if persistent else None,
                 "speaker_reference_configured": warm_spec is not None,
@@ -985,18 +971,15 @@ def create_app(config: Config | None = None) -> Flask:
             with lock:
                 spec = _synthesis_spec(runtime, body)
                 if persistent is not None and spec.speaker_audio is None:
-                    wav = _pcm_wav(b"".join(persistent.stream(spec)))
-                    _validate_wav(wav)
+                    try:
+                        wav = _pcm_wav(b"".join(persistent.stream(spec)))
+                        _validate_wav(wav)
+                    finally:
+                        persistent.close()
                 else:
                     if persistent is not None:
                         persistent.close()
                     wav = synthesize(runtime, body)
-                    if persistent is not None and warm_spec is not None:
-                        threading.Thread(
-                            target=warm_persistent_worker,
-                            name="qwen3-tts-rewarm",
-                            daemon=True,
-                        ).start()
             return Response(wav, content_type="audio/wav")
         except (TTSError, ValueError, subprocess.TimeoutExpired) as exc:
             return jsonify({"error": str(exc)}), 422
@@ -1011,18 +994,16 @@ def create_app(config: Config | None = None) -> Flask:
 
             def generate() -> Iterator[bytes]:
                 with lock:
-                    if persistent is not None and spec.speaker_audio is None:
-                        yield from persistent.stream(spec)
-                    else:
+                    try:
+                        if persistent is not None and spec.speaker_audio is None:
+                            yield from persistent.stream(spec)
+                        else:
+                            if persistent is not None:
+                                persistent.close()
+                            yield from _stream_synthesize(runtime, spec)
+                    finally:
                         if persistent is not None:
                             persistent.close()
-                        yield from _stream_synthesize(runtime, spec)
-                        if persistent is not None and warm_spec is not None:
-                            threading.Thread(
-                                target=warm_persistent_worker,
-                                name="qwen3-tts-rewarm",
-                                daemon=True,
-                            ).start()
 
             response = Response(
                 stream_with_context(generate()),
@@ -1061,14 +1042,7 @@ def create_app(config: Config | None = None) -> Flask:
                     try:
                         yield from _stream_worker_batch(worker, specs)
                     finally:
-                        if ephemeral:
-                            worker.close()
-                        if persistent is not None and warm_spec is not None:
-                            threading.Thread(
-                                target=warm_persistent_worker,
-                                name="qwen3-tts-rewarm",
-                                daemon=True,
-                            ).start()
+                        worker.close()
 
             response = Response(
                 stream_with_context(generate()),

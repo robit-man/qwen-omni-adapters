@@ -446,18 +446,17 @@ def test_startup_smoke_includes_real_audio_asr_and_tts() -> None:
     assert '"default_voice.wav"' in source
     assert '"--tts"' in source
     assert '"--voice-clone"' in source
-    assert "_verify_co_resident_stack" in source
+    assert "_verify_on_demand_stack" in source
 
 
-def test_tegra_prewarms_resident_tts_before_comprehension_admission() -> None:
+def test_tegra_starts_cold_tts_control_plane_before_comprehension_admission() -> None:
     source = inspect.getsource(daemon.OmniDaemon.start_children)
 
-    prewarm = source.index("if is_tegra():\n            tts = self._start_tts(common)")
+    control_plane = source.index("if is_tegra():\n            tts = self._start_tts(common)")
     comprehension = source.index("comprehension_model, comprehension_projector")
-    assert prewarm < comprehension
-    assert "tts.resident_pid = self._wait_resident_tts(tts)" in source[
-        prewarm:comprehension
-    ]
+    assert control_plane < comprehension
+    assert "_wait_resident_tts" not in source
+    assert "_verify_direct_gpu(pointing.process.pid" not in source
 
 
 def test_daemon_resolves_the_shipped_default_clone_reference(tmp_path: Path) -> None:
@@ -492,7 +491,7 @@ def test_daemon_resolves_the_shipped_default_clone_reference(tmp_path: Path) -> 
     assert daemon.OmniDaemon(_config(tmp_path))._voice_reference() == female.resolve()
 
 
-def test_co_residency_gate_requires_live_cloned_tts_and_comprehension(
+def test_on_demand_gate_requires_shed_tts_and_live_comprehension(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     supervisor = daemon.OmniDaemon(_config(tmp_path))
@@ -508,14 +507,13 @@ def test_co_residency_gate_requires_live_cloned_tts_and_comprehension(
 
         def json(self):
             return {
-                "persistent_ready": True,
-                "persistent_pid": 303,
+                "persistent_ready": False,
+                "persistent_pid": None,
                 "speaker_reference_configured": True,
-                "speaker_reference_active": True,
+                "speaker_reference_active": False,
             }
 
     monkeypatch.setattr(daemon.httpx, "get", lambda *args, **kwargs: Response())
-    monkeypatch.setattr(daemon, "_pid_alive", lambda pid: pid == 303)
     monkeypatch.setattr(
         supervisor,
         "_verify_direct_gpu",
@@ -523,12 +521,14 @@ def test_co_residency_gate_requires_live_cloned_tts_and_comprehension(
     )
     monkeypatch.setattr(daemon.platform, "system", lambda: "Linux")
 
-    evidence = supervisor._verify_co_resident_stack(comprehension, tts)
+    evidence = supervisor._verify_on_demand_stack(comprehension, tts)
 
-    assert checked == [(101, "comprehension"), (303, "tts")]
+    assert checked == [(101, "comprehension")]
     assert evidence["comprehension_pid"] == 101
-    assert evidence["tts_pid"] == 303
-    assert evidence["speaker_reference_active"] is True
+    assert evidence["tts_pid"] is None
+    assert evidence["tts_wrapper_pid"] == 202
+    assert evidence["tts_residency"] == "on-demand"
+    assert evidence["speaker_reference_active"] is False
 
 
 def test_an_externally_managed_comprehension_port_does_not_block_start(monkeypatch):

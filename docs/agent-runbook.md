@@ -99,8 +99,9 @@ For portal behavior, keep these routing facts straight:
   explicit privacy-bounded `get_system_snapshot` tool call; it may never include
   hostnames, addresses, processes, credentials, or session content.
 - `stage=tts` means preparing. `audio_start` means the first PCM bytes exist.
-- The default TTS stream window is two codec frames. Check `persistent_ready` in
-  TTS health and reuse of the resident PID before diagnosing browser buffering.
+- The default TTS stream window is two codec frames. `persistent_ready` is true
+  only during synthesis and must return false with no child PID after the
+  response finishes.
 - `max_frames` is per synthesis block. Long speech has continuous sequence
   numbers and one assembled final WAV; verify `adapter.tts_blocks > 1`.
 

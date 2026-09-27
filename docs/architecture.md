@@ -111,12 +111,13 @@ context. The count shown in the UI is aggregate only.
 
 Rendered browser actions have two grounding paths. DOM controls use freshly
 re-resolved CDP boxes and hit testing. Non-DOM targets use the current
-multimodal observation only to name the referent and provide a coarse prior; a
-resident, loopback-only Moondream 2 point worker maps that referent to structured
+multimodal observation only to name the referent and provide a coarse prior; an
+on-demand, loopback-only Moondream 2 point worker maps that referent to structured
 coordinates in the exact current screenshot. The browser performs a second
 frame comparison before input dispatch. The point worker cannot navigate or
 click and never accepts image URLs, so it is a narrow motor-grounding component,
-not another general language trunk.
+not another general language trunk. Its weights are shed after every explicit
+point or observation response.
 For an explicit verification snapshot or completed visual click, the same
 isolated worker returns a bounded semantic reading of the exact returned frame.
 The browser tags that reading with current-frame provenance and records the

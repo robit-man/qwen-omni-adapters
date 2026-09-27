@@ -365,6 +365,62 @@ def test_tts_residency_endpoint_sheds_and_rewarms_the_separate_graph(
     assert shed.json["speaker_reference_active"] is False
 
 
+def test_tts_starts_cold_and_sheds_after_each_completed_synthesis(
+    tmp_path: Path, monkeypatch
+) -> None:
+    reference = tmp_path / "reference.wav"
+    reference.write_bytes(_wav(16000))
+    events: list[str] = []
+
+    class FakePersistentWorker:
+        def __init__(self, _config) -> None:
+            self.ready = False
+
+        @property
+        def pid(self):
+            return 123 if self.ready else None
+
+        @property
+        def speaker_reference_active(self) -> bool:
+            return self.ready
+
+        def stream(self, _spec):
+            self.ready = True
+            events.append("load")
+            yield b"\x00\x00" * 240
+
+        def close(self) -> None:
+            events.append("shed")
+            self.ready = False
+
+    monkeypatch.setattr(
+        "runtime.tts_server.PersistentTTSWorker", FakePersistentWorker
+    )
+    app = create_tts_app(
+        _tts_config(
+            tmp_path,
+            persistent=True,
+            warm_speaker_file=str(reference),
+        )
+    )
+    client = app.test_client()
+
+    assert events == []
+    assert client.get("/healthz").json["persistent_ready"] is False
+
+    response = client.post(
+        "/synthesize",
+        json={"text": "hello", "speaker_file": str(reference)},
+    )
+
+    assert response.status_code == 200
+    assert events == ["load", "shed"]
+    health = client.get("/healthz").json
+    assert health["residency_policy"] == "request"
+    assert health["persistent_ready"] is False
+    assert health["persistent_pid"] is None
+
+
 def test_nonpersistent_tts_batch_reuses_one_process_for_the_whole_utterance(
     tmp_path: Path,
     monkeypatch,

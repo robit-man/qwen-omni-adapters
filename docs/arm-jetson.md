@@ -84,9 +84,9 @@ unit and waits for the portal in parallel. Generation smoke is not part of
 guided readiness. `cloudflared` is optional; without it the portal stays on
 loopback.
 
-The board still proves each worker's Tegra GPU handles while loading, but it
-does not generate text or speech before exposing the portal. Set
-`OMNI_STARTUP_SMOKE=1` for the blocking ASR → cloned-TTS → ASR and co-residency
+The board proves each optional worker's Tegra GPU handles while that request is
+active, but it does not generate text or speech before exposing the portal. Set
+`OMNI_STARTUP_SMOKE=1` for the blocking ASR → cloned-TTS → ASR and on-demand residency
 diagnostic when deliberately troubleshooting. The default desktop harness
 deployment requires its real AppIndicator backend, a reachable
 desktop audio server, and a captured microphone frame. Camera nodes are not
@@ -131,17 +131,16 @@ concurrent tools; see [the trained-bridge budget](#trained-audio-bridge-profile)
 
 The optional Laya shadow decision worker is disabled by default on Tegra. Its
 roughly 1.5--2 GiB resident host allocation otherwise consumes the safety band
-needed to keep comprehension and cloned TTS resident while browser and shell
+needed to keep comprehension resident while browser and shell
 tasks run. A larger measured Jetson deployment may opt in with
 `OMNI_DECISION_PLANE_ENABLED=1`; the language/tool path remains authoritative
 when the shadow worker is absent.
 
 Guided Tegra deployment also creates `.pointing-venv`, installs the NVIDIA
 JetPack PyTorch wheel matching the board's L4T release, and downloads the pinned
-Moondream 2 point checkpoint. The point worker starts before comprehension so
-the live context-window allocator sees its real resident cost. It stays loaded
-beside comprehension and cloned TTS; each worker must retain its own Tegra GPU
-device handles. Set `OMNI_ENABLE_POINTING=0` only to deliberately restore the
+Moondream 2 point checkpoint. Its loopback control plane starts cold; the graph
+loads only for an explicit point/observe call and is shed before that response
+returns. Set `OMNI_ENABLE_POINTING=0` only to deliberately restore the
 slower two-pass crop fallback. There is no CPU fallback. JetPack 6.0's official
 Torch 2.4 lacks the later `enable_gqa` SDPA argument, so the worker applies the
 equivalent K/V-head repetition before loading the checkpoint.
@@ -360,8 +359,10 @@ for roughly 12 GiB total. Audio, video and image comprehension then report
 unavailable rather than failing obscurely, and the health gate treats the
 absent worker as intended rather than unhealthy.
 
-`OMNI_TTS_PERSISTENT=0` additionally lets the TTS worker exit between
-utterances, so its memory is only held while actually speaking.
+The managed TTS server always lets the model child exit between utterances, so
+its memory is only held while synthesizing. `OMNI_TTS_PERSISTENT=1` retains the
+framed protocol and profile reuse within a single multi-block utterance;
+`OMNI_TTS_PERSISTENT=0` selects the isolated single-shot fallback.
 
 Where the host manages the comprehension worker itself -- starting and
 stopping it around demand -- set `OMNI_COMPREHENSION_URL` explicitly alongside
