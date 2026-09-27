@@ -232,9 +232,8 @@ emits standard Ollama `message.tool_calls`; the portal provides discovery,
 web, document/structured/OCR, memory/session recall, safe math, technical media
 analysis, working-note, task, and isolated sub-agent tools, appends normal
 tool-role messages, and repeats until a final answer. There is no numeric call,
-round, or per-turn ceiling. An all-duplicate round stops as explicit no-progress;
-client disconnects, request timeouts, and upstream failures remain transport
-termination conditions. The
+round, or per-turn ceiling. Repeated calls execute normally; client disconnects,
+request timeouts, and upstream failures remain transport termination conditions. The
 assistant message shows a compact collapsible **Tools** trace with live running,
 completed/failed state, compact arguments, and bounded result evidence. Spoken
 output is deferred until no unresolved calls remain. Native structured calls

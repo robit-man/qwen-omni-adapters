@@ -467,8 +467,8 @@ and needs a new artifact schema and release gate.
   for local-browser web discovery/bounded public-page fetch, attached-document
   search, time/capabilities, explicit host snapshots, and session-only
   web/memory recall. Execution ends at model final, request timeout, or client
-  disconnect; exact duplicate calls return a typed failure without repeating
-  their side effects. This is a
+  disconnect. Repeated calls execute again and return fresh tool results; the
+  portal does not synthesize duplicate-call failures. This is a
   portal extension; direct adapter clients remain responsible for their own
   tools.
 - Speech is skipped while unresolved `tool_calls` exist; the adapter reports

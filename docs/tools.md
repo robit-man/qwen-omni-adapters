@@ -219,7 +219,7 @@ A later turn in the same browser session can use `memory_read` or
 and fetched-page text without another discovery request. Independent read-only
 calls may share a tool round, but dependent calls wait for `role="tool"`
 evidence. The runtime contract directs the model to select the narrowest tool,
-avoid duplicate calls, fetch primary sources before citing them, and write
+assess each fresh result, fetch primary sources before citing them, and write
 memory only when the user requests it or a compact fact is needed later in the
 same session.
 
