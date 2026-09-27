@@ -1123,7 +1123,6 @@ def _tool_followup(
     response: Mapping[str, Any],
     harness: PortalToolHarness,
     session_id: str,
-    seen: set[str],
     blocked_tools: set[str] | None = None,
     decision_observer: Any | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
@@ -1203,15 +1202,8 @@ def _tool_followup(
         fingerprint = hashlib.sha256(
             f"{name}\0{json.dumps(arguments, sort_keys=True, default=str)}".encode()
         ).hexdigest()
-        duplicate = fingerprint in seen
         blocked = name in blocked_tools
-        if duplicate:
-            result = {
-                "error": "duplicate_tool_call",
-                "message": "This exact tool call already ran in the current turn; use its prior result.",
-            }
-        elif blocked:
-            seen.add(fingerprint)
+        if blocked:
             result = {
                 "error": "tool_not_available_in_this_execution_profile",
                 "message": (
@@ -1220,7 +1212,6 @@ def _tool_followup(
                 ),
             }
         else:
-            seen.add(fingerprint)
             made_progress = True
             with scoped_tool_user_context(_latest_user_context(messages)):
                 result = harness.execute(session_id, name, arguments)
@@ -1330,7 +1321,6 @@ def _tool_followup(
                 "ok": ok,
                 "result": content,
                 "status": "complete",
-                "duplicate": duplicate,
             }
         )
     if decision_observer is not None:
@@ -2693,7 +2683,6 @@ def create_app(
             )
 
             executed: list[dict[str, Any]] = []
-            seen_tool_calls: set[str] = set()
             current_payload: dict[str, Any] = payload
             round_index = 0
             recovery_pending = False
@@ -2724,7 +2713,6 @@ def create_app(
                     data,
                     tool_harness,
                     session_id,
-                    seen_tool_calls,
                     {"shell"} if background_bridge and not shell_bridge else set(),
                     decision_observer=lambda wave, state: observe_decision_wave(
                         wave,
@@ -3004,7 +2992,6 @@ def create_app(
             current_upstream = upstream
             current_payload = payload
             executed: list[dict[str, Any]] = []
-            seen_tool_calls: set[str] = set()
             final_status = upstream.status_code
             recovery_pending = False
             recovery_refusals = 0
@@ -3163,7 +3150,6 @@ def create_app(
                             final_response,
                             tool_harness,
                             session_id,
-                            seen_tool_calls,
                             {"shell"} if background_bridge and not shell_bridge else set(),
                             decision_observer=lambda wave, state: observe_decision_wave(
                                 wave,

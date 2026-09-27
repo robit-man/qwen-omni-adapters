@@ -5117,7 +5117,7 @@ def test_portal_tool_round_has_no_legacy_fifty_call_cap() -> None:
     assert len(response.json["portal"]["safe_tools_executed"]) == 55
 
 
-def test_portal_returns_duplicate_errors_without_ending_the_chain() -> None:
+def test_portal_executes_repeated_calls_without_ending_the_chain() -> None:
     requests: list[dict[str, Any]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -5156,10 +5156,12 @@ def test_portal_returns_duplicate_errors_without_ending_the_chain() -> None:
     assert response.status_code == 200
     assert response.json["message"]["content"] == "Recovered."
     assert len(requests) == 7
-    assert len(response.json["portal"]["safe_tools_executed"]) == 6
+    trace = response.json["portal"]["safe_tools_executed"]
+    assert len(trace) == 6
+    assert all(item["ok"] is True for item in trace)
 
 
-def test_duplicate_failure_is_returned_so_the_model_can_correct_it() -> None:
+def test_repeated_failed_call_executes_again_before_the_model_corrects_it() -> None:
     requests: list[dict[str, Any]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -5168,8 +5170,9 @@ def test_duplicate_failure_is_returned_so_the_model_can_correct_it() -> None:
         if len(requests) <= 2:
             call = {"name": "shell", "arguments": {"command": "exit 7"}}
         elif len(requests) == 3:
-            duplicate = json.loads(body["messages"][-1]["content"])
-            assert duplicate["error"] == "duplicate_tool_call"
+            repeated_result = json.loads(body["messages"][-1]["content"])
+            assert repeated_result["exit_code"] == 7
+            assert "error" not in repeated_result
             call = {"name": "shell", "arguments": {"command": "printf fixed"}}
         else:
             return httpx.Response(

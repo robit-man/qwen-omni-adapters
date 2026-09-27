@@ -239,8 +239,9 @@ enables its wrench toggle (`portal_auto_tools=true`). It pins its own tool
 schema array, executes uncapped rounds/calls until final/timeout/disconnect, emits running/completed
 tool events on the portal NDJSON extension, and returns bounded arguments and
 result evidence under `response.portal`. Exact duplicate execution remains
-blocked without ending the recovery chain. The toggle defaults off. This flag and
-trace are portal extensions, not fields in portable adapter v1.
+allowed: matching arguments are executed again and produce a fresh tool result.
+The toggle defaults off. This flag and trace are portal extensions, not fields in
+portable adapter v1.
 
 If an adapter language stream ends with a classified network/timeout failure
 before audio starts, the portal retries that exact round once. It emits

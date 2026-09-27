@@ -57,8 +57,8 @@ only after the model completes the original spoken request on the Jetson.
 - [ ] Add regression coverage reproducing shell pressure -> filesystem list ->
       exact file delivery without three shell retries.
 - [x] Remove the generic consecutive-nonproductive-round cap from JSON and
-      streaming agent loops; keep exact duplicate suppression, typed per-tool
-      limits, request timeout, and disconnect cancellation.
+      streaming agent loops; repeated calls execute normally while typed
+      per-tool limits, request timeout, and disconnect cancellation remain.
 - [ ] Run the complete validation gate after implementation.
 - [ ] Deploy to the Egg without unloading comprehension; pointing and TTS must
       be cold before the foreground tool request.

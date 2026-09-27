@@ -87,8 +87,8 @@ tool step, or service event as noted.
 | Validate tool name and JSON arguments | allowlist/schema/typed bounds | <1 ms/call | A | No | high | Deterministic rejection |
 | Authorize tools for a browser session | explicit local opt-in and server allowlist | <1 ms/call | E | No | high | Authority always overrides predictions |
 | Authorize shell/background side effects | execution profile plus server policy | <1 ms/call | E | No | high | Never infer authorization from confidence |
-| Detect exact duplicate calls/results | stable hash/digest sets | <1 ms/call | A | No | medium | Keep exact |
-| Admit a proposed action as goal-consistent/non-duplicate | currently only prompt plus exact duplicate block | part of LLM round | C | Yes, wave 2 | medium | Shadow; high confidence can admit only policy-permitted typed actions |
+| Observe repeated calls/results | stable hash/digest telemetry | <1 ms/call | A | No | low | Advisory only; never synthesize a failure or block execution from repetition |
+| Admit a proposed action as goal-consistent and policy-permitted | typed tool contract plus model decision | part of LLM round | C | Yes, wave 2 | medium | Shadow; high confidence can admit only policy-permitted typed actions, without a duplicate-call gate |
 | Validate public URL/redirect/DNS target | URL parser, resolver, public-IP checks | network-dependent | A/E | No | high | Fail closed deterministically |
 | Detect unsupported interactive flow | fetch result and rendered state | <1 ms after fetch | A for explicit state, C for semantics | Shadow semantics only | medium | Deterministic fetch state wins; ambiguous state goes to LLM |
 | Choose browser operation from current candidates | language model sees bounded DOM/screenshots | 1 LLM round/action | C/D | Yes only for closed operations/targets | medium | Jev-style bounded candidate wave; novel URLs/text remain LLM |
@@ -98,7 +98,7 @@ tool step, or service event as noted.
 | Detect task completion | evidence-ID validation plus LLM checkpoint assertion | 1 LLM round/step | C | Yes, wave 4 | medium-high | Laya recommends only; exact criteria/policy validate; ambiguous uses LLM |
 | Mark task blocked | failed evidence ID required | <1 ms after model assertion | E/A | No unilateral Laya | high | Concrete failed evidence and policy required |
 | Final task report wording | language model checkpoint report | included in LLM round | D | No | low | Deliberative synthesis, bounded length |
-| Stop foreground tool execution | request timeout, client disconnect, exact duplicate suppression, and typed per-tool bounds | event-driven | A | No | high | Do not terminate a recoverable chain merely because several attempts were nonproductive |
+| Stop foreground tool execution | request timeout, client disconnect, and typed per-tool bounds | event-driven | A | No | high | Repeated calls execute normally; do not terminate a recoverable chain merely because several attempts were nonproductive |
 | Yield a background work slice | round/call/stall counters | <1 ms/round | A | No | medium | Keep deterministic fairness bound |
 | Retry backend/resource failures | typed error plus exponential schedule | <1 ms/failure | A | No | medium | Keep scheduler state out of task semantics |
 | Preempt background work for live speech | event flag and stream cancellation | <50 ms polling | A | No | high | Keep exact single-flight behavior |
