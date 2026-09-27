@@ -118,15 +118,21 @@ def test_foreground_gateway_is_described_as_execution_capability() -> None:
         for item in catalog["tools"]
         if item["schema"]["function"]["name"] == "shell"
     )
+    applications_entry = next(
+        item
+        for item in catalog["tools"]
+        if item["schema"]["function"]["name"] == "system_applications"
+    )
 
     assert "undiscovered, not unavailable" in live
     assert "Report a capability blocker only after a relevant tool attempt" in live
     assert "full allowed tool catalog" in execution
     assert "execution gateway" in background["description"]
     assert shell_entry["routing_role"] == "gateway"
-    assert "copy that role into --query" in catalog["tool_families"]["shell"]["description"]
+    assert applications_entry["routing_role"] == "gateway"
     assert "every requested fact or action" in catalog["directives"]["tool_use"]
-    assert "dumping or grepping the unfiltered inventory" in shell_entry["schema"]["function"]["description"]
+    assert "system_applications" in shell_entry["schema"]["function"]["description"]
+    assert "scanning the filesystem" in applications_entry["schema"]["function"]["description"]
 
 
 def test_background_task_is_a_sticky_routing_gateway_only_when_supplied() -> None:
@@ -136,13 +142,30 @@ def test_background_task_is_a_sticky_routing_gateway_only_when_supplied() -> Non
     )
     search = next(schema for schema in schemas if schema["function"]["name"] == "tool_search")
     shell = next(schema for schema in schemas if schema["function"]["name"] == "shell")
+    applications = next(
+        schema for schema in schemas if schema["function"]["name"] == "system_applications"
+    )
 
-    assert retained_tool_names([search, shell, background]) == {
+    assert retained_tool_names([search, shell, applications, background]) == {
         "tool_search",
         "shell",
+        "system_applications",
         "background_task",
     }
     assert retained_tool_names([search]) == {"tool_search"}
+
+
+def test_file_delivery_is_a_typed_session_scoped_action() -> None:
+    catalog = context_catalog()
+    assert catalog["tool_families"]["delivery"]["tools"] == ["file_deliver"]
+    entry = next(
+        item
+        for item in catalog["tools"]
+        if item["schema"]["function"]["name"] == "file_deliver"
+    )
+    parameters = entry["schema"]["function"]["parameters"]
+    assert parameters["properties"]["action"]["enum"] == ["stage", "inspect"]
+    assert "explicitly requested" in entry["schema"]["function"]["description"]
 
 
 def test_live_context_forbids_support_boilerplate_and_unsolicited_transport_meta() -> None:

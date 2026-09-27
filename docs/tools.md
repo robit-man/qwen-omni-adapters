@@ -39,7 +39,9 @@ owns the schemas and implementations.
 | `video_scan` | Inspect observed video/audio streams and timeline metadata | Current browser-session media only |
 | `working_notes` | Add, list, search, or remove bounded research notes | Current browser session only |
 | `task_list` | Maintain bounded pending/in-progress/completed/blocked tasks | Current browser session only |
-| `shell` | Run one typed `bash -lc` inspect/mutate/verify step and return stdout, stderr, exit status, cwd, timeout state, and an executor-observed effect receipt; optional bounded stdin supports safe generated-file writes | Unrestricted portal-host shell; filesystem progress requires changed declared paths; runtime changes require subsequent verification; 900-second runtime, 64-KiB stdin, and 64-KiB-per-stream capture bounds |
+| `shell` | Run one typed `bash -lc` inspect/mutate/verify step and return stdout, stderr, exit status, cwd, timeout state, and an executor-observed effect receipt; optional bounded stdin supports safe generated-file writes | Unrestricted portal-host shell; exact stdout/stderr are retained as session artifacts while only 12-KiB previews enter model context |
+| `system_applications` | Query current XDG/Freedesktop, Flatpak, and Snap desktop launchers by role or MIME type | Read-only current host inventory with resolved executable evidence |
+| `file_deliver` | Stage or inspect one explicit local file for a Download button in the connected portal | Authenticated browser session only; immutable staged copy, configured source roots, size bound, five-minute TTL, and Trash cleanup |
 | `subagent_delegate` | Run one fresh helper completion for isolated analysis, planning, synthesis, or critique | Synchronous text-only model call; no tools, media, host access, or parent history; result stored in the current browser session |
 | `subagent_list` | List completed helper delegations | Current browser session only |
 | `subagent_result` | Retrieve one completed helper result by task ID | Current browser session only |
@@ -79,6 +81,16 @@ unavailable for the page's lifetime. IP location is approximate and may
 identify a carrier gateway or VPN rather than the physical device. A typical
 dependent chain is `get_user_location -> web_search -> web_fetch`, while an
 unavailable location requires an explicit city from the user.
+
+File delivery is explicit and tool-only. `file_deliver(action=stage)` accepts
+one exact regular file under `OMNI_FILE_DELIVERY_ROOTS`, copies its current
+bytes into a read-only session staging area, hashes them, and returns an opaque
+delivery ID. The browser renders a Download button and fetches the bytes from
+the same-origin `/api/files/<id>` route with the portal bearer token and the
+owning Secure session cookie. The route never accepts a host path. A delivery
+is invisible to another browser session, expires after five minutes by default,
+and is removed immediately by Trash. Tunnel obscurity is not treated as access
+control.
 
 Every location, search, fetch, and crawl result includes a machine-readable
 `provenance` object in the same JSON shown by the portal's **Tools** disclosure.

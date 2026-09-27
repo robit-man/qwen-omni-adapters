@@ -90,12 +90,13 @@ invokes only the concrete schemas needed to complete it.
 Routing gateways are sticky across adapter-side `tool_routing=relevant`
 narrowing. In a background-only live voice profile, a correct
 `tool_search(shell)` decision cannot leave the next turn with only discovery
-metadata: `background_task` remains executable and receives the requested
-outcome. The worker's shell can inventory Linux applications through
-`.venv/bin/qwen-omni applications --json`. That command derives the inventory
-from XDG/Freedesktop desktop entries (including Flatpak and Snap exports),
-honors user overrides and hidden tombstones, resolves advertised executables,
-and can query MIME handlers. Neither routing nor inventory depends on a list of
+metadata: the safe read-only `system_applications` tool remains directly
+executable, and `background_task` remains available for host actions that need
+the durable worker. `system_applications` and the equivalent
+`.venv/bin/qwen-omni applications --json` command derive their inventory from
+XDG/Freedesktop desktop entries (including Flatpak and Snap exports), honor
+user overrides and hidden tombstones, resolve advertised executables, and can
+query MIME handlers. Neither routing nor inventory depends on a list of
 expected application names.
 
 Shell is an unrestricted, sticky first-order gateway beside `tool_search` on
@@ -105,6 +106,13 @@ written losslessly as raw, SHA-256-addressed evidence artifacts with restrictive
 filesystem permissions. Only a bounded preview and the artifact receipts enter
 the active transformer context; later shell steps can page exact ranges from
 those paths. Clearing the owning portal session removes its artifact directory.
+
+User-requested output files cross the tunnel through the separate
+`file_deliver` family. The tool copies one allowlisted local regular file into
+an immutable, hashed, expiring session artifact; the UI opens the tool trace
+and renders a Download button. The authenticated endpoint resolves only an
+opaque delivery ID plus the owning Secure session cookie, never a caller-owned
+filesystem path. Trash removes both delivery metadata and staged bytes.
 
 Camera availability is likewise a gateway, not eager evidence. The local
 harness sends the spoken turn without a room image and exposes only

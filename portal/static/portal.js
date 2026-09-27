@@ -1051,12 +1051,54 @@
     }
   }
 
+  function fileDeliveryFromTrace(item) {
+    if (String((item || {}).name || "") !== "file_deliver") return null;
+    const result = (item || {}).resultJson;
+    if (!result || typeof result !== "object") return null;
+    const url = String(result.download_url || "");
+    const name = String(result.download_name || "download").slice(0, 255);
+    if (!/^\/api\/files\/[A-Za-z0-9_-]{16,128}$/.test(url)) return null;
+    return { url, name };
+  }
+
+  async function downloadDeliveredFile(delivery, button) {
+    const previous = button.textContent;
+    button.disabled = true;
+    button.textContent = "Downloading…";
+    try {
+      const response = await fetch(delivery.url, {
+        method: "GET",
+        headers: authHeaders(),
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`File download failed (${response.status})`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = delivery.name;
+      anchor.hidden = true;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+      button.textContent = "Downloaded";
+    } catch (error) {
+      button.textContent = previous;
+      showError(error);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   function renderToolTrace(record) {
     const box = record.node.querySelector(".tool-output");
     const content = record.node.querySelector(".tool-content");
     if (!box || !content) return;
     const trace = record.toolTrace || [];
     box.hidden = trace.length === 0;
+    if (trace.some(item => item.ok && fileDeliveryFromTrace(item))) box.open = true;
     content.replaceChildren();
     const completed = trace.filter(item => item.status !== "running").length;
     box.querySelector("summary").textContent = completed === trace.length
@@ -1078,6 +1120,15 @@
       argumentsNode.appendChild(argumentsLabel);
       appendToolJsonRows(argumentsNode, item.arguments);
       row.append(name, stateNode, argumentsNode);
+      const delivery = item.ok ? fileDeliveryFromTrace(item) : null;
+      if (delivery) {
+        const download = document.createElement("button");
+        download.type = "button";
+        download.className = "tool-download-button";
+        download.textContent = `Download ${delivery.name}`;
+        download.addEventListener("click", () => downloadDeliveredFile(delivery, download));
+        row.appendChild(download);
+      }
       if (item.result) {
         const resultNode = document.createElement("div");
         resultNode.className = "tool-result";

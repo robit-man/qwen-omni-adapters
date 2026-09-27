@@ -53,6 +53,7 @@ fallback:
 # Authorization remains a separate policy decision.
 tool_families:
   filesystem: [workspace_file]
+  delivery: [file_deliver]
   shell: [shell]
   math: [safe_math_eval]
   browser: [browser_interact]

@@ -37,6 +37,7 @@ from portal.browser import (
     BrowserAutomationStore,
     _navigation_error_metadata,
 )
+from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
 from portal.documents import SessionDocumentStore, extract_document
 from portal.gui import GuiAutomation, GuiAutomationError
 from portal.tools import (
@@ -2003,6 +2004,10 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert "function renderToolTrace" in javascript
     assert "function mergeToolTrace" in javascript
     assert "function appendToolJsonRows" in javascript
+    assert "function fileDeliveryFromTrace" in javascript
+    assert "function downloadDeliveredFile" in javascript
+    assert 'headers: authHeaders()' in javascript
+    assert ".tool-download-button" in css
     assert "MAX_TOOL_TRACE_ITEMS" not in javascript
     assert ".tool-json-row" in css
     assert ".tool-json-branch" in css
@@ -2949,6 +2954,158 @@ def test_shell_large_output_is_lossless_outside_bounded_context(tmp_path: Path) 
     assert artifact["complete"] is True
 
 
+def test_system_applications_returns_compact_current_evidence(monkeypatch) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def discover(**kwargs: Any) -> dict[str, Any]:
+        calls.append(kwargs)
+        return {
+            "schema": "robit.system-applications.v1",
+            "query": kwargs["query"],
+            "mime_type": kwargs["mime_type"],
+            "default_desktop_id": "org.example.Player.desktop",
+            "matched": 1,
+            "returned": 1,
+            "truncated": False,
+            "applications": [
+                {
+                    "name": "Example Player",
+                    "desktop_id": "org.example.Player.desktop",
+                    "executable": "example-player",
+                    "executable_path": "/usr/bin/example-player",
+                    "launchable": True,
+                    "categories": ["AudioVideo", "Player"],
+                    "default_for_mime": True,
+                    "source": "/usr/share/applications/org.example.Player.desktop",
+                    "mime_types": ["video/mp4"],
+                }
+            ],
+        }
+
+    monkeypatch.setattr("portal.tools.discover_applications", discover)
+    harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
+    result = harness.execute(
+        "one",
+        "system_applications",
+        {"query": "media player", "mime_type": "video/mp4", "limit": 5},
+    )
+
+    assert calls == [
+        {
+            "query": "media player",
+            "mime_type": "video/mp4",
+            "limit": 5,
+            "include_no_display": False,
+        }
+    ]
+    assert result["applications"] == [
+        {
+            "name": "Example Player",
+            "desktop_id": "org.example.Player.desktop",
+            "executable": "example-player",
+            "executable_path": "/usr/bin/example-player",
+            "launchable": True,
+            "categories": ["AudioVideo", "Player"],
+            "default_for_mime": True,
+        }
+    ]
+    assert "source" not in result["applications"][0]
+    assert result["evidence_authority"] == "inspection"
+
+
+def test_file_delivery_stages_immutable_session_scoped_copy(tmp_path: Path) -> None:
+    allowed = tmp_path / "allowed"
+    source = allowed / "report.txt"
+    allowed.mkdir()
+    source.write_bytes(b"version one\n")
+    store = SessionFileDeliveryStore(
+        tmp_path / "staged",
+        allowed_roots=(allowed,),
+        ttl_s=300,
+        max_bytes=1024,
+    )
+
+    staged = store.stage("session-one", source, "result.txt")
+    source.write_bytes(b"version two\n")
+    resolved = store.resolve("session-one", staged["delivery_id"])
+
+    assert resolved["path"].read_bytes() == b"version one\n"
+    assert resolved["download_name"] == "result.txt"
+    assert staged["download_url"] == f"/api/files/{staged['delivery_id']}"
+    assert staged["scope"] == "browser_session"
+    assert staged["staged_copy"] is True
+    with pytest.raises(FileDeliveryError, match="not found"):
+        store.resolve("session-two", staged["delivery_id"])
+
+    store.clear("session-one")
+    assert not resolved["path"].exists()
+
+
+def test_file_delivery_rejects_outside_root_and_oversized_source(
+    tmp_path: Path,
+) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside")
+    oversized = allowed / "large.bin"
+    oversized.write_bytes(b"x" * 9)
+    store = SessionFileDeliveryStore(
+        tmp_path / "staged",
+        allowed_roots=(allowed,),
+        max_bytes=8,
+    )
+
+    with pytest.raises(FileDeliveryError, match="outside"):
+        store.stage("one", outside)
+    with pytest.raises(FileDeliveryError, match="exceeds"):
+        store.stage("one", oversized)
+
+
+def test_authenticated_file_delivery_download_and_trash_cleanup(tmp_path: Path) -> None:
+    source = tmp_path / "artifact.txt"
+    source.write_bytes(b"deliver me\n")
+    app = create_app(
+        _config(
+            file_delivery_root=tmp_path / "deliveries",
+            file_delivery_roots=(tmp_path,),
+        ),
+        httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200))),
+    )
+    owner = app.test_client()
+    outsider = app.test_client()
+    owner.get("/")
+    outsider.get("/")
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    staged = owner.post(
+        "/api/tools/file_deliver/call",
+        headers=headers,
+        json={
+            "arguments": {
+                "action": "stage",
+                "path": str(source),
+                "download_name": "artifact.txt",
+            }
+        },
+    )
+    assert staged.status_code == 200
+    result = staged.json["result"]
+    assert result["evidence_authority"] == "staged_file"
+
+    assert owner.get(result["download_url"]).status_code == 401
+    assert outsider.get(result["download_url"], headers=headers).status_code == 404
+    downloaded = owner.get(result["download_url"], headers=headers)
+    assert downloaded.status_code == 200
+    assert downloaded.data == b"deliver me\n"
+    assert "attachment" in downloaded.headers["Content-Disposition"]
+    assert "artifact.txt" in downloaded.headers["Content-Disposition"]
+    assert downloaded.headers["X-Content-SHA256"] == result["sha256"]
+
+    assert owner.delete("/api/diagnostics", headers=headers).status_code == 204
+    assert owner.get(result["download_url"], headers=headers).status_code == 404
+
+
 def test_shell_stdin_writes_generated_content_without_shell_quoting(tmp_path: Path) -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
     content = "# Plan\nquote: 'single' and \"double\"\n$dollar `backtick`\n"
@@ -3057,13 +3214,13 @@ def test_workspace_file_rejects_invalid_source_before_overwrite(tmp_path: Path) 
     assert source.read_text(encoding="utf-8") == "VALUE = 1\n"
 
 
-def test_shell_is_found_without_putting_its_schema_in_the_first_pass() -> None:
+def test_shell_family_exposes_raw_shell_and_first_order_inventory() -> None:
     harness = PortalToolHarness(SessionDocumentStore(ttl_s=300))
     result = harness.execute(
         "one", "tool_search", {"family": "shell"}
     )
 
-    assert result["available_tools"][0] == "shell"
+    assert result["available_tools"] == ["shell", "system_applications"]
 
     file_result = harness.execute(
         "one", "tool_search", {"family": "filesystem"}
@@ -4256,7 +4413,7 @@ def test_embodied_client_gets_compact_physical_shell_and_background_bridges() ->
     assert response.status_code == 200
     assert {
         item["function"]["name"] for item in requests[0]["tools"]
-    } == {"tool_search", "shell"}
+    } == {"tool_search", "shell", "system_applications"}
     assert "portal_camera_bridge" not in requests[0]
     assert "portal_shell_bridge" not in requests[0]
     assert "portal_background_bridge" not in requests[0]
@@ -4330,10 +4487,35 @@ def test_background_only_voice_profile_cannot_rediscover_or_call_foreground_shel
     assert response.json["message"]["content"] == "I started it."
 
 
-def test_background_only_audio_routes_blocked_shell_discovery_to_durable_gateway(
+def test_background_only_audio_uses_structured_application_inventory_direct(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     requests: list[dict[str, Any]] = []
+
+    def discover(**kwargs: Any) -> dict[str, Any]:
+        assert kwargs["query"] == "media player"
+        assert kwargs["mime_type"] == "video/mp4"
+        assert kwargs["limit"] == 5
+        return {
+            "schema": "robit.system-applications.v1",
+            "query": kwargs["query"],
+            "mime_type": kwargs["mime_type"],
+            "count": 1,
+            "applications": [
+                {
+                    "name": "Example Player",
+                    "desktop_id": "example-player.desktop",
+                    "executable": "example-player",
+                    "executable_path": "/usr/bin/example-player",
+                    "launchable": True,
+                    "categories": ["AudioVideo", "Player"],
+                    "default_for_mime": True,
+                }
+            ],
+        }
+
+    monkeypatch.setattr("portal.tools.discover_applications", discover)
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
@@ -4342,28 +4524,30 @@ def test_background_only_audio_routes_blocked_shell_discovery_to_durable_gateway
             item["function"]["name"] for item in body.get("tools", [])
         }
         if len(requests) == 1:
-            assert {"tool_search", "shell", "background_task"} <= names
-            call = {"name": "tool_search", "arguments": {"family": "shell"}}
-        elif len(requests) == 2:
-            discovery = json.loads(body["messages"][-1]["content"])
-            assert discovery["available_tools"] == ["background_task"]
-            assert discovery["execution_profile"] == "durable_background_handoff"
-            assert names == {"background_task"}
+            assert {
+                "tool_search",
+                "shell",
+                "system_applications",
+                "background_task",
+            } <= names
             call = {
-                "name": "background_task",
-                "arguments": {
-                    "action": "start",
-                    "objective": "Discover the installed media player from system application metadata.",
-                    "completion_criteria": (
-                        "Report the launcher identity and resolved executable from current host evidence."
-                    ),
-                },
+                "name": "system_applications",
+                "arguments": {"query": "media player", "mime_type": "video/mp4", "limit": 5},
             }
         else:
-            assert names == {"tool_search", "background_task"}
+            assert names == {
+                "tool_search",
+                "system_applications",
+                "background_task",
+            }
             return httpx.Response(
                 200,
-                json={"message": {"role": "assistant", "content": "I started checking."}},
+                json={
+                    "message": {
+                        "role": "assistant",
+                        "content": "Example Player uses /usr/bin/example-player.",
+                    }
+                },
             )
         return httpx.Response(
             200,
@@ -4404,11 +4588,13 @@ def test_background_only_audio_routes_blocked_shell_discovery_to_durable_gateway
     )
 
     assert response.status_code == 200
-    assert response.json["message"]["content"] == "I started checking."
+    assert response.json["message"]["content"] == (
+        "Example Player uses /usr/bin/example-player."
+    )
     assert [
         item["name"]
         for item in response.json["portal"]["safe_tools_executed"]
-    ] == ["tool_search", "background_task"]
+    ] == ["system_applications"]
 
 
 def test_live_tools_allow_plain_reply_or_execute_selected_tool(

@@ -37,6 +37,7 @@ from flask import (
     make_response,
     render_template,
     request,
+    send_file,
     stream_with_context,
 )
 from waitress import serve
@@ -58,6 +59,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from portal.background_tasks import BackgroundTaskStore
+    from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import portal_behavior_system_message
     from portal.tools import (
@@ -73,6 +75,7 @@ try:
     from portal.virtual_context import SessionVirtualContext
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import BackgroundTaskStore
+    from deliveries import FileDeliveryError, SessionFileDeliveryStore
     from documents import DocumentError, SessionDocumentStore
     from environment import portal_behavior_system_message
     from tools import (
@@ -338,6 +341,10 @@ class PortalConfig:
     virtual_context_state_file: Path | None = None
     virtual_context_recurrent_tokens: int = 512
     virtual_context_recurrent_source_chunks: int = 200
+    file_delivery_root: Path | None = None
+    file_delivery_roots: tuple[Path, ...] = ()
+    file_delivery_ttl_s: float = DIAGNOSTIC_TTL_SECONDS
+    file_delivery_max_bytes: int = 128 * 1024 * 1024
 
     @classmethod
     def from_environment(cls) -> PortalConfig:
@@ -439,6 +446,40 @@ class PortalConfig:
                     os.environ.get(
                         "OMNI_VIRTUAL_CONTEXT_RECURRENT_SOURCE_CHUNKS",
                         "200",
+                    )
+                ),
+            ),
+            file_delivery_root=Path(
+                os.environ.get(
+                    "OMNI_FILE_DELIVERY_DIR",
+                    str(
+                        Path(os.environ.get("OMNI_REPO_ROOT") or ".")
+                        / "runtime-data/state/file-deliveries"
+                    ),
+                )
+            ).expanduser(),
+            file_delivery_roots=tuple(
+                Path(value).expanduser()
+                for value in os.environ.get("OMNI_FILE_DELIVERY_ROOTS", "").split(
+                    os.pathsep
+                )
+                if value.strip()
+            ),
+            file_delivery_ttl_s=max(
+                1.0,
+                float(
+                    os.environ.get(
+                        "OMNI_FILE_DELIVERY_TTL_S",
+                        str(DIAGNOSTIC_TTL_SECONDS),
+                    )
+                ),
+            ),
+            file_delivery_max_bytes=max(
+                1,
+                int(
+                    os.environ.get(
+                        "OMNI_FILE_DELIVERY_MAX_BYTES",
+                        str(128 * 1024 * 1024),
                     )
                 ),
             ),
@@ -1611,6 +1652,24 @@ def create_app(
         ttl_s=runtime.session_log_ttl_s,
     )
     documents = SessionDocumentStore(ttl_s=runtime.session_log_ttl_s)
+    repository_root = Path(os.environ.get("OMNI_REPO_ROOT") or ".").expanduser()
+    default_delivery_roots = (
+        repository_root,
+        Path.home() / "Desktop",
+        Path.home() / "Documents",
+        Path.home() / "Downloads",
+    )
+    file_deliveries = SessionFileDeliveryStore(
+        runtime.file_delivery_root
+        or repository_root / "runtime-data/state/file-deliveries",
+        allowed_roots=(
+            runtime.file_delivery_roots
+            if runtime.file_delivery_roots
+            else tuple(dict.fromkeys(default_delivery_roots))
+        ),
+        ttl_s=runtime.file_delivery_ttl_s,
+        max_bytes=runtime.file_delivery_max_bytes,
+    )
     virtual_token_counter = (
         LlamaCppTokenCounter(runtime.virtual_context_tokenize_url)
         if runtime.virtual_context_tokenize_url
@@ -1787,7 +1846,9 @@ def create_app(
                 payload["tool_choice"] = "required"
             initial = [
                 *DISCOVERY_TOOLS,
-                *tool_schemas(["shell"] if shell_bridge else []),
+                *tool_schemas(
+                    ["shell", "system_applications"] if shell_bridge else []
+                ),
                 *tool_schemas(routed),
             ]
         return list(
@@ -1863,6 +1924,7 @@ def create_app(
             (runtime.background_task_path.parent if runtime.background_task_path else Path("runtime-data/state"))
             / "shell-evidence"
         ),
+        file_deliveries=file_deliveries,
     )
     app.config["MAX_CONTENT_LENGTH"] = runtime.max_body_bytes
 
@@ -2493,6 +2555,28 @@ def create_app(
                 "elapsed_ms": (time.monotonic() - started) * 1000,
             }
         )
+
+    @app.get("/api/files/<delivery_id>")
+    def download_file(delivery_id: str):
+        """Download one staged file owned by this authenticated browser session."""
+
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        try:
+            delivery = file_deliveries.resolve(request_session_id(), delivery_id)
+        except FileDeliveryError:
+            return jsonify({"error": "file delivery was not found"}), 404
+        response = send_file(
+            delivery["path"],
+            mimetype=str(delivery["media_type"]),
+            as_attachment=True,
+            download_name=str(delivery["download_name"]),
+            conditional=True,
+            etag=str(delivery["sha256"]),
+            max_age=0,
+        )
+        response.headers["X-Content-SHA256"] = str(delivery["sha256"])
+        return response
 
     @app.post("/api/chat")
     def chat():

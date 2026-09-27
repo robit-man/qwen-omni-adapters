@@ -45,9 +45,13 @@
       "description": "List, read, create, or edit local workspace files and directories through bounded operations.",
       "tools": ["workspace_file"]
     },
+    "delivery": {
+      "description": "Stage an explicitly requested local file for an authenticated, session-scoped download through the portal.",
+      "tools": ["file_deliver"]
+    },
     "shell": {
-      "description": "Run commands, programs, builds, tests, installers, services, or local processes. On Linux, discover installed GUI applications from XDG/Freedesktop launchers with .venv/bin/qwen-omni applications --json. For a requested application kind, copy that role into --query and use --mime when relevant; do not dump or grep the unfiltered inventory or guess familiar executable names.",
-      "tools": ["shell"]
+      "description": "Run commands, programs, builds, tests, installers, services, or local processes, or inspect the structured Linux application inventory.",
+      "tools": ["shell", "system_applications"]
     },
     "background": {
       "description": "Start, update, inspect, or cancel sustained multi-step work that must continue beyond the live turn.",
@@ -143,11 +147,11 @@
             },
             "capability_family": {
               "type": "string",
-              "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
+              "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "delivery", "shell", "delegation", "uncertain"]
             },
             "executor_operation": {
               "type": "string",
-              "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"],
+              "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "stage", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"],
               "description": "The one leaf operation EXECUTE may invoke. Use execute only for tools without an action or intent selector."
             },
             "expected_effect": {
@@ -172,7 +176,7 @@
             },
             "verification_family": {
               "type": "string",
-              "enum": ["system", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
+              "enum": ["system", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "delivery", "shell", "delegation", "uncertain"]
             },
             "reason": {
               "type": "string",
@@ -197,11 +201,11 @@
                   "subtask": {"type": "string", "maxLength": 300},
                   "capability_family": {
                     "type": "string",
-                    "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
+                    "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "delivery", "shell", "delegation", "uncertain"]
                   },
                   "executor_operation": {
                     "type": "string",
-                    "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"]
+                    "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "stage", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"]
                   },
                   "expected_effect": {
                     "type": "string",
@@ -219,7 +223,7 @@
                   "acceptance_test": {"type": "string", "maxLength": 500},
                   "verification_family": {
                     "type": "string",
-                    "enum": ["system", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
+                    "enum": ["system", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "delivery", "shell", "delegation", "uncertain"]
                   },
                   "reason": {"type": "string", "maxLength": 500}
                 },
@@ -327,11 +331,11 @@
                       "subtask": {"type": "string", "maxLength": 300},
                       "capability_family": {
                         "type": "string",
-                        "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
+                        "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "delivery", "shell", "delegation", "uncertain"]
                       },
                       "executor_operation": {
                         "type": "string",
-                        "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"]
+                        "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "stage", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"]
                       },
                       "expected_effect": {"type": "string", "enum": ["resolve_unknown", "change_environment", "change_external_state"]},
                       "effect_target": {"type": "string", "maxLength": 500},
@@ -340,7 +344,7 @@
                       "acceptance_test": {"type": "string", "maxLength": 500},
                       "verification_family": {
                         "type": "string",
-                        "enum": ["system", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
+                        "enum": ["system", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "delivery", "shell", "delegation", "uncertain"]
                       },
                       "reason": {"type": "string", "maxLength": 500}
                     },
@@ -939,7 +943,7 @@
             "properties": {
               "family": {
                 "type": "string",
-                "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "background", "delegation", "uncertain"],
+                "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "delivery", "shell", "background", "delegation", "uncertain"],
                 "description": "Single family needed next."
               }
             },
@@ -951,6 +955,42 @@
         }
       },
       "routing_role": "gateway",
+      "memory_admission": "bounded"
+    },
+    {
+      "schema": {
+        "type": "function",
+        "function": {
+          "name": "file_deliver",
+          "description": "Make one exact local file explicitly requested by the user downloadable from the authenticated portal. Stage copies the file into an immutable, session-scoped, expiring delivery and creates a Download button in the client. Inspect verifies an existing delivery without copying it again. Never stage directories, inferred secrets, credentials, or unrelated files.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": ["stage", "inspect"]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096,
+                "description": "For stage, the exact readable file path under a configured delivery root."
+              },
+              "download_name": {
+                "type": "string",
+                "maxLength": 255,
+                "description": "Optional safe filename shown to the client."
+              },
+              "delivery_id": {
+                "type": "string",
+                "maxLength": 128,
+                "description": "For inspect, the delivery identifier returned by stage."
+              }
+            },
+            "additionalProperties": false,
+            "required": ["action"]
+          }
+        }
+      },
       "memory_admission": "bounded"
     },
     {
@@ -1301,7 +1341,7 @@
         "type": "function",
         "function": {
           "name": "shell",
-          "description": "Run one unrestricted Bash step on the portal host. Label the step's causal intent explicitly. A filesystem mutation counts as progress only when an executor snapshot proves that at least one declared mutation path changed. Runtime mutations require a later verify step; exit code alone is not proof. In a live foreground voice turn, use it only for one bounded command or immediate inspection; hand sustained work to background_task. Full raw stdout and stderr are retained in exact output_artifacts while only bounded previews enter working context; inspect a referenced artifact in bounded ranges when more output is needed. For generated file content, pass it through stdin to a command such as tee instead of embedding multiline text in fragile shell quoting. For Linux application discovery, run .venv/bin/qwen-omni applications --json. If the user asks for a specific application kind, pass that role through --query and add --mime when relevant; use the returned name, desktop_id, and executable_path rather than dumping or grepping the unfiltered inventory or guessing a familiar program.",
+          "description": "Run one unrestricted Bash step on the portal host. Label the step's causal intent explicitly. A filesystem mutation counts as progress only when an executor snapshot proves that at least one declared mutation path changed. Runtime mutations require a later verify step; exit code alone is not proof. In a live foreground voice turn, use it only for one bounded command or immediate inspection; hand sustained work to background_task. Full raw stdout and stderr are retained in exact output_artifacts while only bounded previews enter working context; inspect a referenced artifact in bounded ranges when more output is needed. For generated file content, pass it through stdin to a command such as tee instead of embedding multiline text in fragile shell quoting. Use the directly exposed system_applications tool for Linux application inventory instead of guessing a helper command or scanning the filesystem.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -1361,6 +1401,43 @@
       "routing_role": "gateway",
       "memory_admission": "executor",
       "memory_reserve_gib": 0.5
+    },
+    {
+      "schema": {
+        "type": "function",
+        "function": {
+          "name": "system_applications",
+          "description": "Inspect the current Linux desktop application inventory from XDG/Freedesktop launchers, including user overrides and Flatpak/Snap exports. For a requested application kind, copy that role into query and add mime_type when relevant. Returns current launcher names, desktop IDs, resolved executable paths, categories, and default-handler evidence without guessing package names or scanning the filesystem.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "Requested application name or role; require every term, for example the user's requested application kind. Empty lists a bounded general inventory."
+              },
+              "mime_type": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "Optional exact MIME type whose handlers should be matched."
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 30,
+                "description": "Maximum compact application records; default 12."
+              },
+              "include_no_display": {
+                "type": "boolean",
+                "description": "Include launchers hidden from ordinary desktop menus."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "routing_role": "gateway",
+      "memory_admission": "bounded"
     },
     {
       "schema": {

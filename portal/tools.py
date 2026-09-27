@@ -39,6 +39,7 @@ from urllib.parse import parse_qs, quote_plus, urljoin, urlsplit
 
 import httpx
 
+from qwen_omni_adapters.applications import discover_applications
 from qwen_omni_adapters.context import (
     configured_tool_families,
     configured_tools,
@@ -53,6 +54,7 @@ try:
         BrowserAutomationStore,
         BrowserDesktopUnavailable,
     )
+    from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import runtime_environment_snapshot
     from portal.gui import GuiAutomation, GuiAutomationError
@@ -63,6 +65,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
         BrowserAutomationStore,
         BrowserDesktopUnavailable,
     )
+    from deliveries import FileDeliveryError, SessionFileDeliveryStore
     from documents import DocumentError, SessionDocumentStore
     from environment import runtime_environment_snapshot
     from gui import GuiAutomation, GuiAutomationError
@@ -529,6 +532,50 @@ def _run_shell(
             "changed_paths": changed_paths,
             "filesystem_change_verified": bool(changed_paths),
         },
+    }
+
+
+def _system_applications(
+    query: Any,
+    mime_type: Any,
+    limit: Any,
+    include_no_display: Any,
+) -> dict[str, Any]:
+    """Return compact, current application evidence without filling context."""
+
+    normalized_query = str(query or "").strip()
+    normalized_mime = str(mime_type or "").strip()
+    if len(normalized_query) > 200:
+        raise ToolInputError("query exceeds 200 characters")
+    if len(normalized_mime) > 200:
+        raise ToolInputError("mime_type exceeds 200 characters")
+    discovered = discover_applications(
+        query=normalized_query,
+        mime_type=normalized_mime,
+        limit=_bounded_integer(limit, default=12, minimum=1, maximum=30),
+        include_no_display=include_no_display is True,
+    )
+    return {
+        key: value
+        for key, value in discovered.items()
+        if key != "applications"
+    } | {
+        "applications": [
+            {
+                key: application.get(key)
+                for key in (
+                    "name",
+                    "desktop_id",
+                    "executable",
+                    "executable_path",
+                    "launchable",
+                    "categories",
+                    "default_for_mime",
+                )
+            }
+            for application in discovered["applications"]
+        ],
+        "evidence_authority": "inspection",
     }
 
 
@@ -2298,6 +2345,7 @@ class PortalToolHarness:
         gui_automation: Any | None = None,
         memory_governor: MemoryGovernor | None = None,
         shell_evidence_root: Path | None = None,
+        file_deliveries: SessionFileDeliveryStore | None = None,
     ) -> None:
         self.documents = documents
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
@@ -2311,6 +2359,7 @@ class PortalToolHarness:
         self.location = SessionLocationStore(ttl_s=ttl_s)
         self.background_tasks = background_tasks
         self.memory_governor = memory_governor
+        self.file_deliveries = file_deliveries
         self.shell_evidence_root = (
             Path(shell_evidence_root).expanduser().resolve(strict=False)
             if shell_evidence_root is not None
@@ -2331,6 +2380,8 @@ class PortalToolHarness:
         self.location.clear(session_id)
         self.browser.clear(session_id)
         self.gui.clear(session_id)
+        if self.file_deliveries is not None:
+            self.file_deliveries.clear(session_id)
         if self.shell_evidence_root is not None:
             session_key = hashlib.sha256(str(session_id).encode()).hexdigest()
             session_directory = self.shell_evidence_root / session_key
@@ -2544,6 +2595,41 @@ class PortalToolHarness:
                     output_directory=self.shell_evidence_root,
                     output_session=session_id,
                 )
+            elif name == "system_applications":
+                result = _system_applications(
+                    arguments.get("query"),
+                    arguments.get("mime_type"),
+                    arguments.get("limit"),
+                    arguments.get("include_no_display"),
+                )
+            elif name == "file_deliver":
+                if self.file_deliveries is None:
+                    raise ToolInputError("file delivery is not configured")
+                action = str(arguments.get("action") or "").strip()
+                try:
+                    if action == "stage":
+                        result = self.file_deliveries.stage(
+                            session_id,
+                            arguments.get("path"),
+                            arguments.get("download_name"),
+                        )
+                        result["evidence_authority"] = "staged_file"
+                    elif action == "inspect":
+                        result = self.file_deliveries.inspect(
+                            session_id,
+                            _bounded_text(
+                                arguments.get("delivery_id"),
+                                "delivery_id",
+                                128,
+                            ),
+                        )
+                        result["evidence_authority"] = "inspection"
+                    else:
+                        raise ToolInputError(
+                            "file_deliver action must be stage or inspect"
+                        )
+                except FileDeliveryError as exc:
+                    raise ToolInputError(str(exc)) from exc
             elif name == "background_task":
                 if self.background_tasks is None:
                     raise ToolInputError("background task worker is not configured")

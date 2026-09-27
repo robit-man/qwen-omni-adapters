@@ -1106,6 +1106,10 @@ def _audit_tool_schemas(
         "background_task",
         "memory_write",
         "request_camera_view",
+        # Application inventory is first-order inspection evidence, not a
+        # general verifier for an already committed environmental mutation.
+        # Keep the AUDIT role's acceptance grammar single-purpose.
+        "system_applications",
         "subagent_delegate",
         "subagent_forget",
         "task_list",
@@ -1113,6 +1117,7 @@ def _audit_tool_schemas(
     }
     operation_limits = {
         "browser_interact": {"snapshot"},
+        "file_deliver": {"inspect"},
         "gui_interact": {"snapshot"},
         "shell": {"verify"},
         "workspace_file": {"list", "read"},

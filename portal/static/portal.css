@@ -320,6 +320,19 @@ button { color: inherit; }
 .tool-entry.running .tool-state { color: var(--accent); }
 .tool-entry.failed strong,
 .tool-entry.failed .tool-state { color: var(--danger); }
+.tool-download-button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  min-height: 32px;
+  padding: 7px 11px;
+  border: 1px solid rgba(134,239,172,.4);
+  border-radius: 9px;
+  background: rgba(134,239,172,.12);
+  color: var(--text);
+  font: 700 10px var(--mono);
+  cursor: pointer;
+}
+.tool-download-button:disabled { cursor: wait; opacity: .65; }
 .message.user.sound-only .message-content { opacity: .5; font-style: italic; }
 
 .audio-output { margin-top: 10px; }

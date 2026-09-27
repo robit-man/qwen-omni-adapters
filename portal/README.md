@@ -255,6 +255,13 @@ sanitized value with the request. Raw IP, ISP/connection, security, and currency
 metadata never reach the portal or model. The result is session-scoped,
 approximate, VPN/carrier-sensitive, and cleared by Trash or five-minute expiry.
 
+`file_deliver` turns one user-requested local file into a visible Download
+button in the assistant's expanded Tools trace. The server stages an immutable
+copy under a configured delivery root; the browser downloads it through the
+same Cloudflare-backed portal using both the bearer token and its Secure session
+cookie. IDs are session-isolated, the download endpoint never accepts arbitrary
+paths, and staged copies expire or clear with Trash.
+
 Web discovery uses Omnius's direct no-key DuckDuckGo HTML results path—there is
 no search API client, key, provider fallback, or browser dependency. A separate
 bounded fetch step permits only public HTTP(S), emits a source/hash receipt,
@@ -459,6 +466,10 @@ continue through broker-owned GPU lanes.
 | `OMNI_PORTAL_MAX_INFLIGHT_REQUESTS` | `4` | Active plus queued portal requests before a bounded 503 response |
 | `OMNI_PORTAL_SESSION_LOG_DIR` | runtime `session-logs` | Content-redacted, per-session timing journals |
 | `OMNI_PORTAL_SESSION_LOG_TTL_S` | `300` | Inactive-session diagnostic retention; five minutes by default |
+| `OMNI_FILE_DELIVERY_DIR` | runtime `state/file-deliveries` | Private staging directory for portal downloads |
+| `OMNI_FILE_DELIVERY_ROOTS` | repo root plus user Desktop, Documents, and Downloads | Path-separator-delimited source roots eligible for explicit delivery |
+| `OMNI_FILE_DELIVERY_TTL_S` | `300` | Session delivery lifetime in seconds |
+| `OMNI_FILE_DELIVERY_MAX_BYTES` | 128 MiB | Maximum size of one staged download |
 | `OMNI_CHROMIUM_BIN` | `/usr/local/bin/chromium` | Chromium executable for interactive/JavaScript-rendered `browser_interact` work |
 
 Ports `8901`, `8892`, `8910`, and `8920` are loopback-only. The Cloudflare
