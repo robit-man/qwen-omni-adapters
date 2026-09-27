@@ -1582,6 +1582,15 @@ def _background_tool_contract(
                     properties["next_decision"]["enum"] = list(
                         manage_next_decisions
                     )
+                    if manage_next_decisions == ["act"]:
+                        properties["expected_effect"]["enum"] = [
+                            "change_environment",
+                            "change_external_state",
+                        ]
+                    elif manage_next_decisions == ["retrieve"]:
+                        properties["expected_effect"]["enum"] = [
+                            "resolve_unknown"
+                        ]
             elif manage_decisions == ["act"]:
                 properties["expected_effect"]["enum"] = [
                     "change_environment",

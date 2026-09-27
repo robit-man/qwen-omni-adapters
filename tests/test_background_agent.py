@@ -2365,6 +2365,9 @@ def test_repeated_exhausted_manager_route_closes_that_next_decision() -> None:
     assert schema[0]["function"]["parameters"]["properties"]["next_decision"][
         "enum"
     ] == ["act"]
+    assert schema[0]["function"]["parameters"]["properties"]["expected_effect"][
+        "enum"
+    ] == ["change_environment", "change_external_state"]
 
     rejected_transition = {
         "decision": "replan",
