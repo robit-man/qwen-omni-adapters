@@ -124,6 +124,9 @@ def test_foreground_gateway_is_described_as_execution_capability() -> None:
     assert "full allowed tool catalog" in execution
     assert "execution gateway" in background["description"]
     assert shell_entry["routing_role"] == "gateway"
+    assert "copy that role into --query" in catalog["tool_families"]["shell"]["description"]
+    assert "every requested fact or action" in catalog["directives"]["tool_use"]
+    assert "dumping or grepping the unfiltered inventory" in shell_entry["schema"]["function"]["description"]
 
 
 def test_background_task_is_a_sticky_routing_gateway_only_when_supplied() -> None:
