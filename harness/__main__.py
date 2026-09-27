@@ -36,6 +36,7 @@ from harness.residency import (
 from harness.respeaker import find_source
 from harness.update import RepositoryUpdateManager
 from portal.background_tasks import BackgroundTaskStore
+from qwen_omni_adapters.voice_profiles import IndicatorVoiceManager
 
 logger = logging.getLogger("omni.harness")
 
@@ -463,6 +464,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     model_manager = IndicatorModelManager(repo_root, model)
+    voice_manager = IndicatorVoiceManager(repo_root)
 
     def model_action(tag: str, action: str) -> tuple[bool, str]:
         ok, detail = model_manager.action(tag, action)
@@ -473,6 +475,16 @@ def main(argv: list[str] | None = None) -> int:
             # the selected OMNI_MODEL rather than retaining stale environment.
             model_switch_requested.set()
             request_shutdown()
+        return ok, detail
+
+    def voice_select(preset_id: str) -> tuple[bool, str]:
+        ok, detail = voice_manager.select(preset_id)
+        logger.info("indicator voice selection %s: %s", preset_id, detail)
+        return ok, detail
+
+    def voice_import(path: str) -> tuple[bool, str]:
+        ok, detail = voice_manager.import_clip(Path(path))
+        logger.info("indicator voice import: %s", detail)
         return ok, detail
 
     indicator_task_store = (
@@ -554,6 +566,9 @@ def main(argv: list[str] | None = None) -> int:
             tasks=indicator_task_store.list if indicator_task_store is not None else None,
             models=model_manager.views,
             on_model_action=model_action,
+            voices=voice_manager.views,
+            on_voice_select=voice_select,
+            on_voice_import=voice_import,
             updates=update_manager.view if update_manager is not None else None,
             on_update=update_manager.install if update_manager is not None else None,
             required=indicator_required,

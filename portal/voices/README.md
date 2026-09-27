@@ -11,3 +11,8 @@ metadata tags.
 Replace it only with a voice you own or have permission to clone. Keep voice
 references short, clean, single-speaker, and free of music or strong room
 reverberation. Do not commit user-uploaded or session-recorded references.
+
+The desktop indicator does not edit these checked-in defaults. Its **Voice**
+menu creates `runtime-data/state/voice-profile.json`, stores normalized custom
+references under `runtime-data/voices`, and atomically switches the one active
+preset there. That runtime profile is hot-reloaded between requests.

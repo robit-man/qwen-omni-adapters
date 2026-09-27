@@ -98,6 +98,14 @@ camera is composed in one left-to-right row rather than a grid. It also polls
 updates preserve untracked files and fail closed for tracked edits, a non-main
 checkout, or diverged history; use `./deploy.sh` for those cases or for changes
 that require reinstalling privileged system-unit definitions.
+
+The indicator's **Voice** submenu selects the shipped default female or male
+reference and retains imported custom clips in `runtime-data/voices`. Selecting
+**Add custom voice…** opens a native file picker and normalizes WAV, MP3, M4A,
+FLAC, OGG, or AAC input into a clean 16 kHz mono WAV between 0.5 and 30 seconds.
+The portal hot-reloads the atomically written runtime profile. On the next
+spoken response Qwen3-TTS reloads only its speaker-specific worker if needed;
+the language and comprehension workers are not restarted or evicted.
 On Ubuntu appliance desktops, the harness install also adds one narrow polkit
 rule for the distro-owned, read-only `package-system-locked` query. This stops
 update-notifier from opening an administrator-password dialog during the

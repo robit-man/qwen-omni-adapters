@@ -3893,6 +3893,67 @@ def test_portal_enforces_server_voice_profile() -> None:
     assert seen[0]["speech"] == {key: value for key, value in profile.items() if key != "name"}
 
 
+def test_portal_hot_reloads_indicator_voice_selection(tmp_path: Path) -> None:
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "Hello."}},
+        )
+
+    female = tmp_path / "female.wav"
+    male = tmp_path / "male.wav"
+    female.write_bytes(b"RIFF")
+    male.write_bytes(b"RIFF")
+    profile_path = tmp_path / "voice-profile.json"
+    profile = {
+        "schema": "robit.omni.voice-profile.v1",
+        "name": "female",
+        "language": "en",
+        "speaker_file": str(female),
+        "presets": [
+            {
+                "id": "female",
+                "label": "Female",
+                "speaker_file": str(female),
+                "default": True,
+            },
+            {
+                "id": "male",
+                "label": "Male",
+                "speaker_file": str(male),
+                "default": False,
+            },
+        ],
+    }
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+    app = create_app(
+        _config(
+            voice_profile=load_voice_profile(profile_path),
+            voice_profile_path=profile_path,
+        ),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    profile["name"] = "male"
+    profile["speaker_file"] = str(male)
+    profile["presets"][0]["default"] = False
+    profile["presets"][1]["default"] = True
+    replacement = tmp_path / ".voice-profile.next"
+    replacement.write_text(json.dumps(profile), encoding="utf-8")
+    replacement.replace(profile_path)
+
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(),
+    )
+
+    assert response.status_code == 200
+    assert seen[0]["speech"]["speaker_file"] == str(male)
+
+
 def test_portal_accepts_safe_client_voice_clone_and_controls() -> None:
     seen = []
 

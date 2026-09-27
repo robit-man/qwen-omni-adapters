@@ -334,6 +334,9 @@ def build_indicator(
     tasks: Callable[[], list[Mapping[str, Any]]] | None = None,
     models: Callable[[], list[Mapping[str, Any]]] | None = None,
     on_model_action: Callable[[str, str], tuple[bool, str]] | None = None,
+    voices: Callable[[], list[Mapping[str, Any]]] | None = None,
+    on_voice_select: Callable[[str], tuple[bool, str]] | None = None,
+    on_voice_import: Callable[[str], tuple[bool, str]] | None = None,
     updates: Callable[[], Mapping[str, Any]] | None = None,
     on_update: Callable[[], tuple[bool, str]] | None = None,
     required: bool = False,
@@ -368,6 +371,8 @@ def build_indicator(
             self._tasks = tasks
             self._model_signature: object = None
             self._models = models
+            self._voice_signature: object = None
+            self._voices = voices
             self._update_signature: object = None
             self._updates = updates
 
@@ -441,6 +446,12 @@ def build_indicator(
             self._models_item.set_sensitive(models is not None)
             menu.append(self._models_item)
 
+            self._voices_item = Gtk.MenuItem(label="Voice")
+            self._voices_menu = Gtk.Menu()
+            self._voices_item.set_submenu(self._voices_menu)
+            self._voices_item.set_sensitive(voices is not None)
+            menu.append(self._voices_item)
+
             self._clear_tasks_item = Gtk.MenuItem(label="Clear finished tasks")
             self._clear_tasks_item.connect("activate", lambda *_: self._clear_tasks())
             self._clear_tasks_item.set_sensitive(on_clear_tasks is not None)
@@ -466,10 +477,13 @@ def build_indicator(
             self._indicator.set_menu(menu)
             self._indicator.set_label("Omni", "Omni")
             self._refresh_models()
+            self._refresh_voices()
             self._refresh_tasks()
             self._refresh_update()
             if models is not None:
                 GLib.timeout_add_seconds(1, self._refresh_models)
+            if voices is not None:
+                GLib.timeout_add_seconds(1, self._refresh_voices)
             if tasks is not None:
                 GLib.timeout_add_seconds(1, self._refresh_tasks)
             if updates is not None:
@@ -715,6 +729,110 @@ def build_indicator(
                 empty.set_sensitive(False)
                 self._models_menu.append(empty)
             self._models_menu.show_all()
+            return True
+
+        def _voice_select(self, preset_id: str) -> None:
+            if on_voice_select is None:
+                return
+            ok, detail = on_voice_select(preset_id)
+            self._status_item.set_label(detail[:80])
+            if not ok:
+                logger.warning("voice selection rejected: %s", detail)
+            self._voice_signature = None
+            self._refresh_voices()
+
+        def _voice_import(self) -> None:
+            if on_voice_import is None:
+                return
+            dialog = Gtk.FileChooserDialog(
+                title="Choose a voice-cloning audio clip",
+                transient_for=None,
+                action=Gtk.FileChooserAction.OPEN,
+            )
+            dialog.add_buttons(
+                "Cancel",
+                Gtk.ResponseType.CANCEL,
+                "Add voice",
+                Gtk.ResponseType.OK,
+            )
+            audio_filter = Gtk.FileFilter()
+            audio_filter.set_name("Audio clips")
+            for mime_type in (
+                "audio/wav",
+                "audio/x-wav",
+                "audio/mpeg",
+                "audio/mp4",
+                "audio/flac",
+                "audio/ogg",
+                "audio/aac",
+            ):
+                audio_filter.add_mime_type(mime_type)
+            for pattern in ("*.wav", "*.mp3", "*.m4a", "*.flac", "*.ogg", "*.aac"):
+                audio_filter.add_pattern(pattern)
+            dialog.add_filter(audio_filter)
+            selected = ""
+            try:
+                if dialog.run() == Gtk.ResponseType.OK:
+                    selected = str(dialog.get_filename() or "")
+            finally:
+                dialog.destroy()
+            if not selected:
+                return
+            self._status_item.set_label("Importing voice clip…")
+            ok, detail = on_voice_import(selected)
+            self._status_item.set_label(detail[:80])
+            if not ok:
+                logger.warning("voice import rejected: %s", detail)
+            self._voice_signature = None
+            self._refresh_voices()
+
+        def _refresh_voices(self) -> bool:
+            try:
+                views = list(self._voices()) if self._voices is not None else []
+            except Exception as error:  # noqa: BLE001 - keep the voice loop usable
+                logger.warning("could not refresh indicator voices: %s", error)
+                views = []
+            signature = tuple(
+                (
+                    str(view.get("id") or ""),
+                    str(view.get("label") or ""),
+                    view.get("active") is True,
+                    view.get("custom") is True,
+                )
+                for view in views
+            )
+            if signature == self._voice_signature:
+                return True
+            self._voice_signature = signature
+            for widget in self._voices_menu.get_children():
+                self._voices_menu.remove(widget)
+            active_label = ""
+            for view in views:
+                preset_id = str(view.get("id") or "")
+                label = str(view.get("label") or preset_id)
+                if not preset_id:
+                    continue
+                item = Gtk.CheckMenuItem(label=label)
+                item.set_draw_as_radio(True)
+                item.set_active(view.get("active") is True)
+                item.set_sensitive(on_voice_select is not None)
+                item.connect(
+                    "activate",
+                    lambda _item, selected_id=preset_id: self._voice_select(selected_id),
+                )
+                self._voices_menu.append(item)
+                if view.get("active") is True:
+                    active_label = label
+            if views:
+                self._voices_menu.append(Gtk.SeparatorMenuItem())
+            custom = Gtk.MenuItem(label="Add custom voice…")
+            custom.set_sensitive(on_voice_import is not None)
+            custom.connect("activate", lambda *_: self._voice_import())
+            self._voices_menu.append(custom)
+            self._voices_item.set_label(
+                f"Voice — {active_label}" if active_label else "Voice"
+            )
+            self._voices_menu.show_all()
             return True
 
         def _cancel_task(self, task_id: str) -> None:

@@ -13,6 +13,7 @@ import copy
 import hashlib
 import hmac
 import json
+import logging
 import math
 import os
 import re
@@ -48,6 +49,8 @@ from qwen_omni_adapters.context import context_text, live_call_system_prompt
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, DecisionWaveResult
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 from qwen_omni_adapters.virtual_memory import ContextOverflow, LlamaCppTokenCounter
+
+logger = logging.getLogger(__name__)
 
 try:
     from portal.background_tasks import BackgroundTaskStore
@@ -264,6 +267,46 @@ def load_voice_profile(path: Path) -> dict[str, Any]:
     return profile
 
 
+class VoiceProfileReader:
+    """Hot-reload an atomically replaced profile while retaining a good copy."""
+
+    def __init__(
+        self,
+        profile: Mapping[str, Any],
+        path: Path | None = None,
+    ) -> None:
+        self._profile = dict(profile)
+        self._path = path
+        self._signature = self._stat_signature()
+        self._lock = threading.Lock()
+
+    def _stat_signature(self) -> tuple[int, int, int] | None:
+        if self._path is None:
+            return None
+        try:
+            stat = self._path.stat()
+        except OSError:
+            return None
+        return (stat.st_ino, stat.st_mtime_ns, stat.st_size)
+
+    def current(self) -> dict[str, Any]:
+        signature = self._stat_signature()
+        if self._path is None or signature == self._signature:
+            return self._profile
+        with self._lock:
+            signature = self._stat_signature()
+            if signature == self._signature:
+                return self._profile
+            try:
+                replacement = load_voice_profile(self._path)
+            except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                logger.warning("retaining last valid voice profile after reload failure: %s", exc)
+                return self._profile
+            self._profile = replacement
+            self._signature = signature
+            return self._profile
+
+
 @dataclass(frozen=True)
 class PortalConfig:
     adapter_url: str
@@ -274,6 +317,7 @@ class PortalConfig:
     model: str
     access_token: str
     voice_profile: Mapping[str, Any] = field(default_factory=dict)
+    voice_profile_path: Path | None = None
     timeout_s: float = 1200
     max_body_bytes: int = 96 * 1024 * 1024
     inference_slots: int = 1
@@ -321,6 +365,7 @@ class PortalConfig:
             model=os.environ.get("OMNI_MODEL", DEFAULT_MODEL).strip(),
             access_token=access_token,
             voice_profile=load_voice_profile(profile_path),
+            voice_profile_path=profile_path,
             timeout_s=float(os.environ.get("OMNI_PORTAL_TIMEOUT_S", "1200")),
             max_body_bytes=int(os.environ.get("OMNI_PORTAL_MAX_BODY_BYTES", str(96 * 1024 * 1024))),
             inference_slots=max(1, int(os.environ.get("OMNI_PORTAL_INFERENCE_SLOTS", "1"))),
@@ -1495,6 +1540,10 @@ def create_app(
         template_folder=str(root / "templates"),
     )
     runtime = config or PortalConfig.from_environment()
+    voice_profiles = VoiceProfileReader(
+        runtime.voice_profile,
+        runtime.voice_profile_path,
+    )
     session = client or httpx.Client(timeout=runtime.timeout_s)
     inference_queue = _InferenceQueue(
         slots=runtime.inference_slots,
@@ -1767,9 +1816,10 @@ def create_app(
 
     def apply_voice_profile(payload: dict[str, Any]) -> None:
         client_voice = _voice_override(payload.pop("portal_voice", None))
+        voice_profile = voice_profiles.current()
         speech = {
             key: copy.deepcopy(value)
-            for key, value in runtime.voice_profile.items()
+            for key, value in voice_profile.items()
             if key in VOICE_SPEECH_FIELDS
         }
         clone_enabled = client_voice.pop("clone_enabled", None)
@@ -1787,7 +1837,7 @@ def create_app(
                 speech["speaker_audio"] = speaker_audio
             elif preset_id is not None:
                 presets = {
-                    str(preset["id"]): preset for preset in runtime.voice_profile.get("presets", [])
+                    str(preset["id"]): preset for preset in voice_profile.get("presets", [])
                 }
                 selected = presets.get(preset_id)
                 if selected is None:
@@ -2184,6 +2234,7 @@ def create_app(
             # for declining to load it. Media routes still fail loudly when
             # asked for; see _require_comprehension in the adapter.
             stages["comprehension"] = {"ok": True, "status": None, "enabled": False}
+        voice_profile = voice_profiles.current()
         return jsonify(
             {
                 "ok": all(item["ok"] for item in stages.values()),
@@ -2241,14 +2292,14 @@ def create_app(
                     **tool_harness.subagent_stats(session_id),
                 },
                 "voice_profile": {
-                    "name": str(runtime.voice_profile.get("name") or "default"),
-                    "language": str(runtime.voice_profile.get("language") or "en"),
-                    "speaker_reference": bool(runtime.voice_profile.get("speaker_file")),
-                    "temperature": float(runtime.voice_profile.get("temperature", 0.7)),
-                    "top_k": int(runtime.voice_profile.get("top_k", 40)),
-                    "top_p": float(runtime.voice_profile.get("top_p", 0.9)),
-                    "seed": int(runtime.voice_profile.get("seed", 42)),
-                    "max_frames": int(runtime.voice_profile.get("max_frames", 512)),
+                    "name": str(voice_profile.get("name") or "default"),
+                    "language": str(voice_profile.get("language") or "en"),
+                    "speaker_reference": bool(voice_profile.get("speaker_file")),
+                    "temperature": float(voice_profile.get("temperature", 0.7)),
+                    "top_k": int(voice_profile.get("top_k", 40)),
+                    "top_p": float(voice_profile.get("top_p", 0.9)),
+                    "seed": int(voice_profile.get("seed", 42)),
+                    "max_frames": int(voice_profile.get("max_frames", 512)),
                     "clone_mode": "speaker_embedding",
                     "client_reference_wav": True,
                     "presets": [
@@ -2257,7 +2308,7 @@ def create_app(
                             "label": str(preset["label"]),
                             "default": bool(preset["default"]),
                         }
-                        for preset in runtime.voice_profile.get("presets", [])
+                        for preset in voice_profile.get("presets", [])
                     ],
                 },
                 "streaming": {

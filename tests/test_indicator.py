@@ -202,6 +202,18 @@ def test_indicator_exposes_the_complete_managed_model_lifecycle() -> None:
     assert model_views([]) == []
 
 
+def test_indicator_places_persistent_voice_selection_beside_models() -> None:
+    source = inspect.getsource(build_indicator)
+
+    assert 'Gtk.MenuItem(label="Voice")' in source
+    assert 'Gtk.CheckMenuItem(label=label)' in source
+    assert 'Gtk.MenuItem(label="Add custom voice…")' in source
+    assert "Gtk.FileChooserDialog(" in source
+    assert 'title="Choose a voice-cloning audio clip"' in source
+    assert "on_voice_select(preset_id)" in source
+    assert "on_voice_import(selected)" in source
+
+
 def test_indicator_exposes_live_camera_view_and_repository_updates() -> None:
     source = inspect.getsource(build_indicator)
 

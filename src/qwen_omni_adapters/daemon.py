@@ -31,6 +31,7 @@ from qwen_omni_adapters.ollama_sidecar import (
     prepare_ollama_sidecar,
     resolve_ollama_sidecar,
 )
+from qwen_omni_adapters.voice_profiles import ensure_managed_voice_profile
 
 
 class DaemonError(RuntimeError):
@@ -567,7 +568,7 @@ class OmniDaemon:
             profile_path = (
                 Path(configured).expanduser().resolve()
                 if configured
-                else self.config.repo_root / "portal" / "voice-profile.json"
+                else ensure_managed_voice_profile(self.config.repo_root)
             )
             try:
                 profile = json.loads(profile_path.read_text(encoding="utf-8"))
@@ -1168,6 +1169,11 @@ class OmniDaemon:
             **common,
             "OMNI_MODEL": self.config.model,
             "OMNI_PORTAL_TOKEN": token,
+            "OMNI_VOICE_PROFILE": str(
+                Path(os.environ["OMNI_VOICE_PROFILE"]).expanduser().resolve()
+                if os.environ.get("OMNI_VOICE_PROFILE", "").strip()
+                else ensure_managed_voice_profile(self.config.repo_root)
+            ),
             # The launcher may select a smaller resident window than the
             # configured ceiling after measuring unified-memory headroom.  The
             # portal is the working-set allocator, so it must observe the same

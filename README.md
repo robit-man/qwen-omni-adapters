@@ -640,8 +640,15 @@ actions as applicable. Activation atomically selects the one logical language/
 Omni tag, requests a controlled core restart, and lets the indicator reconnect
 with the new service environment. An active direct-daemon model is labelled
 separately from an optional Ollama runner so the UI never hides a duplicate
-allocation on a 32 GB Jetson. It also appends live/recent durable tasks
-as native submenus, so inspecting a task does not close the whole menu. Each
+allocation on a 32 GB Jetson. The adjacent **Voice** submenu selects **Default
+female**, **Default male**, or any previously imported custom clone reference.
+**Add custom voice…** opens the native audio file picker, normalizes the owned
+clip to a bounded 16 kHz mono WAV, stores it under untracked `runtime-data`,
+adds it to the persistent list, and selects it for the next reply. Voice-profile
+changes hot-reload in the portal; only the TTS worker changes speaker profile,
+so the language and comprehension weights stay resident. It also appends
+live/recent durable tasks as native submenus, so inspecting a task does not
+close the whole menu. Each
 submenu shows the current-stage spinner, exact bounded tool-call arguments and
 outcomes, retained checkpoints, and terminal result. Long action rows wrap and
 ellipsize within the menu while preserving the complete text in their tooltip,
