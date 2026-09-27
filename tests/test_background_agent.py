@@ -2315,6 +2315,87 @@ def test_manager_rejects_contract_with_no_admissible_executor_operation(
     assert _manage_transition_error(task, act) is None
 
 
+def test_manager_requires_subtree_or_child_for_proven_directory_act(
+    tmp_path: Path,
+) -> None:
+    root = str(tmp_path / "app")
+    task = {
+        "task_state": {
+            "controller": {
+                "phase": "prethink",
+                "consecutive_replans": 0,
+                "last_contract": None,
+                "retired_action_families": [],
+                "stagnation": {"count": 0},
+            },
+            "environment": {
+                "version": 1,
+                "artifacts": [{"path": f"{root}/src/app/page.tsx"}],
+            },
+            "audit_reports": [],
+        }
+    }
+    act = {
+        "decision": "act",
+        "subtask": "Implement the next application file.",
+        "capability_family": "filesystem",
+        "expected_effect": "change_environment",
+        "effect_target": root,
+        "target_kind": "path",
+        "target_scope": "exact",
+        "acceptance_test": "A fresh read verifies the changed application source.",
+        "verification_family": "filesystem",
+        "reason": "The implementation is incomplete.",
+    }
+
+    rejection = _manage_transition_error(task, act)
+    assert rejection is not None
+    assert rejection["reason"] == "exact_directory_act_requires_subtree_or_child"
+    act["target_scope"] = "subtree"
+    assert _manage_transition_error(task, act) is None
+
+
+def test_executor_rejects_mutation_outside_committed_path_scope(
+    tmp_path: Path,
+) -> None:
+    root = str(tmp_path / "app")
+    contract = {
+        "decision": "act",
+        "expected_effect": "change_environment",
+        "effect_target": root,
+        "target_kind": "path",
+        "target_scope": "exact",
+    }
+    schemas = _background_tool_contract(
+        ["workspace_file"],
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+        execution_contract=contract,
+    )
+
+    rejection = _tool_call_contract_error(
+        "workspace_file",
+        {"action": "write", "path": f"{root}/page.tsx", "content": "ready"},
+        schemas,
+        contract,
+    )
+    assert rejection is not None
+    assert rejection["error"] == "effect_target_not_authorized"
+
+    contract["target_scope"] = "subtree"
+    assert (
+        _tool_call_contract_error(
+            "workspace_file",
+            {"action": "write", "path": f"{root}/page.tsx", "content": "ready"},
+            schemas,
+            contract,
+        )
+        is None
+    )
+
+
 def test_repeated_exhausted_manager_route_closes_that_next_decision() -> None:
     rejected = {
         "tool": "task_manage",

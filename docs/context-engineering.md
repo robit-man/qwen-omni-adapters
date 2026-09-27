@@ -205,6 +205,10 @@ The executor grammar is also effect-specific: an environment-changing ACT can
 offer filesystem writes or `shell:mutate_filesystem`, never list/read/inspect or
 verify operations. RETRIEVE receives the complementary read-only grammar, and
 the independent AUDIT role remains verification-only.
+Mutation paths are checked against the manager's exact/subtree effect scope
+before external execution. A path already proven to be a directory cannot be an
+exact environment-changing ACT target; the manager must select that directory
+as a subtree or name the exact child resource it intends to change.
 Rejecting a proposed call at this local grammar boundary does not consume or
 fail the pending contract because no external operation occurred. A fresh
 executor retries against the same contract and exact allowed operations. If an

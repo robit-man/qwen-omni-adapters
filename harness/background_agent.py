@@ -1261,6 +1261,31 @@ def _transition_route(
     return (decision, route_family, effect, target, target_kind, target_scope)
 
 
+def _known_directory_paths(task: Mapping[str, Any]) -> set[str]:
+    """Derive directories from runtime-owned changed-path receipts."""
+
+    state = task.get("task_state")
+    environment = state.get("environment") if isinstance(state, Mapping) else None
+    artifacts = (
+        environment.get("artifacts") if isinstance(environment, Mapping) else None
+    )
+    if not isinstance(artifacts, list):
+        return set()
+    directories: set[str] = set()
+    for artifact in artifacts:
+        if not isinstance(artifact, Mapping):
+            continue
+        raw = str(artifact.get("path") or "").strip()
+        if not raw or "\x00" in raw:
+            continue
+        try:
+            path = Path(raw).expanduser().resolve(strict=False)
+        except OSError:
+            continue
+        directories.update(str(parent) for parent in path.parents)
+    return directories
+
+
 def _manage_recovery_next_decisions(task: Mapping[str, Any]) -> list[str] | None:
     """Narrow REPLAN after repeated typed manager-route exhaustion."""
 
@@ -1421,6 +1446,20 @@ def _manage_transition_error(
     elif decision not in {"retrieve", "act", "replan", "ask"}:
         error = "invalid_manage_decision"
     executable_decision = next_decision if decision == "replan" else decision
+    if (
+        not error
+        and executable_decision == "act"
+        and effect == "change_environment"
+        and family in {"filesystem", "shell"}
+        and target_kind == "path"
+        and target_scope == "exact"
+    ):
+        try:
+            normalized_target = str(Path(target).expanduser().resolve(strict=False))
+        except OSError:
+            normalized_target = ""
+        if normalized_target in _known_directory_paths(task):
+            error = "exact_directory_act_requires_subtree_or_child"
     if not error and executable_decision in {"retrieve", "act"}:
         candidate_contract = dict(arguments)
         candidate_contract["decision"] = executable_decision
@@ -1465,6 +1504,11 @@ def _manage_transition_error(
         "replan_next_decision_not_admissible": (
             "Repeated typed route exhaustion closed that next-decision class for "
             "this recovery. Use the remaining next_decision exposed by the grammar."
+        ),
+        "exact_directory_act_requires_subtree_or_child": (
+            "The target is a runtime-proven directory. An environment-changing ACT "
+            "must declare target_scope=subtree or name the exact child path it will "
+            "change; an exact directory contract cannot authorize child mutations."
         ),
     }
     message = messages_by_error.get(
@@ -1768,6 +1812,7 @@ def _tool_call_contract_error(
     name: str,
     arguments: Mapping[str, Any],
     schemas: list[dict[str, Any]],
+    execution_contract: Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Reject calls outside the exact tool/operation grammar shown this round."""
 
@@ -1805,6 +1850,56 @@ def _tool_call_contract_error(
                     "operation_key": key,
                     "proposed_operation": proposed,
                     "allowed_operations": list(permitted),
+                    "task_progress": False,
+                    "failure_scope": "plan",
+                }
+    if (
+        isinstance(execution_contract, Mapping)
+        and str(execution_contract.get("decision") or "") == "act"
+        and str(execution_contract.get("expected_effect") or "")
+        == "change_environment"
+        and str(execution_contract.get("target_kind") or "") == "path"
+    ):
+        operation = str(arguments.get("action") or arguments.get("intent") or "")
+        proposed_paths: list[Any] = []
+        if name == "workspace_file" and operation in {"mkdir", "write", "replace"}:
+            proposed_paths = [arguments.get("path")]
+        elif name == "shell" and operation == "mutate_filesystem":
+            raw_paths = arguments.get("mutation_paths")
+            proposed_paths = raw_paths if isinstance(raw_paths, list) else []
+        if proposed_paths:
+            expected = _normalized_contract_path(
+                execution_contract.get("effect_target"), arguments.get("cwd")
+            )
+            scope = str(execution_contract.get("target_scope") or "exact")
+            outside: list[str] = []
+            for raw_path in proposed_paths:
+                proposed = _normalized_contract_path(raw_path, arguments.get("cwd"))
+                within = bool(
+                    expected is not None
+                    and proposed is not None
+                    and (
+                        proposed == expected
+                        or scope == "subtree"
+                        and proposed.is_relative_to(expected)
+                    )
+                )
+                if not within:
+                    outside.append(str(raw_path or ""))
+            if outside:
+                return {
+                    "error": "effect_target_not_authorized",
+                    "message": (
+                        "The proposed mutation path is outside the exact/subtree "
+                        "effect target committed by MANAGE. Replan the target scope "
+                        "or mutate only the declared resource."
+                    ),
+                    "tool": name,
+                    "effect_target": str(
+                        execution_contract.get("effect_target") or ""
+                    ),
+                    "target_scope": scope,
+                    "rejected_paths": outside,
                     "task_progress": False,
                     "failure_scope": "plan",
                 }
@@ -5792,7 +5887,7 @@ class BackgroundAgent:
                     continue
                 if self.manage_execute_audit and name != "task_manage":
                     contract_error = _tool_call_contract_error(
-                        name, arguments, schemas
+                        name, arguments, schemas, pending_contract
                     )
                     if contract_error is not None:
                         messages.append(
