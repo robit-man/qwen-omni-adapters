@@ -276,6 +276,12 @@ runtime normalizes the contract target and executor `changed_paths` and requires
 an exact or explicitly declared subtree relationship; it never uses suffix,
 keyword, or prose similarity. A write to an unrelated file therefore fails its
 contract even though the environment ledger records the change. A checkpoint
+frontier also pins one typed `executor_operation`. The EXECUTE grammar exposes
+only that leaf operation—for example `workspace_file.write`, not the entire
+filesystem mutation menu—so a successful earlier `mkdir` cannot bleed into a
+later file-write step. This binding is structural and does not infer operations
+from filenames or task prose.
+A checkpoint
 milestone must cite a typed source acquisition, verified
 mutation, external interaction, or verification receipt. A clock lookup,
 system snapshot, repeated inspection, or other successful information probe

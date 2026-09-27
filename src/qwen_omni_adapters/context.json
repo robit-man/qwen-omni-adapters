@@ -124,7 +124,7 @@
       "type": "function",
       "function": {
         "name": "task_manage",
-      "description": "Commit one bounded Manage step before execution. This creates a controller contract, never task evidence. RETRIEVE must name one unresolved fact, how its receipt closes that evidence slot, and successor_contracts ending in ACT. ACT must name one expected external/environmental change and an independent acceptance test. After audited non-progress, REPLAN is required; it must contain the complete valid next RETRIEVE or ACT contract and enters that transition atomically without another manager turn. ASK pauses only for genuinely missing user input or authority. For a local filesystem path choose filesystem, not documents; documents addresses files attached to the portal session. effect_target must be the exact resource locator itself (for target_kind=path, the exact path with no descriptive suffix).",
+      "description": "Commit one bounded Manage step before execution. This creates a controller contract, never task evidence. RETRIEVE must name one unresolved fact, how its receipt closes that evidence slot, and successor_contracts ending in ACT. ACT must name one expected external/environmental change, exactly one executor_operation, and an independent acceptance test. After audited non-progress, REPLAN is required; it must contain the complete valid next RETRIEVE or ACT contract and enters that transition atomically without another manager turn. ASK pauses only for genuinely missing user input or authority. For a local filesystem path choose filesystem, not documents; documents addresses files attached to the portal session. effect_target must be the exact resource locator itself (for target_kind=path, the exact path with no descriptive suffix).",
         "parameters": {
           "type": "object",
           "properties": {
@@ -144,6 +144,11 @@
             "capability_family": {
               "type": "string",
               "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
+            },
+            "executor_operation": {
+              "type": "string",
+              "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"],
+              "description": "The one leaf operation EXECUTE may invoke. Use execute only for tools without an action or intent selector."
             },
             "expected_effect": {
               "type": "string",
@@ -194,6 +199,10 @@
                     "type": "string",
                     "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
                   },
+                  "executor_operation": {
+                    "type": "string",
+                    "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"]
+                  },
                   "expected_effect": {
                     "type": "string",
                     "enum": ["resolve_unknown", "change_environment", "change_external_state"]
@@ -214,7 +223,7 @@
                   },
                   "reason": {"type": "string", "maxLength": 500}
                 },
-                "required": ["decision", "subtask", "capability_family", "expected_effect", "effect_target", "target_kind", "target_scope", "acceptance_test", "verification_family", "reason"],
+                "required": ["decision", "subtask", "capability_family", "executor_operation", "expected_effect", "effect_target", "target_kind", "target_scope", "acceptance_test", "verification_family", "reason"],
                 "additionalProperties": false
               }
             }
@@ -223,6 +232,7 @@
             "decision",
             "subtask",
             "capability_family",
+            "executor_operation",
             "expected_effect",
             "effect_target",
             "target_kind",
@@ -319,6 +329,10 @@
                         "type": "string",
                         "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "shell", "delegation", "uncertain"]
                       },
+                      "executor_operation": {
+                        "type": "string",
+                        "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"]
+                      },
                       "expected_effect": {"type": "string", "enum": ["resolve_unknown", "change_environment", "change_external_state"]},
                       "effect_target": {"type": "string", "maxLength": 500},
                       "target_kind": {"type": "string", "enum": ["path", "url", "service", "process", "ui_state", "record"]},
@@ -330,7 +344,7 @@
                       },
                       "reason": {"type": "string", "maxLength": 500}
                     },
-                    "required": ["decision", "subtask", "capability_family", "expected_effect", "effect_target", "target_kind", "target_scope", "acceptance_test", "verification_family", "reason"],
+                    "required": ["decision", "subtask", "capability_family", "executor_operation", "expected_effect", "effect_target", "target_kind", "target_scope", "acceptance_test", "verification_family", "reason"],
                     "additionalProperties": false
                   }
                 }

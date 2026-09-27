@@ -1956,6 +1956,7 @@ def _frontier_contract(
         "decision": decision,
         "subtask": subtask,
         "capability_family": "filesystem",
+        "executor_operation": "read" if decision == "retrieve" else "write",
         "expected_effect": (
             "resolve_unknown" if decision == "retrieve" else "change_environment"
         ),
@@ -2165,7 +2166,11 @@ def test_equivalent_local_path_route_is_retired_across_tool_families(
         target=target,
         subtask="Inspect the application once.",
     )
-    shell = {**filesystem, "capability_family": "shell"}
+    shell = {
+        **filesystem,
+        "capability_family": "shell",
+        "executor_operation": "inspect",
+    }
     successor = _frontier_contract(
         tmp_path,
         decision="act",
@@ -2256,6 +2261,7 @@ def test_retrieve_recovery_schema_requires_a_nonempty_successor_frontier() -> No
         "decision": "retrieve",
         "subtask": "Read the source once.",
         "capability_family": "filesystem",
+        "executor_operation": "read",
         "expected_effect": "resolve_unknown",
         "effect_target": "/tmp/source.txt",
         "target_kind": "path",
@@ -2702,6 +2708,7 @@ def test_session_bookkeeping_cannot_be_declared_as_task_act_effect() -> None:
         "decision": "act",
         "subtask": "Write an internal note instead of changing the task resource.",
         "capability_family": "session",
+        "executor_operation": "execute",
         "expected_effect": "change_environment",
         "effect_target": "task completion state",
         "target_kind": "record",
@@ -2845,6 +2852,7 @@ def test_failed_contract_retires_route_and_requires_one_explicit_replan(
         "next_decision": "act",
         "subtask": "Write the local artifact through the filesystem.",
         "capability_family": "filesystem",
+        "executor_operation": "write",
         "expected_effect": "change_environment",
         "effect_target": str(tmp_path / "artifact.txt"),
         "target_kind": "path",
@@ -2895,6 +2903,7 @@ def test_manager_rejects_contract_with_no_admissible_executor_operation(
         "decision": "retrieve",
         "subtask": "Inspect the exact application directory.",
         "capability_family": "filesystem",
+        "executor_operation": "read",
         "expected_effect": "resolve_unknown",
         "effect_target": str(tmp_path / "app"),
         "target_kind": "path",
@@ -2912,6 +2921,7 @@ def test_manager_rejects_contract_with_no_admissible_executor_operation(
         **retrieve,
         "decision": "act",
         "subtask": "Create the missing application entry point.",
+        "executor_operation": "write",
         "expected_effect": "change_environment",
         "effect_target": str(tmp_path / "app" / "page.tsx"),
         "target_scope": "exact",
@@ -2945,6 +2955,7 @@ def test_manager_requires_subtree_or_child_for_proven_directory_act(
         "decision": "act",
         "subtask": "Implement the next application file.",
         "capability_family": "filesystem",
+        "executor_operation": "write",
         "expected_effect": "change_environment",
         "effect_target": root,
         "target_kind": "path",
@@ -3367,9 +3378,10 @@ def test_agent_migrates_invalid_executor_contract_before_inference(
                 {
                     "decision": "replan",
                     "next_decision": "act",
-                    "subtask": "Create the missing entry point.",
-                    "capability_family": "filesystem",
-                    "expected_effect": "change_environment",
+                        "subtask": "Create the missing entry point.",
+                        "capability_family": "filesystem",
+                        "executor_operation": "write",
+                        "expected_effect": "change_environment",
                     "effect_target": str(tmp_path / "app" / "page.tsx"),
                     "target_kind": "path",
                     "target_scope": "exact",
@@ -3460,6 +3472,7 @@ def test_invalid_legacy_replan_can_only_be_replaced_atomically(tmp_path: Path) -
         "next_decision": "act",
         "subtask": "Write the page through the local filesystem.",
         "capability_family": "filesystem",
+        "executor_operation": "write",
         "expected_effect": "change_environment",
         "effect_target": str(tmp_path / "app" / "page.tsx"),
         "target_kind": "path",
@@ -3596,6 +3609,7 @@ def test_local_path_change_requires_mutating_and_verifying_path_families(
     assert rejection["allowed_path_families"] == ["filesystem", "shell"]
     contract.update(
         capability_family="filesystem",
+        executor_operation="write",
         verification_family="filesystem",
     )
     assert _manage_transition_error(task, contract) is None
@@ -3604,6 +3618,7 @@ def test_local_path_change_requires_mutating_and_verifying_path_families(
         **contract,
         "decision": "retrieve",
         "capability_family": "session",
+        "executor_operation": "execute",
         "expected_effect": "resolve_unknown",
         "reason": "Inspect the current local file state.",
     }
@@ -3645,6 +3660,7 @@ def test_replan_after_no_effect_must_change_the_typed_route(tmp_path: Path) -> N
         "next_decision": "act",
         "subtask": "Change the project through another local tool.",
         "capability_family": "shell",
+        "executor_operation": "mutate_filesystem",
         "expected_effect": "change_environment",
         "effect_target": root,
         "target_kind": "path",
@@ -3728,6 +3744,7 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
                     "decision": "act",
                     "subtask": "Create artifact.txt.",
                     "capability_family": "filesystem",
+                    "executor_operation": "write",
                     "expected_effect": "change_environment",
                     "effect_target": str(tmp_path / "artifact.txt"),
                     "target_kind": "path",
@@ -3739,6 +3756,9 @@ def test_manage_execute_audit_uses_isolated_contexts_and_verified_completion(
             )
         if chat_round == 2:
             assert offered == ["workspace_file"]
+            assert payload["tools"][0]["function"]["parameters"]["properties"][
+                "action"
+            ]["enum"] == ["write"]
             assert payload["portal_preserve_controller_packet"] is True
             assert len(payload["messages"]) == 2
             system = payload["messages"][0]["content"]

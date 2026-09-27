@@ -556,6 +556,7 @@ def _committed_role_system_prompt(
         "origin_decision",
         "subtask",
         "capability_family",
+        "executor_operation",
         "expected_effect",
         "effect_target",
         "target_kind",
@@ -1170,6 +1171,7 @@ def _execution_tool_schemas(
         return tool_schemas(active_tools)
     decision = str(contract.get("decision") or "")
     effect = str(contract.get("expected_effect") or "")
+    selected_operation = str(contract.get("executor_operation") or "")
     operation_limits: dict[str, set[str]] = {}
     if decision == "retrieve":
         operation_limits = {
@@ -1209,23 +1211,26 @@ def _execution_tool_schemas(
             continue
         name = str(function.get("name") or "")
         permitted = operation_limits.get(name)
-        if permitted is not None:
-            parameters = function.get("parameters")
-            properties = (
-                parameters.get("properties")
-                if isinstance(parameters, dict)
-                else None
+        parameters = function.get("parameters")
+        properties = (
+            parameters.get("properties") if isinstance(parameters, dict) else None
+        )
+        operation_key = "intent" if name == "shell" else "action"
+        operation = (
+            properties.get(operation_key) if isinstance(properties, dict) else None
+        )
+        values = operation.get("enum") if isinstance(operation, dict) else None
+        if isinstance(values, list):
+            allowed_operations = (
+                set(str(value) for value in values)
+                if permitted is None
+                else set(permitted)
             )
-            operation_key = "intent" if name == "shell" else "action"
-            operation = (
-                properties.get(operation_key)
-                if isinstance(properties, dict)
-                else None
-            )
-            values = operation.get("enum") if isinstance(operation, dict) else None
-            if not isinstance(values, list):
-                continue
-            operation["enum"] = [value for value in values if str(value) in permitted]
+            if selected_operation:
+                allowed_operations.intersection_update({selected_operation})
+            operation["enum"] = [
+                value for value in values if str(value) in allowed_operations
+            ]
             if not operation["enum"]:
                 continue
             if (
@@ -1236,6 +1241,10 @@ def _execution_tool_schemas(
                 required = parameters.setdefault("required", [])
                 if "mutation_paths" not in required:
                     required.append("mutation_paths")
+        elif permitted is not None or (
+            selected_operation and selected_operation != "execute"
+        ):
+            continue
         schemas.append(schema)
     return schemas
 
@@ -1403,6 +1412,7 @@ def _frontier_steps_error(
         "decision",
         "subtask",
         "capability_family",
+        "executor_operation",
         "expected_effect",
         "effect_target",
         "target_kind",
@@ -1638,6 +1648,7 @@ def _manage_transition_error(
     target_scope = str(arguments.get("target_scope") or "")
     acceptance = " ".join(str(arguments.get("acceptance_test") or "").split())
     verifier = str(arguments.get("verification_family") or "")
+    executor_operation = str(arguments.get("executor_operation") or "")
     reason = " ".join(str(arguments.get("reason") or "").split())
     question = " ".join(str(arguments.get("question") or "").split())
     controller = _task_controller(task)
@@ -1685,6 +1696,8 @@ def _manage_transition_error(
             acceptance=acceptance,
             verifier=verifier,
         )
+        if not error and not executor_operation:
+            error = "executor_operation_required"
     elif decision == "replan":
         audit = _latest_audit(task)
         audited_nonprogress = bool(audit) and (
@@ -1707,6 +1720,8 @@ def _manage_transition_error(
                 acceptance=acceptance,
                 verifier=verifier,
             )
+        if not error and not executor_operation:
+            error = "executor_operation_required"
         if (
             not error
             and last_status == "expected_effect_missing"
@@ -1795,6 +1810,7 @@ def _manage_transition_error(
                 "decision",
                 "subtask",
                 "capability_family",
+                "executor_operation",
                 "expected_effect",
                 "effect_target",
                 "target_kind",

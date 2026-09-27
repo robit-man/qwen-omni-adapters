@@ -108,6 +108,7 @@ def _bounded_contract(
             controller.get("active_requirement_id") or "root"
         )[:80],
         "capability_family": str(raw.get("capability_family") or "uncertain")[:40],
+        "executor_operation": str(raw.get("executor_operation") or "execute")[:40],
         "expected_effect": str(raw.get("expected_effect") or "none")[:40],
         "effect_target": " ".join(
             str(raw.get("effect_target") or "").split()
@@ -222,6 +223,9 @@ def _apply_manage_transition(
         )[:80],
         "capability_family": str(
             transition.get("capability_family") or "uncertain"
+        )[:40],
+        "executor_operation": str(
+            transition.get("executor_operation") or "execute"
         )[:40],
         "expected_effect": str(transition.get("expected_effect") or "none")[:40],
         "effect_target": " ".join(
