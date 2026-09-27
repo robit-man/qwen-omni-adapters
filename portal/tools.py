@@ -2436,7 +2436,6 @@ class PortalToolHarness:
             # owns dynamic admission; and "control" remains available so work
             # can be inspected or cancelled under pressure.
             memory_admission = _TOOL_MEMORY_ADMISSION.get(name, "standard")
-            task_control = memory_admission == "control"
             # Teardown must remain callable at the memory floor: closing the
             # rendered browser is itself a pressure-relief operation.  Treat
             # it like task cancellation rather than replacing its successful
@@ -2754,7 +2753,15 @@ class PortalToolHarness:
                 }
             if (
                 self.memory_governor is not None
-                and not task_control
+                # Standard work may populate caches or create new residency,
+                # so verify that it did not cross the hard floor. Bounded
+                # work was admitted at that floor and returns only a capped
+                # result; discarding it because a subsequent sample jittered
+                # lower causes retry loops without releasing any memory.
+                # Executors own their live growth/abort policy (shell and
+                # browser already receive the governor directly), while
+                # control operations must always remain callable.
+                and memory_admission == "standard"
                 and not release_only
                 and self.memory_governor.under_hard_pressure()
             ):

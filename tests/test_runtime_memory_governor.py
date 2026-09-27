@@ -96,6 +96,25 @@ def test_declarative_tool_admission_distinguishes_new_bounded_and_executor_work(
     assert pressured["retryable"] is True
 
 
+def test_bounded_tool_result_survives_post_action_memory_sample_jitter() -> None:
+    samples = iter([2.1, 1.9])
+    governor = MemoryGovernor(
+        _policy(), sampler=lambda: next(samples, 1.9)
+    )
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        memory_governor=governor,
+    )
+
+    result = harness.execute(
+        "session", "safe_math_eval", {"expression": "20 + 22"}
+    )
+
+    assert result["expression"] == "20 + 22"
+    assert result["result"] == 42
+    assert result["engine"] == "bounded_ast"
+
+
 def test_task_control_remains_available_at_the_memory_floor(tmp_path: Path) -> None:
     store = BackgroundTaskStore(tmp_path / "tasks.json")
     task = store.create("Stop this task when asked.")
