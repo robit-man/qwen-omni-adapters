@@ -87,6 +87,17 @@ bounded foreground prompt is therefore not presented as a missing capability:
 the foreground hands off the requested outcome, and the worker discovers and
 invokes only the concrete schemas needed to complete it.
 
+Routing gateways are sticky across adapter-side `tool_routing=relevant`
+narrowing. In a background-only live voice profile, a correct
+`tool_search(shell)` decision cannot leave the next turn with only discovery
+metadata: `background_task` remains executable and receives the requested
+outcome. The worker's shell can inventory Linux applications through
+`.venv/bin/qwen-omni applications --json`. That command derives the inventory
+from XDG/Freedesktop desktop entries (including Flatpak and Snap exports),
+honors user overrides and hidden tombstones, resolves advertised executables,
+and can query MIME handlers. Neither routing nor inventory depends on a list of
+expected application names.
+
 Camera availability is likewise a gateway, not eager evidence. The local
 harness sends the spoken turn without a room image and exposes only
 `request_camera_view`. The model may request a still or bounded clip only when

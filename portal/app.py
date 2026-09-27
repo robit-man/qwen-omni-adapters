@@ -45,7 +45,11 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
-from qwen_omni_adapters.context import context_text, live_call_system_prompt
+from qwen_omni_adapters.context import (
+    context_text,
+    live_call_system_prompt,
+    retained_tool_names,
+)
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, DecisionWaveResult
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 from qwen_omni_adapters.virtual_memory import ContextOverflow, LlamaCppTokenCounter
@@ -1100,6 +1104,7 @@ def _tool_followup(
     executed: list[dict[str, Any]] = []
     discovered: list[str] = []
     active: list[str] = []
+    discovery_called = False
     known_names = {item["function"]["name"] for item in SAFE_TOOLS}
     made_progress = False
     blocked_tools = blocked_tools or set()
@@ -1171,6 +1176,7 @@ def _tool_followup(
             with scoped_tool_user_context(_latest_user_context(messages)):
                 result = harness.execute(session_id, name, arguments)
             if name == "tool_search" and isinstance(result, Mapping):
+                discovery_called = True
                 # Discovery must respect the same execution profile as direct
                 # schemas. Otherwise hiding foreground shell only delays it by
                 # one model round, which is how a synchronous loop returned.
@@ -1282,17 +1288,25 @@ def _tool_followup(
     # A required choice applies only to the first live decision. Once the
     # model selected a real tool, normal iterative tool use resumes.
     followup.pop("tool_choice", None)
-    # Keep only the tool actively doing the work, or freshly discovered
-    # candidates. This stays tiny while allowing iterative shell work to fix
-    # or verify a command without paying for another discovery inference.
-    # An empty discovery preserves the current concrete schema: ffmpeg, for
-    # example, is a program inside shell rather than a separate portal tool.
+    # Keep only the tool actively doing the work, freshly discovered
+    # candidates, and supplied routing gateways. This stays tiny while
+    # allowing iterative shell work without paying for another discovery
+    # inference. A filtered/empty discovery does not retain arbitrary leaves
+    # from the broad initial audio contract; its durable gateway remains.
+    retained_gateways = retained_tool_names(
+        [
+            item
+            for item in followup.get("tools", [])
+            if isinstance(item, Mapping)
+        ]
+    ) - {"tool_search"}
     current = [
         str(item.get("function", {}).get("name") or "")
         for item in followup.get("tools", [])
         if isinstance(item, Mapping)
         and isinstance(item.get("function"), Mapping)
-        and str(item.get("function", {}).get("name") or "") != "tool_search"
+        and str(item.get("function", {}).get("name") or "")
+        not in {"tool_search", *retained_gateways}
     ]
     # A concrete call narrows the candidates to the tool actually chosen. On a
     # later discovery attempt, preserve that active tool and add alternatives
@@ -1303,11 +1317,13 @@ def _tool_followup(
     # running at all. Concrete calls stay active for iterative use; an empty
     # discovery preserves the prior set because programs inside shell are not
     # separate portal tools.
-    concrete = list(
-        dict.fromkeys(active if active else discovered if discovered else current)
-    )[:4]
+    candidates = active if active else discovered
+    if not candidates and not discovery_called:
+        candidates = current
+    concrete = list(dict.fromkeys(candidates))[:4]
+    followup_names = list(dict.fromkeys([*concrete, *sorted(retained_gateways)]))
     followup["tools"] = copy.deepcopy(
-        [*DISCOVERY_TOOLS, *tool_schemas(concrete)]
+        [*DISCOVERY_TOOLS, *tool_schemas(followup_names)]
     )
     if discovered and not active and concrete:
         # Discovery is an address-resolution step, not task evidence. The

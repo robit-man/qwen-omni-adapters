@@ -4288,6 +4288,86 @@ def test_background_only_voice_profile_cannot_rediscover_or_call_foreground_shel
     assert response.json["message"]["content"] == "I started it."
 
 
+def test_background_only_audio_routes_blocked_shell_discovery_to_durable_gateway(
+    tmp_path: Path,
+) -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        names = {
+            item["function"]["name"] for item in body.get("tools", [])
+        }
+        if len(requests) == 1:
+            assert {"tool_search", "shell", "background_task"} <= names
+            call = {"name": "tool_search", "arguments": {"family": "shell"}}
+        elif len(requests) == 2:
+            discovery = json.loads(body["messages"][-1]["content"])
+            assert discovery["available_tools"] == []
+            assert names == {"tool_search", "background_task"}
+            call = {
+                "name": "background_task",
+                "arguments": {
+                    "action": "start",
+                    "objective": "Discover the installed media player from system application metadata.",
+                    "completion_criteria": (
+                        "Report the launcher identity and resolved executable from current host evidence."
+                    ),
+                },
+            }
+        else:
+            assert names == {"tool_search", "background_task"}
+            return httpx.Response(
+                200,
+                json={"message": {"role": "assistant", "content": "I started checking."}},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{"type": "function", "function": call}],
+                }
+            },
+        )
+
+    app = create_app(
+        _config(background_task_path=tmp_path / "tasks.json"),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    response = app.test_client().post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "The attached audio contains the current request.",
+                    "audios": [
+                        {
+                            "mime_type": "audio/wav",
+                            "encoding": "base64",
+                            "data": base64.b64encode(b"adapter-owned-audio").decode(),
+                        }
+                    ],
+                }
+            ],
+            portal_auto_tools=True,
+            portal_shell_bridge=False,
+            portal_background_bridge=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json["message"]["content"] == "I started checking."
+    assert [
+        item["name"]
+        for item in response.json["portal"]["safe_tools_executed"]
+    ] == ["tool_search", "background_task"]
+
+
 def test_live_tools_allow_plain_reply_or_execute_selected_tool(
     tmp_path: Path,
 ) -> None:

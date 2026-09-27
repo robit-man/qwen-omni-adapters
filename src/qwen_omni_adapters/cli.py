@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from qwen_omni_adapters.accelerator import accelerator_profile, is_tegra
+from qwen_omni_adapters.applications import discover_applications
 from qwen_omni_adapters.contract import adapter_contract
 from qwen_omni_adapters.ollama_sidecar import (
     OllamaSidecarError,
@@ -118,6 +119,35 @@ def _doctor(args: argparse.Namespace) -> int:
     return 0 if checks["ok"] else 1
 
 
+def _applications(args: argparse.Namespace) -> int:
+    result = discover_applications(
+        query=args.query,
+        mime_type=args.mime,
+        limit=args.limit,
+        include_no_display=args.include_no_display,
+    )
+    if args.json:
+        _print_json(result)
+        return 0
+    print(
+        f"Installed applications: {result['matched']} matched, "
+        f"{result['returned']} shown"
+    )
+    if result["default_desktop_id"]:
+        print(
+            f"Default for {result['mime_type']}: "
+            f"{result['default_desktop_id']}"
+        )
+    for application in result["applications"]:
+        status = "launchable" if application["launchable"] else "launcher unavailable"
+        executable = application["executable_path"] or application["executable"] or "D-Bus"
+        print(
+            f"{application['name']} | {application['desktop_id']} | "
+            f"{executable} | {status}"
+        )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="qwen-omni",
@@ -201,6 +231,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor.add_argument("--deployment", action="store_true", help="Also query the GPU broker")
     doctor.add_argument("--no-tunnel", action="store_true")
+
+    applications = sub.add_parser(
+        "applications",
+        help="Discover installed Linux desktop applications from Freedesktop launchers",
+    )
+    applications.add_argument("--query", default="", help="Require all query terms")
+    applications.add_argument("--mime", default="", help="Filter by an exact MIME type")
+    applications.add_argument("--limit", type=int, default=50, choices=range(1, 201))
+    applications.add_argument("--include-no-display", action="store_true")
+    applications.add_argument("--json", action="store_true")
     return parser
 
 
@@ -254,6 +294,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.command == "doctor":
             return _doctor(args)
+        elif args.command == "applications":
+            return _applications(args)
         else:  # pragma: no cover - argparse enforces a command
             raise AssertionError(args.command)
     except (OllamaSidecarError, SingleGGUFError, ValueError) as exc:

@@ -21,6 +21,7 @@ from qwen_omni_adapters.context import (
     ContextConfigError,
     context_catalog,
     load_context,
+    retained_tool_names,
     runtime_agent_name,
     runtime_identity_context,
     without_parent_frame_coordinates,
@@ -117,6 +118,20 @@ def test_foreground_gateway_is_described_as_execution_capability() -> None:
     assert "Report a capability blocker only after a relevant tool attempt" in live
     assert "full allowed tool catalog" in execution
     assert "execution gateway" in background["description"]
+
+
+def test_background_task_is_a_sticky_routing_gateway_only_when_supplied() -> None:
+    schemas = [item["schema"] for item in context_catalog()["tools"]]
+    background = next(
+        schema for schema in schemas if schema["function"]["name"] == "background_task"
+    )
+    search = next(schema for schema in schemas if schema["function"]["name"] == "tool_search")
+
+    assert retained_tool_names([search, background]) == {
+        "tool_search",
+        "background_task",
+    }
+    assert retained_tool_names([search]) == {"tool_search"}
 
 
 def test_live_context_forbids_support_boilerplate_and_unsolicited_transport_meta() -> None:

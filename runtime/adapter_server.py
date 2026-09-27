@@ -1622,7 +1622,13 @@ def build_language_payload(
                 # contract. Preserve it rather than reclassifying arbitrary
                 # client schemas with portal-specific logic.
                 selected = supplied
-            keep = set(selected)
+            # Gateways are deliberately sticky across request-relevant
+            # narrowing.  In particular, a live voice profile may expose
+            # shell semantically but delegate host execution to
+            # ``background_task``.  Dropping that gateway here strands the
+            # model after a correct tool_search(shell) decision with no
+            # executable transition.
+            keep = set(selected) | gateways
             if any(kind in {"image", "video"} for kind in parsed.input_modalities):
                 # A fresh visual attachment fulfills the bridge request. Do
                 # not let the answer pass ask for another capture instead of
@@ -1647,7 +1653,8 @@ def build_language_payload(
                 payload["tools"] = [
                     tool
                     for tool in payload["tools"]
-                    if str(tool.get("function", {}).get("name") or "") in concrete
+                    if str(tool.get("function", {}).get("name") or "")
+                    in concrete | gateways
                 ]
                 payload["tool_choice"] = "required"
                 directive = context_text("directives", "required_tool_action").format(
