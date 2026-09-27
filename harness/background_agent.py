@@ -1027,7 +1027,9 @@ def _family_tool_names(family: str) -> list[str]:
     ][:4]
 
 
-def _audit_tool_schemas(active_tools: list[str]) -> list[dict[str, Any]]:
+def _audit_tool_schemas(
+    active_tools: list[str], contract: Mapping[str, Any] | None = None
+) -> list[dict[str, Any]]:
     """Return a read-only grammar for a fresh acceptance-test context."""
 
     disallowed = {
@@ -1055,6 +1057,13 @@ def _audit_tool_schemas(active_tools: list[str]) -> list[dict[str, Any]]:
         if name in disallowed:
             continue
         permitted = operation_limits.get(name)
+        if (
+            name == "workspace_file"
+            and isinstance(contract, Mapping)
+            and str(contract.get("action_family") or "")
+            in {"workspace_file:write", "workspace_file:replace"}
+        ):
+            permitted = {"read"}
         if permitted is not None:
             parameters = function.get("parameters")
             properties = (
@@ -1701,7 +1710,7 @@ def _background_tool_contract(
                 properties["expected_effect"]["enum"] = ["resolve_unknown"]
         schemas = [manager]
     elif audit_required:
-        schemas = _audit_tool_schemas(active_tools)
+        schemas = _audit_tool_schemas(active_tools, execution_contract)
     elif recovery_required:
         schemas = [copy.deepcopy(TASK_RECOVERY_TOOL)]
     elif phase_boundary:
@@ -3992,6 +4001,7 @@ def _contract_effect_matches(
 
 def _contract_verification_matches(
     contract: Mapping[str, Any],
+    name: str,
     arguments: Mapping[str, Any],
     result: Any,
 ) -> bool:
@@ -4017,6 +4027,37 @@ def _contract_verification_matches(
         )
         if str(arguments.get("path") or ""):
             candidates.append(str(arguments["path"]))
+        if str(contract.get("action_family") or "") in {
+            "workspace_file:write",
+            "workspace_file:replace",
+        }:
+            operation = str(arguments.get("action") or arguments.get("intent") or "")
+            if not (
+                name == "workspace_file"
+                and operation == "read"
+                or name == "shell"
+                and operation == "verify"
+            ):
+                return False
+            changed_paths = contract.get("action_changed_paths")
+            changed_paths = (
+                [str(value) for value in changed_paths if str(value)]
+                if isinstance(changed_paths, list)
+                else []
+            )
+            if not changed_paths:
+                return False
+            normalized_candidates = {
+                candidate_path
+                for candidate in candidates
+                if (candidate_path := _normalized_contract_path(candidate, cwd))
+                is not None
+            }
+            return all(
+                (changed := _normalized_contract_path(path, cwd)) is not None
+                and changed in normalized_candidates
+                for path in changed_paths
+            )
         for candidate in candidates:
             actual = _normalized_contract_path(candidate, cwd)
             if actual is None:
@@ -4076,7 +4117,9 @@ def _action_audit_report(
     contract_verification_matched = bool(
         contract_id
         and contract_phase == "audit"
-        and _contract_verification_matches(pending_contract, arguments, result)
+        and _contract_verification_matches(
+            pending_contract, name, arguments, result
+        )
     )
     retrieval_evidence_present = _retrieval_receipt_has_evidence(
         name, arguments, result
@@ -5600,7 +5643,9 @@ class BackgroundAgent:
                 recovery_exploration=replan_after_inspection,
                 retired_action_families=_retired_action_families(current),
                 execution_contract=(
-                    pending_contract if controller_phase == "execute" else None
+                    pending_contract
+                    if controller_phase in {"execute", "audit"}
+                    else None
                 ),
             )
             persisted_contract_error = (

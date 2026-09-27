@@ -296,6 +296,10 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
         if contract_matches and phase == "execute":
             contract_transition_applied = True
             contract["action_evidence_id"] = evidence_id
+            contract["action_family"] = str(
+                normalized.get("action_family") or ""
+            )[:160]
+            contract["action_changed_paths"] = changed_paths
             contract["environment_version_after_action"] = int(
                 environment.get("version") or 0
             )

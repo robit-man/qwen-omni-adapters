@@ -2059,6 +2059,38 @@ def test_contract_protocol_does_not_reward_changed_bytes_until_fresh_audit(
     )
     assert correct_mutation["contract_effect_matched"] is True
     assert current["task_state"]["controller"]["phase"] == "audit"
+    pending = current["task_state"]["controller"]["pending_contract"]
+    assert pending["action_family"] == "workspace_file:write"
+    assert pending["action_changed_paths"] == [
+        str(tmp_path / "src/app/page.tsx")
+    ]
+    shallow_listing = _action_audit_report(
+        current,
+        call_id="shallow-list",
+        name="workspace_file",
+        arguments={"action": "list", "path": str(tmp_path)},
+        result={
+            "action": "list",
+            "path": str(tmp_path),
+            "entries": [{"path": "src/app/page.tsx", "kind": "file"}],
+            "evidence_authority": "verification",
+        },
+        require_contract=True,
+    )
+    assert shallow_listing["contract_verification_matched"] is False
+    assert shallow_listing["contract_satisfied"] is False
+    audit_schemas = _background_tool_contract(
+        ["workspace_file"],
+        audit_required=True,
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+        execution_contract=pending,
+    )
+    assert audit_schemas[0]["function"]["parameters"]["properties"]["action"][
+        "enum"
+    ] == ["read"]
 
     verification = record(
         "verify-contract",
