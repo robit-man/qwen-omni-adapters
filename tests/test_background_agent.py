@@ -66,6 +66,7 @@ from harness.background_agent import (
     _MalformedToolCall,
     _manage_decision_contract,
     _manage_recovery_next_decisions,
+    _manage_recovery_target_scopes,
     _manage_transition_error,
     _milestone_evidence_ids,
     _NonRetryableBackgroundError,
@@ -2486,6 +2487,48 @@ def test_repeated_exhausted_manager_route_closes_that_next_decision() -> None:
         ]
     }
     assert _manage_recovery_next_decisions(structural_retry) == ["act"]
+
+
+def test_exact_directory_recovery_grammar_requires_subtree_scope() -> None:
+    task = {
+        "actions": [
+            {
+                "call_id": "bad-directory-scope",
+                "tool": "task_manage",
+                "arguments": json.dumps(
+                    {
+                        "decision": "replan",
+                        "next_decision": "act",
+                        "target_kind": "path",
+                        "target_scope": "exact",
+                    }
+                ),
+                "outcome": json.dumps(
+                    {
+                        "error": "invalid_manage_transition",
+                        "reason": "replan_repeats_missing_effect",
+                    }
+                ),
+                "ok": False,
+            }
+        ]
+    }
+
+    assert _manage_recovery_target_scopes(task) == ["subtree"]
+    schema = _background_tool_contract(
+        [],
+        manage_required=True,
+        manage_decisions=["replan"],
+        manage_next_decisions=["act"],
+        manage_target_scopes=_manage_recovery_target_scopes(task),
+        recovery_required=False,
+        phase_boundary=False,
+        expand_available=False,
+        can_checkpoint=False,
+    )
+    assert schema[0]["function"]["parameters"]["properties"]["target_scope"][
+        "enum"
+    ] == ["subtree"]
 
 
 def test_unexecutable_persisted_contract_returns_to_replan_without_evidence(

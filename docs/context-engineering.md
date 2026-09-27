@@ -181,6 +181,8 @@ If the manager itself proposes the same exhausted RETRIEVE or ACT class twice in
 succession, the following REPLAN grammar removes that class and admits only the
 opposite typed transition. This escalation is keyed by rejected controller
 receipts, not by task prose, paths, filenames, or model-authored rationales.
+Likewise, repeated exact-directory effect mismatches narrow the next recovery
+grammar to `target_scope=subtree`, preventing another off-contract child write.
 
 Renewable MANAGE/EXECUTE/AUDIT request envelopes and typed rejection messages
 remain in the append-only task audit log, but they are not indexed as user

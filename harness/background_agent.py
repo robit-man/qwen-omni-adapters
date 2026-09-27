@@ -1342,6 +1342,31 @@ def _manage_recovery_next_decisions(task: Mapping[str, Any]) -> list[str] | None
     return ["act" if rejected_decision == "retrieve" else "retrieve"]
 
 
+def _manage_recovery_target_scopes(task: Mapping[str, Any]) -> list[str] | None:
+    """Close an exact-directory scope after typed mismatch feedback."""
+
+    actions = task.get("actions")
+    latest = actions[-1] if isinstance(actions, list) and actions else None
+    if not isinstance(latest, Mapping) or str(latest.get("tool") or "") != "task_manage":
+        return None
+    outcome = _audit_mapping(latest.get("outcome"))
+    arguments = _audit_mapping(latest.get("arguments"))
+    if (
+        latest.get("ok") is not True
+        and str(outcome.get("reason") or "")
+        in {
+            "replan_repeats_missing_effect",
+            "exact_directory_act_requires_subtree_or_child",
+        }
+        and str(arguments.get("next_decision") or arguments.get("decision") or "")
+        == "act"
+        and str(arguments.get("target_kind") or "") == "path"
+        and str(arguments.get("target_scope") or "") == "exact"
+    ):
+        return ["subtree"]
+    return None
+
+
 def _manage_transition_error(
     task: Mapping[str, Any], arguments: Mapping[str, Any]
 ) -> dict[str, Any] | None:
@@ -1624,6 +1649,7 @@ def _background_tool_contract(
     manage_required: bool = False,
     manage_decisions: list[str] | None = None,
     manage_next_decisions: list[str] | None = None,
+    manage_target_scopes: list[str] | None = None,
     audit_required: bool = False,
     recovery_required: bool,
     phase_boundary: bool,
@@ -1662,6 +1688,10 @@ def _background_tool_contract(
                         properties["expected_effect"]["enum"] = [
                             "resolve_unknown"
                         ]
+                if manage_target_scopes:
+                    properties["target_scope"]["enum"] = list(
+                        manage_target_scopes
+                    )
             elif manage_decisions == ["act"]:
                 properties["expected_effect"]["enum"] = [
                     "change_environment",
@@ -5553,6 +5583,11 @@ class BackgroundAgent:
                 ),
                 manage_next_decisions=(
                     _manage_recovery_next_decisions(current)
+                    if manage_required
+                    else None
+                ),
+                manage_target_scopes=(
+                    _manage_recovery_target_scopes(current)
                     if manage_required
                     else None
                 ),
