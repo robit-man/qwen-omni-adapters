@@ -4936,7 +4936,18 @@ def _latest_receipt_requires_checkpoint(
             # A locally rejected duplicate performed no action and must not
             # hide the newest real milestone from the checkpoint gate.
             continue
-        if str(message.get("tool_name") or "") in LOCAL_CONTROL_TOOL_NAMES:
+        tool_name = str(message.get("tool_name") or "")
+        if tool_name == "task_checkpoint":
+            result = _audit_mapping(message.get("content"))
+            if (
+                result.get("error") == "unsupported_checkpoint"
+                and result.get("retryable") is True
+            ):
+                # One bounded checkpoint repair uses the same newest verified
+                # receipt. The rejected control call did not alter evidence or
+                # the environment, so it must not hide that milestone.
+                continue
+        if tool_name in LOCAL_CONTROL_TOOL_NAMES:
             return False
         latest_evidence_id = str(message.get("tool_call_id") or "")
         break

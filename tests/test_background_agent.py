@@ -4174,6 +4174,42 @@ def test_checkpoint_allows_one_bounded_id_correction_before_another_action() -> 
     assert _checkpoint_available(messages) is True
 
 
+def test_retryable_checkpoint_keeps_verified_milestone_resident() -> None:
+    task = {
+        "task_state": {
+            "audit_reports": [
+                {
+                    "evidence_id": "verify-1",
+                    "milestone_progress": True,
+                    "contract_satisfied": True,
+                }
+            ]
+        }
+    }
+    messages = [
+        {
+            "role": "tool",
+            "tool_name": "workspace_file",
+            "tool_call_id": "verify-1",
+            "content": '{"action":"read","evidence_authority":"verification"}',
+        },
+        {
+            "role": "tool",
+            "tool_name": "task_checkpoint",
+            "tool_call_id": "checkpoint-repair",
+            "content": '{"error":"unsupported_checkpoint","retryable":true}',
+        },
+    ]
+
+    assert _checkpoint_available(messages) is True
+    assert _latest_receipt_requires_checkpoint(task, messages) is True
+
+    messages[-1]["content"] = (
+        '{"error":"unsupported_checkpoint","retryable":false}'
+    )
+    assert _latest_receipt_requires_checkpoint(task, messages) is False
+
+
 def test_long_task_context_compacts_to_a_fresh_complete_checkpoint_chain() -> None:
     objective = {"role": "user", "content": "<objective>Build it.</objective>"}
     messages: list[dict[str, object]] = [
