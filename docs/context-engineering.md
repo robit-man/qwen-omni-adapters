@@ -362,7 +362,10 @@ same dead route admissible again.
 Manager contracts also enforce typed effect compatibility. A local-path
 environment change must select a filesystem- or shell-backed executor and a
 filesystem- or shell-backed read-only verifier; attached-document search cannot
-be mislabeled as a local file writer or auditor.
+be mislabeled as a local file writer or auditor. Local-path RETRIEVE contracts
+have the same address-space boundary: session, memory, and document search
+cannot stand in for a host filesystem read. Empty structured result collections
+also remain non-evidence even when their transport call succeeded.
 
 The local voice foreground and its background worker use one stable, opaque
 portal-session scope derived from the daemon capability, so a handed-off task

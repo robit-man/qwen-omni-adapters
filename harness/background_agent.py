@@ -1192,6 +1192,8 @@ def _planned_transition_error(
             or target_scope not in {"exact", "subtree"}
         ):
             return "retrieve_requires_one_unknown_and_closure_test"
+        if target_kind == "path" and family not in {"filesystem", "shell"}:
+            return "local_path_retrieval_contract_incompatible"
         return ""
     if (
         effect == "change_environment"
@@ -1409,6 +1411,10 @@ def _manage_transition_error(
             "verification_family to each be filesystem or shell. Attached-document "
             "tools cannot write or audit a host path."
         ),
+        "local_path_retrieval_contract_incompatible": (
+            "A local-path retrieval requires capability_family filesystem or shell. "
+            "Session, memory, and document tools cannot inspect a host path."
+        ),
         "no_admissible_operations": (
             "Every typed operation in that proposed executor route is retired at "
             "the current audited frontier. Choose a different capability/effect "
@@ -1447,7 +1453,11 @@ def _manage_transition_error(
         "allowed_decisions": allowed_decisions,
         "allowed_path_families": (
             ["filesystem", "shell"]
-            if error == "local_path_effect_contract_incompatible"
+            if error
+            in {
+                "local_path_effect_contract_incompatible",
+                "local_path_retrieval_contract_incompatible",
+            }
             else []
         ),
     }
@@ -3691,6 +3701,10 @@ def _retrieval_receipt_has_evidence(
         # The exit status is executor-produced evidence even when a predicate
         # such as `test -e` intentionally emits no text.
         return result.get("exit_code") is not None
+    for collection_key in ("results", "items", "matches", "memories", "tasks"):
+        if collection_key in result:
+            collection = result.get(collection_key)
+            return isinstance(collection, list) and bool(collection)
     # Other retrieval tools return narrow, structured snapshots. Require more
     # than transport/control metadata so an empty envelope cannot close a slot.
     ignored = {

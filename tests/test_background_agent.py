@@ -2625,6 +2625,46 @@ def test_empty_search_cannot_close_retrieval_contract(tmp_path: Path) -> None:
     assert _retired_action_families(updated) == {"document_search:execute"}
 
 
+def test_empty_session_search_cannot_close_retrieval_contract(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    created = store.create("Recover an exact prior fact.", "The fact is available.")
+    assert store.claim_next("worker") is not None
+    managed = store.manage_transition(
+        created["task_id"],
+        "worker",
+        {
+            "contract_id": "contract-session-fact",
+            "decision": "retrieve",
+            "subtask": "Recover the exact prior fact.",
+            "capability_family": "session",
+            "expected_effect": "resolve_unknown",
+            "effect_target": "CareNest source detail",
+            "target_kind": "record",
+            "target_scope": "exact",
+            "acceptance_test": "A session result contains the exact fact.",
+            "verification_family": "session",
+            "reason": "The prior browser session may contain the fact.",
+        },
+    )
+    assert managed is not None
+    result = {
+        "query": "CareNest source detail",
+        "results": [],
+        "scope": "browser_session",
+    }
+    report = _action_audit_report(
+        managed,
+        call_id="empty-session-search",
+        name="session_search",
+        arguments={"query": "CareNest source detail"},
+        result=result,
+        require_contract=True,
+    )
+
+    assert report["retrieval_evidence_present"] is False
+    assert report["contract_satisfied"] is False
+
+
 def test_local_path_change_requires_mutating_and_verifying_path_families(
     tmp_path: Path,
 ) -> None:
@@ -2659,6 +2699,18 @@ def test_local_path_change_requires_mutating_and_verifying_path_families(
         verification_family="filesystem",
     )
     assert _manage_transition_error(task, contract) is None
+
+    retrieval = {
+        **contract,
+        "decision": "retrieve",
+        "capability_family": "session",
+        "expected_effect": "resolve_unknown",
+        "reason": "Inspect the current local file state.",
+    }
+    rejection = _manage_transition_error(task, retrieval)
+    assert rejection is not None
+    assert rejection["reason"] == "local_path_retrieval_contract_incompatible"
+    assert rejection["allowed_path_families"] == ["filesystem", "shell"]
 
 
 def test_replan_after_no_effect_must_change_the_typed_route(tmp_path: Path) -> None:
