@@ -130,6 +130,7 @@ def test_foreground_gateway_is_described_as_execution_capability() -> None:
     assert "execution gateway" in background["description"]
     assert shell_entry["routing_role"] == "gateway"
     assert applications_entry["routing_role"] == "gateway"
+    assert applications_entry["memory_admission"] == "fixed"
     assert "every requested fact or action" in catalog["directives"]["tool_use"]
     assert "system_applications" in shell_entry["schema"]["function"]["description"]
     assert "scanning the filesystem" in applications_entry["schema"]["function"]["description"]

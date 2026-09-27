@@ -453,7 +453,7 @@
           }
         }
       },
-      "memory_admission": "bounded"
+      "memory_admission": "fixed"
     },
     {
       "schema": {
@@ -468,7 +468,7 @@
           }
         }
       },
-      "memory_admission": "bounded"
+      "memory_admission": "fixed"
     },
     {
       "schema": {
@@ -483,7 +483,7 @@
           }
         }
       },
-      "memory_admission": "bounded"
+      "memory_admission": "fixed"
     },
     {
       "schema": {
@@ -498,7 +498,7 @@
           }
         }
       },
-      "memory_admission": "bounded"
+      "memory_admission": "fixed"
     },
     {
       "schema": {
@@ -955,7 +955,7 @@
         }
       },
       "routing_role": "gateway",
-      "memory_admission": "bounded"
+      "memory_admission": "fixed"
     },
     {
       "schema": {
@@ -1014,7 +1014,7 @@
           }
         }
       },
-      "memory_admission": "bounded"
+      "memory_admission": "fixed"
     },
     {
       "schema": {
@@ -1437,7 +1437,7 @@
         }
       },
       "routing_role": "gateway",
-      "memory_admission": "bounded"
+      "memory_admission": "fixed"
     },
     {
       "schema": {

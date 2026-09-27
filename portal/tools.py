@@ -2432,9 +2432,11 @@ class PortalToolHarness:
             # Resource admission is declarative tool metadata, not a growing
             # list of tool-name special cases. "standard" work may establish
             # new residency and must clear the soft floor; tightly "bounded"
-            # work may run inside the soft-to-hard safety band; an "executor"
-            # owns dynamic admission; and "control" remains available so work
-            # can be inspected or cancelled under pressure.
+            # work may run inside the soft-to-hard safety band; "fixed" work
+            # has a small non-resident footprint and remains usable below the
+            # model-growth floor; an "executor" owns dynamic admission; and
+            # "control" remains available so work can be inspected or
+            # cancelled under pressure.
             memory_admission = _TOOL_MEMORY_ADMISSION.get(name, "standard")
             # Teardown must remain callable at the memory floor: closing the
             # rendered browser is itself a pressure-relief operation.  Treat

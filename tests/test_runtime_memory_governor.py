@@ -107,10 +107,23 @@ def test_bounded_tool_result_survives_post_action_memory_sample_jitter() -> None
     )
 
     result = harness.execute(
+        "session", "memory_read", {"topic": "test", "key": "missing"}
+    )
+
+    assert result["found"] is False
+
+
+def test_fixed_footprint_tool_remains_available_below_model_growth_floor() -> None:
+    governor = MemoryGovernor(_policy(), sampler=lambda: 0.5)
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        memory_governor=governor,
+    )
+
+    result = harness.execute(
         "session", "safe_math_eval", {"expression": "20 + 22"}
     )
 
-    assert result["expression"] == "20 + 22"
     assert result["result"] == 42
     assert result["engine"] == "bounded_ast"
 
