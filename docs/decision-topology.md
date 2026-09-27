@@ -98,7 +98,7 @@ tool step, or service event as noted.
 | Detect task completion | evidence-ID validation plus LLM checkpoint assertion | 1 LLM round/step | C | Yes, wave 4 | medium-high | Laya recommends only; exact criteria/policy validate; ambiguous uses LLM |
 | Mark task blocked | failed evidence ID required | <1 ms after model assertion | E/A | No unilateral Laya | high | Concrete failed evidence and policy required |
 | Final task report wording | language model checkpoint report | included in LLM round | D | No | low | Deliberative synthesis, bounded length |
-| Stop runaway foreground tool loop | repeated nonproductive-round bound | <1 ms/round | A | No | high | Keep deterministic circuit breaker |
+| Stop foreground tool execution | request timeout, client disconnect, exact duplicate suppression, and typed per-tool bounds | event-driven | A | No | high | Do not terminate a recoverable chain merely because several attempts were nonproductive |
 | Yield a background work slice | round/call/stall counters | <1 ms/round | A | No | medium | Keep deterministic fairness bound |
 | Retry backend/resource failures | typed error plus exponential schedule | <1 ms/failure | A | No | medium | Keep scheduler state out of task semantics |
 | Preempt background work for live speech | event flag and stream cancellation | <50 ms polling | A | No | high | Keep exact single-flight behavior |

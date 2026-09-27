@@ -2320,7 +2320,6 @@ def test_portal_status_probes_all_internal_stages() -> None:
         "call_limit": None,
         "termination": [
             "model_final",
-            "repeated_nonproductive_rounds",
             "request_timeout",
             "client_disconnect",
         ],
@@ -5065,11 +5064,16 @@ def test_portal_tool_round_has_no_legacy_fifty_call_cap() -> None:
     assert len(response.json["portal"]["safe_tools_executed"]) == 55
 
 
-def test_portal_returns_duplicate_errors_then_stops_if_nothing_changes() -> None:
+def test_portal_returns_duplicate_errors_without_ending_the_chain() -> None:
     requests: list[dict[str, Any]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(json.loads(request.content))
+        if len(requests) > 6:
+            return httpx.Response(
+                200,
+                json={"message": {"role": "assistant", "content": "Recovered."}},
+            )
         return httpx.Response(
             200,
             json={
@@ -5096,9 +5100,10 @@ def test_portal_returns_duplicate_errors_then_stops_if_nothing_changes() -> None
         json=_request(portal_auto_tools=True),
     )
 
-    assert response.status_code == 502
-    assert "without actionable progress" in response.json["error"]
-    assert len(requests) == 3
+    assert response.status_code == 200
+    assert response.json["message"]["content"] == "Recovered."
+    assert len(requests) == 7
+    assert len(response.json["portal"]["safe_tools_executed"]) == 6
 
 
 def test_duplicate_failure_is_returned_so_the_model_can_correct_it() -> None:
@@ -5142,11 +5147,16 @@ def test_duplicate_failure_is_returned_so_the_model_can_correct_it() -> None:
     assert [item["ok"] for item in trace] == [False, False, True]
 
 
-def test_portal_stops_varying_tool_calls_that_never_make_progress() -> None:
+def test_portal_allows_nonproductive_discovery_to_recover_after_three_rounds() -> None:
     requests: list[dict[str, Any]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(json.loads(request.content))
+        if len(requests) > 6:
+            return httpx.Response(
+                200,
+                json={"message": {"role": "assistant", "content": "Recovered."}},
+            )
         return httpx.Response(
             200,
             json={
@@ -5173,9 +5183,56 @@ def test_portal_stops_varying_tool_calls_that_never_make_progress() -> None:
         json=_request(portal_auto_tools=True),
     )
 
-    assert response.status_code == 502
-    assert "without actionable progress" in response.json["error"]
-    assert len(requests) == 3
+    assert response.status_code == 200
+    assert response.json["message"]["content"] == "Recovered."
+    assert len(requests) == 7
+
+
+def test_streaming_portal_allows_nonproductive_discovery_to_recover() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        if len(requests) > 6:
+            response = {
+                "message": {"role": "assistant", "content": "Recovered."}
+            }
+        else:
+            response = {
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "tool_search",
+                                "arguments": {"family": "uncertain"},
+                            },
+                        }
+                    ],
+                }
+            }
+        wire = json.dumps({"type": "final", "response": response}) + "\n"
+        return httpx.Response(
+            200,
+            content=wire,
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post(
+        "/api/chat/stream",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(stream=True, portal_auto_tools=True),
+    )
+
+    events = [json.loads(line) for line in response.data.splitlines()]
+    assert response.status_code == 200
+    assert len(requests) == 7
+    assert not any(event["type"] == "error" for event in events)
+    assert events[-1]["type"] == "final"
+    assert events[-1]["response"]["message"]["content"] == "Recovered."
 
 
 def test_active_tool_can_be_called_again_without_rediscovery() -> None:

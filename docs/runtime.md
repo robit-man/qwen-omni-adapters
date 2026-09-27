@@ -463,10 +463,12 @@ and needs a new artifact schema and release gate.
   mechanism used to disable reasoning.
 - `tools` and tool history are passed unchanged.
 - The optional portal exposes an off-by-default wrench toggle. Opted-in turns
-  pin 19 demonstration schemas and can execute up to 50 structured rounds/calls
+  pin the server-owned demonstration schemas and can execute uncapped structured rounds/calls
   for local-browser web discovery/bounded public-page fetch, attached-document
   search, time/capabilities, explicit host snapshots, and session-only
-  web/memory recall. This is a
+  web/memory recall. Execution ends at model final, request timeout, or client
+  disconnect; exact duplicate calls return a typed failure without repeating
+  their side effects. This is a
   portal extension; direct adapter clients remain responsible for their own
   tools.
 - Speech is skipped while unresolved `tool_calls` exist; the adapter reports

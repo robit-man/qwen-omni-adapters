@@ -360,7 +360,7 @@ details hidden behind the adapter.
 | Media comprehension | Qwen3-Omni `llama-server` | Prompt caching is disabled so stale multimodal embeddings cannot cross turns |
 | Semantic bridge | Adapter-generated tagged observation | Speech transcript, non-speech acoustics, and visual evidence stay separate and remain untrusted data |
 | Language, reasoning, tool choice | Selected Ollama base or configured OpenAI-compatible worker | Reasoning remains in `message.thinking`; unresolved tool calls cannot enter TTS |
-| Tool execution | Authenticated portal | Starts with compact discovery, exposes only relevant concrete schemas, records bounded evidence, and rejects repeated nonproductive calls |
+| Tool execution | Authenticated portal | Starts with compact discovery, exposes only relevant concrete schemas, records bounded evidence, blocks exact duplicate execution, and lets recovery continue until final/timeout/disconnect |
 | Computer use | `portal/browser.py` + `portal/gui.py` | Opens visible Chromium on the desktop, observes rendered screenshots, clicks/types through native DevTools input, and can see/control the wider workspace through `xdotool` plus fresh desktop screenshots |
 | Speech | Patched Qwen3-TTS worker | Emits ordered decoder PCM; generation state is reset between prompts and never leaks one utterance into the next |
 | Local conversation | `harness/` | VAD, interruption, ReSpeaker state/direction, camera capture, history, deferred memory writes, and foreground scheduling |
@@ -868,9 +868,9 @@ separate so environmental sounds are never misrouted as the user's words.
 - A wrench toggle, off by default, exposes server-pinned structured tools
   for local-browser public-web discovery/fetch, attached-document retrieval,
   current time/capabilities, on-demand host snapshots, and temporary session
-  web/memory recall and isolated text-only sub-agent delegation. Productive
-  tool chains continue until a final answer, while exact duplicates and
-  repeated nonproductive rounds stop safely; live collapsible execution
+  web/memory recall and isolated text-only sub-agent delegation. Tool chains
+  continue until a final answer, request timeout, or client disconnect. Exact
+  duplicate side effects are blocked without terminating recovery; live collapsible execution
   evidence appears in the response and phone UI. No hosted search API is used.
 - Same-origin IndexedDB restores messages, drafts, pending attachments, reply
   audio, and bounded image/video previews after reload. It is keyed by a

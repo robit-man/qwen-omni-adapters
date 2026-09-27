@@ -119,9 +119,6 @@ MAX_SPEAKER_REFERENCE_BYTES = 10 * 1024 * 1024
 MAX_INTERNAL_VIRTUAL_QUERY_CHARS = 1_200
 SESSION_COOKIE_NAME = "omni_portal_session"
 DIAGNOSTIC_TTL_SECONDS = 5 * 60
-# Productive chains have no numeric round ceiling. This guard only stops a
-# model that keeps changing searches/calls without obtaining actionable data.
-MAX_STALLED_TOOL_ROUNDS = 3
 MAX_STREAM_NETWORK_RETRIES = 1
 DIAGNOSTIC_NUMERIC_FIELDS = {
     "queue_wait_ms",
@@ -1413,36 +1410,6 @@ def _tool_followup(
     return followup, executed, made_progress
 
 
-def _tool_round_productive(executed: list[dict[str, Any]]) -> bool:
-    """Whether a round returned usable evidence or completed an action."""
-
-    for item in executed:
-        if item.get("duplicate") or item.get("ok") is not True:
-            continue
-        if str(item.get("name") or "") == "tool_search":
-            try:
-                discovery = json.loads(str(item.get("result") or "{}"))
-            except ValueError:
-                continue
-            if isinstance(discovery, Mapping) and discovery.get("available_tools"):
-                return True
-            continue
-        try:
-            result = json.loads(str(item.get("result") or "{}"))
-        except ValueError:
-            return True
-        if not isinstance(result, Mapping):
-            return True
-        if result.get("error") or result.get("challenge") is True:
-            continue
-        if result.get("found") is False:
-            continue
-        if "results" in result and not result.get("results"):
-            continue
-        return True
-    return False
-
-
 def _tool_recovery_transition(executed: list[dict[str, Any]]) -> bool | None:
     """Return a recovery-state transition made by one concrete tool round."""
 
@@ -2378,7 +2345,6 @@ def create_app(
                     "call_limit": None,
                     "termination": [
                         "model_final",
-                        "repeated_nonproductive_rounds",
                         "request_timeout",
                         "client_disconnect",
                     ],
@@ -2725,7 +2691,6 @@ def create_app(
             seen_tool_calls: set[str] = set()
             current_payload: dict[str, Any] = payload
             round_index = 0
-            stalled_rounds = 0
             recovery_pending = False
             recovery_refusals = 0
             while True:
@@ -2790,14 +2755,6 @@ def create_app(
                         virtual_summary.update(repack_summary)
                         continue
                     break
-                if _tool_round_productive(round_tools):
-                    stalled_rounds = 0
-                else:
-                    stalled_rounds += 1
-                if stalled_rounds >= MAX_STALLED_TOOL_ROUNDS:
-                    raise PortalError(
-                        "safe tool loop stopped after repeated rounds without actionable progress"
-                    )
                 executed.extend(round_tools)
                 _record_tool_diagnostics(
                     diagnostics,
@@ -3044,7 +3001,6 @@ def create_app(
             executed: list[dict[str, Any]] = []
             seen_tool_calls: set[str] = set()
             final_status = upstream.status_code
-            stalled_rounds = 0
             recovery_pending = False
             recovery_refusals = 0
             stream_retries = 0
@@ -3247,22 +3203,6 @@ def create_app(
                         yield event_bytes({"type": "final", "response": final_response})
                         return
                     if not recovery_retry:
-                        if _tool_round_productive(round_tools):
-                            stalled_rounds = 0
-                        else:
-                            stalled_rounds += 1
-                        if stalled_rounds >= MAX_STALLED_TOOL_ROUNDS:
-                            final_status = 502
-                            yield event_bytes(
-                                {
-                                    "type": "error",
-                                    "error": (
-                                        "safe tool loop stopped after repeated rounds "
-                                        "without actionable progress"
-                                    ),
-                                }
-                            )
-                            return
                         executed.extend(round_tools)
                         _record_tool_diagnostics(
                             diagnostics,

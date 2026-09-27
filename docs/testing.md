@@ -30,8 +30,9 @@ session and document-index isolation, bounded PDF/text ingestion,
 content-redacted diagnostic expiry/deletion, streamed PCM relay, public-web
 egress rejection, session memory/web-index isolation, and structured
 multi-round tool execution. The tool gate proves both synchronous and NDJSON
-chains continue past the former 50-call boundary, stops exact duplicate
-no-progress loops, and verifies isolated session-scoped sub-agent delegation.
+chains continue past the former 50-call boundary and past three nonproductive
+rounds, blocks exact duplicate execution without ending recovery, and verifies
+isolated session-scoped sub-agent delegation.
 It also includes DuckDuckGo HTML redirect/snippet parsing, fetch receipts,
 network-free session
 recall, search→fetch, textual-call compatibility, live bounded receipts, and

@@ -56,6 +56,9 @@ only after the model completes the original spoken request on the Jetson.
       generic typed-capability recovery instruction.
 - [ ] Add regression coverage reproducing shell pressure -> filesystem list ->
       exact file delivery without three shell retries.
+- [x] Remove the generic consecutive-nonproductive-round cap from JSON and
+      streaming agent loops; keep exact duplicate suppression, typed per-tool
+      limits, request timeout, and disconnect cancellation.
 - [ ] Run the complete validation gate after implementation.
 - [ ] Deploy to the Egg without unloading comprehension; pointing and TTS must
       be cold before the foreground tool request.

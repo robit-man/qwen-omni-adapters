@@ -235,10 +235,11 @@ contains unresolved `tool_calls`; the client executes the tools, appends tool
 results, and submits the next turn before TTS.
 
 The authenticated reference portal can perform that client role when the user
-enables its wrench toggle (`portal_auto_tools=true`). It pins its own 24-tool
-schema array, executes uncapped progress-checked rounds/calls, emits running/completed
+enables its wrench toggle (`portal_auto_tools=true`). It pins its own tool
+schema array, executes uncapped rounds/calls until final/timeout/disconnect, emits running/completed
 tool events on the portal NDJSON extension, and returns bounded arguments and
-result evidence under `response.portal`. The toggle defaults off. This flag and
+result evidence under `response.portal`. Exact duplicate execution remains
+blocked without ending the recovery chain. The toggle defaults off. This flag and
 trace are portal extensions, not fields in portable adapter v1.
 
 If an adapter language stream ends with a classified network/timeout failure
