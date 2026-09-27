@@ -1296,6 +1296,8 @@ def test_native_respeaker_gate_applies_only_during_playback() -> None:
     source = inspect.getsource(run_call_loop)
 
     assert "array.present and speaking_since is not None" in source
+    assert "array.voice_activity" in source
+    assert "array.speech_detected" not in source
 
 
 def test_a_barge_ducks_pauses_resumes_or_commits_without_a_hard_cut() -> None:
