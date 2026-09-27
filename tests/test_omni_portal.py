@@ -2928,6 +2928,52 @@ def test_shell_tool_returns_command_context(tmp_path: Path) -> None:
     assert not stderr_artifact.exists()
 
 
+def test_shell_and_workspace_relative_paths_start_from_user_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_workspace = tmp_path / "user-home"
+    desktop = user_workspace / "Desktop"
+    runtime_checkout = tmp_path / "runtime-checkout"
+    desktop.mkdir(parents=True)
+    runtime_checkout.mkdir()
+    monkeypatch.chdir(runtime_checkout)
+    harness = PortalToolHarness(
+        SessionDocumentStore(ttl_s=300),
+        workspace_root=user_workspace,
+    )
+
+    listed = harness.execute(
+        "one", "workspace_file", {"action": "list", "path": ".", "depth": 1}
+    )
+    default_shell = harness.execute(
+        "one", "shell", {"command": "pwd", "intent": "inspect"}
+    )
+    relative_shell = harness.execute(
+        "one",
+        "shell",
+        {"command": "pwd", "cwd": "Desktop", "intent": "inspect"},
+    )
+    written = harness.execute(
+        "one",
+        "workspace_file",
+        {
+            "action": "write",
+            "path": "Desktop/note.txt",
+            "content": "from user workspace\n",
+        },
+    )
+
+    assert listed["path"] == str(user_workspace)
+    assert {item["path"] for item in listed["entries"]} == {"Desktop"}
+    assert default_shell["cwd"] == str(user_workspace)
+    assert default_shell["stdout"].strip() == str(user_workspace)
+    assert relative_shell["cwd"] == str(desktop)
+    assert relative_shell["stdout"].strip() == str(desktop)
+    assert written["path"] == str(desktop / "note.txt")
+    assert (desktop / "note.txt").read_text() == "from user workspace\n"
+    assert not (runtime_checkout / "Desktop" / "note.txt").exists()
+
+
 def test_shell_large_output_is_lossless_outside_bounded_context(tmp_path: Path) -> None:
     harness = PortalToolHarness(
         SessionDocumentStore(ttl_s=300),

@@ -342,6 +342,7 @@ class PortalConfig:
     file_delivery_roots: tuple[Path, ...] = ()
     file_delivery_ttl_s: float = DIAGNOSTIC_TTL_SECONDS
     file_delivery_max_bytes: int = 128 * 1024 * 1024
+    tool_workspace_root: Path | None = None
 
     @classmethod
     def from_environment(cls) -> PortalConfig:
@@ -480,6 +481,9 @@ class PortalConfig:
                     )
                 ),
             ),
+            tool_workspace_root=Path(
+                os.environ.get("OMNI_TOOL_WORKSPACE_ROOT", str(Path.home()))
+            ).expanduser(),
         )
 
 
@@ -1892,6 +1896,7 @@ def create_app(
             / "shell-evidence"
         ),
         file_deliveries=file_deliveries,
+        workspace_root=runtime.tool_workspace_root or Path.home(),
     )
     app.config["MAX_CONTENT_LENGTH"] = runtime.max_body_bytes
 

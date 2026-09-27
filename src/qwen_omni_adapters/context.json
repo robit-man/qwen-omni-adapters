@@ -1286,7 +1286,7 @@
               },
               "path": {
                 "type": "string",
-                "description": "Absolute or working-directory-relative filesystem path."
+                "description": "Absolute or user-workspace-relative filesystem path. Relative paths resolve from the interactive user's home, not the runtime repository."
               },
               "content": {
                 "type": "string",
@@ -1376,7 +1376,7 @@
               },
               "cwd": {
                 "type": "string",
-                "description": "Optional working directory; defaults to the portal process directory."
+                "description": "Optional working directory. Absolute paths are used directly; relative paths and the default resolve from the interactive user's home workspace, not the runtime repository."
               },
               "timeout_seconds": {
                 "type": "integer",

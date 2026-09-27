@@ -795,6 +795,7 @@ These environment variables are worth knowing:
 | Variable | Effect |
 |---|---|
 | `OMNI_PORTAL_URL` | Where the portal is (default `http://127.0.0.1:8920`) |
+| `OMNI_TOOL_WORKSPACE_ROOT` | Default base for relative `shell.cwd` and `workspace_file.path`; defaults to the service user's home, never the runtime checkout |
 | `OMNI_CALL_CAMERA` | A single camera to use instead of every one found |
 | `OMNI_CALL_MEMORY` | Persistent passive-memory SQLite path |
 | `OMNI_CALL_SPEECH_EVICT_UNIT` | User service to stop before TTS and restore afterward |

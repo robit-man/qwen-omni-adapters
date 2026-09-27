@@ -311,14 +311,25 @@ def _run_shell(
     mutation_paths: Any = None,
     output_directory: Path | None = None,
     output_session: str = "",
+    default_cwd: Path | None = None,
 ) -> dict[str, Any]:
     """Run Bash and return a typed, executor-observed effect receipt."""
 
     source = _bounded_text(command, "command", 32_768)
-    working_directory = str(cwd or "").strip() or str(Path.cwd())
-    if len(working_directory) > 4096:
+    raw_working_directory = str(cwd or "").strip()
+    if len(raw_working_directory) > 4096:
         raise ToolInputError("cwd exceeds 4096 characters")
-    if not Path(working_directory).is_dir():
+    workspace_root = Path(default_cwd or Path.home()).expanduser().resolve(strict=False)
+    working_path = (
+        Path(raw_working_directory).expanduser()
+        if raw_working_directory
+        else workspace_root
+    )
+    if not working_path.is_absolute():
+        working_path = workspace_root / working_path
+    working_path = working_path.resolve(strict=False)
+    working_directory = str(working_path)
+    if not working_path.is_dir():
         raise ToolInputError(f"cwd is not a directory: {working_directory}")
     step_intent = str(intent or "inspect").strip().lower()
     if step_intent not in {
@@ -605,6 +616,7 @@ def _workspace_file(
     max_chars: Any = None,
     offset_chars: Any = None,
     depth: Any = None,
+    base_directory: Path | None = None,
 ) -> dict[str, Any]:
     """Perform one compact file operation with a bounded, verifiable receipt."""
 
@@ -612,7 +624,10 @@ def _workspace_file(
     if operation not in {"list", "read", "mkdir", "write", "replace"}:
         raise ToolInputError("action must be list, read, mkdir, write, or replace")
     raw_path = _bounded_text(path, "path", 4096)
-    target = Path(raw_path).expanduser().resolve(strict=False)
+    target = Path(raw_path).expanduser()
+    if not target.is_absolute():
+        target = Path(base_directory or Path.home()).expanduser() / target
+    target = target.resolve(strict=False)
 
     if operation == "mkdir":
         existed = target.is_dir()
@@ -2346,6 +2361,7 @@ class PortalToolHarness:
         memory_governor: MemoryGovernor | None = None,
         shell_evidence_root: Path | None = None,
         file_deliveries: SessionFileDeliveryStore | None = None,
+        workspace_root: Path | None = None,
     ) -> None:
         self.documents = documents
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
@@ -2360,6 +2376,11 @@ class PortalToolHarness:
         self.background_tasks = background_tasks
         self.memory_governor = memory_governor
         self.file_deliveries = file_deliveries
+        self.workspace_root = Path(workspace_root or Path.home()).expanduser().resolve(
+            strict=False
+        )
+        if not self.workspace_root.is_dir():
+            raise ValueError(f"tool workspace root is not a directory: {self.workspace_root}")
         self.shell_evidence_root = (
             Path(shell_evidence_root).expanduser().resolve(strict=False)
             if shell_evidence_root is not None
@@ -2583,6 +2604,7 @@ class PortalToolHarness:
                     max_chars=arguments.get("max_chars"),
                     offset_chars=arguments.get("offset_chars"),
                     depth=arguments.get("depth"),
+                    base_directory=self.workspace_root,
                 )
             elif name == "shell":
                 result = _run_shell(
@@ -2595,6 +2617,7 @@ class PortalToolHarness:
                     mutation_paths=arguments.get("mutation_paths"),
                     output_directory=self.shell_evidence_root,
                     output_session=session_id,
+                    default_cwd=self.workspace_root,
                 )
             elif name == "system_applications":
                 result = _system_applications(

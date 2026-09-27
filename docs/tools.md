@@ -39,6 +39,7 @@ owns the schemas and implementations.
 | `video_scan` | Inspect observed video/audio streams and timeline metadata | Current browser-session media only |
 | `working_notes` | Add, list, search, or remove bounded research notes | Current browser session only |
 | `task_list` | Maintain bounded pending/in-progress/completed/blocked tasks | Current browser session only |
+| `workspace_file` | List, read, create, or replace one bounded filesystem target with a compact receipt | Absolute paths remain explicit; relative paths start at `OMNI_TOOL_WORKSPACE_ROOT`, which defaults to the service user's home |
 | `shell` | Run one typed `bash -lc` inspect/mutate/verify step and return stdout, stderr, exit status, cwd, timeout state, and an executor-observed effect receipt; optional bounded stdin supports safe generated-file writes | Unrestricted portal-host shell; exact stdout/stderr are retained as session artifacts while only 12-KiB previews enter model context |
 | `system_applications` | Query current XDG/Freedesktop, Flatpak, and Snap desktop launchers by role or MIME type | Read-only current host inventory with resolved executable evidence |
 | `file_deliver` | Stage or inspect one explicit local file for a Download button in the connected portal | Authenticated browser session only; immutable staged copy, configured source roots, size bound, five-minute TTL, and Trash cleanup |
@@ -119,11 +120,11 @@ user/media turn
 There is no numeric call, round, or per-turn ceiling in either the synchronous
 or streaming portal loop. The model may emit one call at a time or batch any
 number of independent calls in a round, and chaining continues until it emits a
-final answer. Exact call fingerprints are de-duplicated; if an entire round
-contains only calls already executed during the turn, the portal stops with an
-explicit no-progress error instead of spinning forever. A request timeout,
-client disconnect, or upstream failure also terminates execution. These are
-progress and transport boundaries, not hidden call quotas. Media bytes and raw document
+final answer. Exact call fingerprints are de-duplicated so an identical side
+effect is not executed twice, but the typed duplicate result does not terminate
+recovery. A request timeout, client disconnect, or upstream failure terminates
+execution. These are transport and effect-safety boundaries, not hidden call
+quotas. Media bytes and raw document
 envelopes are removed from older follow-up rounds; a browser/desktop tool's newest
 fresh screenshot is passed through the adapter's native image field for exactly one
 multimodal follow-up. Its `role=tool` JSON retains bounded frame metadata and the
