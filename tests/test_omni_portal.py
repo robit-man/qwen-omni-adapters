@@ -27,6 +27,7 @@ from harness.background_agent import (
 from portal.app import (
     DEFAULT_MODEL,
     PortalConfig,
+    _close_live_tool_budget,
     _model_tool_result,
     _with_heard_words,
     create_app,
@@ -6292,3 +6293,23 @@ def test_shell_commands_reach_the_desktop_audio_server(tmp_path: Path) -> None:
     assert "PULSE_SERVER" not in _desktop_session_environment(
         {}, runtime_root=tmp_path / "missing"
     )
+
+
+def test_spoken_turn_tool_loop_ends_in_one_spoken_answer() -> None:
+    """A spoken "play a tone" retried sox syntax for 18 minutes, 16 rounds."""
+
+    followup = {
+        "omni": {"require_speech": True},
+        "messages": [{"role": "system", "content": "policy"}, {"role": "user", "content": "x"}],
+        "tools": [{"type": "function", "function": {"name": "shell"}}],
+        "tool_choice": "auto",
+    }
+
+    assert _close_live_tool_budget(followup, 3, limit=4) is followup
+    closed = _close_live_tool_budget(followup, 4, limit=4)
+
+    assert "tools" not in closed and "tool_choice" not in closed
+    assert closed["messages"][0]["content"].startswith("policy\n\n<live_tool_budget>")
+    assert followup["messages"][0]["content"] == "policy"
+    typed = {**followup, "omni": {"require_speech": False}}
+    assert _close_live_tool_budget(typed, 40, limit=4) is typed

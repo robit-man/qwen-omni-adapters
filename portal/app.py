@@ -1102,6 +1102,37 @@ def _with_heard_words(messages: list[Any], response: Mapping[str, Any]) -> list[
     return messages
 
 
+LIVE_TOOL_ROUNDS = max(1, int(os.environ.get("OMNI_LIVE_TOOL_ROUNDS", "4")))
+
+
+def _close_live_tool_budget(
+    followup: dict[str, Any], round_index: int, limit: int | None = None
+) -> dict[str, Any]:
+    """End a spoken turn's tool loop with one answer the speaker can hear.
+
+    The loop was otherwise unbounded: a model guessing command syntax kept
+    retrying for tens of minutes while the only worker could hear nothing
+    else. Once the budget is spent the next round has no tools and must say
+    what happened; sustained work belongs to background_task.
+    """
+
+    omni = followup.get("omni")
+    live = isinstance(omni, Mapping) and omni.get("require_speech") is True
+    if not live or round_index < (LIVE_TOOL_ROUNDS if limit is None else limit):
+        return followup
+    closed = dict(followup)
+    closed.pop("tools", None)
+    closed.pop("tool_choice", None)
+    messages = list(closed.get("messages") or [])
+    directive = context_text("directives", "live_tool_budget_spent")
+    if messages and isinstance(messages[0], Mapping) and messages[0].get("role") == "system":
+        messages[0] = {**messages[0], "content": f"{messages[0].get('content') or ''}\n\n{directive}"}
+    else:
+        messages.insert(0, {"role": "system", "content": directive})
+    closed["messages"] = messages
+    return closed
+
+
 def _without_media(messages: list[Any]) -> list[Any]:
     cleaned = copy.deepcopy(messages)
     for message in cleaned:
@@ -2873,7 +2904,7 @@ def create_app(
                     "completed",
                     round_tools,
                 )
-                current_payload = followup
+                current_payload = _close_live_tool_budget(followup, round_index)
                 _repacked, repack_summary = safe_repack_virtual_followup(
                     current_payload,
                     session_id,
@@ -3357,7 +3388,7 @@ def create_app(
                                 "tools": _tool_trace(round_tools),
                             }
                         )
-                    current_payload = followup
+                    current_payload = _close_live_tool_budget(followup, round_index)
                     _repacked, repack_summary = safe_repack_virtual_followup(
                         current_payload,
                         session_id,
