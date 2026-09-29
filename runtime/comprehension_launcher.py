@@ -835,6 +835,10 @@ def main(argv: list[str] | None = None) -> int:
         live_base_gib=float(base) if isinstance(base, (int, float)) else None,
         runtime_reserve_gib=runtime_reserve,
     )
+    # The configured minimum is a floor the operator chose. A remembered
+    # pressure cap below it would leave no admissible window and refuse to
+    # load forever; with min == max the window is pinned, not sized.
+    effective_maximum = max(args.min_context, effective_maximum)
     if isinstance(base, (int, float)):
         safe_context = _safe_context_tokens(
             calibration,
