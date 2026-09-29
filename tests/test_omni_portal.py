@@ -27,6 +27,7 @@ from portal.app import (
     DEFAULT_MODEL,
     PortalConfig,
     _model_tool_result,
+    _with_heard_words,
     create_app,
     load_voice_profile,
 )
@@ -1210,7 +1211,9 @@ def test_initial_tool_contract_stays_tiny() -> None:
     serialized = json.dumps(DISCOVERY_TOOLS, separators=(",", ":"))
 
     assert {item["function"]["name"] for item in DISCOVERY_TOOLS} == {"tool_search"}
-    assert len(serialized) < 600
+    # Includes one short label per family. Without them the model chose from
+    # bare names and routed "play a tone" to input-audio analysis.
+    assert len(serialized) < 1200
 
 
 def test_browser_and_gui_tools_expose_drag_recovery_actions() -> None:
@@ -6245,3 +6248,23 @@ def test_portal_tool_endpoint_is_guarded() -> None:
     # Only the published suite may be invoked.
     unknown = client.post("/api/tools/rm_rf/call", json={}, headers=headers)
     assert unknown.status_code == 404
+
+
+def test_tool_followup_carries_the_heard_words_not_the_audio_placeholder() -> None:
+    """After a tool round the model must still see what the speaker asked."""
+
+    messages = [
+        {"role": "system", "content": "policy"},
+        {
+            "role": "user",
+            "content": "The attached audio combines 1 consecutive segment ...",
+            "audios": [{"data": "UklGRg=="}],
+        },
+    ]
+    response = {"adapter": {"input_transcript": "Play a 40 hertz tone for ten seconds."}}
+
+    carried = _with_heard_words(messages, response)
+
+    assert carried[-1]["content"] == "Play a 40 hertz tone for ten seconds."
+    assert messages[-1]["content"].startswith("The attached audio")
+    assert _with_heard_words(messages, {"adapter": {}}) == messages

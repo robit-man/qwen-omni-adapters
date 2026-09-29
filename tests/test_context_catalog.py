@@ -243,3 +243,27 @@ def test_live_reply_context_never_frames_the_turn_as_audio_to_analyze() -> None:
         assert framing not in head
         assert framing not in control
     assert "verbalize" not in control
+
+
+def test_live_reply_language_follows_the_latest_utterance() -> None:
+    """One Japanese turn in history once made Egg answer English in Japanese."""
+
+    live = context_catalog()["prompts"]["live_call_system"]
+    assert "language of the latest user message" in live
+
+
+def test_tool_search_shows_what_each_family_does_when_choosing() -> None:
+    """A bare family enum once routed "play a tone" to input-audio analysis."""
+
+    from qwen_omni_adapters.context import configured_tools
+
+    search = next(
+        entry["schema"]["function"]
+        for entry in configured_tools()
+        if entry["schema"]["function"]["name"] == "tool_search"
+    )
+    choices = search["parameters"]["properties"]["family"]["description"]
+    for name, definition in context_catalog()["tool_families"].items():
+        assert f"{name}={definition['choice']}" in choices
+    assert "media=analyze attached audio/video; never plays" in choices
+    assert "shell=run programs, play sound" in choices

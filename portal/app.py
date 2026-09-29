@@ -1080,6 +1080,28 @@ def _response_tool_calls(response: Mapping[str, Any]) -> list[Mapping[str, Any]]
     return parsed
 
 
+def _with_heard_words(messages: list[Any], response: Mapping[str, Any]) -> list[Any]:
+    """Replace a spoken turn's transport placeholder with what was said.
+
+    Follow-up rounds drop the audio, so without this the model's only view of
+    the request is "the attached audio ...", and after a tool it answered by
+    describing the recording instead of doing what the speaker asked.
+    """
+
+    adapter = response.get("adapter")
+    transcript = adapter.get("input_transcript") if isinstance(adapter, Mapping) else None
+    if not isinstance(transcript, str) or not transcript.strip():
+        return messages
+    messages = list(messages)
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if isinstance(message, Mapping) and message.get("role") == "user":
+            if message.get("audios"):
+                messages[index] = {**message, "content": transcript.strip()}
+            break
+    return messages
+
+
 def _without_media(messages: list[Any]) -> list[Any]:
     cleaned = copy.deepcopy(messages)
     for message in cleaned:
@@ -1190,7 +1212,9 @@ def _tool_followup(
         return None, [], False
 
     followup = copy.deepcopy(dict(payload))
-    messages = _without_media(list(followup.get("messages") or []))
+    messages = _without_media(
+        _with_heard_words(list(followup.get("messages") or []), response)
+    )
     assistant = {
         key: copy.deepcopy(value)
         for key, value in message.items()
@@ -1488,7 +1512,9 @@ def _tool_recovery_retry_payload(
     """Reject one premature final answer while a viable tool route remains."""
 
     followup = copy.deepcopy(dict(payload))
-    messages = _without_media(list(followup.get("messages") or []))
+    messages = _without_media(
+        _with_heard_words(list(followup.get("messages") or []), response)
+    )
     message = response.get("message")
     if isinstance(message, Mapping):
         messages.append(

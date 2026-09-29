@@ -89,6 +89,11 @@ def load_context(path: Path | str | None = None) -> dict[str, Any]:
         members = raw_definition.get("tools")
         if not isinstance(description, str) or not description.strip():
             raise ContextConfigError(f"tool family {family} requires a description")
+        choice = raw_definition.get("choice")
+        if not isinstance(choice, str) or not choice.strip() or len(choice) > 48:
+            raise ContextConfigError(
+                f"tool family {family} requires a choice label of at most 48 characters"
+            )
         if not isinstance(members, list) or not members or len(members) > 4:
             raise ContextConfigError(
                 f"tool family {family} must contain between one and four tools"
@@ -109,6 +114,10 @@ def load_context(path: Path | str | None = None) -> dict[str, Any]:
         raise ContextConfigError(
             f"context tools missing a typed family: {', '.join(unassigned)}"
         )
+    for entry in value["tools"]:
+        function = entry["schema"]["function"]
+        if function.get("name") == "tool_search":
+            _describe_family_choices(function, families)
     return value
 
 
@@ -191,6 +200,24 @@ def runtime_identity_context() -> str:
 
 def configured_tools() -> list[dict[str, Any]]:
     return [copy.deepcopy(entry) for entry in context_catalog()["tools"]]
+
+
+def _describe_family_choices(
+    function: dict[str, Any], families: Mapping[str, Any]
+) -> None:
+    """Show what each family does at the moment the model picks one.
+
+    A bare enum of names made the model guess from the name alone: "play a
+    tone" looked like `media`, which only analyzes audio the user attached.
+    """
+
+    family = function.get("parameters", {}).get("properties", {}).get("family")
+    if not isinstance(family, dict):
+        return
+    choices = "; ".join(
+        f"{name}={definition['choice']}" for name, definition in families.items()
+    )
+    family["description"] = f"Family needed next: {choices}; uncertain=none fits."
 
 
 def configured_tool_families() -> dict[str, dict[str, Any]]:
