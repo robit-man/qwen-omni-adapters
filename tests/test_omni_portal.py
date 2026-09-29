@@ -4,6 +4,7 @@ import base64
 import hashlib
 import io
 import json
+import os
 import re
 import subprocess
 import threading
@@ -45,6 +46,7 @@ from portal.tools import (
     DISCOVERY_TOOLS,
     SAFE_TOOLS,
     PortalToolHarness,
+    _desktop_session_environment,
     discover_tool_names,
 )
 from qwen_omni_adapters.context import context_catalog
@@ -6268,3 +6270,25 @@ def test_tool_followup_carries_the_heard_words_not_the_audio_placeholder() -> No
     assert carried[-1]["content"] == "Play a 40 hertz tone for ten seconds."
     assert messages[-1]["content"].startswith("The attached audio")
     assert _with_heard_words(messages, {"adapter": {}}) == messages
+
+
+def test_shell_commands_reach_the_desktop_audio_server(tmp_path: Path) -> None:
+    """A system-service portal has no session variables, so `play` was silent."""
+
+    runtime = tmp_path / str(os.getuid())
+    (runtime / "pulse").mkdir(parents=True)
+    (runtime / "pulse" / "native").touch()
+    (runtime / "bus").touch()
+
+    environment = _desktop_session_environment({"PATH": "/usr/bin"}, runtime_root=tmp_path)
+
+    assert environment["XDG_RUNTIME_DIR"] == str(runtime)
+    assert environment["PULSE_SERVER"] == f"unix:{runtime}/pulse/native"
+    assert environment["DBUS_SESSION_BUS_ADDRESS"] == f"unix:path={runtime}/bus"
+    kept = _desktop_session_environment(
+        {"PULSE_SERVER": "tcp:elsewhere"}, runtime_root=tmp_path
+    )
+    assert kept["PULSE_SERVER"] == "tcp:elsewhere"
+    assert "PULSE_SERVER" not in _desktop_session_environment(
+        {}, runtime_root=tmp_path / "missing"
+    )
