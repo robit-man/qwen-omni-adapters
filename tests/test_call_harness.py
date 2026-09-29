@@ -660,12 +660,25 @@ def test_only_the_dialogue_carries_to_the_next_turn() -> None:
     assert "audios" in payload["messages"][-1]
 
 
-def test_sound_with_no_speech_is_remembered_as_context() -> None:
+def test_sound_with_no_speech_never_becomes_a_user_turn() -> None:
+    """A sound description is not something the user said.
+
+    Kept as a user turn it taught the model to narrate audio ("That was a real
+    voice...") instead of replying to the words that were spoken.
+    """
+
     call = session()
-    call._remember(TurnResult(audio_observation="a door closed", reply=""))
+    call._remember(TurnResult(audio_observation="A single gunshot is heard.", reply=""))
+    call._remember(
+        TurnResult(transcript="what time is it", audio_observation="room tone", reply="Noon.")
+    )
     payload = call._build_payload(b"wav", 1, None)
 
-    assert payload["messages"][1] == {"role": "user", "content": "a door closed"}
+    assert payload["messages"][1:3] == [
+        {"role": "user", "content": "what time is it"},
+        {"role": "assistant", "content": "Noon."},
+    ]
+    assert all("gunshot" not in str(m["content"]) for m in payload["messages"])
 
 
 def test_history_is_bounded() -> None:

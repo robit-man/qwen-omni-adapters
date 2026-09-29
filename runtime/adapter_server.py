@@ -220,6 +220,50 @@ AUDIO_OBSERVATION_BLOCK = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 OBSERVE_ONLY_CONTROL = re.compile(r"^\s*<observe_only\s*/>\s*$", re.IGNORECASE)
+# A spoken reply answers the words; it never reports on the audio carrying
+# them. Perception-format output or commentary about the input is a failed
+# reply, and speaking it (or keeping it as dialogue for the next turn to copy)
+# is worse than staying silent.
+_PERCEPTION_FORMAT_REPLY = re.compile(
+    r"speech_transcript|audio_observation|visual_observation|<observe_only",
+    re.IGNORECASE,
+)
+_INPUT_META_REPLY = re.compile(
+    r"^\W*(?:"
+    r"(?:that|this|the)\s+(?:last\s+(?:bit|one)\s+)?(?:was|is)\s+(?:actually\s+|clearly\s+|"
+    r"just\s+|a\s+|an\s+)*(?:clear\s*,?\s*|real\s*,?\s*|genuine\s*,?\s*|human\s+|male\s+|"
+    r"female\s+)*(?:voice|speech|sound|recording|audio|presentation|transcript)|"
+    r"(?:that|this)\s+last\s+(?:bit|one)\s+was\b|"
+    r"i\s+(?:just\s+)?(?:heard|detected|picked\s+up|can\s+hear)\s+(?:a|an|the|some|"
+    r"what|something|someone|no|nothing|only)\b|"
+    r"(?:in|from)\s+(?:the|this|that)\s+(?:audio|recording|sound(?:\s+file)?|clip|transcript)\b|"
+    r"(?:the|this|that)\s+(?:audio|recording|sound\s+file|clip|transcript)\s+"
+    r"(?:contains|has|shows|features|is|was)\b|"
+    r"(?:the\s+)?speaker\s+(?:says|said|is\s+saying)\b"
+    r")",
+    re.IGNORECASE,
+)
+_INPUT_META_DECISION = re.compile(
+    r"\b(?:i['’]?ll|i\s+will|let\s+me)\s+(?:respond|answer|reply)\s+(?:to\s+it|to\s+that|"
+    r"rather|instead)|\b(?:stay|staying|remain)\s+(?:silent|quiet)\b|"
+    r"\baddressed\s+(?:directly\s+)?to\s+me\b|"
+    r"\b(?:addressing|speaking|talking)\s+directly\s+to\s+me\b",
+    re.IGNORECASE,
+)
+
+
+def _is_input_meta_reply(text: str, user_text: str) -> bool:
+    """Return whether a spoken reply analyzes its input instead of answering.
+
+    Perception format is never a reply. Prose about hearing is allowed only
+    when the speaker asked about sound or hearing.
+    """
+
+    if _PERCEPTION_FORMAT_REPLY.search(text):
+        return True
+    if _TRANSPORT_REQUEST.search(user_text):
+        return False
+    return bool(_INPUT_META_REPLY.search(text) or _INPUT_META_DECISION.search(text))
 
 
 def _active_context_tokens(config: Config) -> int:
@@ -306,6 +350,8 @@ def _is_encoder_meta_transcript(value: str) -> bool:
     """Reject a media model's refusal/explanation masquerading as ASR."""
 
     folded = " ".join(value.casefold().split())
+    if _is_encoder_prompt_echo(folded):
+        return True
     signatures = (
         "the user is asking me to",
         "i don't actually have access to any audio",
@@ -319,6 +365,34 @@ def _is_encoder_meta_transcript(value: str) -> bool:
         "nothing for me to perceive",
     )
     return sum(signature in folded for signature in signatures) >= 2
+
+
+# Near-silent audio can make the encoder transcribe its own instruction, or
+# the "empty" placeholder that instruction names, as if someone had said it.
+# Accepted as speech, that text becomes the user's turn and the language model
+# obeys it, answering in the perception format instead of replying.
+_ENCODER_PLACEHOLDER_TRANSCRIPTS = frozenset(
+    {"empty", "none", "[empty]", "[none]", "[inaudible]", "inaudible"}
+)
+_ENCODER_PROMPT_SIGNATURES = (
+    "analyze this audio",
+    "speech transcript",
+    "speech_transcript",
+    "audio observation",
+    "audio_observation",
+    "verbatim speech",
+    "objective non-speech",
+    "non-speech evidence",
+    "nested markup",
+    "camera shutter",
+    "media perception encoder",
+)
+
+
+def _is_encoder_prompt_echo(folded: str) -> bool:
+    if folded.strip(" .!?\"'") in _ENCODER_PLACEHOLDER_TRANSCRIPTS:
+        return True
+    return sum(signature in folded for signature in _ENCODER_PROMPT_SIGNATURES) >= 2
 
 
 def _observation_audio(observation: str | None) -> str | None:
@@ -349,36 +423,6 @@ def _is_empty_audio_meta(value: str) -> bool:
             "no audio file was provided",
         )
     )
-
-
-def _audio_observation_for_language(observation: str | None) -> str | None:
-    """Exclude negative encoder boilerplate from a valid spoken request.
-
-    The full observation remains in the adapter response for diagnostics. This
-    only prevents a small language trunk from interpreting "no non-speech
-    sounds" as "no speech" and contradicting the tagged transcript.
-    """
-
-    value = _observation_audio(observation)
-    if not value:
-        return None
-    folded = " ".join(value.casefold().split())
-    if folded.startswith(
-        (
-            "no non-speech sound",
-            "no intelligible speech is present",
-            "there is no intelligible speech",
-        )
-    ):
-        return None
-    if "contains only intelligible speech" in folded:
-        return None
-    if (
-        ("single human voice" in folded or "continuous human voice" in folded)
-        and ("no background" in folded or "no ambient" in folded)
-    ):
-        return None
-    return value
 
 
 def _thinking_requested(parsed: ParsedAdapterRequest) -> bool:
@@ -520,6 +564,11 @@ def _natural_live_reply(
     # and therefore cannot leak the model's private abstention rationale into
     # conversation history or TTS.
     if OBSERVE_ONLY_CONTROL.fullmatch(normalized):
+        return ""
+    if _is_input_meta_reply(normalized, user_text):
+        LOGGER.warning(
+            "dropped a live reply that analyzed its input: %r", normalized[:160]
+        )
         return ""
     allow_canned_quote = any(
         pattern.search(user_text) for pattern in _CANNED_ASSISTANT_PATTERNS
@@ -1450,10 +1499,12 @@ def _language_messages(
                 # actual message, not merely one more untrusted media detail.
                 # Remove its encoder tag from the evidence wrapper so room
                 # noise cannot outrank or duplicate the spoken request.
+                # Acoustic evidence is dropped too: descriptions of the voice
+                # ("a clear male voice speaking directly") led the model to
+                # comment on the audio instead of replying to the words.
                 content = transcript
-                evidence = SPEECH_TRANSCRIPT_BLOCK.sub("", observation).strip()
-                if _audio_observation_for_language(observation) is None:
-                    evidence = AUDIO_OBSERVATION_BLOCK.sub("", evidence).strip()
+                evidence = SPEECH_TRANSCRIPT_BLOCK.sub("", observation)
+                evidence = AUDIO_OBSERVATION_BLOCK.sub("", evidence).strip()
             if evidence:
                 wrapped = (
                     '<adapter_observation source="current_attached_media" '

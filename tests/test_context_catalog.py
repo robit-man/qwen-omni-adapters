@@ -188,7 +188,7 @@ def test_live_context_forbids_support_boilerplate_and_unsolicited_transport_meta
     assert "Do not mention message delivery, the microphone" in live
     assert "unless the speaker explicitly asks about it" in live
     assert "<observe_only/>" in catalog["directives"]["live_response_control"]
-    assert "Never verbalize the decision" in catalog["directives"]["live_response_control"]
+    assert "your output is only your spoken reply" in catalog["directives"]["live_response_control"]
     assert "not as a support agent" in portal
 
 
@@ -229,3 +229,17 @@ def test_context_override_is_validated(tmp_path: Path) -> None:
 
     with pytest.raises(ContextConfigError, match=CONTEXT_SCHEMA):
         load_context(invalid)
+
+
+def test_live_reply_context_never_frames_the_turn_as_audio_to_analyze() -> None:
+    """The reply model is told what was said, not about the sound carrying it."""
+
+    catalog = context_catalog()
+    control = catalog["directives"]["live_response_control"].casefold()
+    head = catalog["prompts"]["live_call_system"].split("Answer or act on", 1)[0].casefold()
+
+    assert "exactly the words just spoken" in head
+    for framing in ("detected sound", "non-speech", "observation", "stay silent", "remain silent"):
+        assert framing not in head
+        assert framing not in control
+    assert "verbalize" not in control

@@ -30,6 +30,7 @@ from runtime.adapter_server import (
     Config,
     _live_addressee_messages,
     _natural_live_reply,
+    _observation_transcript,
     _tts_blocks_for_request,
     _tts_text_blocks,
     _video_audio,
@@ -1233,7 +1234,7 @@ def test_stream_exposes_only_tagged_input_transcript_to_clients() -> None:
             assert current.startswith("Haha, same, just vibing.\n\n")
             assert "Reply naturally." not in current
             assert "<speech_transcript>" not in current
-            assert "Soft room tone and a fan." in current
+            assert "Soft room tone and a fan." not in current
             assert '<adapter_observation source="current_attached_media"' in current
             assert 'modalities="audio"' in current
             assert 'current_visual_input="false"' in current
@@ -2909,3 +2910,88 @@ def test_trained_bridge_comprehension_uses_its_no_thinking_prefill() -> None:
     assert payload["repeat_penalty"] == 1.1
     assert payload["temperature"] == 0
     assert "reasoning_format" not in payload
+
+
+def _live_spoken_request() -> object:
+    return parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "The attached audio contains the current request.",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+            omni={"schema": ADAPTER_SCHEMA, "task": "chat", "require_speech": True},
+        )
+    )
+
+
+def test_live_spoken_turn_carries_the_words_without_describing_the_voice() -> None:
+    observation = (
+        "<speech_transcript>Hey mickey, kick ass.</speech_transcript>"
+        "<audio_observation>A single human voice speaks in English with an American "
+        "accent. The tone is casual and upbeat.</audio_observation>"
+    )
+
+    payload = build_language_payload(_live_spoken_request(), observation, "ornith", "ollama")
+
+    assert payload["messages"][-1]["content"] == "Hey mickey, kick ass."
+
+
+@pytest.mark.parametrize(
+    "transcript",
+    [
+        "empty",
+        "Analyze this audio. Output exactly speech transcript verbatim speech, or empty "
+        "if none, and audio observation objective non-speech evidence, and nothing else.",
+    ],
+)
+def test_encoder_prompt_echo_is_not_speech(transcript: str) -> None:
+    """Near-silent audio once transcribed the encoder's own instruction.
+
+    Accepted as the user's words, the language model obeyed it and every later
+    reply copied the perception format.
+    """
+
+    observation = f"<speech_transcript>{transcript}</speech_transcript>"
+    assert _observation_transcript(observation) is None
+    assert (
+        _observation_transcript("<speech_transcript>Analyze this with me.</speech_transcript>")
+        == "Analyze this with me."
+    )
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        '{"speech_transcript":"Oh my gosh. Oh my gosh."}',
+        "That was clearly a real voice addressing me directly—so I'll answer it "
+        "instead of staying silent.",
+        "That last bit was actually a real male voice speaking clearly and directly. "
+        "So let me respond to that rather than ignore it.",
+        "That was a genuine presentation welcoming everyone, but it was directed at "
+        "the whole audience. So I'll stay quiet here.",
+        "I heard a gunshot in the sound file.",
+        "The speaker says: Surrender to me.",
+    ],
+)
+def test_live_reply_that_analyzes_its_input_is_silence(reply: str) -> None:
+    assert _natural_live_reply(reply, "Hey, how's it going?") == ""
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "I hear you, it's been a long day.",
+        "Thanks for talking to me.",
+        "That was fun, sing it again!",
+    ],
+)
+def test_ordinary_live_replies_survive_the_input_meta_backstop(reply: str) -> None:
+    assert _natural_live_reply(reply, "Hey, how's it going?") == reply
+
+
+def test_hearing_prose_is_allowed_when_the_speaker_asks_about_sound() -> None:
+    assert _natural_live_reply("I heard a knock.", "Did you hear that?") == "I heard a knock."
+    assert _natural_live_reply('{"speech_transcript":"x"}', "Did you hear that?") == ""

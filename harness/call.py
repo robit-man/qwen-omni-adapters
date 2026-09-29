@@ -1064,12 +1064,15 @@ class CallSession:
 
         Persistent journaling happens only after all answer/tool/TTS work has
         finished, separately from this prompt history update.
+
+        Only words someone said become a user turn. A description of a sound
+        is not something the user said; kept as one, it taught the model that
+        user turns are audio to analyze, and it replied by narrating them.
         """
 
-        spoken = result.transcript or result.audio_observation
         reply = result.reply.strip()
-        if spoken:
-            self._append_history("user", spoken)
+        if result.transcript:
+            self._append_history("user", result.transcript)
         if reply:
             self._append_history("assistant", reply)
 
