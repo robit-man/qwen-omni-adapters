@@ -1608,6 +1608,7 @@
         }
       }
       controller.sources.clear();
+      controller.pending = [];
       controller.resolve(false);
     }
     if (state.playbackSource) {
@@ -1662,7 +1663,26 @@
       });
   }
 
-  function beginPcmPlayback() {
+  const PLAYBACK_PRIOR_KEY = "omni.playbackPacer.v1";
+
+  function loadPlaybackPrior() {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(PLAYBACK_PRIOR_KEY) || "null");
+      return stored && typeof stored === "object" ? stored : undefined;
+    } catch (_error) {
+      return undefined;
+    }
+  }
+
+  function savePlaybackPrior(prior) {
+    try {
+      window.localStorage.setItem(PLAYBACK_PRIOR_KEY, JSON.stringify(prior));
+    } catch (_error) {
+      // Without storage the pacer relearns from each reply's own packets.
+    }
+  }
+
+  function beginPcmPlayback(spokenText = "") {
     const context = state.playbackContext;
     if (!context || context.state !== "running") return null;
     if (state.streamController) stopCurrentPlayback();
@@ -1671,6 +1691,12 @@
     const controller = {
       epoch: state.playbackEpoch,
       context,
+      pacer: callPlayback.createPacer({
+        prior: loadPlaybackPrior(),
+        textChars: String(spokenText || "").trim().length,
+      }),
+      pending: [],
+      started: false,
       nextTime: context.currentTime + PCM_INITIAL_BUFFER_SECONDS,
       lastGain: null,
       lastDuration: 0,
@@ -1685,13 +1711,50 @@
   }
 
   function maybeFinishPcmPlayback(controller) {
-    if (!controller.ended || controller.sources.size) return;
+    if (!controller.ended || controller.sources.size || controller.pending.length) return;
     if (state.streamController === controller) state.streamController = null;
+    if (!controller.cancelled && controller.pacer.packets) {
+      savePlaybackPrior(callPlayback.learned(controller.pacer));
+    }
     controller.resolve(!controller.cancelled);
+  }
+
+  function pendingSeconds(controller) {
+    return controller.pending.reduce((total, buffer) => total + buffer.duration, 0);
+  }
+
+  function releasePendingPcm(controller) {
+    controller.started = true;
+    controller.nextTime = controller.context.currentTime + PCM_INITIAL_BUFFER_SECONDS;
+    controller.lastGain = null;
+    controller.lastDuration = 0;
+    const buffers = controller.pending;
+    controller.pending = [];
+    for (const buffer of buffers) schedulePcmBuffer(controller, buffer);
   }
 
   function queuePcmPlayback(controller, encoded) {
     if (!controller || controller.cancelled || state.playbackEpoch !== controller.epoch) return;
+    const buffer = decodePcmBuffer(controller, encoded);
+    const now = controller.context.currentTime;
+    callPlayback.arrive(controller.pacer, buffer.duration, now);
+    if (controller.started && controller.nextTime < now) {
+      // Playback ran dry before this chunk existed: hold again, with a larger
+      // lead, instead of playing every later chunk the moment it arrives.
+      callPlayback.underrun(controller.pacer);
+      controller.started = false;
+    }
+    if (controller.started) {
+      schedulePcmBuffer(controller, buffer);
+      return;
+    }
+    controller.pending.push(buffer);
+    if (callPlayback.shouldStart(controller.pacer, pendingSeconds(controller))) {
+      releasePendingPcm(controller);
+    }
+  }
+
+  function decodePcmBuffer(controller, encoded) {
     const binary = atob(encoded);
     if (!binary.length || binary.length % 2) throw new Error("TTS stream returned partial PCM samples");
     const samples = new Float32Array(binary.length / 2);
@@ -1702,6 +1765,10 @@
     }
     const buffer = controller.context.createBuffer(1, samples.length, 24000);
     buffer.copyToChannel(samples, 0);
+    return buffer;
+  }
+
+  function schedulePcmBuffer(controller, buffer) {
     const source = controller.context.createBufferSource();
     const gain = controller.context.createGain();
     source.buffer = buffer;
@@ -1747,6 +1814,9 @@
   function endPcmPlayback(controller) {
     if (!controller) return;
     controller.ended = true;
+    if (!controller.started && controller.pending.length && !controller.cancelled) {
+      releasePendingPcm(controller);
+    }
     maybeFinishPcmPlayback(controller);
   }
 
@@ -2969,7 +3039,7 @@
                   stopCurrentPlayback();
                 }
                 call.playbackTurn = turn;
-                pcmController = beginPcmPlayback();
+                pcmController = beginPcmPlayback(streamedContent);
                 streamedAudio = Boolean(pcmController);
                 if (pcmController) assistant.playback = pcmController.promise;
                 setComposerStatus("Call · voice ready…");
@@ -3508,7 +3578,7 @@
           } else if (event.type === "audio_start") {
             languageSettled = true;
             if (requestSequence === state.requestSequence) elements.send.disabled = false;
-            pcmController = beginPcmPlayback();
+            pcmController = beginPcmPlayback(streamedContent);
             streamedAudio = Boolean(pcmController);
             if (pcmController) assistant.playback = pcmController.promise;
             setComposerStatus("Voice ready…");
