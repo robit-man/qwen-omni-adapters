@@ -43,6 +43,9 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
 
 logger = logging.getLogger(__name__)
 
+# An idle visible browser yields to another session after this many seconds.
+BROWSER_HANDOFF_IDLE_S = float(os.environ.get("OMNI_BROWSER_HANDOFF_IDLE_S", "30"))
+
 
 class BrowserAutomationError(RuntimeError):
     """A visible-browser action could not be completed."""
@@ -694,6 +697,18 @@ class BrowserAutomationStore:
             result["verified_visual_observation_error"] = str(exc)
 
     def _admit_single_window(self) -> None:
+        # One visible browser exists, but work moves between sessions: a voice
+        # turn hands a browsing job to a background task with its own session.
+        # Holding the window for the idle owner's full TTL locked that task out
+        # for fifteen minutes. An owner idle past the handoff window yields it.
+        now = time.monotonic()
+        for key, session in list(self._sessions.items()):
+            if (
+                session.process.poll() is None
+                and now - session.last_seen >= BROWSER_HANDOFF_IDLE_S
+            ):
+                self._sessions.pop(key, None)
+                self._terminate(session)
         live = [
             key
             for key, session in self._sessions.items()

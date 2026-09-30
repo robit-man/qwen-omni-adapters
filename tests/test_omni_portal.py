@@ -4,7 +4,6 @@ import base64
 import hashlib
 import io
 import json
-import os
 import re
 import subprocess
 import threading
@@ -47,7 +46,6 @@ from portal.tools import (
     DISCOVERY_TOOLS,
     SAFE_TOOLS,
     PortalToolHarness,
-    _desktop_session_environment,
     discover_tool_names,
 )
 from qwen_omni_adapters.context import context_catalog
@@ -6273,28 +6271,6 @@ def test_tool_followup_carries_the_heard_words_not_the_audio_placeholder() -> No
     assert _with_heard_words(messages, {"adapter": {}}) == messages
 
 
-def test_shell_commands_reach_the_desktop_audio_server(tmp_path: Path) -> None:
-    """A system-service portal has no session variables, so `play` was silent."""
-
-    runtime = tmp_path / str(os.getuid())
-    (runtime / "pulse").mkdir(parents=True)
-    (runtime / "pulse" / "native").touch()
-    (runtime / "bus").touch()
-
-    environment = _desktop_session_environment({"PATH": "/usr/bin"}, runtime_root=tmp_path)
-
-    assert environment["XDG_RUNTIME_DIR"] == str(runtime)
-    assert environment["PULSE_SERVER"] == f"unix:{runtime}/pulse/native"
-    assert environment["DBUS_SESSION_BUS_ADDRESS"] == f"unix:path={runtime}/bus"
-    kept = _desktop_session_environment(
-        {"PULSE_SERVER": "tcp:elsewhere"}, runtime_root=tmp_path
-    )
-    assert kept["PULSE_SERVER"] == "tcp:elsewhere"
-    assert "PULSE_SERVER" not in _desktop_session_environment(
-        {}, runtime_root=tmp_path / "missing"
-    )
-
-
 def test_spoken_turn_tool_loop_ends_in_one_spoken_answer() -> None:
     """A spoken "play a tone" retried sox syntax for 18 minutes, 16 rounds."""
 
@@ -6313,3 +6289,55 @@ def test_spoken_turn_tool_loop_ends_in_one_spoken_answer() -> None:
     assert followup["messages"][0]["content"] == "policy"
     typed = {**followup, "omni": {"require_speech": False}}
     assert _close_live_tool_budget(typed, 40, limit=4) is typed
+
+
+def test_desktop_environment_reaches_the_audio_server(tmp_path: Path) -> None:
+    """A system-service portal has no session variables, so `play` was silent."""
+
+    import socket as socket_module
+
+    from portal.desktop import desktop_subprocess_environment
+
+    (tmp_path / "pulse").mkdir()
+    listener = socket_module.socket(socket_module.AF_UNIX)
+    listener.bind(str(tmp_path / "pulse" / "native"))
+    try:
+        environment = desktop_subprocess_environment(
+            {"PATH": "/usr/bin"}, runtime_dir=tmp_path, x11_dir=tmp_path / "none"
+        )
+        kept = desktop_subprocess_environment(
+            {"PULSE_SERVER": "tcp:elsewhere"}, runtime_dir=tmp_path, x11_dir=tmp_path / "none"
+        )
+    finally:
+        listener.close()
+
+    assert environment["PULSE_SERVER"] == f"unix:{tmp_path}/pulse/native"
+    assert kept["PULSE_SERVER"] == "tcp:elsewhere"
+
+
+def test_an_idle_browser_owner_hands_the_window_to_a_new_session() -> None:
+    """A voice turn's idle browser locked its own background task out."""
+
+    import portal.browser as browser_module
+
+    class _Process:
+        def poll(self) -> None:
+            return None
+
+    store = browser_module.BrowserAutomationStore.__new__(browser_module.BrowserAutomationStore)
+    terminated: list[object] = []
+    store._terminate = terminated.append  # type: ignore[method-assign]
+    idle = browser_module._BrowserSession.__new__(browser_module._BrowserSession)
+    idle.process = _Process()
+    idle.last_seen = time.monotonic() - browser_module.BROWSER_HANDOFF_IDLE_S - 1
+    store._sessions = {"voice": idle}
+
+    store._admit_single_window()
+
+    assert terminated == [idle] and store._sessions == {}
+    busy = browser_module._BrowserSession.__new__(browser_module._BrowserSession)
+    busy.process = _Process()
+    busy.last_seen = time.monotonic()
+    store._sessions = {"voice": busy}
+    with pytest.raises(browser_module.BrowserAutomationError):
+        store._admit_single_window()

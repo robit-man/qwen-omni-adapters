@@ -98,6 +98,15 @@ def desktop_subprocess_environment(
             environment.setdefault(
                 "DBUS_SESSION_BUS_ADDRESS", f"unix:path={bus}"
             )
+        # Sound a command plays goes to the desktop's audio server, not to "no
+        # default audio device" in the service's sessionless environment.
+        pulse = resolved_runtime / "pulse" / "native"
+        try:
+            pulse_available = stat.S_ISSOCK(pulse.stat().st_mode)
+        except OSError:
+            pulse_available = False
+        if pulse_available:
+            environment.setdefault("PULSE_SERVER", f"unix:{pulse}")
 
         # A graphical login exports the authoritative display selection to its
         # per-user systemd manager. Prefer those allowlisted values over socket

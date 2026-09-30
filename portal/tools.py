@@ -55,6 +55,7 @@ try:
         BrowserDesktopUnavailable,
     )
     from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
+    from portal.desktop import desktop_subprocess_environment
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import runtime_environment_snapshot
     from portal.gui import GuiAutomation, GuiAutomationError
@@ -66,6 +67,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
         BrowserDesktopUnavailable,
     )
     from deliveries import FileDeliveryError, SessionFileDeliveryStore
+    from desktop import desktop_subprocess_environment
     from documents import DocumentError, SessionDocumentStore
     from environment import runtime_environment_snapshot
     from gui import GuiAutomation, GuiAutomationError
@@ -300,30 +302,6 @@ def _shell_path_snapshot(path: Path) -> dict[str, Any]:
     }
 
 
-def _desktop_session_environment(
-    base: Mapping[str, str] | None = None, runtime_root: Path = Path("/run/user")
-) -> dict[str, str]:
-    """Let shell commands reach the account's desktop audio server and bus.
-
-    The portal usually runs as a system service, which has no session
-    variables. Without them `play`, `paplay`, or `notify-send` fail with "no
-    default audio device" even though the same account is logged in at the
-    desktop. Only variables the service lacks are filled in, and only from
-    sockets that exist.
-    """
-
-    environment = dict(os.environ if base is None else base)
-    runtime = Path(environment.get("XDG_RUNTIME_DIR") or runtime_root / str(os.getuid()))
-    if not runtime.is_dir():
-        return environment
-    environment.setdefault("XDG_RUNTIME_DIR", str(runtime))
-    if (runtime / "pulse" / "native").exists():
-        environment.setdefault("PULSE_SERVER", f"unix:{runtime / 'pulse' / 'native'}")
-    if (runtime / "bus").exists():
-        environment.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path={runtime / 'bus'}")
-    return environment
-
-
 def _run_shell(
     command: Any,
     cwd: Any = None,
@@ -425,7 +403,7 @@ def _run_shell(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             start_new_session=True,
-            env=_desktop_session_environment(),
+            env=desktop_subprocess_environment(),
         )
     except OSError as exc:
         for stream in artifact_streams.values():
