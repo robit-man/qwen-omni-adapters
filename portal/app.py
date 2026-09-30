@@ -1102,7 +1102,7 @@ def _with_heard_words(messages: list[Any], response: Mapping[str, Any]) -> list[
     return messages
 
 
-LIVE_TOOL_ROUNDS = max(1, int(os.environ.get("OMNI_LIVE_TOOL_ROUNDS", "4")))
+LIVE_TOOL_ROUNDS = max(1, int(os.environ.get("OMNI_LIVE_TOOL_ROUNDS", "16")))
 
 
 def _close_live_tool_budget(

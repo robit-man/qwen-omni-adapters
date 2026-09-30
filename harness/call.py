@@ -42,7 +42,7 @@ from harness.memory import PassiveMemory, memory_capacity_available
 from harness.respeaker import STATE_TO_RING, ReSpeaker, describe_direction
 from harness.vad import Vad, VadConfig
 from portal.background_tasks import BackgroundTaskStore
-from qwen_omni_adapters.context import context_text, live_call_system_prompt
+from qwen_omni_adapters.context import live_call_system_prompt
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 logger = logging.getLogger(__name__)
@@ -503,10 +503,6 @@ class CallSession:
             background = self.background_agent.context_summary()
             if background:
                 system_content += f"\n\n{background}"
-            if with_tools:
-                system_content += "\n\n" + context_text(
-                    "directives", "foreground_execution"
-                )
         if self._pending_failure_note:
             system_content += f"\n\n{self._pending_failure_note}"
         payload = {
@@ -545,11 +541,11 @@ class CallSession:
             # stored outside the working context, while sustained work can
             # still move through the checkpointed background gateway.
             "portal_shell_bridge": bool(with_tools),
-            # One compact handoff contract lets a spoken turn return promptly
-            # while a checkpointed worker performs sustained tool chains.
-            "portal_background_bridge": bool(
-                with_tools and self.background_agent is not None
-            ),
+            # Spoken requests run in the portal's own tool loop, exactly as the
+            # browser client's do. Handing them to the checkpointed background
+            # controller made a voice request diverge from the same request
+            # typed in the browser: it stalled in replanning and never acted.
+            "portal_background_bridge": False,
             "stream": True,
         }
         if with_tools and self.config.client_location_reader is not None:

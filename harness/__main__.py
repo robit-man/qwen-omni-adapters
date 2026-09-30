@@ -227,7 +227,12 @@ def main(argv: list[str] | None = None) -> int:
         help="use only --camera-device instead of every camera found",
     )
     parser.add_argument("--no-tools", action="store_true")
-    parser.add_argument("--reasoning", action="store_true", help="leave reasoning on (slower to first word)")
+    parser.add_argument(
+        "--reasoning",
+        action=argparse.BooleanOptionalAction,
+        default=os.environ.get("OMNI_CALL_REASONING", "1") != "0",
+        help="reason before answering, as the browser client does (default on)",
+    )
     parser.add_argument("--no-indicator", action="store_true")
     parser.add_argument(
         "--check",

@@ -448,7 +448,9 @@ def test_a_live_background_worker_is_exposed_and_its_progress_is_context() -> No
     call.background_agent = Worker()  # type: ignore[assignment]
     payload = call._build_payload(b"wav", 1, None)
 
-    assert payload["portal_background_bridge"] is True
+    # Spoken requests run in the portal's tool loop like the browser client's;
+    # existing background work is still reported as context.
+    assert payload["portal_background_bridge"] is False
     assert "portal_require_tool_decision" not in payload
     assert "abc: running" in payload["messages"][0]["content"]
     assert "never claim that work advanced" in payload["messages"][0]["content"]
@@ -968,7 +970,13 @@ def test_live_prompt_routes_mutating_verified_work_to_the_persistent_agent() -> 
     assert "change approach after failure" in LIVE_CALL_SYSTEM_PROMPT
 
 
-def test_live_context_requires_tools_and_grounded_alternatives() -> None:
+def test_spoken_requests_are_not_steered_into_a_background_handoff() -> None:
+    """A voice request must run like the same request typed in the browser.
+
+    The handoff directive sent voice work to the background controller, which
+    stalled replanning an unreachable site for 40 minutes instead of acting.
+    """
+
     class Worker:
         def context_summary(self) -> str:
             return ""
@@ -979,10 +987,10 @@ def test_live_context_requires_tools_and_grounded_alternatives() -> None:
     payload = call._build_payload(b"wav", 1, None, with_tools=True)
     system = payload["messages"][0]["content"]
 
-    assert "<execution_policy>" in system
-    assert "Act through the supplied tools" in system
-    assert "until the requested outcome is verified" in system
-    assert "brief handoff acknowledgment" in system
+    assert "<execution_policy>" not in system
+    assert "brief handoff acknowledgment" not in system
+    assert payload["portal_background_bridge"] is False
+    assert payload["portal_auto_tools"] is True
 
 
 
