@@ -2995,3 +2995,50 @@ def test_ordinary_live_replies_survive_the_input_meta_backstop(reply: str) -> No
 def test_hearing_prose_is_allowed_when_the_speaker_asks_about_sound() -> None:
     assert _natural_live_reply("I heard a knock.", "Did you hear that?") == "I heard a knock."
     assert _natural_live_reply('{"speech_transcript":"x"}', "Did you hear that?") == ""
+
+
+@pytest.mark.parametrize(
+    ("heard", "reply"),
+    [
+        ("What do you do here?", "What do you do here?"),
+        (
+            "Ah, there's a fifty-fifty chance that when we're on a call you'll be in a "
+            "store with people checking out pennies.",
+            "Ah, there's a fifty-fifty chance that when we're on a call, you'll be in a "
+            "store with people checking out pennies...",
+        ),
+        (
+            "Fill like his probably got the most activity to this. This the base chain "
+            "that everything else sits on. Rambo road.",
+            "Fill like, his probably got the most activity to this. This is the base "
+            "chain that everything else sits on.",
+        ),
+    ],
+)
+def test_live_reply_that_repeats_the_speaker_is_silence(heard: str, reply: str) -> None:
+    """Saved restatements taught each later turn to repeat more, until verbatim."""
+
+    assert _natural_live_reply(reply, heard) == ""
+
+
+@pytest.mark.parametrize(
+    "reply",
+    ["<tool_search> <parameter=family>", "<tool_search> <parameter=family> uncertain"],
+)
+def test_live_reply_made_of_tool_markup_is_silence(reply: str) -> None:
+    assert _natural_live_reply(reply, "A cool, very cool.") == ""
+
+
+@pytest.mark.parametrize(
+    ("heard", "reply"),
+    [
+        (
+            "The problem is that the car is so close to the ground you can't jack it.",
+            "A low-profile floor jack or driving onto two boards first gives you room.",
+        ),
+        ("What time is it?", "It's a quarter past seven."),
+        ("Is it raining?", "Yes."),
+    ],
+)
+def test_a_real_reply_that_shares_words_survives(heard: str, reply: str) -> None:
+    assert _natural_live_reply(reply, heard) == reply

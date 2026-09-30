@@ -252,6 +252,36 @@ _INPUT_META_DECISION = re.compile(
 )
 
 
+# A tool call the model wrote as prose instead of a structured call. Spoken,
+# it is markup read aloud; kept, it teaches later turns to write it again.
+_TEXTUAL_TOOL_MARKUP = re.compile(
+    r"<\s*/?\s*(?:tool_call|tool_search|function|parameter)\b|<parameter=|<function=",
+    re.IGNORECASE,
+)
+
+
+def _reply_words(text: str) -> list[str]:
+    return re.findall(r"[\w']+", text.casefold())
+
+
+def _is_restatement(reply: str, user_text: str) -> bool:
+    """Return whether a reply mostly repeats the speaker's own words.
+
+    Saved as an assistant turn, each restatement taught the next turn to
+    repeat more, until every reply was the transcript read back verbatim.
+    """
+
+    words = _reply_words(reply)
+    heard = _reply_words(user_text)
+    if len(words) < 4 or not heard:
+        return False
+    # Word overlap, not character similarity: a real answer to a short
+    # question often reuses its phrasing ("Why does X sound canned?" ->
+    # "X sounds canned.") while still adding words of its own.
+    vocabulary = set(heard)
+    return sum(word in vocabulary for word in words) / len(words) >= 0.8
+
+
 def _is_input_meta_reply(text: str, user_text: str) -> bool:
     """Return whether a spoken reply analyzes its input instead of answering.
 
@@ -569,6 +599,12 @@ def _natural_live_reply(
         LOGGER.warning(
             "dropped a live reply that analyzed its input: %r", normalized[:160]
         )
+        return ""
+    if _TEXTUAL_TOOL_MARKUP.search(normalized):
+        LOGGER.warning("dropped a live reply made of tool markup: %r", normalized[:160])
+        return ""
+    if _is_restatement(normalized, user_text):
+        LOGGER.warning("dropped a live reply that repeated the speaker: %r", normalized[:160])
         return ""
     allow_canned_quote = any(
         pattern.search(user_text) for pattern in _CANNED_ASSISTANT_PATTERNS
