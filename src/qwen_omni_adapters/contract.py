@@ -73,6 +73,7 @@ class ParsedAdapterRequest:
     include_audio_from_video: bool
     require_speech: bool
     tool_routing: str
+    live_engaged: bool
     passthrough: Mapping[str, Any]
     speech: Mapping[str, Any]
 
@@ -112,6 +113,7 @@ class ParsedAdapterRequest:
             "synthesize": self.synthesize,
             "include_audio_from_video": self.include_audio_from_video,
             "require_speech": self.require_speech,
+            "live_engaged": self.live_engaged,
             "tool_routing": self.tool_routing,
             "route": list(self.route),
             "media": [item.summary() for item in self.media],
@@ -160,6 +162,10 @@ def adapter_contract() -> dict[str, Any]:
                 "include_audio_from_video": True,
                 "require_speech": (
                     "optional boolean; stop after comprehension when no speech transcript is found"
+                ),
+                "live_engaged": (
+                    "optional boolean, default true; false means the client is not in an "
+                    "exchange, so live speech without direct address is not its turn"
                 ),
                 "tool_routing": (
                     "client | relevant; relevant keeps routing gateways plus a bounded "
@@ -244,7 +250,7 @@ def adapter_contract() -> dict[str, Any]:
                 ),
                 "speech_addressee": "self | other | ambiguous when the live gate ran",
                 "tts_skipped_reason": (
-                    "required_speech_not_found | speech_addressed_elsewhere | "
+                    "required_speech_not_found | speech_addressed_elsewhere | speech_not_addressed | "
                     "unresolved_tool_calls | empty_assistant_response"
                 ),
                 "evidence_provenance": {
@@ -489,6 +495,9 @@ def parse_adapter_request(payload: Mapping[str, Any]) -> ParsedAdapterRequest:
     require_speech = omni.get("require_speech", False)
     if not isinstance(require_speech, bool):
         raise OmniAdapterError("omni.require_speech must be a boolean")
+    live_engaged = omni.get("live_engaged", True)
+    if not isinstance(live_engaged, bool):
+        raise OmniAdapterError("omni.live_engaged must be a boolean")
     tool_routing = str(omni.get("tool_routing") or "client").lower()
     if tool_routing not in TOOL_ROUTING_MODES:
         raise OmniAdapterError(
@@ -547,6 +556,7 @@ def parse_adapter_request(payload: Mapping[str, Any]) -> ParsedAdapterRequest:
         include_audio_from_video=include_audio,
         require_speech=require_speech,
         tool_routing=tool_routing,
+        live_engaged=live_engaged,
         passthrough=passthrough,
         speech=speech,
     )

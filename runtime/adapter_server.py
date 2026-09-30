@@ -252,36 +252,6 @@ _INPUT_META_DECISION = re.compile(
 )
 
 
-# A tool call the model wrote as prose instead of a structured call. Spoken,
-# it is markup read aloud; kept, it teaches later turns to write it again.
-_TEXTUAL_TOOL_MARKUP = re.compile(
-    r"<\s*/?\s*(?:tool_call|tool_search|function|parameter)\b|<parameter=|<function=",
-    re.IGNORECASE,
-)
-
-
-def _reply_words(text: str) -> list[str]:
-    return re.findall(r"[\w']+", text.casefold())
-
-
-def _is_restatement(reply: str, user_text: str) -> bool:
-    """Return whether a reply mostly repeats the speaker's own words.
-
-    Saved as an assistant turn, each restatement taught the next turn to
-    repeat more, until every reply was the transcript read back verbatim.
-    """
-
-    words = _reply_words(reply)
-    heard = _reply_words(user_text)
-    if len(words) < 4 or not heard:
-        return False
-    # Word overlap, not character similarity: a real answer to a short
-    # question often reuses its phrasing ("Why does X sound canned?" ->
-    # "X sounds canned.") while still adding words of its own.
-    vocabulary = set(heard)
-    return sum(word in vocabulary for word in words) / len(words) >= 0.8
-
-
 def _is_input_meta_reply(text: str, user_text: str) -> bool:
     """Return whether a spoken reply analyzes its input instead of answering.
 
@@ -562,6 +532,25 @@ def _classify_live_addressee(
         return "AMBIGUOUS"
 
 
+def _not_your_turn_reason(
+    speech_addressee: str | None, parsed: ParsedAdapterRequest
+) -> str | None:
+    """Decide turn ownership from address and whether an exchange is active.
+
+    Speech without direct address was treated as the client's turn whenever it
+    was merely ambiguous, so the client answered overheard room conversation.
+    With nothing to add, the model restated it, and each restatement kept in
+    history taught the next turn to repeat more. Outside an exchange, such
+    speech belongs to the people having it; direct address starts one.
+    """
+
+    if speech_addressee == "OTHER":
+        return "speech_addressed_elsewhere"
+    if speech_addressee == "AMBIGUOUS" and not parsed.live_engaged:
+        return "speech_not_addressed"
+    return None
+
+
 def _current_user_text(
     parsed: ParsedAdapterRequest, observation: str | None = None
 ) -> str:
@@ -599,12 +588,6 @@ def _natural_live_reply(
         LOGGER.warning(
             "dropped a live reply that analyzed its input: %r", normalized[:160]
         )
-        return ""
-    if _TEXTUAL_TOOL_MARKUP.search(normalized):
-        LOGGER.warning("dropped a live reply made of tool markup: %r", normalized[:160])
-        return ""
-    if _is_restatement(normalized, user_text):
-        LOGGER.warning("dropped a live reply that repeated the speaker: %r", normalized[:160])
         return ""
     allow_canned_quote = any(
         pattern.search(user_text) for pattern in _CANNED_ASSISTANT_PATTERNS
@@ -2158,7 +2141,8 @@ def execute(
         if _is_live_spoken_turn(parsed) and transcript
         else None
     )
-    if speech_addressee == "OTHER":
+    not_your_turn = _not_your_turn_reason(speech_addressee, parsed)
+    if not_your_turn is not None:
         return _finish_response(
             _direct_response(parsed.model, ""),
             parsed,
@@ -2166,7 +2150,7 @@ def execute(
             client,
             observation=observation,
             executed=executed,
-            suppress_tts_reason="speech_addressed_elsewhere",
+            suppress_tts_reason=not_your_turn,
             speech_addressee=speech_addressee,
         )
 
@@ -2284,7 +2268,8 @@ def execute_stream(
             speech_addressee = _classify_live_addressee(
                 transcript, parsed, config, client
             )
-        if speech_addressee == "OTHER":
+        not_your_turn = _not_your_turn_reason(speech_addressee, parsed)
+        if not_your_turn is not None:
             result = _finish_response(
                 _direct_response(parsed.model, ""),
                 parsed,
@@ -2292,7 +2277,7 @@ def execute_stream(
                 client,
                 observation=observation,
                 executed=executed,
-                suppress_tts_reason="speech_addressed_elsewhere",
+                suppress_tts_reason=not_your_turn,
                 speech_addressee=speech_addressee,
             )
             yield _stream_event("final", response=result)

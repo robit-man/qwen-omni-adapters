@@ -28,6 +28,7 @@
         },
         "include_audio_from_video": {"type": "boolean", "default": true},
         "require_speech": {"type": "boolean", "default": false},
+        "live_engaged": {"type": "boolean", "default": true},
         "tool_routing": {
           "type": "string",
           "enum": ["client", "relevant"],

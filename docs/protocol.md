@@ -69,6 +69,7 @@ misrouted assistant answer during perception.
 | `omni.task` | No | `chat`, `transcribe`, `describe`, or `synthesize`; default `chat` |
 | `omni.include_audio_from_video` | No | Whether video decoding exposes its audio track; default `true` |
 | `omni.require_speech` | No | When `true`, a comprehension result without a tagged speech transcript finalizes before language/TTS; default `false` |
+| `omni.live_engaged` | No | For `require_speech` chat turns: `false` means the client is not in an exchange, so speech without direct address finalizes silently as not its turn; default `true` |
 | `omni.tool_routing` | No | `client` preserves the supplied tool array; `relevant` retains configured gateways plus a bounded request-relevant subset after current-media comprehension; default `client` |
 | `response_modalities` | No | Non-empty subset of `text`, `audio`; default `text` |
 | `speech_mode` | No | `auto`, `always`, or `never`; default `auto` |
@@ -92,8 +93,10 @@ A live turn may intentionally return empty assistant content when the observed
 speech was not addressed to the client. A bounded closed-set semantic preflight
 resolves direct-address evidence before answer generation or tools and records
 `adapter.speech_addressee=self|other|ambiguous`. A different human addressee
-reports `adapter.tts_skipped_reason=speech_addressed_elsewhere`. Ambiguous speech still
-reaches the language stage, whose `<observe_only/>` control is removed and
+reports `adapter.tts_skipped_reason=speech_addressed_elsewhere`. Ambiguous speech
+while `omni.live_engaged=false` is room conversation the client is not part of:
+it finalizes the same way with `adapter.tts_skipped_reason=speech_not_addressed`.
+Ambiguous speech during an exchange still reaches the language stage, whose `<observe_only/>` control is removed and
 reported as `empty_assistant_response`. In both cases clients should retain the
 user transcript for continuity without rendering an assistant bubble or audio
 failure. This differs from sound-only `require_speech`, which stops before the

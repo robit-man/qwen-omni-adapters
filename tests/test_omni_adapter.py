@@ -2997,48 +2997,98 @@ def test_hearing_prose_is_allowed_when_the_speaker_asks_about_sound() -> None:
     assert _natural_live_reply('{"speech_transcript":"x"}', "Did you hear that?") == ""
 
 
+def _room_speech_stream(
+    gate_answer: str, *, engaged: bool, speech_mode: str = "never"
+) -> tuple[list[str], dict]:
+    requested_hosts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_hosts.append(str(request.url.host))
+        if request.url.host == "comprehension":
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    "<speech_transcript>He's thinking of putting down "
+                                    "eighteen inch wheels.</speech_transcript>"
+                                )
+                            }
+                        }
+                    ]
+                },
+            )
+        body = json.loads(request.content)
+        if "route live ASR turns" in body["messages"][0]["content"]:
+            return httpx.Response(
+                200, json={"message": {"role": "assistant", "content": gate_answer}, "done": True}
+            )
+        return httpx.Response(
+            200,
+            content=b'{"message":{"role":"assistant","content":"Nice upgrade."},"done":true}\n',
+        )
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "The attached audio contains the current room speech.",
+                    "audios": [{"data": _encoded(_wav(16000))}],
+                }
+            ],
+            omni={
+                "schema": ADAPTER_SCHEMA,
+                "task": "chat",
+                "require_speech": True,
+                "live_engaged": engaged,
+            },
+            response_modalities=["text", "audio"],
+            speech_mode=speech_mode,
+            think=False,
+        )
+    )
+    events = [
+        json.loads(chunk)
+        for chunk in execute_stream(
+            parsed,
+            _adapter_config(live_addressee_gate=True),
+            httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+    ]
+    return requested_hosts, events[-1]["response"]
+
+
+def test_unaddressed_room_speech_outside_an_exchange_is_not_the_clients_turn() -> None:
+    """Answering overheard conversation is what made replies restate it."""
+
+    hosts, final = _room_speech_stream("AMBIGUOUS", engaged=False, speech_mode="always")
+
+    assert hosts == ["comprehension", "language"]
+    assert final["message"]["content"] == ""
+    assert final["adapter"]["tts_skipped_reason"] == "speech_not_addressed"
+
+
 @pytest.mark.parametrize(
-    ("heard", "reply"),
-    [
-        ("What do you do here?", "What do you do here?"),
-        (
-            "Ah, there's a fifty-fifty chance that when we're on a call you'll be in a "
-            "store with people checking out pennies.",
-            "Ah, there's a fifty-fifty chance that when we're on a call, you'll be in a "
-            "store with people checking out pennies...",
-        ),
-        (
-            "Fill like his probably got the most activity to this. This the base chain "
-            "that everything else sits on. Rambo road.",
-            "Fill like, his probably got the most activity to this. This is the base "
-            "chain that everything else sits on.",
-        ),
-    ],
+    ("gate_answer", "engaged"), [("AMBIGUOUS", True), ("SELF", False)]
 )
-def test_live_reply_that_repeats_the_speaker_is_silence(heard: str, reply: str) -> None:
-    """Saved restatements taught each later turn to repeat more, until verbatim."""
+def test_an_active_exchange_or_direct_address_is_answered(
+    gate_answer: str, engaged: bool
+) -> None:
+    hosts, final = _room_speech_stream(gate_answer, engaged=engaged)
 
-    assert _natural_live_reply(reply, heard) == ""
-
-
-@pytest.mark.parametrize(
-    "reply",
-    ["<tool_search> <parameter=family>", "<tool_search> <parameter=family> uncertain"],
-)
-def test_live_reply_made_of_tool_markup_is_silence(reply: str) -> None:
-    assert _natural_live_reply(reply, "A cool, very cool.") == ""
+    assert hosts == ["comprehension", "language", "language"]
+    assert final["message"]["content"] == "Nice upgrade."
 
 
-@pytest.mark.parametrize(
-    ("heard", "reply"),
-    [
-        (
-            "The problem is that the car is so close to the ground you can't jack it.",
-            "A low-profile floor jack or driving onto two boards first gives you room.",
-        ),
-        ("What time is it?", "It's a quarter past seven."),
-        ("Is it raining?", "Yes."),
-    ],
-)
-def test_a_real_reply_that_shares_words_survives(heard: str, reply: str) -> None:
-    assert _natural_live_reply(reply, heard) == reply
+def test_live_engaged_defaults_on_and_must_be_boolean() -> None:
+    base = {"schema": ADAPTER_SCHEMA, "task": "chat", "require_speech": True}
+    message = [{"role": "user", "content": "hi"}]
+
+    assert parse_adapter_request(_base_request(messages=message, omni=base)).live_engaged
+    with pytest.raises(OmniAdapterError):
+        parse_adapter_request(
+            _base_request(messages=message, omni={**base, "live_engaged": "no"})
+        )

@@ -1844,3 +1844,15 @@ def test_a_worker_that_never_comes_back_fails_one_turn_not_the_call() -> None:
     result = call.take_turn(np.zeros(RATE, dtype=np.float32))
 
     assert "comprehension is not ready" in result.error
+
+
+def test_engagement_follows_whether_egg_spoke_recently() -> None:
+    """Unaddressed speech is Egg's turn only while an exchange is live."""
+
+    call = session()
+    assert call._build_payload(b"wav", 1, None)["omni"]["live_engaged"] is False
+
+    call._note_spoken("It's noon.", 1.2)
+    assert call._build_payload(b"wav", 1, None)["omni"]["live_engaged"] is True
+    later = call._last_spoken_at + call.config.engagement_window_s + 1
+    assert call._engaged(now=later) is False

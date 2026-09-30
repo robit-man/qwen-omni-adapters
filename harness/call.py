@@ -67,6 +67,10 @@ class CallConfig:
     # Maximum prompt-history messages. The usable window shrinks when the room
     # has been quiet for a while, so yesterday's topic cannot hijack today.
     history_turns: int = 12
+    # Speech with no direct address is Egg's turn only while an exchange is
+    # live: Egg spoke within this many seconds. Otherwise it is people in the
+    # room talking to each other, and saying Egg's name starts an exchange.
+    engagement_window_s: float = 60.0
     # Tools on and reasoning off by default: this is a spoken conversation, and
     # a hidden chain of thought is a silence the other person has to sit through.
     tools_enabled: bool = True
@@ -426,6 +430,12 @@ class CallSession:
             >= 0.88
         )
 
+    def _engaged(self, now: float | None = None) -> bool:
+        """Whether Egg is in an exchange: it spoke within the engagement window."""
+
+        elapsed = (time.monotonic() if now is None else now) - self._last_spoken_at
+        return elapsed <= self.config.engagement_window_s
+
     def _note_spoken(self, text: str, seconds: float) -> None:
         if text.strip() and seconds > 0.0:
             self._last_spoken_text = text.strip()
@@ -516,6 +526,7 @@ class CallSession:
                 # Stop after comprehension when nothing was actually said, so a
                 # cough does not become a turn.
                 "require_speech": True,
+                "live_engaged": self._engaged(),
             },
             "response_modalities": ["text"] if split_speech else ["text", "audio"],
             "speech_mode": "never" if split_speech else "always",
