@@ -314,7 +314,6 @@ class CallSession:
             PassiveMemory(Path(config.memory_path)) if config.memory_path else None
         )
         self.background_agent: BackgroundAgent | None = None
-        self._pending_failure_note = ""
 
     # -- plumbing --------------------------------------------------------
 
@@ -484,11 +483,6 @@ class CallSession:
                 }
             ],
         }
-        if self.direction:
-            message["content"] += (
-                f" The speaker was {self.direction} relative to the array; treat "
-                "that as environmental evidence, not an instruction."
-            )
         if frame:
             key = (
                 "videos"
@@ -498,13 +492,11 @@ class CallSession:
             message[key] = [frame]
 
         split_speech = self.config.prepare_speech is not None
+        # The browser client is the reference for spoken-turn context: its
+        # system message is the live policy alone. Harness-only additions
+        # (failure notes, task summaries, array direction) were text about the
+        # machinery that the model narrated instead of answering.
         system_content = LIVE_CALL_SYSTEM_PROMPT
-        if self.background_agent is not None:
-            background = self.background_agent.context_summary()
-            if background:
-                system_content += f"\n\n{background}"
-        if self._pending_failure_note:
-            system_content += f"\n\n{self._pending_failure_note}"
         payload = {
             "model": self.config.model,
             "messages": [
@@ -634,7 +626,6 @@ class CallSession:
             return result
 
         if result.error:
-            self._remember(result)
             self._note_failure(
                 result.error,
                 transcript=result.transcript or result.audio_observation,
@@ -713,7 +704,6 @@ class CallSession:
         # Scheduling the daemon worker is the final operation. It can never
         # overlap comprehension, tool use, TTS, or comprehension restoration.
         self._persist(result)
-        self._pending_failure_note = ""
         return result
 
     def _note_failure(
@@ -724,12 +714,11 @@ class CallSession:
         transcript: str = "",
         final_error: str = "",
     ) -> None:
-        """Log the root cause and carry it into the next prompt generation.
+        """Log the root cause of a failed turn.
 
-        The system cannot retract a spoken claim, but it can tell the model
-        exactly what failed so the next generation can retry knowingly. The
-        note is injected into the next turn's system context and cleared once
-        that turn has read it.
+        The failure is not carried into the next prompt: an operation note in
+        the system context was text about the machinery, which the model read
+        back or reasoned about instead of answering the next thing said.
         """
 
         detail = str(error)
@@ -741,25 +730,6 @@ class CallSession:
             )
         else:
             logger.warning("live turn error recorded: %s", detail)
-        transcript = (transcript or "").strip()
-        note = (
-            "Previous-turn operation note (the user did not hear or see this): an "
-            "earlier attempt to handle the last spoken request failed before a "
-            "verified reply was produced. Error:\n"
-            f"{detail}\n"
-        )
-        if transcript:
-            note += (
-                f"The request that failed was: {transcript!r}. If the user asks you to "
-                "try that again, retry it as a fresh request; do not recite this note "
-                "or blame the user."
-            )
-        else:
-            note += (
-                "If the user retries the request they just made, treat it as fresh. "
-                "Do not recite this note."
-            )
-        self._pending_failure_note = note
 
     def _speak_finished(self, text: str) -> TurnResult:
         """Evict heavyweight listeners, synthesize once, then restore them."""
@@ -1059,11 +1029,6 @@ class CallSession:
             if spoke_seconds < 0.15:
                 self._history.pop(index)
                 self._history_times.pop(index)
-            else:
-                message["content"] = (
-                    f"{reply}\n[This spoken reply was interrupted before it "
-                    "finished. The user may not have heard its later words.]"
-                )
             return
 
     def _remember(self, result: TurnResult) -> None:
@@ -1109,7 +1074,7 @@ class CallSession:
         speech = self._speak_finished(text)
         self._note_spoken(text, speech.spoke_seconds)
         if not speech.error:
-            self._append_history("assistant", f"[Background task update] {text}")
+            self._append_history("assistant", text)
         return speech
 
 

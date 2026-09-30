@@ -448,11 +448,11 @@ def test_a_live_background_worker_is_exposed_and_its_progress_is_context() -> No
     call.background_agent = Worker()  # type: ignore[assignment]
     payload = call._build_payload(b"wav", 1, None)
 
-    # Spoken requests run in the portal's tool loop like the browser client's;
-    # existing background work is still reported as context.
+    # Spoken requests run in the portal's tool loop like the browser client's,
+    # whose system message carries no task summaries.
     assert payload["portal_background_bridge"] is False
     assert "portal_require_tool_decision" not in payload
-    assert "abc: running" in payload["messages"][0]["content"]
+    assert "abc: running" not in payload["messages"][0]["content"]
     assert "never claim that work advanced" in payload["messages"][0]["content"]
 
 
@@ -494,21 +494,19 @@ def test_every_spoken_turn_is_one_grounded_auto_tool_pass() -> None:
     assert result.tools_used == ["background_task"]
 
 
-def test_failure_is_logged_and_carried_into_the_next_prompt() -> None:
+def test_failure_is_logged_but_not_carried_into_the_next_prompt(caplog) -> None:
+    """The browser client's next turn sees no operation note; neither does Egg's."""
+
     call = session()
-    call._note_failure(
-        ValueError("live turn dispatcher returned invalid JSON"),
-        raw='{"mode": "reply", "reply": "cut off',
-        transcript="what do you remember",
-    )
-    assert "Previous-turn operation note" in call._pending_failure_note
-    assert "invalid JSON" in call._pending_failure_note
-    assert "what do you remember" in call._pending_failure_note
-    payload = call._build_payload(b"wav", 1, None)
-    system = payload["messages"][0]["content"]
-    assert "Previous-turn operation note" in system
-    assert "invalid JSON" in system
-    assert "what do you remember" in system
+    with caplog.at_level("WARNING"):
+        call._note_failure(
+            ValueError("live turn dispatcher returned invalid JSON"),
+            raw='{"mode": "reply", "reply": "cut off',
+            transcript="what do you remember",
+        )
+    assert "invalid JSON" in caplog.text
+    system = call._build_payload(b"wav", 1, None)["messages"][0]["content"]
+    assert system == LIVE_CALL_SYSTEM_PROMPT
 
 
 def test_a_host_action_request_runs_one_grounded_pass_with_background_tools() -> None:
@@ -722,8 +720,10 @@ def test_interrupted_speech_is_not_recorded_as_fully_heard() -> None:
 
     call._mark_interrupted("A long answer.", spoke_seconds=0.8)
 
-    assert "interrupted before it finished" in call._history[-1]["content"]
-    assert "may not have heard" in call._history[-1]["content"]
+    # Kept as said, without a bracketed runtime note for the model to copy.
+    assert call._history[-1]["content"] == "A long answer."
+    call._mark_interrupted("A long answer.", spoke_seconds=0.05)
+    assert call._history[-1]["content"] == "tell me more"
 
 
 def test_unheard_reply_is_removed_from_context() -> None:
