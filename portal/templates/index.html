@@ -11,7 +11,7 @@
   <title>Omni Chat</title>
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/assets/favicon.svg">
-  <link rel="stylesheet" href="/assets/portal.css?v=20260914-share-qr">
+  <link rel="stylesheet" href="/assets/portal.css?v=20261001-camera-sources">
 </head>
 <body data-model="{{ model }}" data-max-upload-mib="{{ max_upload_mib }}" data-session-scope="{{ session_scope }}">
   <main class="app-shell">
@@ -31,9 +31,29 @@
           <button class="icon-button voice-button" id="voice-button" type="button" aria-label="Configure reply voice" title="Voice settings">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h2m2-5v10m4-14v18m4-15v12m4-8v4"/></svg>
           </button>
-          <button class="icon-button camera-button" id="camera-button" type="button" aria-label="Start device video recording" aria-pressed="false" title="Record device video">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm13 3 5-3v10l-5-3"/></svg>
-          </button>
+          <div class="camera-source-control">
+            <button class="icon-button camera-button" id="camera-button" type="button" aria-label="Choose a camera source" aria-expanded="false" aria-controls="camera-source-popover" title="Choose camera source">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm13 3 5-3v10l-5-3"/></svg>
+            </button>
+            <section class="camera-source-popover" id="camera-source-popover" aria-labelledby="camera-source-title" hidden>
+              <header class="camera-source-header">
+                <span id="camera-source-title">Camera source</span>
+                <small>Choose where Omni looks</small>
+              </header>
+              <div class="camera-source-options">
+                <button class="camera-source-option" id="remote-camera-source" type="button" aria-expanded="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H4V5Zm4 15h8m-4-4v4M7 9h4v4H7V9Zm9-1v5m-2-2h4"/></svg>
+                  <span><strong>Omni device</strong><small>Remote cameras</small></span>
+                </button>
+                <button class="camera-source-option" id="local-camera-source" type="button" aria-expanded="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm2 3h4m-3 12h2"/></svg>
+                  <span><strong>This device</strong><small>Front or back</small></span>
+                </button>
+              </div>
+              <p class="camera-source-status" id="camera-source-status" role="status">Select a source</p>
+              <div class="camera-device-list" id="camera-device-list" hidden></div>
+            </section>
+          </div>
           <button class="icon-button call-button" id="call-button" type="button" aria-label="Start voice call" aria-pressed="false" title="Start voice call">
             <svg class="call-start" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 3.8 10 7.3 8.2 9.5a15.2 15.2 0 0 0 6.3 6.3l2.2-1.8 3.5 2.8v2.1c0 .8-.6 1.4-1.4 1.4A15.1 15.1 0 0 1 3.7 5.2c0-.8.6-1.4 1.4-1.4h2.1Z"/></svg>
             <svg class="call-stop" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M7.2 3.8 10 7.3 8.2 9.5a15.2 15.2 0 0 0 6.3 6.3l2.2-1.8 3.5 2.8v2.1c0 .8-.6 1.4-1.4 1.4A15.1 15.1 0 0 1 3.7 5.2c0-.8.6-1.4 1.4-1.4h2.1Z"/></svg>
@@ -59,11 +79,6 @@
         <div class="waveform" id="waveform" hidden>
           <canvas id="waveform-canvas" aria-label="Live microphone waveform"></canvas>
           <span id="recording-time">0:00</span>
-        </div>
-
-        <div class="camera-preview" id="camera-preview" hidden>
-          <video id="camera-video" autoplay muted playsinline aria-label="Live device camera preview"></video>
-          <span>REC</span>
         </div>
 
         <div class="composer-box">
@@ -100,6 +115,46 @@
       </section>
     </section>
   </main>
+
+  <dialog class="camera-dialog" id="camera-dialog" aria-labelledby="camera-dialog-title" aria-describedby="camera-dialog-help">
+    <section class="camera-sheet">
+      <header class="camera-dialog-header">
+        <div>
+          <h2 id="camera-dialog-title">Camera</h2>
+          <p id="camera-dialog-source">Live preview</p>
+        </div>
+        <div class="camera-dialog-header-actions">
+          <button class="icon-button call-button" id="camera-call" type="button" aria-label="Start a visual voice call" aria-pressed="false" title="Start visual call">
+            <svg class="call-start" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 3.8 10 7.3 8.2 9.5a15.2 15.2 0 0 0 6.3 6.3l2.2-1.8 3.5 2.8v2.1c0 .8-.6 1.4-1.4 1.4A15.1 15.1 0 0 1 3.7 5.2c0-.8.6-1.4 1.4-1.4h2.1Z"/></svg>
+            <svg class="call-stop" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M7.2 3.8 10 7.3 8.2 9.5a15.2 15.2 0 0 0 6.3 6.3l2.2-1.8 3.5 2.8v2.1c0 .8-.6 1.4-1.4 1.4A15.1 15.1 0 0 1 3.7 5.2c0-.8.6-1.4 1.4-1.4h2.1Z"/></svg>
+          </button>
+          <button class="icon-button" id="camera-dialog-close" type="button" aria-label="Close camera">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+      </header>
+      <div class="camera-viewer" id="camera-viewer">
+        <video class="camera-source-video" id="camera-video" autoplay muted playsinline aria-label="Live client camera source"></video>
+        <canvas id="camera-canvas" aria-label="Live selected camera preview"></canvas>
+        <span class="camera-live-badge" id="camera-live-badge">LIVE</span>
+      </div>
+      <p class="camera-dialog-help" id="camera-dialog-help">Hold Record for a clip, or take a still. Captures are attached to your next message.</p>
+      <footer class="camera-controls">
+        <button class="camera-control-action" id="camera-rotate" type="button" aria-label="Rotate camera preview 90 degrees" title="Rotate preview">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+          <span>Rotate</span>
+        </button>
+        <button class="camera-control-action camera-record-action" id="camera-record" type="button" aria-label="Hold to record video" aria-pressed="false" title="Hold to record">
+          <span class="camera-record-dot" aria-hidden="true"></span>
+          <span>Hold to record</span>
+        </button>
+        <button class="camera-control-action" id="camera-still" type="button" aria-label="Take a still photo" title="Take still">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l1.5-2h5L16 7h4v12H4V7Zm8 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></svg>
+          <span>Take still</span>
+        </button>
+      </footer>
+    </section>
+  </dialog>
 
   <dialog class="share-dialog" id="share-dialog" aria-labelledby="share-title">
     <section class="share-sheet">
@@ -221,6 +276,6 @@
   <script src="/assets/call_playback.js" defer></script>
   <script src="/assets/session_cache.js" defer></script>
   <script src="/assets/qr_code.js?v=20260914-share-qr" defer></script>
-  <script src="/assets/portal.js?v=20260914-share-qr" defer></script>
+  <script src="/assets/portal.js?v=20261001-camera-sources" defer></script>
 </body>
 </html>

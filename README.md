@@ -640,6 +640,7 @@ the unsupported `nvidia-smi` process table.
 | Live-call turns | Adaptive VAD + bounded single-flight speech consolidation + streamed text/PCM | Yes |
 | Always-listening local call mode | `harness/`: local mic/speakers, mandatory GNOME top-bar state for its managed desktop unit | Yes |
 | Every camera at once, on request | `harness/camera.py` snaps all V4L2 devices together, stitches and downscales to one image or clip only after a visual-evidence request | Yes |
+| Authenticated host-camera attachments | Portal source deck lists opaque V4L2 camera identities, polls independent previews, and attaches a selected still or bounded clip through the normal media path | Yes |
 | ReSpeaker ring and direction | Used when the array is attached, ignored when it is not | Yes |
 | Tool execution by an external loop | `GET /api/tools`, `POST /api/tools/<name>/call` | Yes |
 | Video generation | No component is shipped | No |

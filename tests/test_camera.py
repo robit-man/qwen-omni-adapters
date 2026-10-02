@@ -54,6 +54,35 @@ def test_camera_discovery_retries_a_transient_v4l2_miss(monkeypatch) -> None:
     assert attempts == {"/dev/video0": 1, "/dev/video1": 2}
 
 
+def test_camera_descriptors_are_stable_and_do_not_expose_device_paths(monkeypatch) -> None:
+    cameras = camera.CameraSet(devices=["/dev/video2", "/dev/video7"])
+    cameras._last_discovery_at = camera.time.monotonic()
+    monkeypatch.setattr(camera, "_camera_label", lambda _device, index: f"Lens {index + 1}")
+
+    first = cameras.describe()
+    second = cameras.describe()
+
+    assert first == second
+    assert [item["label"] for item in first] == ["Lens 1", "Lens 2"]
+    assert all(item["id"].startswith("camera-") for item in first)
+    assert "/dev/" not in repr(first)
+
+
+def test_selected_camera_frames_remain_independent(monkeypatch) -> None:
+    cameras = camera.CameraSet(devices=["/dev/video0", "/dev/video1"])
+    cameras._last_discovery_at = camera.time.monotonic()
+    monkeypatch.setattr(camera.shutil, "which", lambda _name: "/usr/bin/ffmpeg")
+    monkeypatch.setattr(camera, "_grab_frame", lambda device, _width=960: device.encode())
+    second_id = cameras.describe()[1]["id"]
+
+    frames = cameras.snapshot_devices([second_id])
+
+    assert len(frames) == 1
+    assert frames[0]["id"] == second_id
+    assert frames[0]["mime_type"] == "image/jpeg"
+    assert frames[0]["data"] == "L2Rldi92aWRlbzE="
+
+
 def test_four_camera_still_is_one_left_to_right_row(monkeypatch) -> None:
     commands: list[list[str]] = []
 

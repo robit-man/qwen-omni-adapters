@@ -9,6 +9,10 @@
   const MAX_VOICE_REFERENCE_MS = 10_000;
   const MAX_VOICE_REFERENCE_BYTES = 10 * 1024 * 1024;
   const MAX_VIDEO_RECORD_MS = 30_000;
+  const MIN_VIDEO_HOLD_MS = 300;
+  const REMOTE_CAMERA_GRID_POLL_MS = 900;
+  const REMOTE_CAMERA_MODAL_POLL_MS = 320;
+  const CAMERA_ROTATION_STORAGE_KEY = "omni-camera-rotations-v1";
   const CALL_UTTERANCE_SETTLE_MS = 220;
   const CALL_PENDING_MAX_SECONDS = 45;
   const CALL_SEGMENT_GAP_MS = 120;
@@ -266,8 +270,22 @@
     mediaInput: document.getElementById("media-input"),
     micButton: document.getElementById("mic-button"),
     cameraButton: document.getElementById("camera-button"),
-    cameraPreview: document.getElementById("camera-preview"),
+    cameraSourcePopover: document.getElementById("camera-source-popover"),
+    remoteCameraSource: document.getElementById("remote-camera-source"),
+    localCameraSource: document.getElementById("local-camera-source"),
+    cameraSourceStatus: document.getElementById("camera-source-status"),
+    cameraDeviceList: document.getElementById("camera-device-list"),
+    cameraDialog: document.getElementById("camera-dialog"),
+    cameraDialogTitle: document.getElementById("camera-dialog-title"),
+    cameraDialogSource: document.getElementById("camera-dialog-source"),
+    cameraDialogClose: document.getElementById("camera-dialog-close"),
+    cameraCall: document.getElementById("camera-call"),
+    cameraCanvas: document.getElementById("camera-canvas"),
     cameraVideo: document.getElementById("camera-video"),
+    cameraLiveBadge: document.getElementById("camera-live-badge"),
+    cameraRotate: document.getElementById("camera-rotate"),
+    cameraRecord: document.getElementById("camera-record"),
+    cameraStill: document.getElementById("camera-still"),
     shareButton: document.getElementById("share-button"),
     shareDialog: document.getElementById("share-dialog"),
     shareClose: document.getElementById("share-close"),
@@ -352,6 +370,16 @@
     sessionSyncing: false,
     call: null,
     camera: null,
+    cameraPicker: {
+      source: "",
+      remoteCameras: [],
+      localCameras: [],
+      previewCanvases: new Map(),
+      pollTimer: null,
+      pollController: null,
+      pollEpoch: 0,
+    },
+    cameraModal: null,
     voice: {
       initialized: false,
       serverReference: false,
@@ -2587,134 +2615,509 @@
   }
 
   function cameraMimeType() {
+    if (!window.MediaRecorder) return "";
     const choices = [
       "video/webm;codecs=vp8,opus",
+      "video/webm;codecs=vp8",
       "video/webm",
       "video/mp4",
     ];
     return choices.find(value => MediaRecorder.isTypeSupported(value)) || "";
   }
 
-  async function startCameraCapture() {
-    if (state.camera) return;
-    if (state.recording) throw new Error("Release the microphone before recording video");
-    if (state.call) throw new Error("End the voice call before recording video");
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
-      throw new Error("Device video requires this HTTPS page in a supported browser");
-    }
-    setComposerStatus("Requesting camera and microphone…");
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    });
-    const mime = cameraMimeType();
-    let recorder;
+  function setCameraSourceStatus(message, error = false) {
+    elements.cameraSourceStatus.textContent = message;
+    elements.cameraSourceStatus.classList.toggle("error", error);
+  }
+
+  function cameraRotationMap() {
     try {
-      recorder = new MediaRecorder(stream, {
-        ...(mime ? { mimeType: mime } : {}),
-        videoBitsPerSecond: 2_500_000,
-        audioBitsPerSecond: 64_000,
-      });
+      const value = JSON.parse(window.localStorage.getItem(CAMERA_ROTATION_STORAGE_KEY) || "{}");
+      return value && typeof value === "object" ? value : {};
     } catch (_error) {
+      return {};
+    }
+  }
+
+  function cameraRotation(key) {
+    const value = Number(cameraRotationMap()[key] || 0);
+    return [0, 90, 180, 270].includes(value) ? value : 0;
+  }
+
+  function persistCameraRotation(key, rotation) {
+    try {
+      const values = cameraRotationMap();
+      values[key] = rotation;
+      window.localStorage.setItem(CAMERA_ROTATION_STORAGE_KEY, JSON.stringify(values));
+    } catch (_error) {
+      // Private browsing can reject localStorage. Rotation still works for this view.
+    }
+  }
+
+  function drawRotatedSource(canvas, source, sourceWidth, sourceHeight, rotation) {
+    if (!sourceWidth || !sourceHeight) return false;
+    const scale = Math.min(1, 1280 / Math.max(sourceWidth, sourceHeight));
+    const drawWidth = Math.max(1, Math.round(sourceWidth * scale));
+    const drawHeight = Math.max(1, Math.round(sourceHeight * scale));
+    const swapped = rotation === 90 || rotation === 270;
+    canvas.width = swapped ? drawHeight : drawWidth;
+    canvas.height = swapped ? drawWidth : drawHeight;
+    const context = canvas.getContext("2d", { alpha: false });
+    context.save();
+    context.fillStyle = "#000";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate(rotation * Math.PI / 180);
+    context.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+    context.restore();
+    return true;
+  }
+
+  async function drawRemoteFrame(canvas, frame, rotation) {
+    const blob = base64ToBlob(frame.data, frame.mime_type || "image/jpeg");
+    if (window.createImageBitmap) {
+      const bitmap = await createImageBitmap(blob);
       try {
-        recorder = new MediaRecorder(stream);
-      } catch (error) {
-        stream.getTracks().forEach(track => track.stop());
-        throw error;
+        drawRotatedSource(canvas, bitmap, bitmap.width, bitmap.height, rotation);
+      } finally {
+        bitmap.close();
+      }
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    try {
+      const image = new Image();
+      await new Promise((resolve, reject) => {
+        image.addEventListener("load", resolve, { once: true });
+        image.addEventListener("error", () => reject(new Error("Camera frame could not be decoded")), { once: true });
+        image.src = url;
+      });
+      drawRotatedSource(canvas, image, image.naturalWidth, image.naturalHeight, rotation);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  function stopCameraPolling() {
+    state.cameraPicker.pollEpoch += 1;
+    clearTimeout(state.cameraPicker.pollTimer);
+    state.cameraPicker.pollTimer = null;
+    state.cameraPicker.pollController?.abort();
+    state.cameraPicker.pollController = null;
+  }
+
+  async function pollRemoteCameraFrames(mode) {
+    const epoch = ++state.cameraPicker.pollEpoch;
+    const modal = state.cameraModal;
+    const cameraIds = mode === "modal" && modal?.kind === "remote"
+      ? [modal.camera.id]
+      : state.cameraPicker.remoteCameras.map(camera => camera.id);
+    if (!cameraIds.length) return;
+    const controller = new AbortController();
+    state.cameraPicker.pollController?.abort();
+    state.cameraPicker.pollController = controller;
+    const query = new URLSearchParams();
+    for (const cameraId of cameraIds) query.append("camera", cameraId);
+    try {
+      const response = await fetch(`/api/cameras/frames?${query}`, {
+        headers: authHeaders(),
+        signal: controller.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Camera frames returned HTTP ${response.status}`);
+      if (epoch !== state.cameraPicker.pollEpoch) return;
+      for (const frame of data.frames || []) {
+        const target = mode === "modal"
+          ? elements.cameraCanvas
+          : state.cameraPicker.previewCanvases.get(frame.id);
+        if (!target) continue;
+        const key = `${mode === "modal" ? "remote" : "remote"}:${frame.id}`;
+        await drawRemoteFrame(target, frame, cameraRotation(key));
+      }
+      if (mode === "modal" && state.cameraModal?.kind === "remote") {
+        elements.cameraLiveBadge.textContent = "LIVE";
+      }
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      if (mode === "modal" && state.cameraModal?.kind === "remote") {
+        elements.cameraLiveBadge.textContent = "WAITING";
+      } else if (state.cameraPicker.source === "remote") {
+        setCameraSourceStatus(error.message || "Remote camera preview unavailable", true);
+      }
+    } finally {
+      if (epoch !== state.cameraPicker.pollEpoch) return;
+      const stillOpen = mode === "modal"
+        ? state.cameraModal?.kind === "remote" && elements.cameraDialog.open
+        : state.cameraPicker.source === "remote" && !elements.cameraSourcePopover.hidden;
+      if (stillOpen) {
+        const delay = mode === "modal" ? REMOTE_CAMERA_MODAL_POLL_MS : REMOTE_CAMERA_GRID_POLL_MS;
+        state.cameraPicker.pollTimer = window.setTimeout(() => {
+          pollRemoteCameraFrames(mode).catch(showError);
+        }, delay);
       }
     }
-    const chunks = [];
-    recorder.addEventListener("dataavailable", event => {
-      if (event.data && event.data.size) chunks.push(event.data);
-    });
-    const stopped = new Promise((resolve, reject) => {
-      recorder.addEventListener("stop", resolve, { once: true });
-      recorder.addEventListener("error", event => {
-        reject(event.error || new Error("Device video recording failed"));
-      }, { once: true });
-    });
-    const camera = {
-      stream,
-      recorder,
-      chunks,
-      stopped,
-      started: Date.now(),
-      timer: null,
-      stopping: null,
-    };
-    state.camera = camera;
-    elements.cameraVideo.srcObject = stream;
-    await elements.cameraVideo.play().catch(() => {});
-    elements.cameraPreview.hidden = false;
-    elements.cameraButton.setAttribute("aria-pressed", "true");
-    elements.cameraButton.setAttribute("aria-label", "Stop and attach device video");
-    elements.cameraButton.title = "Stop and attach video";
-    elements.micButton.disabled = true;
-    elements.callButton.disabled = false;
-    try {
-      recorder.start(250);
-    } catch (error) {
-      stream.getTracks().forEach(track => track.stop());
-      elements.cameraVideo.srcObject = null;
-      state.camera = null;
-      elements.cameraPreview.hidden = true;
-      elements.cameraButton.setAttribute("aria-pressed", "false");
-      elements.micButton.disabled = false;
-      elements.callButton.disabled = false;
-      throw error;
+  }
+
+  function setCameraSourcePopover(open) {
+    elements.cameraSourcePopover.hidden = !open;
+    elements.cameraButton.setAttribute("aria-expanded", String(open));
+    if (open) {
+      setCameraSourceStatus("Select a source");
+      elements.cameraButton.setAttribute("aria-label", "Close camera source menu");
+    } else {
+      stopCameraPolling();
+      elements.cameraButton.setAttribute("aria-label", "Choose a camera source");
+      elements.remoteCameraSource.setAttribute("aria-expanded", "false");
+      elements.localCameraSource.setAttribute("aria-expanded", "false");
+      state.cameraPicker.source = "";
     }
-    camera.timer = window.setTimeout(() => {
-      if (!state.call) stopCameraCapture().catch(showError);
-    }, MAX_VIDEO_RECORD_MS);
-    setComposerStatus("Camera live · record, send, or start a visual call");
+  }
+
+  function cameraCard(camera, kind) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "camera-device-card";
+    button.setAttribute("aria-label", `Open ${camera.label}`);
+    const frame = document.createElement("span");
+    frame.className = "camera-device-frame";
+    if (kind === "remote") {
+      const canvas = document.createElement("canvas");
+      canvas.width = 16;
+      canvas.height = 9;
+      canvas.setAttribute("aria-hidden", "true");
+      state.cameraPicker.previewCanvases.set(camera.id, canvas);
+      frame.appendChild(canvas);
+    } else {
+      const placeholder = document.createElement("span");
+      placeholder.className = "camera-device-placeholder";
+      placeholder.appendChild(createIcon("M4 7h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm13 3 5-3v10l-5-3"));
+      frame.appendChild(placeholder);
+    }
+    const meta = document.createElement("span");
+    meta.className = "camera-device-meta";
+    const label = document.createElement("strong");
+    label.textContent = camera.label;
+    const source = document.createElement("small");
+    source.textContent = kind === "remote" ? "Omni device" : (camera.facing || "This device");
+    meta.append(label, source);
+    button.append(frame, meta);
+    button.addEventListener("click", () => {
+      const action = kind === "remote"
+        ? openRemoteCamera(camera, button)
+        : startCameraCapture(camera, button);
+      action.catch(showError);
+    });
+    return button;
+  }
+
+  function renderCameraCards(cameras, kind) {
+    elements.cameraDeviceList.replaceChildren();
+    state.cameraPicker.previewCanvases.clear();
+    for (const camera of cameras) elements.cameraDeviceList.appendChild(cameraCard(camera, kind));
+    elements.cameraDeviceList.hidden = cameras.length === 0;
+  }
+
+  async function loadRemoteCameras() {
+    stopCameraPolling();
+    state.cameraPicker.source = "remote";
+    elements.remoteCameraSource.setAttribute("aria-expanded", "true");
+    elements.localCameraSource.setAttribute("aria-expanded", "false");
+    elements.cameraDeviceList.hidden = true;
+    setCameraSourceStatus("Opening Omni device cameras…");
+    const response = await fetch("/api/cameras", { headers: authHeaders() });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `Camera discovery returned HTTP ${response.status}`);
+    if (state.cameraPicker.source !== "remote") return;
+    state.cameraPicker.remoteCameras = Array.isArray(data.cameras) ? data.cameras : [];
+    renderCameraCards(state.cameraPicker.remoteCameras, "remote");
+    if (!data.enabled) {
+      setCameraSourceStatus("Remote cameras are disabled on this Omni device", true);
+      return;
+    }
+    if (!state.cameraPicker.remoteCameras.length) {
+      setCameraSourceStatus("No available cameras were found on the Omni device", true);
+      return;
+    }
+    const count = state.cameraPicker.remoteCameras.length;
+    setCameraSourceStatus(`${count} remote camera${count === 1 ? "" : "s"} · live polling`);
+    pollRemoteCameraFrames("grid").catch(showError);
+  }
+
+  function localCameraFacing(label, index, count) {
+    if (/front|user|facetime/i.test(label)) return "Front";
+    if (/back|rear|environment/i.test(label)) return "Back";
+    if (count === 2) return index === 0 ? "Front" : "Back";
+    return "Local";
+  }
+
+  async function loadLocalCameras() {
+    stopCameraPolling();
+    state.cameraPicker.source = "local";
+    elements.remoteCameraSource.setAttribute("aria-expanded", "false");
+    elements.localCameraSource.setAttribute("aria-expanded", "true");
+    elements.cameraDeviceList.hidden = true;
+    setCameraSourceStatus("Requesting this device’s camera permission…");
+    if (!navigator.mediaDevices?.getUserMedia || !navigator.mediaDevices.enumerateDevices) {
+      throw new Error("Client camera selection requires this HTTPS page in a supported browser");
+    }
+    const permissionStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    permissionStream.getTracks().forEach(track => track.stop());
+    const inputs = (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === "videoinput");
+    state.cameraPicker.localCameras = inputs.map((device, index) => ({
+      id: device.deviceId,
+      label: device.label || `Camera ${index + 1}`,
+      facing: localCameraFacing(device.label, index, inputs.length),
+    }));
+    if (state.cameraPicker.source !== "local") return;
+    renderCameraCards(state.cameraPicker.localCameras, "local");
+    if (!state.cameraPicker.localCameras.length) {
+      setCameraSourceStatus("No cameras are available on this device", true);
+      return;
+    }
+    const count = state.cameraPicker.localCameras.length;
+    setCameraSourceStatus(`${count} client camera${count === 1 ? "" : "s"} available`);
+  }
+
+  function openCameraDialog({ kind, camera, returnFocus }) {
+    stopCameraPolling();
+    setCameraSourcePopover(false);
+    const key = `${kind}:${camera.id}`;
+    state.cameraModal = {
+      kind,
+      camera,
+      key,
+      rotation: cameraRotation(key),
+      returnFocus,
+      animationFrame: null,
+      recording: null,
+      closing: null,
+    };
+    elements.cameraDialogTitle.textContent = camera.label;
+    elements.cameraDialogSource.textContent = kind === "remote" ? "Omni device · live polling" : `${camera.facing || "Local"} camera · this device`;
+    elements.cameraLiveBadge.textContent = "OPENING";
+    elements.cameraLiveBadge.classList.remove("recording");
+    elements.cameraRecord.setAttribute("aria-pressed", "false");
+    elements.cameraRecord.setAttribute("aria-label", "Hold to record video");
+    elements.cameraRecord.querySelector("span:last-child").textContent = "Hold to record";
+    elements.cameraDialog.showModal();
+    if (kind === "remote") pollRemoteCameraFrames("modal").catch(showError);
+  }
+
+  async function openRemoteCamera(camera, returnFocus) {
+    openCameraDialog({ kind: "remote", camera, returnFocus });
+  }
+
+  function drawLocalCameraFrame() {
+    const modal = state.cameraModal;
+    if (!modal || modal.kind !== "local" || !state.camera) return;
+    const video = elements.cameraVideo;
+    if (video.videoWidth && video.videoHeight) {
+      drawRotatedSource(
+        elements.cameraCanvas,
+        video,
+        video.videoWidth,
+        video.videoHeight,
+        modal.rotation,
+      );
+      elements.cameraLiveBadge.textContent = "LIVE";
+    }
+    modal.animationFrame = requestAnimationFrame(drawLocalCameraFrame);
+  }
+
+  async function startCameraCapture(camera = {}, returnFocus = elements.cameraButton) {
+    if (state.recording) throw new Error("Release the microphone before opening video");
+    if (state.call) throw new Error("End the voice call before opening video");
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      throw new Error("Device video requires this HTTPS page in a supported browser");
+    }
+    await stopCameraCapture();
+    setComposerStatus("Opening client camera…");
+    const video = {
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      ...(camera.id ? { deviceId: { exact: camera.id } } : { facingMode: { ideal: "environment" } }),
+    };
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video,
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+    } catch (_error) {
+      stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+    }
+    state.camera = { stream, camera, stopping: null };
+    elements.cameraVideo.srcObject = stream;
+    await elements.cameraVideo.play();
+    elements.micButton.disabled = true;
+    openCameraDialog({
+      kind: "local",
+      camera: {
+        id: camera.id || "environment",
+        label: camera.label || "This device camera",
+        facing: camera.facing || "Local",
+      },
+      returnFocus,
+    });
+    drawLocalCameraFrame();
+    setComposerStatus("Client camera live · hold to record or take a still");
   }
 
   async function stopCameraCapture() {
     const camera = state.camera;
     if (!camera) return;
     if (camera.stopping) return camera.stopping;
-    camera.stopping = (async () => {
-      elements.cameraButton.disabled = true;
-      clearTimeout(camera.timer);
-      if (camera.recorder.state !== "inactive") camera.recorder.stop();
-      try {
-        await camera.stopped;
-      } finally {
-        camera.stream.getTracks().forEach(track => track.stop());
-        elements.cameraVideo.srcObject = null;
-        state.camera = null;
-        elements.cameraPreview.hidden = true;
-        elements.cameraButton.setAttribute("aria-pressed", "false");
-        elements.cameraButton.setAttribute("aria-label", "Start device video recording");
-        elements.cameraButton.title = "Record device video";
-        elements.cameraButton.disabled = false;
-        elements.micButton.disabled = false;
-        elements.callButton.disabled = false;
-      }
-      const container = String(camera.recorder.mimeType || "video/webm").split(";", 1)[0];
-      const mime = container === "video/mp4" ? "video/mp4" : "video/webm";
-      const blob = new Blob(camera.chunks, { type: mime });
-      if (!blob.size) throw new Error("The device video contained no recorded data");
-      const extension = mime === "video/mp4" ? "mp4" : "webm";
-      const file = new File([blob], `device-video-${Date.now()}.${extension}`, { type: mime });
-      await addFile(file, "video", "camera");
-      setComposerStatus(`Video attached · ${((Date.now() - camera.started) / 1000).toFixed(1)} seconds`);
-    })();
+    camera.stopping = Promise.resolve().then(() => {
+      camera.stream.getTracks().forEach(track => track.stop());
+      elements.cameraVideo.srcObject = null;
+      state.camera = null;
+      elements.cameraButton.removeAttribute("aria-pressed");
+      elements.cameraButton.disabled = false;
+      elements.micButton.disabled = false;
+      elements.callButton.disabled = false;
+    });
     return camera.stopping;
   }
 
+  function cameraRecordingStream(modal) {
+    if (typeof elements.cameraCanvas.captureStream === "function") {
+      const stream = elements.cameraCanvas.captureStream(12);
+      if (modal.kind === "local" && state.camera) {
+        for (const track of state.camera.stream.getAudioTracks()) stream.addTrack(track.clone());
+      }
+      return { stream, ownsTracks: true };
+    }
+    if (modal.kind === "local" && state.camera) {
+      return { stream: state.camera.stream, ownsTracks: false };
+    }
+    throw new Error("Remote video recording is not supported by this browser");
+  }
+
+  async function startCameraModalRecording(event) {
+    if (event.type === "pointerdown" && event.button !== 0) return;
+    event.preventDefault();
+    const modal = state.cameraModal;
+    if (!modal || modal.recording) return;
+    if (!elements.cameraCanvas.width || !elements.cameraCanvas.height) {
+      throw new Error("Wait for the live camera preview before recording");
+    }
+    const capture = cameraRecordingStream(modal);
+    const mime = cameraMimeType();
+    let recorder;
+    try {
+      recorder = new MediaRecorder(capture.stream, {
+        ...(mime ? { mimeType: mime } : {}),
+        videoBitsPerSecond: 2_500_000,
+        audioBitsPerSecond: 64_000,
+      });
+    } catch (_error) {
+      recorder = new MediaRecorder(capture.stream);
+    }
+    const chunks = [];
+    recorder.addEventListener("dataavailable", item => {
+      if (item.data?.size) chunks.push(item.data);
+    });
+    const stopped = new Promise((resolve, reject) => {
+      recorder.addEventListener("stop", resolve, { once: true });
+      recorder.addEventListener("error", item => reject(item.error || new Error("Camera recording failed")), { once: true });
+    });
+    modal.recording = {
+      recorder,
+      chunks,
+      stopped,
+      stream: capture.stream,
+      ownsTracks: capture.ownsTracks,
+      started: Date.now(),
+      timer: null,
+      stopping: null,
+    };
+    if (event.pointerId !== undefined) elements.cameraRecord.setPointerCapture(event.pointerId);
+    recorder.start(250);
+    modal.recording.timer = window.setTimeout(() => {
+      stopCameraModalRecording().catch(showError);
+    }, MAX_VIDEO_RECORD_MS);
+    elements.cameraButton.setAttribute("aria-pressed", "true");
+    elements.cameraRecord.setAttribute("aria-pressed", "true");
+    elements.cameraRecord.setAttribute("aria-label", "Release to attach video");
+    elements.cameraRecord.querySelector("span:last-child").textContent = "Release to attach";
+    elements.cameraLiveBadge.textContent = "REC";
+    elements.cameraLiveBadge.classList.add("recording");
+    setComposerStatus("Recording video · release to attach");
+  }
+
+  async function stopCameraModalRecording({ discard = false, closeAfter = true } = {}) {
+    const modal = state.cameraModal;
+    const recording = modal?.recording;
+    if (!recording) return false;
+    if (recording.stopping) return recording.stopping;
+    recording.stopping = (async () => {
+      clearTimeout(recording.timer);
+      if (recording.recorder.state !== "inactive") recording.recorder.stop();
+      try {
+        await recording.stopped;
+      } finally {
+        if (recording.ownsTracks) recording.stream.getTracks().forEach(track => track.stop());
+      }
+      const duration = Date.now() - recording.started;
+      modal.recording = null;
+      elements.cameraButton.removeAttribute("aria-pressed");
+      elements.cameraRecord.setAttribute("aria-pressed", "false");
+      elements.cameraRecord.setAttribute("aria-label", "Hold to record video");
+      elements.cameraRecord.querySelector("span:last-child").textContent = "Hold to record";
+      elements.cameraLiveBadge.textContent = "LIVE";
+      elements.cameraLiveBadge.classList.remove("recording");
+      if (discard || duration < MIN_VIDEO_HOLD_MS) {
+        transientComposerStatus("Hold Record to capture a video clip");
+        return false;
+      }
+      const container = String(recording.recorder.mimeType || "video/webm").split(";", 1)[0];
+      const type = container === "video/mp4" ? "video/mp4" : "video/webm";
+      const blob = new Blob(recording.chunks, { type });
+      if (!blob.size) throw new Error("The camera recording contained no video data");
+      const extension = type === "video/mp4" ? "mp4" : "webm";
+      const prefix = modal.kind === "remote" ? "omni-device-camera" : "client-camera";
+      const file = new File([blob], `${prefix}-${Date.now()}.${extension}`, { type });
+      await addFile(file, "video", "camera");
+      setComposerStatus(`Video attached · ${(duration / 1000).toFixed(1)} seconds`);
+      if (closeAfter) await closeCameraDialog({ fromRecording: true });
+      return true;
+    })();
+    return recording.stopping;
+  }
+
+  async function attachCameraStill() {
+    const modal = state.cameraModal;
+    if (!modal || !elements.cameraCanvas.width) throw new Error("Wait for the live camera preview before taking a still");
+    const blob = await new Promise(resolve => elements.cameraCanvas.toBlob(resolve, "image/jpeg", 0.88));
+    if (!blob) throw new Error("The camera still could not be encoded");
+    const prefix = modal.kind === "remote" ? "omni-device-camera" : "client-camera";
+    await addFile(new File([blob], `${prefix}-${Date.now()}.jpg`, { type: "image/jpeg" }), "image", "camera");
+    setComposerStatus("Still image attached");
+    await closeCameraDialog();
+  }
+
+  async function closeCameraDialog({ fromRecording = false } = {}) {
+    const modal = state.cameraModal;
+    if (!modal) return;
+    if (modal.closing) return modal.closing;
+    modal.closing = (async () => {
+      if (modal.recording && !fromRecording) {
+        await stopCameraModalRecording({ closeAfter: false });
+      }
+      if (state.call) await stopCall();
+      stopCameraPolling();
+      cancelAnimationFrame(modal.animationFrame);
+      if (modal.kind === "local") await stopCameraCapture();
+      if (elements.cameraDialog.open) elements.cameraDialog.close();
+      state.cameraModal = null;
+      modal.returnFocus?.focus?.();
+    })();
+    return modal.closing;
+  }
+
   async function cameraFrameEnvelope() {
-    if (!state.camera || !elements.cameraVideo.videoWidth) return null;
-    const canvas = document.createElement("canvas");
-    const scale = Math.min(1, 1280 / elements.cameraVideo.videoWidth);
-    canvas.width = Math.max(1, Math.round(elements.cameraVideo.videoWidth * scale));
-    canvas.height = Math.max(1, Math.round(elements.cameraVideo.videoHeight * scale));
-    canvas.getContext("2d").drawImage(elements.cameraVideo, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.84));
+    if (!state.cameraModal || !elements.cameraCanvas.width) return null;
+    const blob = await new Promise(resolve => elements.cameraCanvas.toBlob(resolve, "image/jpeg", 0.84));
     if (!blob) return null;
     const dataUrl = await fileDataUrl(blob);
     return {
@@ -2725,7 +3128,7 @@
   }
 
   function callListeningStatus(call) {
-    const label = state.camera ? "Video call live" : "Call live";
+    const label = state.cameraModal ? "Video call live" : "Call live";
     const pending = callQueue.stats(call.pendingAudio).segmentCount;
     if (call.inflight && pending) {
       return `${label} · replacing reply · ${pending} speech segment${pending === 1 ? "" : "s"} ready`;
@@ -3169,8 +3572,10 @@
     }
     await unlockPlayback();
     setComposerStatus("Requesting microphone…");
-    const camera = state.camera;
-    const stream = camera ? camera.stream : await navigator.mediaDevices.getUserMedia({
+    const camera = state.cameraModal;
+    const localCameraStream = state.camera?.stream;
+    const reuseCameraAudio = Boolean(localCameraStream?.getAudioTracks().length);
+    const stream = reuseCameraAudio ? localCameraStream : await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
           echoCancellation: true,
@@ -3179,13 +3584,6 @@
         },
         video: false,
       });
-    if (camera) {
-      clearTimeout(camera.timer);
-      if (camera.recorder.state === "recording") {
-        camera.recorder.requestData();
-        camera.recorder.pause();
-      }
-    }
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const context = new AudioContext();
     await context.resume();
@@ -3202,7 +3600,7 @@
       analyser,
       processor,
       sink,
-      ownsStream: !camera,
+      ownsStream: !reuseCameraAudio,
       vad: callVad.createState(performance.now()),
       bargeVad: callVad.createState(performance.now(), BARGE_VAD_OPTIONS),
       vadActive: false,
@@ -3272,6 +3670,9 @@
     elements.callButton.setAttribute("aria-pressed", "true");
     elements.callButton.setAttribute("aria-label", "End voice call");
     elements.callButton.title = "End voice call";
+    elements.cameraCall.setAttribute("aria-pressed", "true");
+    elements.cameraCall.setAttribute("aria-label", "End visual voice call");
+    elements.cameraCall.title = "End visual call";
     elements.micButton.disabled = true;
     elements.cameraButton.disabled = true;
     elements.speak.setAttribute("aria-pressed", "true");
@@ -3299,15 +3700,12 @@
     if (call.ownsStream) call.stream.getTracks().forEach(track => track.stop());
     await call.context.close();
     stopCurrentPlayback();
-    if (state.camera && state.camera.recorder.state === "paused") {
-      state.camera.recorder.resume();
-      state.camera.timer = window.setTimeout(() => {
-        if (!state.call) stopCameraCapture().catch(showError);
-      }, MAX_VIDEO_RECORD_MS);
-    }
     elements.callButton.setAttribute("aria-pressed", "false");
     elements.callButton.setAttribute("aria-label", "Start voice call");
     elements.callButton.title = "Start voice call";
+    elements.cameraCall.setAttribute("aria-pressed", "false");
+    elements.cameraCall.setAttribute("aria-label", "Start a visual voice call");
+    elements.cameraCall.title = "Start visual call";
     elements.micButton.disabled = false;
     elements.cameraButton.disabled = false;
     elements.waveform.classList.remove("calling");
@@ -3403,7 +3801,8 @@
   async function send() {
     if (!state.token) return showError(new Error("Access token missing from this link"));
     if (state.recording) await stopRecording();
-    if (state.camera) await stopCameraCapture();
+    if (state.cameraModal) await closeCameraDialog();
+    else if (state.camera) await stopCameraCapture();
     await unlockPlayback();
     let built;
     try {
@@ -3815,8 +4214,61 @@
     event.target.value = "";
   });
   elements.cameraButton.addEventListener("click", () => {
-    const action = state.camera ? stopCameraCapture() : startCameraCapture();
+    setCameraSourcePopover(elements.cameraSourcePopover.hidden);
+  });
+  elements.remoteCameraSource.addEventListener("click", () => {
+    loadRemoteCameras().catch(error => setCameraSourceStatus(error.message, true));
+  });
+  elements.localCameraSource.addEventListener("click", () => {
+    loadLocalCameras().catch(error => setCameraSourceStatus(error.message, true));
+  });
+  document.addEventListener("pointerdown", event => {
+    if (elements.cameraSourcePopover.hidden) return;
+    if (event.target.closest(".camera-source-control")) return;
+    setCameraSourcePopover(false);
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || elements.cameraSourcePopover.hidden) return;
+    setCameraSourcePopover(false);
+    elements.cameraButton.focus();
+  });
+  elements.cameraDialogClose.addEventListener("click", () => closeCameraDialog().catch(showError));
+  elements.cameraCall.addEventListener("click", () => {
+    const action = state.call ? stopCall() : startCall();
     action.catch(showError);
+  });
+  elements.cameraDialog.addEventListener("cancel", event => {
+    event.preventDefault();
+    closeCameraDialog().catch(showError);
+  });
+  elements.cameraDialog.addEventListener("click", event => {
+    if (event.target === elements.cameraDialog) closeCameraDialog().catch(showError);
+  });
+  elements.cameraRotate.addEventListener("click", () => {
+    const modal = state.cameraModal;
+    if (!modal) return;
+    modal.rotation = (modal.rotation + 90) % 360;
+    persistCameraRotation(modal.key, modal.rotation);
+    elements.cameraRotate.setAttribute("aria-label", `Rotate camera preview 90 degrees; currently ${modal.rotation} degrees`);
+  });
+  elements.cameraStill.addEventListener("click", () => attachCameraStill().catch(showError));
+  elements.cameraRecord.addEventListener("pointerdown", event => {
+    startCameraModalRecording(event).catch(showError);
+  });
+  for (const eventName of ["pointerup", "pointercancel"]) {
+    elements.cameraRecord.addEventListener(eventName, event => {
+      event.preventDefault();
+      stopCameraModalRecording().catch(showError);
+    });
+  }
+  elements.cameraRecord.addEventListener("keydown", event => {
+    if (event.repeat || ![" ", "Enter"].includes(event.key)) return;
+    startCameraModalRecording(event).catch(showError);
+  });
+  elements.cameraRecord.addEventListener("keyup", event => {
+    if (![" ", "Enter"].includes(event.key)) return;
+    event.preventDefault();
+    stopCameraModalRecording().catch(showError);
   });
   elements.speak.addEventListener("click", () => {
     if (state.call) return;
@@ -3903,6 +4355,11 @@
 
   window.addEventListener("beforeunload", () => {
     if (layoutResizeObserver) layoutResizeObserver.disconnect();
+    stopCameraPolling();
+    if (state.cameraModal?.animationFrame) cancelAnimationFrame(state.cameraModal.animationFrame);
+    if (state.cameraModal?.recording?.ownsTracks) {
+      state.cameraModal.recording.stream.getTracks().forEach(track => track.stop());
+    }
     if (state.camera) state.camera.stream.getTracks().forEach(track => track.stop());
     if (state.call) state.call.stream.getTracks().forEach(track => track.stop());
     if (state.recording) state.recording.stream.getTracks().forEach(track => track.stop());

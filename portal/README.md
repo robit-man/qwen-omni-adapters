@@ -45,14 +45,18 @@ the visible response. The adapter preserves Ollama's native
 latter is a fail-closed output guard, not the reasoning control. Reasoning is
 never sent to TTS.
 
-The camera icon in the upper-right control group opens the device camera and microphone with a live, muted
-in-interface preview. Tap it again—or press Send—to stop and attach the bounded
-recording as MP4 or WebM, including its audio track when the browser provides
-one. Recordings use a constrained video bitrate to remain below the portal
-upload limit. Starting Call while the camera is active pauses the attachment
-recording and sends the current visual frame with each detected speech turn;
-this provides bounded live visual conversation without presenting an unbounded
-video stream to the model context.
+The camera icon in the upper-right control group opens a source deck. **Omni
+device** discovers the authenticated portal host's usable V4L2 cameras only
+after that explicit choice, then polls independent live JPEG thumbnails without
+exposing host device paths. **This device** requests the viewing browser's
+camera permission and lists its front/back camera inputs. Choosing either kind
+of camera opens the same bounded modal: rotation is remembered per camera,
+**Hold to record** attaches a WebM/MP4 clip on release, and **Take still**
+attaches a JPEG. Client recordings include microphone audio when permission is
+available; host-camera recordings are assembled from the rolling preview and
+are silent. Every capture enters the ordinary composer attachment path, so it
+can be sent alone or with typed context. Re-capturing replaces the prior unsent
+camera attachment.
 
 The phone icon at the upper right starts hands-free voice mode. Browser-side
 voice activity detection calibrates ambient noise for up to 800 ms, exits that
@@ -101,7 +105,7 @@ Camera-call turns send only the newest frame as current visual evidence.
 | Silent video or animated GIF | bounded visual-only comprehension |
 | PDF/DOCX/text or code | extraction → session-isolated retrieval → Qwen3.8 |
 | Documents plus media | retrieved excerpts + current media observation → Qwen3.8 |
-| Device camera capture | live local preview → MP4/WebM turn → video comprehension |
+| Client or Omni-device camera capture | source/device picker → rotated live preview → JPEG or MP4/WebM turn → visual comprehension |
 | Camera + phone icons | current visual frame + repeated speech turns → spoken replies |
 | Speaker icon enabled | final text → streamed Qwen3-TTS PCM → replayable 24 kHz WAV |
 | Brain icon enabled | Ollama `think:true` → collapsible streamed reasoning |
@@ -468,6 +472,8 @@ continue through broker-owned GPU lanes.
 | `OMNI_PORTAL_MAX_INFLIGHT_REQUESTS` | `4` | Active plus queued portal requests before a bounded 503 response |
 | `OMNI_PORTAL_SESSION_LOG_DIR` | runtime `session-logs` | Content-redacted, per-session timing journals |
 | `OMNI_PORTAL_SESSION_LOG_TTL_S` | `300` | Inactive-session diagnostic retention; five minutes by default |
+| `OMNI_PORTAL_REMOTE_CAMERAS` | `1` | Enable authenticated host-camera discovery and rolling previews; set to `0` to disable |
+| `OMNI_PORTAL_CAMERA_DEVICES` | auto-discovered `/dev/video*` | Optional path-separator-delimited V4L2 allowlist for host-camera access |
 | `OMNI_FILE_DELIVERY_DIR` | runtime `state/file-deliveries` | Private staging directory for portal downloads |
 | `OMNI_FILE_DELIVERY_ROOTS` | repo root plus user Desktop, Documents, and Downloads | Path-separator-delimited source roots eligible for explicit delivery |
 | `OMNI_FILE_DELIVERY_TTL_S` | `300` | Session delivery lifetime in seconds |

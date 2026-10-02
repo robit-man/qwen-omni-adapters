@@ -43,8 +43,11 @@ from flask import (
 from waitress import serve
 
 if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+    repository_path = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repository_path))
+    sys.path.insert(0, str(repository_path / "src"))
 
+from harness.camera import CameraSet
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
 from qwen_omni_adapters.context import (
     context_text,
@@ -352,6 +355,8 @@ class PortalConfig:
     file_delivery_ttl_s: float = DIAGNOSTIC_TTL_SECONDS
     file_delivery_max_bytes: int = 128 * 1024 * 1024
     tool_workspace_root: Path | None = None
+    remote_camera_enabled: bool = True
+    remote_camera_devices: tuple[str, ...] = ()
 
     @classmethod
     def from_environment(cls) -> PortalConfig:
@@ -493,6 +498,17 @@ class PortalConfig:
             tool_workspace_root=Path(
                 os.environ.get("OMNI_TOOL_WORKSPACE_ROOT", str(Path.home()))
             ).expanduser(),
+            remote_camera_enabled=os.environ.get(
+                "OMNI_PORTAL_REMOTE_CAMERAS", "1"
+            ).strip().lower()
+            not in {"0", "false", "no", "off"},
+            remote_camera_devices=tuple(
+                value.strip()
+                for value in os.environ.get(
+                    "OMNI_PORTAL_CAMERA_DEVICES", ""
+                ).split(os.pathsep)
+                if value.strip()
+            ),
         )
 
 
@@ -1703,6 +1719,7 @@ def create_app(
     client: httpx.Client | None = None,
     web_client: httpx.Client | None = None,
     decision_plane: DecisionPlane | None = None,
+    host_cameras: Any | None = None,
 ) -> Flask:
     root = Path(__file__).resolve().parent
     app = Flask(
@@ -1712,6 +1729,12 @@ def create_app(
         template_folder=str(root / "templates"),
     )
     runtime = config or PortalConfig.from_environment()
+    if host_cameras is None and runtime.remote_camera_enabled:
+        host_cameras = (
+            CameraSet(_candidates=list(runtime.remote_camera_devices))
+            if runtime.remote_camera_devices
+            else CameraSet.discover()
+        )
     voice_profiles = VoiceProfileReader(
         runtime.voice_profile,
         runtime.voice_profile_path,
@@ -2566,6 +2589,57 @@ def create_app(
             return jsonify({"error": "unauthorized"}), 401
         diagnostics.touch(request_session_id())
         return jsonify(inference_queue.snapshot())
+
+    @app.get("/api/cameras")
+    def list_host_cameras():
+        """List authenticated host cameras after an explicit UI request."""
+
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        if not runtime.remote_camera_enabled or host_cameras is None:
+            return jsonify({"enabled": False, "cameras": []})
+        try:
+            cameras = host_cameras.describe(probe=True)
+        except Exception as exc:  # noqa: BLE001 - keep device details private
+            logger.warning("host camera discovery failed: %s", type(exc).__name__)
+            return jsonify({"error": "Host cameras could not be opened"}), 503
+        return jsonify(
+            {
+                "enabled": True,
+                "cameras": cameras,
+                "capture": {
+                    "preview": "rolling JPEG polling",
+                    "video_audio": False,
+                    "max_record_seconds": 30,
+                },
+            }
+        )
+
+    @app.get("/api/cameras/frames")
+    def host_camera_frames():
+        """Return one bounded current frame per selected host camera."""
+
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        if not runtime.remote_camera_enabled or host_cameras is None:
+            return jsonify({"error": "Host cameras are disabled"}), 404
+        requested = request.args.getlist("camera")
+        if len(requested) > 16 or any(
+            re.fullmatch(r"camera-[a-f0-9]{16}", value) is None
+            for value in requested
+        ):
+            return jsonify({"error": "Invalid camera selection"}), 400
+        try:
+            known = {item["id"] for item in host_cameras.describe(probe=True)}
+            if requested and not set(requested).issubset(known):
+                return jsonify({"error": "Camera was not found"}), 404
+            frames = host_cameras.snapshot_devices(requested or None, width=960)
+        except Exception as exc:  # noqa: BLE001 - keep device details private
+            logger.warning("host camera frame capture failed: %s", type(exc).__name__)
+            return jsonify({"error": "Host camera frame capture failed"}), 503
+        if requested and not frames:
+            return jsonify({"error": "The selected camera is unavailable"}), 503
+        return jsonify({"captured_at": time.time(), "frames": frames})
 
     @app.get("/api/session-state")
     def session_state():

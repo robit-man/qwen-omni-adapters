@@ -16,6 +16,7 @@ than what is there now.
 from __future__ import annotations
 
 import base64
+import hashlib
 import logging
 import shutil
 import subprocess
@@ -105,6 +106,56 @@ class CameraSet:
         self._last_discovery_at = now
         return bool(self.devices)
 
+    def describe(self, *, probe: bool = True) -> list[dict[str, str]]:
+        """Return stable public descriptors without exposing host device paths.
+
+        ``probe`` is deliberately explicit.  Listing candidates alone does not
+        activate a camera, while the authenticated portal calls this with
+        ``probe=True`` only after a person chooses the remote-camera source.
+        """
+
+        if probe and not self.ensure_devices():
+            return []
+        devices = self.devices if probe else (self.devices or self._candidates)
+        return [
+            {
+                "id": _camera_identifier(device),
+                "label": _camera_label(device, index),
+            }
+            for index, device in enumerate(devices)
+        ]
+
+    def snapshot_devices(
+        self,
+        camera_ids: list[str] | None = None,
+        *,
+        width: int = 960,
+    ) -> list[dict[str, str]]:
+        """Capture selected cameras concurrently as independent JPEG frames."""
+
+        with self._capture_lock:
+            if shutil.which("ffmpeg") is None or not self.ensure_devices():
+                return []
+            selected = [
+                device
+                for device in self.devices
+                if camera_ids is None or _camera_identifier(device) in camera_ids
+            ]
+            if not selected:
+                return []
+            with ThreadPoolExecutor(max_workers=max(1, len(selected))) as pool:
+                frames = list(pool.map(lambda device: _grab_frame(device, width), selected))
+            return [
+                {
+                    "id": _camera_identifier(device),
+                    "mime_type": "image/jpeg",
+                    "encoding": "base64",
+                    "data": base64.b64encode(frame).decode("ascii"),
+                }
+                for device, frame in zip(selected, frames, strict=True)
+                if frame is not None
+            ]
+
     def snapshot(self) -> dict[str, Any] | None:
         """One image of everything the machine can see, right now."""
 
@@ -169,6 +220,23 @@ class CameraSet:
 
 def _can_capture(device: str) -> bool:
     return _grab_frame(device, width=64) is not None
+
+
+def _camera_identifier(device: str) -> str:
+    """Stable opaque identifier for a V4L2 node."""
+
+    return "camera-" + hashlib.sha256(device.encode("utf-8")).hexdigest()[:16]
+
+
+def _camera_label(device: str, index: int) -> str:
+    """Use the kernel's human label when available, with a neutral fallback."""
+
+    name_path = Path("/sys/class/video4linux") / Path(device).name / "name"
+    try:
+        label = " ".join(name_path.read_text(encoding="utf-8").split())
+    except OSError:
+        label = ""
+    return label[:80] or f"Camera {index + 1}"
 
 
 def _can_capture_with_retry(device: str) -> bool:

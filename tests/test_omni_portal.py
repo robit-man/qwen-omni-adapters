@@ -1941,6 +1941,14 @@ def test_portal_index_has_mobile_security_headers_and_no_token() -> None:
     assert b'id="call-button"' in response.data
     assert b'id="camera-button"' in response.data
     assert b'id="camera-video"' in response.data
+    assert b'id="camera-source-popover"' in response.data
+    assert b'id="remote-camera-source"' in response.data
+    assert b'id="local-camera-source"' in response.data
+    assert b'id="camera-dialog"' in response.data
+    assert b'id="camera-canvas"' in response.data
+    assert b'id="camera-rotate"' in response.data
+    assert b'id="camera-record"' in response.data
+    assert b'id="camera-still"' in response.data
     assert b'id="share-button"' in response.data
     assert b'id="share-dialog"' in response.data
     assert b'id="share-qr"' in response.data
@@ -2066,6 +2074,15 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert "if (requestSequence !== state.requestSequence) return" in javascript
     assert "function startCameraCapture" in javascript
     assert "function stopCameraCapture" in javascript
+    assert "function loadRemoteCameras" in javascript
+    assert "function loadLocalCameras" in javascript
+    assert "function pollRemoteCameraFrames" in javascript
+    assert "function persistCameraRotation" in javascript
+    assert "function startCameraModalRecording" in javascript
+    assert "function attachCameraStill" in javascript
+    assert ".camera-source-popover" in css
+    assert ".camera-dialog" in css
+    assert "scrollbar-color: var(--line-strong) transparent" in css
     assert "function streamChat" in javascript
     assert "function streamChatAttempt" in javascript
     assert "function retryableClientStreamError" in javascript
@@ -2275,7 +2292,80 @@ def test_portal_api_requires_bearer_token() -> None:
     assert client.get("/api/status").status_code == 401
     assert client.get("/api/activity").status_code == 401
     assert client.get("/api/diagnostics").status_code == 401
+    assert client.get("/api/cameras").status_code == 401
+    assert client.get("/api/cameras/frames").status_code == 401
     assert client.post("/api/chat", json=_request()).status_code == 401
+
+
+def test_authenticated_remote_camera_routes_are_opaque_and_bounded() -> None:
+    class HostCameras:
+        def __init__(self) -> None:
+            self.requested: list[tuple[list[str] | None, int]] = []
+
+        def describe(self, *, probe: bool = True) -> list[dict[str, str]]:
+            assert probe is True
+            return [
+                {"id": "camera-0123456789abcdef", "label": "Wide lens"},
+                {"id": "camera-fedcba9876543210", "label": "Desk lens"},
+            ]
+
+        def snapshot_devices(
+            self, camera_ids: list[str] | None, *, width: int
+        ) -> list[dict[str, str]]:
+            self.requested.append((camera_ids, width))
+            return [
+                {
+                    "id": camera_ids[0],
+                    "mime_type": "image/jpeg",
+                    "encoding": "base64",
+                    "data": "anBlZw==",
+                }
+            ]
+
+    cameras = HostCameras()
+    app = create_app(
+        _config(),
+        httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200))),
+        host_cameras=cameras,
+    )
+    client = app.test_client()
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    listing = client.get("/api/cameras", headers=headers)
+    frames = client.get(
+        "/api/cameras/frames?camera=camera-fedcba9876543210", headers=headers
+    )
+
+    assert listing.status_code == 200
+    assert listing.json["enabled"] is True
+    assert listing.json["capture"]["video_audio"] is False
+    assert "/dev/" not in listing.get_data(as_text=True)
+    assert frames.status_code == 200
+    assert frames.json["frames"][0]["data"] == "anBlZw=="
+    assert cameras.requested == [(["camera-fedcba9876543210"], 960)]
+    assert frames.headers["Cache-Control"] == "no-store"
+
+
+def test_remote_camera_route_rejects_unknown_and_malformed_ids() -> None:
+    class HostCameras:
+        def describe(self, *, probe: bool = True) -> list[dict[str, str]]:
+            return [{"id": "camera-0123456789abcdef", "label": "Camera"}]
+
+        def snapshot_devices(self, *_args, **_kwargs):
+            raise AssertionError("invalid camera IDs must not reach capture")
+
+    app = create_app(
+        _config(),
+        httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200))),
+        host_cameras=HostCameras(),
+    )
+    client = app.test_client()
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    assert client.get("/api/cameras/frames?camera=../../video0", headers=headers).status_code == 400
+    assert client.get(
+        "/api/cameras/frames?camera=camera-fedcba9876543210", headers=headers
+    ).status_code == 404
 
 
 def test_portal_status_probes_all_internal_stages() -> None:
