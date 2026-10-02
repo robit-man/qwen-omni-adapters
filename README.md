@@ -214,7 +214,12 @@ On that profile the harness finishes comprehension, reasoning, and tool calls
 before TTS, stops the comprehension service to make room, streams decoder PCM
 with a small startup lead, and starts restoring comprehension while audio is
 still playing. If the user interrupts, playback ducks and then pauses/fades;
-the microphone remains active throughout. This is a safe memory arrangement,
+the microphone remains active throughout. Pause timing starts after the eased
+duck completes rather than collapsing both transitions into one cut. Once the
+speaker stops, a perception-only pass checks the captured interruption while
+the unfinished reply remains paused: intelligible non-echo speech takes the
+floor and becomes the next turn, while playback echo or unusable audio resumes
+the retained reply. This is a safe memory arrangement,
 not the theoretical minimum-latency arrangement. The managed runtime now uses
 the same safety invariant on every host: the TTS graph is loaded for one
 utterance and shed when that response completes.

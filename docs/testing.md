@@ -128,6 +128,9 @@ result. Do not commit large or restricted media.
 - RIFF/WAVE container, PCM16, mono, 24 kHz;
 - positive and bounded duration;
 - long text continues across the per-generation frame limit and yields a complete replay WAV;
+- local barge-in ducks before pausing, retains the unfinished reply through
+  interruption transcription, yields on intelligible non-echo speech, and
+  resumes after empty or playback-echo capture;
 - the first audio event is emitted only with the first real PCM window;
 - at least two repeated requests succeed;
 - matching-profile repeated requests retain the same resident worker PID;

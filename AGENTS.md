@@ -65,6 +65,10 @@ editing the controller during every difficult trajectory.
   sequence-numbered, hashed-cookie continuation journal; reload reconciliation
   starts from a full authoritative snapshot and then merges newer updates while
   live-call streams remain cancelable for verbal interruption.
+- Local-harness barge-in is an eased duck followed by a sustained-speech pause.
+  After the speaker stops, keep the unfinished reply paused through a bounded
+  perception-only transcript check: intelligible non-echo speech yields and is
+  queued as the next turn; empty or playback-echo capture resumes the reply.
 - Portal web/document/memory tools are a server-pinned, explicit-opt-in
   allowlist. Preserve the no-key DuckDuckGo HTML discovery path derived from
   Omnius, public-only fetch validation and receipts, untrusted-result labels,

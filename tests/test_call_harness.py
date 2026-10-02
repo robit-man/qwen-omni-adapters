@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -32,6 +33,8 @@ from harness.call import (  # noqa: E402
     _accepted_utterance_preempts,
     _background_announcement_text,
     _foreground_lane_still_owned,
+    _interruption_decision,
+    _respeaker_near_end_speech,
 )
 from harness.location import BrowserLocationProvider  # noqa: E402
 from harness.vad import Vad, VadConfig  # noqa: E402
@@ -1306,7 +1309,7 @@ def test_talking_over_a_reply_is_refused_without_echo_cancellation() -> None:
 
 
 def test_native_respeaker_gate_applies_only_during_playback() -> None:
-    """The DSP detector is too conservative to gate ordinary room speech."""
+    """Both post-AEC signals favor recall; comprehension rejects false pulses."""
 
     import inspect
 
@@ -1315,8 +1318,30 @@ def test_native_respeaker_gate_applies_only_during_playback() -> None:
     source = inspect.getsource(run_call_loop)
 
     assert "array.present and speaking_since is not None" in source
-    assert "array.voice_activity" in source
-    assert "array.speech_detected" not in source
+    assert "_respeaker_near_end_speech(array)" in source
+
+
+@pytest.mark.parametrize(
+    ("voice_activity", "speech_detected", "expected"),
+    [
+        (True, False, True),
+        (False, True, True),
+        (False, False, False),
+        (None, None, None),
+        (None, False, None),
+    ],
+)
+def test_respeaker_barge_gate_favors_recall_until_comprehension(
+    voice_activity: bool | None,
+    speech_detected: bool | None,
+    expected: bool | None,
+) -> None:
+    array = SimpleNamespace(
+        voice_activity=voice_activity,
+        speech_detected=speech_detected,
+    )
+
+    assert _respeaker_near_end_speech(array) is expected  # type: ignore[arg-type]
 
 
 def test_a_barge_ducks_pauses_resumes_or_commits_without_a_hard_cut() -> None:
@@ -1360,9 +1385,12 @@ def test_barge_started_inside_grace_is_reconsidered_then_ducked_and_paused() -> 
     ) == ("duck",)
     assert barge.observe(
         "active", now=0.76, reply_started_at=0.0, grace_s=0.6, pause_s=0.45
+    ) == ()
+    assert barge.observe(
+        "active", now=1.08, reply_started_at=0.0, grace_s=0.6, pause_s=0.45
     ) == ("pause",)
     assert barge.observe(
-        "rejected", now=0.90, reply_started_at=0.0, grace_s=0.6, pause_s=0.45
+        "rejected", now=1.10, reply_started_at=0.0, grace_s=0.6, pause_s=0.45
     ) == ("resume",)
     assert barge.active is False
 
@@ -1376,6 +1404,71 @@ def test_active_speech_that_predates_playback_is_ducked_after_grace() -> None:
     assert barge.observe(
         "active", now=5.61, reply_started_at=5.0, grace_s=0.6, pause_s=0.45
     ) == ("duck",)
+
+
+def test_interruption_comprehension_yields_or_resumes_the_paused_reply() -> None:
+    assert (
+        _interruption_decision(
+            TurnResult(transcript="Wait, that's not what I meant."),
+            playback_echo=False,
+        )
+        == "yield"
+    )
+    assert (
+        _interruption_decision(
+            TurnResult(transcript="words from the current reply"),
+            playback_echo=True,
+        )
+        == "resume"
+    )
+    assert _interruption_decision(TurnResult(), playback_echo=False) == "resume"
+    assert (
+        _interruption_decision(
+            TurnResult(error="transcription unavailable"), playback_echo=False
+        )
+        == "yield"
+    )
+
+
+def test_interruption_probe_is_perception_only_and_never_speaks() -> None:
+    call = CallSession(CallConfig(token="t", model="m"))
+    payloads: list[dict[str, object]] = []
+
+    def events(payload: dict[str, object], **_kwargs: object):
+        payloads.append(payload)
+        return iter(
+            [
+                {
+                    "type": "observation",
+                    "transcript": "Hold on, I need to correct that.",
+                },
+                {
+                    "type": "final",
+                    "response": {
+                        "adapter": {
+                            "input_transcript": "Hold on, I need to correct that."
+                        }
+                    },
+                },
+            ]
+        )
+
+    call._events = events  # type: ignore[method-assign]
+    result = call.comprehend_interruption(np.zeros(RATE, dtype=np.float32))
+
+    assert result.transcript == "Hold on, I need to correct that."
+    assert payloads[0]["omni"] == {"schema": "robit.ollama.omni-adapter.v1", "task": "transcribe"}
+    assert payloads[0]["speech_mode"] == "never"
+    assert payloads[0]["portal_auto_tools"] is False
+
+
+def test_current_paused_reply_is_available_to_the_echo_check() -> None:
+    call = CallSession(CallConfig(token="t", model="m"))
+    call._active_reply_text = "The current answer is still playing through the speakers."
+
+    assert call._is_recent_playback_echo(
+        "the current answer is still playing through the speakers"
+    )
 
 
 def test_fresh_camera_payload_forbids_a_visual_capability_disclaimer() -> None:
@@ -1690,8 +1783,12 @@ def test_the_capture_loop_uses_a_two_stage_interruption() -> None:
     assert "session.request_duck()" in source
     assert "session.request_pause()" in source
     assert "session.resume_reply()" in source
-    assert source.index("session.request_duck()") < source.index(
-        "session.request_barge()"
+    assert "session.comprehend_interruption" in source
+    assert 'name="omni-barge-comprehension"' in source
+    assert 'decision == "yield"' in source
+    assert "session.request_barge()" in source
+    assert source.index("session.request_pause()") < source.index(
+        'name="omni-barge-comprehension"'
     )
     confirmed_start = source.split(
         'if verdict.event in {"candidate", "start", "active"}:', 1
@@ -1699,6 +1796,10 @@ def test_the_capture_loop_uses_a_two_stage_interruption() -> None:
     assert 'if verdict.event == "start":' in confirmed_start
     assert "foreground_active.set()" in confirmed_start
     assert "session.background_agent.wake()" in confirmed_start
+    accepted = source.split(
+        'elif verdict.event == "utterance" and verdict.utterance is not None:', 1
+    )[1].split("if settle_until is None", 1)[0]
+    assert "near_end_active.clear()" in accepted
 
 
 # -- never waiting when it does not have to --------------------------------

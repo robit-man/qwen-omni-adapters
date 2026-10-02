@@ -203,7 +203,7 @@ class BargeInState:
             if (
                 self.ducked_at is not None
                 and not self.paused
-                and now - self.started_at >= pause_s
+                and now - self.ducked_at >= pause_s
             ):
                 self.paused = True
                 actions.append("pause")
@@ -231,19 +231,48 @@ def _accepted_utterance_preempts(
     can_barge: bool,
     background_announcement: bool,
 ) -> bool:
-    """Return whether accepted near-end audio should cancel current work.
+    """Return whether accepted near-end audio contends with current work.
 
     Before a foreground reply has produced audio, another accepted sound is
     ambiguous: it may be the person continuing, or a non-speech event accepted
     for later comprehension. Preserve it for the next turn instead of silently
     discarding a reply that never became audible. An actual streaming reply may
-    be barged when echo cancellation makes that safe. Background announcements
-    remain subordinate to a person and may be preempted before playback.
+    be paused and checked when echo cancellation makes that safe. Background
+    announcements remain subordinate to a person and may be preempted before
+    playback.
     """
 
     return busy and (
         background_announcement or (reply_started and can_barge)
     )
+
+
+def _respeaker_near_end_speech(array: ReSpeaker) -> bool | None:
+    """Use either post-AEC speech signal so a real interruption is not missed.
+
+    ``VOICEACTIVITY`` is precise but has proven too conservative during
+    simultaneous playback. ``SPEECHDETECTED`` is more sensitive and can pulse
+    on residual far-end speech. The later transcript/echo check now resolves
+    those false positives, so onset detection can safely favor recall here.
+    """
+
+    signals = (array.voice_activity, array.speech_detected)
+    if any(value is True for value in signals):
+        return True
+    if all(value is False for value in signals):
+        return False
+    return None
+
+
+def _interruption_decision(result: TurnResult, *, playback_echo: bool) -> str:
+    """Choose whether paused playback yields after interruption comprehension."""
+
+    if result.error:
+        # Failure is uncertain; never make the person compete with playback.
+        return "yield"
+    if result.transcript and not playback_echo:
+        return "yield"
+    return "resume"
 
 
 def _foreground_lane_still_owned(
@@ -306,6 +335,7 @@ class CallSession:
         self._barge = threading.Event()
         self._speaker_lock = threading.Lock()
         self._active_speaker: SpeakerStream | None = None
+        self._active_reply_text = ""
         self._last_spoken_text = ""
         self._last_spoken_at = 0.0
         # Where the voice came from, when a ReSpeaker array can say.
@@ -410,24 +440,39 @@ class CallSession:
         short acoustic tail, not merely a semantically similar user response.
         """
 
-        if time.monotonic() - self._last_spoken_at > 90.0:
-            return False
         heard = self._echo_words(transcript)
-        spoken = self._echo_words(self._last_spoken_text)
-        if len(heard) < 3 or not spoken:
+        if len(heard) < 3:
             return False
-        if heard == spoken:
-            return True
-        shorter, longer = (heard, spoken) if len(heard) <= len(spoken) else (spoken, heard)
-        if len(shorter) >= 6 and len(shorter) / len(longer) >= 0.55:
-            width = len(shorter)
-            if any(longer[index : index + width] == shorter for index in range(len(longer) - width + 1)):
+        with self._speaker_lock:
+            active_reply = self._active_reply_text
+        candidates = [active_reply]
+        if time.monotonic() - self._last_spoken_at <= 90.0:
+            candidates.append(self._last_spoken_text)
+        for candidate in candidates:
+            spoken = self._echo_words(candidate)
+            if not spoken:
+                continue
+            if heard == spoken:
                 return True
-        return (
-            min(len(heard), len(spoken)) >= 6
-            and difflib.SequenceMatcher(a=heard, b=spoken, autojunk=False).ratio()
-            >= 0.88
-        )
+            shorter, longer = (
+                (heard, spoken) if len(heard) <= len(spoken) else (spoken, heard)
+            )
+            if len(shorter) >= 6 and len(shorter) / len(longer) >= 0.55:
+                width = len(shorter)
+                if any(
+                    longer[index : index + width] == shorter
+                    for index in range(len(longer) - width + 1)
+                ):
+                    return True
+            if (
+                min(len(heard), len(spoken)) >= 6
+                and difflib.SequenceMatcher(
+                    a=heard, b=spoken, autojunk=False
+                ).ratio()
+                >= 0.88
+            ):
+                return True
+        return False
 
     def _engaged(self, now: float | None = None) -> bool:
         """Whether Egg is in an exchange: it spoke within the engagement window."""
@@ -563,9 +608,43 @@ class CallSession:
             "stream": True,
         }
 
-    def _events(self, payload: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    def _build_interruption_probe_payload(
+        self, samples: np.ndarray
+    ) -> dict[str, Any]:
+        """Build a perception-only check for speech captured over playback."""
+
+        return {
+            "model": self.config.model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Transcribe the possible near-end interruption.",
+                    "audios": [
+                        {
+                            "mime_type": "audio/wav",
+                            "encoding": "base64",
+                            "data": base64.b64encode(to_wav(samples)).decode("ascii"),
+                        }
+                    ],
+                }
+            ],
+            "omni": {"schema": SCHEMA, "task": "transcribe"},
+            "response_modalities": ["text"],
+            "speech_mode": "never",
+            "think": False,
+            "portal_auto_tools": False,
+            "stream": True,
+        }
+
+    def _events(
+        self,
+        payload: dict[str, Any],
+        *,
+        client: httpx.Client | None = None,
+    ) -> Iterator[dict[str, Any]]:
         url = f"{self.config.portal_url.rstrip('/')}/api/chat/stream"
-        with self._client.stream(
+        transport = client or self._client
+        with transport.stream(
             "POST", url, json=payload, headers=self._headers()
         ) as response:
             if response.status_code >= 400:
@@ -581,6 +660,48 @@ class CallSession:
                     continue
                 if isinstance(event, dict):
                     yield event
+
+    def comprehend_interruption(self, samples: np.ndarray) -> TurnResult:
+        """Transcribe paused near-end audio without generating or speaking a reply."""
+
+        result = TurnResult()
+        payload = self._build_interruption_probe_payload(samples)
+
+        def read(client: httpx.Client) -> None:
+            for event in self._events(payload, client=client):
+                if event.get("type") == "observation":
+                    result.transcript = str(event.get("transcript") or "").strip()
+                    result.audio_observation = str(
+                        event.get("audio_observation") or ""
+                    ).strip()
+                elif event.get("type") == "final":
+                    response = event.get("response")
+                    response = response if isinstance(response, Mapping) else {}
+                    adapter = response.get("adapter")
+                    adapter = adapter if isinstance(adapter, Mapping) else {}
+                    result.transcript = str(
+                        adapter.get("input_transcript") or result.transcript
+                    ).strip()
+                    result.audio_observation = str(
+                        adapter.get("audio_observation") or result.audio_observation
+                    ).strip()
+                elif event.get("type") == "error":
+                    result.error = str(event.get("error") or "stream error")
+
+        try:
+            with httpx.Client(
+                timeout=httpx.Timeout(self.config.request_timeout_s),
+                cookies={"omni_portal_session": self.portal_session_id},
+            ) as client:
+                try:
+                    read(client)
+                except _PortalError as error:
+                    if error.status != 401 or not self._refresh_token():
+                        raise
+                    read(client)
+        except Exception as error:  # noqa: BLE001 - uncertainty yields safely
+            result.error = f"{type(error).__name__}: {error}"
+        return result
 
     def take_turn(self, samples: np.ndarray, segments: int = 1) -> TurnResult:
         """Answer what was heard, with tools in the answer-producing pass.
@@ -790,8 +911,20 @@ class CallSession:
         started = time.monotonic()
 
         speaker = SpeakerStream(PLAYBACK_RATE_HZ, self.config.output_device)
+        omni_payload = payload.get("omni")
+        active_reply_text = ""
+        if (
+            isinstance(omni_payload, Mapping)
+            and omni_payload.get("task") == "synthesize"
+        ):
+            messages = payload.get("messages")
+            if isinstance(messages, list) and messages:
+                latest = messages[-1]
+                if isinstance(latest, Mapping):
+                    active_reply_text = str(latest.get("content") or "")
         with self._speaker_lock:
             self._active_speaker = speaker
+            self._active_reply_text = active_reply_text
         speaking = False
         first_delta_ms: float | None = None
         audio_blocks: set[str] = set()
@@ -872,6 +1005,9 @@ class CallSession:
                     message = event.get("message")
                     if isinstance(message, dict):
                         result.reply += str(message.get("content") or "")
+                        with self._speaker_lock:
+                            if self._active_speaker is speaker:
+                                self._active_reply_text = result.reply
                 elif kind == "audio_delta":
                     audio = event.get("audio")
                     if not isinstance(audio, dict):
@@ -923,6 +1059,9 @@ class CallSession:
                         message = response.get("message")
                         if isinstance(message, dict) and message.get("content"):
                             result.reply = str(message["content"])
+                            with self._speaker_lock:
+                                if self._active_speaker is speaker:
+                                    self._active_reply_text = result.reply
                 elif kind == "error":
                     result.error = str(event.get("error") or "stream error")
                     break
@@ -969,6 +1108,7 @@ class CallSession:
             with self._speaker_lock:
                 if self._active_speaker is speaker:
                     self._active_speaker = None
+                    self._active_reply_text = ""
 
         result.total_ms = (time.monotonic() - started) * 1000
         omni = payload.get("omni")
@@ -1099,8 +1239,9 @@ def run_call_loop(
     capture loop keeps reading frames throughout -- including while the reply
     is being spoken, which is the only moment an interruption can happen.
     Interrupting costs no weights: hearing that someone has started is signal
-    processing. Playback first ducks, then pauses only for sustained speech. A
-    rejected false start resumes; an accepted utterance becomes the next turn.
+    processing. Playback first ducks, then pauses only for sustained speech.
+    After the speaker stops, a perception-only pass either yields to an
+    intelligible interruption or resumes the retained reply after echo/noise.
     """
 
     stop = stop or threading.Event()
@@ -1315,12 +1456,71 @@ def run_call_loop(
     now_ms = 0.0
     settle_until: float | None = None
     barge = BargeInState()
+    barge_resolution = threading.Event()
+    barge_decisions: queue.Queue[tuple[str, Pending, TurnResult]] = queue.Queue()
+
+    def comprehend_barge(pending: Pending) -> None:
+        """Resolve a paused interruption without discarding the current reply."""
+
+        probe = session.comprehend_interruption(pending.audio())
+        playback_echo = bool(
+            probe.transcript and session._is_recent_playback_echo(probe.transcript)
+        )
+        barge_decisions.put(
+            (
+                _interruption_decision(probe, playback_echo=playback_echo),
+                pending,
+                probe,
+            )
+        )
+
     try:
         with microphone:
             listening_announced = False
             for frame in microphone.frames():
                 if stop.is_set():
                     return
+                try:
+                    decision, interrupted_pending, probe = barge_decisions.get_nowait()
+                except queue.Empty:
+                    pass
+                else:
+                    barge_resolution.clear()
+                    if decision == "yield":
+                        if probe.error:
+                            logger.warning(
+                                "interruption comprehension failed; yielding safely: %s",
+                                probe.error,
+                            )
+                        else:
+                            logger.info(
+                                "interruption understood; yielding to the speaker"
+                            )
+                        session.request_barge()
+                        try:
+                            work.put_nowait(interrupted_pending)
+                        except queue.Full:
+                            with lock:
+                                waiting.prepend(
+                                    interrupted_pending.audio(),
+                                    interrupted_pending.active_ms,
+                                )
+                            settle_until = time.monotonic()
+                        barge.reset()
+                    else:
+                        with lock:
+                            more_speech_waiting = bool(waiting)
+                        if near_end_active.is_set() or more_speech_waiting:
+                            logger.info(
+                                "interruption contained no usable speech; keeping the "
+                                "reply paused for the continuing speaker"
+                            )
+                        else:
+                            logger.info(
+                                "interruption contained no usable speech; resuming reply"
+                            )
+                            session.resume_reply()
+                            barge.reset()
                 if not listening_announced:
                     # Popen alone does not prove the selected source works.
                     # Publish listening only after a full capture frame arrives.
@@ -1331,15 +1531,12 @@ def run_call_loop(
                     frame,
                     now_ms,
                     frame_ms,
-                    # The array's VOICEACTIVITY value is its native post-AEC
-                    # VAD (and the signal used by Seeed's own ``is_voice``
-                    # helper). SPEECHDETECTED can pulse without voice, so it
-                    # is not safe as a barge-in gate. Use hardware VAD only to
-                    # distinguish near-end speech from far-end playback while
-                    # our speaker has the floor; ordinary listening keeps the
-                    # proven adaptive software VAD.
+                    # During playback, favor recall across both post-AEC DSP
+                    # speech signals. A perception-only transcript check after
+                    # the person stops rejects residual playback echo before
+                    # the paused reply is either abandoned or resumed.
                     native_speech=(
-                        array.voice_activity
+                        _respeaker_near_end_speech(array)
                         if array.present and speaking_since is not None
                         else None
                     ),
@@ -1399,6 +1596,7 @@ def run_call_loop(
                     # Confirmed speech has owned the foreground/model lane since
                     # its VAD start. Acceptance keeps that ownership through ASR,
                     # reasoning, and reply; rejected speech releases it above.
+                    near_end_active.clear()
                     foreground_active.set()
                     if session.background_agent is not None:
                         session.background_agent.wake()
@@ -1410,17 +1608,19 @@ def run_call_loop(
                     )
                     if should_preempt:
                         # A person always wins over a background announcement.
-                        # Foreground work is interrupted only after its reply
-                        # has actually started streaming to the speaker.
-                        if barge.active:
-                            logger.info("interruption confirmed; yielding to speaker")
-                        session.request_barge()
+                        if background_announcement_active.is_set():
+                            session.request_barge()
+                            barge.reset()
+                        elif barge.active:
+                            logger.info(
+                                "interruption captured; holding the reply for "
+                                "comprehension"
+                            )
                     elif busy.is_set() and speaking_since is None:
                         logger.info(
                             "accepted audio queued while the current foreground "
                             "reply is not yet audible"
                         )
-                    barge.reset()
                     with lock:
                         waiting.add(
                             verdict.utterance.samples(),
@@ -1428,6 +1628,13 @@ def run_call_loop(
                         )
                         segments = waiting.segments
                     settle_until = now + config.utterance_settle_s
+                    if barge.ducked_at is not None and not barge.paused:
+                        # Preserve the eased duck interval even when the
+                        # utterance ends before that interval has elapsed.
+                        settle_until = max(
+                            settle_until,
+                            barge.ducked_at + config.barge_in_pause_s,
+                        )
                     if segments > 1:
                         logger.info("carried on speaking; %d segments so far", segments)
                     # The speaker's own voice has been in the microphone and
@@ -1437,8 +1644,29 @@ def run_call_loop(
                 if settle_until is None or now < settle_until:
                     continue
                 if busy.is_set():
-                    # Hold it: answering the first half while the second is
-                    # still being spoken is what produced two replies.
+                    # A reply that ducked and paused is retained while a
+                    # perception-only pass decides whether the stopped sound
+                    # was intelligible near-end speech or playback echo/noise.
+                    if (
+                        barge.active
+                        and can_barge
+                        and speaking_since is not None
+                        and not background_announcement_active.is_set()
+                        and not barge_resolution.is_set()
+                    ):
+                        if not barge.paused:
+                            session.request_pause()
+                            barge.paused = True
+                        with lock:
+                            interrupted_pending = waiting.take()
+                        settle_until = None
+                        barge_resolution.set()
+                        threading.Thread(
+                            target=comprehend_barge,
+                            args=(interrupted_pending,),
+                            name="omni-barge-comprehension",
+                            daemon=True,
+                        ).start()
                     continue
                 with lock:
                     if not waiting:
