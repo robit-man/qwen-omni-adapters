@@ -120,5 +120,6 @@ Copy is direct and operational: “Hold to record,” “Take still,” “Camer
 
 - **Do:** Keep privacy-sensitive camera activation behind an explicit source and device choice.
 - **Do:** Reuse the existing attachment path so stills and clips behave exactly like uploaded media.
-- **Don't:** Auto-open cameras, replay cached media as current evidence, or expose host device paths.
+- **Do:** Keep bounded visual observations available for later questions while labeling them as historical evidence.
+- **Don't:** Auto-open cameras, replay cached raw media as current evidence, or expose host device paths.
 - **Don't:** Crop live evidence, hide capture controls behind hover, or introduce new decorative colors for individual features.

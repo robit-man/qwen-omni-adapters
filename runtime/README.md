@@ -262,7 +262,10 @@ speech transcript was produced; the authoritative final response mirrors that
 value as `adapter.input_transcript`. Clients must never display the raw semantic
 observation as a user-authored chat message.
 The event and final adapter trace similarly expose tagged acoustic evidence as
-`audio_observation` and `adapter.audio_observation`. Audio-only `transcribe`
+`audio_observation` and `adapter.audio_observation`. For current image/video
+input they expose the sanitized tagged visual evidence as `visual_observation`
+and `adapter.visual_observation`; audio-only input can never populate those
+fields. Audio-only `transcribe`
 remains the fast ASR route; attach audio with a text question to run combined
 speech and environmental analysis through the language model.
 For a trained audio bridge, audio-only chat and `transcribe` use the exact

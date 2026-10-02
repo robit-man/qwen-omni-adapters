@@ -864,7 +864,9 @@ separate so environmental sounds are never misrouted as the user's words.
 - Every comprehension request sets `cache_prompt:false`; a prior audio/video
   embedding cannot be reused for a new clip.
 - Media turns send only the current attachment as present-tense perceptual
-  evidence while retaining bounded prior text dialogue for natural continuity.
+  evidence. Bounded sanitized visual observations remain available for later
+  questions about an earlier attachment, explicitly labeled as historical and
+  never replayed as a current view or raw attachment.
 - The portal defaults to one active GPU lane and four admitted active/queued
   requests, with request-local media, tools, voice settings, and streams.
 - A wrench toggle, off by default, exposes server-pinned structured tools
@@ -878,8 +880,9 @@ separate so environmental sounds are never misrouted as the user's words.
   audio, and bounded image/video previews after reload. It is keyed by a
   one-way cookie-derived scope, persists until the user explicitly presses
   Trash, and is deleted immediately by that action. Restored media is display-only and is never
-  submitted automatically. Ordinary submitted turns continue in a detached
-  relay and publish bounded text/tool snapshots to a hashed-cookie continuation
+  submitted automatically. Bounded sanitized visual observations, not raw
+  media, remain in the conversational history for follow-up questions. Ordinary
+  submitted turns continue in a detached relay and publish bounded text/tool snapshots to a hashed-cookie continuation
   journal; reconnect first reconciles the full authoritative turn set, then
   merges newer sequence numbers exactly once. Live-call
   inference remains cancelable for verbal interruption. The document index

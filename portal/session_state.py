@@ -20,6 +20,7 @@ from typing import Any
 MAX_TURNS = 48
 MAX_TEXT_CHARS = 64_000
 MAX_TOOL_RESULT_CHARS = 24_000
+MAX_VISUAL_OBSERVATION_CHARS = 8_000
 
 
 def _bounded_text(value: Any, limit: int = MAX_TEXT_CHARS) -> str:
@@ -236,11 +237,16 @@ class SessionContinuationStore:
             elif event_type == "observation":
                 transcript = _bounded_text(event.get("transcript"))
                 observation = _bounded_text(event.get("audio_observation"))
+                visual_observation = _bounded_text(
+                    event.get("visual_observation"), MAX_VISUAL_OBSERVATION_CHARS
+                )
                 if transcript:
                     turn["user"]["content"] = transcript
                     turn["input_transcript"] = transcript
                 if observation:
                     turn["audio_observation"] = observation
+                if visual_observation:
+                    turn["visual_observation"] = visual_observation
             elif event_type == "reset":
                 assistant["content"] = ""
                 assistant["thinking"] = ""
@@ -278,11 +284,16 @@ class SessionContinuationStore:
                 adapter = adapter if isinstance(adapter, Mapping) else {}
                 transcript = _bounded_text(adapter.get("input_transcript"))
                 observation = _bounded_text(adapter.get("audio_observation"))
+                visual_observation = _bounded_text(
+                    adapter.get("visual_observation"), MAX_VISUAL_OBSERVATION_CHARS
+                )
                 if transcript:
                     turn["user"]["content"] = transcript
                     turn["input_transcript"] = transcript
                 if observation:
                     turn["audio_observation"] = observation
+                if visual_observation:
+                    turn["visual_observation"] = visual_observation
                 turn["status"] = "complete"
                 turn["stage"] = "complete"
             elif event_type == "error":

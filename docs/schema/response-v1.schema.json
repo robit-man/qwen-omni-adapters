@@ -48,13 +48,14 @@
         "observation": {"type": "string"},
         "input_transcript": {"type": "string"},
         "audio_observation": {"type": "string"},
+        "visual_observation": {"type": "string"},
         "speech_addressee": {
           "type": "string",
           "enum": ["self", "other", "ambiguous"]
         },
         "tts_skipped_reason": {
           "type": "string",
-          "description": "Machine-readable reason requested speech was not synthesized, including required_speech_not_found, speech_addressed_elsewhere, speech_not_addressed, unresolved_tool_calls, or empty_assistant_response."
+          "description": "Machine-readable reason requested speech was not synthesized, including required_speech_not_found, speech_addressed_elsewhere, unresolved_tool_calls, or empty_assistant_response."
         }
       },
       "additionalProperties": true

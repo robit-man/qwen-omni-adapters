@@ -187,6 +187,9 @@ returning visits retain the snapshot until an explicit Trash action; page leave
 persists the latest snapshot, and Trash deletes browser cache, document index,
 and diagnostics immediately.
 Restored media is display-only and never enters a new request automatically.
+Bounded sanitized visual observations may remain in history as explicitly
+historical evidence for follow-up questions; raw image/video bytes are never
+replayed.
 Ordinary submitted turns use stable IDs and a detached server relay. A returning
 page first reconciles the complete authoritative turn set, then requests and
 merges only newer sequence-numbered model/tool updates while continuing to poll

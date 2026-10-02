@@ -190,6 +190,8 @@ def test_live_context_forbids_support_boilerplate_and_unsolicited_transport_meta
     assert "<observe_only/>" in catalog["directives"]["live_response_control"]
     assert "your output is only your spoken reply" in catalog["directives"]["live_response_control"]
     assert "not as a support agent" in portal
+    assert "prior_media_evidence" in portal
+    assert "never a current view" in portal
 
 
 def test_mutable_or_explicitly_verified_facts_require_fresh_tool_evidence() -> None:

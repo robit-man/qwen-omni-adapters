@@ -2113,6 +2113,11 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert 'task = "transcribe"' not in javascript
     assert "replaceUserWithTranscript: !typed && audioOnly" in javascript
     assert "function audioEvidenceHistory" in javascript
+    assert "function historyContentWithVisualEvidence" in javascript
+    assert 'source="previous_attached_media" current_visual_input="false"' in javascript
+    assert "MAX_PRIOR_VISUAL_EVIDENCE_CHARS" in javascript
+    assert "event.visual_observation" in javascript
+    assert "(data.adapter || {}).visual_observation" in javascript
     assert "audioObservation: inputTranscript ? inputAudioObservation" in javascript
     assert "soundOnly: !inputTranscript && Boolean(inputAudioObservation)" in javascript
     assert "parts.push(`[Sounds heard: ${sounds}]`)" in javascript
@@ -5770,7 +5775,8 @@ def test_mock_live_call_stream_defaults_native_reasoning_off() -> None:
     assert "fact that can change after training" in environment["content"]
     assert "explicitly asks you to check or verify" in environment["content"]
     assert "Tool results" in environment["content"]
-    assert "only a current visual observation" in environment["content"]
+    assert "current visual observation supports claims about what is visible now" in environment["content"]
+    assert "prior_media_evidence" in environment["content"]
     assert "not GPS, street position, or a visible scene" in environment["content"]
     assert "<live_system>" not in environment["content"]
     assert "Available offline:" not in environment["content"]
@@ -6257,6 +6263,14 @@ def test_browser_continuation_survives_until_explicit_clear(tmp_path: Path) -> N
     root = tmp_path / "browser-sessions"
     store = SessionContinuationStore(root, ttl_s=None)
     store.begin("session-123456789", "turn-123456789", "request", "Keep this")
+    store.event(
+        "session-123456789",
+        "turn-123456789",
+        {
+            "type": "observation",
+            "visual_observation": "Three red markers and two white markers.",
+        },
+    )
 
     journal = next(root.glob("*.json"))
     payload = json.loads(journal.read_text())
@@ -6264,7 +6278,11 @@ def test_browser_continuation_survives_until_explicit_clear(tmp_path: Path) -> N
     journal.write_text(json.dumps(payload))
 
     restored = SessionContinuationStore(root, ttl_s=None)
-    assert restored.snapshot("session-123456789")["turns"][0]["user"]["content"] == "Keep this"
+    restored_turn = restored.snapshot("session-123456789")["turns"][0]
+    assert restored_turn["user"]["content"] == "Keep this"
+    assert restored_turn["visual_observation"] == (
+        "Three red markers and two white markers."
+    )
 
     restored.clear("session-123456789")
     assert restored.snapshot("session-123456789")["turns"] == []

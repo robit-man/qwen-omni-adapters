@@ -99,6 +99,7 @@ def test_adapter_contract_separates_wire_schema_from_bundle_schema() -> None:
     assert contract["compatibility"]["message_extensions"] == ["audios", "videos"]
     assert contract["media"]["video"]["max_items"] == 4
     assert "environmental" in contract["response"]["adapter"]["audio_observation"]
+    assert "visual" in contract["response"]["adapter"]["visual_observation"]
     assert "ambiguous" in contract["response"]["adapter"]["speech_addressee"]
     assert "speech_addressed_elsewhere" in contract["response"]["adapter"][
         "tts_skipped_reason"
@@ -1284,9 +1285,11 @@ def test_stream_exposes_only_tagged_input_transcript_to_clients() -> None:
     assert observation["transcript"] == "Haha, same, just vibing."
     assert observation["audio_observation"] == "Soft room tone and a fan."
     assert "A person is visible" in observation["content"]
+    assert "visual_observation" not in observation
     final = events[-1]["response"]
     assert final["adapter"]["input_transcript"] == "Haha, same, just vibing."
     assert final["adapter"]["audio_observation"] == "Soft room tone and a fan."
+    assert "visual_observation" not in final["adapter"]
     assert final["adapter"]["evidence_provenance"] == {
         "current_media_modalities": ["audio"],
         "current_visual_input": False,
@@ -1294,6 +1297,71 @@ def test_stream_exposes_only_tagged_input_transcript_to_clients() -> None:
         "prior_dialogue_is_current_observation": False,
     }
     assert final["message"]["content"] == "What is the vibe?"
+
+
+def test_stream_exposes_visual_observation_only_for_current_visual_input() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "comprehension":
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    "<visual_observation>Three red markers and two white "
+                                    "markers are on the desk.</visual_observation>"
+                                )
+                            }
+                        }
+                    ]
+                },
+            )
+        if request.url.host == "language":
+            return httpx.Response(
+                200,
+                content=b'{"message":{"role":"assistant","content":"I see five markers."},"done":true}\n',
+            )
+        return httpx.Response(404)
+
+    parsed = parse_adapter_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Count the markers.",
+                    "images": [
+                        {
+                            "mime_type": "image/png",
+                            "data": _encoded(b"\x89PNG\r\n\x1a\nexample"),
+                        }
+                    ],
+                }
+            ],
+            think=False,
+        )
+    )
+    events = [
+        json.loads(chunk)
+        for chunk in execute_stream(
+            parsed,
+            Config(
+                "http://comprehension/v1/chat/completions",
+                "qwen3-omni",
+                "http://language",
+                "http://tts/synthesize",
+                30,
+            ),
+            httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+    ]
+
+    observation = next(event for event in events if event["type"] == "observation")
+    expected = "Three red markers and two white markers are on the desk."
+    assert observation["visual_observation"] == expected
+    final = events[-1]["response"]
+    assert final["adapter"]["visual_observation"] == expected
+    assert final["adapter"]["evidence_provenance"]["current_visual_input"] is True
 
 
 def test_environmental_audio_does_not_become_user_transcript() -> None:
@@ -3020,6 +3088,12 @@ def _room_speech_stream(
                     ]
                 },
             )
+        if request.url.host == "tts":
+            return httpx.Response(
+                200,
+                content=b"\x01\x00\x02\x00",
+                headers={"x-audio-codec": "pcm_s16le"},
+            )
         body = json.loads(request.content)
         if "route live ASR turns" in body["messages"][0]["content"]:
             return httpx.Response(
@@ -3061,14 +3135,15 @@ def _room_speech_stream(
     return requested_hosts, events[-1]["response"]
 
 
-def test_unaddressed_room_speech_outside_an_exchange_is_not_the_clients_turn() -> None:
-    """Answering overheard conversation is what made replies restate it."""
+def test_ambiguous_room_speech_reaches_the_model_outside_an_exchange() -> None:
+    """An uncertain gate result must not discard intelligible user speech."""
 
     hosts, final = _room_speech_stream("AMBIGUOUS", engaged=False, speech_mode="always")
 
-    assert hosts == ["comprehension", "language"]
-    assert final["message"]["content"] == ""
-    assert final["adapter"]["tts_skipped_reason"] == "speech_not_addressed"
+    assert hosts == ["comprehension", "language", "language", "tts"]
+    assert final["message"]["content"] == "Nice upgrade."
+    assert final["adapter"]["speech_synthesized"] is True
+    assert "tts_skipped_reason" not in final["adapter"]
 
 
 @pytest.mark.parametrize(

@@ -100,8 +100,10 @@ deletes it immediately. Ordinary submitted turns continue in a detached server r
 a bounded hashed-cookie journal retains their latest text and tool state with
 monotonic sequence numbers so a returning page can reconcile the complete
 current turn set before merging only newer updates.
-Live-call streams remain client-cancelable for barge-in. Cached media is
-display-only and cannot silently become new model input. The optional document index uses the same isolation boundary,
+Live-call streams remain client-cancelable for barge-in. Cached raw media is
+display-only and cannot silently become new model input. Bounded sanitized
+visual observations may persist as explicitly historical evidence for later
+questions about an earlier attachment. The optional document index uses the same isolation boundary,
 bounded in memory, cleared by trash, and expired after disconnect. Raw
 documents and retrieved passages never cross into another browser session.
 The demonstration tool harness uses that same boundary for temporary recall and
@@ -171,8 +173,9 @@ The browser keeps one call inference active at a time. Confirmed speech that
 arrives before an unanswered request completes is consolidated with that
 request's preserved input in one bounded pending turn, preventing an unbounded
 GPU/HTTP queue while retaining the user's latest combined intent.
-Media chat likewise keeps prior textual conversation, but only the newest
-attachment is labelled as current perceptual evidence. Qwen3-TTS uses a
+Media chat likewise keeps prior textual conversation and bounded historical
+visual observations, but only the newest attachment is labelled as current
+perceptual evidence. Qwen3-TTS uses a
 persistent framed subprocess protocol so matching-profile requests reuse the
 resident model and the browser can schedule the first two-frame PCM window as
 soon as it arrives.

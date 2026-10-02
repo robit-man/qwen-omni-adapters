@@ -92,8 +92,8 @@ For portal behavior, keep these routing facts straight:
   until explicit Trash; Trash deletes it immediately. Restored media is
   display-only and must not be submitted into a later request.
 - Call turns should answer intent rather than mirror the transcript. Media
-  turns keep prior text context, but only the newest attachment is current
-  evidence.
+  turns keep prior text and bounded historical visual evidence, but only the
+  newest attachment is current evidence.
 - Ordinary turns receive a compact stable behavioral policy. Current date/time,
   CPU, RAM, network-counter, and NVIDIA data is available only through an
   explicit privacy-bounded `get_system_snapshot` tool call; it may never include

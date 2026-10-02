@@ -55,8 +55,10 @@ editing the controller during every difficult trajectory.
   `current_visual_input=true`. Audio, tool results, and prior dialogue must
   never be recast as something currently seen.
 - Only the newest attached media is current perceptual evidence. Bounded prior
-  text dialogue remains available for conversational continuity; cached media
-  previews and prior descriptions must never be replayed as new attachments.
+  text dialogue and sanitized visual observations may remain available for
+  follow-up questions about an earlier attachment, but must be labeled as
+  historical evidence. Cached media previews and raw media bytes must never be
+  replayed as new attachments or recast as a current view.
 - Browser session state is isolated in cookie-scoped IndexedDB and survives
   reloads and returning visits until the user explicitly presses Trash.
   Restored media is display-only. Ordinary submitted turns use a detached,

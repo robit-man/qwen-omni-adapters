@@ -164,8 +164,8 @@ def adapter_contract() -> dict[str, Any]:
                     "optional boolean; stop after comprehension when no speech transcript is found"
                 ),
                 "live_engaged": (
-                    "optional boolean, default true; false means the client is not in an "
-                    "exchange, so live speech without direct address is not its turn"
+                    "optional compatibility hint, default true, describing whether the "
+                    "client is in an active exchange; ambiguity alone never discards speech"
                 ),
                 "tool_routing": (
                     "client | relevant; relevant keeps routing gateways plus a bounded "
@@ -248,9 +248,12 @@ def adapter_contract() -> dict[str, Any]:
                 "audio_observation": (
                     "tagged environmental and non-speech acoustic evidence when available"
                 ),
+                "visual_observation": (
+                    "tagged visual evidence from current image or video input when available"
+                ),
                 "speech_addressee": "self | other | ambiguous when the live gate ran",
                 "tts_skipped_reason": (
-                    "required_speech_not_found | speech_addressed_elsewhere | speech_not_addressed | "
+                    "required_speech_not_found | speech_addressed_elsewhere | "
                     "unresolved_tool_calls | empty_assistant_response"
                 ),
                 "evidence_provenance": {

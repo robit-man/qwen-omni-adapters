@@ -219,6 +219,10 @@ AUDIO_OBSERVATION_BLOCK = re.compile(
     r"<audio_observation\b[^>]*>(.*?)</audio_observation\s*>",
     re.IGNORECASE | re.DOTALL,
 )
+VISUAL_OBSERVATION_BLOCK = re.compile(
+    r"<visual_observation\b[^>]*>(.*?)</visual_observation\s*>",
+    re.IGNORECASE | re.DOTALL,
+)
 OBSERVE_ONLY_CONTROL = re.compile(r"^\s*<observe_only\s*/>\s*$", re.IGNORECASE)
 # A spoken reply answers the words; it never reports on the audio carrying
 # them. Perception-format output or commentary about the input is a failed
@@ -409,6 +413,19 @@ def _observation_audio(observation: str | None) -> str | None:
     return "\n".join(observations) or None
 
 
+def _observation_visual(observation: str | None) -> str | None:
+    """Extract explicitly tagged visual evidence from current image/video input."""
+
+    if not observation:
+        return None
+    observations = [
+        match.group(1).strip()
+        for match in VISUAL_OBSERVATION_BLOCK.finditer(observation)
+        if match.group(1).strip()
+    ]
+    return "\n".join(observations) or None
+
+
 def _is_empty_audio_meta(value: str) -> bool:
     """Drop encoder diagnostics that contain no acoustic evidence."""
 
@@ -532,22 +549,18 @@ def _classify_live_addressee(
         return "AMBIGUOUS"
 
 
-def _not_your_turn_reason(
-    speech_addressee: str | None, parsed: ParsedAdapterRequest
-) -> str | None:
-    """Decide turn ownership from address and whether an exchange is active.
+def _not_your_turn_reason(speech_addressee: str | None) -> str | None:
+    """Hard-stop only speech confidently addressed to another person.
 
-    Speech without direct address was treated as the client's turn whenever it
-    was merely ambiguous, so the client answered overheard room conversation.
-    With nothing to add, the model restated it, and each restatement kept in
-    history taught the next turn to repeat more. Outside an exchange, such
-    speech belongs to the people having it; direct address starts one.
+    An ambiguous classification is not enough evidence to discard an
+    intelligible user turn.  It continues to the conversational model, which
+    can still return the explicit ``<observe_only/>`` control for ambient room
+    speech.  This keeps false positives quiet without making false negatives
+    disappear before the model can answer them.
     """
 
     if speech_addressee == "OTHER":
         return "speech_addressed_elsewhere"
-    if speech_addressee == "AMBIGUOUS" and not parsed.live_engaged:
-        return "speech_not_addressed"
     return None
 
 
@@ -2097,6 +2110,10 @@ def _finish_response(
         audio_observation = _observation_audio(observation)
         if audio_observation:
             result["adapter"]["audio_observation"] = audio_observation
+        if any(kind in {"image", "video"} for kind in parsed.input_modalities):
+            visual_observation = _observation_visual(observation)
+            if visual_observation:
+                result["adapter"]["visual_observation"] = visual_observation
     if "language" in executed and config.language_model:
         result["adapter"]["language_backend_model"] = config.language_model
     if tts_skipped_reason:
@@ -2141,7 +2158,7 @@ def execute(
         if _is_live_spoken_turn(parsed) and transcript
         else None
     )
-    not_your_turn = _not_your_turn_reason(speech_addressee, parsed)
+    not_your_turn = _not_your_turn_reason(speech_addressee)
     if not_your_turn is not None:
         return _finish_response(
             _direct_response(parsed.model, ""),
@@ -2249,6 +2266,10 @@ def execute_stream(
         audio_observation = _observation_audio(observation)
         if audio_observation:
             values["audio_observation"] = audio_observation
+        if any(kind in {"image", "video"} for kind in parsed.input_modalities):
+            visual_observation = _observation_visual(observation)
+            if visual_observation:
+                values["visual_observation"] = visual_observation
         yield _stream_event("observation", **values)
         if parsed.require_speech and not transcript:
             result = _direct_response(parsed.model, "")
@@ -2268,7 +2289,7 @@ def execute_stream(
             speech_addressee = _classify_live_addressee(
                 transcript, parsed, config, client
             )
-        not_your_turn = _not_your_turn_reason(speech_addressee, parsed)
+        not_your_turn = _not_your_turn_reason(speech_addressee)
         if not_your_turn is not None:
             result = _finish_response(
                 _direct_response(parsed.model, ""),

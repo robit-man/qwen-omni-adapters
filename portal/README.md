@@ -526,8 +526,10 @@ media base64 or the access token.
   continue in a detached relay and write bounded text/tool snapshots to a
   hashed-cookie server journal. Reconnect first reconciles the complete current
   turn set and then merges only sequence numbers newer than the local snapshot;
-  live-call streams stay cancelable for barge-in. Cached media is
-  display-only and never enters that journal or replays into inference.
+  live-call streams stay cancelable for barge-in. Cached raw media is
+  display-only and never enters that journal or replays into inference; a
+  bounded sanitized visual observation may enter the journal as explicitly
+  historical evidence for later questions about that attachment.
 - A random, Secure, HttpOnly, SameSite=Lax cookie partitions the aggregate
   activity count and ephemeral diagnostic journal. It is never supplied to a
   model or used as authorization; Lax retains it on top-level bookmark and
@@ -560,9 +562,10 @@ media base64 or the access token.
   the latest captured segment enters a request. The exact submitted clip is
   retained as a muted looping video thumbnail on its user message; separately
   uploaded video attachments remain additive.
-- Every new media submission starts an isolated model context. Earlier media
-  bytes and their generated descriptions are excluded, while the successful
-  newest media turn becomes the context for subsequent text-only follow-ups.
+- Every new media submission starts an isolated comprehension context. Earlier
+  media bytes are excluded. The successful media turn's bounded sanitized
+  visual observation remains available to subsequent text-only follow-ups as
+  historical evidence, never as a current view or reattached file.
   Visual-call turns likewise use only the current frame; audio-only calls keep
   their conversational history.
 - Every chat audio attachment performs combined ASR and environmental sound
