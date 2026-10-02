@@ -47,7 +47,7 @@ browser, portal, control tools, and discovery schemas read the same packaged
 configuration. Conversation-trace tests inject a mock sink and cover heard,
 generated, TTS-input, and playback events without enabling content logging by
 default.
-The browser-cache harness covers restore, 30-day leave-and-return expiry, media
+The browser-cache harness covers indefinite leave-and-return restoration, media
 preview retention, and explicit clear. Portal tests also disconnect a page
 mid-generation, prove the detached turn reaches a final state, replay it only
 to the originating session, and prove Trash removes the journal. Environment tests assert bounded output

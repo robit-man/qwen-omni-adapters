@@ -123,7 +123,7 @@ VOICE_CLIENT_FIELDS = {
 MAX_SPEAKER_REFERENCE_BYTES = 10 * 1024 * 1024
 MAX_INTERNAL_VIRTUAL_QUERY_CHARS = 1_200
 SESSION_COOKIE_NAME = "omni_portal_session"
-BROWSER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
+BROWSER_SESSION_COOKIE_MAX_AGE_SECONDS = 400 * 24 * 60 * 60
 DIAGNOSTIC_TTL_SECONDS = 5 * 60
 MAX_STREAM_NETWORK_RETRIES = 1
 INLINE_PREVIEW_MEDIA_TYPES = {
@@ -2014,7 +2014,7 @@ def create_app(
     ) / "browser-sessions"
     continuations = SessionContinuationStore(
         continuation_root,
-        ttl_s=BROWSER_SESSION_TTL_SECONDS,
+        ttl_s=None,
     )
     tool_harness = PortalToolHarness(
         documents,
@@ -2430,10 +2430,13 @@ def create_app(
         response.set_cookie(
             SESSION_COOKIE_NAME,
             browser_session,
-            max_age=BROWSER_SESSION_TTL_SECONDS,
+            max_age=BROWSER_SESSION_COOKIE_MAX_AGE_SECONDS,
             secure=True,
             httponly=True,
-            samesite="Strict",
+            # Lax retains the opaque session on a top-level revisit from a
+            # bookmark, launcher, or native app.  API mutations still require
+            # the bearer header, so the cookie is not an authorization token.
+            samesite="Lax",
             path="/",
         )
         return response
@@ -3031,6 +3034,7 @@ def create_app(
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
         detached_turn = payload.pop("portal_detached_turn", False) is True
         supplied_turn_id = str(payload.pop("portal_turn_id", "") or "").strip()
+        portal_display = str(payload.pop("portal_display", "") or "").strip()
         if detached_turn and not re.fullmatch(r"[A-Za-z0-9_-]{12,96}", supplied_turn_id):
             return jsonify({"error": "detached portal turn requires a valid turn ID"}), 400
         auto_tools = payload.pop("portal_auto_tools", False) is True
@@ -3146,7 +3150,7 @@ def create_app(
                     session_id,
                     supplied_turn_id,
                     request_id,
-                    _latest_user_context(raw_messages),
+                    portal_display or _latest_user_context(raw_messages),
                 )
             _record_media_diagnostics(
                 diagnostics, session_id, request_id, diagnostic_media_ids

@@ -88,8 +88,8 @@ For portal behavior, keep these routing facts straight:
   reach adapter v1.
 - Document indexes and diagnostics are separately isolated by the hashed opaque
   browser session and both clear with trash/expire after five idle minutes.
-- IndexedDB restores the same browser session after reload or page leave for up
-  to 30 days; trash deletes it immediately. Restored media is
+- IndexedDB restores the same browser session after reload or a returning visit
+  until explicit Trash; Trash deletes it immediately. Restored media is
   display-only and must not be submitted into a later request.
 - Call turns should answer intent rather than mirror the transcript. Media
   turns keep prior text context, but only the newest attachment is current

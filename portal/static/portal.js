@@ -364,6 +364,7 @@
     cacheSuppress: false,
     cacheDeleted: false,
     cacheTimer: null,
+    cacheRevision: 0,
     cacheWrite: Promise.resolve(),
     cacheErrorReported: false,
     serverSequence: 0,
@@ -450,7 +451,8 @@
 
   function browserSessionSnapshot() {
     return {
-      schema: "robit.omni.browser-session.v1",
+      schema: "robit.omni.browser-session.v2",
+      revision: ++state.cacheRevision,
       savedAt: Date.now(),
       history: state.history
         .filter(item => item && ["user", "assistant"].includes(item.role))
@@ -472,11 +474,24 @@
           audio: record.audio && record.audio.data ? { ...record.audio } : null,
           media: (record.media || []).map(item => mediaCacheValue(item)),
           error: Boolean(record.error),
+          streaming: Boolean(record.streaming),
+          hidden: Boolean(record.node.hidden),
+          stage: String(record.stage || ""),
           turnId: String(record.turnId || ""),
         })),
       attachments: state.attachments.map(item => mediaCacheValue(item, { pending: true })),
       draft: elements.prompt.value,
       serverSequence: state.serverSequence,
+      interface: {
+        autoFollowConversation: state.autoFollowConversation,
+        conversationScrollTop: elements.conversation.scrollTop,
+        composerStatus: elements.composerStatus.textContent,
+        composerStatusError: elements.composerStatus.classList.contains("error"),
+        speak: elements.speak.getAttribute("aria-pressed") === "true",
+        think: elements.think.getAttribute("aria-pressed") === "true",
+        tools: Boolean(elements.tools)
+          && elements.tools.getAttribute("aria-pressed") === "true",
+      },
     };
   }
 
@@ -495,6 +510,10 @@
   function scheduleBrowserSessionSave(delay = 350) {
     if (!state.cacheReady || state.cacheSuppress || !window.OmniSessionCache) return;
     state.cacheDeleted = false;
+    // Throttle rather than debounce.  A continuously streaming response must
+    // still reach IndexedDB at bounded intervals instead of waiting for the
+    // model to become quiet.
+    if (state.cacheTimer !== null && delay > 0) return;
     if (state.cacheTimer !== null) clearTimeout(state.cacheTimer);
     state.cacheTimer = setTimeout(() => {
       state.cacheTimer = null;
@@ -513,10 +532,7 @@
       state.cacheTimer = null;
     }
     const snapshot = browserSessionSnapshot();
-    enqueueCacheOperation(async () => {
-      await window.OmniSessionCache.save(state.cacheScope, snapshot);
-      await window.OmniSessionCache.markLeft(state.cacheScope);
-    });
+    enqueueCacheOperation(() => window.OmniSessionCache.save(state.cacheScope, snapshot));
   }
 
   function clearBrowserSessionCache() {
@@ -540,8 +556,12 @@
       console.warn("Could not restore browser session", error);
     }
     state.cacheSuppress = true;
-    if (snapshot && snapshot.schema === "robit.omni.browser-session.v1") {
+    if (snapshot && [
+      "robit.omni.browser-session.v1",
+      "robit.omni.browser-session.v2",
+    ].includes(snapshot.schema)) {
       state.cacheDeleted = false;
+      state.cacheRevision = Math.max(0, Number(snapshot.revision) || 0);
       state.history = Array.isArray(snapshot.history)
         ? snapshot.history
           .filter(item => item && ["user", "assistant"].includes(item.role))
@@ -554,7 +574,7 @@
       state.serverSequence = Math.max(0, Number(snapshot.serverSequence) || 0);
       for (const item of Array.isArray(snapshot.messages) ? snapshot.messages : []) {
         if (!item || !["user", "assistant"].includes(item.role)) continue;
-        addMessage({
+        const record = addMessage({
           role: item.role,
           content: String(item.content || ""),
           thinking: String(item.thinking || ""),
@@ -565,9 +585,12 @@
           audio: item.audio && item.audio.data ? item.audio : null,
           media: (Array.isArray(item.media) ? item.media : []).map(hydrateMediaValue),
           error: Boolean(item.error),
+          streaming: Boolean(item.streaming),
+          stage: String(item.stage || ""),
           autoplayAudio: false,
           turnId: String(item.turnId || ""),
         });
+        record.node.hidden = Boolean(item.hidden);
       }
       state.attachments = (Array.isArray(snapshot.attachments) ? snapshot.attachments : [])
         .filter(item => item && item.data)
@@ -575,12 +598,70 @@
       renderAttachments();
       elements.prompt.value = String(snapshot.draft || "").slice(0, 12_000);
       resizePrompt();
-      setComposerStatus("Session restored");
+      const interfaceState = snapshot.interface && typeof snapshot.interface === "object"
+        ? snapshot.interface
+        : {};
+      const restoreToggle = (element, enabled, onLabel, offLabel, onTitle, offTitle) => {
+        if (!element || typeof enabled !== "boolean") return;
+        element.setAttribute("aria-pressed", String(enabled));
+        element.setAttribute("aria-label", enabled ? onLabel : offLabel);
+        element.title = enabled ? onTitle : offTitle;
+      };
+      restoreToggle(
+        elements.speak,
+        interfaceState.speak,
+        "Disable spoken replies",
+        "Enable spoken replies",
+        "Spoken replies on",
+        "Spoken replies off",
+      );
+      restoreToggle(
+        elements.think,
+        interfaceState.think,
+        "Disable reasoning",
+        "Enable reasoning",
+        "Reasoning on",
+        "Reasoning off",
+      );
+      restoreToggle(
+        elements.tools,
+        interfaceState.tools,
+        "Disable tools",
+        "Enable tools",
+        "Tools on",
+        "Tools off",
+      );
+      state.autoFollowConversation = interfaceState.autoFollowConversation !== false;
+      const activeResponse = state.messages.some(record => (
+        record.role === "assistant" && record.streaming && record.turnId
+      ));
+      elements.send.disabled = activeResponse;
+      if (activeResponse) {
+        setComposerStatus("Reconnecting to active response…");
+      } else if (interfaceState.composerStatus) {
+        setComposerStatus(
+          String(interfaceState.composerStatus),
+          Boolean(interfaceState.composerStatusError),
+        );
+      } else {
+        setComposerStatus("Session restored");
+      }
+      requestAnimationFrame(() => {
+        if (state.autoFollowConversation) {
+          scrollConversationToBottom({ smooth: false, force: true });
+        } else {
+          elements.conversation.scrollTop = Math.max(
+            0,
+            Number(interfaceState.conversationScrollTop) || 0,
+          );
+          updateScrollLatestButton();
+        }
+      });
     }
     state.cacheSuppress = false;
     state.cacheReady = true;
     await window.OmniSessionCache.touch(state.cacheScope).catch(() => false);
-    scrollConversationToBottom({ smooth: false });
+    if (state.autoFollowConversation) scrollConversationToBottom({ smooth: false });
   }
 
   function valueContainsTaskId(value, taskId) {
@@ -646,13 +727,24 @@
         turnId,
       });
     } else {
+      const recoveredTranscript = String(turn.input_transcript || "");
       updateMessage(user, {
-        content: String(userState.content || user.content || ""),
+        // Existing local bubbles can carry a friendlier media label than the
+        // internal model prompt.  Only a recovered audio transcript is allowed
+        // to replace that already-rendered label.
+        content: recoveredTranscript || String(user.content || userState.content || ""),
         audioObservation: String(turn.audio_observation || user.audioObservation || ""),
         soundOnly: !turn.input_transcript && Boolean(turn.audio_observation),
       });
     }
     const failed = turn.status === "error";
+    const shouldRevealAssistant = Boolean(
+      failed
+      || turn.status === "complete"
+      || String(assistantState.content || "")
+      || String(assistantState.thinking || "")
+      || (Array.isArray(assistantState.tool_trace) && assistantState.tool_trace.length)
+    );
     if (!assistant) {
       assistant = addMessage({
         role: "assistant",
@@ -663,8 +755,10 @@
         toolTrace: assistantState.tool_trace || [],
         error: failed,
         streaming: turn.status === "running",
+        stage: String(turn.stage || ""),
         turnId,
       });
+      assistant.node.hidden = !shouldRevealAssistant;
     } else {
       assistant.error = failed;
       assistant.node.classList.toggle("error", failed);
@@ -675,29 +769,87 @@
         thinking: String(assistantState.thinking || ""),
         toolTrace: assistantState.tool_trace || [],
         streaming: turn.status === "running",
+        stage: String(turn.stage || ""),
       });
-      revealMessage(assistant);
+      if (shouldRevealAssistant) revealMessage(assistant);
+      else assistant.node.hidden = true;
     }
     upsertTurnHistory(turn);
     return true;
   }
 
-  async function syncSessionState() {
+  function settleMissingRestoredTurns(serverTurnIds) {
+    let changed = false;
+    for (const record of state.messages) {
+      if (
+        record.role !== "assistant"
+        || !record.streaming
+        || !record.turnId
+        || serverTurnIds.has(record.turnId)
+      ) continue;
+      const content = String(record.content || "").trim();
+      updateMessage(record, {
+        content: content || "Response interrupted before the server accepted the turn.",
+        streaming: false,
+      });
+      revealMessage(record);
+      record.node.classList.add("interrupted");
+      changed = true;
+    }
+    return changed;
+  }
+
+  function reconcileActiveResponseStatus() {
+    let activeRecord = null;
+    for (let index = state.messages.length - 1; index >= 0; index -= 1) {
+      const candidate = state.messages[index];
+      if (candidate.role === "assistant" && candidate.streaming && candidate.turnId) {
+        activeRecord = candidate;
+        break;
+      }
+    }
+    const activeResponse = Boolean(activeRecord);
+    if (!state.requestController) elements.send.disabled = activeResponse;
+    if (activeResponse && !state.requestController) {
+      const labels = {
+        queued: "Waiting to continue after reload…",
+        comprehension: "Understanding media after reload…",
+        language: activeRecord.thinking
+          ? "Reasoning continues after reload…"
+          : "Response continuing after reload…",
+        tts: "Preparing spoken reply after reload…",
+      };
+      setComposerStatus(labels[activeRecord.stage] || "Response continuing after reload…");
+    } else if (!activeResponse && !state.requestController
+      && elements.composerStatus.textContent.endsWith("after reload…")) {
+      setComposerStatus("Response restored");
+    }
+  }
+
+  async function syncSessionState({ full = false } = {}) {
     if (!state.token || !state.cacheReady || state.cacheDeleted || state.sessionSyncing) return;
     state.sessionSyncing = true;
     try {
-      const response = await fetch(`/api/session-state?after=${state.serverSequence}`, {
+      const after = full ? 0 : state.serverSequence;
+      const response = await fetch(`/api/session-state?after=${after}`, {
         headers: authHeaders(),
         cache: "no-store",
       });
       if (!response.ok) return;
       const data = await response.json();
       let changed = false;
-      for (const turn of Array.isArray(data.turns) ? data.turns : []) {
+      const turns = Array.isArray(data.turns) ? data.turns : [];
+      const serverTurnIds = new Set();
+      for (const turn of turns) {
+        if (turn && turn.turn_id) serverTurnIds.add(String(turn.turn_id));
         changed = applyServerTurn(turn) || changed;
+      }
+      if (full && !state.requestController) {
+        changed = settleMissingRestoredTurns(serverTurnIds) || changed;
       }
       changed = mergeBackgroundTaskUpdates(data.tasks) || changed;
       state.serverSequence = Math.max(state.serverSequence, Number(data.sequence) || 0);
+      reconcileActiveResponseStatus();
       if (changed) scheduleBrowserSessionSave(0);
     } catch (_error) {
       // A reconnect is opportunistic. The next activity tick retries it.
@@ -762,6 +914,7 @@
     state.conversationScrollGestureTimer = setTimeout(() => {
       state.conversationScrollGesture = false;
       state.conversationScrollGestureTimer = null;
+      scheduleBrowserSessionSave(0);
     }, 500);
   }
 
@@ -803,6 +956,7 @@
   function resumeConversationAutoFollow() {
     state.autoFollowConversation = true;
     scrollConversationToBottom({ smooth: false, force: true });
+    scheduleBrowserSessionSave(0);
   }
 
   const layoutResizeObserver = typeof window.ResizeObserver === "function"
@@ -1341,6 +1495,7 @@
     soundOnly,
     generationMetrics,
     audio,
+    stage,
     streaming = false,
     autoplayAudio = true,
   }) {
@@ -1377,6 +1532,7 @@
     if (generationMetrics !== undefined) {
       record.generationMetrics = normalizedGenerationMetrics(generationMetrics);
     }
+    if (stage !== undefined) record.stage = String(stage || "");
     record.node.classList.toggle("streaming", streaming);
     if (audio && audio.data && !record.node.querySelector(".audio-output audio")) {
       record.audio = { ...audio };
@@ -1392,7 +1548,7 @@
       || record.streaming
       || !record.content
     );
-    if (!streaming) scheduleBrowserSessionSave();
+    scheduleBrowserSessionSave(streaming ? 200 : 0);
     scrollConversationToBottom({ smooth: !streaming });
     return record;
   }
@@ -1525,6 +1681,7 @@
     media = [],
     error = false,
     streaming = false,
+    stage = "",
     autoplayAudio = true,
     turnId = "",
   }) {
@@ -1546,6 +1703,7 @@
       audio: null,
       media,
       streaming,
+      stage: String(stage || ""),
       playback: Promise.resolve(),
       turnId: String(turnId || ""),
     };
@@ -1562,6 +1720,7 @@
       soundOnly,
       generationMetrics,
       audio,
+      stage,
       streaming,
       autoplayAudio,
     });
@@ -1953,6 +2112,7 @@
         }
       }
       if (onEvent) onEvent(event);
+      scheduleBrowserSessionSave(event.type === "final" ? 0 : 200);
     };
     for (let attempt = 0; attempt <= 1; attempt += 1) {
       try {
@@ -3816,6 +3976,7 @@
     const turnId = newPortalTurnId();
     built.payload.portal_turn_id = turnId;
     built.payload.portal_detached_turn = true;
+    built.payload.portal_display = built.display;
     const requestSequence = ++state.requestSequence;
     if (state.call) supersedeCallAudio(state.call, state.call.nextSequence);
     stopCurrentPlayback();
@@ -3838,7 +3999,7 @@
         : (built.wantsThinking ? "Reasoning…" : "Replying…"),
     );
     const assistant = addMessage({
-      role: "assistant", content: "", streaming: true, turnId,
+      role: "assistant", content: "", streaming: true, turnId, stage: "queued",
     });
     assistant.node.hidden = true;
     let streamedContent = "";
@@ -3938,6 +4099,7 @@
               thinking: "",
               toolTrace: activeToolTrace,
               streaming: true,
+              stage: "queued",
             });
             setComposerStatus("Retrying interrupted model stream…");
           } else if (event.type === "delta") {
@@ -3965,6 +4127,7 @@
               language: built.wantsThinking ? "Reasoning…" : "Replying…",
               tts: "Preparing spoken reply…",
             };
+            updateMessage(assistant, { streaming: true, stage: event.stage });
             setComposerStatus(labels[event.stage] || "Working…");
           } else if (event.type === "tool") {
             activeToolTrace = mergeToolTrace(activeToolTrace, event);
@@ -4009,6 +4172,7 @@
         generationMetrics: generationMetricsFromResponse(data),
         audio: reply.audio,
         streaming: false,
+        stage: "complete",
         autoplayAudio: !streamedAudio,
       });
       recordTurnHistory(String(reply.content || ""));
@@ -4278,6 +4442,7 @@
     elements.speak.title = `Spoken replies ${enabled ? "on" : "off"}`;
     setComposerStatus(enabled ? "Spoken replies on" : "Text replies only");
     if (enabled) unlockPlayback();
+    scheduleBrowserSessionSave(0);
   });
   elements.think.addEventListener("click", () => {
     const enabled = elements.think.getAttribute("aria-pressed") !== "true";
@@ -4285,6 +4450,7 @@
     elements.think.setAttribute("aria-label", `${enabled ? "Disable" : "Enable"} reasoning`);
     elements.think.title = `Reasoning ${enabled ? "on" : "off"}`;
     setComposerStatus(enabled ? "Reasoning on" : "Reasoning off");
+    scheduleBrowserSessionSave(0);
   });
   if (elements.tools) {
     elements.tools.addEventListener("click", () => {
@@ -4295,6 +4461,7 @@
       elements.tools.title = `Tools ${enabled ? "on" : "off"}`;
       setComposerStatus(enabled ? "Tools on" : "Tools off");
       if (enabled) void clientLocationForTools();
+      scheduleBrowserSessionSave(0);
     });
   }
   elements.callButton.addEventListener("click", () => {
@@ -4315,7 +4482,7 @@
   elements.scrollLatest.addEventListener("click", resumeConversationAutoFollow);
 
   elements.prompt.addEventListener("keydown", event => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
       send().catch(showError);
     }
@@ -4354,6 +4521,7 @@
   }
 
   window.addEventListener("beforeunload", () => {
+    persistBrowserSessionOnLeave();
     if (layoutResizeObserver) layoutResizeObserver.disconnect();
     stopCameraPolling();
     if (state.cameraModal?.animationFrame) cancelAnimationFrame(state.cameraModal.animationFrame);
@@ -4374,7 +4542,11 @@
     reportDiagnostic("page_leave");
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) persistBrowserSessionOnLeave();
+    if (document.hidden) {
+      persistBrowserSessionOnLeave();
+    } else {
+      syncSessionState({ full: true }).catch(() => {});
+    }
   });
 
   async function initializePortal() {
@@ -4382,7 +4554,7 @@
     applyVoiceDefaults();
     await restoreBrowserSession();
     if (!state.token) showError(new Error("This link is missing its access fragment"));
-    await syncSessionState();
+    await syncSessionState({ full: true });
     refreshStatus();
     refreshActivity();
     setInterval(refreshActivity, 2_000);

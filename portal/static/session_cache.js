@@ -1,7 +1,6 @@
 (() => {
   "use strict";
 
-  const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const DATABASE_NAME = "robit-omni-portal";
   const STORE_NAME = "sessions";
 
@@ -53,9 +52,8 @@
     };
   }
 
-  function createSessionCache({ storage, now, ttlMs, indexedDB } = {}) {
+  function createSessionCache({ storage, now, indexedDB } = {}) {
     const clock = typeof now === "function" ? now : () => Date.now();
-    const lifetime = Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : DEFAULT_TTL_MS;
     const backend = storage || (
       indexedDB
         ? indexedDbStorage(indexedDB)
@@ -70,14 +68,10 @@
       const key = scopeKey(scope);
       const record = await backend.get(key);
       if (!record) return null;
-      if (!Number.isFinite(record.expiresAt) || record.expiresAt <= clock()) {
-        await backend.delete(key);
-        return null;
-      }
       return record;
     };
     return {
-      ttlMs: lifetime,
+      retention: "explicit-clear",
       async load(scope) {
         const record = await validRecord(scope);
         return record ? record.snapshot : null;
@@ -90,7 +84,6 @@
           snapshot,
           touchedAt: timestamp,
           leftAt: null,
-          expiresAt: timestamp + lifetime,
         });
       },
       async touch(scope) {
@@ -99,7 +92,6 @@
         const timestamp = clock();
         record.touchedAt = timestamp;
         record.leftAt = null;
-        record.expiresAt = timestamp + lifetime;
         await backend.put(record);
         return true;
       },
@@ -108,7 +100,6 @@
         if (!record) return false;
         const timestamp = clock();
         record.leftAt = timestamp;
-        record.expiresAt = timestamp + lifetime;
         await backend.put(record);
         return true;
       },
@@ -120,7 +111,6 @@
 
   const root = typeof window === "object" ? window : globalThis;
   root.OmniSessionCacheFactory = Object.freeze({
-    DEFAULT_TTL_MS,
     createSessionCache,
     memoryStorage,
   });

@@ -9,11 +9,13 @@
       const scope = "omni-session-cache-browser-harness";
       if (action === "write") {
         await window.OmniSessionCache.save(scope, {
-          schema: "robit.omni.browser-session.v1",
+          schema: "robit.omni.browser-session.v2",
+          revision: 1,
           history: [{ role: "user", content: "reload survives" }],
           messages: [{
             role: "user",
             content: "reload survives",
+            streaming: true,
             media: [{ kind: "video", mime: "video/webm", data: "AAAA" }],
           }],
         });

@@ -21,18 +21,15 @@ async function main() {
 
   now += 120_000;
   await cache.markLeft(scope);
-  now += 7 * 24 * 60 * 60 * 1000;
+  now += 10 * 365 * 24 * 60 * 60 * 1000;
   assert.equal((await cache.load(scope)).messages[0].media[0].kind, "video");
-  now += cache.ttlMs - (7 * 24 * 60 * 60 * 1000) - 1;
-  assert.equal((await cache.load(scope)).history[0].content, "remember this");
-  now += 2;
-  assert.equal(await cache.load(scope), null);
+  assert.equal(cache.retention, "explicit-clear");
 
   await cache.save(scope, { history: [{ role: "assistant", content: "new" }] });
   await cache.clear(scope);
   assert.equal(await cache.load(scope), null);
 
-  console.log(JSON.stringify({ status: "passed", ttl_ms: cache.ttlMs }));
+  console.log(JSON.stringify({ status: "passed", retention: cache.retention }));
 }
 
 main().catch(error => {

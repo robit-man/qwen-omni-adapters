@@ -97,10 +97,10 @@ def _merge_tools(current: list[dict[str, Any]], incoming: Any) -> list[dict[str,
 class SessionContinuationStore:
     """Crash-safe bounded turn journal keyed by the opaque portal cookie."""
 
-    def __init__(self, directory: Path, ttl_s: float) -> None:
+    def __init__(self, directory: Path, ttl_s: float | None = None) -> None:
         self.directory = directory.expanduser().resolve()
         self.directory.mkdir(parents=True, exist_ok=True)
-        self.ttl_s = max(60.0, float(ttl_s))
+        self.ttl_s = None if ttl_s is None else max(60.0, float(ttl_s))
         self._lock = threading.RLock()
         self._records: dict[str, dict[str, Any]] = {}
         self._last_persist: dict[str, float] = {}
@@ -131,7 +131,10 @@ class SessionContinuationStore:
             value = self._empty()
         if not isinstance(value, dict) or value.get("schema") != self._empty()["schema"]:
             value = self._empty()
-        if time.time() - float(value.get("updated_at") or 0) > self.ttl_s:
+        if (
+            self.ttl_s is not None
+            and time.time() - float(value.get("updated_at") or 0) > self.ttl_s
+        ):
             path.unlink(missing_ok=True)
             value = self._empty()
         value["turns"] = [

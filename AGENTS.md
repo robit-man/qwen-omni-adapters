@@ -57,11 +57,12 @@ editing the controller during every difficult trajectory.
 - Only the newest attached media is current perceptual evidence. Bounded prior
   text dialogue remains available for conversational continuity; cached media
   previews and prior descriptions must never be replayed as new attachments.
-- Browser session state is isolated in cookie-scoped IndexedDB, survives page
-  leave for 30 days, and is deleted by trash. Restored media is
-  display-only. Ordinary submitted turns use a detached, sequence-numbered,
-  hashed-cookie continuation journal; live-call streams remain cancelable for
-  verbal interruption.
+- Browser session state is isolated in cookie-scoped IndexedDB and survives
+  reloads and returning visits until the user explicitly presses Trash.
+  Restored media is display-only. Ordinary submitted turns use a detached,
+  sequence-numbered, hashed-cookie continuation journal; reload reconciliation
+  starts from a full authoritative snapshot and then merges newer updates while
+  live-call streams remain cancelable for verbal interruption.
 - Portal web/document/memory tools are a server-pinned, explicit-opt-in
   allowlist. Preserve the no-key DuckDuckGo HTML discovery path derived from
   Omnius, public-only fetch validation and receipts, untrusted-result labels,

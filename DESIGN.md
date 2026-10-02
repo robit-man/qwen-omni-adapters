@@ -98,7 +98,7 @@ Icon buttons use the shared 38px control and an accessible name; important camer
 
 ### Navigation and data display
 
-The top rail owns global session actions. The conversation owns vertical scrolling. Camera source discovery is an anchored source deck: two explicit origins first, then camera choices with truthful live/placeholder states. No camera activates merely because the page loaded.
+The top rail owns global session actions. The conversation owns vertical scrolling. Reload and returning visits restore the same conversation, partial response, composer draft, attachments, and scroll-follow state; only the explicit Trash action represents deletion. Camera source discovery is an anchored source deck: two explicit origins first, then camera choices with truthful live/placeholder states. No camera activates merely because the page loaded.
 
 ### Forms and overlays
 

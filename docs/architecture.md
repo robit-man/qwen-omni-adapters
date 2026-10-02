@@ -95,10 +95,11 @@ The adapter is stateless between HTTP requests. Each request owns its parsed
 media bytes, stage outputs, tools, voice settings, cancellation, and response
 stream. The portal keeps each browser's text history and rendered state in a
 same-origin IndexedDB record keyed by a one-way cookie-derived scope. Reloads
-restore that record, page leave retains it for 30 days, and trash deletes
-it immediately. Ordinary submitted turns continue in a detached server relay;
+restore that record, returning visits retain it until explicit Trash, and Trash
+deletes it immediately. Ordinary submitted turns continue in a detached server relay;
 a bounded hashed-cookie journal retains their latest text and tool state with
-monotonic sequence numbers so a returning page can merge only newer updates.
+monotonic sequence numbers so a returning page can reconcile the complete
+current turn set before merging only newer updates.
 Live-call streams remain client-cancelable for barge-in. Cached media is
 display-only and cannot silently become new model input. The optional document index uses the same isolation boundary,
 bounded in memory, cleared by trash, and expired after disconnect. Raw

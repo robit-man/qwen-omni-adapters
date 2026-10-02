@@ -190,9 +190,11 @@ used as conversation state.
 
 Conversation history, rendered messages, reply audio, drafts, and bounded media
 previews live in same-origin IndexedDB under a one-way cookie-derived scope.
-Reload or a returning visit restores them without re-sending old media. Page
-leave persists them for 30 days, and trash deletes browser cache, documents,
-and diagnostics immediately.
+Reload or a returning visit restores them without re-sending old media. Active
+streaming and reasoning turns are checkpointed and reconciled with the detached
+server journal before incremental updates resume. Page leave retains them until
+the user explicitly presses Trash, which deletes browser cache, documents, and
+diagnostics immediately.
 
 Ordinary turns receive a compact stable behavioral policy rather than a
 telemetry dump. With tools explicitly enabled, `get_system_snapshot` samples a
@@ -520,14 +522,16 @@ media base64 or the access token.
   responses, streaming iterators, voice settings, and tool rounds are
   request-local.
 - Conversation history is browser-session-local. IndexedDB restores it after
-  reload or page leave for up to 30 days. Ordinary submitted turns continue in
-  a detached relay and write bounded text/tool snapshots to a hashed-cookie
-  server journal. Reconnect merges only sequence numbers newer than the local
-  snapshot; live-call streams stay cancelable for barge-in. Cached media is
+  reload or a returning visit until explicit Trash. Ordinary submitted turns
+  continue in a detached relay and write bounded text/tool snapshots to a
+  hashed-cookie server journal. Reconnect first reconciles the complete current
+  turn set and then merges only sequence numbers newer than the local snapshot;
+  live-call streams stay cancelable for barge-in. Cached media is
   display-only and never enters that journal or replays into inference.
-- A random, Secure, HttpOnly, SameSite=Strict cookie partitions the aggregate
+- A random, Secure, HttpOnly, SameSite=Lax cookie partitions the aggregate
   activity count and ephemeral diagnostic journal. It is never supplied to a
-  model or used to recover conversation context. `/api/activity` exposes only
+  model or used as authorization; Lax retains it on top-level bookmark and
+  launcher revisits. `/api/activity` exposes only
   aggregate counts and requires the same bearer token as inference.
 - Per-session diagnostics contain request IDs, modality/tool-enable flags,
   request-local media digests, tool names/rounds/success states, queue/transport

@@ -42,6 +42,7 @@ from portal.browser import (
 from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
 from portal.documents import SessionDocumentStore, extract_document
 from portal.gui import GuiAutomation, GuiAutomationError
+from portal.session_state import SessionContinuationStore
 from portal.tools import (
     DISCOVERY_TOOLS,
     SAFE_TOOLS,
@@ -2001,8 +2002,8 @@ def test_portal_index_has_mobile_security_headers_and_no_token() -> None:
     assert "omni_portal_session=" in cookie
     assert "Secure" in cookie
     assert "HttpOnly" in cookie
-    assert "SameSite=Strict" in cookie
-    assert "Max-Age=2592000" in cookie
+    assert "SameSite=Lax" in cookie
+    assert "Max-Age=34560000" in cookie
 
     asset = client.get("/assets/portal.js")
     assert asset.status_code == 200
@@ -2198,20 +2199,25 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert "function persistBrowserSessionOnLeave" in javascript
     assert "function syncSessionState" in javascript
     assert "function applyServerTurn" in javascript
+    assert "function settleMissingRestoredTurns" in javascript
+    assert "syncSessionState({ full: true })" in javascript
     assert "portal_detached_turn = true" in javascript
     assert "setInterval(syncSessionState, 2_000)" in javascript
     assert 'document.addEventListener("visibilitychange"' in javascript
-    assert "if (document.hidden) persistBrowserSessionOnLeave();" in javascript
+    assert "persistBrowserSessionOnLeave();" in javascript
     assert "function clearBrowserSessionCache" in javascript
     assert "window.OmniSessionCache.clear(state.cacheScope)" in javascript
     assert "state.cacheDeleted = true" in javascript
     assert "!state.cacheDeleted" in javascript
     assert "robit.omni.browser-session.v1" in javascript
+    assert "robit.omni.browser-session.v2" in javascript
+    assert "streaming: Boolean(record.streaming)" in javascript
+    assert "scheduleBrowserSessionSave(streaming ? 200 : 0)" in javascript
     assert 'transientComposerStatus("Press and hold to record voice clip")' in javascript
     assert 'throw new Error("The microphone clip contained no samples")' not in javascript
 
 
-def test_browser_session_cache_harness_restores_expires_and_clears() -> None:
+def test_browser_session_cache_harness_restores_until_explicit_clear() -> None:
     completed = subprocess.run(
         ["node", "portal/session_cache_harness.mjs"],
         check=True,
@@ -2220,7 +2226,7 @@ def test_browser_session_cache_harness_restores_expires_and_clears() -> None:
     )
 
     result = json.loads(completed.stdout)
-    assert result == {"status": "passed", "ttl_ms": 2_592_000_000}
+    assert result == {"status": "passed", "retention": "explicit-clear"}
 
 
 def test_mock_call_vad_harness_rejects_noise_and_accepts_confirmed_events() -> None:
@@ -6209,6 +6215,7 @@ def test_detached_portal_turn_survives_page_disconnect_and_replays_once(
             stream=True,
             portal_turn_id="turn_disconnect_1234",
             portal_detached_turn=True,
+            portal_display="Video clip",
         ),
         buffered=False,
     )
@@ -6227,6 +6234,8 @@ def test_detached_portal_turn_survives_page_disconnect_and_replays_once(
 
     assert seen and "portal_turn_id" not in seen[0]
     assert "portal_detached_turn" not in seen[0]
+    assert "portal_display" not in seen[0]
+    assert state["turns"][0]["user"]["content"] == "Video clip"
     assert state["turns"][0]["assistant"]["content"] == (
         "Finished while the page was away."
     )
@@ -6242,6 +6251,23 @@ def test_detached_portal_turn_survives_page_disconnect_and_replays_once(
     assert browser.get(
         "/api/session-state?after=0", headers=headers
     ).get_json()["turns"] == []
+
+
+def test_browser_continuation_survives_until_explicit_clear(tmp_path: Path) -> None:
+    root = tmp_path / "browser-sessions"
+    store = SessionContinuationStore(root, ttl_s=None)
+    store.begin("session-123456789", "turn-123456789", "request", "Keep this")
+
+    journal = next(root.glob("*.json"))
+    payload = json.loads(journal.read_text())
+    payload["updated_at"] = 1
+    journal.write_text(json.dumps(payload))
+
+    restored = SessionContinuationStore(root, ttl_s=None)
+    assert restored.snapshot("session-123456789")["turns"][0]["user"]["content"] == "Keep this"
+
+    restored.clear("session-123456789")
+    assert restored.snapshot("session-123456789")["turns"] == []
 
 
 def test_portal_stream_tool_chain_has_no_legacy_fifty_call_cap() -> None:

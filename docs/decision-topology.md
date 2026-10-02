@@ -120,7 +120,7 @@ tool step, or service event as noted.
 | Decide whether Laya itself may load | config + memory admission + platform device facts | startup | A/E | No | critical | Degrade to existing behavior when unavailable |
 | TTS profile reuse/reset | exact profile key and worker protocol | <1 ms/request plus synthesis | A | No | high | Preserve fresh decoded state and resident weights where possible |
 | Split TTS synthesis blocks | punctuation/contract bounds | <1 ms/reply | A | No | medium | It is transport framing, not response-length policy |
-| Browser/UI session expiry and Trash | cookie-scoped TTL and explicit clear | timer/local I/O | A/E | No | high | Never probabilistically delete |
+| Browser/UI session retention and Trash | cookie-scoped durable state and explicit clear | local I/O | A/E | No | high | Trash is the only product action that deletes conversation state |
 
 ## Proposed decision waves
 

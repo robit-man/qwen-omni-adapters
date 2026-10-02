@@ -876,11 +876,12 @@ separate so environmental sounds are never misrouted as the user's words.
   phone UI. No hosted search API is used.
 - Same-origin IndexedDB restores messages, drafts, pending attachments, reply
   audio, and bounded image/video previews after reload. It is keyed by a
-  one-way cookie-derived scope, survives page leave for 30 days, and
-  is deleted immediately by trash. Restored media is display-only and is never
+  one-way cookie-derived scope, persists until the user explicitly presses
+  Trash, and is deleted immediately by that action. Restored media is display-only and is never
   submitted automatically. Ordinary submitted turns continue in a detached
   relay and publish bounded text/tool snapshots to a hashed-cookie continuation
-  journal; reconnect merges newer sequence numbers exactly once. Live-call
+  journal; reconnect first reconciles the full authoritative turn set, then
+  merges newer sequence numbers exactly once. Live-call
   inference remains cancelable for verbal interruption. The document index
   follows the same session partition and expiry policy.
 - Long speech is split before the per-generation codec-frame ceiling, streamed

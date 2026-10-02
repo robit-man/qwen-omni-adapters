@@ -183,14 +183,15 @@ to that source rather than described as something the assistant sees.
 Same-origin IndexedDB persists rendered messages, text context, drafts, reply
 audio, pending attachments, and bounded media previews across reload. Its key
 contains a one-way scope derived from the Secure cookie. Active pages and
-returning visits renew a 30-day lease; page leave persists the latest snapshot,
-and trash deletes browser cache, document index, and diagnostics immediately.
+returning visits retain the snapshot until an explicit Trash action; page leave
+persists the latest snapshot, and Trash deletes browser cache, document index,
+and diagnostics immediately.
 Restored media is display-only and never enters a new request automatically.
 Ordinary submitted turns use stable IDs and a detached server relay. A returning
-page requests sequence-numbered model/tool updates newer than its IndexedDB
-snapshot, merges them once, and continues polling associated background-task
-state. Live-call streams are deliberately excluded so speech barge-in still
-cancels obsolete inference.
+page first reconciles the complete authoritative turn set, then requests and
+merges only newer sequence-numbered model/tool updates while continuing to poll
+associated background-task state. Live-call streams are deliberately excluded
+so speech barge-in still cancels obsolete inference.
 
 Each request receives a compact stable behavioral policy, not an eager runtime
 snapshot. With tools enabled, `get_system_snapshot` explicitly samples current
@@ -215,12 +216,14 @@ voice overrides, tool rounds, and responses remain request-local. Conversation
 presentation history exists in each session-scoped IndexedDB record. The server
 keeps only a bounded text/tool continuation journal under a hashed session key;
 it never retains media and cannot be read from another browser session. Both
-records survive page leave for 30 days and trash removes them immediately. The optional in-memory document
+records survive returning visits until Trash removes them immediately. The optional in-memory document
 index is keyed by the hashed opaque session cookie, has independent bounds and
 expiry, and is never searched across sessions.
 
-A Secure, HttpOnly, SameSite=Strict cookie provides an opaque partition key for
-the aggregate count and ephemeral diagnostics. `/api/activity` exposes only
+A Secure, HttpOnly, SameSite=Lax cookie provides an opaque partition key for
+the aggregate count and ephemeral diagnostics. Lax preserves the partition on
+top-level bookmark/launcher revisits; authorization still requires the bearer
+header. `/api/activity` exposes only
 aggregate queue counts. `GET /api/diagnostics` returns only the caller's timing
 journal; `POST /api/diagnostics` accepts the browser's content-redacted stream
 milestones; `DELETE /api/diagnostics` deletes only that journal. All require the
