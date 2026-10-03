@@ -1586,6 +1586,7 @@ def test_speaker_lets_pulse_keep_one_continuous_adaptive_stream(monkeypatch) -> 
 
     assert not any(argument.startswith("--latency-msec=") for argument in command)
     assert not any(argument.startswith("--process-time-msec=") for argument in command)
+    assert "--volume=65536" in command
     assert "--stream-name=Omni conversational voice" in command
     assert len(processes) == 1
     assert processes[0].stdin.getvalue() == first + second
@@ -1679,6 +1680,28 @@ def test_pulse_stream_fallback_fails_closed_when_ambiguous(monkeypatch) -> None:
     )
 
     assert SpeakerStream._find_sink_input(Process()) is None  # type: ignore[arg-type]
+
+
+def test_pulse_duck_uses_unambiguous_raw_linear_volume(monkeypatch) -> None:
+    class Process:
+        def poll(self):
+            return None
+
+    commands: list[list[str]] = []
+
+    def run(command, **_kwargs):
+        commands.append(command)
+        return type("Completed", (), {"returncode": 0})()
+
+    speaker = SpeakerStream()
+    speaker._process = Process()  # type: ignore[assignment]
+    speaker._sink_input = "77"
+    monkeypatch.setattr("harness.audio.subprocess.run", run)
+
+    assert speaker._set_gain(0.28)
+    assert commands == [
+        ["pactl", "set-sink-input-volume", "77", "18350"]
+    ]
 
 
 def test_finish_preserves_a_live_interruption_pause() -> None:

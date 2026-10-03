@@ -69,6 +69,8 @@ editing the controller during every difficult trajectory.
   After the speaker stops, keep the unfinished reply paused through a bounded
   perception-only transcript check: intelligible non-echo speech yields and is
   queued as the next turn; empty or playback-echo capture resumes the reply.
+  Pulse stream fades use raw linear volume units: fractional percentage strings
+  are parsed as positive decibels on the deployed PulseAudio build.
 - Portal web/document/memory tools are a server-pinned, explicit-opt-in
   allowlist. Preserve the no-key DuckDuckGo HTML discovery path derived from
   Omnius, public-only fetch validation and receipts, untrusted-result labels,

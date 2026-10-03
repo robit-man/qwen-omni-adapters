@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 CAPTURE_RATE_HZ = 16_000
 PLAYBACK_RATE_HZ = 24_000
 PLAYBACK_STREAM_NAME = "Omni conversational voice"
+PULSE_NORMAL_VOLUME = 65_536
 
 
 def require_tools() -> None:
@@ -237,6 +238,7 @@ class SpeakerStream:
             "--format=s16le",
             f"--rate={self.rate_hz}",
             "--channels=1",
+            f"--volume={PULSE_NORMAL_VOLUME}",
             f"--stream-name={PLAYBACK_STREAM_NAME}",
         ]
         if self.device:
@@ -436,7 +438,10 @@ class SpeakerStream:
                     "pactl",
                     "set-sink-input-volume",
                     sink_input,
-                    f"{value * 100:.1f}%",
+                    # This pactl/Pulse build parses fractional strings such as
+                    # ``28.0%`` as +28 dB, turning a duck into amplification.
+                    # Raw pa_volume_t units are unambiguous and linear.
+                    str(round(value * PULSE_NORMAL_VOLUME)),
                 ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
