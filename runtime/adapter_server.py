@@ -1707,6 +1707,13 @@ def build_language_payload(
                 if isinstance(tool, Mapping)
                 and isinstance(tool.get("function"), Mapping)
             }
+            # The physical-camera bridge is request-scoped capability, not a
+            # generally discoverable server tool. The portal supplies it only
+            # when the embodied client can capture a follow-up frame, so keep
+            # that exact bridge beside the bounded discovery gateways. If it
+            # is discarded here, the language model sees no camera schema and
+            # can only answer that the live conversation has no camera tool.
+            request_bridges = supplied & {"request_camera_view"}
             selected: set[str]
             if decision_tool_names:
                 selected = {
@@ -1729,7 +1736,7 @@ def build_language_payload(
             # ``background_task``.  Dropping that gateway here strands the
             # model after a correct tool_search(shell) decision with no
             # executable transition.
-            keep = set(selected) | gateways
+            keep = set(selected) | gateways | request_bridges
             if any(kind in {"image", "video"} for kind in parsed.input_modalities):
                 # A fresh visual attachment fulfills the bridge request. Do
                 # not let the answer pass ask for another capture instead of
