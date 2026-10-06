@@ -233,10 +233,12 @@ def test_live_addressee_gate_uses_identity_and_contrastive_semantics(
         messages[index]["content"]: messages[index + 1]["content"]
         for index in range(1, len(messages) - 1, 2)
     }
-    assert examples["Jordan what time is it?"] == "OTHER"
-    assert examples["Jordan is calling what now?"] == "AMBIGUOUS"
-    assert examples["Python explain this error."] == "AMBIGUOUS"
-    assert examples["workshop-unit what time is it?"] == "SELF"
+    assert examples["Jordan what time is it?"] == "OTHER|SYSTEM"
+    assert examples["Jordan is calling what now?"] == "AMBIGUOUS|NONE"
+    assert examples["Python explain this error."] == "AMBIGUOUS|NONE"
+    assert examples["workshop-unit what time is it?"] == "SELF|SYSTEM"
+    assert examples["What can you see through the camera?"] == "AMBIGUOUS|CAMERA"
+    assert "CAMERA means fresh physical evidence" in messages[0]["content"]
 
 
 @pytest.mark.parametrize(
@@ -2635,8 +2637,10 @@ def test_live_camera_request_exposes_a_required_relevant_tool_contract() -> None
 
 def test_live_camera_refusal_is_hidden_and_retried_as_a_native_tool_call() -> None:
     language_requests: list[dict] = []
+    requested_hosts: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
+        requested_hosts.append(str(request.url.host))
         if request.url.host == "comprehension":
             return httpx.Response(
                 200,
@@ -2657,10 +2661,29 @@ def test_live_camera_refusal_is_hidden_and_retried_as_a_native_tool_call() -> No
             )
         if request.url.host == "language":
             body = json.loads(request.content)
+            if "route live ASR turns" in body["messages"][0]["content"]:
+                assert "tools" not in body
+                return httpx.Response(
+                    200,
+                    json={
+                        "message": {
+                            "role": "assistant",
+                            "content": "AMBIGUOUS|CAMERA",
+                        },
+                        "done": True,
+                    },
+                )
             language_requests.append(body)
-            assert [item["function"]["name"] for item in body["tools"]] == [
-                "request_camera_view"
-            ]
+            assert {
+                item["function"]["name"] for item in body["tools"]
+            } == {
+                "tool_search",
+                "request_camera_view",
+                "shell",
+                "system_applications",
+                "background_task",
+            }
+            assert body["tool_choice"] == "required"
             if len(language_requests) == 1:
                 assert body["stream"] is True
                 return httpx.Response(
@@ -2691,11 +2714,6 @@ def test_live_camera_refusal_is_hidden_and_retried_as_a_native_tool_call() -> No
             )
         raise AssertionError(f"unexpected backend {request.url.host}")
 
-    camera_schema = next(
-        entry["schema"]
-        for entry in configured_tools()
-        if entry["schema"]["function"]["name"] == "request_camera_view"
-    )
     parsed = parse_adapter_request(
         _base_request(
             messages=[
@@ -2711,7 +2729,7 @@ def test_live_camera_refusal_is_hidden_and_retried_as_a_native_tool_call() -> No
                 "require_speech": True,
                 "tool_routing": "relevant",
             },
-            tools=[camera_schema],
+            tools=[entry["schema"] for entry in configured_tools()],
             response_modalities=["text", "audio"],
             speech_mode="always",
             think=False,
@@ -2722,7 +2740,7 @@ def test_live_camera_refusal_is_hidden_and_retried_as_a_native_tool_call() -> No
         json.loads(chunk)
         for chunk in execute_stream(
             parsed,
-            _adapter_config(),
+            _adapter_config(live_addressee_gate=True),
             httpx.Client(transport=httpx.MockTransport(handler)),
         )
     ]
@@ -2740,6 +2758,12 @@ def test_live_camera_refusal_is_hidden_and_retried_as_a_native_tool_call() -> No
     }
     assert "audio" not in final["message"]
     assert len(language_requests) == 2
+    assert requested_hosts == [
+        "comprehension",
+        "language",
+        "language",
+        "language",
+    ]
 
 
 def test_fresh_visual_evidence_cannot_request_the_same_camera_bridge_again() -> None:

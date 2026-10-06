@@ -40,6 +40,7 @@ from qwen_omni_adapters.audio import (
     encode_audio_response,
 )
 from qwen_omni_adapters.context import (
+    configured_tool_families,
     context_text,
     retained_tool_names,
     runtime_agent_name,
@@ -453,23 +454,58 @@ def _is_live_spoken_turn(parsed: ParsedAdapterRequest) -> bool:
     return parsed.task == "chat" and parsed.require_speech
 
 
+_LIVE_TOOL_FAMILIES = configured_tool_families()
+_LIVE_TOOL_FAMILY_VALUES = {"none", *_LIVE_TOOL_FAMILIES}
+_LIVE_TOOL_FAMILY_CHOICES = "; ".join(
+    f"{name.upper()}={definition['choice']}"
+    for name, definition in _LIVE_TOOL_FAMILIES.items()
+)
 _LIVE_ADDRESSEE_SYSTEM = (
     "You route live ASR turns for the agent named {agent_name}. Output exactly "
-    "SELF, OTHER, or AMBIGUOUS and nothing else. OTHER only for grammatical "
+    "ADDRESSEE|FAMILY and nothing else. ADDRESSEE is SELF, OTHER, or AMBIGUOUS. "
+    "OTHER only for grammatical "
     "direct address to a different human. SELF only for direct address to "
     "{agent_name}. A name used as a subject or object, a topic, product, "
     "technology word, interjection, or speech with no explicit addressee is "
-    "AMBIGUOUS. ASR often omits vocative commas."
+    "AMBIGUOUS. ASR often omits vocative commas. FAMILY is NONE when a natural "
+    "spoken answer needs no action or fresh evidence. Otherwise select the one "
+    "capability family needed next: {tool_family_choices}. CAMERA means fresh "
+    "physical evidence from this embodied client's cameras, including direct "
+    "requests to look at, see, inspect, or describe the current scene. Select a "
+    "family when the user requests its outcome; never replace an available "
+    "capability with a disclaimer. This classifies need only and does not "
+    "authorize an action."
 )
 _LIVE_ADDRESSEE_EXAMPLES = (
-    ("Jordan what time is it?", "OTHER"),
-    ("{agent_name} what time is it?", "SELF"),
-    ("Jordan is calling what now?", "AMBIGUOUS"),
-    ("Python explain this error.", "AMBIGUOUS"),
-    ("Actually tell me the result.", "AMBIGUOUS"),
-    ("What time is it?", "AMBIGUOUS"),
+    ("Jordan what time is it?", "OTHER|SYSTEM"),
+    ("{agent_name} what time is it?", "SELF|SYSTEM"),
+    ("Jordan is calling what now?", "AMBIGUOUS|NONE"),
+    ("Python explain this error.", "AMBIGUOUS|NONE"),
+    ("Actually tell me the result.", "AMBIGUOUS|NONE"),
+    ("What can you see through the camera?", "AMBIGUOUS|CAMERA"),
+    ("Open the rendered browser and click the first result.", "AMBIGUOUS|BROWSER"),
+    ("What is two plus three?", "AMBIGUOUS|NONE"),
 )
 _LIVE_ADDRESSEE_VALUES = {"SELF", "OTHER", "AMBIGUOUS"}
+
+
+@dataclass(frozen=True)
+class _LiveTurnRoute:
+    addressee: str = "AMBIGUOUS"
+    tool_family: str = "none"
+
+    @property
+    def tool_names(self) -> tuple[str, ...] | None:
+        if self.tool_family == "none":
+            return None
+        definition = _LIVE_TOOL_FAMILIES.get(self.tool_family)
+        if not isinstance(definition, Mapping):
+            return None
+        tools = definition.get("tools")
+        if not isinstance(tools, list):
+            return None
+        names = tuple(str(name) for name in tools if str(name))
+        return names or None
 
 
 def _live_addressee_messages(transcript: str) -> list[dict[str, str]]:
@@ -479,7 +515,10 @@ def _live_addressee_messages(transcript: str) -> list[dict[str, str]]:
     messages = [
         {
             "role": "system",
-            "content": _LIVE_ADDRESSEE_SYSTEM.format(agent_name=agent_name),
+            "content": _LIVE_ADDRESSEE_SYSTEM.format(
+                agent_name=agent_name,
+                tool_family_choices=_LIVE_TOOL_FAMILY_CHOICES,
+            ),
         }
     ]
     for example, disposition in _LIVE_ADDRESSEE_EXAMPLES:
@@ -496,17 +535,31 @@ def _live_addressee_messages(transcript: str) -> list[dict[str, str]]:
     return messages
 
 
-def _classify_live_addressee(
+def _parse_live_turn_route(value: object) -> _LiveTurnRoute:
+    """Parse one closed semantic route, accepting legacy addressee-only output."""
+
+    raw = str(value or "").strip()
+    addressee_text, separator, family_text = raw.partition("|")
+    addressee = addressee_text.strip().upper()
+    if addressee not in _LIVE_ADDRESSEE_VALUES:
+        addressee = "AMBIGUOUS"
+    family = family_text.strip().casefold() if separator else "none"
+    if family not in _LIVE_TOOL_FAMILY_VALUES:
+        family = "none"
+    return _LiveTurnRoute(addressee=addressee, tool_family=family)
+
+
+def _classify_live_turn(
     transcript: str,
     parsed: ParsedAdapterRequest,
     config: Config,
     client: httpx.Client,
-) -> str | None:
-    """Resolve live turn ownership without exposing tools or answer generation.
+) -> _LiveTurnRoute | None:
+    """Resolve live ownership and one semantic tool family in the existing gate.
 
     The gate is semantic because ASR commonly drops vocative punctuation. It
-    shares the resident language trunk, emits one closed-set token, and fails
-    open to the normal multimodal path on any backend or format failure.
+    shares the resident language trunk, emits one closed route, and fails open
+    to the normal multimodal path on any backend or format failure.
     """
 
     if not config.live_addressee_gate:
@@ -518,7 +571,7 @@ def _classify_live_addressee(
             "messages": messages,
             "stream": False,
             "temperature": 0,
-            "max_tokens": 8,
+            "max_tokens": 16,
             "cache_prompt": False,
             "chat_template_kwargs": {"enable_thinking": False},
             "stop": ["<|im_start|>", "<|im_end|>"],
@@ -530,7 +583,7 @@ def _classify_live_addressee(
             "stream": False,
             "think": False,
             "cache_prompt": False,
-            "options": {"temperature": 0, "num_predict": 8},
+            "options": {"temperature": 0, "num_predict": 16},
         }
     try:
         response = client.post(language_request_url(config), json=payload)
@@ -539,14 +592,25 @@ def _classify_live_addressee(
         )
         message = result.get("message")
         if not isinstance(message, Mapping):
-            return "AMBIGUOUS"
-        value = str(message.get("content") or "").strip().upper()
-        return value if value in _LIVE_ADDRESSEE_VALUES else "AMBIGUOUS"
+            return _LiveTurnRoute()
+        return _parse_live_turn_route(message.get("content"))
     except (AdapterStageError, httpx.HTTPError, ValueError, TypeError) as exc:
         logging.getLogger("omni.adapter").warning(
             "live addressee gate failed open: %s", exc
         )
-        return "AMBIGUOUS"
+        return _LiveTurnRoute()
+
+
+def _classify_live_addressee(
+    transcript: str,
+    parsed: ParsedAdapterRequest,
+    config: Config,
+    client: httpx.Client,
+) -> str | None:
+    """Compatibility wrapper for callers that need only turn ownership."""
+
+    route = _classify_live_turn(transcript, parsed, config, client)
+    return route.addressee if route is not None else None
 
 
 def _not_your_turn_reason(speech_addressee: str | None) -> str | None:
@@ -2180,11 +2244,12 @@ def execute(
         )
 
     transcript = _observation_transcript(observation)
-    speech_addressee = (
-        _classify_live_addressee(transcript, parsed, config, client)
+    live_route = (
+        _classify_live_turn(transcript, parsed, config, client)
         if _is_live_spoken_turn(parsed) and transcript
         else None
     )
+    speech_addressee = live_route.addressee if live_route is not None else None
     not_your_turn = _not_your_turn_reason(speech_addressee)
     if not_your_turn is not None:
         return _finish_response(
@@ -2201,6 +2266,8 @@ def execute(
     decision_tool_names = (
         decision_observer(parsed, observation) if decision_observer is not None else None
     )
+    if decision_tool_names is None and live_route is not None:
+        decision_tool_names = live_route.tool_names
 
     if parsed.task in {"transcribe", "describe"}:
         result = _direct_response(parsed.model, observation or "")
@@ -2280,6 +2347,7 @@ def execute_stream(
     observation: str | None = None
     executed: list[str] = []
     speech_addressee: str | None = None
+    live_route: _LiveTurnRoute | None = None
 
     if "comprehension" in parsed.route:
         _require_comprehension(config)
@@ -2312,10 +2380,13 @@ def execute_stream(
             yield _stream_event("final", response=result)
             return
 
-        if _is_live_spoken_turn(parsed) and transcript:
-            speech_addressee = _classify_live_addressee(
-                transcript, parsed, config, client
-            )
+        live_route = (
+            _classify_live_turn(transcript, parsed, config, client)
+            if _is_live_spoken_turn(parsed) and transcript
+            else None
+        )
+        if live_route is not None:
+            speech_addressee = live_route.addressee
         not_your_turn = _not_your_turn_reason(speech_addressee)
         if not_your_turn is not None:
             result = _finish_response(
@@ -2334,6 +2405,8 @@ def execute_stream(
     decision_tool_names = (
         decision_observer(parsed, observation) if decision_observer is not None else None
     )
+    if decision_tool_names is None and live_route is not None:
+        decision_tool_names = live_route.tool_names
 
     if parsed.task in {"transcribe", "describe"}:
         result = _direct_response(parsed.model, observation or "")
