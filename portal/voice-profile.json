@@ -2,6 +2,7 @@
   "schema": "robit.omni.voice-profile.v1",
   "name": "default",
   "language": "en",
+  "locale": "en-US",
   "speaker_file": "voices/female_voice.wav",
   "presets": [
     {

@@ -331,6 +331,7 @@ call mode:
   "schema": "robit.omni.voice-profile.v1",
   "name": "studio-voice",
   "language": "en",
+  "locale": "en-GB",
   "speaker_file": "voices/studio-reference.wav",
   "presets": [
     {"id": "studio", "label": "Studio", "speaker_file": "voices/studio-reference.wav", "default": true}
@@ -355,6 +356,14 @@ reverberation. A fixed non-negative `seed` makes repeated turns reproducible.
 temperature/top-p/top-k generally improves consistency; higher values add
 variation and can reintroduce timbre drift. Supported language codes are `zh`,
 `en`, `de`, `it`, `pt`, `es`, `ja`, `ko`, `fr`, and `ru`.
+
+`locale` is an optional BCP 47 language-and-region override such as `en-US`,
+`en-GB`, `pt-BR`, or `pt-PT`. The portal's **Language & region** control sends
+that locale with each request. The adapter uses it for reply language,
+spelling, vocabulary, and regional conventions, while the TTS wrapper maps its
+primary subtag to the model's supported `language` token. Qwen3-TTS Base does
+not expose separate regional acoustic tokens; spoken accent remains primarily
+controlled by the selected or cloned speaker reference.
 
 The current llama.cpp interface for the Base checkpoint extracts a speaker
 embedding from reference audio (`--tts-speaker-file`). It does not yet expose

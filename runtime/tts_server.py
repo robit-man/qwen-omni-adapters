@@ -45,6 +45,7 @@ from qwen_omni_adapters.audio import (
 )
 from qwen_omni_adapters.ollama_sidecar import resolve_ollama_sidecar
 from qwen_omni_adapters.single_gguf import materialize_component_view
+from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
 
 
 @dataclass(frozen=True)
@@ -147,6 +148,7 @@ class TTSError(RuntimeError):
 class SynthesisSpec:
     text: str
     language: str
+    locale: str
     speaker: str
     speaker_audio: bytes | None
     frames: int
@@ -230,7 +232,18 @@ def _synthesis_spec(config: Config, body: dict[str, Any]) -> SynthesisSpec:
         raise TTSError("text is required")
     if len(text) > config.max_text_chars:
         raise TTSError(f"text exceeds {config.max_text_chars} characters")
-    language = str(body.get("language") or body.get("lang") or "en").strip()
+    raw_language = body.get("language") or body.get("lang")
+    raw_locale = body.get("locale")
+    try:
+        locale, language = normalize_voice_locale(raw_locale or raw_language or "en")
+        if raw_locale is not None and raw_language is not None:
+            _, configured_language = normalize_voice_locale(raw_language)
+            if configured_language != language:
+                raise VoiceLocaleError(
+                    "language and locale must use the same language"
+                )
+    except VoiceLocaleError as exc:
+        raise TTSError(f"invalid speech locale: {exc}") from exc
     speaker = str(body.get("speaker_file") or "").strip()
     speaker_audio: bytes | None = None
     if body.get("speaker_audio") is not None:
@@ -269,6 +282,7 @@ def _synthesis_spec(config: Config, body: dict[str, Any]) -> SynthesisSpec:
     return SynthesisSpec(
         text=text,
         language=language,
+        locale=locale,
         speaker=speaker,
         speaker_audio=speaker_audio,
         frames=frames,
@@ -881,6 +895,7 @@ def _warm_spec(config: Config) -> SynthesisSpec | None:
     return SynthesisSpec(
         text="warmup",
         language="en",
+        locale="en",
         speaker=speaker,
         speaker_audio=None,
         frames=config.max_frames,

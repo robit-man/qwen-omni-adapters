@@ -393,7 +393,7 @@
       recording: null,
       recordTimer: null,
       defaults: {
-        language: "en", temperature: 0.7, topK: 40, topP: 0.9, seed: 42, maxFrames: 512,
+        locale: "en-US", temperature: 0.7, topK: 40, topP: 0.9, seed: 42, maxFrames: 512,
       },
     },
   };
@@ -2284,7 +2284,7 @@
           (state.voice.presets.find(preset => preset.default) || state.voice.presets[0] || {}).id || "",
         );
         state.voice.defaults = {
-          language: profile.language || "en",
+          locale: profile.locale || profile.language || "en",
           temperature: Number(profile.temperature ?? 0.7),
           topK: Number(profile.top_k ?? 40),
           topP: Number(profile.top_p ?? 0.9),
@@ -2675,8 +2675,21 @@
     syncVoiceUi();
   }
 
+  function selectVoiceLocale(locale) {
+    elements.voiceLanguage.querySelector("[data-profile-locale]")?.remove();
+    const available = [...elements.voiceLanguage.options].some(option => option.value === locale);
+    if (!available) {
+      const option = document.createElement("option");
+      option.value = locale;
+      option.textContent = `${locale} (profile override)`;
+      option.dataset.profileLocale = "true";
+      elements.voiceLanguage.prepend(option);
+    }
+    elements.voiceLanguage.value = locale;
+  }
+
   function applyVoiceDefaults(profile = state.voice.defaults) {
-    elements.voiceLanguage.value = profile.language || "en";
+    selectVoiceLocale(profile.locale || profile.language || "en");
     elements.voiceTemperature.value = String(profile.temperature ?? 0.7);
     elements.voiceTopK.value = String(profile.topK ?? 40);
     elements.voiceTopP.value = String(profile.topP ?? 0.9);
@@ -2787,7 +2800,7 @@
     };
     const payload = {
       clone_enabled: elements.voiceCloneEnabled.checked,
-      language: elements.voiceLanguage.value,
+      locale: elements.voiceLanguage.value,
       temperature: Number(elements.voiceTemperature.value),
       top_k: integer(elements.voiceTopK, 40),
       top_p: Number(elements.voiceTopP.value),

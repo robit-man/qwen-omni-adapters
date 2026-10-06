@@ -1959,6 +1959,10 @@ def test_portal_index_has_mobile_security_headers_and_no_token() -> None:
     assert b'id="voice-preset-toggle"' in response.data
     assert b'id="voice-preset-options"' in response.data
     assert b'id="voice-reference-input"' in response.data
+    assert b"Language &amp; region" in response.data
+    assert b'<option value="en-US">English (United States)</option>' in response.data
+    assert b'<option value="en-GB">English (United Kingdom)</option>' in response.data
+    assert b"Accent follows the selected voice reference" in response.data
     assert b'id="active-user-count"' in response.data
     assert b'class="audio-observation-output"' in response.data
     assert b'class="tool-output"' in response.data
@@ -2099,6 +2103,7 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert "num_predict" not in javascript
     assert "max_frames: 24" in javascript
     assert "function voicePayload" in javascript
+    assert "locale: elements.voiceLanguage.value" in javascript
     assert "function startVoiceReferenceRecording" in javascript
     assert 'elements.prompt.value = ""' in javascript
     assert ".composer textarea:focus" in css
@@ -3862,7 +3867,7 @@ def test_voice_profile_resolves_relative_speaker_and_validates_language(
     try:
         load_voice_profile(profile_path)
     except RuntimeError as exc:
-        assert "language must be one of" in str(exc)
+        assert "invalid voice profile locale" in str(exc)
     else:
         raise AssertionError("unsupported TTS language was accepted")
 
@@ -4273,6 +4278,7 @@ def test_portal_enforces_server_voice_profile() -> None:
     profile = {
         "name": "fixed-voice",
         "language": "en",
+        "locale": "en-GB",
         "speaker_file": "/srv/voices/fixed.wav",
         "temperature": 0.4,
         "top_k": 20,
@@ -4384,7 +4390,7 @@ def test_portal_accepts_safe_client_voice_clone_and_controls() -> None:
             portal_voice={
                 "clone_enabled": True,
                 "speaker_audio": reference,
-                "language": "ja",
+                "locale": "en-GB",
                 "temperature": 0.55,
                 "top_k": 24,
                 "top_p": 0.8,
@@ -4396,7 +4402,8 @@ def test_portal_accepts_safe_client_voice_clone_and_controls() -> None:
     )
 
     assert response.status_code == 200
-    assert seen[0]["speech"]["language"] == "ja"
+    assert seen[0]["speech"]["language"] == "en"
+    assert seen[0]["speech"]["locale"] == "en-GB"
     assert seen[0]["speech"]["temperature"] == 0.55
     assert seen[0]["speech"]["seed"] == 7
     assert "speaker_file" not in seen[0]["speech"]

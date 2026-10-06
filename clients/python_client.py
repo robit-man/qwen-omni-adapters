@@ -77,6 +77,11 @@ def build_request(args: argparse.Namespace) -> dict[str, Any]:
         "tts": "synthesize",
         "chat": "chat",
     }[task]
+    speech = {}
+    if args.voice:
+        speech["voice"] = args.voice
+    if args.locale:
+        speech["locale"] = args.locale
     return {
         "model": args.model,
         "messages": [message],
@@ -88,7 +93,7 @@ def build_request(args: argparse.Namespace) -> dict[str, Any]:
         },
         "response_modalities": response_modalities,
         "speech_mode": speech_mode,
-        "speech": {"voice": args.voice} if args.voice else {},
+        "speech": speech,
         "think": args.think,
         "stream": False,
     }
@@ -113,6 +118,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--model", default="robit/qwen3.8-omni:latest")
     parser.add_argument("--timeout", type=float, default=900)
     parser.add_argument("--voice")
+    parser.add_argument(
+        "--locale",
+        help="spoken-response BCP 47 locale, for example en-US or en-GB",
+    )
     parser.add_argument("--think", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
         "--tool-routing",

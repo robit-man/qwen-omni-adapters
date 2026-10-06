@@ -109,14 +109,61 @@ def test_adapter_contract_separates_wire_schema_from_bundle_schema() -> None:
 def test_tts_stream_window_validation_and_cli_arguments(tmp_path: Path) -> None:
     config = _tts_config(tmp_path)
     assert config.stream_frames == 8
-    spec = _synthesis_spec(config, {"text": "Hello", "stream_frames": 12})
+    spec = _synthesis_spec(
+        config,
+        {"text": "Hello", "locale": "en-gb", "stream_frames": 12},
+    )
     command = _command(config, spec, tmp_path / "speech.wav", stream=True)
 
+    assert spec.locale == "en-GB"
+    assert spec.language == "en"
+    assert command[command.index("--tts-lang") + 1] == "en"
     assert command[-3:] == ["--tts-stream", "--tts-stream-frames", "12"]
+    japanese = _synthesis_spec(config, {"text": "こんにちは", "locale": "ja-JP"})
+    assert japanese.language == "ja"
+    assert japanese.locale == "ja-JP"
     with pytest.raises(TTSError, match="between 1 and 72"):
         _synthesis_spec(config, {"text": "Hello", "stream_frames": 0})
     with pytest.raises(TTSError, match="between 1 and 72"):
         _synthesis_spec(config, {"text": "Hello", "stream_frames": 73})
+
+
+def test_adapter_normalizes_regional_speech_locale_and_rejects_mismatch() -> None:
+    request = _base_request(
+        response_modalities=["text", "audio"],
+        speech_mode="always",
+        speech={"language": "en", "locale": "en-gb"},
+    )
+
+    parsed = parse_adapter_request(request)
+
+    assert parsed.speech["language"] == "en"
+    assert parsed.speech["locale"] == "en-GB"
+    with pytest.raises(OmniAdapterError, match="must use the same language"):
+        parse_adapter_request(
+            {**request, "speech": {"language": "en", "locale": "fr-CA"}}
+        )
+
+
+def test_regional_speech_locale_steers_only_spoken_language_output() -> None:
+    regional = parse_adapter_request(
+        _base_request(
+            response_modalities=["text", "audio"],
+            speech_mode="always",
+            speech={"locale": "en-GB"},
+        )
+    )
+    text_only = parse_adapter_request(
+        _base_request(speech_mode="never", speech={"locale": "en-GB"})
+    )
+
+    regional_payload = build_language_payload(regional, None)
+    text_payload = build_language_payload(text_only, None)
+
+    assert "requested spoken-response locale is en-GB" in regional_payload["messages"][0][
+        "content"
+    ]
+    assert "requested spoken-response locale" not in text_payload["messages"][0]["content"]
 
 
 def test_tts_text_blocks_have_no_aggregate_reply_ceiling() -> None:

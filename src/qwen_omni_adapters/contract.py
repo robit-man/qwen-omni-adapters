@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from qwen_omni_adapters.audio import DEFAULT_AUDIO_CONTRACT, validate_audio_input
+from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
 
 ADAPTER_SCHEMA = "robit.ollama.omni-adapter.v1"
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
@@ -176,7 +177,8 @@ def adapter_contract() -> dict[str, Any]:
             "speech_mode": "auto | always | never",
             "speech": {
                 "voice": "optional backend voice identifier",
-                "language": "optional BCP-47 language hint",
+                "language": "optional Qwen3-TTS ISO 639-1 language code",
+                "locale": "optional BCP 47 regional override such as en-US or en-GB",
                 "style": "optional synthesis instruction",
                 "speaker_audio": (
                     "optional base64 WAV reference for backends that support cloning"
@@ -251,6 +253,7 @@ def adapter_contract() -> dict[str, Any]:
                 "visual_observation": (
                     "tagged visual evidence from current image or video input when available"
                 ),
+                "speech_locale": "normalized BCP 47 locale when supplied",
                 "speech_addressee": "self | other | ambiguous when the live gate ran",
                 "tts_skipped_reason": (
                     "required_speech_not_found | speech_addressed_elsewhere | "
@@ -520,9 +523,30 @@ def parse_adapter_request(payload: Mapping[str, Any]) -> ParsedAdapterRequest:
     speech_mode = str(payload.get("speech_mode") or "auto").lower()
     if speech_mode not in SPEECH_MODES:
         raise OmniAdapterError(f"speech_mode must be one of {sorted(SPEECH_MODES)}")
-    speech = payload.get("speech") or {}
-    if not isinstance(speech, Mapping):
+    raw_speech = payload.get("speech") or {}
+    if not isinstance(raw_speech, Mapping):
         raise OmniAdapterError("speech must be an object")
+    speech = dict(raw_speech)
+    raw_language = speech.get("language")
+    raw_locale = speech.get("locale")
+    try:
+        if raw_locale is not None:
+            locale, locale_language = normalize_voice_locale(raw_locale)
+            if raw_language is not None:
+                _, language = normalize_voice_locale(raw_language)
+                if language != locale_language:
+                    raise VoiceLocaleError(
+                        "speech.language and speech.locale must use the same language"
+                    )
+            speech["language"] = locale_language
+            speech["locale"] = locale
+        elif raw_language is not None:
+            locale, language = normalize_voice_locale(raw_language)
+            speech["language"] = language
+            if locale != language:
+                speech["locale"] = locale
+    except VoiceLocaleError as exc:
+        raise OmniAdapterError(str(exc)) from exc
     synthesize = speech_mode == "always" or (speech_mode == "auto" and "audio" in modalities)
     if task == "synthesize":
         if not last_user.content.strip():

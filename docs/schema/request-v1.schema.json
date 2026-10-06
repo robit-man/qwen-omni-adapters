@@ -53,7 +53,16 @@
       "type": "object",
       "properties": {
         "voice": {"type": "string"},
-        "language": {"type": "string"},
+        "language": {
+          "type": "string",
+          "description": "Qwen3-TTS base language code. A regional BCP 47 value is accepted for backward compatibility and normalized into locale.",
+          "pattern": "^[A-Za-z]{2}(?:-[A-Za-z0-9]{2,8})*$"
+        },
+        "locale": {
+          "type": "string",
+          "description": "BCP 47 spoken-response locale, such as en-US or en-GB. Its primary language must be supported by Qwen3-TTS.",
+          "pattern": "^[A-Za-z]{2}(?:-[A-Za-z0-9]{2,8})*$"
+        },
         "style": {"type": "string"},
         "speaker_file": {"type": "string"},
         "speaker_audio": {"$ref": "#/$defs/audio"},

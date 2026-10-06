@@ -57,6 +57,7 @@ from qwen_omni_adapters.context import (
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, DecisionWaveResult
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 from qwen_omni_adapters.virtual_memory import ContextOverflow, LlamaCppTokenCounter
+from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
 
 logger = logging.getLogger(__name__)
 
@@ -99,9 +100,9 @@ ADAPTER_SCHEMA = "robit.ollama.omni-adapter.v1"
 DEFAULT_MODEL = "robit/qwen3.8-27b-e03-obliterated-omni:q4km"
 TOOL_RESULT_POLICY = context_text("directives", "tool_result_policy")
 VOICE_PROFILE_SCHEMA = "robit.omni.voice-profile.v1"
-QWEN3_TTS_LANGUAGES = {"zh", "en", "de", "it", "pt", "es", "ja", "ko", "fr", "ru"}
 VOICE_SPEECH_FIELDS = {
     "language",
+    "locale",
     "speaker_file",
     "temperature",
     "top_k",
@@ -114,6 +115,7 @@ VOICE_CLIENT_FIELDS = {
     "preset",
     "speaker_audio",
     "language",
+    "locale",
     "temperature",
     "top_k",
     "top_p",
@@ -188,11 +190,21 @@ def load_voice_profile(path: Path) -> dict[str, Any]:
     unknown = set(profile) - VOICE_SPEECH_FIELDS - {"schema", "name", "presets"}
     if unknown:
         raise RuntimeError(f"unknown voice profile fields: {sorted(unknown)}")
-    language = str(profile.get("language") or "en").strip()
-    if language not in QWEN3_TTS_LANGUAGES:
-        supported = ", ".join(sorted(QWEN3_TTS_LANGUAGES))
-        raise RuntimeError(f"voice profile language must be one of: {supported}")
+    raw_language = profile.get("language") or "en"
+    raw_locale = profile.get("locale")
+    try:
+        locale, language = normalize_voice_locale(raw_locale or raw_language)
+        if raw_locale is not None:
+            _, configured_language = normalize_voice_locale(raw_language)
+            if configured_language != language:
+                raise VoiceLocaleError(
+                    "voice profile language and locale must use the same language"
+                )
+    except VoiceLocaleError as exc:
+        raise RuntimeError(f"invalid voice profile locale: {exc}") from exc
     profile["language"] = language
+    if raw_locale is not None or locale != language:
+        profile["locale"] = locale
 
     def resolve_speaker(value: Any, field: str) -> str:
         speaker_value = str(value or "").strip()
@@ -940,12 +952,22 @@ def _voice_override(raw: Any) -> dict[str, Any]:
         raise PortalRequestError("portal_voice.clone_enabled must be a boolean")
     result: dict[str, Any] = {"clone_enabled": clone_enabled}
 
-    if "language" in raw:
-        language = str(raw["language"] or "").strip()
-        if language not in QWEN3_TTS_LANGUAGES:
-            supported = ", ".join(sorted(QWEN3_TTS_LANGUAGES))
-            raise PortalRequestError(f"portal_voice.language must be one of: {supported}")
+    raw_language = raw.get("language")
+    raw_locale = raw.get("locale")
+    if raw_language is not None or raw_locale is not None:
+        try:
+            locale, language = normalize_voice_locale(raw_locale or raw_language)
+            if raw_language is not None and raw_locale is not None:
+                _, configured_language = normalize_voice_locale(raw_language)
+                if configured_language != language:
+                    raise VoiceLocaleError(
+                        "portal_voice.language and portal_voice.locale must use the same language"
+                    )
+        except VoiceLocaleError as exc:
+            raise PortalRequestError(f"invalid portal voice locale: {exc}") from exc
         result["language"] = language
+        if raw_locale is not None or locale != language:
+            result["locale"] = locale
 
     numeric_ranges = {
         "temperature": (0.0, 2.0, float),
@@ -2531,6 +2553,11 @@ def create_app(
                 "voice_profile": {
                     "name": str(voice_profile.get("name") or "default"),
                     "language": str(voice_profile.get("language") or "en"),
+                    "locale": str(
+                        voice_profile.get("locale")
+                        or voice_profile.get("language")
+                        or "en"
+                    ),
                     "speaker_reference": bool(voice_profile.get("speaker_file")),
                     "temperature": float(voice_profile.get("temperature", 0.7)),
                     "top_k": int(voice_profile.get("top_k", 40)),

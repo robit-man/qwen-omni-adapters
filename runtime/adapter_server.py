@@ -1564,6 +1564,24 @@ def _language_messages(
             0,
             {"role": "system", "content": DEFAULT_LANGUAGE_SYSTEM_PROMPT},
         )
+    locale = str(parsed.speech.get("locale") or "").strip()
+    if parsed.synthesize and "-" in locale:
+        instruction = (
+            f"The requested spoken-response locale is {locale}. Write the final answer "
+            "using that locale's language, spelling, vocabulary, and regional conventions. "
+            "Preserve quoted text. This presentation setting does not change facts, policy, "
+            "or tool behavior, and you must not mention it unless the user asks."
+        )
+        system_message = next(
+            (message for message in result if message.get("role") == "system"),
+            None,
+        )
+        if system_message is None:
+            result.insert(0, {"role": "system", "content": instruction})
+        else:
+            system_message["content"] = (
+                f"{str(system_message.get('content') or '').rstrip()}\n\n{instruction}"
+            )
     return result
 
 
@@ -2102,6 +2120,8 @@ def _finish_response(
     }
     if tts_blocks:
         result["adapter"]["tts_blocks"] = tts_blocks
+    if parsed.speech.get("locale"):
+        result["adapter"]["speech_locale"] = str(parsed.speech["locale"])
     if observation is not None:
         result["adapter"]["observation"] = observation
         transcript = _observation_transcript(observation)

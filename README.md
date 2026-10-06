@@ -12,7 +12,7 @@ The repository turns that one Ollama tag into one authenticated, Ollama-shaped
 API for text, tools, optional thinking, images, audio/ASR, environmental sound
 analysis, video understanding, and Qwen3-TTS speech. It also includes the
 phone-first validation portal used to exercise microphone, camera, allowlisted
-Female/Male voice presets, request-local voice clone,
+Female/Male voice presets, regional spoken-response locale overrides, request-local voice clone,
 streamed playback, call mode, and concurrent isolated sessions.
 
 For a host that should simply listen, `harness/` runs that same call mode

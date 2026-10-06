@@ -73,7 +73,7 @@ misrouted assistant answer during perception.
 | `omni.tool_routing` | No | `client` preserves the supplied tool array; `relevant` retains configured gateways plus a bounded request-relevant subset after current-media comprehension; default `client` |
 | `response_modalities` | No | Non-empty subset of `text`, `audio`; default `text` |
 | `speech_mode` | No | `auto`, `always`, or `never`; default `auto` |
-| `speech` | No | Backend-specific voice, language, cloning, sampling, and style hints |
+| `speech` | No | Backend-specific voice, base language, regional locale, cloning, sampling, and style hints |
 
 `speech_mode` has the following precedence:
 
@@ -119,12 +119,16 @@ client-owned capability, selects arguments, or authorizes execution. Tool follow
 the model's concrete call and tool result are then more authoritative than the
 original media transport sentence.
 
-The reference Qwen3-TTS Base worker supports `language`, trusted server-local
-`speaker_file`, request-local base64 WAV `speaker_audio`, `temperature`,
+The reference Qwen3-TTS Base worker supports `language`, BCP 47 `locale`,
+trusted server-local `speaker_file`, request-local base64 WAV `speaker_audio`, `temperature`,
 `top_k`, `top_p`, `seed`, and `max_frames`. `speaker_audio` is bounded to 10
 MiB and 0.5–30 seconds and is removed after its generation. Other fields are
 backend capabilities, not portable guarantees. In particular, its current
 llama.cpp API has no separate natural-language style-instruction channel.
+The adapter preserves the full locale for response wording and regional
+conventions, then maps its primary subtag to one of Qwen3-TTS's ten ISO 639-1
+language tokens. Regional acoustic accent still comes from the speaker
+reference; the locale does not claim a separate accent checkpoint.
 The reference adapter treats `max_frames` as a per-block ceiling: long replies
 are split at natural text boundaries, PCM sequence numbering remains continuous,
 and the complete final WAV concatenates every block. The adapter trace reports

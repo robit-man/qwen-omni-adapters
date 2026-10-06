@@ -212,14 +212,64 @@
       </div>
 
       <div class="voice-grid">
-        <label>Language
+        <label>Language &amp; region
           <select id="voice-language">
-            <option value="en">English</option><option value="zh">Chinese</option>
-            <option value="de">German</option><option value="it">Italian</option>
-            <option value="pt">Portuguese</option><option value="es">Spanish</option>
-            <option value="ja">Japanese</option><option value="ko">Korean</option>
-            <option value="fr">French</option><option value="ru">Russian</option>
+            <optgroup label="English">
+              <option value="en-US">English (United States)</option>
+              <option value="en-GB">English (United Kingdom)</option>
+              <option value="en-AU">English (Australia)</option>
+              <option value="en-CA">English (Canada)</option>
+              <option value="en-IN">English (India)</option>
+              <option value="en">English (no region override)</option>
+            </optgroup>
+            <optgroup label="Chinese">
+              <option value="zh-CN">Chinese (Mainland China)</option>
+              <option value="zh-TW">Chinese (Taiwan)</option>
+              <option value="zh-HK">Chinese (Hong Kong)</option>
+              <option value="zh">Chinese (no region override)</option>
+            </optgroup>
+            <optgroup label="German">
+              <option value="de-DE">German (Germany)</option>
+              <option value="de-AT">German (Austria)</option>
+              <option value="de-CH">German (Switzerland)</option>
+              <option value="de">German (no region override)</option>
+            </optgroup>
+            <optgroup label="Italian">
+              <option value="it-IT">Italian (Italy)</option>
+              <option value="it-CH">Italian (Switzerland)</option>
+              <option value="it">Italian (no region override)</option>
+            </optgroup>
+            <optgroup label="Portuguese">
+              <option value="pt-BR">Portuguese (Brazil)</option>
+              <option value="pt-PT">Portuguese (Portugal)</option>
+              <option value="pt">Portuguese (no region override)</option>
+            </optgroup>
+            <optgroup label="Spanish">
+              <option value="es-ES">Spanish (Spain)</option>
+              <option value="es-MX">Spanish (Mexico)</option>
+              <option value="es-419">Spanish (Latin America)</option>
+              <option value="es">Spanish (no region override)</option>
+            </optgroup>
+            <optgroup label="Japanese">
+              <option value="ja-JP">Japanese (Japan)</option>
+              <option value="ja">Japanese (no region override)</option>
+            </optgroup>
+            <optgroup label="Korean">
+              <option value="ko-KR">Korean (South Korea)</option>
+              <option value="ko">Korean (no region override)</option>
+            </optgroup>
+            <optgroup label="French">
+              <option value="fr-FR">French (France)</option>
+              <option value="fr-CA">French (Canada)</option>
+              <option value="fr-BE">French (Belgium)</option>
+              <option value="fr">French (no region override)</option>
+            </optgroup>
+            <optgroup label="Russian">
+              <option value="ru-RU">Russian (Russia)</option>
+              <option value="ru">Russian (no region override)</option>
+            </optgroup>
           </select>
+          <span class="voice-field-help">Controls reply wording and regional conventions. Accent follows the selected voice reference.</span>
         </label>
         <label>Seed
           <input id="voice-seed" type="number" min="-1" max="2147483647" step="1" value="42">

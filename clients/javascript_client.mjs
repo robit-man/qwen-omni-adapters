@@ -12,6 +12,7 @@ if (!audioPath) {
 const endpoint = process.env.OMNI_ADAPTER_URL ?? "http://127.0.0.1:11435/api/chat";
 const model = process.env.OMNI_MODEL ?? "robit/qwen3.8-omni:latest";
 const toolRouting = process.env.OMNI_TOOL_ROUTING ?? "client";
+const speechLocale = process.env.OMNI_SPEECH_LOCALE?.trim();
 if (!["client", "relevant"].includes(toolRouting)) {
   throw new Error("OMNI_TOOL_ROUTING must be client or relevant");
 }
@@ -37,6 +38,7 @@ const response = await fetch(endpoint, {
     },
     response_modalities: ["text", "audio"],
     speech_mode: "always",
+    speech: speechLocale ? { locale: speechLocale } : {},
     think: true,
     stream: false,
   }),

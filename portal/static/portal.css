@@ -819,6 +819,11 @@ textarea::placeholder { color: var(--quiet); }
 .voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-top: 14px; }
 .voice-grid label { display: grid; gap: 6px; color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
 .voice-grid label output { justify-self: end; margin-top: -17px; color: var(--text); }
+.voice-field-help {
+  color: var(--quiet);
+  font: 10px/1.4 var(--font);
+  text-transform: none;
+}
 .voice-grid input:not([type="range"]), .voice-grid select {
   width: 100%;
   min-height: 40px;
