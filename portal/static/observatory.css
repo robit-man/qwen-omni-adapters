@@ -269,7 +269,7 @@ html {
 .timeline-list { max-height: 610px; overflow-y: auto; }
 .timeline-item { display: grid; grid-template-columns: 76px 10px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.055); }
 .timeline-time { color: var(--quiet); font: 8px var(--mono); font-variant-numeric: tabular-nums; }
-.timeline-marker { width: 7px; height: 7px; margin-top: 3px; border-radius: 50%; background: var(--muted); }
+.timeline-marker { width: 7px; height: 7px; margin-top: 3px; border-radius: 50%; padding:unset!important; background: var(--muted); }
 .timeline-marker.memory { background: var(--accent); }
 .timeline-marker.work { background: #93c5fd; }
 .timeline-marker.conversation { background: #c4b5fd; }
