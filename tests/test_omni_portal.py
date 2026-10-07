@@ -2049,6 +2049,9 @@ def test_observatory_assets_use_safe_dom_and_resilient_refresh() -> None:
     assert "prefers-reduced-motion" in css
     assert ".graph-node:focus-visible" in css
     assert ".observatory-page" in css
+    assert "transition: width" not in css
+    assert "transition: transform" in css
+    assert "memoryStrengthFill.style.transform" in javascript
 
 
 def test_authenticated_observatory_endpoint_joins_existing_state_stores(

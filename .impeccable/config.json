@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "portal/templates/observatory.html"
+        ],
+        "createdAt": "2026-10-07T23:20:00.669Z",
+        "reason": "Agent: production CSS defines the h1 at 30–72px and body at 15px; the detector could not resolve absolute /assets stylesheet links and incorrectly assumed every role was 16px"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "portal/static/portal.css"
+        ],
+        "createdAt": "2026-10-07T23:20:01.043Z",
+        "reason": "Agent: established Markdown blockquote uses a neutral 2px semantic quote rule, not a colored card or callout accent; it predates the observatory work"
+      }
+    ]
+  }
+}

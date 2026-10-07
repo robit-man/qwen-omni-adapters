@@ -446,7 +446,7 @@
     const passive = snapshot.memory?.passive || {};
     const memories = (passive.recent || []).filter(item => inRange(item.created_at));
     const strength = Math.max(0, Math.min(1, Number(passive.mean_strength || 0)));
-    elements.memoryStrengthFill.style.width = `${strength * 100}%`;
+    elements.memoryStrengthFill.style.transform = `scaleX(${strength})`;
     elements.memoryStrengthValue.textContent = strength ? strength.toFixed(3) : "—";
     elements.memoryMeta.textContent = passive.available
       ? `${compactNumber(passive.entries)} durable · oldest ${Number(passive.oldest_days || 0).toFixed(1)} days`
