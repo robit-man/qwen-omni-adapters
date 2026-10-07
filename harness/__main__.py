@@ -544,18 +544,9 @@ def main(argv: list[str] | None = None) -> int:
         current_token = _available_token(args.token)
         if not current_token:
             return False, "Dashboard access key is not available yet"
-        try:
-            url = _observatory_url(args.portal, current_token)
-            subprocess.Popen(  # noqa: S603 - fixed local desktop opener
-                ["xdg-open", url],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-        except OSError as error:
-            return False, f"Could not open dashboard: {error}"
-        return True, "Opened Egg dashboard"
+        # The GTK process owns the clipboard and desktop application registry,
+        # so it performs both user-facing actions after receiving this URL.
+        return True, _observatory_url(args.portal, current_token)
 
     indicator = (
         build_indicator(

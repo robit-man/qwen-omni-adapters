@@ -77,6 +77,7 @@ def _indicator_modules():
         import gi
 
         gi.require_version("Gtk", "3.0")
+        gi.require_version("Gdk", "3.0")
         try:
             gi.require_version("AyatanaAppIndicator3", "0.1")
             from gi.repository import AyatanaAppIndicator3 as AppIndicator
@@ -499,9 +500,62 @@ def build_indicator(
             if on_open_dashboard is None:
                 return
             ok, detail = on_open_dashboard()
-            self._status_item.set_label(detail[:80])
             if not ok:
+                self._status_item.set_label(detail[:80])
                 logger.warning("dashboard could not open: %s", detail)
+                return
+
+            url = detail
+            copied = False
+            try:
+                from gi.repository import Gdk
+
+                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                clipboard.set_text(url, -1)
+                clipboard.store()
+                copied = True
+            except Exception as error:  # noqa: BLE001 - still try the browser
+                logger.warning("dashboard link could not be copied: %s", error)
+
+            opened = False
+            try:
+                from gi.repository import Gio
+
+                portal = Gio.DBusProxy.new_for_bus_sync(
+                    Gio.BusType.SESSION,
+                    Gio.DBusProxyFlags.NONE,
+                    None,
+                    "org.freedesktop.portal.Desktop",
+                    "/org/freedesktop/portal/desktop",
+                    "org.freedesktop.portal.OpenURI",
+                    None,
+                )
+                reply = portal.call_sync(
+                    "OpenURI",
+                    GLib.Variant("(ssa{sv})", ("", url, {})),
+                    Gio.DBusCallFlags.NONE,
+                    5000,
+                    None,
+                )
+                opened = reply is not None
+            except Exception as portal_error:  # noqa: BLE001 - use the direct fallback
+                logger.info("desktop OpenURI portal unavailable: %s", portal_error)
+                try:
+                    opened = bool(Gio.AppInfo.launch_default_for_uri(url, None))
+                except Exception as error:  # noqa: BLE001 - clipboard remains the fallback
+                    logger.warning(
+                        "dashboard could not open in the default browser: %s", error
+                    )
+
+            if opened and copied:
+                status = "Dashboard opened; link copied"
+            elif opened:
+                status = "Dashboard opened; link could not be copied"
+            elif copied:
+                status = "Dashboard link copied; browser did not open"
+            else:
+                status = "Could not open or copy dashboard link"
+            self._status_item.set_label(status)
 
         def _copy_endpoint(self) -> None:
             """Put the tunnel's URL, key included, on the clipboard."""
