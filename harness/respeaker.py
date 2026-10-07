@@ -32,6 +32,12 @@ LED_COMMANDS: dict[str, int] = {
     "spin": 5,
 }
 
+# The firmware's listen animation follows the live direction of arrival. Keep
+# this named separately from the conversational state map so interruption
+# arbitration can select DOA explicitly, even while another thread advances
+# the underlying model state to thinking or speaking.
+DOA_RING_STATE = "listen"
+
 # (command, offset, type) triples from the XVF3000 tuning interface.
 PARAMETERS: dict[str, tuple[int, int, str]] = {
     "doa_angle": (21, 0, "int"),
@@ -213,8 +219,8 @@ class ReSpeaker:
 # top-bar labels: one is an animation vocabulary, the other is English.
 STATE_TO_RING: dict[str, str] = {
     "starting": "trace",
-    "listening": "listen",
-    "hearing": "listen",
+    "listening": DOA_RING_STATE,
+    "hearing": DOA_RING_STATE,
     "thinking": "think",
     "speaking": "speak",
     "muted": "trace",

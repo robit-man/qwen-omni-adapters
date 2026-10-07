@@ -34,6 +34,7 @@ from harness.call import (  # noqa: E402
     _background_announcement_text,
     _foreground_lane_still_owned,
     _interruption_decision,
+    _InterruptionDisplay,
     _respeaker_near_end_speech,
 )
 from harness.location import BrowserLocationProvider  # noqa: E402
@@ -1321,6 +1322,29 @@ def test_native_respeaker_gate_applies_only_during_playback() -> None:
     assert "_respeaker_near_end_speech(array)" in source
 
 
+def test_interruption_display_keeps_doa_above_thinking_and_speaking() -> None:
+    ring_states: list[str] = []
+    published: list[tuple[str, str]] = []
+    array = SimpleNamespace(set_state=lambda state: ring_states.append(state))
+    display = _InterruptionDisplay(  # type: ignore[arg-type]
+        array,
+        lambda state, detail: published.append((state, detail)),
+    )
+
+    display.set_base("thinking", "reasoning")
+    display.set_interruption(True)
+    display.set_base("speaking", "streaming")
+    display.set_interruption(False)
+
+    assert ring_states == ["think", "listen", "listen", "speak"]
+    assert published == [
+        ("thinking", "reasoning"),
+        ("hearing", "interruption"),
+        ("hearing", "interruption"),
+        ("speaking", "streaming"),
+    ]
+
+
 @pytest.mark.parametrize(
     ("voice_activity", "speech_detected", "expected"),
     [
@@ -1749,13 +1773,14 @@ def test_speech_during_a_turn_is_kept_rather_than_dropped() -> None:
     ("busy", "reply_started", "can_barge", "announcement", "expected"),
     [
         (False, False, True, False, False),
-        (True, False, True, False, False),
+        (True, False, True, False, True),
+        (True, False, False, False, True),
         (True, True, True, False, True),
         (True, True, False, False, False),
         (True, False, False, True, True),
     ],
 )
-def test_only_audible_foreground_replies_or_background_announcements_preempt(
+def test_accepted_speech_preempts_unspoken_work_or_echo_safe_playback(
     busy: bool,
     reply_started: bool,
     can_barge: bool,
@@ -1819,10 +1844,15 @@ def test_the_capture_loop_uses_a_two_stage_interruption() -> None:
     assert 'if verdict.event == "start":' in confirmed_start
     assert "foreground_active.set()" in confirmed_start
     assert "session.background_agent.wake()" in confirmed_start
+    assert "display.set_interruption(True)" in confirmed_start
+    assert "if busy.is_set() and speaking_since is None:" in confirmed_start
+    assert "session.request_barge()" in confirmed_start
     accepted = source.split(
         'elif verdict.event == "utterance" and verdict.utterance is not None:', 1
     )[1].split("if settle_until is None", 1)[0]
     assert "near_end_active.clear()" in accepted
+    assert "display.set_interruption(False)" in accepted
+    assert "or speaking_since is None" in accepted
 
 
 # -- never waiting when it does not have to --------------------------------

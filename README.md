@@ -724,8 +724,11 @@ launches FFmpeg or activates a camera privacy indicator.
   addressed elsewhere; if gaze would resolve genuine ambiguity, it can request
   a fresh still before deciding. Empty intentional responses do not invoke TTS.
 - **ReSpeaker when present.** Its ring follows the conversation and the
-  direction a voice came from is attached to the turn as evidence. With no
-  array attached the default microphone is used and nothing else changes.
+  direction a voice came from is attached to the turn as evidence. Near-end
+  speech immediately overrides thinking or speaking animations with the
+  direction-of-arrival display; confirmed speech also preempts unspoken work.
+  With no array attached the default microphone is used and nothing else
+  changes.
 - **Memory storage is passive.** Completed exchanges are embedded on a daemon
   worker only after the answer, tools and speech finish. Recall uses an explicit
   current-query portal tool, so a result selected for one utterance cannot

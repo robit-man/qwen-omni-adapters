@@ -39,7 +39,12 @@ from harness.audio import (
 from harness.background_agent import BackgroundAgent
 from harness.call_queue import SETTLE_MS, CallQueue, Pending
 from harness.memory import PassiveMemory, memory_capacity_available
-from harness.respeaker import STATE_TO_RING, ReSpeaker, describe_direction
+from harness.respeaker import (
+    DOA_RING_STATE,
+    STATE_TO_RING,
+    ReSpeaker,
+    describe_direction,
+)
 from harness.vad import Vad, VadConfig
 from portal.background_tasks import BackgroundTaskStore
 from qwen_omni_adapters.context import live_call_system_prompt
@@ -53,6 +58,47 @@ LIVE_CALL_SYSTEM_PROMPT = live_call_system_prompt()
 
 
 State = str  # "starting" | "listening" | "hearing" | "thinking" | "speaking" | "offline"
+
+
+class _InterruptionDisplay:
+    """Keep near-end speech visually authoritative across worker-state races."""
+
+    def __init__(
+        self,
+        array: ReSpeaker,
+        publish: Callable[[State, str], None],
+    ) -> None:
+        self._array = array
+        self._publish = publish
+        self._lock = threading.RLock()
+        self._base_state: State = "starting"
+        self._base_detail = ""
+        self._interruption_active = False
+
+    def set_base(self, state: State, detail: str = "") -> None:
+        """Record normal progress without displacing active speech/DOA."""
+
+        with self._lock:
+            self._base_state = state
+            self._base_detail = detail
+            self._emit()
+
+    def set_interruption(self, active: bool) -> None:
+        """Select DOA immediately, restoring the latest base state afterward."""
+
+        with self._lock:
+            if active == self._interruption_active:
+                return
+            self._interruption_active = active
+            self._emit()
+
+    def _emit(self) -> None:
+        if self._interruption_active:
+            self._array.set_state(DOA_RING_STATE)
+            self._publish("hearing", "interruption")
+            return
+        self._array.set_state(STATE_TO_RING.get(self._base_state, "trace"))
+        self._publish(self._base_state, self._base_detail)
 
 
 @dataclass
@@ -233,17 +279,14 @@ def _accepted_utterance_preempts(
 ) -> bool:
     """Return whether accepted near-end audio contends with current work.
 
-    Before a foreground reply has produced audio, another accepted sound is
-    ambiguous: it may be the person continuing, or a non-speech event accepted
-    for later comprehension. Preserve it for the next turn instead of silently
-    discarding a reply that never became audible. An actual streaming reply may
-    be paused and checked when echo cancellation makes that safe. Background
-    announcements remain subordinate to a person and may be preempted before
-    playback.
+    Accepted speech outranks work that has not begun speaking: the person has
+    supplied a newer turn before anything became audible. During playback, the
+    echo-cancelling array remains required so far-end audio cannot interrupt
+    itself. Background announcements are always subordinate to a person.
     """
 
     return busy and (
-        background_announcement or (reply_started and can_barge)
+        background_announcement or not reply_started or can_barge
     )
 
 
@@ -1260,6 +1303,7 @@ def run_call_loop(
 
     array = ReSpeaker()
     array.start()
+    display = _InterruptionDisplay(array, outer_notify)
 
     # Echo cancellation is what makes talking over a reply safe. Without it the
     # microphone hears the speakers and the harness interrupts itself.
@@ -1362,8 +1406,7 @@ def run_call_loop(
     def notify(state: State, detail: str = "") -> None:
         nonlocal speaking_since
         speaking_since = time.monotonic() if state == "speaking" else None
-        array.set_state(STATE_TO_RING.get(state, "trace"))
-        outer_notify(state, detail)
+        display.set_base(state, detail)
 
     session._on_state = notify
 
@@ -1545,6 +1588,11 @@ def run_call_loop(
 
                 if verdict.event in {"candidate", "start", "active"}:
                     near_end_active.set()
+                    # A possible person wins the visual channel at first onset,
+                    # before the confirmation window finishes. The display
+                    # arbiter keeps DOA selected if the worker concurrently
+                    # advances from thinking to speaking.
+                    display.set_interruption(True)
                     # Still talking, so nothing is finished being said.
                     settle_until = None
                     if verdict.event == "start":
@@ -1555,6 +1603,15 @@ def run_call_loop(
                         foreground_active.set()
                         if session.background_agent is not None:
                             session.background_agent.wake()
+                        if busy.is_set() and speaking_since is None:
+                            # No playback means there is no far-end echo to
+                            # disambiguate. Cancel stale thinking/preparation at
+                            # confirmed onset instead of making the newer human
+                            # turn wait for end-of-utterance acceptance.
+                            logger.info(
+                                "confirmed interruption; cancelling unspoken work"
+                            )
+                            session.request_barge()
                         if not busy.is_set():
                             notify("hearing", "")
                     if (
@@ -1577,6 +1634,7 @@ def run_call_loop(
                                 session.request_pause()
                 elif verdict.event == "rejected":
                     near_end_active.clear()
+                    display.set_interruption(False)
                     for action in barge.observe(
                         "rejected",
                         now=now,
@@ -1597,6 +1655,7 @@ def run_call_loop(
                     # its VAD start. Acceptance keeps that ownership through ASR,
                     # reasoning, and reply; rejected speech releases it above.
                     near_end_active.clear()
+                    display.set_interruption(False)
                     foreground_active.set()
                     if session.background_agent is not None:
                         session.background_agent.wake()
@@ -1607,8 +1666,12 @@ def run_call_loop(
                         background_announcement=background_announcement_active.is_set(),
                     )
                     if should_preempt:
-                        # A person always wins over a background announcement.
-                        if background_announcement_active.is_set():
+                        # A person always wins over background speech and over
+                        # foreground work that has not produced audible output.
+                        if (
+                            background_announcement_active.is_set()
+                            or speaking_since is None
+                        ):
                             session.request_barge()
                             barge.reset()
                         elif barge.active:
