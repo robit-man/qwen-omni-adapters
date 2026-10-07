@@ -20,7 +20,6 @@
     refresh: document.getElementById("refresh-button"),
     liveToggle: document.getElementById("live-toggle"),
     liveToggleLabel: document.getElementById("live-toggle-label"),
-    summary: document.getElementById("observatory-summary"),
     totalMemories: document.getElementById("total-memories"),
     totalContext: document.getElementById("total-context"),
     totalWork: document.getElementById("total-work"),
@@ -32,9 +31,6 @@
     liveFreshness: document.getElementById("live-freshness"),
     stateCore: document.getElementById("state-core"),
     liveReadout: document.getElementById("live-readout"),
-    inspectorTitle: document.getElementById("inspector-title"),
-    inspectorDetail: document.getElementById("inspector-detail"),
-    inspectorMeta: document.getElementById("inspector-meta"),
     timelineList: document.getElementById("timeline-list"),
     timelineMeta: document.getElementById("timeline-meta"),
     timelineEmpty: document.getElementById("timeline-empty"),
@@ -48,8 +44,6 @@
     workMeta: document.getElementById("work-meta"),
     archiveList: document.getElementById("archive-list"),
     workEmpty: document.getElementById("work-empty"),
-    retentionList: document.getElementById("retention-list"),
-    retentionCaveat: document.getElementById("retention-caveat"),
     error: document.getElementById("observatory-error"),
     errorMessage: document.getElementById("observatory-error-message"),
     retry: document.getElementById("retry-button"),
@@ -70,7 +64,6 @@
     range: initialRange,
     filters: new Set(CATEGORY_ORDER.filter(category => requestedFilters.has(category))),
     timelineLimit: TIMELINE_PAGE,
-    selectedNode: "egg",
     controller: null,
     lastSuccessAt: 0,
     timer: null,
@@ -195,14 +188,12 @@
     const memory = snapshot.memory || {};
     const passive = memory.passive || {};
     const virtual = memory.virtual_context || {};
-    const virtualStorage = memory.virtual_storage || {};
     const work = snapshot.work || {};
     const archive = work.archive || {};
     const environment = live.environment || {};
     const battery = environment.battery || {};
     const runtimeMemory = environment.memory || {};
     const connectivity = environment.connectivity || {};
-    const requests = live.requests || {};
     const daemon = live.daemon || {};
     const harness = live.harness || {};
     const services = serviceSummary(live.services);
@@ -210,82 +201,66 @@
     const nodes = [
       {
         id: "egg", label: "EGG", value: harness.state || daemon.state || "present",
-        category: "root", detail: "The joined view of evidence Egg currently retains.",
-        source: "observatory projection", retention: "mixed · inspect each connected node",
-        freshness: snapshot.captured_at, status: "ok", x: 540, y: 325, radius: 57,
+        category: "root", status: "ok", x: 540, y: 325, radius: 57,
       },
       {
         id: "presence", label: "VOICE LOOP", value: harness.state || "unavailable",
-        category: "live", detail: "Current ReSpeaker / call-harness interaction state.",
-        source: "harness-status.json", retention: "live sample", freshness: harness.updated_at,
+        category: "live",
         status: !harness.available ? "error" : (harness.fresh ? "ok" : "stale"),
       },
       {
         id: "services", label: "SERVICES", value: `${services.healthy}/${services.total} healthy`,
-        category: "live", detail: "Direct health probes for the adapter, comprehension, speech, and language services.",
-        source: "local health endpoints", retention: "live sample", freshness: snapshot.captured_at,
+        category: "live",
         status: services.healthy === services.total ? "ok" : "error",
       },
       {
         id: "compute", label: "COMPUTE", value: `${Number(runtimeMemory.used_percent || 0).toFixed(0)}% memory`,
-        category: "live", detail: `Host load and bounded resource facts. ${Number(requests.active || 0)} active inference request(s).`,
-        source: "bounded runtime snapshot", retention: "5-second sampled cache", freshness: environment.captured_at,
+        category: "live",
         status: "ok",
       },
       {
         id: "battery", label: "BATTERY", value: battery.available ? `${battery.percentage}%` : "unavailable",
-        category: "live", detail: battery.available
-          ? `${battery.voltage_v} V${battery.charging === true ? " · charging" : ""}`
-          : String(battery.reason || "Battery service has no fresh reading."),
-        source: battery.source || "EGG battery service", retention: "live bounded state", freshness: environment.captured_at,
+        category: "live",
         status: battery.available ? "ok" : "stale",
       },
       {
         id: "network", label: "NETWORK", value: connectivity.active_link ? "attached" : "unavailable",
-        category: "live", detail: connectivity.note || "Local attachment only; public reachability is not assumed.",
-        source: "host route and link state", retention: "live sample", freshness: environment.captured_at,
+        category: "live",
         status: connectivity.active_link ? "ok" : "stale",
       },
       {
         id: "passive-memory", label: "MEMORY", value: `${compactNumber(passive.entries)} retained`,
-        category: "memory", detail: "Semantic voice memories strengthen when recalled and decay when repeatedly unused.",
-        source: "passive memory SQLite", retention: "durable · relevance-decayed", freshness: passive.newest_at,
+        category: "memory",
         status: passive.available ? "ok" : "stale",
       },
       {
         id: "working-context", label: "CONTEXT", value: `${compactNumber(virtual.chunks)} chunks`,
-        category: "memory", detail: `${compactNumber(virtualStorage.corpora)} retained session corpora; the current physical model window remains bounded.`,
-        source: "virtual-context evidence stores", retention: "durable until explicit session clear", freshness: snapshot.captured_at,
+        category: "memory",
         status: virtual.mode === "off" ? "stale" : "ok",
       },
       {
         id: "session-memory", label: "SESSION NOTES", value: `${compactNumber(memory.session?.entries)} entries`,
-        category: "memory", detail: "Explicit working notes scoped to this authenticated browser session.",
-        source: "portal session memory", retention: "short-lived session state", freshness: snapshot.captured_at,
+        category: "memory",
         status: "ok",
       },
       {
         id: "current-work", label: "CURRENT WORK", value: `${compactNumber(work.live?.length)} active`,
-        category: "work", detail: "Background objectives, progress checkpoints, tools, and verified outcomes.",
-        source: "background task store", retention: "durable while active", freshness: work.live?.[0]?.updated_at,
+        category: "work",
         status: work.live?.some(item => item.status === "blocked") ? "error" : "ok",
       },
       {
         id: "work-archive", label: "OUTCOMES", value: `${compactNumber(archive.records_observed)} observed`,
-        category: "work", detail: archive.coverage_note || "Human-readable archive of completed, blocked, and cancelled objectives.",
-        source: "background task archive", retention: "durable archive", freshness: archive.recent?.[0]?.updated_at,
+        category: "work",
         status: archive.available ? "ok" : "stale",
       },
       {
         id: "conversation", label: "CONVERSATION", value: `${compactNumber(counts.conversation)} signals`,
-        category: "conversation", detail: "Content-redacted request stage evidence for this browser session.",
-        source: "session diagnostic journal", retention: "short-lived session journal", freshness: snapshot.timeline?.[0]?.at,
+        category: "conversation",
         status: "ok",
       },
       {
         id: "tools", label: "TOOLS", value: `${compactNumber(counts.tools)} calls`,
-        category: "tools", detail: "Tool name, round, and outcome only; arguments and results are not copied here.",
-        source: "session diagnostic journal", retention: "short-lived session journal", freshness: snapshot.timeline?.find(item => item.category === "tools")?.at,
+        category: "tools",
         status: snapshot.timeline?.some(item => item.category === "tools" && item.status === "error") ? "error" : "ok",
       },
     ];
@@ -293,8 +268,7 @@
       const location = snapshot.location;
       nodes.push({
         id: "location", label: "LOCATION", value: [location.city, location.region].filter(Boolean).join(", ") || "approximate",
-        category: "live", detail: "Approximate browser network-area evidence; never treated as GPS, street, or visual evidence.",
-        source: "session-scoped IP geolocation", retention: "short-lived session state", freshness: snapshot.captured_at,
+        category: "live",
         status: "ok",
       });
     }
@@ -327,15 +301,11 @@
       elements.graphEdges.appendChild(line);
     }
     for (const node of nodes) {
-      const group = svgNode("g", {
-        transform: `translate(${node.x} ${node.y})`, tabindex: "0", role: "button",
-        "aria-label": `${node.label}: ${node.value}`,
-      });
+      const group = svgNode("g", { transform: `translate(${node.x} ${node.y})` });
       group.classList.add("graph-node", `category-${node.category}`, `status-${node.status}`);
       if (node.id === "egg") group.classList.add("root-node");
-      if (node.id === state.selectedNode) group.classList.add("is-selected");
       const title = svgNode("title");
-      title.textContent = `${node.label} — ${node.detail}`;
+      title.textContent = `${node.label}: ${node.value}`;
       const ring = svgNode("circle", { class: "node-ring", r: node.radius });
       const core = svgNode("circle", { class: "node-core", r: node.id === "egg" ? 8 : 4 });
       const label = svgNode("text", { class: "node-label", y: node.radius + 19 });
@@ -343,41 +313,9 @@
       const value = svgNode("text", { class: "node-value", y: node.radius + 33 });
       value.textContent = node.value;
       group.append(title, ring, core, label, value);
-      const select = () => {
-        state.selectedNode = node.id;
-        drawGraph(snapshot);
-        renderInspector(node);
-      };
-      group.addEventListener("click", select);
-      group.addEventListener("keydown", event => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          select();
-        }
-      });
       elements.graphNodes.appendChild(group);
     }
-    const selected = nodes.find(node => node.id === state.selectedNode) || root;
-    if (selected.id !== state.selectedNode) state.selectedNode = selected.id;
-    renderInspector(selected);
     elements.graphVisibleCount.textContent = `${nodes.length} visible node${nodes.length === 1 ? "" : "s"}`;
-  }
-
-  function renderInspector(node) {
-    elements.inspectorTitle.textContent = node.label;
-    elements.inspectorDetail.textContent = node.detail;
-    elements.inspectorMeta.replaceChildren();
-    const rows = [
-      ["Value", node.value],
-      ["Source", node.source],
-      ["Retention", node.retention],
-      ["Freshness", node.freshness ? relativeTime(node.freshness) : "not observed"],
-    ];
-    for (const [label, value] of rows) {
-      const wrapper = create("div");
-      wrapper.append(create("dt", "", label), create("dd", "", value));
-      elements.inspectorMeta.appendChild(wrapper);
-    }
   }
 
   function renderLive(snapshot) {
@@ -508,44 +446,25 @@
     elements.workMeta.textContent = `${live.length} active · ${archive.records_observed || 0} archived records observed`;
   }
 
-  function renderRetention(snapshot) {
-    elements.retentionList.replaceChildren();
-    for (const item of snapshot.retention || []) {
-      const row = create("li", "retention-item");
-      const body = create("div");
-      body.append(
-        create("strong", "", item.label),
-        create("p", "", item.detail),
-        create("span", "", item.scope),
-      );
-      row.appendChild(body);
-      elements.retentionList.appendChild(row);
-    }
-    elements.retentionCaveat.textContent = snapshot.scope?.caveat || "";
-  }
-
-  function renderSummary(snapshot) {
+  function renderTotals(snapshot) {
     const passive = snapshot.memory?.passive || {};
     const virtual = snapshot.memory?.virtual_context || {};
     const work = snapshot.work || {};
     const filtered = filteredTimeline(snapshot);
     const active = Number(work.live?.length || 0);
-    const voice = snapshot.live?.harness?.state || "unavailable";
     elements.totalMemories.textContent = compactNumber(passive.entries);
     elements.totalContext.textContent = compactNumber(virtual.chunks);
     elements.totalWork.textContent = compactNumber(active);
     elements.totalSignals.textContent = compactNumber(filtered.length);
-    elements.summary.textContent = `Egg is ${voice}. It retains ${compactNumber(passive.entries)} semantic memories, ${compactNumber(virtual.chunks)} current-session context chunks, and ${active} active objective${active === 1 ? "" : "s"}.`;
   }
 
   function render(snapshot) {
-    renderSummary(snapshot);
+    renderTotals(snapshot);
     drawGraph(snapshot);
     renderLive(snapshot);
     renderTimeline(snapshot);
     renderMemory(snapshot);
     renderWork(snapshot);
-    renderRetention(snapshot);
     elements.graphLoading.hidden = true;
   }
 

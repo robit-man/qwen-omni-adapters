@@ -2031,7 +2031,10 @@ def test_observatory_page_is_read_only_token_free_and_no_store() -> None:
     assert b'id="timeline-list"' in response.data
     assert b'id="memory-list"' in response.data
     assert b'id="work-current"' in response.data
-    assert b"Retained experience" in response.data
+    assert b'aria-label="Current observatory totals"' in response.data
+    assert b"Retained experience" not in response.data
+    assert b"What Egg is carrying forward" not in response.data
+    assert b"Egg is listening" not in response.data
     assert TOKEN.encode() not in response.data
     assert response.headers["Cache-Control"] == "no-store"
     assert "HttpOnly" in response.headers["Set-Cookie"]
@@ -2047,8 +2050,12 @@ def test_observatory_assets_use_safe_dom_and_resilient_refresh() -> None:
     assert "textContent" in javascript
     assert "innerHTML" not in javascript
     assert "prefers-reduced-motion" in css
-    assert ".graph-node:focus-visible" in css
+    assert 'role: "button"' not in javascript
+    assert "Explicit working notes scoped" not in javascript
+    assert "retention-list" not in javascript
     assert ".observatory-page" in css
+    assert "html {" in css
+    assert "overflow-y: auto" in css
     assert "transition: width" not in css
     assert "transition: transform" in css
     assert "memoryStrengthFill.style.transform" in javascript
