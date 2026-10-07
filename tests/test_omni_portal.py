@@ -1954,6 +1954,8 @@ def test_portal_index_has_mobile_security_headers_and_no_token() -> None:
     assert b'id="share-dialog"' in response.data
     assert b'id="share-qr"' in response.data
     assert b'id="voice-button"' in response.data
+    assert b'class="icon-button observatory-button"' in response.data
+    assert b'href="/observatory"' in response.data
     assert b'id="voice-clone-enabled"' in response.data
     assert b'id="voice-clone-toggle"' in response.data
     assert b'id="voice-preset-toggle"' in response.data
@@ -2015,6 +2017,80 @@ def test_portal_index_has_mobile_security_headers_and_no_token() -> None:
     qr_asset = client.get("/assets/qr_code.js")
     assert qr_asset.status_code == 200
     assert qr_asset.headers["Cache-Control"] == "no-store"
+
+
+def test_observatory_page_is_read_only_token_free_and_no_store() -> None:
+    app = create_app(
+        _config(), httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    )
+    response = app.test_client().get("/observatory")
+
+    assert response.status_code == 200
+    assert b"Egg Observatory" in response.data
+    assert b'id="context-graph"' in response.data
+    assert b'id="timeline-list"' in response.data
+    assert b'id="memory-list"' in response.data
+    assert b'id="work-current"' in response.data
+    assert b"Retained experience" in response.data
+    assert TOKEN.encode() not in response.data
+    assert response.headers["Cache-Control"] == "no-store"
+    assert "HttpOnly" in response.headers["Set-Cookie"]
+
+
+def test_observatory_assets_use_safe_dom_and_resilient_refresh() -> None:
+    javascript = Path("portal/static/observatory.js").read_text()
+    css = Path("portal/static/observatory.css").read_text()
+
+    assert 'fetch("/api/observatory"' in javascript
+    assert "AbortController" in javascript
+    assert 'document.addEventListener("visibilitychange"' in javascript
+    assert "textContent" in javascript
+    assert "innerHTML" not in javascript
+    assert "prefers-reduced-motion" in css
+    assert ".graph-node:focus-visible" in css
+    assert ".observatory-page" in css
+
+
+def test_authenticated_observatory_endpoint_joins_existing_state_stores(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    state = tmp_path / "state"
+    state.mkdir()
+    now = time.time()
+    (state / "daemon-status.json").write_text(
+        json.dumps(
+            {
+                "state": "ready",
+                "updated_at": now,
+                "model": "model:test",
+                "access_url": "https://secret.invalid/#access=never-expose",
+                "children": [{"name": "portal", "pid": 12}],
+            }
+        )
+    )
+    (state / "harness-status.json").write_text(
+        json.dumps({"state": "listening", "updated_at": now})
+    )
+    monkeypatch.setenv("OMNI_CALL_MEMORY", str(tmp_path / "missing-memory.sqlite3"))
+    app = create_app(
+        _config(
+            background_task_path=state / "background-tasks.json",
+            virtual_context_root=tmp_path / "virtual-context",
+        ),
+        httpx.Client(transport=httpx.MockTransport(lambda _request: httpx.Response(200))),
+    )
+
+    response = app.test_client().get(
+        "/api/observatory", headers={"Authorization": f"Bearer {TOKEN}"}
+    )
+
+    assert response.status_code == 200
+    assert response.json["schema"] == "robit.omni.observatory.v1"
+    assert response.json["live"]["daemon"]["state"] == "ready"
+    assert response.json["live"]["harness"]["state"] == "listening"
+    assert "access_url" not in response.get_data(as_text=True)
+    assert "never-expose" not in response.get_data(as_text=True)
+    assert response.headers["Cache-Control"] == "no-store"
 
 
 def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None:
@@ -2308,6 +2384,7 @@ def test_portal_api_requires_bearer_token() -> None:
     assert client.get("/api/status").status_code == 401
     assert client.get("/api/activity").status_code == 401
     assert client.get("/api/diagnostics").status_code == 401
+    assert client.get("/api/observatory").status_code == 401
     assert client.get("/api/cameras").status_code == 401
     assert client.get("/api/cameras/frames").status_code == 401
     assert client.post("/api/chat", json=_request()).status_code == 401

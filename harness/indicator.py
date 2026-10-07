@@ -326,7 +326,7 @@ def build_indicator(
     on_tools: Callable[[bool], None] | None = None,
     on_reasoning: Callable[[bool], None] | None = None,
     on_camera: Callable[[bool], None] | None = None,
-    on_open_camera_view: Callable[[], tuple[bool, str]] | None = None,
+    on_open_dashboard: Callable[[], tuple[bool, str]] | None = None,
     tools_enabled: bool = True,
     reasoning_enabled: bool = False,
     camera_enabled: bool = True,
@@ -413,14 +413,10 @@ def build_indicator(
                 self._camera_item.set_sensitive(False)
             menu.append(self._camera_item)
 
-            self._camera_view_item = Gtk.MenuItem(label="Open live camera view")
-            self._camera_view_item.connect(
-                "activate", lambda *_: self._open_camera_view()
-            )
-            self._camera_view_item.set_sensitive(
-                on_open_camera_view is not None and camera_enabled
-            )
-            menu.append(self._camera_view_item)
+            self._dashboard_item = Gtk.MenuItem(label="Dashboard")
+            self._dashboard_item.connect("activate", lambda *_: self._open_dashboard())
+            self._dashboard_item.set_sensitive(on_open_dashboard is not None)
+            menu.append(self._dashboard_item)
 
             menu.append(Gtk.SeparatorMenuItem())
             self._endpoint_item = Gtk.MenuItem(label="Copy public link")
@@ -498,17 +494,14 @@ def build_indicator(
             active = bool(item.get_active())
             if on_camera is not None:
                 on_camera(active)
-            self._camera_view_item.set_sensitive(
-                active and on_open_camera_view is not None
-            )
 
-        def _open_camera_view(self) -> None:
-            if on_open_camera_view is None:
+        def _open_dashboard(self) -> None:
+            if on_open_dashboard is None:
                 return
-            ok, detail = on_open_camera_view()
+            ok, detail = on_open_dashboard()
             self._status_item.set_label(detail[:80])
             if not ok:
-                logger.warning("camera live view could not open: %s", detail)
+                logger.warning("dashboard could not open: %s", detail)
 
         def _copy_endpoint(self) -> None:
             """Put the tunnel's URL, key included, on the clipboard."""

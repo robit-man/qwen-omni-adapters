@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050505">
+  <meta name="description" content="Read-only observability for Egg runtime, memory, and work">
+  <title>Egg Observatory</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/portal.css?v=20261001-camera-sources">
+  <link rel="stylesheet" href="/assets/observatory.css?v=20261007-observatory">
+</head>
+<body class="observatory-page" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
+  <a class="skip-link" href="#observatory-main">Skip to observatory</a>
+
+  <header class="observatory-topbar">
+    <a class="observatory-brand" href="/" id="chat-link" aria-label="Return to Omni chat">
+      <span class="brand-mark" aria-hidden="true">E</span>
+      <span><strong>EGG</strong><small>OBSERVATORY / 01</small></span>
+    </a>
+    <div class="observatory-top-actions">
+      <p class="observatory-clock" id="observatory-clock" aria-label="Local time"></p>
+      <div class="observatory-connection" id="observatory-connection" role="status">
+        <span class="status-dot"></span>
+        <span id="observatory-status">Connecting</span>
+      </div>
+      <button class="observatory-icon-button" id="refresh-button" type="button" aria-label="Refresh observatory" title="Refresh now">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="observatory-shell" id="observatory-main">
+    <section class="observatory-intro" aria-labelledby="observatory-title">
+      <div>
+        <p class="observatory-kicker">Retained experience · read-only</p>
+        <h1 id="observatory-title">What Egg is carrying forward.</h1>
+        <p class="observatory-summary" id="observatory-summary">Assembling retained evidence from the local runtime.</p>
+      </div>
+      <dl class="observatory-totals" aria-label="Retained evidence summary">
+        <div><dt>Memories</dt><dd id="total-memories">—</dd></div>
+        <div><dt>Context</dt><dd id="total-context">—</dd></div>
+        <div><dt>Work</dt><dd id="total-work">—</dd></div>
+        <div><dt>Signals</dt><dd id="total-signals">—</dd></div>
+      </dl>
+    </section>
+
+    <section class="observatory-controls" aria-label="Observatory controls">
+      <div class="range-control" role="group" aria-label="Timeline range">
+        <span>Range</span>
+        <button type="button" data-range="today" aria-pressed="true">Today</button>
+        <button type="button" data-range="7d" aria-pressed="false">7 days</button>
+        <button type="button" data-range="retained" aria-pressed="false">Retained</button>
+      </div>
+      <div class="filter-control" role="group" aria-label="Signal filters">
+        <span>Signals</span>
+        <button type="button" data-filter="live" aria-pressed="true"><i class="filter-dot live"></i>Live</button>
+        <button type="button" data-filter="memory" aria-pressed="true"><i class="filter-dot memory"></i>Memory</button>
+        <button type="button" data-filter="work" aria-pressed="true"><i class="filter-dot work"></i>Work</button>
+        <button type="button" data-filter="conversation" aria-pressed="true"><i class="filter-dot conversation"></i>Conversation</button>
+        <button type="button" data-filter="tools" aria-pressed="true"><i class="filter-dot tools"></i>Tools</button>
+      </div>
+      <button class="live-toggle" id="live-toggle" type="button" aria-pressed="true">
+        <span class="live-toggle-dot" aria-hidden="true"></span>
+        <span id="live-toggle-label">Live refresh</span>
+      </button>
+    </section>
+
+    <div class="observatory-primary-grid">
+      <section class="graph-panel" aria-labelledby="graph-title">
+        <header class="section-heading graph-heading">
+          <div>
+            <p>Context field</p>
+            <h2 id="graph-title">Experience constellation</h2>
+          </div>
+          <p class="section-meta" id="graph-meta">Sources are joined by retained evidence, not inferred certainty.</p>
+        </header>
+        <div class="graph-stage" id="graph-stage">
+          <svg id="context-graph" viewBox="0 0 1080 650" role="img" aria-labelledby="graph-title graph-description">
+            <desc id="graph-description">A contextual graph connecting Egg to its live state, memory, work, conversations, and tools.</desc>
+            <g id="graph-grid" aria-hidden="true"></g>
+            <g id="graph-edges" aria-hidden="true"></g>
+            <g id="graph-nodes"></g>
+          </svg>
+          <div class="graph-loading" id="graph-loading" role="status">
+            <span></span><span></span><span></span>
+            <p>Reading local evidence stores</p>
+          </div>
+        </div>
+        <div class="graph-footer">
+          <p><span class="edge-key strong"></span>Active / reinforced</p>
+          <p><span class="edge-key quiet"></span>Retained / indirect</p>
+          <p id="graph-visible-count">0 visible nodes</p>
+        </div>
+      </section>
+
+      <aside class="now-panel" aria-labelledby="now-title">
+        <header class="section-heading">
+          <div><p>Now</p><h2 id="now-title">Live state</h2></div>
+          <span class="freshness" id="live-freshness">Awaiting sample</span>
+        </header>
+        <div class="state-orbit" aria-hidden="true">
+          <span class="orbit-ring ring-one"></span><span class="orbit-ring ring-two"></span>
+          <span class="state-core" id="state-core"></span>
+        </div>
+        <dl class="live-readout" id="live-readout"></dl>
+        <section class="node-inspector" aria-labelledby="inspector-title">
+          <p>Selected signal</p>
+          <h3 id="inspector-title">Egg</h3>
+          <p id="inspector-detail">Select a node to inspect its source, freshness, and retention boundary.</p>
+          <dl id="inspector-meta"></dl>
+        </section>
+      </aside>
+    </div>
+
+    <div class="observatory-secondary-grid">
+      <section class="timeline-panel" aria-labelledby="timeline-title">
+        <header class="section-heading timeline-heading">
+          <div><p>Day tape</p><h2 id="timeline-title">Experience timeline</h2></div>
+          <p class="section-meta" id="timeline-meta">Newest retained signal first</p>
+        </header>
+        <ol class="timeline-list" id="timeline-list"></ol>
+        <div class="panel-empty" id="timeline-empty" hidden>
+          <strong>No retained signals in this range.</strong>
+          <span>Try a wider range or enable another signal type.</span>
+        </div>
+        <button class="load-more" id="timeline-more" type="button" hidden>Show more retained signals</button>
+      </section>
+
+      <section class="memory-panel" aria-labelledby="memory-title">
+        <header class="section-heading">
+          <div><p>Memory field</p><h2 id="memory-title">What persists</h2></div>
+          <p class="section-meta" id="memory-meta">Durable and session stores</p>
+        </header>
+        <div class="memory-strength" aria-label="Mean passive memory strength">
+          <div class="memory-strength-track"><span id="memory-strength-fill"></span></div>
+          <div><span>Mean strength</span><strong id="memory-strength-value">—</strong></div>
+        </div>
+        <ol class="memory-list" id="memory-list"></ol>
+        <div class="panel-empty" id="memory-empty" hidden>
+          <strong>No passive memories retained yet.</strong>
+          <span>Completed voice exchanges appear here after background admission.</span>
+        </div>
+      </section>
+    </div>
+
+    <div class="observatory-tertiary-grid">
+      <section class="work-panel" aria-labelledby="work-title">
+        <header class="section-heading">
+          <div><p>Work ledger</p><h2 id="work-title">What we are advancing</h2></div>
+          <p class="section-meta" id="work-meta">Current objectives and retained outcomes</p>
+        </header>
+        <div class="work-current" id="work-current"></div>
+        <ol class="archive-list" id="archive-list"></ol>
+        <div class="panel-empty" id="work-empty" hidden>
+          <strong>No active background objective.</strong>
+          <span>Archived outcomes remain visible below when present.</span>
+        </div>
+      </section>
+
+      <section class="retention-panel" aria-labelledby="retention-title">
+        <header class="section-heading">
+          <div><p>Provenance</p><h2 id="retention-title">Retention map</h2></div>
+          <p class="section-meta">What each layer can honestly claim</p>
+        </header>
+        <ol class="retention-list" id="retention-list"></ol>
+        <p class="retention-caveat" id="retention-caveat"></p>
+      </section>
+    </div>
+
+    <section class="observatory-error" id="observatory-error" role="alert" hidden>
+      <div><strong>Observatory could not refresh.</strong><span id="observatory-error-message"></span></div>
+      <button type="button" id="retry-button">Try again</button>
+    </section>
+  </main>
+
+  <p class="sr-only" id="observatory-announcer" aria-live="polite"></p>
+  <script src="/assets/observatory.js?v=20261007-observatory" defer></script>
+</body>
+</html>

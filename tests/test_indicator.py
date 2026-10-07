@@ -9,6 +9,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from harness import indicator as indicator_module  # noqa: E402
+from harness.__main__ import _observatory_url
 from harness.indicator import (
     MAX_ACTION_PREVIEW_CHARS,
     MAX_MENU_WIDTH_CHARS,
@@ -214,12 +215,20 @@ def test_indicator_places_persistent_voice_selection_beside_models() -> None:
     assert "on_voice_import(selected)" in source
 
 
-def test_indicator_exposes_live_camera_view_and_repository_updates() -> None:
+def test_indicator_exposes_dashboard_and_repository_updates() -> None:
     source = inspect.getsource(build_indicator)
 
-    assert 'Gtk.MenuItem(label="Open live camera view")' in source
+    assert 'Gtk.MenuItem(label="Dashboard")' in source
     assert 'Gtk.MenuItem(label="Checking for software updates…")' in source
     assert "Update {available} available — install and restart" in source
     assert "Software update failed — retry" in source
-    assert "on_open_camera_view()" in source
+    assert "on_open_dashboard()" in source
     assert "on_update()" in source
+
+
+def test_dashboard_url_targets_local_observatory_with_fragment_auth() -> None:
+    url = _observatory_url("http://127.0.0.1:8920/", "token with punctuation/+?")
+
+    assert url == (
+        "http://127.0.0.1:8920/observatory#access=token+with+punctuation%2F%2B%3F"
+    )

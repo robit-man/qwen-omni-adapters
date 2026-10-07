@@ -18,13 +18,13 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 
 from harness.audio import probe_audio_server, require_tools
 from harness.call import CallConfig, TurnResult, run_call_loop
 from harness.camera import CameraSet
-from harness.camera_view import CameraLiveView
 from harness.indicator import ThreadedIndicator, build_indicator, probe_indicator
 from harness.location import BrowserLocationProvider
 from harness.models import IndicatorModelManager
@@ -126,6 +126,12 @@ def _available_token(explicit: str | None) -> str:
         return path.read_text(encoding="utf-8").strip()
     except OSError:
         return ""
+
+
+def _observatory_url(portal_url: str, token: str) -> str:
+    """Build the local authenticated dashboard URL without logging the key."""
+
+    return f"{portal_url.rstrip('/')}/observatory#{urlencode({'access': token})}"
 
 
 def _read_token(explicit: str | None) -> str:
@@ -427,7 +433,6 @@ def main(argv: list[str] | None = None) -> int:
     model_switch_requested = threading.Event()
     muted = threading.Event()
     cameras = CameraSet.discover(args.camera_device if args.camera_device_only else None)
-    camera_view = CameraLiveView(cameras, enabled=lambda: config.camera_enabled)
     indicator_holder: dict[str, Any] = {}
 
     def request_shutdown(*_args: object) -> None:
@@ -535,11 +540,12 @@ def main(argv: list[str] | None = None) -> int:
         except OSError as error:
             logger.warning("could not open task archive %s: %s", task_archive, error)
 
-    def open_camera_view() -> tuple[bool, str]:
-        if not config.camera_enabled:
-            return False, "Enable cameras before opening the live view"
+    def open_dashboard() -> tuple[bool, str]:
+        current_token = _available_token(args.token)
+        if not current_token:
+            return False, "Dashboard access key is not available yet"
         try:
-            url = camera_view.start()
+            url = _observatory_url(args.portal, current_token)
             subprocess.Popen(  # noqa: S603 - fixed local desktop opener
                 ["xdg-open", url],
                 stdin=subprocess.DEVNULL,
@@ -548,8 +554,8 @@ def main(argv: list[str] | None = None) -> int:
                 start_new_session=True,
             )
         except OSError as error:
-            return False, f"Could not open camera view: {error}"
-        return True, "Opened stitched live camera view"
+            return False, f"Could not open dashboard: {error}"
+        return True, "Opened Egg dashboard"
 
     indicator = (
         build_indicator(
@@ -563,7 +569,7 @@ def main(argv: list[str] | None = None) -> int:
             on_tools=set_tools,
             on_reasoning=set_reasoning,
             on_camera=set_camera,
-            on_open_camera_view=open_camera_view,
+            on_open_dashboard=open_dashboard,
             tools_enabled=config.tools_enabled,
             reasoning_enabled=config.reasoning_enabled,
             camera_enabled=config.camera_enabled,
@@ -655,7 +661,6 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         stop.set()
         runner.join()
-        camera_view.close()
         if update_manager is not None:
             update_manager.close()
         _write_harness_status(

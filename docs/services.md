@@ -156,7 +156,8 @@ place, run this command, then restart `omni-call-harness.service` to reload its
 Python process. Environment, dependency, model, and supervisor changes still
 require their corresponding full install or service restart.
 
-The daemon does not expose a separate administration UI. The existing phone
-portal is its dashboard and test console, so local and Cloudflared users see the
-same health, queue activity, chat, call, camera, microphone, voice, and
-reasoning controls.
+The daemon does not expose a separate administration service. The authenticated
+portal provides both the phone-first chat/test console and a read-only
+`/observatory` dashboard over retained runtime, memory, and work state, so local
+and Cloudflared users see the same evidence boundaries. The desktop tray's
+**Dashboard** action opens the local observatory in the default browser.

@@ -65,7 +65,8 @@ try:
     from portal.background_tasks import BackgroundTaskStore
     from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
     from portal.documents import DocumentError, SessionDocumentStore
-    from portal.environment import portal_behavior_system_message
+    from portal.environment import portal_behavior_system_message, runtime_environment_snapshot
+    from portal.observatory import ObservatoryReader
     from portal.session_state import SessionContinuationStore
     from portal.tools import (
         DISCOVERY_TOOLS,
@@ -82,7 +83,8 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import BackgroundTaskStore
     from deliveries import FileDeliveryError, SessionFileDeliveryStore
     from documents import DocumentError, SessionDocumentStore
-    from environment import portal_behavior_system_message
+    from environment import portal_behavior_system_message, runtime_environment_snapshot
+    from observatory import ObservatoryReader
     from session_state import SessionContinuationStore
     from tools import (
         DISCOVERY_TOOLS,
@@ -771,6 +773,23 @@ class _SessionDiagnostics:
                 "ttl_seconds": self.ttl_s,
                 "events": copy.deepcopy(list(record.events)),
             }
+
+    def observatory_snapshot(self) -> dict[str, Any]:
+        """Join content-redacted events from every currently active session."""
+
+        with self._lock:
+            events = [
+                copy.deepcopy(event)
+                for record in self._sessions.values()
+                for event in record.events
+            ]
+            active_sessions = len(self._sessions)
+        events.sort(key=lambda item: str(item.get("at") or ""), reverse=True)
+        return {
+            "ttl_seconds": self.ttl_s,
+            "active_sessions": active_sessions,
+            "events": events[:480],
+        }
 
     def clear(self, session_id: str) -> None:
         key = self._key(session_id)
@@ -1807,6 +1826,25 @@ def create_app(
         recurrent_memory_tokens=runtime.virtual_context_recurrent_tokens,
         recurrent_source_chunks=runtime.virtual_context_recurrent_source_chunks,
     )
+    state_root = (
+        runtime.background_task_path.parent
+        if runtime.background_task_path is not None
+        else repository_root / "runtime-data/state"
+    )
+    observatory = ObservatoryReader(
+        state_root=state_root,
+        memory_path=Path(
+            os.environ.get(
+                "OMNI_CALL_MEMORY",
+                str(repository_root / "runtime-data/memory.sqlite3"),
+            )
+        ),
+        virtual_context_root=(
+            runtime.virtual_context_root
+            or repository_root / "runtime-data/virtual-context"
+        ),
+        environment_sampler=runtime_environment_snapshot,
+    )
     plane = decision_plane
     if plane is None and runtime.decision_plane_enabled:
         plane = DecisionPlane.from_environment()
@@ -2421,7 +2459,7 @@ def create_app(
         if (
             request.path.startswith("/api/")
             or request.path.startswith("/assets/")
-            or request.path == "/"
+            or request.path in {"/", "/observatory"}
         ):
             response.headers["Cache-Control"] = "no-store"
         return response
@@ -2458,6 +2496,29 @@ def create_app(
             # Lax retains the opaque session on a top-level revisit from a
             # bookmark, launcher, or native app.  API mutations still require
             # the bearer header, so the cookie is not an authorization token.
+            samesite="Lax",
+            path="/",
+        )
+        return response
+
+    @app.get("/observatory")
+    def observatory_index():
+        browser_session = request_session_id()
+        response = make_response(
+            render_template(
+                "observatory.html",
+                model=runtime.model,
+                session_scope=hashlib.sha256(
+                    f"robit-omni-browser-cache:{browser_session}".encode()
+                ).hexdigest(),
+            )
+        )
+        response.set_cookie(
+            SESSION_COOKIE_NAME,
+            browser_session,
+            max_age=BROWSER_SESSION_COOKIE_MAX_AGE_SECONDS,
+            secure=True,
+            httponly=True,
             samesite="Lax",
             path="/",
         )
@@ -2619,6 +2680,33 @@ def create_app(
             return jsonify({"error": "unauthorized"}), 401
         diagnostics.touch(request_session_id())
         return jsonify(inference_queue.snapshot())
+
+    @app.get("/api/observatory")
+    def observatory_snapshot():
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        session_id = request_session_id()
+        diagnostics.touch(session_id)
+        stages = {
+            "adapter": _probe(session, runtime.adapter_health_url),
+            "tts": _probe(session, runtime.tts_health_url),
+            "ollama": _probe(session, runtime.ollama_health_url),
+        }
+        if runtime.comprehension_health_url:
+            stages["comprehension"] = _probe(session, runtime.comprehension_health_url)
+        else:
+            stages["comprehension"] = {"ok": True, "status": None, "enabled": False}
+        return jsonify(
+            observatory.snapshot(
+                diagnostics=diagnostics.observatory_snapshot(),
+                tasks=background_tasks.list() if background_tasks is not None else [],
+                virtual_context=virtual_context.stats(session_id),
+                session_memory=tool_harness.memory_stats(session_id),
+                location=tool_harness.client_location(session_id),
+                services=stages,
+                requests=inference_queue.snapshot(),
+            )
+        )
 
     @app.get("/api/cameras")
     def list_host_cameras():

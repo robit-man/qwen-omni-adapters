@@ -287,6 +287,7 @@
     cameraRotate: document.getElementById("camera-rotate"),
     cameraRecord: document.getElementById("camera-record"),
     cameraStill: document.getElementById("camera-still"),
+    observatoryButton: document.getElementById("observatory-button"),
     shareButton: document.getElementById("share-button"),
     shareDialog: document.getElementById("share-dialog"),
     shareClose: document.getElementById("share-close"),
@@ -4291,6 +4292,12 @@
     return url.toString();
   }
 
+  function observatoryUrl() {
+    const url = new URL("/observatory", window.location.origin);
+    if (state.token) url.hash = new URLSearchParams({ access: state.token }).toString();
+    return `${url.pathname}${url.hash}`;
+  }
+
   let qrEncoderPromise = null;
   function ensureQrEncoder() {
     if (typeof window.OmniQRCode === "function") return Promise.resolve();
@@ -4616,6 +4623,7 @@
 
   async function initializePortal() {
     state.token = accessToken();
+    elements.observatoryButton.href = observatoryUrl();
     applyVoiceDefaults();
     await restoreBrowserSession();
     if (!state.token) showError(new Error("This link is missing its access fragment"));

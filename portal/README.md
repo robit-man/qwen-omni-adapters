@@ -11,6 +11,15 @@ compact monospace type, yellow accents, thin borders, fixed runtime status,
 and a responsive control rail. It does not copy NOCLIP assets or documentation
 content.
 
+The authenticated `/observatory` route is a read-only, responsive dashboard over
+the stores Egg already owns. Its experience constellation joins live daemon and
+voice-loop state, bounded host/battery/network facts, current-session diagnostics,
+virtual context, passive semantic memory, and the background-work ledger. Every
+layer labels its source, freshness, and retention scope; it does not retain a
+second copy of raw media, credentials, tool payloads, or hidden reasoning. The
+tray indicator's **Dashboard** action opens this route in the default browser
+with the current portal access fragment.
+
 ## Interface and routing
 
 The phone UI is deliberately a single chat surface. Press and hold the

@@ -78,6 +78,8 @@ The sans stack owns conversation and controls. The utility mono stack owns compa
 
 The single chat column is capped at `shell-max` and uses one bounded conversation scroller between a fixed top control rail and a natural-height composer. Safe-area insets protect phone chrome. Popovers are anchored without affecting flow; dialogs stay within the visual viewport and keep controls reachable. Media reserves its intrinsic aspect ratio and uses `object-fit: contain` where cropping would remove evidence.
 
+The desktop-first observatory is the one deliberate wide-shell exception. It uses the same tokens and control grammar across an asymmetric context field, live-state rail, chronological day tape, memory field, and work ledger. At narrower widths these regions stack in evidence priority order; the graph remains a summary and never becomes the only way to access its data.
+
 ## Elevation & Depth
 
 Hierarchy comes primarily from tonal layers and one-pixel borders. The sticky top bar may use blur. Composer, popover, and modal surfaces may use deep, diffuse shadows because they float above active content; static messages and cards remain flat. Dialog backdrops are dark enough to isolate camera content without hiding orientation.
@@ -116,10 +118,14 @@ Motion communicates state: a short reveal for new messages and a restrained puls
 
 Copy is direct and operational: “Hold to record,” “Take still,” “Camera unavailable.” Status text states what is happening and how to recover. Do not personify errors or claim a capture completed before an attachment exists.
 
+The observatory’s signature visualization is the **experience constellation**: Egg is the fixed center, while live state, memory, work, conversation, and tool evidence keep stable category colors around it. Edges describe retained relationships, not causal certainty. Every node exposes the source, freshness, and retention boundary in an adjacent inspector, with the same facts available in semantic timelines and lists. Live, stale, unavailable, empty, and partial-archive states must be explicit. Raw media, credentials, vectors, hidden reasoning, and unretained experience never appear.
+
 ## Do's and Don'ts
 
 - **Do:** Keep privacy-sensitive camera activation behind an explicit source and device choice.
 - **Do:** Reuse the existing attachment path so stills and clips behave exactly like uploaded media.
 - **Do:** Keep bounded visual observations available for later questions while labeling them as historical evidence.
+- **Do:** Distinguish live samples, short-lived session journals, durable context, relevance-decayed memory, and task archives wherever they meet.
 - **Don't:** Auto-open cameras, replay cached raw media as current evidence, or expose host device paths.
+- **Don't:** Present retained history as a complete recording of Egg’s lifespan or infer certainty from a graph edge.
 - **Don't:** Crop live evidence, hide capture controls behind hover, or introduce new decorative colors for individual features.
