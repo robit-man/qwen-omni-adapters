@@ -19,6 +19,7 @@ import base64
 import functools
 import hashlib
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -290,27 +291,42 @@ class _RawFormat:
     fps: float
 
 
-def _raw_format(device: str) -> _RawFormat | None:
-    """Read the node's active format so raw frames can be decoded exactly."""
-
+def _v4l2_query(device: str, option: str) -> str:
     try:
         completed = subprocess.run(
-            ["v4l2-ctl", "-d", device, "--get-fmt-video", "--get-parm"],
-            capture_output=True, text=True, timeout=5,
+            ["v4l2-ctl", "-d", device, option],
+            capture_output=True, text=True, timeout=5, stdin=subprocess.DEVNULL,
         )
-    except (subprocess.TimeoutExpired, OSError):
-        return None
-    text = completed.stdout
+    except (subprocess.TimeoutExpired, OSError) as error:
+        logger.warning("v4l2-ctl %s on %s failed: %s", option, device, error)
+        return ""
+    if completed.returncode != 0:
+        logger.warning(
+            "v4l2-ctl %s on %s exited %s: %s",
+            option, device, completed.returncode, completed.stderr.strip()[:200],
+        )
+    return completed.stdout
+
+
+def _raw_format(device: str) -> _RawFormat | None:
+    """Read the node's active format so raw frames can be decoded exactly.
+
+    The format and frame-rate queries run separately: a driver that rejects
+    the frame-rate query must not hide an otherwise usable format.
+    """
+
+    text = _v4l2_query(device, "--get-fmt-video")
     size = re.search(r"Width/Height\s*:\s*(\d+)/(\d+)", text)
     fourcc = re.search(r"Pixel Format\s*:\s*'(\w{4})'", text)
     stride = re.search(r"Bytes per Line\s*:\s*(\d+)", text)
-    fps = re.search(r"Frames per second\s*:\s*([\d.]+)", text)
-    if completed.returncode != 0 or not size or not fourcc:
+    if not size or not fourcc:
+        logger.warning("camera %s reported no usable format: %r", device, text[:300])
         return None
     mapped = _RAW_PIXEL_FORMATS.get(fourcc.group(1))
     if mapped is None:
         logger.warning("camera %s uses unsupported pixel format %s", device, fourcc.group(1))
         return None
+    fps = re.search(r"Frames per second\s*:\s*([\d.]+)", _v4l2_query(device, "--get-parm"))
     pixel_format, bytes_per_pixel = mapped
     width, height = int(size.group(1)), int(size.group(2))
     # The VI pads rows to its stride alignment; decode the padded row, then crop.
@@ -320,52 +336,67 @@ def _raw_format(device: str) -> _RawFormat | None:
 
 
 def _raw_capture(
-    device: str, frames: int, ffmpeg_output: list[str], timeout: float
-) -> subprocess.CompletedProcess[bytes] | None:
-    """Stream raw frames from v4l2-ctl into ffmpeg's built-in rawvideo input."""
+    device: str, frames: int, ffmpeg_output: list[str], output: Path, timeout: float
+) -> bool:
+    """Stream raw frames from v4l2-ctl into ffmpeg and write ``output``.
+
+    NVIDIA's JetPack 7 ffmpeg also omits the pipe: protocol, so raw frames
+    travel through a named FIFO and results are written to a file; only the
+    file protocol is required.
+    """
 
     fmt = _raw_format(device)
     if fmt is None:
-        return None
-    capture = [
-        "v4l2-ctl", "-d", device, "--stream-mmap",
-        # The first frames after stream-on can be partial while GMSL locks.
-        "--stream-skip=2", f"--stream-count={frames}", "--stream-to=-",
-    ]
-    decode = [
-        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-        "-f", "rawvideo", "-pix_fmt", fmt.pixel_format,
-        "-s", f"{fmt.stride_pixels}x{fmt.height}", "-framerate", f"{fmt.fps:g}",
-        "-i", "-",
-        *[
-            argument.replace("{crop}", f"crop={fmt.width}:{fmt.height}:0:0")
-            for argument in ffmpeg_output
-        ],
-    ]
-    try:
-        producer = subprocess.Popen(
-            capture, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            stdin=subprocess.DEVNULL,
-        )
-    except OSError:
-        return None
-    try:
-        completed = subprocess.run(
-            decode, stdin=producer.stdout, capture_output=True, timeout=timeout,
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        producer.kill()
-        producer.wait()
-        return None
-    finally:
-        if producer.stdout is not None:
-            producer.stdout.close()
-    try:
-        producer.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        producer.kill()
-        producer.wait()
-    return completed
+        return False
+    with tempfile.TemporaryDirectory(prefix="omni-v4l2-") as workspace:
+        fifo = Path(workspace) / "frames.raw"
+        os.mkfifo(fifo)
+        capture = [
+            "v4l2-ctl", "-d", device, "--stream-mmap",
+            # The first frames after stream-on can be partial while GMSL locks.
+            "--stream-skip=2", f"--stream-count={frames}", f"--stream-to={fifo}",
+        ]
+        decode = [
+            "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+            "-f", "rawvideo", "-pix_fmt", fmt.pixel_format,
+            "-s", f"{fmt.stride_pixels}x{fmt.height}", "-framerate", f"{fmt.fps:g}",
+            "-i", str(fifo),
+            *[
+                argument.replace("{crop}", f"crop={fmt.width}:{fmt.height}:0:0")
+                for argument in ffmpeg_output
+            ],
+            str(output),
+        ]
+        try:
+            producer = subprocess.Popen(
+                capture, stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            )
+        except OSError as error:
+            logger.warning("v4l2-ctl could not start for %s: %s", device, error)
+            return False
+        try:
+            completed = subprocess.run(
+                decode, stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout,
+            )
+        except (subprocess.TimeoutExpired, OSError) as error:
+            logger.warning("ffmpeg raw capture of %s failed: %s", device, error)
+            producer.kill()
+            producer.communicate()
+            return False
+        try:
+            _, capture_error = producer.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            producer.kill()
+            _, capture_error = producer.communicate()
+        if completed.returncode != 0 or not output.exists():
+            logger.warning(
+                "raw capture of %s failed: ffmpeg=%s %s v4l2-ctl=%s %s",
+                device, completed.returncode, completed.stderr.decode(errors="replace")[:200],
+                producer.returncode, (capture_error or b"").decode(errors="replace")[:200],
+            )
+            return False
+        return True
 
 
 def _grab_frame(device: str, width: int = 640) -> bytes | None:
@@ -373,15 +404,19 @@ def _grab_frame(device: str, width: int = 640) -> bytes | None:
         if shutil.which("v4l2-ctl") is None:
             logger.warning("ffmpeg lacks V4L2 input and v4l2-ctl is missing; cannot capture %s", device)
             return None
-        completed = _raw_capture(
-            device, 1,
-            ["-frames:v", "1", "-vf", f"{{crop}},scale={width}:-2",
-             "-f", "image2", "-c:v", "mjpeg", "-"],
-            timeout=8,
-        )
-        if completed is None or completed.returncode != 0 or not completed.stdout:
-            return None
-        return completed.stdout
+        with tempfile.TemporaryDirectory(prefix="omni-frame-") as workspace:
+            output = Path(workspace) / "frame.jpg"
+            if not _raw_capture(
+                device, 1,
+                ["-frames:v", "1", "-vf", f"{{crop}},scale={width}:-2",
+                 "-f", "image2", "-c:v", "mjpeg"],
+                output, timeout=8,
+            ):
+                return None
+            try:
+                return output.read_bytes() or None
+            except OSError:
+                return None
     try:
         completed = subprocess.run(
             [
@@ -407,20 +442,17 @@ def _grab_clip(device: str, target: Path, seconds: float) -> Path | None:
         # The model reads this through a pipe, which cannot seek back
         # to a trailing index.
         "-movflags", "+faststart",
-        str(target),
     ]
     if not _ffmpeg_reads_v4l2():
         fmt = _raw_format(device) if shutil.which("v4l2-ctl") else None
         if fmt is None:
             return None
-        completed = _raw_capture(
+        captured = _raw_capture(
             device, max(1, round(fmt.fps * duration)),
             ["-vf", f"{{crop}},scale={CLIP_WIDTH}:-2", *encode],
-            timeout=duration + 25,
+            target, timeout=duration + 25,
         )
-        if completed is None:
-            return None
-        return target if completed.returncode == 0 and target.exists() else None
+        return target if captured else None
     try:
         completed = subprocess.run(
             [
