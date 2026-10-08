@@ -95,6 +95,39 @@ fi
 "$VENV/bin/python" -m pip install --upgrade pip setuptools wheel
 "$VENV/bin/python" -m pip install -e "${REPO_ROOT}[dev]"
 
+# Media capture and conversion need an ffmpeg with V4L2 input and swscale.
+# NVIDIA's JetPack 7 package is a hardware-decode build configured with
+# --disable-everything --disable-swscale (no V4L2 input, no scale/crop, no
+# x264), so the runtime would find no cameras and could not convert media.
+# Fetch a self-contained static build into vendor/ffmpeg; the service units
+# put vendor/ffmpeg/bin first on PATH. Hosts with a capable ffmpeg skip this.
+ffmpeg_is_capable() {
+  "$1" -hide_banner -devices 2>/dev/null | grep -Eq '^ *D[^ ]* +(video4linux2,)?v4l2([, ]|$)' \
+    && "$1" -hide_banner -filters 2>/dev/null | grep -Eq '^ *[^ ]+ +scale +'
+}
+BUNDLED_FFMPEG=$REPO_ROOT/vendor/ffmpeg/bin/ffmpeg
+if [[ $(uname -s) == Linux ]] && ! { command -v ffmpeg >/dev/null 2>&1 && ffmpeg_is_capable ffmpeg; } \
+  && ! { [[ -x $BUNDLED_FFMPEG ]] && ffmpeg_is_capable "$BUNDLED_FFMPEG"; }; then
+  case $(uname -m) in
+    aarch64|arm64) ffmpeg_arch=linuxarm64 ;;
+    x86_64) ffmpeg_arch=linux64 ;;
+    *) ffmpeg_arch="" ;;
+  esac
+  if [[ -n $ffmpeg_arch ]]; then
+    printf 'System ffmpeg lacks V4L2 capture or scaling; installing a static ffmpeg in vendor/ffmpeg\n'
+    ffmpeg_tmp=$(mktemp -d)
+    curl -fsSL --retry 3 -o "$ffmpeg_tmp/ffmpeg.tar.xz" \
+      "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-${ffmpeg_arch}-gpl-8.1.tar.xz"
+    tar -xJf "$ffmpeg_tmp/ffmpeg.tar.xz" -C "$ffmpeg_tmp"
+    rm -rf "$REPO_ROOT/vendor/ffmpeg"
+    mkdir -p "$REPO_ROOT/vendor/ffmpeg"
+    cp -a "$ffmpeg_tmp"/ffmpeg-n8.1-*/bin "$REPO_ROOT/vendor/ffmpeg/"
+    rm -rf "$ffmpeg_tmp"
+    ffmpeg_is_capable "$BUNDLED_FFMPEG" \
+      || { printf 'The bundled ffmpeg lacks V4L2 capture or scaling\n' >&2; exit 1; }
+  fi
+fi
+
 if ((INSTALL_LAYA)); then
   "$REPO_ROOT/scripts/bootstrap_laya.sh"
 fi

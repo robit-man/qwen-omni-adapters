@@ -347,3 +347,12 @@ def test_passwordless_sudo_is_configured_before_setup_steps() -> None:
     source = DEPLOY.read_text(encoding="utf-8")
     main_flow = source.split("\nconfirm_plan\n", 1)[1]
     assert main_flow.index("ensure_unattended_sudo") < main_flow.index("install_deploy_prerequisites")
+
+
+def test_services_prefer_a_bundled_capable_ffmpeg() -> None:
+    bootstrap = (REPO_ROOT / "scripts" / "bootstrap.sh").read_text(encoding="utf-8")
+    assert "ffmpeg-n8.1-latest-${ffmpeg_arch}-gpl-8.1.tar.xz" in bootstrap
+    assert "ffmpeg_is_capable" in bootstrap
+    for unit in ("qwen-omni-adapters.service.in", "omni-call-harness.service.in"):
+        text = (REPO_ROOT / "services" / "linux" / unit).read_text(encoding="utf-8")
+        assert "Environment=PATH=@REPO_ROOT@/vendor/ffmpeg/bin:" in text, unit
