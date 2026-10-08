@@ -1114,7 +1114,7 @@ install_auto_update() {
     printf '+ install omni-auto-update.timer (checks origin/main every 5 minutes)\n'
     return 0
   fi
-  ensure_unattended_sudo || return 0
+  sudo -n -l 2>/dev/null | grep -Eq 'NOPASSWD: *ALL' || ensure_unattended_sudo || return 0
   mkdir -p "$AUTO_UPDATE_UNIT_DIR"
   sed "s|@REPO_ROOT@|$REPO_ROOT|g" "$REPO_ROOT/services/linux/omni-auto-update.service.in" \
     >"$AUTO_UPDATE_UNIT_DIR/omni-auto-update.service"
@@ -1284,6 +1284,13 @@ if [[ $PROFILE == qwen38 ]] && is_tegra; then
   if [[ $memory_kib =~ ^[0-9]+$ ]] && ((memory_kib < 29 * 1024 * 1024)); then
     die 'Qwen3.8 bridge requires a 32 GB-class Jetson or larger'
   fi
+fi
+
+# Passwordless sudo is part of setup when automatic updates are enabled (the
+# default): install it before anything else so a later failure cannot leave
+# the host without it and the rest of setup needs no further password prompt.
+if ((WITH_AUTO_UPDATE && DRY_RUN == 0)) && [[ $(uname -s) == Linux ]]; then
+  ensure_unattended_sudo || warn 'passwordless sudo was not configured; automatic updates will not run'
 fi
 
 if [[ $ACTION == download ]]; then

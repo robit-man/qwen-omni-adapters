@@ -341,3 +341,9 @@ def test_automatic_updates_are_on_by_default_and_opt_out_revokes_them() -> None:
     assert "systemctl --user disable --now omni-auto-update.timer" in opt_out
     assert 'sudo rm -f "$AUTO_UPDATE_SUDOERS"' in opt_out
     assert "WITH_AUTO_UPDATE=1\n" in source
+
+
+def test_passwordless_sudo_is_configured_before_setup_steps() -> None:
+    source = DEPLOY.read_text(encoding="utf-8")
+    main_flow = source.split("\nconfirm_plan\n", 1)[1]
+    assert main_flow.index("ensure_unattended_sudo") < main_flow.index("install_deploy_prerequisites")
