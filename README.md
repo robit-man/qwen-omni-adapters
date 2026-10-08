@@ -102,9 +102,8 @@ On JetPack 7 (L4T R38+) AGX Orin developer kits, `deploy.sh` also installs the
 e-con GMSL2 camera stack from
 [jetson-ecam-gmsl](https://github.com/robit-man/jetson-ecam-gmsl). That
 installer detects the L4T release and running kernel, rebuilds only the camera
-modules that kernel needs, and does nothing when they are already current.
-Copy e-con's release tarball to `~/Desktop` first so it can find the MCU
-firmware. A camera problem is reported as a warning and never fails the Omni
+modules that kernel needs, bundles the camera MCU firmware, and does nothing
+when everything is already current. A camera problem is reported as a warning and never fails the Omni
 deployment. Reboot after the first camera install. `--no-camera` skips this
 step.
 
