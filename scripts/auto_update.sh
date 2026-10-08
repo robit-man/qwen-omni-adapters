@@ -20,6 +20,22 @@ log() { printf 'auto-update: %s\n' "$*"; }
 exec 9>"$LOCK"
 flock -n 9 || { log 'another update is running'; exit 0; }
 
+# The e-con camera stack lives in its own repository. When only it moved,
+# refresh it and re-run its installer without redeploying the Omni runtime.
+ECAM_DIR=$REPO_ROOT/vendor/jetson-ecam-gmsl
+update_camera_stack() {
+  [[ -d $ECAM_DIR/.git && -x $ECAM_DIR/install.sh ]] || return 0
+  local camera_remote camera_local
+  camera_remote=$(git -C "$ECAM_DIR" ls-remote origin refs/heads/main | cut -f1)
+  camera_local=$(git -C "$ECAM_DIR" rev-parse HEAD)
+  [[ $camera_remote =~ ^[0-9a-f]{40}$ && $camera_remote != "$camera_local" ]] || return 0
+  log "camera stack moved to ${camera_remote:0:12}; reinstalling it"
+  git -C "$ECAM_DIR" fetch -q origin main
+  git -C "$ECAM_DIR" reset -q --hard origin/main
+  "${OMNI_UPDATE_SUDO:-sudo}" "$ECAM_DIR/install.sh" --yes --if-needed \
+    || log 'camera stack install failed; the Omni runtime is unaffected'
+}
+
 remote=$(git ls-remote "$REPO_URL" "refs/heads/$BRANCH" | cut -f1)
 [[ $remote =~ ^[0-9a-f]{40}$ ]] || { log "could not read $BRANCH from $REPO_URL"; exit 1; }
 
@@ -27,6 +43,7 @@ remote=$(git ls-remote "$REPO_URL" "refs/heads/$BRANCH" | cut -f1)
 # redeploy is retried on the next run even though HEAD already moved.
 current=$(cat "$REPO_ROOT/.deployed-commit" 2>/dev/null || true)
 if [[ $current == "$remote" ]]; then
+  update_camera_stack
   exit 0
 fi
 log "origin/$BRANCH moved to ${remote:0:12} (deployed: ${current:-none})"
