@@ -63,7 +63,7 @@ def test_fresh_host_installs_missing_prerequisites_before_bootstrap(tmp_path: Pa
     fresh_bin.mkdir()
     for directory in (Path("/usr/bin"), Path("/bin")):
         for tool in directory.iterdir():
-            if tool.name in {"ffmpeg", "node", "ollama"} or (fresh_bin / tool.name).exists():
+            if tool.name in {"cloudflared", "ffmpeg", "node", "ollama"} or (fresh_bin / tool.name).exists():
                 continue
             (fresh_bin / tool.name).symlink_to(tool)
     completed = subprocess.run(
@@ -92,6 +92,7 @@ def test_fresh_host_installs_missing_prerequisites_before_bootstrap(tmp_path: Pa
     assert "apt-get install -y ffmpeg" in output
     assert "deb.nodesource.com/setup_22.x" in output
     assert "ollama.com/install.sh" in output
+    assert "cloudflared/releases/latest/download/cloudflared-linux-" in output
     assert output.index("ollama.com/install.sh") < output.index("scripts/bootstrap.sh")
 
 

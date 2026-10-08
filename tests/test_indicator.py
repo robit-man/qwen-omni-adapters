@@ -226,20 +226,23 @@ def test_indicator_exposes_dashboard_and_repository_updates() -> None:
     assert "on_update()" in source
 
 
-def test_dashboard_action_copies_link_before_opening_default_browser() -> None:
+def test_dashboard_action_opens_browser_and_only_copies_as_a_fallback() -> None:
     source = inspect.getsource(build_indicator)
     module_source = inspect.getsource(indicator_module._indicator_modules)
+    dashboard = source.split("def _open_dashboard(self) -> None:", 1)[1].split(
+        "def _copy_endpoint(self) -> None:", 1
+    )[0]
 
     copy_call = "clipboard.set_text(url, -1)"
     portal_call = 'portal.call_sync(\n                    "OpenURI"'
     browser_call = "Gio.AppInfo.launch_default_for_uri(url, None)"
     assert 'gi.require_version("Gdk", "3.0")' in module_source
-    assert copy_call in source
-    assert portal_call in source
-    assert browser_call in source
-    assert source.index(copy_call) < source.index(portal_call) < source.index(browser_call)
-    assert 'status = "Dashboard opened; link copied"' in source
-    assert 'status = "Dashboard link copied; browser did not open"' in source
+    # The browser is tried first; the clipboard is only touched when it fails,
+    # so opening the dashboard never replaces a copied public link.
+    assert dashboard.index(portal_call) < dashboard.index(browser_call)
+    assert dashboard.index("if opened:") < dashboard.index(copy_call)
+    assert 'self._status_item.set_label("Dashboard opened")\n                return' in dashboard
+    assert '"Dashboard link copied; browser did not open"' in dashboard
 
 
 def test_dashboard_url_targets_local_observatory_with_fragment_auth() -> None:

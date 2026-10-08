@@ -426,6 +426,29 @@ ensure_ollama_store_access() {
   exec sg ollama -c "$(printf '%q ' env OMNI_DEPLOY_GROUP_REEXEC=1 "$REPO_ROOT/deploy.sh" "${resume[@]}")"
 }
 
+# The daemon publishes the portal through a cloudflared quick tunnel; without
+# the binary it serves loopback only and the tray has no public link to copy.
+# Install Cloudflare's official package for this architecture when missing.
+install_cloudflared() {
+  command -v cloudflared >/dev/null 2>&1 && return 0
+  [[ $(uname -s) == Linux ]] && command -v dpkg >/dev/null 2>&1 || {
+    warn 'cloudflared is not installed; the portal will be local-only'
+    return 0
+  }
+  local arch package
+  arch=$(dpkg --print-architecture)
+  package=$(mktemp --suffix=.deb)
+  printf 'Installing cloudflared for the public portal link...\n'
+  if run curl -fsSL -o "$package" \
+    "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$arch.deb" \
+    && run sudo dpkg -i "$package"; then
+    hash -r
+  else
+    warn 'cloudflared install failed; the portal will be local-only'
+  fi
+  rm -f "$package"
+}
+
 # jtop (jetson-stats) is the standard Jetson monitor. It ships only on PyPI,
 # installs system-wide with its own jtop.service, and is optional for the
 # runtime, so a failure here warns instead of aborting the deployment.
@@ -1266,6 +1289,7 @@ if [[ $ACTION == download ]]; then
 else
   install_deploy_prerequisites
   check_deploy_prerequisites
+  install_cloudflared
   install_jetson_monitor
 fi
 ensure_ollama_store_access

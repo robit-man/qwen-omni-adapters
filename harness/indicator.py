@@ -506,17 +506,6 @@ def build_indicator(
                 return
 
             url = detail
-            copied = False
-            try:
-                from gi.repository import Gdk
-
-                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-                clipboard.set_text(url, -1)
-                clipboard.store()
-                copied = True
-            except Exception as error:  # noqa: BLE001 - still try the browser
-                logger.warning("dashboard link could not be copied: %s", error)
-
             opened = False
             try:
                 from gi.repository import Gio
@@ -542,20 +531,26 @@ def build_indicator(
                 logger.info("desktop OpenURI portal unavailable: %s", portal_error)
                 try:
                     opened = bool(Gio.AppInfo.launch_default_for_uri(url, None))
-                except Exception as error:  # noqa: BLE001 - clipboard remains the fallback
+                except Exception as error:  # noqa: BLE001 - clipboard is the fallback
                     logger.warning(
                         "dashboard could not open in the default browser: %s", error
                     )
 
-            if opened and copied:
-                status = "Dashboard opened; link copied"
-            elif opened:
-                status = "Dashboard opened; link could not be copied"
-            elif copied:
-                status = "Dashboard link copied; browser did not open"
-            else:
-                status = "Could not open or copy dashboard link"
-            self._status_item.set_label(status)
+            if opened:
+                # Leave the clipboard alone: it may hold the public link the
+                # operator copied with "Copy public link".
+                self._status_item.set_label("Dashboard opened")
+                return
+            try:
+                from gi.repository import Gdk
+
+                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                clipboard.set_text(url, -1)
+                clipboard.store()
+                self._status_item.set_label("Dashboard link copied; browser did not open")
+            except Exception as error:  # noqa: BLE001 - nothing else to try
+                logger.warning("dashboard link could not be copied: %s", error)
+                self._status_item.set_label("Could not open or copy dashboard link")
 
         def _copy_endpoint(self) -> None:
             """Put the tunnel's URL, key included, on the clipboard."""
