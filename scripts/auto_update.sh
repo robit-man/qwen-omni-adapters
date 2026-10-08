@@ -43,10 +43,18 @@ remote=$(git ls-remote "$REPO_URL" "refs/heads/$BRANCH" | cut -f1)
 # redeploy is retried on the next run even though HEAD already moved.
 current=$(cat "$REPO_ROOT/.deployed-commit" 2>/dev/null || true)
 if [[ $current == "$remote" ]]; then
+  exec 8>"$REPO_ROOT/.deploy.lock"
+  flock -n 8 || exit 0
   update_camera_stack
   exit 0
 fi
 log "origin/$BRANCH moved to ${remote:0:12} (deployed: ${current:-none})"
+
+# Never update while a deployment is running: the checkout and venvs would
+# change underneath it. The lock is inherited by the deploy.sh child below.
+exec 8>"$REPO_ROOT/.deploy.lock"
+flock -n 8 || { log 'a deployment is running; trying again on the next timer run'; exit 0; }
+export OMNI_DEPLOY_LOCK_HELD=1
 
 if [[ ${OMNI_UPDATE_SKIP_SUDO_CHECK:-0} != 1 ]] && ! sudo -n true 2>/dev/null; then
   log 'unattended redeploy needs passwordless sudo; rerun ./deploy.sh interactively to enable it'

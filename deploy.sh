@@ -1254,6 +1254,18 @@ if [[ ! -t 0 || ! -t 1 ]]; then
   [[ -n $PROFILE && -n $ACTION ]] && ASSUME_YES=1
 fi
 
+# One deployment at a time per checkout. A manual run and the auto-update
+# timer share this lock; the updater takes it before touching the checkout
+# and hands it to its deploy.sh child via OMNI_DEPLOY_LOCK_HELD.
+DEPLOY_LOCK=$REPO_ROOT/.deploy.lock
+if ((DRY_RUN == 0)) && [[ ${OMNI_DEPLOY_LOCK_HELD:-0} != 1 ]] && command -v flock >/dev/null 2>&1; then
+  exec 8>"$DEPLOY_LOCK"
+  if ! flock -n 8; then
+    printf 'Another deployment (possibly the automatic updater) is running; waiting for it to finish...\n'
+    flock -w 7200 8 || die 'timed out waiting for the other deployment to finish'
+  fi
+fi
+
 printf 'Qwen Omni guided deployment\n'
 printf '  Platform: %s\n' "$(if is_tegra; then printf 'NVIDIA Jetson/Tegra (%s)' "$(tegra_soc)"; else printf '%s/%s' "$(uname -s)" "$(uname -m)"; fi)"
 printf '  Memory:   %s GiB\n' "$(memory_gib)"

@@ -143,3 +143,22 @@ def test_camera_stack_change_reinstalls_it_without_an_omni_redeploy(tmp_path: Pa
     assert installs.read_text().split() == ["--yes", "--if-needed"]
     assert _git(install / "vendor" / "jetson-ecam-gmsl", "rev-parse", "HEAD") == head
     assert not calls.exists()  # the Omni runtime was not redeployed
+
+
+def test_update_waits_for_a_running_deployment(tmp_path: Path) -> None:
+    import fcntl
+
+    install, work, calls, env = _setup(tmp_path)
+    _publish(work, "second")
+
+    with open(install / ".deploy.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        skipped = _update(install, env)
+    assert skipped.returncode == 0
+    assert "a deployment is running" in skipped.stdout
+    assert not calls.exists()
+    assert not (install / ".git").exists()  # checkout left untouched
+
+    deployed = _update(install, env)
+    assert deployed.returncode == 0, deployed.stdout + deployed.stderr
+    assert calls.exists()
