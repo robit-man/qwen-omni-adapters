@@ -71,12 +71,12 @@ if ((INSTALL_HARNESS)) && [[ $(uname -s) == Linux ]]; then
       exit 1
     }
     printf 'Installing desktop indicator and PulseAudio client dependencies...\n'
-    sudo apt-get update
+    sudo apt-get -o DPkg::Lock::Timeout=600 update
     indicator_package=gir1.2-ayatanaappindicator3-0.1
     if ! apt-cache show "$indicator_package" >/dev/null 2>&1; then
       indicator_package=gir1.2-appindicator3-0.1
     fi
-    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 install -y \
       python3-gi gir1.2-gtk-3.0 "$indicator_package" pulseaudio-utils
   fi
   desktop_harness_dependencies_ready || {

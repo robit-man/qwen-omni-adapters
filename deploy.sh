@@ -377,17 +377,17 @@ install_deploy_prerequisites() {
   command -v curl >/dev/null 2>&1 || packages+=(curl ca-certificates)
 
   if ((${#packages[@]})); then
-    run sudo apt-get update
-    run sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y "${packages[@]}"
+    run sudo apt-get -o DPkg::Lock::Timeout=600 update
+    run sudo env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 install -y "${packages[@]}"
   fi
   if [[ " ${missing[*]} " == *' node '* ]]; then
     # Ubuntu's libnode-dev owns headers that the NodeSource nodejs package
     # also ships, so an old archive Node.js would block the upgrade.
     if dpkg-query -W -f='${Status}' libnode-dev 2>/dev/null | grep -q 'install ok installed'; then
-      run sudo apt-get remove -y libnode-dev
+      run sudo apt-get -o DPkg::Lock::Timeout=600 remove -y libnode-dev
     fi
     run bash -c "curl -fsSL $NODESOURCE_SETUP | sudo -E bash -"
-    run sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+    run sudo env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 install -y nodejs
     hash -r
   fi
   if [[ " ${missing[*]} " == *' ollama '* ]]; then
@@ -461,7 +461,7 @@ install_jetson_monitor() {
   command -v jtop >/dev/null 2>&1 && return 0
   printf 'Installing jtop (jetson-stats) for Jetson monitoring...\n'
   if ! python3 -m pip --version >/dev/null 2>&1; then
-    run sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y python3-pip
+    run sudo env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 install -y python3-pip
   fi
   local pip_install=(sudo -H python3 -m pip install -U jetson-stats)
   # Ubuntu 24.04 marks the system Python externally managed (PEP 668).

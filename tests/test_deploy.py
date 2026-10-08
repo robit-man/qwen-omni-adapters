@@ -89,7 +89,7 @@ def test_fresh_host_installs_missing_prerequisites_before_bootstrap(tmp_path: Pa
     assert completed.returncode == 0, completed.stderr
     output = completed.stdout
     assert "Installing missing deployment prerequisites:" in output
-    assert "apt-get install -y ffmpeg" in output
+    assert "apt-get -o DPkg::Lock::Timeout=600 install -y ffmpeg" in output
     assert "deb.nodesource.com/setup_22.x" in output
     assert "ollama.com/install.sh" in output
     assert "cloudflared/releases/latest/download/cloudflared-linux-" in output
