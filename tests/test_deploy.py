@@ -58,6 +58,43 @@ def test_noninteractive_dry_run_uses_one_bridge_tag_for_both_stages() -> None:
     assert "do not run generation smoke" in completed.stdout
 
 
+def test_fresh_host_installs_missing_prerequisites_before_bootstrap(tmp_path: Path) -> None:
+    fresh_bin = tmp_path / "bin"
+    fresh_bin.mkdir()
+    for directory in (Path("/usr/bin"), Path("/bin")):
+        for tool in directory.iterdir():
+            if tool.name in {"ffmpeg", "node", "ollama"} or (fresh_bin / tool.name).exists():
+                continue
+            (fresh_bin / tool.name).symlink_to(tool)
+    completed = subprocess.run(
+        [
+            str(DEPLOY),
+            "--profile",
+            "ornith15",
+            "--action",
+            "deploy",
+            "--no-update",
+            "--no-harness",
+            "--yes",
+            "--dry-run",
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env={**os.environ, "PATH": str(fresh_bin)},
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    output = completed.stdout
+    assert "Installing missing deployment prerequisites:" in output
+    assert "apt-get install -y ffmpeg" in output
+    assert "deb.nodesource.com/setup_22.x" in output
+    assert "ollama.com/install.sh" in output
+    assert output.index("ollama.com/install.sh") < output.index("scripts/bootstrap.sh")
+
+
 def test_desktop_selection_bootstraps_and_waits_for_the_real_indicator() -> None:
     completed = _run(
         "--profile",

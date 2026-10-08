@@ -296,14 +296,99 @@ confirm_plan() {
   ((selected == 0)) || exit 0
 }
 
-check_deploy_prerequisites() {
-  local required=(cmake curl ffmpeg git node ollama openssl sudo systemctl)
+NODE_MINIMUM_MAJOR=18
+NODE_MINIMUM_MINOR=18
+NODESOURCE_SETUP=https://deb.nodesource.com/setup_22.x
+OLLAMA_INSTALLER=https://ollama.com/install.sh
+
+node_is_current() {
+  local version major minor
+  version=$(node --version 2>/dev/null) || return 1
+  version=${version#v}
+  major=${version%%.*}
+  minor=${version#*.}
+  minor=${minor%%.*}
+  [[ $major =~ ^[0-9]+$ && $minor =~ ^[0-9]+$ ]] || return 1
+  ((major > NODE_MINIMUM_MAJOR || (major == NODE_MINIMUM_MAJOR && minor >= NODE_MINIMUM_MINOR)))
+}
+
+missing_deploy_prerequisites() {
   local python_command=${PYTHON:-python3}
-  required+=("$python_command")
-  local missing=() dependency
+  local required=(cmake curl ffmpeg git ollama openssl sudo systemctl "$python_command")
+  local dependency
   for dependency in "${required[@]}"; do
-    command -v "$dependency" >/dev/null 2>&1 || missing+=("$dependency")
+    command -v "$dependency" >/dev/null 2>&1 || printf '%s\n' "$dependency"
   done
+  node_is_current || printf 'node\n'
+  if command -v "$python_command" >/dev/null 2>&1 \
+    && ! "$python_command" -c 'import ensurepip, venv' >/dev/null 2>&1; then
+    printf 'python3-venv\n'
+  fi
+}
+
+wait_for_ollama() {
+  local attempt
+  for attempt in $(seq 1 30); do
+    ollama list >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  die 'Ollama was installed but its server did not answer within 30 seconds'
+}
+
+# A fresh Ubuntu/JetPack host lacks several runtime tools, and its archive
+# Node.js (12.x on 22.04) is older than the portal requires. Install only what
+# is missing: apt for system packages, NodeSource for Node.js, and Ollama's
+# official installer, which selects the JetPack build on Tegra and registers
+# the ollama systemd service.
+install_deploy_prerequisites() {
+  local missing=() packages=() dependency
+  mapfile -t missing < <(missing_deploy_prerequisites)
+  ((${#missing[@]} == 0)) && return 0
+
+  printf 'Installing missing deployment prerequisites: %s\n' "${missing[*]}"
+  for dependency in "${missing[@]}"; do
+    case $dependency in
+      sudo|systemctl) die "missing deployment prerequisites: ${missing[*]} (cannot auto-install $dependency)" ;;
+    esac
+  done
+  [[ $(uname -s) == Linux ]] && command -v apt-get >/dev/null 2>&1 \
+    || die "missing deployment prerequisites: ${missing[*]} (automatic install requires apt-get)"
+
+  for dependency in "${missing[@]}"; do
+    case $dependency in
+      cmake) packages+=(cmake build-essential) ;;
+      curl|ffmpeg|git|openssl) packages+=("$dependency") ;;
+      python3|python3-venv|"${PYTHON:-python3}") packages+=(python3 python3-venv python3-pip) ;;
+    esac
+  done
+  # NodeSource and Ollama setup both fetch over HTTPS.
+  command -v curl >/dev/null 2>&1 || packages+=(curl ca-certificates)
+
+  if ((${#packages[@]})); then
+    run sudo apt-get update
+    run sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y "${packages[@]}"
+  fi
+  if [[ " ${missing[*]} " == *' node '* ]]; then
+    # Ubuntu's libnode-dev owns headers that the NodeSource nodejs package
+    # also ships, so an old archive Node.js would block the upgrade.
+    if dpkg-query -W -f='${Status}' libnode-dev 2>/dev/null | grep -q 'install ok installed'; then
+      run sudo apt-get remove -y libnode-dev
+    fi
+    run bash -c "curl -fsSL $NODESOURCE_SETUP | sudo -E bash -"
+    run sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+    hash -r
+  fi
+  if [[ " ${missing[*]} " == *' ollama '* ]]; then
+    run bash -c "curl -fsSL $OLLAMA_INSTALLER | sh"
+    hash -r
+    ((DRY_RUN)) || wait_for_ollama
+  fi
+}
+
+check_deploy_prerequisites() {
+  ((DRY_RUN)) && return 0
+  local missing=()
+  mapfile -t missing < <(missing_deploy_prerequisites)
   ((${#missing[@]} == 0)) \
     || die "missing deployment prerequisites: ${missing[*]}"
 }
@@ -1004,7 +1089,10 @@ if [[ $PROFILE == qwen38 ]] && is_tegra; then
   fi
 fi
 
-if [[ $ACTION != download ]]; then
+if [[ $ACTION == download ]]; then
+  command -v ollama >/dev/null 2>&1 || install_deploy_prerequisites
+else
+  install_deploy_prerequisites
   check_deploy_prerequisites
 fi
 

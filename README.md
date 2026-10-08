@@ -1,5 +1,9 @@
 # Qwen Omni Adapters
 
+```bash
+curl -fsSL https://github.com/robit-man/qwen-omni-adapters/archive/refs/heads/main.tar.gz | tar -xz && cd qwen-omni-adapters-main && ./deploy.sh
+```
+
 Standalone runtime, protocol, and deployment tooling for logical Ollama Omni
 models. The guided Jetson deployer offers these verified reduced profiles:
 
