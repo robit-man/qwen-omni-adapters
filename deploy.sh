@@ -65,7 +65,7 @@ Options:
   --no-harness         Explicitly install only the core daemon/portal service
   --no-update          Do not fast-forward the checkout during an upgrade
   --no-camera          Skip the e-con GMSL camera stack on JetPack 7 AGX Orin
-  --no-auto-update     Do not install the timer that redeploys when main moves
+  --no-auto-update     Disable the default timer that redeploys when main moves
   --yes                Accept the final confirmation (requires --profile)
   --dry-run            Print the resolved deployment plan without changing the host
   --list-models        Print the deployable bridge profiles
@@ -1077,23 +1077,15 @@ install_camera_stack() {
   fi
 }
 
-# Unattended redeploys run deploy.sh, which needs sudo. Grant it only with
-# the operator's consent during an interactive deployment.
+# Unattended redeploys run deploy.sh, which needs sudo, so automatic updates
+# (on by default; --no-auto-update opts out) install a passwordless sudo rule
+# for the deploying account and say how to remove it.
 ensure_unattended_sudo() {
   local user
   user=$(id -un)
   if sudo -n -l 2>/dev/null | grep -Eq 'NOPASSWD: *ALL'; then
     return 0
   fi
-  if ! [[ -t 0 && -t 1 ]] || ((ASSUME_YES)); then
-    warn 'automatic updates need passwordless sudo; run ./deploy.sh interactively to allow it'
-    return 1
-  fi
-  local selected
-  select_menu selected 'Automatic updates redeploy with sudo. Allow that without a password prompt?' 0 \
-    "Allow passwordless sudo for $user (enables automatic updates)" \
-    'Keep the password prompt (automatic updates will not run)'
-  ((selected == 0)) || return 1
   local rule
   rule=$(mktemp)
   printf '# Installed by qwen-omni-adapters deploy.sh for unattended redeploys\n%s ALL=(ALL) NOPASSWD: ALL\n' \
@@ -1101,12 +1093,22 @@ ensure_unattended_sudo() {
   sudo visudo -cqf "$rule" || { rm -f "$rule"; warn 'generated sudoers rule failed validation'; return 1; }
   sudo install -m 0440 "$rule" "$AUTO_UPDATE_SUDOERS"
   rm -f "$rule"
+  printf 'Automatic updates: granted %s passwordless sudo via %s (remove that file or redeploy with --no-auto-update to revoke).\n' \
+    "$user" "$AUTO_UPDATE_SUDOERS"
 }
 
 # A user timer checks origin/main every five minutes and redeploys through
 # scripts/auto_update.sh. Linger keeps it running without a desktop login.
 install_auto_update() {
-  ((WITH_AUTO_UPDATE)) || return 0
+  if ((WITH_AUTO_UPDATE == 0)); then
+    # Opting out also withdraws the unattended sudo rule this deployer added.
+    ((DRY_RUN)) && return 0
+    systemctl --user disable --now omni-auto-update.timer >/dev/null 2>&1 || true
+    if [[ -f $AUTO_UPDATE_SUDOERS ]]; then
+      sudo rm -f "$AUTO_UPDATE_SUDOERS"
+    fi
+    return 0
+  fi
   [[ $(uname -s) == Linux ]] || return 0
   if ((DRY_RUN)); then
     printf '+ install omni-auto-update.timer (checks origin/main every 5 minutes)\n'

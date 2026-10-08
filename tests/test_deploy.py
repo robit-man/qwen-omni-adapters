@@ -330,3 +330,14 @@ def test_arrow_key_menu_selects_qwen_bridge() -> None:
     assert "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km" in rendered
     assert "Services:   core daemon + always-listening harness" in rendered
     assert "scripts/bootstrap.sh --refresh-models --with-harness" in rendered
+
+
+def test_automatic_updates_are_on_by_default_and_opt_out_revokes_them() -> None:
+    source = DEPLOY.read_text(encoding="utf-8")
+    sudo = source.split("ensure_unattended_sudo() {", 1)[1].split("\n}\n", 1)[0]
+    assert "select_menu" not in sudo  # no consent prompt; enabled by default
+    assert 'sudo install -m 0440 "$rule" "$AUTO_UPDATE_SUDOERS"' in sudo
+    opt_out = source.split("install_auto_update() {", 1)[1].split("\n}\n", 1)[0]
+    assert "systemctl --user disable --now omni-auto-update.timer" in opt_out
+    assert 'sudo rm -f "$AUTO_UPDATE_SUDOERS"' in opt_out
+    assert "WITH_AUTO_UPDATE=1\n" in source

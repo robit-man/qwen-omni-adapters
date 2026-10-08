@@ -114,8 +114,10 @@ fast-forwards the checkout and redeploys with the persisted profile and
 harness choice. A tarball install is converted to a git checkout on its first
 update; untracked runtime files, venvs and models are kept. Local edits to
 tracked files or a diverged branch stop the update instead of being
-overwritten. Unattended redeploys need passwordless sudo, which an interactive
-`deploy.sh` run offers to enable. `--no-auto-update` skips the timer. Logs:
+overwritten. Automatic updates are on by default. Unattended redeploys need sudo, so
+the deployer installs `/etc/sudoers.d/qwen-omni-auto-update` granting the
+deploying account passwordless sudo when it does not already have it.
+`--no-auto-update` disables the timer and removes that rule. Logs:
 `journalctl --user -u omni-auto-update.service`.
 
 ### Validate and start
