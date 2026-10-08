@@ -13,7 +13,8 @@ GPU?" -- and answers it with whatever evidence the host can genuinely supply:
 * discrete NVIDIA: per-process compute-app accounting, unchanged.
 * Tegra: the worker's own open handles on the integrated GPU character
   devices (``/dev/nvgpu/igpu*`` on JetPack 6, ``/dev/nvhost-*gpu*`` on
-  JetPack 4/5) plus the ``nvmap`` GPU allocator. A process that has mapped
+  JetPack 4/5) plus the ``nvmap`` GPU allocator, or on JetPack 7's OpenRM
+  driver the ``/dev/nvidia<N>`` node plus ``nvidiactl``/``nvidia-uvm``. A process that has mapped
   those nodes has an initialized CUDA context on the integrated GPU; a CPU
   fallback build never opens them.
 
@@ -50,6 +51,12 @@ _TEGRA_GPU_DEVICE_PATTERNS = (
     re.compile(r"^/dev/nvhost-(?:as|dbg|prof|ctxsw|sched)[-a-z_]*-gpu$"),
 )
 _TEGRA_ALLOCATOR_DEVICES = ("/dev/nvmap",)
+# JetPack 7 (L4T R38+) moved the integrated GPU onto the unified OpenRM driver,
+# which exposes the same character devices as a discrete card. A CUDA context
+# there holds the GPU node plus the control or unified-memory node; a CPU-only
+# worker opens none of them.
+_OPENRM_GPU_DEVICE_PATTERN = re.compile(r"^/dev/nvidia\d+$")
+_OPENRM_CONTEXT_DEVICES = ("/dev/nvidiactl", "/dev/nvidia-uvm")
 
 # SoC compatible string -> CUDA compute capability of its integrated GPU.
 _TEGRA_SOC_ARCHITECTURES = {
@@ -252,6 +259,8 @@ def _tegra_process_is_resident(pid: int) -> bool:
     handles = _process_device_handles(pid)
     if not handles:
         return False
+    if any(_OPENRM_GPU_DEVICE_PATTERN.match(handle) for handle in handles):
+        return any(device in handles for device in _OPENRM_CONTEXT_DEVICES)
     on_gpu = any(
         pattern.match(handle) for handle in handles for pattern in _TEGRA_GPU_DEVICE_PATTERNS
     )

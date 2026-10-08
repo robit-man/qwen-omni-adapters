@@ -93,6 +93,29 @@ def test_tegra_residency_accepts_the_jetpack_4_and_5_device_layout(monkeypatch) 
     assert accelerator.process_is_gpu_resident(4242) is True
 
 
+def test_tegra_residency_accepts_the_jetpack_7_openrm_layout(monkeypatch) -> None:
+    monkeypatch.setattr(accelerator, "is_tegra", lambda: True)
+
+    def handles(value: set[str]):
+        return lambda _pid: value
+
+    monkeypatch.setattr(
+        accelerator,
+        "_process_device_handles",
+        handles({"/dev/nvidia0", "/dev/nvidiactl", "/dev/nvidia-uvm"}),
+    )
+    assert accelerator.process_is_gpu_resident(4242) is True
+
+    # Control nodes alone are opened by tools that never create a context.
+    monkeypatch.setattr(
+        accelerator, "_process_device_handles", handles({"/dev/nvidiactl", "/dev/nvidia-uvm"})
+    )
+    assert accelerator.process_is_gpu_resident(4242) is False
+
+    monkeypatch.setattr(accelerator, "_process_device_handles", handles({"/dev/nvidia0"}))
+    assert accelerator.process_is_gpu_resident(4242) is False
+
+
 def test_tegra_never_consults_compute_app_accounting(monkeypatch) -> None:
     monkeypatch.setattr(accelerator, "is_tegra", lambda: True)
 

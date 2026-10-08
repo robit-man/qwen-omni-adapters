@@ -385,6 +385,39 @@ install_deploy_prerequisites() {
   fi
 }
 
+OLLAMA_SERVICE_HOME=/usr/share/ollama
+
+# The official Ollama installer keeps models under the `ollama` user's home,
+# readable only by the `ollama` group, and adds the invoking user to that group.
+# Group membership only applies to new logins, so a deployment that just
+# installed Ollama (or a session that predates the membership) re-executes
+# itself under the group with the same choices instead of asking for a logout.
+ensure_ollama_store_access() {
+  [[ -d $OLLAMA_SERVICE_HOME ]] || return 0
+  [[ -r $OLLAMA_SERVICE_HOME && -x $OLLAMA_SERVICE_HOME ]] && return 0
+  getent group ollama >/dev/null 2>&1 \
+    || die "cannot read $OLLAMA_SERVICE_HOME and no ollama group exists"
+  local user
+  user=$(id -un)
+  if ! id -nG "$user" | tr ' ' '\n' | grep -qx ollama; then
+    printf 'Adding %s to the ollama group to read the Ollama model store.\n' "$user"
+    run sudo usermod -aG ollama "$user"
+  fi
+  if id -nG | tr ' ' '\n' | grep -qx ollama; then
+    die "cannot read $OLLAMA_SERVICE_HOME even with ollama group access"
+  fi
+  ((DRY_RUN)) && return 0
+  ((${OMNI_DEPLOY_GROUP_REEXEC:-0})) \
+    && die "cannot read $OLLAMA_SERVICE_HOME after joining the ollama group; log out and back in"
+  printf 'Continuing the deployment with ollama group access.\n'
+  local resume=(--profile "$PROFILE" --action "$ACTION" --yes)
+  ((ALLOW_UPDATE)) || resume+=(--no-update)
+  if [[ $ACTION != download ]]; then
+    ((WITH_HARNESS)) && resume+=(--with-harness) || resume+=(--no-harness)
+  fi
+  exec sg ollama -c "$(printf '%q ' env OMNI_DEPLOY_GROUP_REEXEC=1 "$REPO_ROOT/deploy.sh" "${resume[@]}")"
+}
+
 check_deploy_prerequisites() {
   ((DRY_RUN)) && return 0
   local missing=()
@@ -1095,6 +1128,7 @@ else
   install_deploy_prerequisites
   check_deploy_prerequisites
 fi
+ensure_ollama_store_access
 
 if [[ $ACTION == upgrade ]]; then
   fast_forward_checkout

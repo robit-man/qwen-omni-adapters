@@ -55,11 +55,16 @@ def resolve_models_dir(explicit: Path | None = None) -> Path:
     # producing a "manifest not found" for a tag that is plainly installed.
     populated: list[Path] = []
     existing: list[Path] = []
+    unreadable: list[Path] = []
     for candidate in candidates:
         if candidate is None:
             continue
         resolved = candidate.expanduser()
-        if not resolved.is_dir():
+        try:
+            if not resolved.is_dir():
+                continue
+        except PermissionError:
+            unreadable.append(resolved)
             continue
         resolved = resolved.resolve()
         existing.append(resolved)
@@ -68,6 +73,11 @@ def resolve_models_dir(explicit: Path | None = None) -> Path:
     for choice in (populated, existing):
         if choice:
             return choice[0]
+    if unreadable:
+        raise OllamaSidecarError(
+            f"permission denied reading the Ollama models directory {unreadable[0]}; "
+            "join the ollama group (sudo usermod -aG ollama $USER) and start a new login session"
+        )
     raise OllamaSidecarError("could not locate the Ollama models directory")
 
 
