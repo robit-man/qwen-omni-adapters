@@ -418,6 +418,32 @@ ensure_ollama_store_access() {
   exec sg ollama -c "$(printf '%q ' env OMNI_DEPLOY_GROUP_REEXEC=1 "$REPO_ROOT/deploy.sh" "${resume[@]}")"
 }
 
+# jtop (jetson-stats) is the standard Jetson monitor. It ships only on PyPI,
+# installs system-wide with its own jtop.service, and is optional for the
+# runtime, so a failure here warns instead of aborting the deployment.
+install_jetson_monitor() {
+  is_tegra || return 0
+  command -v jtop >/dev/null 2>&1 && return 0
+  printf 'Installing jtop (jetson-stats) for Jetson monitoring...\n'
+  if ! python3 -m pip --version >/dev/null 2>&1; then
+    run sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y python3-pip
+  fi
+  local pip_install=(sudo -H python3 -m pip install -U jetson-stats)
+  # Ubuntu 24.04 marks the system Python externally managed (PEP 668).
+  if python3 -m pip install --help 2>/dev/null | grep -q -- --break-system-packages; then
+    pip_install+=(--break-system-packages)
+  fi
+  if ! run "${pip_install[@]}"; then
+    printf 'deploy: warning: jtop install failed; continuing without it\n' >&2
+    return 0
+  fi
+  run sudo systemctl enable --now jtop.service \
+    || printf 'deploy: warning: jtop.service did not start\n' >&2
+  if getent group jtop >/dev/null 2>&1; then
+    run sudo usermod -aG jtop "$(id -un)"
+  fi
+}
+
 check_deploy_prerequisites() {
   ((DRY_RUN)) && return 0
   local missing=()
@@ -1127,6 +1153,7 @@ if [[ $ACTION == download ]]; then
 else
   install_deploy_prerequisites
   check_deploy_prerequisites
+  install_jetson_monitor
 fi
 ensure_ollama_store_access
 

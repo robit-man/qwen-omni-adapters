@@ -14,16 +14,23 @@ command -v jtop >/dev/null 2>&1 || {
   exit 0
 }
 
+# jtop's socket is restricted to the jtop group. Until the next login picks up
+# a freshly added membership, run it under that group explicitly.
+jtop_command=jtop
+if getent group jtop >/dev/null 2>&1 && ! id -nG | tr ' ' '\n' | grep -qx jtop; then
+  jtop_command='sg jtop -c jtop'
+fi
+
 for terminal in gnome-terminal x-terminal-emulator xfce4-terminal konsole; do
   command -v "$terminal" >/dev/null 2>&1 || continue
   case $terminal in
     gnome-terminal)
       exec "$terminal" --title="jtop — Jetson monitor" --geometry=120x40 -- \
-        bash -c 'jtop; printf "\njtop exited. Press enter to close.\n"; read -r _'
+        bash -c "$jtop_command"'; printf "\njtop exited. Press enter to close.\n"; read -r _'
       ;;
     *)
       exec "$terminal" -e \
-        bash -c 'jtop; printf "\njtop exited. Press enter to close.\n"; read -r _'
+        bash -c "$jtop_command"'; printf "\njtop exited. Press enter to close.\n"; read -r _'
       ;;
   esac
 done
