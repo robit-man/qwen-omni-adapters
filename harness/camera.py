@@ -16,8 +16,10 @@ than what is there now.
 from __future__ import annotations
 
 import base64
+import functools
 import hashlib
 import logging
+import re
 import shutil
 import subprocess
 import tempfile
@@ -248,7 +250,138 @@ def _can_capture_with_retry(device: str) -> bool:
     return _can_capture(device)
 
 
+# V4L2 fourcc -> ffmpeg rawvideo pixel format and bytes per pixel, for the
+# v4l2-ctl capture path. YUV GMSL cameras deliver packed 4:2:2.
+_RAW_PIXEL_FORMATS = {
+    "UYVY": ("uyvy422", 2),
+    "YUYV": ("yuyv422", 2),
+    "YVYU": ("yvyu422", 2),
+    "GREY": ("gray", 1),
+}
+
+
+@functools.lru_cache(maxsize=1)
+def _ffmpeg_reads_v4l2() -> bool:
+    """Whether this ffmpeg build includes the V4L2 capture input.
+
+    NVIDIA's JetPack 7 ffmpeg package is built without libavdevice's V4L2
+    input ("Unknown input format: 'v4l2'"), so capture goes through
+    v4l2-ctl there instead.
+    """
+
+    try:
+        listing = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-devices"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return any(
+        re.match(r"^\s*D\S*\s+(?:\S+,)?v4l2(?:,|\s)", line) for line in listing.splitlines()
+    )
+
+
+@dataclass(frozen=True)
+class _RawFormat:
+    pixel_format: str
+    width: int
+    height: int
+    stride_pixels: int
+    fps: float
+
+
+def _raw_format(device: str) -> _RawFormat | None:
+    """Read the node's active format so raw frames can be decoded exactly."""
+
+    try:
+        completed = subprocess.run(
+            ["v4l2-ctl", "-d", device, "--get-fmt-video", "--get-parm"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    text = completed.stdout
+    size = re.search(r"Width/Height\s*:\s*(\d+)/(\d+)", text)
+    fourcc = re.search(r"Pixel Format\s*:\s*'(\w{4})'", text)
+    stride = re.search(r"Bytes per Line\s*:\s*(\d+)", text)
+    fps = re.search(r"Frames per second\s*:\s*([\d.]+)", text)
+    if completed.returncode != 0 or not size or not fourcc:
+        return None
+    mapped = _RAW_PIXEL_FORMATS.get(fourcc.group(1))
+    if mapped is None:
+        logger.warning("camera %s uses unsupported pixel format %s", device, fourcc.group(1))
+        return None
+    pixel_format, bytes_per_pixel = mapped
+    width, height = int(size.group(1)), int(size.group(2))
+    # The VI pads rows to its stride alignment; decode the padded row, then crop.
+    stride_pixels = max(width, int(stride.group(1)) // bytes_per_pixel if stride else width)
+    rate = float(fps.group(1)) if fps else 30.0
+    return _RawFormat(pixel_format, width, height, stride_pixels, rate if rate > 0 else 30.0)
+
+
+def _raw_capture(
+    device: str, frames: int, ffmpeg_output: list[str], timeout: float
+) -> subprocess.CompletedProcess[bytes] | None:
+    """Stream raw frames from v4l2-ctl into ffmpeg's built-in rawvideo input."""
+
+    fmt = _raw_format(device)
+    if fmt is None:
+        return None
+    capture = [
+        "v4l2-ctl", "-d", device, "--stream-mmap",
+        # The first frames after stream-on can be partial while GMSL locks.
+        "--stream-skip=2", f"--stream-count={frames}", "--stream-to=-",
+    ]
+    decode = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        "-f", "rawvideo", "-pix_fmt", fmt.pixel_format,
+        "-s", f"{fmt.stride_pixels}x{fmt.height}", "-framerate", f"{fmt.fps:g}",
+        "-i", "-",
+        *[
+            argument.replace("{crop}", f"crop={fmt.width}:{fmt.height}:0:0")
+            for argument in ffmpeg_output
+        ],
+    ]
+    try:
+        producer = subprocess.Popen(
+            capture, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+        )
+    except OSError:
+        return None
+    try:
+        completed = subprocess.run(
+            decode, stdin=producer.stdout, capture_output=True, timeout=timeout,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        producer.kill()
+        producer.wait()
+        return None
+    finally:
+        if producer.stdout is not None:
+            producer.stdout.close()
+    try:
+        producer.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        producer.kill()
+        producer.wait()
+    return completed
+
+
 def _grab_frame(device: str, width: int = 640) -> bytes | None:
+    if not _ffmpeg_reads_v4l2():
+        if shutil.which("v4l2-ctl") is None:
+            logger.warning("ffmpeg lacks V4L2 input and v4l2-ctl is missing; cannot capture %s", device)
+            return None
+        completed = _raw_capture(
+            device, 1,
+            ["-frames:v", "1", "-vf", f"{{crop}},scale={width}:-2",
+             "-f", "image2", "-c:v", "mjpeg", "-"],
+            timeout=8,
+        )
+        if completed is None or completed.returncode != 0 or not completed.stdout:
+            return None
+        return completed.stdout
     try:
         completed = subprocess.run(
             [
@@ -268,6 +401,26 @@ def _grab_frame(device: str, width: int = 640) -> bytes | None:
 
 
 def _grab_clip(device: str, target: Path, seconds: float) -> Path | None:
+    duration = max(0.5, seconds)
+    encode = [
+        "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+        # The model reads this through a pipe, which cannot seek back
+        # to a trailing index.
+        "-movflags", "+faststart",
+        str(target),
+    ]
+    if not _ffmpeg_reads_v4l2():
+        fmt = _raw_format(device) if shutil.which("v4l2-ctl") else None
+        if fmt is None:
+            return None
+        completed = _raw_capture(
+            device, max(1, round(fmt.fps * duration)),
+            ["-vf", f"{{crop}},scale={CLIP_WIDTH}:-2", *encode],
+            timeout=duration + 25,
+        )
+        if completed is None:
+            return None
+        return target if completed.returncode == 0 and target.exists() else None
     try:
         completed = subprocess.run(
             [

@@ -328,6 +328,9 @@ missing_deploy_prerequisites() {
     command -v "$dependency" >/dev/null 2>&1 || printf '%s\n' "$dependency"
   done
   node_is_current || printf 'node\n'
+  # Host-camera capture: NVIDIA's JetPack 7 ffmpeg has no V4L2 input, so the
+  # portal captures through v4l2-ctl there.
+  command -v v4l2-ctl >/dev/null 2>&1 || printf 'v4l2-ctl\n'
   if command -v "$python_command" >/dev/null 2>&1 \
     && ! "$python_command" -c 'import ensurepip, venv' >/dev/null 2>&1; then
     printf 'python3-venv\n'
@@ -366,6 +369,7 @@ install_deploy_prerequisites() {
     case $dependency in
       cmake) packages+=(cmake build-essential) ;;
       curl|ffmpeg|git|openssl) packages+=("$dependency") ;;
+      v4l2-ctl) packages+=(v4l-utils) ;;
       python3|python3-venv|"${PYTHON:-python3}") packages+=(python3 python3-venv python3-pip) ;;
     esac
   done
