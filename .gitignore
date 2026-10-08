@@ -16,3 +16,4 @@ __pycache__/
 *.gguf
 !docs/**/*.json
 .omnius/
+.deployed-commit

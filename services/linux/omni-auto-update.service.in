@@ -1,0 +1,8 @@
+[Unit]
+Description=Redeploy Qwen Omni when origin/main changes
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=@REPO_ROOT@/scripts/auto_update.sh
+TimeoutStartSec=7200

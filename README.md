@@ -96,6 +96,29 @@ GTK/AppIndicator and PulseAudio client bindings, waits for a real top-bar
 indicator, and does not declare the harness ready until it reads a microphone
 frame. It does not require a separate adjacent language-model download.
 
+### GMSL cameras and automatic updates
+
+On JetPack 7 (L4T R38+) AGX Orin developer kits, `deploy.sh` also installs the
+e-con GMSL2 camera stack from
+[jetson-ecam-gmsl](https://github.com/robit-man/jetson-ecam-gmsl). That
+installer detects the L4T release and running kernel, rebuilds only the camera
+modules that kernel needs, and does nothing when they are already current.
+Copy e-con's release tarball to `~/Desktop` first so it can find the MCU
+firmware. A camera problem is reported as a warning and never fails the Omni
+deployment. Reboot after the first camera install. `--no-camera` skips this
+step.
+
+`deploy.sh` also installs `omni-auto-update.timer`, a user timer with linger
+enabled. Every five minutes it compares `origin/main` with the last
+successfully deployed commit. When main moves, `scripts/auto_update.sh`
+fast-forwards the checkout and redeploys with the persisted profile and
+harness choice. A tarball install is converted to a git checkout on its first
+update; untracked runtime files, venvs and models are kept. Local edits to
+tracked files or a diverged branch stop the update instead of being
+overwritten. Unattended redeploys need passwordless sudo, which an interactive
+`deploy.sh` run offers to enable. `--no-auto-update` skips the timer. Logs:
+`journalctl --user -u omni-auto-update.service`.
+
 ### Validate and start
 
 ```bash

@@ -95,6 +95,27 @@ def test_fresh_host_installs_missing_prerequisites_before_bootstrap(tmp_path: Pa
     assert output.index("ollama.com/install.sh") < output.index("scripts/bootstrap.sh")
 
 
+def test_dry_run_plans_camera_stack_and_automatic_updates() -> None:
+    completed = _run(
+        "--profile", "ornith15", "--action", "deploy", "--no-update",
+        "--no-harness", "--yes", "--dry-run",
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "install omni-auto-update.timer" in completed.stdout
+    source = DEPLOY.read_text(encoding="utf-8")
+    assert '"$ECAM_DIR/install.sh" --yes --if-needed' in source
+
+    opted_out = _run(
+        "--profile", "ornith15", "--action", "deploy", "--no-update", "--no-harness",
+        "--no-camera", "--no-auto-update", "--yes", "--dry-run",
+    )
+    assert opted_out.returncode == 0, opted_out.stderr
+    assert "omni-auto-update" not in opted_out.stdout
+    assert "jetson-ecam-gmsl" not in opted_out.stdout
+    assert "Camera stack" not in opted_out.stdout
+
+
 def test_desktop_selection_bootstraps_and_waits_for_the_real_indicator() -> None:
     completed = _run(
         "--profile",

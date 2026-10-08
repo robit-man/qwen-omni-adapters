@@ -1,0 +1,10 @@
+[Unit]
+Description=Check origin/main for Qwen Omni updates
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -15,6 +15,12 @@ WITH_HARNESS=""
 ASSUME_YES=0
 DRY_RUN=0
 ALLOW_UPDATE=1
+WITH_CAMERA=1
+WITH_AUTO_UPDATE=1
+ECAM_REPO_URL=${OMNI_ECAM_REPO:-https://github.com/robit-man/jetson-ecam-gmsl.git}
+ECAM_DIR=$REPO_ROOT/vendor/jetson-ecam-gmsl
+AUTO_UPDATE_UNIT_DIR=$HOME/.config/systemd/user
+AUTO_UPDATE_SUDOERS=/etc/sudoers.d/qwen-omni-auto-update
 ENV_BACKUP=""
 ENV_EXISTED=0
 CONFIG_INSTALLED=0
@@ -58,6 +64,8 @@ Options:
   --with-harness       Install the always-listening user service (default)
   --no-harness         Explicitly install only the core daemon/portal service
   --no-update          Do not fast-forward the checkout during an upgrade
+  --no-camera          Skip the e-con GMSL camera stack on JetPack 7 AGX Orin
+  --no-auto-update     Do not install the timer that redeploys when main moves
   --yes                Accept the final confirmation (requires --profile)
   --dry-run            Print the resolved deployment plan without changing the host
   --list-models        Print the deployable bridge profiles
@@ -997,6 +1005,99 @@ PY
   die 'service did not become ready within 30 minutes'
 }
 
+warn() {
+  printf 'deploy: warning: %s\n' "$*" >&2
+}
+
+l4t_major() {
+  sed -n 's/^# R\([0-9]*\) (release).*/\1/p' /etc/nv_tegra_release 2>/dev/null | head -n 1
+}
+
+# JetPack 7 AGX Orin hosts get the e-con GMSL camera stack. Its installer
+# detects the L4T release and kernel, rebuilds only what that kernel needs,
+# and is a no-op when nothing changed. A camera failure never fails the
+# runtime deployment.
+install_camera_stack() {
+  ((WITH_CAMERA)) || return 0
+  is_tegra || return 0
+  local major
+  major=$(l4t_major)
+  if [[ ! $major =~ ^[0-9]+$ ]] || ((major < 38)); then
+    printf 'Camera stack: L4T R%s predates JetPack 7; e-con'"'"'s own JetPack 6 installer applies there.\n' \
+      "${major:-?}"
+    return 0
+  fi
+  if ! tr '\0' '\n' </proc/device-tree/compatible 2>/dev/null | grep -q '^nvidia,p3737-0000+p3701-'; then
+    printf 'Camera stack: not an AGX Orin developer kit carrier; skipping.\n'
+    return 0
+  fi
+
+  printf '\nInstalling the e-con GMSL camera stack for this kernel...\n'
+  if [[ -d $ECAM_DIR/.git ]]; then
+    run git -C "$ECAM_DIR" fetch --quiet origin main
+    run git -C "$ECAM_DIR" reset --quiet --hard origin/main
+  else
+    run git clone --quiet --depth 1 "$ECAM_REPO_URL" "$ECAM_DIR"
+  fi
+  if ! run sudo "$ECAM_DIR/install.sh" --yes --if-needed; then
+    warn 'camera stack was not installed (see above); the Omni runtime is unaffected'
+  fi
+}
+
+# Unattended redeploys run deploy.sh, which needs sudo. Grant it only with
+# the operator's consent during an interactive deployment.
+ensure_unattended_sudo() {
+  local user
+  user=$(id -un)
+  if sudo -n -l 2>/dev/null | grep -Eq 'NOPASSWD: *ALL'; then
+    return 0
+  fi
+  if ! [[ -t 0 && -t 1 ]] || ((ASSUME_YES)); then
+    warn 'automatic updates need passwordless sudo; run ./deploy.sh interactively to allow it'
+    return 1
+  fi
+  local selected
+  select_menu selected 'Automatic updates redeploy with sudo. Allow that without a password prompt?' 0 \
+    "Allow passwordless sudo for $user (enables automatic updates)" \
+    'Keep the password prompt (automatic updates will not run)'
+  ((selected == 0)) || return 1
+  local rule
+  rule=$(mktemp)
+  printf '# Installed by qwen-omni-adapters deploy.sh for unattended redeploys\n%s ALL=(ALL) NOPASSWD: ALL\n' \
+    "$user" >"$rule"
+  sudo visudo -cqf "$rule" || { rm -f "$rule"; warn 'generated sudoers rule failed validation'; return 1; }
+  sudo install -m 0440 "$rule" "$AUTO_UPDATE_SUDOERS"
+  rm -f "$rule"
+}
+
+# A user timer checks origin/main every five minutes and redeploys through
+# scripts/auto_update.sh. Linger keeps it running without a desktop login.
+install_auto_update() {
+  ((WITH_AUTO_UPDATE)) || return 0
+  [[ $(uname -s) == Linux ]] || return 0
+  if ((DRY_RUN)); then
+    printf '+ install omni-auto-update.timer (checks origin/main every 5 minutes)\n'
+    return 0
+  fi
+  ensure_unattended_sudo || return 0
+  mkdir -p "$AUTO_UPDATE_UNIT_DIR"
+  sed "s|@REPO_ROOT@|$REPO_ROOT|g" "$REPO_ROOT/services/linux/omni-auto-update.service.in" \
+    >"$AUTO_UPDATE_UNIT_DIR/omni-auto-update.service"
+  install -m 0644 "$REPO_ROOT/services/linux/omni-auto-update.timer" \
+    "$AUTO_UPDATE_UNIT_DIR/omni-auto-update.timer"
+  sudo loginctl enable-linger "$(id -un)"
+  systemctl --user daemon-reload
+  systemctl --user enable --now omni-auto-update.timer
+  printf 'Automatic updates: omni-auto-update.timer redeploys when origin/main changes.\n'
+}
+
+record_deployed_commit() {
+  ((DRY_RUN)) && return 0
+  if git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$REPO_ROOT" rev-parse HEAD >"$REPO_ROOT/.deployed-commit"
+  fi
+}
+
 deploy_service() {
   local doctor=("$REPO_ROOT/.venv/bin/qwen-omni" doctor --deployment \
     --model "$OMNI_MODEL" --language-model "$OMNI_LANGUAGE_MODEL")
@@ -1093,6 +1194,8 @@ while (($#)); do
     --with-harness) WITH_HARNESS=1 ;;
     --no-harness) WITH_HARNESS=0 ;;
     --no-update) ALLOW_UPDATE=0 ;;
+    --no-camera) WITH_CAMERA=0 ;;
+    --no-auto-update) WITH_AUTO_UPDATE=0 ;;
     --yes|-y) ASSUME_YES=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --list-models) list_models; exit 0 ;;
@@ -1172,8 +1275,13 @@ bootstrap=("$REPO_ROOT/scripts/bootstrap.sh" --refresh-models)
 if ((DRY_RUN)); then
   run "${bootstrap[@]}"
   deploy_service
+  install_camera_stack
+  install_auto_update
   exit 0
 fi
 
 "${bootstrap[@]}"
 deploy_service
+install_camera_stack || warn 'camera stack step failed; the Omni runtime is unaffected'
+install_auto_update || warn 'automatic updates were not enabled'
+record_deployed_commit
