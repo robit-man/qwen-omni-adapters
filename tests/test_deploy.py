@@ -116,6 +116,25 @@ def test_dry_run_plans_camera_stack_and_automatic_updates() -> None:
     assert "Camera stack" not in opted_out.stdout
 
 
+def test_camera_stack_runs_before_the_runtime_handoff() -> None:
+    completed = _run(
+        "--profile", "ornith15", "--action", "deploy", "--no-update",
+        "--no-harness", "--yes", "--dry-run",
+    )
+    assert completed.returncode == 0, completed.stderr
+    source = DEPLOY.read_text(encoding="utf-8")
+    main_flow = source.rsplit('"${bootstrap[@]}"\n', 1)[1]
+    assert main_flow.index("install_camera_stack") < main_flow.index("deploy_service")
+
+
+def test_unreadable_port_owner_is_identified_with_sudo_before_refusing() -> None:
+    source = DEPLOY.read_text(encoding="utf-8")
+    handoff = source.split("prepare_runtime_handoff() {", 1)[1].split("\n}\n", 1)[0]
+    assert "sudo \"$REPO_ROOT/.venv/bin/python\" -m qwen_omni_adapters.deployment_handoff" in handoff
+    assert handoff.index("handoff_command targets") < handoff.index("sudo \"$REPO_ROOT/.venv/bin/python\"")
+    assert 'sudo kill -0 "$pid"' in source
+
+
 def test_desktop_selection_bootstraps_and_waits_for_the_real_indicator() -> None:
     completed = _run(
         "--profile",

@@ -728,9 +728,18 @@ prepare_runtime_handoff() {
   fi
   printf '\nInspecting live Omni ports and accelerator state before cutover...\n'
   handoff_command inventory --ports "$DEPLOYMENT_PORTS"
-  if ! handoff_command targets --ports "$DEPLOYMENT_PORTS" >"$target_file"; then
-    unlink "$target_file" 2>/dev/null || true
-    die 'a deployment port is owned by an unknown process; leaving the live runtime untouched'
+  if ! handoff_command targets --ports "$DEPLOYMENT_PORTS" >"$target_file" 2>/dev/null; then
+    # A listener owned by root or another user cannot be read from this
+    # account's /proc view. Identify it with root before deciding; only a
+    # genuinely foreign owner stops the handoff.
+    printf 'A deployment port owner is not readable as %s; inspecting it with sudo...\n' "$(id -un)"
+    sudo "$REPO_ROOT/.venv/bin/python" -m qwen_omni_adapters.deployment_handoff \
+      inventory --ports "$DEPLOYMENT_PORTS"
+    if ! sudo "$REPO_ROOT/.venv/bin/python" -m qwen_omni_adapters.deployment_handoff \
+      targets --ports "$DEPLOYMENT_PORTS" >"$target_file"; then
+      unlink "$target_file" 2>/dev/null || true
+      die 'a deployment port is owned by a non-Omni process (see the owner above); leaving the live runtime untouched'
+    fi
   fi
 
   while IFS=$'\t' read -r kind value; do
@@ -785,7 +794,8 @@ prepare_runtime_handoff() {
     sudo systemctl stop "$unit"
   done
   for pid in "${STOPPED_MANUAL_PIDS[@]}"; do
-    if kill -0 "$pid" 2>/dev/null; then
+    # The owner may belong to root (found through the sudo inventory).
+    if sudo kill -0 "$pid" 2>/dev/null; then
       printf 'Stopping recognized unmanaged Omni listener PID: %s\n' "$pid"
       sudo kill -TERM "$pid"
     fi
@@ -1274,14 +1284,16 @@ bootstrap=("$REPO_ROOT/scripts/bootstrap.sh" --refresh-models)
 
 if ((DRY_RUN)); then
   run "${bootstrap[@]}"
-  deploy_service
   install_camera_stack
+  deploy_service
   install_auto_update
   exit 0
 fi
 
 "${bootstrap[@]}"
-deploy_service
+# The camera stack is independent of the Omni runtime handoff, so it runs
+# first and a refused or failed handoff cannot skip it.
 install_camera_stack || warn 'camera stack step failed; the Omni runtime is unaffected'
+deploy_service
 install_auto_update || warn 'automatic updates were not enabled'
 record_deployed_commit
