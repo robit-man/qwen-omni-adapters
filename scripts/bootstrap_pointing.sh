@@ -23,12 +23,13 @@ command -v "$PYTHON" >/dev/null 2>&1 || {
 python_minor=$(
   "$PYTHON" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'
 )
-[[ $python_minor == 3.10 ]] || {
-  printf 'JetPack 6 point-head runtime requires Python 3.10 (found %s).\n' "$python_minor" >&2
-  exit 1
-}
 
 l4t_release=$(sed -n 's/^# R\([0-9][0-9]*\) (release), REVISION: \([0-9][0-9.]*\).*/R\1.\2/p' /etc/nv_tegra_release 2>/dev/null | head -n 1)
+# JetPack 6 needs NVIDIA's L4T-specific cp310 wheels. JetPack 7 (L4T R38+)
+# ships the unified SBSA CUDA 13 stack, so the standard aarch64 CUDA wheels
+# from PyPI run on the integrated GPU for the distro's Python.
+torch_wheel=''
+torch_version_prefix=''
 case $l4t_release in
   R36.2*|R36.3*)
     torch_wheel='https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl'
@@ -38,16 +39,25 @@ case $l4t_release in
     torch_wheel='https://developer.download.nvidia.com/compute/redist/jp/v61/pytorch/torch-2.5.0a0+872d972e41.nv24.08.17622132-cp310-cp310-linux_aarch64.whl'
     torch_version_prefix='2.5.0a0+872d972e41.nv24.'
     ;;
+  R3[89].*|R[4-9][0-9].*)
+    ;;
   *)
-    printf 'Unsupported or unknown JetPack 6 L4T release: %s\n' "${l4t_release:-unknown}" >&2
+    printf 'Unsupported or unknown JetPack L4T release: %s\n' "${l4t_release:-unknown}" >&2
     exit 1
     ;;
 esac
 
+if [[ -n $torch_wheel && $python_minor != 3.10 ]]; then
+  printf 'JetPack 6 point-head runtime requires Python 3.10 (found %s).\n' "$python_minor" >&2
+  exit 1
+fi
+
 "$PYTHON" -m venv "$POINTING_VENV"
 "$POINTING_VENV/bin/python" -m pip install --upgrade pip setuptools wheel
 "$POINTING_VENV/bin/python" -m pip install 'numpy<2'
-if ! "$POINTING_VENV/bin/python" - "$torch_version_prefix" <<'PY'
+if [[ -z $torch_wheel ]]; then
+  "$POINTING_VENV/bin/python" -m pip install torch
+elif ! "$POINTING_VENV/bin/python" - "$torch_version_prefix" <<'PY'
 import importlib.metadata
 import sys
 
