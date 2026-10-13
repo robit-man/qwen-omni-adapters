@@ -241,6 +241,9 @@ def build_parser() -> argparse.ArgumentParser:
     applications.add_argument("--limit", type=int, default=50, choices=range(1, 201))
     applications.add_argument("--include-no-display", action="store_true")
     applications.add_argument("--json", action="store_true")
+
+    service = sub.add_parser("service", help="Pause or resume the managed Linux voice service")
+    service.add_argument("action", choices=("pause", "resume", "status"))
     return parser
 
 
@@ -296,6 +299,16 @@ def main(argv: list[str] | None = None) -> int:
             return _doctor(args)
         elif args.command == "applications":
             return _applications(args)
+        elif args.command == "service":
+            from qwen_omni_adapters.service_control import VoiceServiceControl
+
+            control = VoiceServiceControl(Path(__file__).resolve().parents[2])
+            if args.action == "status":
+                _print_json({"paused": control.paused()})
+                return 0
+            ok, detail = control.set_paused(args.action == "pause")
+            _print_json({"ok": ok, "paused": control.paused(), "detail": detail})
+            return 0 if ok else 1
         else:  # pragma: no cover - argparse enforces a command
             raise AssertionError(args.command)
     except (OllamaSidecarError, SingleGGUFError, ValueError) as exc:

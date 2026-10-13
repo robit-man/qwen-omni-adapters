@@ -525,6 +525,13 @@ lifecycle logs remain separate and must not contain model inputs or outputs.
 
 ## Shutdown and cleanup
 
+On managed Linux installs, the desktop menu's **Pause voice service** releases
+the runtime's model memory while keeping the tray available for **Resume voice
+service**. The operator command is `.venv/bin/qwen-omni service pause` (or
+`resume` / `status`). Pause survives reboot and automatic updates. Resume checks
+the deployment before starting; model files, conversations and settings remain.
+Pausing stops active voice requests and background execution; it is not microphone mute.
+
 1. Stop accepting adapter requests.
 2. Drain and stop TTS and comprehension workers.
 3. Confirm CUDA allocations are freed and broker leases are released.

@@ -36,6 +36,7 @@ from harness.residency import (
 from harness.respeaker import find_source
 from harness.update import RepositoryUpdateManager
 from portal.background_tasks import BackgroundTaskStore
+from qwen_omni_adapters.service_control import VoiceServiceControl
 from qwen_omni_adapters.voice_profiles import IndicatorVoiceManager
 
 logger = logging.getLogger("omni.harness")
@@ -273,6 +274,7 @@ def main(argv: list[str] | None = None) -> int:
     if indicator_required and args.no_indicator:
         raise SystemExit("OMNI_REQUIRE_INDICATOR=1 conflicts with --no-indicator")
     repo_root = _repo_root()
+    service_control = VoiceServiceControl(repo_root)
     _write_harness_status(
         repo_root,
         state="starting",
@@ -289,9 +291,11 @@ def main(argv: list[str] | None = None) -> int:
     # service. The first boot therefore often precedes access-token creation;
     # absence is a normal startup state, not a reason to crash-loop.
     token = _available_token(args.token)
-    status, token = _wait_for_portal(
-        args.portal, token, args.ready_timeout, lambda: _available_token(args.token)
-    )
+    status = {}
+    if not service_control.paused():
+        status, token = _wait_for_portal(
+            args.portal, token, args.ready_timeout, lambda: _available_token(args.token)
+        )
     model = args.model or str(status.get("model") or "")
     if not model:
         raise SystemExit("the adapter did not report a model tag")
@@ -429,6 +433,7 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("background residency mode: %s", background_residency_mode)
 
     stop = threading.Event()
+    call_stop = threading.Event()
     reload_requested = threading.Event()
     model_switch_requested = threading.Event()
     muted = threading.Event()
@@ -439,6 +444,7 @@ def main(argv: list[str] | None = None) -> int:
         """Turn service-manager signals into the same orderly UI shutdown path."""
 
         stop.set()
+        call_stop.set()
         live_indicator = indicator_holder.get("value")
         if live_indicator is not None:
             live_indicator.stop()
@@ -553,6 +559,8 @@ def main(argv: list[str] | None = None) -> int:
             on_mute=lambda value: muted.set() if value else muted.clear(),
             on_quit=request_shutdown,
             on_reload=request_reload,
+            service_paused=service_control.paused,
+            on_service_pause=service_control.set_paused if sys.platform.startswith("linux") else None,
             on_clear_tasks=clear_finished_tasks,
             on_cancel_task=cancel_task,
             on_clear_task=clear_task,
@@ -624,6 +632,13 @@ def main(argv: list[str] | None = None) -> int:
 
     def worker() -> None:
         while not stop.is_set():
+            if service_control.paused():
+                on_state("paused", "")
+                stop.wait(0.5)
+                continue
+            call_stop.clear()
+            if stop.is_set() or service_control.paused():
+                continue
             try:
                 run_call_loop(
                     config,
@@ -632,13 +647,21 @@ def main(argv: list[str] | None = None) -> int:
                     ),
                     on_turn=on_turn,
                     frame_grabber=guarded_frame,
-                    stop=stop,
+                    stop=call_stop,
                 )
             except Exception as error:  # noqa: BLE001 - keep listening
                 logger.warning("call loop restarting after: %s", error)
                 on_state("offline", str(error)[:60])
                 if stop.wait(5):
                     return
+
+    def watch_service_pause() -> None:
+        while not stop.wait(0.1):
+            if service_control.paused():
+                call_stop.set()
+        call_stop.set()
+
+    threading.Thread(target=watch_service_pause, name="voice-pause-watch", daemon=True).start()
 
     if indicator is None:
         worker()
@@ -651,6 +674,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
     finally:
         stop.set()
+        call_stop.set()
         runner.join()
         if update_manager is not None:
             update_manager.close()

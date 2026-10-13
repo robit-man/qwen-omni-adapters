@@ -43,6 +43,7 @@ STATE_ICONS = {
     "speaking": "audio-volume-high-symbolic",
     "muted": "microphone-sensitivity-muted-symbolic",
     "offline": "network-error-symbolic",
+    "paused": "media-playback-pause-symbolic",
 }
 
 # Glyph per state. Text rather than themed icons: these render identically on
@@ -65,6 +66,7 @@ TOOLTIPS: dict[str, str] = {
     "speaking": "Speaking",
     "muted": "Microphone muted",
     "offline": "The omni adapter is unreachable",
+    "paused": "Voice service paused",
 }
 
 
@@ -320,6 +322,8 @@ def build_indicator(
     on_mute: Callable[[bool], None],
     on_quit: Callable[[], None],
     on_reload: Callable[[], None] | None = None,
+    service_paused: Callable[[], bool] | None = None,
+    on_service_pause: Callable[[bool], tuple[bool, str]] | None = None,
     on_clear_tasks: Callable[[], int] | None = None,
     on_cancel_task: Callable[[str], bool] | None = None,
     on_clear_task: Callable[[str], bool] | None = None,
@@ -366,6 +370,7 @@ def build_indicator(
             )
             self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
             self._muted = False
+            self._service_busy = False
             self._gtk = Gtk
             self._task_widgets: list[Any] = []
             self._task_signature: object = None
@@ -432,6 +437,11 @@ def build_indicator(
             self._reload_item.set_sensitive(on_reload is not None)
             menu.append(self._reload_item)
 
+            self._pause_item = Gtk.MenuItem(label="Pause voice service")
+            self._pause_item.connect("activate", lambda *_: self._toggle_service_pause())
+            self._pause_item.set_sensitive(on_service_pause is not None)
+            menu.append(self._pause_item)
+
             self._update_item = Gtk.MenuItem(label="Checking for software updates…")
             self._update_item.connect("activate", lambda *_: self._install_update())
             self._update_item.set_sensitive(False)
@@ -477,6 +487,9 @@ def build_indicator(
             self._refresh_voices()
             self._refresh_tasks()
             self._refresh_update()
+            self._refresh_service_pause()
+            if service_paused is not None:
+                GLib.timeout_add_seconds(1, self._refresh_service_pause)
             if models is not None:
                 GLib.timeout_add_seconds(1, self._refresh_models)
             if voices is not None:
@@ -582,6 +595,39 @@ def build_indicator(
             self._reload_item.set_sensitive(False)
             on_reload()
             self.stop()
+
+        def _refresh_service_pause(self) -> bool:
+            paused = service_paused is not None and service_paused()
+            if not self._service_busy:
+                self._pause_item.set_label("Resume voice service" if paused else "Pause voice service")
+            self._pause_item.set_sensitive(on_service_pause is not None and not self._service_busy)
+            self._reload_item.set_sensitive(on_reload is not None and not paused and not self._service_busy)
+            if paused:
+                self.set_state("paused")
+            return True
+
+        def _toggle_service_pause(self) -> None:
+            if on_service_pause is None or self._service_busy:
+                return
+            paused = service_paused is not None and service_paused()
+            self._service_busy = True
+            self._pause_item.set_label("Resuming…" if paused else "Pausing…")
+            self._refresh_service_pause()
+
+            def change() -> None:
+                ok, detail = on_service_pause(not paused)
+
+                def finish() -> bool:
+                    self._service_busy = False
+                    self._refresh_service_pause()
+                    self._status_item.set_label(detail[:80])
+                    if not ok:
+                        logger.warning("voice service control: %s", detail)
+                    return False
+
+                GLib.idle_add(finish)
+
+            threading.Thread(target=change, name="voice-service-control", daemon=True).start()
 
         def _install_update(self) -> None:
             if on_update is None:
@@ -1012,7 +1058,9 @@ def build_indicator(
             return True
 
         def set_state(self, state: str, detail: str = "") -> None:
-            if self._muted and state not in {"muted", "offline"}:
+            if service_paused is not None and service_paused():
+                state, detail = "paused", ""
+            if self._muted and state not in {"muted", "offline", "paused"}:
                 state = "muted"
             tooltip = TOOLTIPS.get(state, state)
             summary = f"{tooltip}: {detail}" if detail else tooltip
