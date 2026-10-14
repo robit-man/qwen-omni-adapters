@@ -181,6 +181,8 @@ docker gpu discover
 
 docker gpu run \
   --owner qwen38-omni-comprehension \
+  --justification 'Qwen Omni media comprehension service' \
+  --expected-duration 86400 \
   --vram-mib 30000 \
   --gpu GPU_UUID \
   --ready-command 'curl -fsS http://127.0.0.1:8901/health' \
@@ -257,13 +259,36 @@ This is the Qwen-VL/llama.cpp minimum for reliable grounding; allowing the small
 model-default image budget saves prompt work but materially degrades browser point
 proposals. Exact DOM targets bypass visual pointing through live CDP geometry.
 Rendered targets without usable DOM geometry use a separate loopback-only
-Moondream 2 point worker on Tegra. It accepts only bounded image bytes plus one
+Moondream point worker on NVIDIA Tegra and broker-managed Linux x86_64. It accepts only bounded image bytes plus one
 referring expression, returns proportional structured points, and has no browser
 or network action surface. The browser chooses among multiple returned matches
 using the current coarse proposal, then re-captures the same CDP region before
 executing. A material pixel change rejects the action. This isolates semantic
 planning from motor grounding without trusting stale coordinates or broadening
 the synthetic gate's acceptance radius.
+The existing default and Tegra path retain `vikhyatk/moondream2` at revision
+`9a7d4024050840e001defacec2b00727e89149e6`.
+Run `scripts/bootstrap_pointing.sh` to install its isolated `.pointing-venv`
+and download that snapshot without loading CUDA weights. Linux x86_64 can
+explicitly select `OMNI_POINTING_MODEL=moondream/moondream3.1-9B-A2B` and
+`OMNI_POINTING_REVISION=1da27e6c2d2f9118de14560df456881dc62d91f3`. Run
+`scripts/bootstrap_photon_pointing.sh` to prepare the separate
+`runtime-data/pointing/venv`, exact local checkpoint/tokenizer hashes, and pinned
+Photon SDK/CUDA runtime without importing GPU modules or loading a model. Set
+`OMNI_POINTING_PYTHON` to that environment's `bin/python`. This backend uses
+Photon's native structured point and query APIs; preparation and source tests
+do not establish a successful live load or desktop task. Guided Linux installs
+enable it with `OMNI_ENABLE_POINTING=1`; custom broker launches can use the same
+setting and override `OMNI_POINTING_PYTHON` or `OMNI_POINTING_PORT` (default
+8940). The broker supervisor starts its control plane on the exact leased UUID
+and passes its loopback URL to the portal. Every visual request prepares the
+lease before Torch/CUDA initialization or memory growth, keeps the transition
+pending through inference, proves its own CUDA residency, and signals ready.
+Weights and allocator caches are shed after each request. Photon closes its
+native engine before clearing allocator caches; uncertain native construction
+or cleanup terminates the owned worker instead of declaring allocations free.
+Recoverable failures free allocations before restoring the shared lease.
+There is no CPU fallback.
 The worker also accepts a bounded image-only verification request with a fixed
 server-side prompt. Explicit browser snapshots and completed visual clicks use
 it to retain visible status text and exact identifiers as tagged current-frame

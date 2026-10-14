@@ -54,9 +54,13 @@ desktop_harness_dependencies_ready() {
   command -v parec >/dev/null 2>&1 \
     && command -v paplay >/dev/null 2>&1 \
     && command -v pactl >/dev/null 2>&1 \
+    && command -v xdotool >/dev/null 2>&1 \
+    && command -v xwininfo >/dev/null 2>&1 \
+    && command -v import >/dev/null 2>&1 \
     && "$PYTHON" - <<'PY' >/dev/null 2>&1
 import gi
 gi.require_version("Gtk", "3.0")
+gi.require_version("Atspi", "2.0")
 try:
     gi.require_version("AyatanaAppIndicator3", "0.1")
 except ValueError:
@@ -77,7 +81,8 @@ if ((INSTALL_HARNESS)) && [[ $(uname -s) == Linux ]]; then
       indicator_package=gir1.2-appindicator3-0.1
     fi
     sudo env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 install -y \
-      python3-gi gir1.2-gtk-3.0 "$indicator_package" pulseaudio-utils
+      python3-gi gir1.2-gtk-3.0 gir1.2-atspi-2.0 "$indicator_package" pulseaudio-utils \
+      xdotool x11-utils imagemagick
   fi
   desktop_harness_dependencies_ready || {
     printf 'Desktop harness dependencies remain unavailable after installation.\n' >&2
@@ -133,7 +138,11 @@ if ((INSTALL_LAYA)); then
 fi
 
 if ((INSTALL_POINTING)); then
-  "$REPO_ROOT/scripts/bootstrap_pointing.sh"
+  if [[ ${OMNI_POINTING_MODEL:-} == moondream/moondream3.1-9B-A2B ]]; then
+    "$REPO_ROOT/scripts/bootstrap_photon_pointing.sh"
+  else
+    "$REPO_ROOT/scripts/bootstrap_pointing.sh"
+  fi
 fi
 
 if ((BUILD_LLAMA)); then

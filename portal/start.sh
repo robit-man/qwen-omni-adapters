@@ -21,6 +21,9 @@ ADAPTER_PORT=${OMNI_ADAPTER_PORT:-8910}
 PORTAL_PORT=${OMNI_PORTAL_PORT:-8920}
 LAYA_PORT=${OMNI_LAYA_PORT:-8930}
 LAYA_PYTHON=${OMNI_LAYA_PYTHON:-$REPO_ROOT/.laya-venv/bin/python}
+POINTING_PORT=${OMNI_POINTING_PORT:-8940}
+POINTING_PYTHON=${OMNI_POINTING_PYTHON:-${OMNI_POINTING_VENV:-$REPO_ROOT/.pointing-venv}/bin/python}
+POINTING_ENABLED=${OMNI_ENABLE_POINTING:-0}
 DECISION_ENABLED=${OMNI_DECISION_PLANE_ENABLED:-1}
 METRICS_PORT=${OMNI_CLOUDFLARED_METRICS_PORT:-49312}
 COMP_VRAM_MIB=${OMNI_COMPREHENSION_VRAM_MIB:-45000}
@@ -51,6 +54,7 @@ TTS_PID=""
 ADAPTER_PID=""
 PORTAL_PID=""
 LAYA_PID=""
+POINTING_PID=""
 TUNNEL_PID=""
 HEARTBEAT_PID=""
 SMOKE_PID=""
@@ -82,6 +86,8 @@ verify_language_model() {
 
 resolve_runtime_profile() {
   local resolved
+  local default_comp_disable_thinking=0
+  local default_comp_repeat_penalty=1.0
   resolved=$("$PYTHON_BIN" -m qwen_omni_adapters resolve "$MODEL")
   SIDECAR_PROFILE=$(jq -r '.profile // "legacy-cascade"' <<<"$resolved")
   if [[ "$SIDECAR_PROFILE" == trained-audio-bridge ]]; then
@@ -93,10 +99,27 @@ resolve_runtime_profile() {
     ADAPTER_LANGUAGE_API=openai
     ADAPTER_LANGUAGE_URL="http://127.0.0.1:$COMP_PORT/v1/chat/completions"
     ADAPTER_LANGUAGE_MODEL=local-audio-bridge
+    default_comp_disable_thinking=1
+    default_comp_repeat_penalty=1.1
     if [[ -z "$SPECULATIVE_TYPE" ]]; then
       SPECULATIVE_TYPE=ngram-simple
     fi
     log "resolved trained audio bridge; one local trunk will serve media and language"
+  fi
+  ADAPTER_COMPREHENSION_DISABLE_THINKING=${OMNI_COMPREHENSION_DISABLE_THINKING-$default_comp_disable_thinking}
+  ADAPTER_COMPREHENSION_REPEAT_PENALTY=${OMNI_COMPREHENSION_REPEAT_PENALTY-$default_comp_repeat_penalty}
+  if [[ ${OMNI_LANGUAGE_DISABLE_THINKING+x} ]]; then
+    ADAPTER_LANGUAGE_DISABLE_THINKING=$OMNI_LANGUAGE_DISABLE_THINKING
+  else
+    # Template policy belongs to the logical tag, not local-audio-bridge.
+    ADAPTER_LANGUAGE_DISABLE_THINKING=$("$PYTHON_BIN" - "$MODEL" <<'PY'
+import sys
+from qwen_omni_adapters.model_catalog import MODEL_BY_TAG
+
+profile = MODEL_BY_TAG.get(sys.argv[1])
+print("1" if profile and profile.language_disable_thinking else "0")
+PY
+)
   fi
   if [[ -n "$SPECULATIVE_TYPE" ]]; then
     COMP_SPEC_ARGS=(--spec-type "$SPECULATIVE_TYPE")
@@ -226,11 +249,16 @@ cleanup() {
     return
   fi
   CLEANING_UP=1
-  trap - EXIT INT TERM
+  # systemd may signal the whole cgroup while EXIT/TERM traps are pending.
+  # Finish worker teardown and lease release even when a child exits by signal.
+  trap - EXIT
+  trap '' INT TERM
+  set +e
   terminate_child "$TUNNEL_PID" "Cloudflare tunnel"
   terminate_child "$SMOKE_PID" "pre-tunnel smoke gate"
   terminate_child "$PORTAL_PID" "portal"
   terminate_child "$ADAPTER_PID" "adapter"
+  terminate_child "$POINTING_PID" "CUDA pointing worker"
   terminate_child "$TTS_PID" "TTS wrapper"
   terminate_child "$LAYA_PID" "Laya decision plane"
   terminate_pid_file "$TTS_ACTIVE_PID_FILE" "TTS CUDA worker"
@@ -415,6 +443,11 @@ run_foreground() {
   [[ -x "$PYTHON_BIN" ]] || die "repository Python is missing: $PYTHON_BIN (run ./scripts/bootstrap.sh)"
   [[ -x "$REPO_ROOT/vendor/llama.cpp/build/bin/llama-server" ]] || die "llama-server is not built (run ./scripts/build_llama_cpp.sh)"
   [[ -x "$REPO_ROOT/vendor/llama.cpp/build/bin/llama-tts" ]] || die "llama-tts is not built (run ./scripts/build_llama_cpp.sh)"
+  if [[ "$POINTING_ENABLED" == 1 ]]; then
+    [[ -x "$POINTING_PYTHON" ]] \
+      || die "pointing runtime is missing: run ./scripts/bootstrap_pointing.sh"
+    check_port_available "$POINTING_PORT" "pointing"
+  fi
 
   check_port_available "$COMP_PORT" "comprehension"
   check_port_available "$TTS_PORT" "TTS"
@@ -464,6 +497,8 @@ run_foreground() {
   log "acquiring ${COMP_VRAM_MIB} MiB scoped CUDA lease on $gpu_uuid"
   LEASE_TOKEN=$(docker gpu acquire \
     --owner robit-omni-phone-portal \
+    --justification "Qwen Omni comprehension and speech service ($MODEL)" \
+    --expected-duration "${OMNI_GPU_LEASE_EXPECTED_DURATION:-86400}" \
     --vram-mib "$COMP_VRAM_MIB" \
     --gpu "$gpu_uuid" \
     --token-only)
@@ -505,6 +540,23 @@ run_foreground() {
   docker gpu ready "$LEASE_TOKEN" >/dev/null
   log "CUDA comprehension is resident and broker-ready"
 
+  local pointing_url=""
+  if [[ "$POINTING_ENABLED" == 1 ]]; then
+    log "starting broker-scoped on-demand CUDA pointing control plane"
+    CUDA_VISIBLE_DEVICES="$gpu_uuid" \
+    HIP_VISIBLE_DEVICES=-1 \
+    ROCR_VISIBLE_DEVICES=-1 \
+    OLLAMA_UNIFY_GPU_LEASE="$LEASE_TOKEN" \
+    OMNI_POINTING_GPU_UUID="$gpu_uuid" \
+    OMNI_POINTING_HOST=127.0.0.1 \
+    OMNI_POINTING_PORT="$POINTING_PORT" \
+    "$POINTING_PYTHON" "$REPO_ROOT/runtime/pointing_server.py" \
+      >"$LOG_DIR/pointing.log" 2>&1 &
+    POINTING_PID=$!
+    wait_http "http://127.0.0.1:$POINTING_PORT/healthz" "pointing control plane" 60 "$POINTING_PID"
+    pointing_url="http://127.0.0.1:$POINTING_PORT"
+  fi
+
   log "starting broker-coordinated CUDA TTS wrapper"
   CUDA_VISIBLE_DEVICES="$gpu_uuid" \
   HIP_VISIBLE_DEVICES=-1 \
@@ -532,9 +584,12 @@ run_foreground() {
   OMNI_COMPREHENSION_URL="http://127.0.0.1:$COMP_PORT/v1/chat/completions" \
   OMNI_COMPREHENSION_MODEL="$ADAPTER_COMPREHENSION_MODEL" \
   OMNI_COMPREHENSION_CONTEXT_TOKENS="$COMP_CONTEXT_TOKENS" \
+  OMNI_COMPREHENSION_DISABLE_THINKING="$ADAPTER_COMPREHENSION_DISABLE_THINKING" \
+  OMNI_COMPREHENSION_REPEAT_PENALTY="$ADAPTER_COMPREHENSION_REPEAT_PENALTY" \
   OMNI_LANGUAGE_API="$ADAPTER_LANGUAGE_API" \
   OMNI_LANGUAGE_URL="$ADAPTER_LANGUAGE_URL" \
   OMNI_LANGUAGE_MODEL="$ADAPTER_LANGUAGE_MODEL" \
+  OMNI_LANGUAGE_DISABLE_THINKING="$ADAPTER_LANGUAGE_DISABLE_THINKING" \
   OMNI_TTS_URL="http://127.0.0.1:$TTS_PORT/synthesize" \
   OMNI_DECISION_PLANE_ENABLED="$decision_ready" \
   OMNI_DECISION_PLANE_URL="http://127.0.0.1:$LAYA_PORT" \
@@ -562,6 +617,7 @@ run_foreground() {
   OMNI_COMPREHENSION_HEALTH_URL="http://127.0.0.1:$COMP_PORT/health" \
   OMNI_TTS_HEALTH_URL="http://127.0.0.1:$TTS_PORT/healthz" \
   OMNI_PORTAL_SESSION_LOG_DIR="$SESSION_LOG_DIR" \
+  OMNI_POINTING_URL="$pointing_url" \
   OMNI_DECISION_PLANE_ENABLED="$decision_ready" \
   OMNI_DECISION_PLANE_URL="http://127.0.0.1:$LAYA_PORT" \
   OMNI_DECISION_TRACE_FILE="$RUNTIME_ROOT/decision-traces.jsonl" \
@@ -619,6 +675,9 @@ run_foreground() {
       wait "$LAYA_PID" 2>/dev/null || true
       LAYA_PID=""
     fi
+    if [[ -n "$POINTING_PID" ]] && ! kill -0 "$POINTING_PID" 2>/dev/null; then
+      die "pointing control plane exited; inspect $LOG_DIR/pointing.log"
+    fi
     for pid in "$COMP_PID" "$TTS_PID" "$ADAPTER_PID" "$PORTAL_PID" "$TUNNEL_PID"; do
       if ! kill -0 "$pid" 2>/dev/null; then
         label="deployment child"
@@ -649,6 +708,10 @@ run_adopted_foreground() {
   PORTAL_PID=${OMNI_ADOPT_PORTAL_PID:-}
   TUNNEL_PID=${OMNI_ADOPT_TUNNEL_PID:-}
   HEARTBEAT_PID=${OMNI_ADOPT_HEARTBEAT_PID:-}
+  POINTING_PID=${OMNI_ADOPT_POINTING_PID:-}
+  if [[ -n "$POINTING_PID" ]]; then
+    require_adopted_pid POINTING_PID "pointing control plane"
+  fi
   SMOKE_PID=""
   require_adopted_pid COMP_PID "comprehension"
   require_adopted_pid TTS_PID "TTS wrapper"

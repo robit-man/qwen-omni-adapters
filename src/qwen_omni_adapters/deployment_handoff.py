@@ -18,6 +18,9 @@ import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
+
+import httpx
 
 from qwen_omni_adapters.accelerator import (
     accelerator_profile,
@@ -291,12 +294,104 @@ def inventory(ports: Iterable[int]) -> dict[str, Any]:
     }
 
 
+def broker_readiness(
+    repo_root: Path,
+    model: str,
+    *,
+    started_at: float,
+    main_pid: int,
+    portal_port: int = 8920,
+    proc_root: Path = Path("/proc"),
+) -> dict[str, Any] | None:
+    """Prove this service's broker supervisor reached fresh, healthy readiness.
+
+    The broker launcher publishes its protected access URL only after startup
+    gates complete. Neither that URL nor its credential belongs in deployment
+    output. A live authenticated status probe also proves the expected model
+    and aggregate component health without generating a model response.
+    """
+
+    if main_pid <= 0 or not 1 <= portal_port <= 65_535:
+        return None
+    state_dir = repo_root / "runtime-data" / "state"
+    artifacts = [
+        state_dir / name
+        for name in ("supervisor.pid", "access-token.txt", "access-url.txt")
+    ]
+    try:
+        modified_at = [path.stat().st_mtime_ns for path in artifacts]
+        if any(value / 1_000_000_000 < started_at for value in modified_at):
+            return None
+        if any(value < modified_at[0] for value in modified_at[1:]):
+            return None
+        supervisor, token, access_url = (
+            path.read_text(encoding="utf-8").strip() for path in artifacts
+        )
+        if int(supervisor) != main_pid or len(token) < 24:
+            return None
+        command = (proc_root / str(main_pid) / "cmdline").read_bytes().split(b"\0")
+        expected = str(repo_root / "portal" / "start.sh").encode()
+        if not any(
+            argument == expected and command[index + 1 : index + 2] == [b"--foreground"]
+            for index, argument in enumerate(command)
+        ):
+            return None
+        process_status = (proc_root / str(main_pid) / "status").read_text(encoding="utf-8")
+        if any(
+            line.startswith("State:") and line.split()[1] in {"Z", "X"}
+            for line in process_status.splitlines()
+        ):
+            return None
+        os.kill(main_pid, 0)
+        parsed_url = urlsplit(access_url)
+        if (
+            parsed_url.scheme not in {"http", "https"}
+            or not parsed_url.netloc
+            or parse_qs(parsed_url.fragment).get("access") != [token]
+        ):
+            return None
+        # Never follow a redirect or use proxy environment variables with the
+        # credential. The protected URL itself is only a completion artifact.
+        with httpx.Client(trust_env=False, follow_redirects=False, timeout=25) as client:
+            response = client.get(
+                f"http://127.0.0.1:{portal_port}/api/status",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        if response.status_code != 200:
+            return None
+        status = response.json()
+        if not isinstance(status, dict) or status.get("ok") is not True:
+            return None
+        if status.get("model") != model:
+            return None
+        stages = status.get("stages")
+        if not isinstance(stages, dict) or any(
+            not isinstance(stages.get(name), dict) or stages[name].get("ok") is not True
+            for name in ("adapter", "comprehension", "tts", "ollama")
+        ):
+            return None
+        # A supervisor exit or replacement during the HTTP probe invalidates
+        # the evidence, even if a different portal still answers the socket.
+        os.kill(main_pid, 0)
+        if artifacts[0].read_text(encoding="utf-8").strip() != supervisor:
+            return None
+    except (OSError, ValueError, IndexError, httpx.HTTPError):
+        return None
+    return {"state": "ready", "mode": "broker", "model": model, "pid": main_pid}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m qwen_omni_adapters.deployment_handoff")
     sub = parser.add_subparsers(dest="command", required=True)
     for command in ("inventory", "targets", "ports-free"):
         item = sub.add_parser(command)
         item.add_argument("--ports", type=_parse_ports, default=DEFAULT_PORTS)
+    ready = sub.add_parser("broker-ready")
+    ready.add_argument("--repo-root", type=Path, required=True)
+    ready.add_argument("--model", required=True)
+    ready.add_argument("--started-at", type=float, required=True)
+    ready.add_argument("--main-pid", type=int, required=True)
+    ready.add_argument("--portal-port", type=int, default=8920)
     admit = sub.add_parser("admit")
     admit.add_argument("--model", required=True)
     admit.add_argument("--reserve-mib", type=int, default=6144)
@@ -308,6 +403,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "broker-ready":
+        result = broker_readiness(
+            args.repo_root,
+            args.model,
+            started_at=args.started_at,
+            main_pid=args.main_pid,
+            portal_port=args.portal_port,
+        )
+        if result is None:
+            return 1
+        print(json.dumps(result, sort_keys=True))
+        return 0
     if args.command == "admit":
         if not is_tegra():
             print("Jetson admission is valid only on NVIDIA Tegra", file=sys.stderr)

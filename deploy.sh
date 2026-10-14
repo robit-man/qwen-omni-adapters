@@ -26,6 +26,8 @@ ENV_EXISTED=0
 CONFIG_INSTALLED=0
 SERVICE_WAS_ENABLED=0
 SERVICE_START_EPOCH=0
+SERVICE_READY_MODE=""
+SERVICE_READY_STATUS=""
 HARNESS_START_EPOCH=0
 DEPLOY_COMPLETE=0
 HANDOFF_STARTED=0
@@ -180,16 +182,16 @@ select_menu() {
     fi
     case "$key" in
       $'\033[A'|k)
-        ((index = (index - 1 + line_count) % line_count))
+        index=$(((index - 1 + line_count) % line_count))
         ;;
       $'\033[B'|j)
-        ((index = (index + 1) % line_count))
+        index=$(((index + 1) % line_count))
         ;;
       $'\033[H'|$'\033[1~')
         index=0
         ;;
       $'\033[F'|$'\033[4~')
-        ((index = line_count - 1))
+        index=$((line_count - 1))
         ;;
       '')
         break
@@ -991,12 +993,15 @@ PY
 
 wait_for_service() {
   local started=$SECONDS deadline=$((SECONDS + 1800)) state model updated_at
-  local active_state sub_state restarts
+  local active_state sub_state restarts main_pid status_pid broker_status portal_port
+  portal_port=${OMNI_PORTAL_PORT:-$(configured_value OMNI_PORTAL_PORT)}
+  portal_port=${portal_port:-8920}
   printf 'Waiting for local services to report ready (generation smoke disabled)...\n'
   while ((SECONDS < deadline)); do
     active_state=$(sudo systemctl show "$SERVICE_NAME" -p ActiveState --value 2>/dev/null || true)
     sub_state=$(sudo systemctl show "$SERVICE_NAME" -p SubState --value 2>/dev/null || true)
     restarts=$(sudo systemctl show "$SERVICE_NAME" -p NRestarts --value 2>/dev/null || true)
+    main_pid=$(sudo systemctl show "$SERVICE_NAME" -p MainPID --value 2>/dev/null || true)
     [[ $restarts =~ ^[0-9]+$ ]] || restarts=0
     case $active_state in
       active|activating|reloading) ;;
@@ -1010,8 +1015,16 @@ wait_for_service() {
         fi
         ;;
     esac
+    if [[ $active_state == active && $main_pid =~ ^[1-9][0-9]*$ ]] \
+      && broker_status=$(handoff_command broker-ready --repo-root "$REPO_ROOT" \
+        --model "$OMNI_MODEL" --started-at "$SERVICE_START_EPOCH" \
+        --main-pid "$main_pid" --portal-port "$portal_port"); then
+      SERVICE_READY_MODE=broker
+      SERVICE_READY_STATUS=$broker_status
+      return 0
+    fi
     if [[ -r "$REPO_ROOT/runtime-data/state/daemon-status.json" ]]; then
-      read -r state model updated_at < <(
+      read -r state model updated_at status_pid < <(
         "$REPO_ROOT/.venv/bin/python" - "$REPO_ROOT/runtime-data/state/daemon-status.json" <<'PY'
 import json
 import sys
@@ -1024,11 +1037,15 @@ print(
     value.get("state", ""),
     value.get("model", ""),
     int(value.get("updated_at", 0)),
+    int(value.get("pid", 0)),
 )
 PY
       )
       if [[ $state == ready && $model == "$OMNI_MODEL" ]] \
-        && [[ $updated_at =~ ^[0-9]+$ ]] && ((updated_at >= SERVICE_START_EPOCH)); then
+        && [[ $updated_at =~ ^[0-9]+$ ]] && ((updated_at >= SERVICE_START_EPOCH)) \
+        && [[ $main_pid =~ ^[1-9][0-9]*$ && $status_pid == "$main_pid" ]]; then
+        SERVICE_READY_MODE=direct
+        SERVICE_READY_STATUS="Direct supervisor ready: model=$model pid=$status_pid"
         return 0
       fi
     fi
@@ -1210,7 +1227,7 @@ deploy_service() {
 
   printf '\nDeployment ready.\n'
   sudo systemctl status "$SERVICE_NAME" --no-pager -l
-  "$REPO_ROOT/.venv/bin/qwen-omni-daemon" status
+  printf '%s\n' "$SERVICE_READY_STATUS"
   DEPLOY_COMPLETE=1
 }
 

@@ -8,12 +8,24 @@ POINTING_VENV=${OMNI_POINTING_VENV:-$REPO_ROOT/.pointing-venv}
 MODEL=${OMNI_POINTING_MODEL:-vikhyatk/moondream2}
 REVISION=${OMNI_POINTING_REVISION:-9a7d4024050840e001defacec2b00727e89149e6}
 
-if [[ $(uname -s) != Linux || $(uname -m) != aarch64 ]] \
-  || [[ ! -r /proc/device-tree/compatible ]] \
-  || ! tr '\0' '\n' </proc/device-tree/compatible | grep -Eiq 'tegra|nvidia'; then
-  printf 'Structured point-head bootstrap is only required on NVIDIA Tegra; skipping.\n'
+if [[ $(uname -s) != Linux ]]; then
+  printf 'Structured CUDA point-head bootstrap supports Linux x86_64 and NVIDIA Tegra; skipping.\n'
   exit 0
 fi
+TEGRA=0
+case $(uname -m) in
+  x86_64) ;;
+  aarch64)
+    if [[ -r /proc/device-tree/compatible ]] \
+      && tr '\0' '\n' </proc/device-tree/compatible | grep -Eiq 'tegra|nvidia'; then
+      TEGRA=1
+    else
+      printf 'Structured point-head bootstrap requires NVIDIA Tegra on aarch64; skipping.\n'
+      exit 0
+    fi
+    ;;
+  *) printf 'Unsupported structured point-head architecture; skipping.\n'; exit 0 ;;
+esac
 
 command -v "$PYTHON" >/dev/null 2>&1 || {
   printf 'Missing Python: %s\n' "$PYTHON" >&2
@@ -24,12 +36,13 @@ python_minor=$(
   "$PYTHON" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'
 )
 
-l4t_release=$(sed -n 's/^# R\([0-9][0-9]*\) (release), REVISION: \([0-9][0-9.]*\).*/R\1.\2/p' /etc/nv_tegra_release 2>/dev/null | head -n 1)
 # JetPack 6 needs NVIDIA's L4T-specific cp310 wheels. JetPack 7 (L4T R38+)
 # ships the unified SBSA CUDA 13 stack, so the standard aarch64 CUDA wheels
 # from PyPI run on the integrated GPU for the distro's Python.
 torch_wheel=''
 torch_version_prefix=''
+if ((TEGRA)); then
+l4t_release=$(sed -n 's/^# R\([0-9][0-9]*\) (release), REVISION: \([0-9][0-9.]*\).*/R\1.\2/p' /etc/nv_tegra_release 2>/dev/null | head -n 1)
 case $l4t_release in
   R36.2*|R36.3*)
     torch_wheel='https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl'
@@ -46,6 +59,7 @@ case $l4t_release in
     exit 1
     ;;
 esac
+fi
 
 if [[ -n $torch_wheel && $python_minor != 3.10 ]]; then
   printf 'JetPack 6 point-head runtime requires Python 3.10 (found %s).\n' "$python_minor" >&2

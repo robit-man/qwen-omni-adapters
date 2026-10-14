@@ -20,6 +20,9 @@ Restart=on-failure
 RestartSec=10
 TimeoutStartSec=0
 TimeoutStopSec=120
+# Let the supervisor free CUDA workers and release its lease first. systemd
+# still kills the remaining cgroup if the bounded shutdown does not finish.
+KillMode=mixed
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true

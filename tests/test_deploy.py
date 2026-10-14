@@ -5,8 +5,11 @@ import pty
 import re
 import select
 import subprocess
+import sys
 import time
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEPLOY = REPO_ROOT / "deploy.sh"
@@ -263,11 +266,99 @@ def test_readiness_wait_accepts_activation_and_prints_the_journal_on_failure() -
     assert "Only the deadline is terminal" in harness_wait
 
 
-def test_arrow_key_menu_selects_qwen_bridge() -> None:
+def _run_readiness_wait(tmp_path: Path, *, broker: bool, direct_pid: int = 456):
+    state_dir = tmp_path / "runtime-data" / "state"
+    state_dir.mkdir(parents=True)
+    (state_dir / "daemon-status.json").write_text(
+        '{"state":"ready","model":"robit/test:q4km","updated_at":101,"pid":'
+        + str(direct_pid) + '}', encoding="utf-8",
+    )
+    python = tmp_path / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.symlink_to(sys.executable)
+    source = DEPLOY.read_text(encoding="utf-8")
+    wait = "wait_for_service() {" + source.split("wait_for_service() {", 1)[1].split(
+        "\n}\n\nwarn()", 1
+    )[0] + "\n}\n"
+    script = r'''
+set -e
+REPO_ROOT=$1
+SERVICE_NAME=qwen-omni-adapters.service
+OMNI_MODEL=robit/test:q4km
+SERVICE_START_EPOCH=100
+configured_value() { return 0; }
+sudo() {
+  case $5 in
+    ActiveState) printf 'active\n' ;;
+    SubState) printf 'running\n' ;;
+    NRestarts) printf '0\n' ;;
+    MainPID) printf '456\n' ;;
+    *) exit 90 ;;
+  esac
+}
+handoff_command() {
+  [[ $TEST_BROKER == 1 ]] || return 1
+  printf '{"state":"ready","mode":"broker","model":"robit/test:q4km","pid":456}\n'
+}
+sleep() { printf 'still-pending\n'; exit 23; }
+report_service_failure() { printf 'failed\n'; }
+die() { exit 24; }
+'''
+    return subprocess.run(
+        ["bash", "-c", script + wait + '\nwait_for_service\nprintf "mode=%s\\n" "$SERVICE_READY_MODE"\n',
+         "readiness-test", str(tmp_path)],
+        env={**os.environ, "TEST_BROKER": str(int(broker)), "OMNI_PORTAL_PORT": "8920"},
+        text=True, capture_output=True, timeout=10, check=False,
+    )
+
+
+def test_guided_readiness_accepts_broker_supervisor_without_direct_status(tmp_path: Path) -> None:
+    completed = _run_readiness_wait(tmp_path, broker=True, direct_pid=999)
+
+    assert completed.returncode == 0, completed.stderr
+    assert "mode=broker" in completed.stdout
+
+
+def test_guided_readiness_preserves_direct_daemon_status(tmp_path: Path) -> None:
+    completed = _run_readiness_wait(tmp_path, broker=False)
+
+    assert completed.returncode == 0, completed.stderr
+    assert "mode=direct" in completed.stdout
+
+
+def test_guided_readiness_rejects_another_direct_daemons_status(tmp_path: Path) -> None:
+    completed = _run_readiness_wait(tmp_path, broker=False, direct_pid=999)
+
+    assert completed.returncode == 23, completed.stderr
+    assert "still-pending" in completed.stdout
+
+
+def test_guided_deploy_prints_broker_proof_without_direct_daemon_control() -> None:
+    source = DEPLOY.read_text(encoding="utf-8")
+    final_status = source.split("  printf '\\nDeployment ready.\\n'", 1)[1].split(
+        "  DEPLOY_COMPLETE=1", 1
+    )[0]
+
+    assert '"$SERVICE_READY_STATUS"' in final_status
+    assert "qwen-omni-daemon" not in final_status  # direct status includes its access credential
+    assert "--status" not in final_status  # launcher status would print the access URL
+
+
+@pytest.mark.parametrize("current_model,keys", [
+    ("", b"\x1b[B\r"),
+    ("robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km", b"\x1b[B\x1b[B\r"),
+])
+def test_arrow_key_menu_selects_qwen_bridge(tmp_path: Path, current_model: str, keys: bytes) -> None:
+    # Isolate saved configuration; exercising zero-index wrap catches errexit
+    # failures independently of the developer machine's currently chosen model.
+    deploy = tmp_path / "deploy.sh"
+    deploy.write_bytes(DEPLOY.read_bytes())
+    deploy.chmod(0o755)
+    (tmp_path / ".env").write_text(f"OMNI_MODEL={current_model}\n")
     master, slave = pty.openpty()
     process = subprocess.Popen(
         [
-            str(DEPLOY),
+            str(deploy),
             "--no-update",
             "--dry-run",
         ],
@@ -299,7 +390,7 @@ def test_arrow_key_menu_selects_qwen_bridge() -> None:
                     selected_action = True
                     output.clear()
                 elif not selected_model and b"Select the logical Omni model" in output:
-                    os.write(master, b"\x1b[B\r")
+                    os.write(master, keys)
                     selected_model = True
                     output.clear()
                 elif not selected_service and b"Select the service deployment" in output:
