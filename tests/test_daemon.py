@@ -537,6 +537,7 @@ def test_an_externally_managed_comprehension_port_does_not_block_start(monkeypat
     from qwen_omni_adapters import daemon as daemon_module
 
     monkeypatch.setenv("OMNI_ENABLE_COMPREHENSION", "0")
+    monkeypatch.setenv("OMNI_ENABLE_POINTING", "0")
     monkeypatch.setattr(daemon_module, "_load_env_file", lambda _root: None)
     config = daemon_module.DaemonConfig.from_environment(
         cloudflare=False, allow_direct_gpu=True
@@ -560,6 +561,7 @@ def test_an_owned_comprehension_port_is_still_required(monkeypatch):
     from qwen_omni_adapters import daemon as daemon_module
 
     monkeypatch.delenv("OMNI_ENABLE_COMPREHENSION", raising=False)
+    monkeypatch.setenv("OMNI_ENABLE_POINTING", "0")
     monkeypatch.setattr(daemon_module, "_load_env_file", lambda _root: None)
     config = daemon_module.DaemonConfig.from_environment(
         cloudflare=False, allow_direct_gpu=True
