@@ -3,8 +3,27 @@
 import hashlib
 import json
 import wave
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from runtime import verify_live_desktop_matrix as matrix
+
+
+@pytest.mark.parametrize("frequency", [1000, 8000])
+def test_selected_physical_mic_cue_frequency_reaches_only_the_human_case(frequency, tmp_path):
+    args = SimpleNamespace(model="exact", endpoint="http://127.0.0.1:8920",
+                           token_file=Path("runtime-data/test-token"), timeout=300,
+                           cue_frequency_hz=frequency, think=False)
+    plan = matrix.load_plan()
+    for case_id in ("CU-001", "CU-087", "CU-088", "CU-090"):
+        case = next(case for case in plan["tests"] if case["id"] == case_id)
+        command = matrix.child_command(args, case, tmp_path)
+        if case_id == "CU-087":
+            assert command[command.index("--cue-frequency-hz")+1] == str(frequency)
+        else:
+            assert "--cue-frequency-hz" not in command
 
 
 def write(path, value):

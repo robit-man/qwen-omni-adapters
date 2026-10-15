@@ -31,7 +31,9 @@ receipts, frames and exact owned file readbacks remain local.
 | CU-004 | Qwen | Pass | Actual right-click, positively observed native context menu, Escape dismissal, fresh unchanged buffer/file, pointer movement and owned-window cleanup. | 82.34 s |
 | CU-005 | Qwen | Fail | Physical Save click worked. ASR added a letter to the spelled word; model saved `copper finch aready` instead of the source instruction. Context-menu effects remained unresolved and a shell fallback violated the required native method. | 251.15 s |
 | CU-006 | Qwen | Fail | Actual streamed ASR was correct, but repeated accessibility activations and unresolved/stale effect checks exhausted the 300-second action deadline. No exact `42` terminal result or authoritative final; Calculator cleanup and request idleness verified. | 309.32 s |
+| CU-007 | Qwen | Fail | Correct actual ASR and five guarded physical clicks; model bypassed the spoken visual reference with native identities. No pinned Moondream receipt or fresh owned-Calculator display proof. Cleanup and request idleness verified. | 244.76 s |
 | CU-086 | Qwen | Pass | Actual 16 kHz Pulse monitor capture: 208,960 frames with quiet, click and steady noise; production VAD trace; zero submitted turns, stream events or GUI dispatch; call worker and owned Pulse module released. This is not physical-mic acceptance. | 13.16 s |
+| CU-087 | Qwen | Blocked before capture | Owned-window discovery was repaired and passed fresh setup; physical headset metadata then hit the ALSA-only test guard. No recording, blip, ASR or model task occurred. These attempts remain retained. | Setup only |
 
 CUDA process evidence and fresh broker discovery after each completed attempt
 proved the owned Qwen/Kev processes resident only on GPU 1, without a reported
@@ -73,6 +75,17 @@ window, then stopped at the separate ALSA-only microphone metadata guard.
 Read-only discovery confirmed that the default Bluetooth headset is connected;
 its stale PipeWire connection field is not authoritative. No microphone audio
 or attention cue was emitted in these blocked attempts.
+The headset's current 8 kHz speech-mode output cannot reproduce an 8 kHz tone;
+the user explicitly selected a lower cue through that headset. The fresh
+physical test will use a recorded 1 kHz blip, retaining 8 kHz as the runner's
+ordinary default and checking the selected output's bandwidth before playback.
+The Bluetooth admission, cue selection/propagation and CU-088/CU-090 method
+oracle corrections passed the next full source gate: 1,904 tests in 90.95
+seconds, with all 221 checked files unchanged (manifest SHA-256
+`3782fcd840acba12c8d3d674211ae7d5e702227de89fbca372f932c8ba9d70e8`).
+Bluetooth admission requires a fresh connection query for the exact typed
+hardware identity; virtual sources and monitors cannot satisfy it. Arithmetic
+capture cases reject keyboard or setter input followed by an incidental click.
 
 The helper and expanded perception runners passed the next frozen source gate:
 1,872 tests in 99.84 seconds, with 221 checked source files unchanged (manifest

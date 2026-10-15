@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import secrets
 import shutil
 import subprocess
@@ -211,17 +212,72 @@ def capture_device_metadata(device: str, *, physical: bool) -> dict[str, Any]:
     properties = source.get("properties", {})
     monitor = source.get("monitor_of_sink")
     is_monitor = ".monitor" in device or monitor not in {None, "n/a", "N/A", 4294967295}
-    hardware = not is_monitor and (properties.get("device.api") == "alsa" or properties.get("device.class") == "sound"
+    virtual = properties.get("node.virtual") in {True, "true", "1"}
+    hardware = not is_monitor and not virtual and (properties.get("device.api") == "alsa" or properties.get("device.class") == "sound"
         and ("alsa.card" in properties or "api.alsa.path" in properties))
+    connection = {}
+    if physical and not is_monitor and not virtual and properties.get("device.api") in {"bluez", "bluez5"}:
+        ports = source.get("ports", [])
+        if isinstance(ports, dict):
+            ports = [{"name": name, **value} for name, value in ports.items() if isinstance(value, dict)]
+        active = source.get("active_port")
+        active = active.get("name") if isinstance(active, dict) else active
+        available = any(port.get("name") == active and port.get("availability") == "available"
+                        for port in ports if isinstance(port, dict))
+        if ("HARDWARE" not in source.get("flags", []) or properties.get("device.bus") != "bluetooth"
+                or properties.get("factory.name") not in {"api.bluez5.sco.source", "api.bluez5.a2dp.source"}
+                or properties.get("media.class") != "Audio/Source" or not available):
+            raise CapabilityBlocked("Bluetooth capture source lacks positive physical hardware/available-port proof")
+        connection = _bluez_connection(properties)
+        hardware = connection["connected"] is True
     if physical and not hardware:
-        raise CapabilityBlocked("Selected input is not proven physical ALSA microphone hardware")
+        raise CapabilityBlocked("Selected input is not proven physical microphone hardware")
     return {"physical_device_confirmed": bool(hardware), "pulse_source_name": source["name"],
             "pulse_source_index": source.get("index"), "monitor_of_sink": monitor,
-            "device_properties": {key: properties[key] for key in ("device.api", "device.class", "device.bus", "alsa.card", "api.alsa.path") if key in properties}}
+            "device_properties": {key: properties[key] for key in ("device.api", "device.class", "device.bus", "alsa.card", "api.alsa.path", "factory.name", "media.class") if key in properties},
+            **({"bluetooth_connection": connection} if connection else {})}
 
 
-def attention_cue_wav(path: Path) -> dict[str, Any]:
-    rate, frequency, duration, amplitude = 48000, 8000, .08, .05
+def _bluez_connection(properties: dict[str, Any]) -> dict[str, Any]:
+    """Fresh exact-device connection proof; cached PipeWire state is not authority."""
+    address = properties.get("api.bluez5.address") or properties.get("device.string")
+    if not isinstance(address, str) or not re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", address):
+        path = properties.get("api.bluez5.path", "")
+        match = re.fullmatch(r"/org/bluez/hci[0-9]+/dev_((?:[0-9A-Fa-f]{2}_){5}[0-9A-Fa-f]{2})", path) if isinstance(path, str) else None
+        if not match:
+            raise CapabilityBlocked("Bluetooth source lacks an exact typed BlueZ device identity")
+        address = match[1].replace("_", ":")
+    address = address.upper()
+    try:
+        reply = pulse_command(["bluetoothctl", "--timeout", "4", "info", address])
+    except OSError as error:
+        raise CapabilityBlocked("Fresh Bluetooth connection query is unavailable") from error
+    identities = re.findall(r"^Device ([0-9A-Fa-f:]{17})(?:\s|$)", reply, re.MULTILINE)
+    connected = re.findall(r"^\s*Connected:\s*(yes|no)\s*$", reply, re.MULTILINE)
+    if [identity.upper() for identity in identities] != [address] or connected != ["yes"]:
+        raise CapabilityBlocked("Exact Bluetooth microphone device is not freshly confirmed connected")
+    return {"source": "bluetoothctl_exact_device", "connected": True, "checked_at_unix": time.time(),
+            "device_identity_sha256": hashlib.sha256(address.encode()).hexdigest()}
+
+
+def cue_output_metadata(sink: dict[str, Any], *, frequency_hz: int = 8000) -> dict[str, Any]:
+    if type(frequency_hz) is not int or frequency_hz not in {1000, 8000}:
+        raise ValueError("Attention cue frequency must be exactly 1000 or 8000 Hz")
+    properties = sink.get("properties", {})
+    if (properties.get("device.api") not in {"alsa", "bluez", "bluez5"}
+            or properties.get("node.virtual") in {True, "true", "1"}):
+        raise CapabilityBlocked("Attention cue requires a positively identified physical output sink")
+    match = re.search(r"\b([1-9][0-9]*)Hz\b", str(sink.get("sample_specification", "")))
+    if not match or not 0 < frequency_hz < int(match[1])/2:
+        raise CapabilityBlocked("Physical output sample rate cannot reproduce the requested attention-cue frequency")
+    return {"output_sample_rate_hz": int(match[1]), "frequency_hz": frequency_hz,
+            "device_api": properties["device.api"], "bandwidth_guard_passed": True}
+
+
+def attention_cue_wav(path: Path, *, frequency_hz: int = 8000) -> dict[str, Any]:
+    if type(frequency_hz) is not int or frequency_hz not in {1000, 8000}:
+        raise ValueError("Attention cue frequency must be exactly 1000 or 8000 Hz")
+    rate, frequency, duration, amplitude = 48000, frequency_hz, .08, .05
     samples = np.sin(2*np.pi*frequency*np.arange(round(rate*duration))/rate) * amplitude
     fade = round(rate*.005)
     samples[:fade] *= np.linspace(0, 1, fade)
@@ -233,15 +289,17 @@ def attention_cue_wav(path: Path) -> dict[str, Any]:
             "wav_sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
-def play_attention_cue(root: Path, recorder: CaptureRecorder, output_device: str | None) -> dict[str, Any]:
+def play_attention_cue(root: Path, recorder: CaptureRecorder, output_device: str | None, *, frequency_hz: int = 8000) -> dict[str, Any]:
     if not recorder.ready.is_set() or not recorder.listening or not recorder.frames:
         raise RuntimeError("Attention cue requires actual microphone frames and listening readiness")
     sink = output_device or pulse_command(["pactl", "get-default-sink"])
     sinks = json.loads(pulse_command(["pactl", "--format=json", "list", "sinks"]))
     matches = [item for item in sinks if item.get("name") == sink]
-    if len(matches) != 1 or matches[0].get("properties", {}).get("device.api") not in {"alsa", "bluez", "bluez5"}:
+    if len(matches) != 1:
         raise CapabilityBlocked("Attention cue requires a positively identified physical output sink")
-    cue = attention_cue_wav(root / "attention-cue.wav")
+    output = cue_output_metadata(matches[0], frequency_hz=frequency_hz)
+    cue = attention_cue_wav(root / "attention-cue.wav", frequency_hz=frequency_hz)
+    cue.update(output)
     cue.update(output_device=sink, started_at_unix=time.time())
     played = subprocess.run(["paplay", "--device=" + sink, str(root / "attention-cue.wav")],
                             capture_output=True, timeout=8, check=False)  # noqa: S603
@@ -261,6 +319,7 @@ def play_attention_cue(root: Path, recorder: CaptureRecorder, output_device: str
             (root / "attention-cue.json").write_text(json.dumps(cue, indent=2) + "\n")
             (root / "speech-command-ready.json").write_text(json.dumps({"ready": True,
                 "attention_cue_sha256": cue["wav_sha256"], "quiet_capture_confirmed": True,
+                "frequency_hz": frequency_hz,
                 "spoken_instruction": case_spec("CU-087")["spoken_instruction"]}) + "\n")
             return cue
         time.sleep(.05)
@@ -302,6 +361,15 @@ def capture_checks(case_id: str, recorder: CaptureRecorder, fresh: dict[str, Any
                 and not any(item.get("action", {}).get("verb") == "set_value" for item in dispatched_actions(outcomes)))
         if case_id == "CU-090":
             checks["actual_multi_segment_single_turn"] = len(recorder.turns) == 1 and recorder.turns[0].get("segments", 0) >= 2
+        if case_id in {"CU-088", "CU-090"}:
+            actions = dispatched_actions(outcomes)
+            checks["no_keyboard_or_value_arithmetic_substitution"] = not any(
+                item.get("action", {}).get("verb") in {"type_text", "key_chord", "set_value", "select_text", "select", "set_checked"}
+                for item in actions)
+            checks["all_mutating_task_inputs_guarded_pointer"] = bool(actions) and all(
+                item.get("action", {}).get("verb") in {"focus", "switch_window"}
+                or physical_pointer_action(item) and item.get("receipt", {}).get("backend") == "x11_guarded_xtest"
+                for item in actions)
     return checks
 
 
@@ -384,7 +452,8 @@ def run_capture(args, root: Path, report: dict[str, Any]) -> None:
             pointer.task_started.set()
         if number == 87:
             stage = "attention_cue"
-            report["attention_cue"] = play_attention_cue(root, recorder, config.output_device)
+            report["attention_cue"] = play_attention_cue(root, recorder, config.output_device,
+                frequency_hz=getattr(args, "cue_frequency_hz", 8000))
             stage = "physical_user_speech"
         if number == 86:
             fixture = non_speech_fixture(root / "non-speech-fixture.wav")
@@ -883,6 +952,7 @@ def main() -> int:
     parser.add_argument("--think", action="store_true")
     parser.add_argument("--input-device")
     parser.add_argument("--output-device")
+    parser.add_argument("--cue-frequency-hz", type=int, choices=(1000, 8000), default=8000)
     return run(parser.parse_args())
 
 

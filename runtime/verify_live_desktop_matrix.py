@@ -147,6 +147,8 @@ def child_command(args: argparse.Namespace, case: dict[str, Any], artifact: Path
             command.append("--require-policy")
     else:
         command.extend(["--case", case["id"]])
+        if case["id"] == "CU-087":
+            command.extend(["--cue-frequency-hz", str(getattr(args, "cue_frequency_hz", 8000))])
     if args.think:
         command.append("--think")
     return command
@@ -402,6 +404,8 @@ def main() -> int:
                         help="Already resident owned trunk/policy PID; repeat per resident worker")
     parser.add_argument("--case", action="append")
     parser.add_argument("--timeout", type=float, default=300)
+    parser.add_argument("--cue-frequency-hz", type=int, choices=(1000, 8000), default=8000,
+                        help="Physical-mic attention blip; select 1000 for a speech-band headset")
     parser.add_argument("--think", action="store_true")
     parser.add_argument("--keep-going", action="store_true", help="Continue only after confirmed cleanup and healthy GPU")
     parser.add_argument("--repeat", action="store_true", help="Retain a fresh attempt for already-attempted selections")
