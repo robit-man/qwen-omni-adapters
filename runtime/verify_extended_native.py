@@ -197,6 +197,78 @@ def ordered_alpha_shift_extension(context: dict[str, Any], dispatched: list[dict
             and document(current, binding).get("text_selection") == previous)
 
 
+def ordered_copper_cut_undo(context: dict[str, Any], dispatched: list[dict[str, Any]],
+                           records: list[dict[str, Any]], fresh: dict[str, Any]) -> bool:
+    """Compare identities within each bridge, joining only the owned window/value.
+
+    The physical cut and undo must change the same model-bound document. An
+    independent bridge retains its own initial/final binding and rejects any
+    additional observed buffer value or cut after the restoration.
+    """
+    primary = context.get("primary_window")
+    binding = context.get("document_bindings", {}).get(primary)
+    initial = context.get("initial_records", [])
+    if not binding or not initial or not dispatched or fresh.get("error"):
+        return False
+    intermediate = INITIAL[:6] + INITIAL[12:]
+    independent_scope = initial[0].get("state", {}).get("scope", {}).get("id")
+    independent_phase = 0
+    for record in [*initial, *records, fresh]:
+        state = record.get("state", {})
+        if record.get("error") or not state:
+            continue
+        value = document(state, binding).get("value")
+        if (not independent_scope or state.get("scope", {}).get("window_id") != primary
+                or state.get("scope", {}).get("id") != independent_scope or value not in {INITIAL, intermediate}
+                or value == intermediate and independent_phase == 2):
+            return False
+        if value == intermediate:
+            independent_phase = 1
+        elif independent_phase == 1:
+            independent_phase = 2
+    first = dispatched[0].get("before", {})
+    model_binding, model_scope = document(first), first.get("scope", {}).get("id")
+    if not model_scope or not model_binding.get("id") or not model_binding.get("generation"):
+        return False
+    phase = 0
+    for outcome in dispatched:
+        before, after = outcome.get("before", {}), outcome.get("after", {})
+        for state in (before, after):
+            if (state.get("scope", {}).get("window_id") != primary or state.get("scope", {}).get("id") != model_scope
+                    or not document(state, model_binding)):
+                return False
+        before_node, after_node = document(before, model_binding), document(after, model_binding)
+        action, keys = outcome.get("action", {}), outcome.get("action", {}).get("args", {}).get("keys", [])
+        if (action.get("scope_id", model_scope) != model_scope
+                or action.get("generation", model_binding["generation"]) != model_binding["generation"]
+                or action.get("node_id") not in {model_binding["id"], model_scope}):
+            return False
+        physical = outcome.get("receipt", {}).get("backend") == "x11_guarded_xtest"
+        controls = {"Control", "Control_L", "Control_R", "ctrl"}
+        shortcuts = {letter: physical and action.get("verb") == "key_chord" and action.get("node_id") == model_binding["id"]
+                     and len(keys) == 2 and letter in keys and any(k in controls for k in keys)
+                     for letter in ("x", "z")}
+        if phase == 0 and shortcuts["x"]:
+            if (before_node.get("value") != INITIAL or before_node.get("text_selection") != {"start": 6, "end": 12}
+                    or after_node.get("value") != intermediate):
+                return False
+            phase = 1
+        elif phase == 1 and shortcuts["z"]:
+            if before_node.get("value") != intermediate or after_node.get("value") != INITIAL:
+                return False
+            phase = 2
+        else:
+            expected = intermediate if phase == 1 else INITIAL
+            if before_node.get("value") != expected or after_node.get("value") != expected:
+                return False
+            navigation = {"Left", "Right", "Up", "Down", "Home", "End", "PageUp", "PageDown", "Tab", "Escape"}
+            if phase and action.get("verb") not in {"focus", "select_text"} and not (
+                    physical and action.get("verb") == "key_chord" and any(k in navigation for k in keys)
+                    and all(k in navigation | controls | {"Shift", "Shift_L", "Shift_R"} for k in keys)):
+                return False
+    return phase == 2 and document(fresh.get("state", {}), binding).get("value") == INITIAL
+
+
 def entries_equal(actual: list[dict[str, Any]], expected: list[dict[str, Any]]) -> bool:
     return sorted(actual, key=lambda item: item["path"]) == sorted(expected, key=lambda item: item["path"])
 
@@ -387,10 +459,7 @@ def evaluate(case_id: str, context: dict[str, Any], records: list[dict[str, Any]
                   "source_disk_unchanged": next((item for item in actual if item["path"] == "source.txt"), {})
                       == next((item for item in before if item["path"] == "source.txt"), {"missing": True})}
     elif number == 17:
-        cut_index = next((i for i, item in enumerate(dispatched) if key(item, "control", "x")
-                         and any("copper" not in node["value"] and node["value"] != INITIAL for node in documents(item.get("after", {})))), None)
-        checks = {"cut_then_undo_observed": cut_index is not None and any(key(item, "control", "z")
-                    and any(node["value"] == INITIAL for node in documents(item.get("after", {}))) for item in dispatched[(cut_index or 0)+1:]),
+        checks = {"cut_then_undo_observed": ordered_copper_cut_undo(context, dispatched, records, fresh),
                   "fresh_original_restored": final_doc.get("value") == INITIAL, "disk_unchanged": unchanged}
     elif number == 18:
         sequence = [node["value"] for state in keyboard_states for node in documents(state)]

@@ -37,6 +37,8 @@ receipts, frames and exact owned file readbacks remain local.
 | CU-010 | Qwen | Fail | Correct actual TTS/ASR and six verified native inputs across ten rounds. Navigation, Find, scrolling, sourced memory write and second-turn recall did not complete within 300 seconds. Owned Firefox window closed politely; inference subsequently became idle. | 322.99 s |
 | CU-011 | Qwen | Fail, foreground confound | Actual TTS/ASR completed, but the model observed another foreground window and dispatched no input. Independent capture proves focus and pointer changes without model input; the actor is unknown. File unchanged, owned Files window closed, inference idle. | 110.44 s |
 | CU-011, native-thinking repair repeat | Qwen | Fail, native hit test | Correct actual TTS/ASR and structured native rounds. The exact owned `alpha.txt` target was rejected as occluded; every model observation remained in the owned Files window and the pointer stayed at one position. No task input or authoritative final before the 300-second deadline. File unchanged; polite cleanup and idleness verified. | 306.93 s |
+| CU-013, first attempt | Qwen | Fail, test observer | The test frontend's observer stopped on an assertion after synthesis reached the queue. Its active-only lease check conflicted with legal pending transitions; the exact failing phase was not captured. No instruction WAV, ASR or task input completed. Owned editor closed; original GPU deployment stayed intact. | 1.96 s |
+| CU-013, observer repair repeat | Qwen | Fail, incomplete selection | Actual TTS/ASR and seven dispatched inputs. Initial double-clicks selected `ready`; a later selection reached `alpha`, then Shift-Right extended only to offsets 0..6 rather than 0..12. No authoritative final before the action deadline. Buffer/file unchanged; editor and test frontend closed; deployment idle and unchanged. | 306.69 s |
 | CU-030 | Qwen | Fail, setup, two attempts | Owned Calc launch passed its OpenCL guard, but initial native observation failed before speech or task input. Installing the GTK3 accessibility plugin did not make the immediate second attempt pass. | 1.47 / 0.93 s |
 | CU-086 | Qwen | Pass | Actual 16 kHz Pulse monitor capture: 208,960 frames with quiet, click and steady noise; production VAD trace; zero submitted turns, stream events or GUI dispatch; call worker and owned Pulse module released. This is not physical-mic acceptance. | 13.16 s |
 | CU-087 | Qwen | Fail, document identity oracle | Real Bluetooth capture, one VAD utterance, actual ASR, verified physical `type_text`, and exact visible `copper finch ready` in the owned editor. Strict initial document identity changed from generation 1 to 2 after focus transitions; that one criterion failed. Cleanup and idleness verified; all attempts retained. | 117.69 s |
@@ -48,8 +50,8 @@ new GPU fault. Each attempt has a separate `after-test-note.md` and JSON note.
 The manifest retains all 200 slots; rows not recorded above remain pending,
 not passing.
 
-At this checkpoint, 14 distinct local model/case slots have been attempted:
-four passed and ten failed; 186 remain unrun. These counts include setup
+At this checkpoint, 15 distinct local model/case slots have been attempted:
+four passed and eleven failed; 185 remain unrun. These counts include setup
 failures and exclude repeats. No local Ornith slot has run yet.
 
 The CU-003 failures are being triaged separately: model action-method fidelity
@@ -191,6 +193,31 @@ The oracle and portal structured-batch recovery passed the joint full gate:
 unchanged (log SHA-256
 `fee1e1be07c0cafc1cfd738f27e7a4d42dcf321cf4ea9671d469b4bc2a0b4c59`).
 These checks do not add a passing live case.
+
+The updated portal was tested on a separate loopback frontend against the
+already loaded GPU 1 graphs because the broker supervisor cannot reload only
+its Python children. The first observer required an active lease even during
+legal preparation; it stopped on an assertion after synthesis began. A pending
+phase rejection is supported by the code and timing, but the exact phase and
+assertion line were not captured. That failed attempt stays recorded. The corrected observer
+allows pending only for the same lease during monitoring, retaining active-only
+startup/cleanup and all identity, scope and hardware guards. The second frontend
+survived its complete live window and was then stopped. Only active phases were
+sampled, so no captured pending transition is claimed. Every original worker,
+supervisor and lease identity stayed unchanged. The second run exposed missing
+key-chord backend attestation as well as the independent wrong/incomplete
+selection. It produced no malformed-batch correction event, so live recovery
+remains unexercised. No previous failure is promoted to a pass.
+
+The keyboard receipt now reports its guarded XTEST route, retaining uncertain
+post-attempt failures and every pre-input guard. CU-017's oracle now requires
+cutting only copper at offsets 6..12, the exact `alpha  ready` intermediate,
+and physical Ctrl-Z restoration in the same document. Seven previously accepted
+false-positive trajectories are rejected. The joint full source gate passed
+2,123 tests in 90.35 seconds with all seven reviewed file fingerprints unchanged
+(log SHA-256
+`015c70f082258aca7d91377ea0d9c533bf40560fb318639547ddc7cb844c5398`).
+Live post-change keyboard attestation and cut/undo completion remain pending.
 
 The helper and expanded perception runners passed the next frozen source gate:
 1,872 tests in 99.84 seconds, with 221 checked source files unchanged (manifest

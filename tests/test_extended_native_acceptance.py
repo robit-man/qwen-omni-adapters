@@ -187,6 +187,71 @@ def test_cut_and_undo_requires_ordered_real_intermediate_states(tmp_path):
     assert not evaluate("CU-017", ctx, [undo], state(doc()))["cut_then_undo_observed"]
 
 
+@pytest.mark.parametrize("defect", ["entire_buffer_cut", "missing_copper_selection", "wrong_document", "wrong_generation",
+                                     "wrong_target", "semantic_backend", "intervening_setter"])
+def test_cut_and_undo_rejects_the_demonstrated_false_positives(tmp_path, defect):
+    ctx = context(tmp_path)
+    cut = item("key_chord", state(doc(selection=(6, 12))), state(doc("alpha  ready")), {"keys": ["Control_L", "x"]})
+    undo = item("key_chord", cut["after"], state(doc()), {"keys": ["Control_L", "z"]})
+    events = [cut, undo]
+    if defect == "entire_buffer_cut":
+        cut["before"] = state(doc(selection=(0, 18)))
+        cut["after"]["nodes"][0]["value"] = ""
+    elif defect == "missing_copper_selection":
+        cut["before"] = state(doc())
+    elif defect in {"wrong_document", "wrong_generation"}:
+        undo["after"]["nodes"][0]["id" if defect == "wrong_document" else "generation"] = "different"
+    elif defect == "wrong_target":
+        cut["action"]["node_id"] = "other"
+    elif defect == "semantic_backend":
+        cut["receipt"]["backend"] = "semantic"
+    else:
+        restore = item("set_value", cut["after"], state(doc()), {"value": native.INITIAL})
+        undo["before"] = restore["after"]
+        events.insert(1, restore)
+    assert not evaluate("CU-017", ctx, events, state(doc()))["cut_then_undo_observed"]
+
+
+@pytest.mark.parametrize("control", ["Control_R", "ctrl"])
+def test_cut_undo_allows_preserving_navigation_and_distinct_bridge_local_ids(tmp_path, control):
+    ctx = context(tmp_path)
+    def model_state(value=native.INITIAL, selection=None):
+        return state(doc(value, selection, id="model-doc", generation="3"),
+                     scope={"id": "model-scope", "window_id": "17"})
+    cut = item("key_chord", model_state(selection=(6, 12)), model_state("alpha  ready"), {"keys": [control, "x"]})
+    focus = item("focus", cut["after"], cut["after"])
+    navigate = item("key_chord", focus["after"], focus["after"], {"keys": ["Left"]})
+    undo = item("key_chord", navigate["after"], model_state(), {"keys": [control, "z"]})
+    for event in (cut, focus, navigate, undo):
+        event["action"]["node_id"] = "model-doc"
+    records = [record(state(doc("alpha  ready"))), record(state(doc()))]
+    assert all(evaluate("CU-017", ctx, [cut, focus, navigate, undo], state(doc()), records).values())
+    assert all(event["status"] == "unresolved" for event in (cut, focus, navigate, undo))
+
+
+@pytest.mark.parametrize("defect", ["wrong_scope", "wrong_window", "wrong_undo_target", "wrong_undo_backend",
+                                     "independent_mutation", "restored_then_recut", "paste_substitution"])
+def test_cut_undo_rejects_intermediate_binding_or_buffer_changes(tmp_path, defect):
+    ctx = context(tmp_path)
+    cut = item("key_chord", state(doc(selection=(6, 12))), state(doc("alpha  ready")), {"keys": ["Control_L", "x"]})
+    undo = item("key_chord", cut["after"], state(doc()), {"keys": ["Control_L", "z"]})
+    events, records = [cut, undo], []
+    if defect in {"wrong_scope", "wrong_window"}:
+        undo["before"]["scope"]["id" if defect == "wrong_scope" else "window_id"] = "different"
+    elif defect == "wrong_undo_target":
+        undo["action"]["node_id"] = "other"
+    elif defect == "wrong_undo_backend":
+        undo["receipt"]["backend"] = "semantic"
+    elif defect == "independent_mutation":
+        records = [record(state(doc("arbitrary buffer")))]
+    elif defect == "restored_then_recut":
+        records = [record(cut["after"]), record(state(doc())), record(cut["after"])]
+    else:
+        paste = item("key_chord", cut["after"], cut["after"], {"keys": ["Control_L", "v"]})
+        events.insert(1, paste)
+    assert not evaluate("CU-017", ctx, events, state(doc()), records)["cut_then_undo_observed"]
+
+
 def test_redo_requires_edit_undo_redo_sequence_and_final_exact_buffer(tmp_path):
     ctx = context(tmp_path, value="alpha")
     typed = item("type_text", state(doc("alpha")), state(doc("alpha beta")), {"text": " beta"})

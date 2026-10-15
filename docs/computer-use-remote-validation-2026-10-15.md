@@ -95,6 +95,27 @@ reviewed source fingerprints unchanged (log SHA-256
 `fee1e1be07c0cafc1cfd738f27e7a4d42dcf321cf4ea9671d469b4bc2a0b4c59`).
 Live post-change recovery and edit/Save acceptance remain unverified.
 
+After `b9bf58a`, one code-only Python reload preserved the supervisor and all
+model/wrapper identities. A verifier initially expected module launch arguments;
+the actual fixed script paths, working directories, start times and hashes
+proved adoption without another reload. The genuine `think:false` Save repeat
+failed at its original 300-second action bound: 320.15 seconds total, including
+17.739 seconds of TTS. ASR was correct, but there was one unique unchanged focus
+input, no typing, Save or pointer input, and no authoritative final. The owned
+editor closed; file bytes, workers, health and eventual idleness were preserved
+(summary SHA-256
+`c79f130622e5e55ce2356e9f2cca2ae948f1365bdcd43393d37373b89370ce43`).
+
+Exact trace analysis found two unoffered execute IDs and four correctly copied
+current offer IDs. All four focus offers shared one idempotency key: the first
+executed, while three returned explicitly replayed receipts. No old-offer,
+stale-scope/revision or argument-shape failure was observed. Thirteen snapshots
+of the same owned revision occupied 162,162 of 180,203 recorded result bytes;
+this establishes duplication without proving it caused the focus loop. There
+were zero correction resets or typed recovery events: live malformed-batch
+recovery was not exercised by this repeat. Full edit/Save acceptance remains
+failed.
+
 ## Egg41
 
 | Scenario | Actual evidence | Result |
