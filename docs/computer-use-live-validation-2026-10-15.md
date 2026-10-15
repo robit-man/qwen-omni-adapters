@@ -110,12 +110,20 @@ that an existing LibreOffice process cannot bypass that environment by taking
 over the new window. It preserves normal desktop profiles and global settings.
 
 The bounded physical repeat imported the repaired observer but stopped before
-any speech submission: two delayed Bluetooth cue samples prevented the
+any speech submission: two transient samples after Bluetooth playback prevented the
 readiness predicate from accepting 7.688 seconds of subsequent quiet. The
 retained trace has no VAD start/active/utterance and no model calls. The original
 predicate checks every sample since playback returned, so a transient never
 ages out. This is a separate readiness defect; the microphone threshold is
 unchanged and live document-identity acceptance remains pending.
+The transient's attribution to delayed cue audio is a timing-based inference,
+not a spectral measurement. The readiness repair checks a continuous trailing
+quiet second with actual captured sample counts, frame continuity and freshness;
+it retains the same threshold, eight-second bound and no-admitted-speech guard.
+Full source validation passed 1,931 tests in 89.45 seconds, with all 222 checked
+files unchanged (manifest SHA-256
+`98076ac9518ddb5f303036ce2fedbe5c1ca317f1bc7e966a4250a31cff640b0e`).
+Fresh physical acceptance of that repair remains pending.
 
 The helper and expanded perception runners passed the next frozen source gate:
 1,872 tests in 99.84 seconds, with 221 checked source files unchanged (manifest

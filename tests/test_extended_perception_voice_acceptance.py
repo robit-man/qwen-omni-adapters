@@ -158,6 +158,68 @@ def test_attention_cue_cannot_play_before_real_readiness(tmp_path):
     recorder.close()
 
 
+def cue_clock(monkeypatch, recorder, *, admit_speech=False):
+    """CPU transport control: one simulated playback, then actual collector frames."""
+    clock = {"now": 10.0, "frames": 0, "plays": []}
+    recorder.started = 0
+    recorder.listening = True
+    monkeypatch.setattr(runner.time, "monotonic", lambda: clock["now"])
+    recorder("capture_frame", {"samples": np.zeros(800, dtype=np.float32), "sample_rate_hz": 16000})
+    recorder.ready.set()
+    def playback(argv, **_options):
+        clock["plays"].append(argv)
+        return type("Played", (), {"returncode": 0})()
+    def capture(_seconds):
+        clock["now"] += .05
+        clock["frames"] += 1
+        samples = np.ones(800, dtype=np.float32)*(.02 if clock["frames"] <= 2 else .0002)
+        recorder("capture_frame", {"samples": samples, "sample_rate_hz": 16000})
+        if admit_speech:
+            recorder("vad", {"event": "utterance", "active": False})
+    monkeypatch.setattr(runner.subprocess, "run", playback)
+    monkeypatch.setattr(runner.time, "sleep", capture)
+    monkeypatch.setattr(runner, "pulse_command", lambda _argv: json.dumps([
+        {"name": "headset", "properties": {"device.api": "bluez5"}, "sample_specification": "s16le 1ch 8000Hz"}]))
+    return clock
+
+
+def test_delayed_bluetooth_blip_tail_allows_second_marker_after_continuous_trailing_quiet(tmp_path, monkeypatch):
+    recorder = runner.CaptureRecorder(tmp_path, source="physical_microphone", device="unit-source")
+    try:
+        clock = cue_clock(monkeypatch, recorder)
+        result = runner.play_attention_cue(tmp_path, recorder, "headset", frequency_hz=1000)
+        marker = json.loads((tmp_path/"speech-command-ready.json").read_text())
+        assert len(clock["plays"]) == 1 and clock["plays"][0][0] == "paplay"
+        assert marker["ready"] is True and marker["frequency_hz"] == 1000
+        assert marker["attention_cue_sha256"] == result["wav_sha256"]
+        assert result["quiet_capture_confirmed"] is True and clock["now"] < 18
+        assert result["quiet_samples"] >= 16000 and result["quiet_span_s"] >= 1
+    finally:
+        recorder.close()
+
+
+def test_quiet_tail_rejects_sparse_stale_future_or_insufficient_capture_frames():
+    def row(elapsed, count=320):
+        return {"elapsed_s": elapsed, "sample_count": count, "sample_rate_hz": 16000, "rms": .0002}
+    continuous = [row(index*.02) for index in range(56)]
+    assert runner.trailing_quiet_capture(continuous, after=0, now=1.1)
+    for rows, now in (([row(.1), row(3)], 3), (continuous, 3), (continuous, .9),
+                      ([row(index*.02, count=10) for index in range(56)], 1.1),
+                      ([row(.1, count=8000), row(3, count=8000)], 3)):
+        assert runner.trailing_quiet_capture(rows, after=0, now=now) is None
+
+
+def test_admitted_speech_during_cue_settling_never_publishes_second_marker(tmp_path, monkeypatch):
+    recorder = runner.CaptureRecorder(tmp_path, source="physical_microphone", device="unit-source")
+    try:
+        clock = cue_clock(monkeypatch, recorder, admit_speech=True)
+        with pytest.raises(RuntimeError, match="Speech was admitted"):
+            runner.play_attention_cue(tmp_path, recorder, "headset", frequency_hz=1000)
+        assert len(clock["plays"]) == 1 and not (tmp_path/"speech-command-ready.json").exists()
+    finally:
+        recorder.close()
+
+
 def bluez_source(**extra):
     return {"name": "selected", "index": 410, "flags": ["HARDWARE"], "monitor_of_sink": None,
         "active_port": "headset-input", "ports": [{"name": "headset-input", "availability": "available"}],

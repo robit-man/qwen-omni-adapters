@@ -132,7 +132,8 @@ class CaptureRecorder:
                 self.capture.writeframesraw(pcm)
                 self.frames += len(samples)
                 self.rms.append({"elapsed_s": elapsed, "rms": float(np.sqrt(np.mean(samples ** 2))),
-                                 "peak": float(np.max(np.abs(samples)))})
+                                 "peak": float(np.max(np.abs(samples))), "sample_count": len(samples),
+                                 "sample_rate_hz": 16000})
                 if not self.ready.is_set() and not self.microphone_ready:
                     self.ready.set()
                 self._publish_ready()
@@ -289,6 +290,28 @@ def attention_cue_wav(path: Path, *, frequency_hz: int = 8000) -> dict[str, Any]
             "wav_sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
+def trailing_quiet_capture(rows: list[dict[str, Any]], *, after: float, now: float) -> dict[str, Any] | None:
+    """Prove a fresh trailing second from continuous actual captured frames."""
+    tail = []
+    for row in reversed(rows):
+        elapsed, count = row.get("elapsed_s"), row.get("sample_count")
+        if (type(elapsed) not in (int, float) or not np.isfinite(elapsed) or not after <= elapsed <= now
+                or type(count) is not int or not 0 < count <= 1600 or row.get("sample_rate_hz") != 16000
+                or type(row.get("rms")) not in (int, float) or not 0 <= row["rms"] < .008):
+            break
+        if tail and not 0 < tail[-1]["elapsed_s"]-elapsed <= .1:
+            break
+        tail.append(row)
+    if not tail or now-tail[0]["elapsed_s"] > .1:
+        return None
+    span = tail[0]["elapsed_s"]-tail[-1]["elapsed_s"]
+    samples = sum(row["sample_count"] for row in tail)
+    if span < 1 or samples < 16000:
+        return None
+    return {"quiet_span_s": span, "quiet_samples": samples, "quiet_frame_count": len(tail),
+            "quiet_latest_elapsed_s": tail[0]["elapsed_s"]}
+
+
 def play_attention_cue(root: Path, recorder: CaptureRecorder, output_device: str | None, *, frequency_hz: int = 8000) -> dict[str, Any]:
     if not recorder.ready.is_set() or not recorder.listening or not recorder.frames:
         raise RuntimeError("Attention cue requires actual microphone frames and listening readiness")
@@ -310,12 +333,13 @@ def play_attention_cue(root: Path, recorder: CaptureRecorder, output_device: str
     deadline = time.monotonic() + 8
     while time.monotonic() < deadline:
         with recorder.lock:
-            quiet = [item for item in recorder.rms if item["elapsed_s"] >= finished]
+            quiet = trailing_quiet_capture(recorder.rms, after=finished, now=time.monotonic()-recorder.started)
             admitted = bool(recorder.turns) or any(item.get("event") == "utterance" for item in recorder.vad)
         if admitted:
             raise RuntimeError("Speech was admitted before the attention cue/quiet readiness boundary")
-        if quiet and quiet[-1]["elapsed_s"] - quiet[0]["elapsed_s"] >= 1 and all(item["rms"] < .008 for item in quiet):
+        if quiet:
             cue["quiet_capture_confirmed"] = True
+            cue.update(quiet)
             (root / "attention-cue.json").write_text(json.dumps(cue, indent=2) + "\n")
             (root / "speech-command-ready.json").write_text(json.dumps({"ready": True,
                 "attention_cue_sha256": cue["wav_sha256"], "quiet_capture_confirmed": True,
