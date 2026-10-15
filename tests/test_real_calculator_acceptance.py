@@ -65,6 +65,20 @@ def test_existing_expected_display_does_not_prove_visual_calculation_effect(tmp_
     assert not checks["actual_pointer_movement"]
 
 
+def test_one_mouse_click_cannot_hide_accessibility_or_keyboard_calculator_inputs(tmp_path) -> None:
+    state = {"scope": {"id": "owned"}, "nodes": [{"role": "textbox", "value": "15", "visible": True}]}
+    clicked = visual_outcome()
+    clicked.update(before={"scope": {"id": "owned"}, "nodes": []}, after=state)
+    for verb in ("invoke", "set_value", "key_chord"):
+        substituted = {"status": "verified", "action": {"id": "substitution", "verb": verb},
+                       "receipt": {"status": "dispatched", "backend": "atspi_pattern"},
+                       "before": state, "after": state}
+        checks = criteria([substituted, clicked], state, expected="15", owned_scope="owned",
+                          pointer_path=tmp_path / "missing", visual=True)
+        assert checks["verified_actual_click"] is True
+        assert checks["all_calculator_inputs_are_physical"] is False
+
+
 def test_kev_receipt_must_be_active_ambiguous_confident_and_bound_to_executed_action() -> None:
     outcome = visual_outcome()
     receipt = {"id": "policy", "status": "accepted", "mode": "active", "model_confirmed": True,

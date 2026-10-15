@@ -283,6 +283,7 @@ def run(args: argparse.Namespace) -> int:
                 raw, tts = synthesize_instruction(client, args.endpoint, args.model, instruction, turn_root)
                 observer.task_started.set()
                 body, speech = audio_turn(client, args.endpoint, args.model, raw, system=METHOD,
+                    tool_allowlist=("native_ui", "memory_write", "memory_search"),
                     tools=True, think=args.think, max_seconds=args.timeout, evidence_path=turn_root / "events.jsonl")
                 (turn_root / "speech-evidence.json").write_text(json.dumps(speech, indent=2) + "\n")
                 replies.append(str(body.get("message", {}).get("content") or ""))

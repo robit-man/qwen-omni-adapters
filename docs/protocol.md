@@ -256,6 +256,20 @@ allowed: matching arguments are executed again and produce a fresh tool result.
 The toggle defaults off. This flag and trace are portal extensions, not fields in
 portable adapter v1.
 
+An authenticated portal caller may set `portal_tool_allowlist` to a JSON array
+of unique, exact names from the portal's pinned tool registry, for example
+`["native_ui", "memory_write", "memory_search"]`. The portal always retains
+the `tool_search` gateway; an empty array permits discovery without executable
+leaf tools. Invalid or unknown names return HTTP 400. The caller's immutable
+scope limits initial schemas, family discovery, and every automatic tool-loop
+dispatch, including forged model calls to tools absent from the current schema.
+Existing execution-profile denials still apply. The field is consumed before
+adapter transport; model arguments and results cannot enlarge it. Omitting it
+preserves the portal's existing behavior. It does not change client-owned tools
+on the portable adapter or authorize direct calls made in a separate request.
+When supplied, the final response records the applied scope, including the
+discovery gateway, in `portal.tool_allowlist` on both portal transports.
+
 If an adapter language stream ends with a classified network/timeout failure
 before audio starts, the portal retries that exact round once. It emits
 `{"type":"reset","reason":"upstream_network_retry","attempt":1}` before

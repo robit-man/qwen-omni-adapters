@@ -180,6 +180,10 @@ def criteria(outcomes: list[dict[str, Any]], fresh: dict[str, Any], *, expected:
                     and not display_nodes(item.get("before", {}), expected)
                     and display_nodes(item.get("after", {}), expected) for item in verified)
     checks = {"verified_actual_click": click, "fresh_exact_display": bool(display_nodes(fresh, expected)),
+              "all_calculator_inputs_are_physical": bool(dispatched_actions(outcomes)) and all(
+                  item.get("action", {}).get("verb") == "focus" or (
+                      item.get("receipt", {}).get("backend") == "x11_guarded_xtest" and physical_pointer_action(item))
+                  for item in dispatched_actions(outcomes)),
               "result_observed_after_actual_click": evaluated,
               "fresh_observation_is_owned_app": fresh.get("scope", {}).get("id") == owned_scope,
               "actions_remained_in_owned_app": bool(dispatched_actions(outcomes)) and all(
@@ -238,6 +242,7 @@ def run(args: argparse.Namespace) -> int:
                 SCENARIOS[args.scenario]["instruction"], root)
             observer.task_started.set()
             body, speech = audio_turn(client, args.endpoint, args.model, raw, tools=True,
+                tool_allowlist=("native_ui",),
                 max_seconds=args.timeout, evidence_path=journal,
                 system=report["method_constraint"], think=args.think)
             report["authoritative_final_received"] = True

@@ -89,6 +89,26 @@ def test_audio_turn_preserves_explicit_native_think_boolean(think):
     assert "/no_think" not in json.dumps(requests[0])
 
 
+@pytest.mark.parametrize("scope", [[], ["native_ui"], ["native_ui", "memory_search", "memory_write"]])
+def test_audio_scope_is_forwarded_exactly_and_retained_in_evidence(scope):
+    requests = []
+    events = [{"type": "observation", "transcript": "Select the word"},
+              {"type": "final", "response": {"model": "test-omni", "message": {"content": "Done"}}}]
+    def transport(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, content="\n".join(json.dumps(event) for event in events))
+    with httpx.Client(transport=httpx.MockTransport(transport)) as client:
+        _, evidence = audio_turn(client, "http://127.0.0.1:8920", "test-omni", signal_wav(), tool_allowlist=scope)
+    assert requests[0]["portal_tool_allowlist"] == scope
+    assert evidence["portal_tool_allowlist"] == scope
+
+
+@pytest.mark.parametrize("scope", ["native_ui", ["native_ui", "native_ui"], ["Native UI"], [1], {}])
+def test_malformed_audio_tool_scope_is_rejected_before_audio_or_network(scope):
+    with pytest.raises(ValueError, match="tool_allowlist"):
+        audio_turn(None, "http://127.0.0.1:8920", "test-omni", b"not audio", tool_allowlist=scope)
+
+
 @pytest.mark.parametrize("invalid", [0, 1, "false", "true", None, [], {}])
 def test_audio_turn_rejects_nonboolean_think_before_audio_or_network(invalid):
     with pytest.raises(ValueError, match="native boolean"):

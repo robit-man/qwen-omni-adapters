@@ -13,6 +13,7 @@ the answer as it arrives, and stop speaking the moment the person starts again.
 from __future__ import annotations
 
 import base64
+import copy
 import difflib
 import hashlib
 import json
@@ -189,6 +190,18 @@ class CallConfig:
     # rest of the sentence join the first half instead of arriving as a second
     # question answered separately.
     utterance_settle_s: float = SETTLE_MS / 1000.0
+    # Explicit acceptance instrumentation, disabled in ordinary deployments.
+    # Captured frames are copied before delivery so an observer cannot alter
+    # the signal that VAD, queue consolidation and comprehension receive.
+    # Events can include microphone samples, the actual submitted WAV and
+    # owned-session tool results: only a deliberate local collector enables it.
+    evidence_trace: Callable[[str, dict[str, Any]], None] | None = None
+    # A host-selected isolated foreground scope for explicit acceptance runs.
+    # Ordinary voice deployments retain their stable token-derived scope.
+    portal_session_id: str | None = None
+    # Caller-owned optional tool scope; the authenticated portal validates it
+    # against its pinned catalog and enforces it across every tool round.
+    portal_tool_allowlist: tuple[str, ...] | list[str] | None = None
 
 
 @dataclass
@@ -359,6 +372,13 @@ class CallSession:
         frame_grabber: Callable[[], dict[str, Any] | None] | None = None,
     ) -> None:
         self.config = config
+        if config.portal_tool_allowlist is not None:
+            scope = config.portal_tool_allowlist
+            if (not isinstance(scope, (tuple, list)) or len(scope) > 64
+                    or any(not isinstance(name, str) or re.fullmatch(r"[a-z][a-z0-9_]{0,63}", name) is None for name in scope)
+                    or len(set(scope)) != len(scope)):
+                raise ValueError("Voice tool scope must contain distinct bounded exact tool names")
+            config.portal_tool_allowlist = tuple(scope)
         self._history: list[dict[str, Any]] = []
         self._history_times: list[float] = []
         self._on_state = on_state or (lambda state, detail: None)
@@ -368,9 +388,14 @@ class CallSession:
         # the daemon token keeps it stable across harness-only restarts without
         # persisting or exposing that token. A daemon restart clears the portal
         # browser store and naturally yields a new scope.
-        self.portal_session_id = hashlib.sha256(
-            b"omni-voice-session\0" + config.token.encode("utf-8")
-        ).hexdigest()
+        if config.portal_session_id is not None:
+            if not isinstance(config.portal_session_id, str) or re.fullmatch(r"[a-zA-Z0-9_-]{24,128}", config.portal_session_id) is None:
+                raise ValueError("Explicit voice-session identity must be a bounded opaque value")
+            self.portal_session_id = config.portal_session_id
+        else:
+            self.portal_session_id = hashlib.sha256(
+                b"omni-voice-session\0" + config.token.encode("utf-8")
+            ).hexdigest()
         self._client = httpx.Client(
             timeout=httpx.Timeout(config.request_timeout_s),
             cookies={"omni_portal_session": self.portal_session_id},
@@ -635,6 +660,8 @@ class CallSession:
                 client_location = None
             if client_location:
                 payload["portal_client_location"] = dict(client_location)
+        if with_tools and self.config.portal_tool_allowlist is not None:
+            payload["portal_tool_allowlist"] = list(self.config.portal_tool_allowlist)
         return payload
 
     def _build_synthesis_payload(self, text: str) -> dict[str, Any]:
@@ -702,6 +729,8 @@ class CallSession:
                 except json.JSONDecodeError:
                     continue
                 if isinstance(event, dict):
+                    if self.config.evidence_trace is not None and event.get("type") in {"observation", "tool", "error", "final"}:
+                        self.config.evidence_trace("stream_event", {"event": copy.deepcopy(event)})
                     yield event
 
     def comprehend_interruption(self, samples: np.ndarray) -> TurnResult:
@@ -770,6 +799,9 @@ class CallSession:
                 return TurnResult(error=f"comprehension is not ready: {error}")
 
         audio = to_wav(samples)
+        if self.config.evidence_trace is not None:
+            self.config.evidence_trace("turn_audio", {"wav": audio, "segments": segments,
+                "sample_rate_hz": CAPTURE_RATE_HZ, "wav_sha256": hashlib.sha256(audio).hexdigest()})
 
         # Every spoken turn is one grounded answer pass with the portal's real
         # tools auto-executed: the model either answers conversationally or
@@ -1523,6 +1555,8 @@ def run_call_loop(
             for frame in microphone.frames():
                 if stop.is_set():
                     return
+                if config.evidence_trace is not None:
+                    config.evidence_trace("capture_frame", {"samples": frame.copy(), "sample_rate_hz": CAPTURE_RATE_HZ})
                 try:
                     decision, interrupted_pending, probe = barge_decisions.get_nowait()
                 except queue.Empty:
@@ -1584,6 +1618,10 @@ def run_call_loop(
                         else None
                     ),
                 )
+                if config.evidence_trace is not None:
+                    config.evidence_trace("vad", {"event": verdict.event, "active": verdict.active,
+                        "level": verdict.level, "threshold": verdict.threshold, "now_ms": now_ms,
+                        "utterance_samples": len(verdict.utterance.samples()) if verdict.utterance is not None else 0})
                 now = time.monotonic()
 
                 if verdict.event in {"candidate", "start", "active"}:

@@ -71,6 +71,7 @@ try:
     from portal.tools import (
         DISCOVERY_TOOLS,
         SAFE_TOOLS,
+        TOOL_FAMILIES,
         PortalToolHarness,
         ToolInputError,
         scoped_tool_user_context,
@@ -89,6 +90,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from tools import (
         DISCOVERY_TOOLS,
         SAFE_TOOLS,
+        TOOL_FAMILIES,
         PortalToolHarness,
         ToolInputError,
         scoped_tool_user_context,
@@ -532,6 +534,20 @@ class PortalError(RuntimeError):
 
 class PortalRequestError(ValueError):
     """A safe client request validation failure."""
+
+
+def _pop_tool_allowlist(payload: dict[str, Any]) -> frozenset[str] | None:
+    """Consume caller-owned portal execution scope before adapter transport."""
+
+    if "portal_tool_allowlist" not in payload:
+        return None
+    names = payload.pop("portal_tool_allowlist")
+    known = {item["function"]["name"] for item in SAFE_TOOLS}
+    if (not isinstance(names, list) or len(names) > len(known)
+            or any(not isinstance(name, str) or name not in known for name in names)
+            or len(set(names)) != len(names)):
+        raise PortalRequestError("portal_tool_allowlist must contain unique exact pinned tool names")
+    return frozenset({"tool_search", *names})
 
 
 def _pop_internal_virtual_query(
@@ -1394,6 +1410,8 @@ def _tool_followup(
     session_id: str,
     blocked_tools: set[str] | None = None,
     decision_observer: Any | None = None,
+    *,
+    allowed_tools: frozenset[str] | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
     message = response.get("message")
     if not isinstance(message, Mapping):
@@ -1426,7 +1444,11 @@ def _tool_followup(
     )
     known_names = {item["function"]["name"] for item in SAFE_TOOLS}
     made_progress = False
-    blocked_tools = blocked_tools or set()
+    blocked_tools = set(blocked_tools or ())
+    if allowed_tools is not None:
+        allowed_tools = allowed_tools | {"tool_search"}
+        blocked_tools.update(known_names - allowed_tools)
+        blocked_tools.discard("tool_search")
     if decision_observer is not None:
         decision_observer(
             "pre_action",
@@ -1473,8 +1495,16 @@ def _tool_followup(
         fingerprint = hashlib.sha256(
             f"{name}\0{json.dumps(arguments, sort_keys=True, default=str)}".encode()
         ).hexdigest()
-        blocked = name in blocked_tools
-        if blocked:
+        scope_denied = allowed_tools is not None and name not in allowed_tools
+        blocked = name in blocked_tools or scope_denied
+        if scope_denied:
+            result = {
+                "error": "tool_not_allowed_by_request",
+                "message": "This tool is outside the caller's explicit execution scope.",
+                "dispatch_status": "not_dispatched",
+                "allowed_tools": sorted(allowed_tools),
+            }
+        elif blocked:
             result = {
                 "error": "tool_not_available_in_this_execution_profile",
                 "message": (
@@ -1486,6 +1516,9 @@ def _tool_followup(
             made_progress = True
             with scoped_tool_user_context(_latest_user_context(messages)):
                 result = harness.execute(session_id, name, arguments)
+            if name == "get_portal_capabilities" and allowed_tools is not None:
+                result = {**result, "safe_tools": [item for item in result.get("safe_tools", [])
+                                                  if item in allowed_tools]}
             if name == "tool_search" and isinstance(result, Mapping):
                 discovery_called = True
                 # Discovery must respect the same execution profile as direct
@@ -1511,6 +1544,13 @@ def _tool_followup(
                         for item in results
                         if not isinstance(item, Mapping)
                         or str(item.get("name") or "") not in blocked_tools
+                    ]
+                if allowed_tools is not None and isinstance(result.get("available_families"), list):
+                    result["available_families"] = [
+                        family for family in result["available_families"]
+                        if isinstance(family, Mapping)
+                        and any(member in allowed_tools for member in
+                                TOOL_FAMILIES.get(str(family.get("name") or ""), {}).get("tools", []))
                     ]
                 # A background-only voice profile intentionally removes direct
                 # shell execution.  Resolve that profile substitution during
@@ -2064,6 +2104,7 @@ def create_app(
         camera_bridge: bool,
         shell_bridge: bool,
         background_bridge: bool,
+        allowed_tools: frozenset[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Build one bounded contract, deferring media routing until understood.
 
@@ -2122,6 +2163,8 @@ def create_app(
                 str(item.get("function", {}).get("name") or ""): item
                 for item in initial
                 if isinstance(item, Mapping)
+                and (allowed_tools is None
+                     or str(item.get("function", {}).get("name") or "") in allowed_tools)
             }.values()
         )
 
@@ -3005,6 +3048,7 @@ def create_app(
                          and payload["omni"].get("require_speech") is True)
             raw_messages = copy.deepcopy(list(payload.get("messages") or []))
             auto_tools = payload.pop("portal_auto_tools", False) is True
+            allowed_tools = _pop_tool_allowlist(payload)
             internal_background = payload.pop("portal_background_worker", False) is True
             preserve_controller_packet = (
                 payload.pop("portal_preserve_controller_packet", False) is True
@@ -3063,6 +3107,7 @@ def create_app(
                         camera_bridge=camera_bridge,
                         shell_bridge=shell_bridge,
                         background_bridge=background_bridge,
+                        allowed_tools=allowed_tools,
                     )
                 observed_media = (
                     tool_harness.observe_request(session_id, payload)
@@ -3170,6 +3215,7 @@ def create_app(
                         session_id=session_id,
                         request_id=request_id,
                     ),
+                    allowed_tools=allowed_tools,
                 )
                 recovery_transition = _tool_recovery_transition(round_tools)
                 if recovery_transition is not None:
@@ -3225,6 +3271,8 @@ def create_app(
                 "media_observed": observed_media,
                 "virtual_context": virtual_summary,
             }
+            if allowed_tools is not None:
+                data["portal"]["tool_allowlist"] = sorted(allowed_tools)
             outcome_status = 200
             response = jsonify(data)
             response.headers["X-Omni-Request-ID"] = request_id
@@ -3266,6 +3314,10 @@ def create_app(
         if detached_turn and not re.fullmatch(r"[A-Za-z0-9_-]{12,96}", supplied_turn_id):
             return jsonify({"error": "detached portal turn requires a valid turn ID"}), 400
         auto_tools = payload.pop("portal_auto_tools", False) is True
+        try:
+            allowed_tools = _pop_tool_allowlist(payload)
+        except PortalRequestError as exc:
+            return jsonify({"error": str(exc)}), 400
         internal_background = payload.pop("portal_background_worker", False) is True
         continuation_enabled = detached_turn and not internal_background
         preserve_controller_packet = (
@@ -3336,6 +3388,7 @@ def create_app(
                         camera_bridge=camera_bridge,
                         shell_bridge=shell_bridge,
                         background_bridge=background_bridge,
+                        allowed_tools=allowed_tools,
                     )
                 observed_media = (
                     tool_harness.observe_request(session_id, payload)
@@ -3647,6 +3700,7 @@ def create_app(
                                 session_id=session_id,
                                 request_id=request_id,
                             ),
+                            allowed_tools=allowed_tools,
                         )
                     recovery_transition = _tool_recovery_transition(round_tools)
                     if recovery_transition is not None:
@@ -3681,6 +3735,8 @@ def create_app(
                             "media_observed": observed_media,
                             "virtual_context": virtual_summary,
                         }
+                        if allowed_tools is not None:
+                            final_response["portal"]["tool_allowlist"] = sorted(allowed_tools)
                         yield event_bytes({"type": "final", "response": final_response})
                         return
                     if not recovery_retry:

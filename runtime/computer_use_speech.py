@@ -12,6 +12,7 @@ import hashlib
 import io
 import json
 import math
+import re
 import socket
 import subprocess
 import threading
@@ -156,12 +157,19 @@ def audio_turn(client: Any, endpoint: str, model: str, raw: bytes, *,
                system: str = "", context: dict[str, Any] | None = None,
                tools: bool = True, max_seconds: float = 300,
                think: bool = False,
+               tool_allowlist: tuple[str, ...] | list[str] | None = None,
                json_output: bool = False,
                evidence_path: Path | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
     if type(think) is not bool:
         raise ValueError("think must be a native boolean")
     if isinstance(max_seconds, bool) or not isinstance(max_seconds, (int, float)) or not math.isfinite(max_seconds) or max_seconds <= 0:
         raise ValueError("max_seconds must be a positive finite budget")
+    if tool_allowlist is not None:
+        if (not isinstance(tool_allowlist, (tuple, list)) or len(tool_allowlist) > 64
+                or any(not isinstance(name, str) or re.fullmatch(r"[a-z][a-z0-9_]{0,63}", name) is None for name in tool_allowlist)
+                or len(set(tool_allowlist)) != len(tool_allowlist)):
+            raise ValueError("tool_allowlist must contain distinct bounded exact tool names")
+        tool_allowlist = tuple(tool_allowlist)
     messages = []
     normalized = asr_wav(raw)
     # Context is observed UI state and the typed output grammar. The desired
@@ -182,6 +190,8 @@ def audio_turn(client: Any, endpoint: str, model: str, raw: bytes, *,
         "speech_mode": "never", "options": {"temperature": 0, "num_predict": 8192}}
     if json_output:
         payload["format"] = "json"
+    if tools and tool_allowlist is not None:
+        payload["portal_tool_allowlist"] = list(tool_allowlist)
     started = time.monotonic()
     observations, tool_events, finals = [], [], []
     deadline = _SpeechDeadline(max_seconds)
@@ -237,6 +247,7 @@ def audio_turn(client: Any, endpoint: str, model: str, raw: bytes, *,
     if not transcript:
         raise ValueError("Actual ASR produced no attributed speech transcript")
     evidence = {"source": "generated_tts_audio", "model": model, "think": think,
+        "portal_tool_allowlist": list(tool_allowlist) if tool_allowlist is not None else None,
         "input_wav_sha256": hashlib.sha256(raw).hexdigest(),
         "asr_input_wav_sha256": hashlib.sha256(normalized).hexdigest(),
         "asr_sample_rate_hz": 16000,

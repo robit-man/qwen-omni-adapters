@@ -211,6 +211,7 @@ def run(args: argparse.Namespace) -> int:
             raw, report["tts"] = synthesize_instruction(client, args.endpoint, args.model, INSTRUCTION, root)
             observer.task_started.set()
             body, speech = audio_turn(client, args.endpoint, args.model, raw, tools=True,
+                tool_allowlist=("native_ui",),
                 max_seconds=args.timeout, evidence_path=journal,
                 system="Operate the actual Files desktop application only through native_ui. Discover it if needed. "
                        "Observe current controls, submit typed steps to obtain finite action IDs, execute and verify fresh effects. "

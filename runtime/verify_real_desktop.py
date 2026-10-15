@@ -452,6 +452,7 @@ def run(args: argparse.Namespace) -> int:
             report["tts"] = tts
             observer.task_started.set()
             body, evidence = audio_turn(client, args.endpoint, args.model, raw, tools=True,
+                tool_allowlist=("native_ui",),
                 max_seconds=args.timeout, evidence_path=journal,
                 system=report["method_constraint"], think=args.think)
             (root / "speech-evidence.json").write_text(json.dumps(evidence, indent=2)+"\n")
