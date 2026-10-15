@@ -44,6 +44,62 @@ def class_windows(window_class: str, environment: dict[str, str], *, visible: bo
                                       empty_ok=True).splitlines() if value.isdecimal()}
 
 
+def _spreadsheet_environment(environment: dict[str, str]) -> dict[str, str]:
+    child = {**environment, "SAL_DISABLE_OPENCL": "1"}
+    # Upstream 24.2 opencl/source/openclwrapper.cxx canUseOpenCL checks this
+    # override before the disable; keep ordinary spreadsheet arithmetic on CPU.
+    child.pop("SC_FORCE_CALCULATION", None)
+    return child
+
+
+def _spreadsheet_process_ids(proc_root: Path = Path("/proc")) -> list[str]:
+    matches = []
+    entries = list(islice(proc_root.iterdir(), 4097))
+    if len(entries) > 4096:
+        raise CapabilityBlocked("LibreOffice handoff identity exceeds its bounded process scan")
+    for entry in entries:
+        if not entry.name.isdecimal():
+            continue
+        try:
+            if entry.stat().st_uid != os.getuid():
+                continue
+            # Kernel comm is only a candidate filter. Positive authority below
+            # additionally requires the exact installed executable and identity.
+            with (entry / "comm").open() as source:
+                name = source.read(32).strip()
+            if name == "soffice.bin":
+                matches.append(entry.name)
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+        except OSError:
+            raise CapabilityBlocked("LibreOffice handoff process identity is unavailable") from None
+    return matches
+
+
+def _verify_spreadsheet_process(pid: str, executable: Path, *, expected_start: str | None = None,
+                                proc_root: Path = Path("/proc")) -> None:
+    try:
+        start = process_start(pid)
+        process = proc_root / pid
+        if (expected_start is not None and start != expected_start
+                or process.stat().st_uid != os.getuid()
+                or (process / "exe").resolve(strict=True) != executable.resolve(strict=True)):
+            raise CapabilityBlocked("LibreOffice handoff process executable or identity changed")
+        with (process / "environ").open("rb") as source:
+            raw = source.read(131073)
+        if len(raw) > 131072:
+            raise CapabilityBlocked("LibreOffice handoff environment exceeds its bounded read")
+        # Never expose or persist unrelated environment keys/values.
+        relevant = [item for item in raw.split(b"\0") if item.partition(b"=")[0]
+                    in {b"SAL_DISABLE_OPENCL", b"SC_FORCE_CALCULATION"}]
+        if relevant != [b"SAL_DISABLE_OPENCL=1"]:
+            raise CapabilityBlocked("Existing LibreOffice process lacks the required OpenCL-disabled environment")
+        if process_start(pid) != start:
+            raise CapabilityBlocked("LibreOffice process identity changed during environment verification")
+    except (OSError, ValueError):
+        raise CapabilityBlocked("LibreOffice process environment or executable proof is unavailable") from None
+
+
 @dataclass
 class OwnedWindow:
     application: str
@@ -76,7 +132,8 @@ class OwnedDesktop:
 
     def open_application(self, binary: str, args: list[str], application: str, window_class: str,
                          *, stdin: bytes | None = None, standalone: bool = False,
-                         log_path: Path | None = None) -> OwnedWindow:
+                         log_path: Path | None = None,
+                         child_environment: dict[str, str] | None = None) -> OwnedWindow:
         executable = shutil.which(binary)
         if not executable:
             raise CapabilityBlocked(f"Installed {application} application is unavailable")
@@ -84,7 +141,8 @@ class OwnedDesktop:
         log = log_path.open("ab") if log_path else subprocess.DEVNULL
         if log_path:
             self._logs.append(log)
-        process = subprocess.Popen([executable, *args], env=self.environment, stdout=subprocess.DEVNULL,
+        launch_environment = dict(self.environment if child_environment is None else child_environment)
+        process = subprocess.Popen([executable, *args], env=launch_environment, stdout=subprocess.DEVNULL,
             stderr=log, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
             start_new_session=True)  # noqa: S603
         pending = {"application": application, "process": process, "standalone": standalone, "registered": False}
@@ -145,6 +203,23 @@ class OwnedDesktop:
 
     def open_calculator(self, *, log_path: Path | None = None) -> OwnedWindow:
         return self.open_application("gnome-calculator", [], "calculator", "[Gg]nome-calculator", log_path=log_path)
+
+    def open_spreadsheet(self, *, log_path: Path | None = None) -> OwnedWindow:
+        launcher = shutil.which("libreoffice")
+        if not launcher:
+            raise CapabilityBlocked("Installed LibreOffice Calc is unavailable")
+        executable = Path(launcher).resolve().with_name("soffice.bin")
+        if not executable.is_file():
+            raise CapabilityBlocked("Installed LibreOffice process executable is unavailable")
+        # Normal LibreOffice can hand off to its existing process. Verify that
+        # process before launch so child-only environment cannot be bypassed.
+        for pid in _spreadsheet_process_ids():
+            _verify_spreadsheet_process(pid, executable)
+        # Installed libreoffice-calc.desktop declares this exact StartupWMClass.
+        window = self.open_application("libreoffice", ["--calc", "--norestore"], "libreoffice-calc",
+            "^libreoffice-calc$", log_path=log_path, child_environment=_spreadsheet_environment(self.environment))
+        _verify_spreadsheet_process(window.pid, executable, expected_start=window.process_start)
+        return window
 
     def is_owned(self, identity: dict[str, Any]) -> bool:
         for window in self.windows:

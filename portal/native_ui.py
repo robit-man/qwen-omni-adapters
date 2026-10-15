@@ -759,25 +759,28 @@ class _AtspiBridge:
                     matches.append(window_id)
         return matches[0] if len(matches) == 1 else None
 
-    def _window_visibility(self, process_id: int) -> list[dict[str, Any]]:
+    def _window_visibility(self, process_id: int, *, history: OrderedDict | None = None,
+                           generations: dict[str, int] | None = None) -> list[dict[str, Any]]:
         """Fresh flags for known windows; retained handles never authorize input."""
+        history = self._window_history if history is None else history
+        generations = self.generations if generations is None else generations
         receipts = []
-        for raw, record in list(self._window_history.items()):
+        for raw, record in list(history.items()):
             if record["process_id"] != process_id:
                 continue
             node = record["node"]
             try:
-                if self.generations.get(raw) != record["generation"] or self._read(
+                if generations.get(raw) != record["generation"] or self._read(
                     lambda current=node: str(current.app.bus_name) + ":" + str(current.path)
                 ) != raw:
-                    self._window_history.pop(raw, None)
+                    history.pop(raw, None)
                     continue
                 self._read(node.clear_cache_single)
                 state = self._read(node.get_state_set)
                 if state is None or state.contains(self.atspi.StateType.DEFUNCT) or self._read(
                     node.get_role_name
                 ) not in {"frame", "dialog", "window", "alert", "file chooser"}:
-                    self._window_history.pop(raw, None)
+                    history.pop(raw, None)
                     continue
                 receipts.append({"id": record["id"], "generation": str(record["generation"]),
                     "owner_window_id": record["owner_window_id"], "source": "retained_atspi_window",
@@ -787,10 +790,26 @@ class _AtspiBridge:
             except NativeUiUnavailable as exc:
                 if exc.code == "native_observation_budget_exceeded":
                     raise
-                self._window_history.pop(raw, None)
+                history.pop(raw, None)
         return receipts
 
     def observe(self, include_windows: bool = False) -> dict[str, Any]:
+        # A failed read is unknown evidence, never positive node disappearance.
+        # Coordinate scratch state must also belong to the last successful read.
+        missing = object()
+        binding = self._coordinate_binding
+        identity = getattr(self, "foreground_identity", missing)
+        try:
+            return self._observe(include_windows)
+        except Exception:
+            self._coordinate_binding = binding
+            if identity is missing:
+                self.__dict__.pop("foreground_identity", None)
+            else:
+                self.foreground_identity = identity
+            raise
+
+    def _observe(self, include_windows: bool) -> dict[str, Any]:
         self.reads, self.deadline = 0, time.monotonic() + 5
         self._coordinate_binding = None
         self.foreground_identity = self.foreground()
@@ -808,6 +827,8 @@ class _AtspiBridge:
         self._read(desktop.clear_cache_single)
         nodes, seen, active, handles, windows, window_ids = [], set(), set(), {}, {}, {}
         active_records = {}
+        generations = dict(self.generations)
+        history = self._window_history.copy()
         truncated, text_remaining = False, 32768
         state_type = self.atspi.StateType
         roles = {
@@ -849,9 +870,9 @@ class _AtspiBridge:
                 application_pid = self._read(node.get_process_id)
                 if application_pid != process_id and (not include_windows or self.process_id is not None):
                     return
-            generation = self.generations.get(raw, 0) + int(raw not in self.previous)
-            self.generations[raw] = generation
-            if len(self.generations) > self.MAX_IDENTITIES:
+            generation = generations.get(raw, 0) + int(raw not in self.previous)
+            generations[raw] = generation
+            if len(generations) > self.MAX_IDENTITIES:
                 raise NativeUiUnavailable("native_identity_budget_exceeded")
             node_id = self._opaque(f"{raw}:{generation}")
             if not window and role in {"frame", "dialog", "window", "alert", "file chooser"}:
@@ -986,7 +1007,6 @@ class _AtspiBridge:
         truncated |= count > self.MAX_CHILDREN
         for index in range(min(count, self.MAX_CHILDREN)):
             visit(self._read(lambda i=index: desktop.get_child_at_index(i)))
-        self.previous, self.handles, self.windows, self.window_ids = seen, handles, windows, window_ids
         if len(active) != 1:
             raise NativeUiUnavailable(
                 "native_active_window_unavailable",
@@ -994,17 +1014,17 @@ class _AtspiBridge:
             )
         window_id = next(iter(active))
         for raw, record in active_records.items():
-            self._window_history[raw] = record
-            self._window_history.move_to_end(raw)
-        while len(self._window_history) > self.MAX_RETAINED_WINDOWS:
-            self._window_history.popitem(last=False)
+            history[raw] = record
+            history.move_to_end(raw)
+        while len(history) > self.MAX_RETAINED_WINDOWS:
+            history.popitem(last=False)
         nodes = [node for node in nodes if node["scope_id"] == window_id or "switch_window" in node["operations"]]
         payload = {
             "session_id": self.session_id,
             "scope": {"id": window_id, "kind": "desktop", "provider": "atspi2",
                       "window_id": self.foreground_identity["window_id"]},
             "nodes": nodes,
-            "window_visibility": self._window_visibility(process_id),
+            "window_visibility": self._window_visibility(process_id, history=history, generations=generations),
             "truncated": truncated,
             "text": "\n".join(
                 str(node.get("value", node["name"])) for node in nodes if not node["sensitive"]
@@ -1015,6 +1035,9 @@ class _AtspiBridge:
         payload["revision"] = hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
+        # Commit identities and handles only after the complete payload validates.
+        self.generations, self._window_history = generations, history
+        self.previous, self.handles, self.windows, self.window_ids = seen, handles, windows, window_ids
         return payload
 
     def perform(self, action: Mapping[str, Any]) -> dict[str, Any]:

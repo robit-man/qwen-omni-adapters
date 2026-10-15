@@ -13,7 +13,6 @@ import hashlib
 import json
 import math
 import secrets
-import shutil
 import time
 import zipfile
 from pathlib import Path
@@ -244,9 +243,7 @@ def setup(case_id: str, root: Path, owned: OwnedDesktop, observer: NativeEvidenc
         if number in {27, 28}:
             context["preferences_before"] = preferences(owned.environment)
     elif number == 30:
-        if not shutil.which("libreoffice"):
-            raise CapabilityBlocked("Installed LibreOffice Calc is unavailable")
-        window = owned.open_application("libreoffice", ["--calc"], "calc", "[Ss]office", log_path=root/"calc-stderr.log")
+        window = owned.open_spreadsheet(log_path=root/"calc-stderr.log")
         context["primary_window"] = window.window_id
     else:
         names = {11: ["alpha.txt"], 31: [], 32: ["alpha.txt"], 33: ["alpha.txt"], 34: ["beta.txt"],

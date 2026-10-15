@@ -32,8 +32,9 @@ receipts, frames and exact owned file readbacks remain local.
 | CU-005 | Qwen | Fail | Physical Save click worked. ASR added a letter to the spelled word; model saved `copper finch aready` instead of the source instruction. Context-menu effects remained unresolved and a shell fallback violated the required native method. | 251.15 s |
 | CU-006 | Qwen | Fail | Actual streamed ASR was correct, but repeated accessibility activations and unresolved/stale effect checks exhausted the 300-second action deadline. No exact `42` terminal result or authoritative final; Calculator cleanup and request idleness verified. | 309.32 s |
 | CU-007 | Qwen | Fail | Correct actual ASR and five guarded physical clicks; model bypassed the spoken visual reference with native identities. No pinned Moondream receipt or fresh owned-Calculator display proof. Cleanup and request idleness verified. | 244.76 s |
+| CU-008 | Qwen | Fail | Actual ASR was correct. Model did not exercise the required ambiguous role-only Kev selection, returned no accepted Kev receipts or authoritative final, and exhausted the 300-second action deadline. Native-only scope held; owned Calculator cleanup and request idleness verified. | 309.96 s |
 | CU-086 | Qwen | Pass | Actual 16 kHz Pulse monitor capture: 208,960 frames with quiet, click and steady noise; production VAD trace; zero submitted turns, stream events or GUI dispatch; call worker and owned Pulse module released. This is not physical-mic acceptance. | 13.16 s |
-| CU-087 | Qwen | Blocked before capture | Owned-window discovery was repaired and passed fresh setup; physical headset metadata then hit the ALSA-only test guard. No recording, blip, ASR or model task occurred. These attempts remain retained. | Setup only |
+| CU-087 | Qwen | Fail, document identity oracle | Real Bluetooth capture, one VAD utterance, actual ASR, verified physical `type_text`, and exact visible `copper finch ready` in the owned editor. Strict initial document identity changed from generation 1 to 2 after focus transitions; that one criterion failed. Cleanup and idleness verified; all attempts retained. | 117.69 s |
 
 CUDA process evidence and fresh broker discovery after each completed attempt
 proved the owned Qwen/Kev processes resident only on GPU 1, without a reported
@@ -59,7 +60,8 @@ with the exact applied scope in its authoritative final. This verifies the
 scope fix; it does not turn CU-005 into a pass. Omitted scope retains the
 ordinary default tool contract.
 
-Physical-microphone acceptance remains pending. The user agreed to speak after
+Physical-microphone full acceptance remains pending, although the actual
+capture → ASR → physical keyboard path ran. The user agreed to speak after
 a cue, which is issued only after actual microphone frames and the owned target
 window are ready. Opt-in capture/VAD/submitted-audio/stream evidence and an
 isolated voice-session scope are implemented and source-validated. The runner
@@ -74,10 +76,10 @@ A fresh live CU-087 attempt passed window setup and cleaned up its owned
 window, then stopped at the separate ALSA-only microphone metadata guard.
 Read-only discovery confirmed that the default Bluetooth headset is connected;
 its stale PipeWire connection field is not authoritative. No microphone audio
-or attention cue was emitted in these blocked attempts.
+or attention cue was emitted in those pre-capture blocked attempts.
 The headset's current 8 kHz speech-mode output cannot reproduce an 8 kHz tone;
-the user explicitly selected a lower cue through that headset. The fresh
-physical test will use a recorded 1 kHz blip, retaining 8 kHz as the runner's
+the user explicitly selected a lower cue through that headset. The actual
+physical test used a recorded 1 kHz blip, retaining 8 kHz as the runner's
 ordinary default and checking the selected output's bandwidth before playback.
 The Bluetooth admission, cue selection/propagation and CU-088/CU-090 method
 oracle corrections passed the next full source gate: 1,904 tests in 90.95
@@ -86,6 +88,34 @@ seconds, with all 221 checked files unchanged (manifest SHA-256
 Bluetooth admission requires a fresh connection query for the exact typed
 hardware identity; virtual sources and monitors cannot satisfy it. Arithmetic
 capture cases reject keyboard or setter input followed by an incidental click.
+
+The first physical attempt played its single cue at 19:20:21 UTC and published
+speech-ready at 19:20:22 UTC. The submitted microphone utterance was 4.6 seconds.
+ASR damaged the opening app name but preserved the requested words. The model
+performed only focus and physical keyboard typing, both with verified effects;
+the fresh owned-window buffer contained exactly the requested 18 characters.
+All other criteria passed. The strict document-generation failure remains
+failed while unsuccessful-observation identity bookkeeping is investigated;
+the result is not relabeled as a full acceptance pass.
+The source cause has been reproduced: an unsuccessful native observation
+commits partial identity history before validating a unique active window.
+That falsely records the document's absence and renews its generation on the
+next successful read. A staged-history repair is under validation; complete
+successful observations must still renew identities after genuine absence.
+The repair and guarded Calc launcher passed full validation: 1,928 tests in
+90.87 seconds, with all 222 checked source files unchanged (manifest SHA-256
+`fcde2cf79d9c5342b8e9cf86d4699dd2b72bee9be89fa0d681fc37c5764815a0`).
+The launcher disables only the spreadsheet child's OpenCL path and verifies
+that an existing LibreOffice process cannot bypass that environment by taking
+over the new window. It preserves normal desktop profiles and global settings.
+
+The bounded physical repeat imported the repaired observer but stopped before
+any speech submission: two delayed Bluetooth cue samples prevented the
+readiness predicate from accepting 7.688 seconds of subsequent quiet. The
+retained trace has no VAD start/active/utterance and no model calls. The original
+predicate checks every sample since playback returned, so a transient never
+ages out. This is a separate readiness defect; the microphone threshold is
+unchanged and live document-identity acceptance remains pending.
 
 The helper and expanded perception runners passed the next frozen source gate:
 1,872 tests in 99.84 seconds, with 221 checked source files unchanged (manifest

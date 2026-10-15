@@ -263,6 +263,67 @@ def test_native_identity_is_isolated_per_session_and_reappearance_changes_genera
     assert renewed["node_id"] != first["node_id"]
 
 
+def test_failed_active_window_observation_does_not_publish_text_disappearance() -> None:
+    fixture = Fixture()
+    initial = fixture.adapter.observe()
+    original = next(node for node in initial["nodes"] if node["name"] == "Title")
+    generations = dict(fixture.bridge.generations)
+    previous = set(fixture.bridge.previous)
+    handles = dict(fixture.bridge.handles)
+    fixture.window.state.values.remove("ACTIVE")
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.adapter.observe()
+    assert error.value.code == "native_active_window_unavailable"
+    assert fixture.bridge.generations == generations
+    assert fixture.bridge.previous == previous
+    assert fixture.bridge.handles == handles
+    fixture.window.state.values.add("ACTIVE")
+    current = next(node for node in fixture.adapter.observe()["nodes"] if node["name"] == "Title")
+    assert (current["id"], current["generation"]) == (original["id"], "1")
+
+
+def test_new_node_seen_only_during_failed_read_does_not_consume_a_generation() -> None:
+    fixture = Fixture()
+    fixture.adapter.observe()
+    generations = dict(fixture.bridge.generations)
+    added = Node("/new", "label", "New")
+    fixture.window.children.append(added)
+    def unreadable():
+        raise RuntimeError("Native name read failed")
+    added.get_name = unreadable
+    with pytest.raises(NativeUiUnavailable):
+        fixture.adapter.observe()
+    assert fixture.bridge.generations == generations
+    added.get_name = lambda: "New"
+    current = next(node for node in fixture.adapter.observe()["nodes"] if node["name"] == "New")
+    assert current["generation"] == "1"
+
+
+def test_late_failed_visibility_read_does_not_commit_new_window_history(monkeypatch) -> None:
+    fixture = Fixture()
+    initial = fixture.adapter.observe()
+    generations, previous = dict(fixture.bridge.generations), set(fixture.bridge.previous)
+    history = fixture.bridge._window_history.copy()
+    fixture.window.state.values.remove("ACTIVE")
+    popup = Node("/new-popup", "dialog", "New popup", states=["ACTIVE", "VISIBLE", "SHOWING", "SENSITIVE"])
+    fixture.application.children.append(popup)
+    original = fixture.bridge._window_visibility
+    def unavailable(*_args, **_kwargs):
+        raise NativeUiUnavailable("native_observation_budget_exceeded")
+    monkeypatch.setattr(fixture.bridge, "_window_visibility", unavailable)
+    with pytest.raises(NativeUiUnavailable):
+        fixture.adapter.observe()
+    assert fixture.bridge.generations == generations
+    assert fixture.bridge.previous == previous
+    assert fixture.bridge._window_history == history
+    monkeypatch.setattr(fixture.bridge, "_window_visibility", original)
+    fixture.application.children.remove(popup)
+    fixture.window.state.values.add("ACTIVE")
+    current = fixture.adapter.observe()
+    assert current["scope"] == initial["scope"]
+    assert next(node for node in current["nodes"] if node["name"] == "Title")["generation"] == "1"
+
+
 @pytest.mark.parametrize(
     ("name", "verb", "args", "event"),
     [

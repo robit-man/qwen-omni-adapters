@@ -603,9 +603,7 @@ def run(args: argparse.Namespace) -> int:
             make_pdf(pdf)
             desktop.open_application("evince", [str(pdf)], "evince", "[Ee]vince")
         if number == 95:
-            if not shutil.which("libreoffice"):
-                raise BlockedCapability("LibreOffice Calc is unavailable")
-            desktop.open_application("libreoffice", ["--calc", "--norestore"], "libreoffice", "[Ll]ibreoffice.*")
+            desktop.open_spreadsheet(log_path=root / "calc-stderr.log")
         if number == 98 and not shutil.which("zenity"):
             raise BlockedCapability("Owned harmless-dialog application zenity is unavailable")
         observer = NativeEvidenceObserver(root, desktop)
