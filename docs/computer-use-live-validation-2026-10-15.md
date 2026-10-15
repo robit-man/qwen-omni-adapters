@@ -34,6 +34,7 @@ receipts, frames and exact owned file readbacks remain local.
 | CU-007 | Qwen | Fail | Correct actual ASR and five guarded physical clicks; model bypassed the spoken visual reference with native identities. No pinned Moondream receipt or fresh owned-Calculator display proof. Cleanup and request idleness verified. | 244.76 s |
 | CU-008 | Qwen | Fail | Actual ASR was correct. Model did not exercise the required ambiguous role-only Kev selection, returned no accepted Kev receipts or authoritative final, and exhausted the 300-second action deadline. Native-only scope held; owned Calculator cleanup and request idleness verified. | 309.96 s |
 | CU-009 | Qwen | Fail | Correct actual ASR, but no dispatched task action. A pointer target was occluded; later attempts failed freshness checks. No authoritative final within 300 seconds. Owned Files window closed; outstanding inference subsequently became idle. | 319.59 s |
+| CU-010 | Qwen | Fail | Correct actual TTS/ASR and six verified native inputs across ten rounds. Navigation, Find, scrolling, sourced memory write and second-turn recall did not complete within 300 seconds. Owned Firefox window closed politely; inference subsequently became idle. | 322.99 s |
 | CU-030 | Qwen | Fail, setup, two attempts | Owned Calc launch passed its OpenCL guard, but initial native observation failed before speech or task input. Installing the GTK3 accessibility plugin did not make the immediate second attempt pass. | 1.47 / 0.93 s |
 | CU-086 | Qwen | Pass | Actual 16 kHz Pulse monitor capture: 208,960 frames with quiet, click and steady noise; production VAD trace; zero submitted turns, stream events or GUI dispatch; call worker and owned Pulse module released. This is not physical-mic acceptance. | 13.16 s |
 | CU-087 | Qwen | Fail, document identity oracle | Real Bluetooth capture, one VAD utterance, actual ASR, verified physical `type_text`, and exact visible `copper finch ready` in the owned editor. Strict initial document identity changed from generation 1 to 2 after focus transitions; that one criterion failed. Cleanup and idleness verified; all attempts retained. | 117.69 s |
@@ -44,6 +45,10 @@ proved the owned Qwen/Kev processes resident only on GPU 1, without a reported
 new GPU fault. Each attempt has a separate `after-test-note.md` and JSON note.
 The manifest retains all 200 slots; rows not recorded above remain pending,
 not passing.
+
+At this checkpoint, 13 distinct local model/case slots have been attempted:
+four passed and nine failed; 187 remain unrun. These counts include setup
+failures and exclude repeats. No local Ornith slot has run yet.
 
 The CU-003 failures are being triaged separately: model action-method fidelity
 and Gedit's implicit final-newline semantics. Neither the saved bytes nor the

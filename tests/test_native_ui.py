@@ -231,6 +231,152 @@ class Fixture:
         }
 
 
+def legacy_cache_fixture() -> Fixture:
+    fixture = Fixture()
+    pending = [fixture.desktop]
+    while pending:
+        node = pending.pop()
+        pending.extend(node.children)
+        node.clear_cache_single = None
+        node.cache_refreshes = 0
+        node.cache_hook = None
+
+        def clear_cache(target=node):
+            target.cache_refreshes += 1
+            if target.cache_hook:
+                target.cache_hook()
+
+        node.clear_cache = clear_cache
+    return fixture
+
+
+def test_cache_invalidation_prefers_the_single_node_api() -> None:
+    fixture = Fixture()
+    calls = []
+    node = SimpleNamespace(clear_cache_single=lambda: calls.append("single"),
+                           clear_cache=lambda: calls.append("descendants"))
+    fixture.adapter.observe()
+    before = fixture.bridge.reads
+    fixture.bridge._clear_cache(node)
+    assert calls == ["single"]
+    assert fixture.bridge.reads == before + 1
+
+
+@pytest.mark.parametrize("single", [None, False])
+def test_cache_invalidation_supports_the_documented_older_api(single) -> None:
+    fixture = Fixture()
+    calls = []
+    fixture.adapter.observe()
+    node = SimpleNamespace(clear_cache_single=single, clear_cache=lambda: calls.append("cleared"))
+    fixture.bridge._clear_cache(node)
+    assert calls == ["cleared"]
+    fixture.bridge._clear_cache(SimpleNamespace(clear_cache=lambda: calls.append("absent-single")))
+    assert calls == ["cleared", "absent-single"]
+
+
+def test_cache_invalidation_missing_both_apis_fails_closed() -> None:
+    fixture = Fixture()
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.bridge._clear_cache(SimpleNamespace())
+    assert error.value.code == "native_cache_invalidation_unavailable"
+
+
+@pytest.mark.parametrize("old_only", [False, True])
+def test_cache_invalidation_errors_never_retry_or_bypass_the_budget(old_only) -> None:
+    fixture = Fixture()
+    calls = []
+
+    def broken():
+        calls.append("failed")
+        raise RuntimeError("provider cache failure")
+
+    fixture.adapter.observe()
+    node = SimpleNamespace(clear_cache=broken) if old_only else SimpleNamespace(
+        clear_cache_single=broken, clear_cache=lambda: calls.append("forbidden-retry"))
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.bridge._clear_cache(node)
+    assert error.value.code == "native_observation_unavailable"
+    assert calls == ["failed"]
+    fixture.bridge.reads = fixture.bridge.MAX_READS
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.bridge._clear_cache(node)
+    assert error.value.code == "native_observation_budget_exceeded"
+    assert calls == ["failed"]
+    fixture.bridge.reads = 0
+    fixture.bridge.deadline = 0
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.bridge._clear_cache(node)
+    assert error.value.code == "native_observation_budget_exceeded"
+    assert calls == ["failed"]
+
+
+def test_older_cache_api_observes_and_dispatches_with_fresh_invalidations() -> None:
+    fixture = legacy_cache_fixture()
+    action = fixture.action()
+    result = fixture.adapter.perform(action)
+    assert result == {"status": "dispatched", "reason": "native_pattern_invoked"}
+    assert fixture.button.events == ["invoke"]
+    assert fixture.desktop.cache_refreshes >= 2
+    assert fixture.window.cache_refreshes >= 4
+    assert fixture.button.cache_refreshes >= 4
+
+
+def test_older_cache_api_rejects_a_stale_candidate() -> None:
+    fixture = legacy_cache_fixture()
+    action = fixture.action()
+    fixture.button.name = "Changed target"
+    result = fixture.adapter.perform(action)
+    assert result["status"] == "rejected"
+    assert result["reason"] == "stale_native_revision_or_scope"
+    assert fixture.button.events == []
+
+
+@pytest.mark.parametrize("change", ["disabled", "hidden", "protected", "inactive-window"])
+def test_older_cache_refresh_preserves_native_input_guards(change) -> None:
+    fixture = legacy_cache_fixture()
+    action = fixture.action()
+    target = fixture.window if change == "inactive-window" else fixture.button
+
+    def changed_on_final_refresh():
+        if target.cache_refreshes != 4:
+            return
+        if change == "disabled":
+            target.state.values.discard("SENSITIVE")
+        elif change == "hidden":
+            target.state.values.discard("SHOWING")
+        elif change == "protected":
+            target.role = "password text"
+        else:
+            target.state.values.discard("ACTIVE")
+
+    target.cache_hook = changed_on_final_refresh
+    result = fixture.adapter.perform(action)
+    assert result["status"] == "rejected"
+    assert result["reason"] in {"native_target_changed_before_dispatch", "native_focus_changed_before_dispatch",
+                                "stale_native_revision_or_scope"}
+    assert fixture.button.events == []
+
+
+def test_older_cache_refresh_revalidates_focused_keyboard_target(monkeypatch) -> None:
+    fixture = legacy_cache_fixture()
+    fixture.title.state.values.add("FOCUSED")
+    action = fixture.action("Title", "key_chord", {"keys": ["Escape"]})
+    inputs = []
+    monkeypatch.setattr("portal.native_ui._x11_geometry", lambda _identity: {"x": 0})
+    monkeypatch.setattr("portal.native_ui.subprocess.run", lambda command, **_kw: inputs.append(command))
+
+    def lose_focus():
+        if fixture.title.cache_refreshes == 5:
+            fixture.title.state.values.discard("FOCUSED")
+
+    fixture.title.cache_hook = lose_focus
+    result = fixture.adapter.perform(action)
+    assert result["status"] == "rejected"
+    assert result["reason"] == "native_key_target_not_focused"
+    assert inputs == []
+    assert fixture.title.events == []
+
+
 def test_snapshot_is_stable_scoped_and_redacts_protected_controls() -> None:
     fixture = Fixture()
     first, second = fixture.adapter.observe(), fixture.adapter.observe()

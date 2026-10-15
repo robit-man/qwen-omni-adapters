@@ -568,6 +568,17 @@ class _AtspiBridge:
         except Exception:
             raise NativeUiUnavailable("native_observation_unavailable") from None
 
+    def _clear_cache(self, node: Any) -> None:
+        # AT-SPI 2.44 exposes clear_cache (node plus cached descendants),
+        # while newer versions also expose the narrower clear_cache_single.
+        # Both invalidate local cached properties before the same fresh reads.
+        method = getattr(node, "clear_cache_single", None)
+        if not callable(method):
+            method = getattr(node, "clear_cache", None)
+        if not callable(method):
+            raise NativeUiUnavailable("native_cache_invalidation_unavailable")
+        self._read(method)  # Never retry an available method that raises.
+
     def _opaque(self, raw: str) -> str:
         return "atspi:" + hmac.new(self.key, raw.encode(), hashlib.sha256).hexdigest()[:32]
 
@@ -642,7 +653,7 @@ class _AtspiBridge:
             lambda: (notebook.app.bus_name, notebook.path)
         ):
             return None
-        self._read(page.clear_cache_single)
+        self._clear_cache(page)
         state = self._read(page.get_state_set)
         if state.contains(self.atspi.StateType.DEFUNCT) or not all(state.contains(value) for value in (
             self.atspi.StateType.SELECTED, self.atspi.StateType.VISIBLE, self.atspi.StateType.SHOWING,
@@ -775,7 +786,7 @@ class _AtspiBridge:
                 ) != raw:
                     history.pop(raw, None)
                     continue
-                self._read(node.clear_cache_single)
+                self._clear_cache(node)
                 state = self._read(node.get_state_set)
                 if state is None or state.contains(self.atspi.StateType.DEFUNCT) or self._read(
                     node.get_role_name
@@ -824,7 +835,7 @@ class _AtspiBridge:
         desktop = self._read(lambda: self.atspi.get_desktop(0))
         if desktop is None:
             raise NativeUiUnavailable("native_desktop_unavailable")
-        self._read(desktop.clear_cache_single)
+        self._clear_cache(desktop)
         nodes, seen, active, handles, windows, window_ids = [], set(), set(), {}, {}, {}
         active_records = {}
         generations = dict(self.generations)
@@ -859,7 +870,7 @@ class _AtspiBridge:
             if raw in seen:
                 return
             seen.add(raw)
-            self._read(node.clear_cache_single)
+            self._clear_cache(node)
             state = self._read(node.get_state_set)
             if state is None or state.contains(state_type.DEFUNCT):
                 raise NativeUiUnavailable("native_observation_unavailable")
@@ -1073,10 +1084,10 @@ class _AtspiBridge:
         if not _valid_arguments(verb, args):
             return reject("invalid_native_arguments")
         window = self.windows[before["scope"]["id"]]
-        self._read(window.clear_cache_single)
+        self._clear_cache(window)
         if not self._read(window.get_state_set).contains(self.atspi.StateType.ACTIVE):
             return reject("native_focus_changed_before_dispatch")
-        self._read(node.clear_cache_single)
+        self._clear_cache(node)
         state = self._read(node.get_state_set)
         if not all(
             state.contains(s)
@@ -1119,7 +1130,7 @@ class _AtspiBridge:
             def operation() -> Any:
                 if self.foreground() != self.foreground_identity or _x11_geometry(self.foreground_identity) != geometry:
                     return reject("native_key_binding_changed_before_dispatch")
-                self._read(node.clear_cache_single)
+                self._clear_cache(node)
                 if item["id"] != before["scope"]["id"] and not self._read(node.get_state_set).contains(self.atspi.StateType.FOCUSED):
                     return reject("native_key_target_not_focused")
                 result = subprocess.run(  # noqa: S603 - fixed X11 input, never a shell.
@@ -1134,7 +1145,7 @@ class _AtspiBridge:
                 if (self.foreground() != self.foreground_identity or _x11_geometry(self.foreground_identity) != geometry
                         or self.foreground() != self.foreground_identity):
                     return reject("native_text_binding_changed_before_dispatch")
-                self._read(node.clear_cache_single)
+                self._clear_cache(node)
                 current = self._read(node.get_state_set)
                 if not current.contains(self.atspi.StateType.FOCUSED):
                     return reject("native_text_target_not_focused")
@@ -1205,10 +1216,10 @@ class _AtspiBridge:
         # Recheck foreground, target state and role at the final input boundary.
         if self.foreground() != self.foreground_identity:
             return reject("native_foreground_changed_before_dispatch")
-        self._read(window.clear_cache_single)
+        self._clear_cache(window)
         if not self._read(window.get_state_set).contains(self.atspi.StateType.ACTIVE):
             return reject("native_focus_changed_before_dispatch")
-        self._read(node.clear_cache_single)
+        self._clear_cache(node)
         live = self._read(node.get_state_set)
         if (
             not all(
