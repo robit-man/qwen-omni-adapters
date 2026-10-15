@@ -1063,17 +1063,21 @@ def _json_object(response: httpx.Response, stage: str) -> dict[str, Any]:
 def _tool_arguments(call: Mapping[str, Any]) -> Mapping[str, Any]:
     function = call.get("function")
     if not isinstance(function, Mapping):
-        return {}
-    arguments = function.get("arguments") or {}
+        raise PortalError("model emitted a malformed structured tool call function")
+    arguments = function.get("arguments", {})
     if isinstance(arguments, Mapping):
         return arguments
     if isinstance(arguments, str):
         try:
             decoded = json.loads(arguments)
-        except json.JSONDecodeError:
-            return {}
-        return decoded if isinstance(decoded, Mapping) else {}
-    return {}
+        except json.JSONDecodeError as error:
+            raise PortalError(
+                "model emitted malformed structured tool call arguments: "
+                f"{error}; raw_arguments={arguments[:256]!r}"
+            ) from error
+        if isinstance(decoded, Mapping):
+            return decoded
+    raise PortalError("model emitted structured tool call arguments that are not a JSON object")
 
 
 _TEXT_TOOL_CALL_PATTERN = re.compile(
@@ -1119,7 +1123,13 @@ def _response_tool_calls(response: Mapping[str, Any]) -> list[Mapping[str, Any]]
         return []
     structured = message.get("tool_calls")
     if isinstance(structured, list) and structured:
-        return [call for call in structured if isinstance(call, Mapping)]
+        for call in structured:
+            if not isinstance(call, Mapping):
+                raise PortalError("model emitted a malformed structured tool call")
+            # Validate the entire batch before recording a start, executing any
+            # tool, or carrying the assistant call into a follow-up prompt.
+            _tool_arguments(call)
+        return structured
     content = message.get("content")
     if not isinstance(content, str) or "<tool_call" not in content.lower():
         return []
@@ -1163,7 +1173,8 @@ LIVE_TOOL_ROUNDS = max(1, int(os.environ.get("OMNI_LIVE_TOOL_ROUNDS", "16")))
 
 
 def _close_live_tool_budget(
-    followup: dict[str, Any], round_index: int, limit: int | None = None
+    followup: dict[str, Any], round_index: int, limit: int | None = None,
+    *, live_turn: bool | None = None,
 ) -> dict[str, Any]:
     """End a spoken turn's tool loop with one answer the speaker can hear.
 
@@ -1174,7 +1185,8 @@ def _close_live_tool_budget(
     """
 
     omni = followup.get("omni")
-    live = isinstance(omni, Mapping) and omni.get("require_speech") is True
+    live = (isinstance(omni, Mapping) and omni.get("require_speech") is True
+            if live_turn is None else live_turn)
     if not live or round_index < (LIVE_TOOL_ROUNDS if limit is None else limit):
         return followup
     closed = dict(followup)
@@ -1206,8 +1218,97 @@ def _without_media(messages: list[Any]) -> list[Any]:
     return cleaned
 
 
+def _model_ui_node_references(value: Any) -> tuple[str, ...]:
+    """Read receipt bindings, never derive authority from snapshot node text."""
+
+    if isinstance(value, list):
+        return tuple(dict.fromkeys(ref for item in value for ref in _model_ui_node_references(item)))
+    if not isinstance(value, Mapping) or ("nodes" in value and isinstance(value.get("scope"), Mapping)):
+        return ()
+    references = []
+    for key, item in value.items():
+        if key in {"node_id", "to_node_id"} and isinstance(item, str) and item != "$target":
+            references.append(item)
+        elif isinstance(item, (Mapping, list)):
+            references.extend(_model_ui_node_references(item))
+    return tuple(dict.fromkeys(references))
+
+
+def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
+    """Project UI receipts for language without changing executor authority."""
+
+    if isinstance(value, list):
+        return [_model_ui_observation(item, references) for item in value]
+    if not isinstance(value, Mapping):
+        return value
+    nodes = value.get("nodes")
+    scope = value.get("scope")
+    if not (isinstance(nodes, list) and isinstance(scope, Mapping)
+            and scope.get("kind") in {"browser", "desktop", "native"}
+            and isinstance(value.get("revision"), str)):
+        bound = tuple(dict.fromkeys((*_model_ui_node_references(value), *references)))
+        return {key: _model_ui_observation(item, bound) for key, item in value.items()}
+
+    visible = [node for node in nodes if isinstance(node, Mapping) and node.get("visible") is True]
+    priority = {node_id: index for index, node_id in enumerate(references)}
+    controls = {"button", "push_button", "textbox", "entry", "checkbox", "check_box", "radio",
+                "combobox", "listbox", "list_item", "tree_item", "table_cell", "icon", "option",
+                "menuitem", "menuitemcheckbox", "menuitemradio", "toggle_button", "switch",
+                "slider", "spinbutton", "scrollbar", "tab", "page_tab", "link"}
+    displays = {"text", "label", "static", "paragraph", "heading", "document_web", "document_text"}
+    def presentation_rank(node: Mapping[str, Any]) -> tuple[int, int]:
+        if node.get("id") in priority:
+            return 0, priority[node["id"]]
+        if node.get("id") == scope.get("id"):
+            return 1, 0
+        meaningful = node.get("role") in controls or (node.get("role") in displays and (node.get("name") or node.get("value")))
+        if meaningful and not node.get("sensitive"):
+            if node.get("focused") is True:
+                return 2, 0
+            return (3 if node.get("role") in controls else 4), 0
+        return 5, 0
+    visible.sort(key=presentation_rank)
+    projected_nodes: list[dict[str, Any]] = []
+    remaining = 12000
+    for node in visible:
+        compact = {key: copy.deepcopy(node[key]) for key in (
+            "id", "generation", "scope_id", "role", "name", "visible", "enabled",
+            "sensitive", "operations", "value", "description", "checked", "focused",
+            "selected", "text_selection", "bounds",
+        ) if key in node}
+        if node.get("sensitive") is True:
+            compact.update(name="[protected]", operations=[])
+            for key in ("value", "description", "selected", "text_selection"):
+                compact.pop(key, None)
+        size = len(json.dumps(compact, ensure_ascii=False))
+        if len(projected_nodes) >= 80 or size > remaining:
+            continue
+        projected_nodes.append(compact)
+        remaining -= size
+
+    visible_text = "\n".join(
+        " ".join(str(node[key]) for key in ("name", "value") if node.get(key))
+        for node in projected_nodes if node.get("sensitive") is not True
+    )
+    projected = {key: copy.deepcopy(item) for key, item in value.items() if key not in {"nodes", "text"}}
+    projected.update(nodes=projected_nodes, text=visible_text[:4000], model_projection={
+        "schema": "robit.omni.ui-model-projection.v1",
+        "source_revision": value["revision"], "source_truncated": value.get("truncated", False),
+        "source_node_count": len(nodes), "visible_node_count": len(visible),
+        "returned_node_count": len(projected_nodes), "omitted_hidden_nodes": len(nodes) - len(visible),
+        "omitted_visible_nodes": len(visible) - len(projected_nodes),
+        "referenced_visible_nodes": sum(node.get("id") in priority for node in visible),
+        "omitted_referenced_visible_nodes": sum(node.get("id") in priority for node in visible)
+            - sum(node.get("id") in priority for node in projected_nodes),
+        "text_truncated": len(visible_text) > 4000,
+        "text_authority": "untrusted_visible_ui", "absence_claims_supported": False,
+        "verification": "Omitted nodes do not prove absence; use the executor's verify operation.",
+    })
+    return projected
+
+
 def _model_tool_result(
-    result: Mapping[str, Any],
+    result: Mapping[str, Any], *, tool_name: str = "",
 ) -> tuple[str, list[dict[str, str]]]:
     """Separate current visual evidence from the textual tool receipt.
 
@@ -1221,6 +1322,8 @@ def _model_tool_result(
     """
 
     textual = copy.deepcopy(dict(result))
+    if tool_name in {"native_ui", "computer_use", "gui_interact"}:
+        textual = _model_ui_observation(textual)
     images: list[dict[str, str]] = []
     screenshot = textual.get("screenshot")
     if isinstance(screenshot, Mapping):
@@ -1445,7 +1548,7 @@ def _tool_followup(
                             for item in alternatives
                             if str(item) in known_names
                         )
-        content, result_images = _model_tool_result(result)
+        content, result_images = _model_tool_result(result, tool_name=name)
         tool_message: dict[str, Any] = {
             "role": "tool",
             "tool_name": name or "unknown",
@@ -1515,6 +1618,12 @@ def _tool_followup(
         )
     followup["messages"] = messages
     omni = followup.get("omni")
+    if isinstance(omni, dict) and omni.get("require_speech") is True:
+        # Speech admission belongs to the initial microphone capture. Tool
+        # images are observations after that accepted utterance, so they must
+        # not be mistaken for a new capture containing no intelligible speech.
+        # The route retains the original spoken-turn budget independently.
+        omni["require_speech"] = False
     if isinstance(omni, dict) and omni.get("tool_routing") == "relevant":
         # The first pass already selected a concrete schema from the recovered
         # transcript. Follow-up tools are narrowed from the model's actual call
@@ -2892,6 +3001,8 @@ def create_app(
             payload = request.get_json(silent=True)
             if not isinstance(payload, dict):
                 return jsonify({"error": "request body must be a JSON object"}), 400
+            live_turn = (isinstance(payload.get("omni"), Mapping)
+                         and payload["omni"].get("require_speech") is True)
             raw_messages = copy.deepcopy(list(payload.get("messages") or []))
             auto_tools = payload.pop("portal_auto_tools", False) is True
             internal_background = payload.pop("portal_background_worker", False) is True
@@ -3096,7 +3207,7 @@ def create_app(
                     "completed",
                     round_tools,
                 )
-                current_payload = _close_live_tool_budget(followup, round_index)
+                current_payload = _close_live_tool_budget(followup, round_index, live_turn=live_turn)
                 _repacked, repack_summary = safe_repack_virtual_followup(
                     current_payload,
                     session_id,
@@ -3146,6 +3257,8 @@ def create_app(
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
+        live_turn = (isinstance(payload.get("omni"), Mapping)
+                     and payload["omni"].get("require_speech") is True)
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
         detached_turn = payload.pop("portal_detached_turn", False) is True
         supplied_turn_id = str(payload.pop("portal_turn_id", "") or "").strip()
@@ -3496,7 +3609,14 @@ def create_app(
                         round_tools: list[dict[str, Any]] = []
                         _made_progress = False
                     else:
-                        calls = _response_tool_calls(final_response)
+                        try:
+                            calls = _response_tool_calls(final_response)
+                        except PortalError as exc:
+                            final_status = 502
+                            yield event_bytes(
+                                {"type": "error", "error": str(exc)[:500]}
+                            )
+                            return
                         if calls:
                             round_index += 1
                             _record_tool_diagnostics(
@@ -3581,7 +3701,7 @@ def create_app(
                                 "tools": _tool_trace(round_tools),
                             }
                         )
-                    current_payload = _close_live_tool_budget(followup, round_index)
+                    current_payload = _close_live_tool_budget(followup, round_index, live_turn=live_turn)
                     _repacked, repack_summary = safe_repack_virtual_followup(
                         current_payload,
                         session_id,

@@ -11,17 +11,134 @@ from __future__ import annotations
 
 import json
 import sys
+from copy import deepcopy
 from pathlib import Path
 
 import httpx
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "runtime"))
 
 from adapter_server import (  # noqa: E402
+    AdapterStageError,
+    Config,
+    _estimated_prompt_tokens,
     _post_language_with_context_retries,
     _shed_language_context,
     _stream_language_with_context_retries,
 )
+
+
+def _local_llama_config(**overrides) -> Config:
+    return Config(comprehension_url="http://127.0.0.1:9001/v1/chat/completions",
+                  comprehension_model="local-audio-bridge", language_url="http://127.0.0.1:9001/v1/chat/completions",
+                  tts_url="http://127.0.0.1:9000/synthesize", timeout_s=5,
+                  language_api="openai", comprehension_context_tokens=1024,
+                  language_llama_context_probe=True, **overrides)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_exact_local_rendering_reserves_output_despite_underestimated_json(stream) -> None:
+    payload = {"messages": [
+        {"role": "system", "content": "HOST POLICY"},
+        {"role": "user", "content": "CURRENT SPOKEN GOAL"},
+        {"role": "assistant", "tool_calls": [{"id": "old-call", "function": {"name": "native_ui", "arguments": {}}}]},
+        {"role": "tool", "tool_call_id": "old-call", "content": "old dense UUIDs"},
+        {"role": "assistant", "tool_calls": [{"id": "new-call", "function": {"name": "native_ui", "arguments": {"operation": "observe"}}}]},
+        {"role": "tool", "tool_call_id": "new-call", "content": '{"revision":"fresh-exact","node_id":"opaque-current"}'},
+    ], "tools": [{"type": "function", "function": {"name": "native_ui", "parameters": {"type": "object"}}}],
+        "max_tokens": 256, "stream": stream, "chat_template_kwargs": {"enable_thinking": True}}
+    original = deepcopy(payload)
+    assert _estimated_prompt_tokens(payload) < 1024 - 256 - 32
+    paths, rendered_requests, completions = [], [], []
+
+    def handler(request):
+        body = json.loads(request.content)
+        paths.append(request.url.path)
+        if request.url.path == "/apply-template":
+            rendered_requests.append(body)
+            # The actual template/tokenizer sees dense identities and schema
+            # overhead which JSON characters/3 incorrectly estimated to fit.
+            old = any(m.get("tool_call_id") == "old-call" for m in body["messages"])
+            return httpx.Response(200, json={"prompt": "dense-old" if old else "fresh-only"})
+        if request.url.path == "/tokenize":
+            assert body["add_special"] is True and body["parse_special"] is True
+            return httpx.Response(200, json={"tokens": [1] * (900 if body["content"] == "dense-old" else 700)})
+        assert request.url.path == "/v1/chat/completions"
+        completions.append(body)
+        return httpx.Response(200, json={"choices": []})
+
+    config = _local_llama_config()
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        if stream:
+            with _stream_language_with_context_retries(client, config.language_url, payload, config) as response:
+                response.read()
+        else:
+            assert _post_language_with_context_retries(client, config.language_url, payload, config).status_code == 200
+    assert paths == ["/apply-template", "/tokenize", "/apply-template", "/tokenize", "/v1/chat/completions"]
+    assert completions == [rendered_requests[-1]]
+    assert payload["messages"] == [*original["messages"][:2], *original["messages"][-2:]]
+    assert payload["tools"] == original["tools"]
+    assert payload["max_tokens"] == 256 and payload["chat_template_kwargs"] == original["chat_template_kwargs"]
+
+
+def test_exact_local_fitting_fails_without_corrupting_newest_evidence_or_contracts() -> None:
+    payload = {"messages": [{"role": "system", "content": "policy " * 200},
+        {"role": "user", "content": "CURRENT GOAL"},
+        {"role": "assistant", "tool_calls": [{"function": {"name": "native_ui", "arguments": {}}}]},
+        {"role": "tool", "content": '{"revision":"newest","nodes":' + '"opaque",' * 200 + '[]}' }],
+        "tools": [{"function": {"name": "native_ui", "parameters": {"type": "object"}}}], "max_tokens": 256}
+    original, paths = deepcopy(payload), []
+
+    def handler(request):
+        paths.append(request.url.path)
+        if request.url.path == "/apply-template":
+            return httpx.Response(200, json={"prompt": "fresh-too-large"})
+        assert request.url.path == "/tokenize"
+        return httpx.Response(200, json={"tokens": [1] * 900})
+
+    config = _local_llama_config()
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client, pytest.raises(AdapterStageError, match="newest evidence"):
+        _post_language_with_context_retries(client, config.language_url, payload, config)
+    assert paths == ["/apply-template", "/tokenize"]
+    assert payload == original
+
+
+@pytest.mark.parametrize("api,url,enabled", [
+    ("openai", "https://provider.example/v1/chat/completions", False),
+    ("ollama", "http://127.0.0.1:11434", False),
+    ("openai", "http://127.0.0.1:9001/v1/chat/completions", False),
+    ("openai", "https://provider.example/v1/chat/completions", True),
+    ("ollama", "http://127.0.0.1:11434", True),
+])
+def test_llama_probes_are_explicit_and_never_sent_to_other_backends(api, url, enabled) -> None:
+    from dataclasses import replace
+
+    config = replace(_local_llama_config(), language_api=api, language_url=url, language_llama_context_probe=enabled)
+    paths = []
+    def handler(request):
+        paths.append(request.url.path)
+        return httpx.Response(200, json={})
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        if enabled:
+            with pytest.raises(AdapterStageError, match="local llama.cpp"):
+                _post_language_with_context_retries(client, url, {"messages": [], "max_tokens": 10}, config)
+            assert paths == []
+        else:
+            _post_language_with_context_retries(client, url, {"messages": [], "max_tokens": 10}, config)
+            assert paths == [httpx.URL(url).path]
+
+
+def test_exact_fitting_preserves_entire_newest_parallel_result_group() -> None:
+    payload = {"messages": [{"role": "user", "content": "goal"},
+        {"role": "assistant", "tool_calls": [{"id": "old"}]}, {"role": "tool", "tool_call_id": "old", "content": "old"},
+        {"role": "assistant", "tool_calls": [{"id": "a"}, {"id": "b"}]},
+        {"role": "tool", "tool_call_id": "a", "content": "fresh a"},
+        {"role": "tool", "tool_call_id": "b", "content": "fresh b"}]}
+    fresh = deepcopy(payload["messages"][-3:])
+    assert _shed_language_context(payload, preserve_current=True) is True
+    assert payload["messages"][1:] == fresh
+    assert _shed_language_context(payload, preserve_current=True) is False
 
 
 def conversation() -> dict:

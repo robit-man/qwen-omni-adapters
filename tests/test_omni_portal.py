@@ -3041,7 +3041,7 @@ def test_rendered_browser_tool_is_discoverable_and_session_scoped() -> None:
     assert cleared == ["voice-session"]
 
 
-def test_desktop_gui_tool_is_discoverable_and_returns_visual_evidence() -> None:
+def test_desktop_gui_compatibility_uses_canonical_observation_without_raw_input() -> None:
     calls: list[tuple[str, dict[str, Any]]] = []
 
     class Gui:
@@ -3063,18 +3063,24 @@ def test_desktop_gui_tool_is_discoverable_and_returns_visual_evidence() -> None:
     harness = PortalToolHarness(
         SessionDocumentStore(ttl_s=300), gui_automation=Gui()
     )
+    canonical_calls = []
+    harness.computer_use.act = lambda session, arguments, **kwargs: (
+        canonical_calls.append((session, arguments)) or
+        {"state": {"nodes": []}, "evidence_authority": "inspection", "task_progress": False}
+    )
 
     assert discover_tool_names("desktop")[0] == (
-        "gui_interact"
+        "native_ui"
     )
     result = harness.execute(
         "voice-session", "gui_interact", {"action": "click", "x": 20, "y": 30}
     )
 
-    assert result["screenshot"]["data"] == "desktop-image"
-    assert calls == [
-        ("voice-session", {"action": "click", "x": 20, "y": 30})
-    ]
+    assert result["legacy_action_executed"] is False
+    assert result["canonical_tool"] == "native_ui"
+    assert result["error"] == "legacy_gui_input_retired"
+    assert calls == []
+    assert canonical_calls == [("voice-session", {"operation": "observe", "surface": "desktop"})]
 
 
 def test_tool_screenshot_is_native_media_not_base64_tool_text() -> None:
@@ -3107,6 +3113,178 @@ def test_tool_screenshot_is_native_media_not_base64_tool_text() -> None:
             "data": encoded,
         }
     ]
+
+
+@pytest.mark.parametrize("source_truncated", [False, True])
+def test_model_ui_projection_omits_hidden_text_without_changing_source_authority(source_truncated) -> None:
+    nodes = [{"id": "edit", "generation": "generation-17", "scope_id": "window-1", "role": "textbox",
+              "name": "Document", "value": "Current draft", "visible": True, "enabled": True,
+              "sensitive": False, "operations": ["set_value", "key_chord"]}]
+    nodes.extend({**nodes[0], "id": f"hidden-{index}", "visible": False,
+                  "name": "HIDDEN-CONTROL", "value": "HIDDEN-PRIVATE-TEXT"} for index in range(347))
+    nodes.append({**nodes[0], "id": "password", "sensitive": True, "name": "PASSWORD-SECRET",
+                  "value": "PASSWORD-SECRET", "description": "PASSWORD-SECRET"})
+    original = {"state": {"session_id": "session-1", "revision": "source-revision-17",
+                         "scope": {"id": "window-1", "kind": "desktop"}, "nodes": nodes,
+                         "truncated": source_truncated, "text": "HIDDEN-PRIVATE-TEXT"},
+                "content_sha256": "full-executor-state-hash", "selected_action_id": "opaque-action-17",
+                "candidates": [{"id": "opaque-action-17", "node_id": "edit"}]}
+    source = json.dumps(original, sort_keys=True)
+
+    content, images = _model_tool_result(original, tool_name="native_ui")
+    model = json.loads(content)
+    state = model["state"]
+
+    assert images == []
+    assert len(state["nodes"]) == 2
+    assert state["nodes"][0] == nodes[0]
+    assert state["nodes"][1]["operations"] == []
+    assert state["text"] == "Document Current draft"
+    assert all(secret not in content for secret in ("HIDDEN-CONTROL", "HIDDEN-PRIVATE-TEXT", "PASSWORD-SECRET"))
+    assert state["revision"] == "source-revision-17"
+    assert state["truncated"] is source_truncated
+    assert state["model_projection"]["source_truncated"] is source_truncated
+    assert state["model_projection"]["omitted_hidden_nodes"] == 347
+    assert state["model_projection"]["absence_claims_supported"] is False
+    assert model["content_sha256"] == "full-executor-state-hash"
+    assert model["selected_action_id"] == "opaque-action-17"
+    assert model["candidates"] == original["candidates"]
+    assert json.dumps(original, sort_keys=True) == source
+
+
+def test_model_ui_projection_bounds_visible_inventory_and_nested_action_states() -> None:
+    state = {"session_id": "session-1", "revision": "full-revision", "scope": {"id": "window-1", "kind": "desktop"},
+             "truncated": False, "nodes": [{"id": f"visible-{index}", "generation": "g1", "scope_id": "window-1",
+                 "role": "textbox", "name": f"Field {index}", "value": "visible text " * 200,
+                 "visible": True, "enabled": True, "sensitive": False, "operations": ["set_value"]}
+                 for index in range(200)]}
+    content, _ = _model_tool_result({"before": state, "after": state, "status": "verified"}, tool_name="computer_use")
+    model = json.loads(content)
+
+    assert len(content) < 34000
+    for key in ("before", "after"):
+        projected = model[key]
+        assert projected["truncated"] is False
+        assert projected["revision"] == state["revision"]
+        assert projected["model_projection"]["omitted_visible_nodes"] > 0
+        assert projected["model_projection"]["text_truncated"] is True
+        assert projected["model_projection"]["absence_claims_supported"] is False
+    # An unrelated tool's data is never interpreted as UI authority.
+    unchanged, _ = _model_tool_result({"state": state}, tool_name="memory_read")
+    assert len(json.loads(unchanged)["state"]["nodes"]) == 200
+
+
+def test_normal_tool_followup_projects_native_observation_before_model_continuation() -> None:
+    from portal.app import _tool_followup
+
+    raw = {"state": {"session_id": "session-1", "revision": "r1", "scope": {"id": "window-1", "kind": "desktop"},
+                     "nodes": [{"id": "visible", "visible": True, "name": "Save", "operations": ["click"]},
+                               {"id": "hidden", "visible": False, "name": "HIDDEN-CONTENT"}],
+                     "text": "HIDDEN-CONTENT", "truncated": False}}
+    harness = SimpleNamespace(execute=lambda _session, _name, _arguments: raw)
+    payload = {"messages": [{"role": "user", "content": "Use my existing editor."}], "tools": SAFE_TOOLS}
+    response = {"message": {"role": "assistant", "content": "", "tool_calls": [{"id": "call-1",
+        "function": {"name": "native_ui", "arguments": {"operation": "observe"}}}]}}
+
+    followup, _executed, progress = _tool_followup(payload, response, harness, "session-1")
+
+    assert progress is True
+    message = followup["messages"][-1]
+    assert message["role"] == "tool" and message["tool_name"] == "native_ui"
+    assert "HIDDEN-CONTENT" not in message["content"]
+    assert [node["id"] for node in json.loads(message["content"])["state"]["nodes"]] == ["visible"]
+    assert len(raw["state"]["nodes"]) == 2
+
+
+@pytest.mark.parametrize("binding", ["action", "candidate", "predicate", "workflow"])
+def test_crowded_ui_projection_prioritizes_visible_executor_bound_target(binding) -> None:
+    # Match the live Save failure: 347 hidden nodes, 31 ordinary visible nodes,
+    # then the referenced synthetic visual target appended at the end.
+    ordinary = [{"id": f"ordinary-{index}", "generation": "g1", "scope_id": "window-1", "role": "button",
+                 "name": "Ordinary control " + "x" * 240, "visible": True, "enabled": True,
+                 "sensitive": False, "operations": ["click"]} for index in range(31)]
+    target = {**ordinary[0], "id": "visual:save-target", "name": "Save", "generation": "exact-frame-hash"}
+    hidden = [{**ordinary[0], "id": f"hidden-{index}", "visible": False} for index in range(347)]
+    before = {"session_id": "session-1", "revision": "full-source-revision", "scope": {"id": "window-1", "kind": "desktop"},
+              "truncated": True, "nodes": [*hidden, *ordinary, target]}
+    after = {**before, "revision": "fresh-after-revision", "nodes": [*hidden, *ordinary]}
+    outcome = {"before": before, "after": after}
+    if binding in {"action", "workflow"}:
+        outcome["action"] = {"kind": "action", "node_id": target["id"], "verb": "invoke"}
+    elif binding == "candidate":
+        outcome["candidates"] = [{"kind": "action", "node_id": target["id"], "id": "opaque-offered-id"}]
+    else:
+        outcome["predicates"] = [{"kind": "focused", "node_id": target["id"]}]
+    raw = {"outcomes": [outcome]} if binding == "workflow" else outcome
+    original = json.dumps(raw, sort_keys=True)
+
+    content, _ = _model_tool_result(raw, tool_name="native_ui")
+    projected = json.loads(content)
+    projected = projected["outcomes"][0] if binding == "workflow" else projected
+    nodes = projected["before"]["nodes"]
+
+    assert nodes[0] == target
+    assert len(nodes) < len(ordinary) + 1
+    assert len(json.dumps(nodes, ensure_ascii=False)) <= 12000
+    assert projected["before"]["revision"] == before["revision"]
+    metadata = projected["before"]["model_projection"]
+    assert metadata["source_node_count"] == 379 and metadata["visible_node_count"] == 32
+    assert metadata["omitted_hidden_nodes"] == 347 and metadata["omitted_visible_nodes"] > 0
+    assert metadata["referenced_visible_nodes"] == 1 and metadata["omitted_referenced_visible_nodes"] == 0
+    assert not any(node["id"] == target["id"] for node in projected["after"]["nodes"])
+    assert json.dumps(raw, sort_keys=True) == original
+
+
+def test_ui_projection_never_exposes_hidden_referenced_target():
+    state = {"revision": "source-revision", "scope": {"id": "window-1", "kind": "desktop"},
+             "nodes": [{"id": "hidden-reference", "visible": False, "name": "HIDDEN-SECRET"},
+                       {"id": "visible", "visible": True, "name": "Current visible control"}], "truncated": False}
+    raw = {"action": {"node_id": "hidden-reference"}, "state": state}
+    content, _ = _model_tool_result(raw, tool_name="computer_use")
+    model = json.loads(content)["state"]
+    assert [node["id"] for node in model["nodes"]] == ["visible"]
+    assert "HIDDEN-SECRET" not in content
+    assert model["model_projection"]["omitted_hidden_nodes"] == 1
+    assert model["model_projection"]["referenced_visible_nodes"] == 0
+
+
+def test_calculator_projection_keeps_controls_and_display_ahead_of_structural_inflation():
+    base = {"generation": "g1", "scope_id": "calculator-window", "name": "", "visible": True,
+            "enabled": True, "sensitive": False, "focused": False,
+            "operations": ["click", "double_click", "right_click", "scroll"],
+            "bounds": {"x": 200, "y": 100, "width": 40, "height": 40}}
+    def node(identity, role, **fields):
+        return {**base, "id": identity, "role": role, **fields}
+    buttons = [node(f"button-{index}", "button", name=str(index)) for index in range(30)]
+    buttons[20]["name"], buttons[23]["name"] = "C", "="
+    panels = [node(f"panel-{index}", "panel", description="structural container " * 12) for index in range(34)]
+    panels[0].update(visible=False, name="HIDDEN-PANEL-SECRET")
+    nodes = [node("calculator-window", "window"), *panels,
+             node("scroll-1", "scroll_pane"), node("scroll-2", "scroll_pane"), node("list", "list"),
+             node("display", "textbox", value="0", focused=True), node("history", "textbox", value=""),
+             *buttons, *[node(f"text-{index}", "text", name=str(index), value=str(index)) for index in range(26)],
+             node("toggle-1", "toggle_button"), node("toggle-2", "toggle_button")]
+    state = {"session_id": "calculator-session", "revision": "exact-executor-revision", "truncated": False,
+             "scope": {"id": "calculator-window", "kind": "desktop"}, "nodes": nodes}
+    raw = {"state": state, "action": {"node_id": "panel-33"}, "candidates": [{"node_id": "panel-0"}]}
+    original = json.dumps(raw, sort_keys=True)
+
+    content, _ = _model_tool_result(raw, tool_name="native_ui")
+    projected = json.loads(content)["state"]
+    offered = projected["nodes"]
+    ids = [item["id"] for item in offered]
+
+    assert len(nodes) == 98
+    assert ids[:3] == ["panel-33", "calculator-window", "display"]
+    assert {"button-20", "button-23", "display", "history"}.issubset(ids)
+    assert next(item for item in offered if item["id"] == "display")["value"] == "0"
+    assert all("bounds" in item for item in offered)
+    assert "HIDDEN-PANEL-SECRET" not in content and "panel-0" not in ids
+    assert len(offered) <= 80 and sum(len(json.dumps(item, ensure_ascii=False)) for item in offered) <= 12000
+    metadata = projected["model_projection"]
+    assert metadata["omitted_visible_nodes"] > 0 and metadata["absence_claims_supported"] is False
+    assert projected["revision"] == state["revision"] and projected["truncated"] is False
+    assert json.dumps(raw, sort_keys=True) == original
 
 
 def test_shell_tool_returns_command_context(tmp_path: Path) -> None:
@@ -5682,6 +5860,75 @@ def test_portal_stream_route_pins_profile_and_relays_ndjson() -> None:
     assert response.headers["X-Omni-Request-ID"]
 
 
+def test_malformed_stream_tool_call_reports_error_and_releases_admission() -> None:
+    requests = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        content = "<tool_call>{bad json}</tool_call>" if requests == 1 else "Recovered"
+        wire = json.dumps({
+            "type": "final",
+            "response": {"message": {"role": "assistant", "content": content}},
+        }).encode() + b"\n"
+        return httpx.Response(
+            200, content=wire,
+            headers={"content-type": "application/x-ndjson"},
+        )
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    client = app.test_client()
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    response = client.post(
+        "/api/chat/stream", headers=headers,
+        json=_request(stream=True, portal_auto_tools=True),
+    )
+    events = [json.loads(line) for line in response.data.splitlines()]
+    assert [event["type"] for event in events] == ["error"]
+    assert "malformed textual tool call" in events[0]["error"]
+
+    recovered = client.post(
+        "/api/chat/stream", headers=headers,
+        json=_request(stream=True, portal_auto_tools=True),
+    )
+    recovered_events = [json.loads(line) for line in recovered.data.splitlines()]
+    assert requests == 2
+    assert recovered_events[-1]["type"] == "final"
+    assert recovered_events[-1]["response"]["message"]["content"] == "Recovered"
+    assert recovered_events[-1]["response"]["portal"]["safe_tools_executed"] == []
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("arguments", ['{"operation":"execute","action_id":"6350a6203c214', "[]", None])
+def test_malformed_structured_arguments_reject_whole_batch_before_dispatch(monkeypatch, stream, arguments) -> None:
+    dispatched, requests = [], []
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: dispatched.append(_args) or {})
+    # A valid earlier call must not run when a later call has malformed args.
+    calls = [{"id": "valid-first", "function": {"name": "memory_write", "arguments": {"text": "must not be saved"}}},
+             {"id": "truncated", "function": {"name": "native_ui", "arguments": arguments}}]
+    def handler(request):
+        requests.append(json.loads(request.content))
+        result = {"message": {"role": "assistant", "content": "", "tool_calls": calls}}
+        if stream:
+            return httpx.Response(200, content=json.dumps({"type": "final", "response": result}).encode() + b"\n",
+                                  headers={"content-type": "application/x-ndjson"})
+        return httpx.Response(200, json=result)
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post("/api/chat/stream" if stream else "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"}, json=_request(stream=stream, portal_auto_tools=True))
+    if stream:
+        events = [json.loads(line) for line in response.data.splitlines()]
+        assert [event["type"] for event in events] == ["error"]
+        error = events[0]["error"]
+    else:
+        assert response.status_code >= 400
+        error = response.json["error"]
+    assert "structured tool call arguments" in error
+    if isinstance(arguments, str) and "6350a6203c214" in arguments:
+        assert "6350a6203c214" in error and "raw_arguments=" in error
+    assert dispatched == [] and len(requests) == 1
+
+
 def test_portal_retries_one_network_stream_failure_and_resets_partial_text() -> None:
     requests: list[dict[str, Any]] = []
 
@@ -6517,6 +6764,164 @@ def test_spoken_turn_tool_loop_ends_in_one_spoken_answer() -> None:
     assert followup["messages"][0]["content"] == "policy"
     typed = {**followup, "omni": {"require_speech": False}}
     assert _close_live_tool_budget(typed, 40, limit=4) is typed
+    continued_live = _close_live_tool_budget(typed, 4, limit=4, live_turn=True)
+    assert "tools" not in continued_live
+    assert "<live_tool_budget>" in continued_live["messages"][0]["content"]
+    assert _close_live_tool_budget(typed, 40, limit=4, live_turn=False) is typed
+
+
+def _spoken_tool_request(*, streaming: bool) -> dict[str, Any]:
+    return _request(
+        stream=streaming, portal_auto_tools=True,
+        messages=[{"role": "user", "content": "The attached audio contains the spoken turn.",
+                   "audios": [{"mime_type": "audio/wav", "encoding": "base64", "data": "UklGRg=="}]}],
+        omni={"schema": "robit.ollama.omni-adapter.v1", "task": "chat", "require_speech": True},
+    )
+
+
+def _spoken_adapter_response(body: dict[str, Any], *, streaming: bool) -> httpx.Response:
+    if streaming:
+        return httpx.Response(200, content=(json.dumps({"type": "final", "response": body}) + "\n").encode(),
+                              headers={"content-type": "application/x-ndjson"})
+    return httpx.Response(200, json=body)
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+def test_accepted_speech_continues_through_browser_images_and_memory_without_new_speech_gate(
+    monkeypatch, streaming: bool,
+) -> None:
+    requests, browser_actions = [], []
+    transcript = "Open the documentation, inspect it, and remember the result."
+    original_execute = PortalToolHarness.execute
+
+    def execute(self, session_id, name, arguments):
+        if name == "browser_interact":
+            browser_actions.append(arguments["action"])
+            return {"rendered": True, "url": "https://example.test/documentation",
+                    "screenshot": {"mime_type": "image/png", "encoding": "base64",
+                                   "data": base64.b64encode(f"current-frame-{len(browser_actions)}".encode()).decode()}}
+        return original_execute(self, session_id, name, arguments)
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        index = len(requests) - 1
+        assert "live_turn" not in body and "portal_live_turn" not in body
+        if index == 0:
+            assert body["omni"]["require_speech"] is True
+        else:
+            # Model the adapter's real early return if a tool image incorrectly
+            # retains speech-only admission after the accepted microphone turn.
+            if body["omni"]["require_speech"] is True:
+                return _spoken_adapter_response({"message": {"role": "assistant", "content": ""},
+                                                 "adapter": {"input_transcript": "", "tts_skipped_reason": "no_speech"}}, streaming=streaming)
+            assert all(not message.get("audios") for message in body["messages"])
+            assert next(message["content"] for message in reversed(body["messages"]) if message["role"] == "user") == transcript
+            images = [message for message in body["messages"] if message.get("images")]
+            assert all(message["role"] == "tool" and message["tool_name"] == "browser_interact" for message in images)
+            assert len(images) == (1 if index < 3 else 0)
+        calls = [
+            ("browser_interact", {"action": "navigate", "url": "https://example.test/documentation"}),
+            ("browser_interact", {"action": "snapshot"}),
+            ("memory_write", {"topic": "spoken-browser", "key": "result", "value": "Current documentation inspected"}),
+        ]
+        if index < len(calls):
+            name, arguments = calls[index]
+            reply = {"message": {"role": "assistant", "content": "", "tool_calls": [{
+                "id": f"spoken-{index}", "function": {"name": name, "arguments": arguments}}]}}
+            if index == 0:
+                reply["adapter"] = {"input_transcript": transcript}
+        else:
+            reply = {"message": {"role": "assistant", "content": "Documentation inspected and remembered."}}
+        return _spoken_adapter_response(reply, streaming=streaming)
+
+    monkeypatch.setattr(PortalToolHarness, "execute", execute)
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    client = app.test_client()
+    client.set_cookie("omni_portal_session", "spoken-continuation-test-session")
+    response = client.post("/api/chat/stream" if streaming else "/api/chat",
+                           headers={"Authorization": f"Bearer {TOKEN}"}, json=_spoken_tool_request(streaming=streaming))
+    assert response.status_code == 200
+    final = json.loads(response.data.splitlines()[-1])["response"] if streaming else response.json
+    assert final["message"]["content"] == "Documentation inspected and remembered."
+    assert browser_actions == ["navigate", "snapshot"]
+    assert len(requests) == 4
+    assert [item["name"] for item in final["portal"]["safe_tools_executed"]] == ["browser_interact", "browser_interact", "memory_write"]
+    recalled = client.post("/api/tools/memory_read/call", headers={"Authorization": f"Bearer {TOKEN}"},
+                           json={"arguments": {"topic": "spoken-browser", "key": "result"}})
+    assert recalled.json["result"]["value"] == "Current documentation inspected"
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+def test_initial_sound_only_capture_keeps_speech_gate_and_executes_no_tools(monkeypatch, streaming):
+    requests = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        assert body["omni"]["require_speech"] is True
+        return _spoken_adapter_response({"message": {"role": "assistant", "content": ""},
+                                         "adapter": {"input_transcript": "", "tts_skipped_reason": "no_speech"}}, streaming=streaming)
+
+    def no_tool(*_args):
+        raise AssertionError("Sound-only capture cannot execute tools")
+
+    monkeypatch.setattr(PortalToolHarness, "execute", no_tool)
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post("/api/chat/stream" if streaming else "/api/chat",
+                                     headers={"Authorization": f"Bearer {TOKEN}"}, json=_spoken_tool_request(streaming=streaming))
+    final = json.loads(response.data.splitlines()[-1])["response"] if streaming else response.json
+    assert final["message"]["content"] == ""
+    assert final["portal"]["safe_tools_executed"] == []
+    assert len(requests) == 1
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+def test_original_spoken_turn_budget_survives_disabled_continuation_speech_gate(monkeypatch, streaming):
+    requests = []
+    monkeypatch.setattr("portal.app.LIVE_TOOL_ROUNDS", 2)
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: {"rendered": True})
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        assert len(requests) <= 3, "Original spoken budget was lost after first follow-up"
+        if "tools" not in body:
+            assert "<live_tool_budget>" in body["messages"][0]["content"]
+            reply = {"message": {"role": "assistant", "content": "I stopped at the spoken-turn limit."}}
+        else:
+            reply = {"message": {"role": "assistant", "content": "", "tool_calls": [{
+                "function": {"name": "browser_interact", "arguments": {"action": "snapshot"}}}]},
+                     "adapter": {"input_transcript": "Inspect the page."}}
+        return _spoken_adapter_response(reply, streaming=streaming)
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post("/api/chat/stream" if streaming else "/api/chat",
+                                     headers={"Authorization": f"Bearer {TOKEN}"}, json=_spoken_tool_request(streaming=streaming))
+    final = json.loads(response.data.splitlines()[-1])["response"] if streaming else response.json
+    assert final["message"]["content"] == "I stopped at the spoken-turn limit."
+    assert len(requests) == 3
+    assert requests[0]["omni"]["require_speech"] is True
+    assert all(body["omni"]["require_speech"] is False for body in requests[1:])
+
+
+def test_cancelled_spoken_stream_cannot_execute_pending_tool_or_followup(monkeypatch):
+    requests, actions = [], []
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *args: actions.append(args) or {})
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return _spoken_adapter_response({"adapter": {"input_transcript": "Inspect the page."},
+            "message": {"role": "assistant", "content": "", "tool_calls": [{
+                "function": {"name": "browser_interact", "arguments": {"action": "snapshot"}}}]}}, streaming=True)
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    response = app.test_client().post("/api/chat/stream", buffered=False,
+                                     headers={"Authorization": f"Bearer {TOKEN}"}, json=_spoken_tool_request(streaming=True))
+    first = json.loads(next(iter(response.response)))
+    assert first["type"] == "tool" and first["phase"] == "start"
+    response.close()
+    assert len(requests) == 1 and actions == []
 
 
 def test_desktop_environment_reaches_the_audio_server(tmp_path: Path) -> None:

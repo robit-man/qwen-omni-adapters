@@ -16,6 +16,7 @@ import io
 import json
 import logging
 import os
+import re
 import secrets
 import shutil
 import signal
@@ -37,8 +38,10 @@ from PIL import Image
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 try:
+    from portal.browser_ui import semantic_state
     from portal.desktop import desktop_subprocess_environment
 except ModuleNotFoundError:  # Direct script execution from portal/.
+    from browser_ui import semantic_state
     from desktop import desktop_subprocess_environment
 
 logger = logging.getLogger(__name__)
@@ -63,6 +66,120 @@ def _free_loopback_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.bind(("127.0.0.1", 0))
         return int(listener.getsockname()[1])
+
+
+def _snap_chromium(binary: str) -> bool:
+    resolved = Path(shutil.which(binary) or binary)
+    if resolved.parent == Path("/snap/bin") or resolved.resolve() == Path("/usr/bin/snap"):
+        return True
+    # Ubuntu's transitional package leaves a shell launcher in /usr/bin even
+    # when the service PATH omits /snap/bin. It still needs Snap's lifecycle.
+    if resolved.name == "chromium-browser":
+        try:
+            with resolved.open("rb") as stream:
+                launcher = stream.read(8192)
+        except OSError:
+            return False
+        return launcher.startswith(b"#!") and b'exec /snap/bin/chromium "$@"' in launcher.splitlines()
+    return False
+
+
+def _find_chromium() -> str:
+    """Keep installed native/custom launchers ahead of the Snap fallback."""
+
+    snap_launcher = ""
+    for name in ("/usr/local/bin/chromium", "chromium", "chromium-browser", "google-chrome"):
+        candidate = shutil.which(name)
+        if candidate:
+            if not _snap_chromium(candidate):
+                return candidate
+            snap_launcher = snap_launcher or candidate
+    # Use the executable path even when the service manager's PATH excludes it;
+    # bypass the transitional wrapper's unrelated desktop preference migration.
+    return shutil.which("/snap/bin/chromium") or snap_launcher or "/usr/local/bin/chromium"
+
+
+def _restricted_linux_caller(proc_root: Path = Path("/proc")) -> bool:
+    """Identify inherited restrictions that prevent Snap's confinement setup."""
+
+    try:
+        status = (proc_root / "self" / "status").read_text(encoding="utf-8")
+        if any(line.split() == ["NoNewPrivs:", "1"] for line in status.splitlines()):
+            return True
+        return (proc_root / "self" / "ns" / "mnt").stat().st_ino != (
+            proc_root / "1" / "ns" / "mnt"
+        ).stat().st_ino
+    except OSError:
+        return False
+
+
+def _profile_user_unit(profile: Path) -> str:
+    suffix = profile.name.removeprefix("omni-visible-chromium-")
+    if not profile.name.startswith("omni-visible-chromium-") or re.fullmatch(r"[a-zA-Z0-9_-]+", suffix) is None:
+        raise BrowserAutomationError("Invalid owned Chromium profile")
+    return f"omni-browser-{suffix}.service"
+
+
+def _stop_browser_user_unit(unit: str) -> None:
+    if re.fullmatch(r"omni-browser-[a-zA-Z0-9_-]+\.service", unit) is None:
+        raise BrowserAutomationError("Invalid owned Chromium user unit")
+    subprocess.run(
+        ["systemctl", "--user", "stop", unit], check=False,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10,
+        env=desktop_subprocess_environment(),
+    )
+
+
+def _profile_unit_owner(profile: Path, process_ids: list[int], proc_root: Path = Path("/proc")) -> str:
+    unit = _profile_user_unit(profile)
+    for pid in process_ids:
+        try:
+            paths = (proc_root / str(pid) / "cgroup").read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        if any("user.slice" in line.split(":", 2)[-1].split("/")
+               and unit in line.split(":", 2)[-1].split("/") for line in paths):
+            return unit
+    return ""
+
+
+class _BrowserStartupLog:
+    """Drain stderr; retain only a bounded startup window, never later page logs."""
+
+    def __init__(self, stream: Any) -> None:
+        self.buffer = bytearray()
+        self.lock = threading.Lock()
+        self.finished = False
+        self.thread: threading.Thread | None = None
+        if stream is not None:
+            self.thread = threading.Thread(target=self._drain, args=(stream,), daemon=True)
+            self.thread.start()
+
+    def _drain(self, stream: Any) -> None:
+        try:
+            while block := stream.read(1024):
+                with self.lock:
+                    if not self.finished:
+                        self.buffer.extend(block)
+                        del self.buffer[:-4096]
+        except (OSError, ValueError):
+            pass
+        finally:
+            stream.close()
+
+    def finish(self, environment: dict[str, str], *, failed: bool = False) -> str:
+        if failed and self.thread is not None:
+            self.thread.join(timeout=0.2)
+        with self.lock:
+            self.finished = True
+            text = self.buffer.decode("utf-8", errors="replace")
+            self.buffer.clear()
+        for key in ("OMNI_PORTAL_TOKEN", "OLLAMA_UNIFY_GPU_LEASE"):
+            if environment.get(key):
+                text = text.replace(environment[key], "[credential]")
+        text = re.sub(r"(?:https?|wss?)://\S+", "[URL]", text)
+        text = re.sub(r"(?i)\bbearer\s+\S+", "Bearer [credential]", text)
+        return " ".join(text.split())[-1000:]
 
 
 def _profile_process_ids(profile: Path, proc_root: Path = Path("/proc")) -> list[int]:
@@ -360,6 +477,7 @@ class _BrowserSession:
     port: int
     page_socket: str
     visible_on_desktop: bool
+    user_unit: str = ""
     target_id: str = ""
     last_seen: float = field(default_factory=time.monotonic)
     elements: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -379,12 +497,15 @@ _SNAPSHOT_SCRIPT = r"""
   };
   const identity = window.__omniElementIdentity || {
     next: 1,
-    ids: new WeakMap()
+    ids: new WeakMap(),
+    generation: Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16)).join('-')
   };
   window.__omniElementIdentity = identity;
-  const candidates = [...document.querySelectorAll(
-    'a[href],button,input,textarea,select,summary,[role="button"],[role="link"],[tabindex]'
-  )].filter(visible).slice(0, 120);
+  const allCandidates = [...document.querySelectorAll(
+    'a[href],button,input,textarea,select,summary,[role="button"],[role="link"],[tabindex],'+
+    '[draggable="true"],[role="listbox"],[role="option"],[role="region"]'
+  )].filter(visible);
+  const candidates = allCandidates.slice(0, 120);
   const elements = candidates.map((el) => {
     let id = identity.ids.get(el);
     if (!id) {
@@ -393,30 +514,55 @@ _SNAPSHOT_SCRIPT = r"""
     }
     const r = el.getBoundingClientRect();
     const type = (el.getAttribute('type') || '').slice(0, 40);
-    const labels = el.labels ? [...el.labels].map(label => label.innerText.trim()).filter(Boolean) : [];
+    const labels = el.labels ? [...el.labels].map(label => {
+      const copy = label.cloneNode(true);
+      for (const child of copy.querySelectorAll('input,textarea,select,button')) child.remove();
+      return (copy.textContent || '').replace(/\s+/g, ' ').trim();
+    }).filter(Boolean) : [];
     const label = (labels.join(' ') || el.getAttribute('aria-label') ||
                    el.getAttribute('title') || el.getAttribute('placeholder') || '').trim();
     const safeValue = type.toLowerCase() === 'password' ? '' : (el.value || '');
+    const sensitive = type.toLowerCase() === 'password' ||
+      ['current-password', 'new-password', 'one-time-code'].includes(el.autocomplete);
+    const tag = el.tagName.toLowerCase();
+    const role = el.getAttribute('role') || ({button:'button', a:'link', textarea:'textbox',
+      select:'combobox', summary:'button'}[tag]) ||
+      (tag === 'input' ? ({checkbox:'checkbox', radio:'radio', button:'button',
+        submit:'button', reset:'button'}[type.toLowerCase()] || 'textbox') : 'generic');
     el.setAttribute('data-omni-id', id);
     return {
       id,
-      tag: el.tagName.toLowerCase(),
+      generation: identity.generation,
+      role,
+      sensitive,
+      value: sensitive ? '' : safeValue.slice(0, 4096),
+      checked: !!el.checked,
+      focused: document.activeElement === el,
+      read_only: !!el.readOnly,
+      draggable: !!el.draggable,
+      text_selectable: !sensitive && Number.isInteger(el.selectionStart) && Number.isInteger(el.selectionEnd),
+      text_selection: !sensitive && Number.isInteger(el.selectionStart) &&
+        el.selectionEnd > el.selectionStart ? {start:el.selectionStart,end:el.selectionEnd} : null,
+      selected: tag === 'select' ? [...el.selectedOptions].map(o => o.value) : [],
+      tag,
       type,
       name: (el.getAttribute('name') || '').slice(0, 120),
       label: label.slice(0, 240),
-      text: (el.innerText || safeValue || el.getAttribute('aria-label') ||
-             el.getAttribute('title') || el.getAttribute('placeholder') || '').trim().slice(0, 240),
+      text: (sensitive ? label : (el.innerText || safeValue || el.getAttribute('aria-label') ||
+             el.getAttribute('title') || el.getAttribute('placeholder') || '')).trim().slice(0, 240),
       options: el.tagName.toLowerCase() === 'select' ? [...el.options].slice(0, 64).map(option => ({
         value: option.value.slice(0, 240), text: option.text.trim().slice(0, 240), selected: option.selected
       })) : [],
       href: (el.href || '').slice(0, 800),
-      disabled: !!el.disabled,
+      disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true',
       x: Math.round(r.left), y: Math.round(r.top),
       width: Math.round(r.width), height: Math.round(r.height)
     };
   });
   return {
     title: document.title,
+    document_generation: identity.generation,
+    truncated: allCandidates.length > 120 || (document.body?.innerText || '').length > 12000,
     url: location.href,
     ready_state: document.readyState,
     viewport: {width: innerWidth, height: innerHeight, scroll_y: Math.round(scrollY)},
@@ -443,9 +589,7 @@ class BrowserAutomationStore:
     ) -> None:
         self.ttl_s = max(30.0, float(ttl_s))
         self.timeout_s = max(2.0, float(timeout_s))
-        self.chromium_bin = chromium_bin or os.environ.get(
-            "OMNI_CHROMIUM_BIN", "/usr/local/bin/chromium"
-        )
+        self.chromium_bin = chromium_bin or os.environ.get("OMNI_CHROMIUM_BIN") or _find_chromium()
         self.memory_governor = memory_governor
         self.launch_reserve_gib = launch_reserve_gib
         configured_pointing = (
@@ -728,7 +872,8 @@ class BrowserAutomationStore:
             for session in self._sessions.values()
             if session.process.poll() is None
         }
-        for profile, process_ids in _owned_profile_processes().items():
+        profile_parent = self._profile_parent()
+        for profile, process_ids in _owned_profile_processes(temp_root=profile_parent).items():
             if profile in current_profiles:
                 continue
             logger.warning(
@@ -736,6 +881,15 @@ class BrowserAutomationStore:
                 profile.name,
                 len(process_ids),
             )
+            unit = _profile_unit_owner(profile, process_ids)
+            if unit:
+                try:
+                    _stop_browser_user_unit(unit)
+                except (OSError, subprocess.TimeoutExpired):
+                    logger.warning("owned browser user unit did not stop within its deadline")
+                # Unit shutdown may already have reaped these PIDs. Re-read
+                # exact profile ownership before signaling any survivor.
+                process_ids = _profile_process_ids(profile)
             for pid in process_ids:
                 try:
                     os.kill(pid, signal.SIGTERM)
@@ -754,6 +908,11 @@ class BrowserAutomationStore:
             shutil.rmtree(profile, ignore_errors=True)
 
     def _terminate(self, session: _BrowserSession) -> None:
+        if getattr(session, "user_unit", ""):
+            try:
+                _stop_browser_user_unit(session.user_unit)
+            except (OSError, subprocess.TimeoutExpired):
+                logger.warning("owned browser user unit did not stop within its deadline")
         if session.process.poll() is None:
             try:
                 os.killpg(session.process.pid, signal.SIGTERM)
@@ -879,7 +1038,9 @@ class BrowserAutomationStore:
                     "visible browser", self.launch_reserve_gib
                 )
         port = _free_loopback_port()
-        profile = Path(tempfile.mkdtemp(prefix="omni-visible-chromium-"))
+        profile_parent = self._profile_parent()
+        profile_parent.mkdir(parents=True, exist_ok=True)
+        profile = Path(tempfile.mkdtemp(prefix="omni-visible-chromium-", dir=profile_parent))
         command = [
             self.chromium_bin,
             "--no-sandbox",
@@ -895,25 +1056,45 @@ class BrowserAutomationStore:
             "--window-size=1280,800",
             "about:blank",
         ]
-        process = subprocess.Popen(  # noqa: S603
-            command,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-            env=environment,
-        )
+        user_unit = ""
+        if _snap_chromium(self.chromium_bin) and _restricted_linux_caller():
+            if not shutil.which("systemd-run") or not environment.get("DBUS_SESSION_BUS_ADDRESS"):
+                shutil.rmtree(profile, ignore_errors=True)
+                raise BrowserDesktopUnavailable("Snap Chromium requires the signed-in user's systemd manager")
+            user_unit = _profile_user_unit(profile)
+            desktop_fields = ("DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")
+            command = [
+                "systemd-run", "--user", "--wait", "--pipe", "--collect", "--service-type=exec",
+                f"--unit={user_unit}", "--property=TimeoutStopSec=5",
+                *(f"--setenv={key}={environment[key]}" for key in desktop_fields if environment.get(key)),
+                "--", *command,
+            ]
+        try:
+            process = subprocess.Popen(  # noqa: S603
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                start_new_session=True,
+                env=environment,
+            )
+        except OSError:
+            shutil.rmtree(profile, ignore_errors=True)
+            raise
+        startup_log = _BrowserStartupLog(getattr(process, "stderr", None))
         deadline = time.monotonic() + self.timeout_s
         last_error: Exception | None = None
         while time.monotonic() < deadline and process.poll() is None:
             try:
                 socket_url = self._page_socket(port)
+                startup_log.finish(environment)
                 return _BrowserSession(
                     process,
                     profile,
                     port,
                     socket_url,
                     visible_on_desktop,
+                    user_unit=user_unit,
                     target_id=_page_target_id(socket_url),
                 )
             except (BrowserAutomationError, OSError, URLError, ValueError) as exc:
@@ -925,11 +1106,18 @@ class BrowserAutomationStore:
             port,
             "",
             visible_on_desktop,
+            user_unit=user_unit,
         )
         self._terminate(session)
+        diagnostic = startup_log.finish(environment, failed=True)
         raise BrowserAutomationError(
-            f"Chromium did not become controllable: {last_error or 'process exited'}"
+            f"Chromium did not become controllable: {diagnostic or last_error or 'process exited'}"
         )
+
+    def _profile_parent(self) -> Path:
+        if _snap_chromium(self.chromium_bin):
+            return Path.home() / "snap" / "chromium" / "common"
+        return Path(tempfile.gettempdir())
 
     def _session_locked(self, session_id: str) -> _BrowserSession:
         self._expire_locked()
@@ -1115,6 +1303,8 @@ class BrowserAutomationStore:
   const id = {json.dumps(normalized)};
   const el = document.querySelector('[data-omni-id="' + CSS.escape(id) + '"]');
   if (!el || !el.isConnected) return {{ok:false, reason:'missing'}};
+  if (window.__omniElementIdentity?.ids.get(el) !== id)
+    return {{ok:false, reason:'identity_changed'}};
   const s = getComputedStyle(el), r = el.getBoundingClientRect();
   const disabled = !!el.disabled || el.getAttribute('aria-disabled') === 'true';
   const x = r.left + r.width / 2, y = r.top + r.height / 2;
@@ -1391,28 +1581,24 @@ class BrowserAutomationStore:
         session.visual_sample = self._image_sample(crop)
         return result
 
-    def _click(self, cdp: _Cdp, element: dict[str, Any]) -> None:
+    def _click(self, cdp: _Cdp, element: dict[str, Any], *, button: str = "left", count: int = 1) -> None:
+        if button not in {"left", "right"} or type(count) is not int or count not in {1, 2}:
+            raise BrowserAutomationError("Invalid bounded browser click gesture")
         x = float(element.get("x") or 0) + float(element.get("width") or 0) / 2
         y = float(element.get("y") or 0) + float(element.get("height") or 0) / 2
-        for event_type, buttons in (("mousePressed", 1), ("mouseReleased", 0)):
-            cdp.call(
-                "Input.dispatchMouseEvent",
-                {
-                    "type": event_type,
-                    "x": x,
-                    "y": y,
-                    "button": "left",
-                    "buttons": buttons,
-                    "clickCount": 1,
-                },
-            )
+        for click_count in range(1, count + 1):
+            for event_type, buttons in (("mousePressed", 1 if button == "left" else 2), ("mouseReleased", 0)):
+                cdp.call("Input.dispatchMouseEvent", {
+                    "type": event_type, "x": x, "y": y, "button": button,
+                    "buttons": buttons, "clickCount": click_count,
+                })
 
     def _drag(
         self,
         cdp: _Cdp,
         element: dict[str, Any],
-        delta_x: int,
-        delta_y: int,
+        delta_x: float,
+        delta_y: float,
     ) -> None:
         start_x = float(element.get("x") or 0) + float(element.get("width") or 0) / 2
         start_y = float(element.get("y") or 0) + float(element.get("height") or 0) / 2
@@ -1457,11 +1643,116 @@ class BrowserAutomationStore:
             },
         )
 
+    def _focus_element(self, cdp: _Cdp, element: dict[str, Any]) -> None:
+        result = self._evaluate(cdp, f"""
+(() => {{
+  const el = document.querySelector('[data-omni-id="' + CSS.escape({json.dumps(element['id'])}) + '"]');
+  if (!el || !el.isConnected || el.disabled) return false;
+  el.focus(); return document.activeElement === el;
+}})()
+""")
+        if result is not True:
+            raise BrowserAutomationError("Browser could not focus the current semantic target")
+
+    def _drag_drop(self, cdp: _Cdp, source_id: str, destination_id: str) -> None:
+        geometry = self._evaluate(cdp, f"""
+(() => {{
+  const resolve = id => {{
+    const el = document.querySelector('[data-omni-id="' + CSS.escape(id) + '"]');
+    if (!el || !el.isConnected || el.disabled || el.getAttribute('aria-disabled') === 'true' ||
+        window.__omniElementIdentity?.ids.get(el) !== id) return null;
+    const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+    const x = r.left + r.width/2, y = r.top + r.height/2, hit = document.elementFromPoint(x,y);
+    if (s.display === 'none' || s.visibility === 'hidden' || s.pointerEvents === 'none' ||
+        Number(s.opacity) === 0 || r.width <= 1 || r.height <= 1 ||
+        x < 0 || x >= innerWidth || y < 0 || y >= innerHeight ||
+        !hit || !(hit === el || el.contains(hit))) return null;
+    return {{x:r.left,y:r.top,width:r.width,height:r.height}};
+  }};
+  const source=resolve({json.dumps(source_id)}), destination=resolve({json.dumps(destination_id)});
+  return source && destination ? {{ok:true,source,destination}} : {{ok:false}};
+}})()
+""")
+        if not isinstance(geometry, dict) or geometry.get("ok") is not True:
+            raise BrowserAutomationError("Both drag targets must remain visible and unoccluded")
+        source, destination = geometry["source"], geometry["destination"]
+        self._drag(cdp, source,
+            destination["x"] + destination["width"] / 2 - source["x"] - source["width"] / 2,
+            destination["y"] + destination["height"] / 2 - source["y"] - source["height"] / 2)
+
+    def _select_text(self, cdp: _Cdp, element: dict[str, Any], start: int, end: int) -> None:
+        if type(start) is not int or type(end) is not int or not 0 <= start < end <= 1_000_000:
+            raise BrowserAutomationError("Invalid bounded browser text selection")
+        result = self._evaluate(cdp, f"""
+(() => {{
+  const el = document.querySelector('[data-omni-id="' + CSS.escape({json.dumps(element['id'])}) + '"]');
+  if (!el || !el.isConnected || el.disabled || !['INPUT','TEXTAREA'].includes(el.tagName) ||
+      !Number.isInteger(el.selectionStart) || {end} > el.value.length) return {{ok:false}};
+  el.focus(); el.setSelectionRange({start}, {end});
+  return {{ok:document.activeElement === el && el.selectionStart === {start} && el.selectionEnd === {end}}};
+}})()
+""")
+        if not isinstance(result, dict) or result.get("ok") is not True:
+            raise BrowserAutomationError("Browser did not observe the requested text selection")
+
+    @staticmethod
+    def _key_chord(cdp: _Cdp, keys: Any) -> None:
+        if not isinstance(keys, list) or not 1 <= len(keys) <= 4 or any(not isinstance(key, str) for key in keys):
+            raise BrowserAutomationError("Expected one to four browser key names")
+        modifier_names = {"ctrl": ("Control", "ControlLeft", 17, 2),
+                          "control": ("Control", "ControlLeft", 17, 2),
+                          "alt": ("Alt", "AltLeft", 18, 1),
+                          "shift": ("Shift", "ShiftLeft", 16, 8),
+                          "meta": ("Meta", "MetaLeft", 91, 4), "super": ("Meta", "MetaLeft", 91, 4)}
+        modifiers = [modifier_names[key.casefold()] for key in keys if key.casefold() in modifier_names]
+        main = [key for key in keys if key.casefold() not in modifier_names]
+        if len(main) != 1 or len({item[3] for item in modifiers}) != len(modifiers):
+            raise BrowserAutomationError("Browser chord requires one key and distinct modifiers")
+        named = {"enter": ("Enter", 13), "return": ("Enter", 13), "tab": ("Tab", 9),
+                 "escape": ("Escape", 27), "esc": ("Escape", 27), "backspace": ("Backspace", 8),
+                 "delete": ("Delete", 46), "insert": ("Insert", 45), "home": ("Home", 36),
+                 "end": ("End", 35), "pageup": ("PageUp", 33), "pagedown": ("PageDown", 34),
+                 "left": ("ArrowLeft", 37), "arrowleft": ("ArrowLeft", 37),
+                 "up": ("ArrowUp", 38), "arrowup": ("ArrowUp", 38),
+                 "right": ("ArrowRight", 39), "arrowright": ("ArrowRight", 39),
+                 "down": ("ArrowDown", 40), "arrowdown": ("ArrowDown", 40), "space": (" ", 32)}
+        key = main[0]
+        if len(key) == 1 and key.isascii() and key.isalnum():
+            code, virtual = ("Digit" + key if key.isdigit() else "Key" + key.upper()), ord(key.upper())
+        elif key.casefold() in named:
+            key, virtual = named[key.casefold()]
+            code = "Space" if key == " " else key
+        elif re.fullmatch(r"F(?:[1-9]|1[0-2])", key, re.IGNORECASE):
+            key, code, virtual = key.upper(), key.upper(), 111 + int(key[1:])
+        else:
+            raise BrowserAutomationError("Unsupported browser key name")
+        mask = 0
+        pressed = []
+        try:
+            for name, modifier_code, number, bit in modifiers:
+                mask |= bit
+                cdp.call("Input.dispatchKeyEvent", {"type": "keyDown", "key": name,
+                         "code": modifier_code, "windowsVirtualKeyCode": number, "modifiers": mask})
+                pressed.append((name, modifier_code, number, bit))
+            event = {"key": key.upper() if mask & 8 and len(key) == 1 else key,
+                     "code": code, "windowsVirtualKeyCode": virtual, "modifiers": mask}
+            if len(key) == 1 and not mask & 7:
+                event["text"] = event["key"]
+            cdp.call("Input.dispatchKeyEvent", {"type": "keyDown", **event})
+            cdp.call("Input.dispatchKeyEvent", {"type": "keyUp", **{k: v for k, v in event.items() if k != "text"}})
+        finally:
+            for name, modifier_code, number, bit in reversed(pressed):
+                mask &= ~bit
+                cdp.call("Input.dispatchKeyEvent", {"type": "keyUp", "key": name,
+                         "code": modifier_code, "windowsVirtualKeyCode": number, "modifiers": mask})
+
     def _set_value(
         self,
         cdp: _Cdp,
         element: dict[str, Any],
         value: Any,
+        *,
+        semantic: bool = False,
     ) -> None:
         tag = str(element.get("tag") or "").lower()
         input_type = str(element.get("type") or "").lower()
@@ -1475,7 +1766,9 @@ class BrowserAutomationStore:
             "time",
             "week",
         }
-        if tag != "input" or input_type not in allowed_types:
+        semantic_text = semantic and (tag == "textarea" or (
+            tag == "input" and input_type in {"", "text", "email", "search", "tel", "url"}))
+        if not semantic_text and (tag != "input" or input_type not in allowed_types):
             raise BrowserAutomationError(
                 "set_value is limited to input types color, date, datetime-local, "
                 "month, number, range, time, and week; use type, click, or select "
@@ -1484,13 +1777,18 @@ class BrowserAutomationStore:
         selector = json.dumps(
             f'[data-omni-id="{str(element.get("id") or "")}"]'
         )
+        bounded_value = str(value)[:4096 if semantic else 240]
         result = self._evaluate(
             cdp,
             f"""
 (() => {{
   const el = document.querySelector({selector});
-  if (!el || el.tagName.toLowerCase() !== 'input') return {{ok:false}};
-  el.value = {json.dumps(str(value)[:240])};
+  if (!el || !['input','textarea'].includes(el.tagName.toLowerCase()) ||
+      el.disabled || el.readOnly) return {{ok:false}};
+  const prototype = el.tagName.toLowerCase() === 'textarea' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  if ({json.dumps(semantic)})
+    Object.getOwnPropertyDescriptor(prototype, 'value').set.call(el, {json.dumps(bounded_value)});
+  else el.value = {json.dumps(bounded_value)};
   el.dispatchEvent(new Event('input', {{bubbles:true}}));
   el.dispatchEvent(new Event('change', {{bubbles:true}}));
   return {{ok:true, value:el.value}};
@@ -1500,7 +1798,7 @@ class BrowserAutomationStore:
         if (
             not isinstance(result, dict)
             or result.get("ok") is not True
-            or str(result.get("value") or "") != str(value)[:240]
+            or str(result.get("value") or "") != bounded_value
         ):
             raise BrowserAutomationError("Chromium could not set the form control value")
 
@@ -1600,6 +1898,171 @@ class BrowserAutomationStore:
                 ),
             },
         )
+
+    def _semantic_snapshot(
+        self, session_id: str, session: _BrowserSession, cdp: _Cdp,
+    ) -> dict[str, Any]:
+        raw = self._evaluate(cdp, _SNAPSHOT_SCRIPT)
+        if not isinstance(raw, dict) or not raw.get("document_generation"):
+            raise BrowserAutomationError("Semantic browser observation unavailable")
+        session.elements = {str(item["id"]): dict(item) for item in raw.get("elements", [])}
+        return semantic_state(raw, session_id, session.target_id)
+
+    def semantic_observe(self, session_id: str) -> dict[str, Any]:
+        """Observe semantic state without a screenshot or inference call."""
+        with self._lock:
+            session = self._session_locked(session_id)
+            session.page_socket = self._page_socket(session.port, session.target_id)
+            session.target_id = _page_target_id(session.page_socket)
+            cdp = _Cdp(session.page_socket, self.timeout_s)
+            try:
+                return self._semantic_snapshot(session_id, session, cdp)
+            finally:
+                cdp.close()
+
+    def semantic_perform(self, session_id: str, action: dict[str, Any]) -> dict[str, Any]:
+        """Revalidate and dispatch under the same browser ownership lock."""
+        with self._lock:
+            session = self._session_locked(session_id)
+            session.page_socket = self._page_socket(session.port, session.target_id)
+            session.target_id = _page_target_id(session.page_socket)
+            cdp = _Cdp(session.page_socket, self.timeout_s)
+            try:
+                state = self._semantic_snapshot(session_id, session, cdp)
+                node = next((item for item in state["nodes"] if item["id"] == action.get("node_id")), None)
+                verb = action.get("verb")
+                if (state["revision"] != action.get("revision")
+                        or state["scope"]["id"] != action.get("scope_id") or node is None
+                        or node["generation"] != action.get("generation")
+                        or not node["enabled"] or node["sensitive"]
+                        or verb not in node["operations"]):
+                    return {"status": "rejected", "reason": "Browser target changed; observe again"}
+                element = self._refresh_element(session, cdp, node["id"])
+                args = action.get("args") or {}
+                if verb in {"invoke", "click"}:
+                    self._click(cdp, element)
+                elif verb == "double_click":
+                    self._click(cdp, element, count=2)
+                elif verb == "right_click":
+                    self._click(cdp, element, button="right")
+                elif verb == "drag_drop":
+                    destination = next((item for item in state["nodes"] if item["id"] == args["to_node_id"]), None)
+                    if (destination is None or destination["id"] == node["id"]
+                            or not destination["visible"] or not destination["enabled"] or destination["sensitive"]
+                            or destination["scope_id"] != node["scope_id"]):
+                        return {"status": "rejected", "reason": "Observed drop destination is unavailable"}
+                    self._drag_drop(cdp, node["id"], destination["id"])
+                elif verb == "select_text":
+                    if args["end"] > len(node["value"]):
+                        return {"status": "rejected", "reason": "Selection exceeds the observed text"}
+                    self._select_text(cdp, element, args["start"], args["end"])
+                elif verb == "key_chord":
+                    self._focus_element(cdp, element)
+                    self._key_chord(cdp, args["keys"])
+                elif verb == "scroll":
+                    direction = args["direction"]
+                    if direction not in {"up", "down", "left", "right"}:
+                        return {"status": "rejected", "reason": "Invalid scroll direction"}
+                    cdp.call("Input.dispatchMouseEvent", {"type": "mouseWheel",
+                        "x": element["x"] + element["width"] / 2,
+                        "y": element["y"] + element["height"] / 2,
+                        "deltaX": {"left": -400, "right": 400}.get(direction, 0),
+                        "deltaY": {"up": -400, "down": 400}.get(direction, 0)})
+                elif verb == "set_value":
+                    self._set_value(cdp, element, args["value"], semantic=True)
+                elif verb == "set_checked":
+                    if node["checked"] != args["checked"]:
+                        self._click(cdp, element)
+                elif verb == "select":
+                    self._select_values(cdp, element, [args["option"]])
+                elif verb == "focus":
+                    self._focus_element(cdp, element)
+                else:
+                    return {"status": "rejected", "reason": "Unsupported semantic action"}
+                return {"status": "dispatched", "verb": verb, "node_id": node["id"],
+                        "revision": state["revision"]}
+            finally:
+                cdp.close()
+
+    @staticmethod
+    def _semantic_capture(cdp: _Cdp) -> tuple[str, Image.Image]:
+        encoded = cdp.call("Page.captureScreenshot", {
+            "format": "png", "fromSurface": True, "captureBeyondViewport": False,
+        }).get("data")
+        if not isinstance(encoded, str) or not encoded:
+            raise BrowserAutomationError("Visual candidate capture unavailable")
+        image = BrowserAutomationStore._decode_screenshot(encoded)
+        digest = hashlib.sha256(image.tobytes()).hexdigest()
+        return digest, image
+
+    def semantic_ground(self, session_id: str, target: str, role: str) -> dict[str, Any]:
+        with self._lock:
+            session = self._session_locked(session_id)
+            cdp = _Cdp(self._page_socket(session.port, session.target_id), self.timeout_s)
+            try:
+                state = self._semantic_snapshot(session_id, session, cdp)
+                digest, image = self._semantic_capture(cdp)
+                x, y, receipt = self._point_target(image, target, 500, 500)
+                current_digest, _ = self._semantic_capture(cdp)
+                current = self._semantic_snapshot(session_id, session, cdp)
+                if current_digest != digest or current["revision"] != state["revision"]:
+                    raise BrowserAutomationError("Frame changed while grounding the visual candidate")
+                node_id = "visual-" + hashlib.sha256(f"{digest}:{target}".encode()).hexdigest()[:24]
+                node = {"id": node_id, "generation": state["scope"]["id"],
+                        "scope_id": state["scope"]["id"], "role": role, "name": target,
+                        "visible": True, "enabled": True, "sensitive": False,
+                        "operations": ["invoke"], "provenance": "current_browser_frame_point_worker"}
+                revision = hashlib.sha256(json.dumps({"base": state["revision"], "frame": digest,
+                    "node": node, "x": x, "y": y}, sort_keys=True).encode()).hexdigest()
+                return {"node": node, "revision": revision, "base_revision": state["revision"],
+                        "frame_sha256": digest, "x": x, "y": y, "receipt": receipt}
+            finally:
+                cdp.close()
+
+    def semantic_ground_is_current(
+        self, session_id: str, visual: dict[str, Any], state: dict[str, Any],
+    ) -> bool:
+        if state["revision"] != visual["base_revision"]:
+            return False
+        with self._lock:
+            session = self._session_locked(session_id)
+            cdp = _Cdp(self._page_socket(session.port, session.target_id), self.timeout_s)
+            try:
+                digest, _ = self._semantic_capture(cdp)
+                return digest == visual["frame_sha256"]
+            finally:
+                cdp.close()
+
+    def semantic_visual_perform(
+        self, session_id: str, action: dict[str, Any], visual: dict[str, Any],
+    ) -> dict[str, Any]:
+        with self._lock:
+            session = self._session_locked(session_id)
+            cdp = _Cdp(self._page_socket(session.port, session.target_id), self.timeout_s)
+            try:
+                state = self._semantic_snapshot(session_id, session, cdp)
+                digest, image = self._semantic_capture(cdp)
+                node = visual["node"]
+                if (state["revision"] != visual["base_revision"]
+                        or digest != visual["frame_sha256"] or action.get("revision") != visual["revision"]
+                        or any(action.get(key) != node.get({"node_id": "id"}.get(key, key))
+                               for key in ("node_id", "scope_id", "generation"))
+                        or action.get("verb") != "invoke"):
+                    return {"status": "rejected", "reason": "Visual source frame changed"}
+                viewport = state["scope"]["viewport"]
+                # Point-worker output is normalized in the exact captured image.
+                # CDP mouse input uses CSS viewport pixels, independently of DPR.
+                x = visual["x"] * max(0, image.width - 1) / 1000
+                y = visual["y"] * max(0, image.height - 1) / 1000
+                css_x = x * viewport["width"] / image.width
+                css_y = y * viewport["height"] / image.height
+                if not (0 <= css_x < viewport["width"] and 0 <= css_y < viewport["height"]):
+                    return {"status": "rejected", "reason": "Visual point outside viewport"}
+                self._click(cdp, {"x": css_x, "y": css_y, "width": 0, "height": 0})
+                return {"status": "dispatched", "node_id": node["id"],
+                        "source_frame_sha256": digest, "grounding": visual["receipt"]}
+            finally:
+                cdp.close()
 
     def act(self, session_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
         action = str(arguments.get("action") or "").strip().lower()

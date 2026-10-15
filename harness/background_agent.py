@@ -56,7 +56,8 @@ MAX_ACTION_ARGUMENT_CHARS = 2_000
 MAX_ACTION_OUTCOME_CHARS = 1_200
 VISUAL_CONTEXT_ACCOUNTING_BYTES = 8 * 1024
 COMPACTION_HIGH_WATER_FRACTION = 0.72
-COMPUTER_ACTION_TOOLS = {"browser_interact", "gui_interact"}
+CANONICAL_UI_TOOLS = {"computer_use", "native_ui"}
+COMPUTER_ACTION_TOOLS = {"browser_interact", "gui_interact", *CANONICAL_UI_TOOLS}
 WEB_EVIDENCE_TOOLS = {"browser_interact", "web_crawl", "web_fetch", "web_search"}
 MILESTONE_SOURCE_TOOLS = {
     "document_search",
@@ -1117,6 +1118,8 @@ def _audit_tool_schemas(
     }
     operation_limits = {
         "browser_interact": {"snapshot"},
+        "computer_use": {"observe", "verify"},
+        "native_ui": {"observe", "verify"},
         "file_deliver": {"inspect"},
         "gui_interact": {"snapshot"},
         "shell": {"verify"},
@@ -1146,7 +1149,7 @@ def _audit_tool_schemas(
                 if isinstance(parameters, dict)
                 else None
             )
-            operation_key = "intent" if name == "shell" else "action"
+            operation_key = "intent" if name == "shell" else "operation" if name in CANONICAL_UI_TOOLS else "action"
             operation = (
                 properties.get(operation_key)
                 if isinstance(properties, dict)
@@ -1184,6 +1187,8 @@ def _execution_tool_schemas(
             "shell": {"inspect"},
             "browser_interact": {"navigate", "snapshot", "scroll", "back"},
             "gui_interact": {"snapshot"},
+            "computer_use": {"observe", "verify"},
+            "native_ui": {"observe", "verify"},
         }
     elif decision == "act":
         operation_limits = {
@@ -1206,7 +1211,9 @@ def _execution_tool_schemas(
                 "back",
                 "close",
             },
-            "gui_interact": {"click", "drag", "type", "key", "hotkey", "scroll"},
+            "gui_interact": set(),
+            "computer_use": {"execute", "workflow"},
+            "native_ui": {"execute", "workflow"},
         }
     schemas: list[dict[str, Any]] = []
     for raw in tool_schemas(active_tools):
@@ -1220,7 +1227,7 @@ def _execution_tool_schemas(
         properties = (
             parameters.get("properties") if isinstance(parameters, dict) else None
         )
-        operation_key = "intent" if name == "shell" else "action"
+        operation_key = "intent" if name == "shell" else "operation" if name in CANONICAL_UI_TOOLS else "action"
         operation = (
             properties.get(operation_key) if isinstance(properties, dict) else None
         )
@@ -2109,7 +2116,7 @@ def _action_family(name: str, arguments: Mapping[str, Any]) -> str:
     """Return the auditor's content-independent family for a proposed call."""
 
     operation = str(
-        arguments.get("action") or arguments.get("intent") or "execute"
+        arguments.get("operation") or arguments.get("action") or arguments.get("intent") or "execute"
     ).strip()[:80]
     return f"{name}:{operation}"
 
@@ -2206,7 +2213,7 @@ def _without_retired_action_families(
             else None
         )
         if isinstance(properties, dict):
-            for operation_key in ("action", "intent"):
+            for operation_key in ("action", "intent", "operation"):
                 operation_schema = properties.get(operation_key)
                 if not isinstance(operation_schema, dict):
                     continue
@@ -2257,7 +2264,7 @@ def _tool_call_contract_error(
     parameters = function.get("parameters")
     properties = parameters.get("properties") if isinstance(parameters, Mapping) else None
     if isinstance(properties, Mapping):
-        for key in ("action", "intent", "decision"):
+        for key in ("action", "intent", "operation", "decision"):
             definition = properties.get(key)
             permitted = definition.get("enum") if isinstance(definition, Mapping) else None
             if not isinstance(permitted, list) or key not in arguments:
@@ -2919,7 +2926,8 @@ def _computer_action_state(task: Mapping[str, Any]) -> str:
                     parsed_arguments = json.loads(arguments)
                 except (TypeError, ValueError):
                     parsed_arguments = {}
-                arguments = f"action={str(parsed_arguments.get('action') or 'unknown')[:80]}"
+                operation_key = "operation" if tool_name in CANONICAL_UI_TOOLS else "action"
+                arguments = f"{operation_key}={str(parsed_arguments.get(operation_key) or 'unknown')[:80]}"
                 try:
                     parsed_outcome = json.loads(outcome)
                 except (TypeError, ValueError):
@@ -3498,7 +3506,7 @@ def _focus_memory(
                     **expansion_pointer(call_id),
                 }
         elif tool == "browser_interact" and ok:
-            browser_action = str(arguments.get("action") or "snapshot")[:80]
+            browser_action = str(arguments.get("operation") or arguments.get("action") or "snapshot")[:80]
             url = _canonical_http_url(
                 outcome.get("url") or arguments.get("url")
             )
@@ -4191,6 +4199,52 @@ def _normalize_progress_evidence(
     return [freshest_evidence_id], True
 
 
+def _ui_receipt_authority(result: Any) -> str:
+    """Canonical UI evidence must contain executor-bound state/effect receipts."""
+    if not isinstance(result, Mapping):
+        return "inspection"
+    state_receipt = result.get("ui_state_receipt")
+    state_receipt = state_receipt if isinstance(state_receipt, Mapping) else {}
+    if state_receipt.get("schema") != "robit.omni.ui-state-receipt.v1":
+        return "inspection"
+    verification = result.get("verification_receipt")
+    if isinstance(verification, Mapping) and (
+        verification.get("schema") == "robit.omni.ui-verification.v1"
+        and verification.get("status") == "verified"
+        and result.get("status") == "verified"
+        and verification.get("revision") == state_receipt.get("revision")
+        and verification.get("session_id") == state_receipt.get("session_id")
+        and verification.get("resource") == state_receipt.get("resource")
+        and verification.get("scope_id") == state_receipt.get("scope_id")
+        and verification.get("session_id") and verification.get("resource")
+        and verification.get("revision")
+        and verification.get("predicates_sha256")
+    ):
+        return "verification"
+    outcomes = result.get("outcomes")
+    if isinstance(outcomes, list) and any(_ui_receipt_authority(item) == "mutation" for item in outcomes):
+        return "mutation"
+    effect = result.get("effect_receipt")
+    before, after = result.get("before"), result.get("after")
+    action = result.get("action")
+    action = action if isinstance(action, Mapping) else {}
+    if isinstance(effect, Mapping) and isinstance(before, Mapping) and isinstance(after, Mapping) and (
+        effect.get("schema") == "robit.omni.ui-effect-receipt.v1"
+        and effect.get("effect_state") == "applied"
+        and result.get("status") == "verified"
+        and isinstance(result.get("receipt"), Mapping)
+        and result["receipt"].get("status") == "dispatched"
+        and before.get("session_id") == after.get("session_id")
+        and before.get("revision") == effect.get("before_revision")
+        and after.get("revision") == effect.get("after_revision") == state_receipt.get("revision")
+        and before.get("revision") != after.get("revision")
+        and effect.get("action_id") and effect.get("action_id") == action.get("id")
+        and effect.get("resource") == state_receipt.get("resource")
+    ):
+        return "mutation"
+    return "inspection"
+
+
 def _evidence_authority(item: Mapping[str, Any] | None) -> str:
     """Classify a receipt without interpreting free-form model claims.
 
@@ -4205,6 +4259,8 @@ def _evidence_authority(item: Mapping[str, Any] | None) -> str:
     result = item.get("result")
     if _result_failed_or_blocked(result):
         return "failed"
+    if name in CANONICAL_UI_TOOLS:
+        return _ui_receipt_authority(result)
     if name in {"tool_search", "web_search"}:
         return "discovery"
     if isinstance(result, Mapping):
@@ -4578,6 +4634,10 @@ def _resource_identity(
         locator = " ".join(str(arguments.get("query") or target).split())[:4096]
     elif name in COMPUTER_ACTION_TOOLS:
         kind = "ui_state"
+        if name in CANONICAL_UI_TOOLS and isinstance(result, Mapping):
+            locator = str(result.get("resource") or target)[:4096]
+        else:
+            locator = ""
         base = " ".join(
             str(
                 (result.get("url") if isinstance(result, Mapping) else "")
@@ -4585,10 +4645,10 @@ def _resource_identity(
                 or target
             ).split()
         )[:2048]
-        locator = json.dumps(
+        locator = locator or json.dumps(
             [
                 base,
-                str(arguments.get("action") or "snapshot")[:80],
+                str(arguments.get("operation") or arguments.get("action") or "snapshot")[:80],
                 str(
                     arguments.get("element_id")
                     or arguments.get("target")
@@ -4897,6 +4957,7 @@ def _action_audit_report(
         "route_key": route_key,
         "state_fingerprint": state_fingerprint,
         "changed_paths": changed_paths,
+        "ui_effect_applied": name in CANONICAL_UI_TOOLS and _ui_receipt_authority(result) == "mutation",
         "executor_succeeded": not _result_failed_or_blocked(result),
         "contract_id": contract_id,
         "contract_phase": contract_phase,

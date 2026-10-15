@@ -14,12 +14,12 @@
       "tools": ["web_search", "web_fetch", "web_crawl"]
     },
     "browser": {
-      "description": "Navigate and interact with a rendered web page, including links, forms, JavaScript interfaces, and challenges.", "choice": "operate a rendered web page",
-      "tools": ["browser_interact"]
+      "description": "Navigate and interact with a runtime-owned isolated browser when the user requests that browser context. Existing signed-in browser windows, profiles, tabs, and page content belong to desktop.", "choice": "requested runtime-owned isolated browser",
+      "tools": ["browser_interact", "computer_use"]
     },
     "desktop": {
-      "description": "Operate visible desktop applications and windows outside the browser's page-level controls.", "choice": "operate desktop apps and windows",
-      "tools": ["gui_interact"]
+      "description": "Operate the user's actual desktop applications and already-open browser windows, including their signed-in profiles, tabs, and page content. Preserve the existing application context through native_ui.", "choice": "actual apps and existing signed-in browser pages",
+      "tools": ["native_ui", "gui_interact"]
     },
     "documents": {
       "description": "Search or structurally inspect attached documents, including OCR for scanned PDFs.", "choice": "read attached documents",
@@ -152,8 +152,8 @@
             },
             "executor_operation": {
               "type": "string",
-              "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "stage", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"],
-              "description": "The one leaf operation EXECUTE may invoke. Use execute only for tools without an action or intent selector."
+              "enum": ["observe", "workflow", "cancel", "execute", "list", "read", "mkdir", "write", "replace", "inspect", "stage", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"],
+              "description": "The one leaf operation EXECUTE may invoke. Use the exact operation for tools with an action, intent, or operation selector; execute is generic only when no selector exists."
             },
             "expected_effect": {
               "type": "string",
@@ -206,7 +206,7 @@
                   },
                   "executor_operation": {
                     "type": "string",
-                    "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "stage", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"]
+                    "enum": ["observe", "workflow", "cancel", "execute", "list", "read", "mkdir", "write", "replace", "inspect", "stage", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"]
                   },
                   "expected_effect": {
                     "type": "string",
@@ -336,7 +336,7 @@
                       },
                       "executor_operation": {
                         "type": "string",
-                        "enum": ["execute", "list", "read", "mkdir", "write", "replace", "inspect", "stage", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"]
+                        "enum": ["observe", "workflow", "cancel", "execute", "list", "read", "mkdir", "write", "replace", "inspect", "stage", "mutate_filesystem", "mutate_runtime", "verify", "navigate", "snapshot", "click", "visual_click", "drag", "type", "set_value", "select", "upload", "scroll", "back", "close", "key", "hotkey", "add", "search", "remove", "clear", "upsert"]
                       },
                       "expected_effect": {"type": "string", "enum": ["resolve_unknown", "change_environment", "change_external_state"]},
                       "effect_target": {"type": "string", "maxLength": 500},
@@ -602,7 +602,7 @@
         "type": "function",
         "function": {
           "name": "browser_interact",
-          "description": "Control one persistent rendered Chromium session for interactive or JavaScript-heavy web work. It is visible on the signed-in desktop and never substitutes a headless session. After one URL navigation, recover a compacted or resumed persistent session with snapshot rather than another navigation so page state is not reset. Prefer element_id for DOM controls: the executor re-resolves its current box, visibility, enabled state, and hit target immediately before acting. Use type for ordinary text, set_value for date/time/month/week/number/range/color inputs, select for native dropdown values, and upload only for files inside the configured upload roots. For canvas, image, challenge, or other non-DOM targets, use visual_click with normalized_1000 x/y and the concise target referring expression from the latest screenshot. When a dedicated point head is available, target is resolved against the exact fresh viewport and its structured point is executed after another stale-frame check. Otherwise, a first full-viewport point returns a bounded refinement crop without clicking; re-locate the same target in that crop and call visual_click once more. Every non-close action returns fresh visual evidence.",
+          "description": "Control one persistent runtime-owned isolated Chromium session when the user requests that browser context. Use native_ui for the user's existing browser windows, signed-in profiles, tabs, and page content. This isolated browser is visible on the signed-in desktop and never substitutes a headless session. After one URL navigation, recover a compacted or resumed persistent session with snapshot rather than another navigation so page state is not reset. Prefer element_id for DOM controls: the executor re-resolves its current box, visibility, enabled state, and hit target immediately before acting. Use type for ordinary text, set_value for date/time/month/week/number/range/color inputs, select for native dropdown values, and upload only for files inside the configured upload roots. For canvas, image, challenge, or other non-DOM targets, use visual_click with normalized_1000 x/y and the concise target referring expression from the latest screenshot. When a dedicated point head is available, target is resolved against the exact fresh viewport and its structured point is executed after another stale-frame check. Otherwise, a first full-viewport point returns a bounded refinement crop without clicking; re-locate the same target in that crop and call visual_click once more. Every non-close action returns fresh visual evidence.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -728,11 +728,1817 @@
       "memory_reserve_gib": 0.5
     },
     {
+      "memory_admission": "executor",
+      "memory_reserve_gib": 0.5,
+      "schema": {
+        "type": "function",
+        "function": {
+          "name": "computer_use",
+          "description": "Canonical finite browser and desktop control. surface=browser controls a runtime-owned isolated browser when the user requests that context; use native_ui for actual desktop apps and existing signed-in browser windows, profiles, tabs, and page content. Unique semantic controls skip inference; ambiguous controls use configured policy with task context and return its receipt. Missing named controls may use configured visual grounding. Begin discovery with {\"operation\":\"observe\"}; no step or arguments are needed to inspect current controls. For a known causal sequence, prefer one bounded workflow with steps and independent final_predicates. The controller observes fresh state for each step and stops at the first unverified effect. Use exact observed role/name targets; when ambiguity requires node_id, copy the full fresh ID verbatim. Never invent or abbreviate IDs. expect describes the actual expected state change: value or readable display text, checked, selected, text_selection, visibility or URL as appropriate. A focused predicate proves only focus, not click success or task completion. When the acted control differs from the effect control, reference the actual observed effect control in expect; do not default to $target. For native input, click requests guarded physical mouse input; invoke requests an accessibility action. Native type_text {text} requests keyboard typing into an observed editable textbox or combobox: focus it first, then verify its actual value. Text must be nonempty, at most 2048 characters and contain no NUL. Typing inserts at the current selection; it never implicitly focuses, selects all, or replaces the field. set_value remains a separate accessibility setter; a failed setter never automatically retries through typing. Inspect dispatch receipts for visual fallback and actual pointer evidence. Operation contracts: observe accepts optional step and never dispatches; submit step to receive selected_action_id. execute requires action_id only, copied verbatim from selected_action_id; never send step, args, or expect with execute. workflow requires 1–25 steps plus final_predicates; verify requires predicates and independently observes current effects. final_predicates and verify predicates use independently resolved node IDs, never $target. Every predicate needs kind and its typed fields. Use individual key tokens such as [\"Control_L\",\"a\"]. Never claim completion from input dispatch.",
+          "parameters": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "observe",
+                  "execute",
+                  "workflow",
+                  "verify",
+                  "cancel"
+                ]
+              },
+              "surface": {
+                "type": "string",
+                "enum": [
+                  "browser",
+                  "desktop"
+                ]
+              },
+              "step": {
+                "$ref": "#/$defs/step"
+              },
+              "action_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "Only the exact opaque selected_action_id returned by a current observe(step)."
+              },
+              "steps": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 25,
+                "items": {
+                  "$ref": "#/$defs/step"
+                }
+              },
+              "final_predicates": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "$ref": "#/$defs/predicate",
+                  "not": {
+                    "type": "object",
+                    "required": [
+                      "node_id"
+                    ],
+                    "properties": {
+                      "node_id": {
+                        "const": "$target"
+                      }
+                    }
+                  },
+                  "description": "Independent final/verify effects require resolved observed node IDs; $target is forbidden."
+                }
+              },
+              "predicates": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "$ref": "#/$defs/predicate",
+                  "not": {
+                    "type": "object",
+                    "required": [
+                      "node_id"
+                    ],
+                    "properties": {
+                      "node_id": {
+                        "const": "$target"
+                      }
+                    }
+                  },
+                  "description": "Independent final/verify effects require resolved observed node IDs; $target is forbidden."
+                }
+              }
+            },
+            "required": [
+              "operation"
+            ],
+            "$defs": {
+              "step": {
+                "description": "Argument-bearing verbs require args and their exact fields. Zero-argument verbs may omit args or use {}. Every expect entry requires kind.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "verb",
+                      "target",
+                      "expect"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "target": {
+                        "$ref": "#/$defs/target"
+                      },
+                      "expect": {
+                        "$ref": "#/$defs/effects"
+                      },
+                      "verb": {
+                        "type": "string",
+                        "enum": [
+                          "invoke",
+                          "focus",
+                          "click",
+                          "double_click",
+                          "right_click",
+                          "switch_window"
+                        ]
+                      },
+                      "args": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {}
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "verb",
+                      "target",
+                      "expect",
+                      "args"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "target": {
+                        "$ref": "#/$defs/target"
+                      },
+                      "expect": {
+                        "$ref": "#/$defs/effects"
+                      },
+                      "verb": {
+                        "type": "string",
+                        "enum": [
+                          "set_value",
+                          "set_checked",
+                          "select",
+                          "scroll",
+                          "key_chord",
+                          "drag_drop",
+                          "select_text",
+                          "type_text"
+                        ]
+                      },
+                      "args": {
+                        "$ref": "#/$defs/step_args"
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "set_value"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "value"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "set_checked"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "checked"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "select"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "option"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "scroll"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "direction"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "key_chord"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "keys"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "drag_drop"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "to_node_id"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "select_text"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "start",
+                                "end"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "type_text"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "text"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "predicate": {
+                "description": "Every effect requires kind and that kind's fields. Node effects use an observed node_id; only step.expect may use $target.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "value"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "value": {
+                        "type": "string",
+                        "maxLength": 4096
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "checked"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "checked": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id",
+                      "checked"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "selected"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "values": {
+                        "type": "array",
+                        "maxItems": 50,
+                        "items": {
+                          "type": "string",
+                          "maxLength": 4096
+                        }
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id",
+                      "values"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "focused"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "text_selection"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "start": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "end": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id",
+                      "start",
+                      "end"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "active_window"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "text"
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "text"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "url"
+                      },
+                      "url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "url"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "visible"
+                      },
+                      "role": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "name": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "visible": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "role",
+                      "visible"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "visible"
+                      },
+                      "name": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "visible": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "name",
+                      "visible"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "description": "Use at least one observed node_id, role, or name; an empty target or scope_id alone is invalid.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "node_id"
+                    ],
+                    "properties": {
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "role": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "name": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "scope_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "role"
+                    ],
+                    "properties": {
+                      "role": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "name": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "scope_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "scope_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    }
+                  }
+                ]
+              },
+              "effects": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "$ref": "#/$defs/predicate"
+                }
+              },
+              "step_args": {
+                "description": "Match args exactly to verb: set_value/value, type_text/text, set_checked/checked, select/option, scroll/direction, key_chord/keys, drag_drop/to_node_id, select_text/start+end; other verbs use {}.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "maxLength": 4096
+                      }
+                    },
+                    "required": [
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "checked": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "checked"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "option": {
+                        "type": "string",
+                        "maxLength": 4096
+                      }
+                    },
+                    "required": [
+                      "option"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "up",
+                          "down",
+                          "left",
+                          "right"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "direction"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "keys": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 4,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 30,
+                          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+                        },
+                        "description": "Individual key tokens, for example [\"Control_L\",\"a\"] or [\"Escape\"]. Never combine a chord into \"ctrl+a\"."
+                      }
+                    },
+                    "required": [
+                      "keys"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "to_node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    },
+                    "required": [
+                      "to_node_id"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "start": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "end": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      }
+                    },
+                    "required": [
+                      "start",
+                      "end"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "pattern": "^[^\\u0000]+$"
+                      }
+                    },
+                    "required": [
+                      "text"
+                    ]
+                  }
+                ]
+              }
+            },
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "observe"
+                  },
+                  "surface": {
+                    "type": "string",
+                    "enum": [
+                      "browser",
+                      "desktop"
+                    ]
+                  },
+                  "step": {
+                    "$ref": "#/$defs/step"
+                  }
+                },
+                "required": [
+                  "operation"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "execute"
+                  },
+                  "surface": {
+                    "type": "string",
+                    "enum": [
+                      "browser",
+                      "desktop"
+                    ]
+                  },
+                  "action_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "description": "Only the exact opaque selected_action_id returned by a current observe(step)."
+                  }
+                },
+                "required": [
+                  "operation",
+                  "action_id"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "workflow"
+                  },
+                  "surface": {
+                    "type": "string",
+                    "enum": [
+                      "browser",
+                      "desktop"
+                    ]
+                  },
+                  "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 25,
+                    "items": {
+                      "$ref": "#/$defs/step"
+                    }
+                  },
+                  "final_predicates": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "$ref": "#/$defs/predicate",
+                      "not": {
+                        "type": "object",
+                        "required": [
+                          "node_id"
+                        ],
+                        "properties": {
+                          "node_id": {
+                            "const": "$target"
+                          }
+                        }
+                      },
+                      "description": "Independent final/verify effects require resolved observed node IDs; $target is forbidden."
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "steps",
+                  "final_predicates"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "verify"
+                  },
+                  "surface": {
+                    "type": "string",
+                    "enum": [
+                      "browser",
+                      "desktop"
+                    ]
+                  },
+                  "predicates": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "$ref": "#/$defs/predicate",
+                      "not": {
+                        "type": "object",
+                        "required": [
+                          "node_id"
+                        ],
+                        "properties": {
+                          "node_id": {
+                            "const": "$target"
+                          }
+                        }
+                      },
+                      "description": "Independent final/verify effects require resolved observed node IDs; $target is forbidden."
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "predicates"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "cancel"
+                  },
+                  "surface": {
+                    "type": "string",
+                    "enum": [
+                      "browser",
+                      "desktop"
+                    ]
+                  }
+                },
+                "required": [
+                  "operation"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "memory_admission": "executor",
+      "memory_reserve_gib": 0.5,
+      "schema": {
+        "type": "function",
+        "function": {
+          "name": "native_ui",
+          "description": "Canonical accessibility and guarded visual control for the user's actual desktop applications and already-open browser windows, including their signed-in profiles, tabs, and page content. Preserve the existing application context. Shares computer_use surface=desktop session, opaque action IDs, policy receipts and verification. No model coordinates or global raw-input fallback. Begin discovery with {\"operation\":\"observe\"}; no step or arguments are needed to inspect current controls. For a known causal sequence, prefer one bounded workflow with steps and independent final_predicates. The controller observes fresh state for each step and stops at the first unverified effect. Use exact observed role/name targets; when ambiguity requires node_id, copy the full fresh ID verbatim. Never invent or abbreviate IDs. expect describes the actual expected state change: value or readable display text, checked, selected, text_selection, visibility or URL as appropriate. A focused predicate proves only focus, not click success or task completion. When the acted control differs from the effect control, reference the actual observed effect control in expect; do not default to $target. For native input, click requests guarded physical mouse input; invoke requests an accessibility action. Native type_text {text} requests keyboard typing into an observed editable textbox or combobox: focus it first, then verify its actual value. Text must be nonempty, at most 2048 characters and contain no NUL. Typing inserts at the current selection; it never implicitly focuses, selects all, or replaces the field. set_value remains a separate accessibility setter; a failed setter never automatically retries through typing. Inspect dispatch receipts for visual fallback and actual pointer evidence. Operation contracts: observe accepts optional step and never dispatches; submit step to receive selected_action_id. execute requires action_id only, copied verbatim from selected_action_id; never send step, args, or expect with execute. workflow requires 1–25 steps plus final_predicates; verify requires predicates and independently observes current effects. final_predicates and verify predicates use independently resolved node IDs, never $target. Every predicate needs kind and its typed fields. Use individual key tokens such as [\"Control_L\",\"a\"]. Never claim completion from input dispatch.",
+          "parameters": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "observe",
+                  "execute",
+                  "workflow",
+                  "verify",
+                  "cancel"
+                ]
+              },
+              "step": {
+                "$ref": "#/$defs/step"
+              },
+              "action_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "Only the exact opaque selected_action_id returned by a current observe(step)."
+              },
+              "steps": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 25,
+                "items": {
+                  "$ref": "#/$defs/step"
+                }
+              },
+              "final_predicates": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "$ref": "#/$defs/predicate",
+                  "not": {
+                    "type": "object",
+                    "required": [
+                      "node_id"
+                    ],
+                    "properties": {
+                      "node_id": {
+                        "const": "$target"
+                      }
+                    }
+                  },
+                  "description": "Independent final/verify effects require resolved observed node IDs; $target is forbidden."
+                }
+              },
+              "predicates": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "$ref": "#/$defs/predicate",
+                  "not": {
+                    "type": "object",
+                    "required": [
+                      "node_id"
+                    ],
+                    "properties": {
+                      "node_id": {
+                        "const": "$target"
+                      }
+                    }
+                  },
+                  "description": "Independent final/verify effects require resolved observed node IDs; $target is forbidden."
+                }
+              }
+            },
+            "required": [
+              "operation"
+            ],
+            "$defs": {
+              "step": {
+                "description": "Argument-bearing verbs require args and their exact fields. Zero-argument verbs may omit args or use {}. Every expect entry requires kind.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "verb",
+                      "target",
+                      "expect"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "target": {
+                        "$ref": "#/$defs/target"
+                      },
+                      "expect": {
+                        "$ref": "#/$defs/effects"
+                      },
+                      "verb": {
+                        "type": "string",
+                        "enum": [
+                          "invoke",
+                          "focus",
+                          "click",
+                          "double_click",
+                          "right_click",
+                          "switch_window"
+                        ]
+                      },
+                      "args": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {}
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "verb",
+                      "target",
+                      "expect",
+                      "args"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "target": {
+                        "$ref": "#/$defs/target"
+                      },
+                      "expect": {
+                        "$ref": "#/$defs/effects"
+                      },
+                      "verb": {
+                        "type": "string",
+                        "enum": [
+                          "set_value",
+                          "set_checked",
+                          "select",
+                          "scroll",
+                          "key_chord",
+                          "drag_drop",
+                          "select_text",
+                          "type_text"
+                        ]
+                      },
+                      "args": {
+                        "$ref": "#/$defs/step_args"
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "set_value"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "value"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "set_checked"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "checked"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "select"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "option"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "scroll"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "direction"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "key_chord"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "keys"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "drag_drop"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "to_node_id"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "select_text"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "start",
+                                "end"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "if": {
+                          "properties": {
+                            "verb": {
+                              "const": "type_text"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "args": {
+                              "required": [
+                                "text"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "predicate": {
+                "description": "Every effect requires kind and that kind's fields. Node effects use an observed node_id; only step.expect may use $target.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "value"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "value": {
+                        "type": "string",
+                        "maxLength": 4096
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "checked"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "checked": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id",
+                      "checked"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "selected"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "values": {
+                        "type": "array",
+                        "maxItems": 50,
+                        "items": {
+                          "type": "string",
+                          "maxLength": 4096
+                        }
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id",
+                      "values"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "focused"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "text_selection"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "start": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "end": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id",
+                      "start",
+                      "end"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "active_window"
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "node_id"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "text"
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "text"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "url"
+                      },
+                      "url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "url"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "visible"
+                      },
+                      "role": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "name": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "visible": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "role",
+                      "visible"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "visible"
+                      },
+                      "name": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "visible": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "name",
+                      "visible"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "description": "Use at least one observed node_id, role, or name; an empty target or scope_id alone is invalid.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "node_id"
+                    ],
+                    "properties": {
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "role": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "name": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "scope_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "role"
+                    ],
+                    "properties": {
+                      "role": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "name": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "scope_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "scope_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    }
+                  }
+                ]
+              },
+              "effects": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "$ref": "#/$defs/predicate"
+                }
+              },
+              "step_args": {
+                "description": "Match args exactly to verb: set_value/value, type_text/text, set_checked/checked, select/option, scroll/direction, key_chord/keys, drag_drop/to_node_id, select_text/start+end; other verbs use {}.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "maxLength": 4096
+                      }
+                    },
+                    "required": [
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "checked": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "checked"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "option": {
+                        "type": "string",
+                        "maxLength": 4096
+                      }
+                    },
+                    "required": [
+                      "option"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "up",
+                          "down",
+                          "left",
+                          "right"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "direction"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "keys": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 4,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 30,
+                          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+                        },
+                        "description": "Individual key tokens, for example [\"Control_L\",\"a\"] or [\"Escape\"]. Never combine a chord into \"ctrl+a\"."
+                      }
+                    },
+                    "required": [
+                      "keys"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "to_node_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      }
+                    },
+                    "required": [
+                      "to_node_id"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "start": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "end": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      }
+                    },
+                    "required": [
+                      "start",
+                      "end"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "pattern": "^[^\\u0000]+$"
+                      }
+                    },
+                    "required": [
+                      "text"
+                    ]
+                  }
+                ]
+              }
+            },
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "observe"
+                  },
+                  "step": {
+                    "$ref": "#/$defs/step"
+                  }
+                },
+                "required": [
+                  "operation"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "execute"
+                  },
+                  "action_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "description": "Only the exact opaque selected_action_id returned by a current observe(step)."
+                  }
+                },
+                "required": [
+                  "operation",
+                  "action_id"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "workflow"
+                  },
+                  "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 25,
+                    "items": {
+                      "$ref": "#/$defs/step"
+                    }
+                  },
+                  "final_predicates": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "$ref": "#/$defs/predicate",
+                      "not": {
+                        "type": "object",
+                        "required": [
+                          "node_id"
+                        ],
+                        "properties": {
+                          "node_id": {
+                            "const": "$target"
+                          }
+                        }
+                      },
+                      "description": "Independent final/verify effects require resolved observed node IDs; $target is forbidden."
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "steps",
+                  "final_predicates"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "verify"
+                  },
+                  "predicates": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "$ref": "#/$defs/predicate",
+                      "not": {
+                        "type": "object",
+                        "required": [
+                          "node_id"
+                        ],
+                        "properties": {
+                          "node_id": {
+                            "const": "$target"
+                          }
+                        }
+                      },
+                      "description": "Independent final/verify effects require resolved observed node IDs; $target is forbidden."
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "predicates"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "cancel"
+                  }
+                },
+                "required": [
+                  "operation"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
       "schema": {
         "type": "function",
         "function": {
           "name": "gui_interact",
-          "description": "See and operate the active Ubuntu desktop. The first GUI screenshot is always scoped to the active window, even if screen is requested; after that bounded observation, coordinate_space=screen is available for panels, the workspace, or switching windows. Later pointer actions remain bound to the most recently returned image frame when coordinate_space is omitted. An active-window action fails safely if focus changed after observation. Snapshot before acting, then assess the fresh image returned after every action.",
+          "description": "Retired GUI compatibility entry. Returns the canonical native_ui observation and migration instructions. Legacy clicks, coordinates, typing, hotkeys, drag and scroll arguments NEVER dispatch input. Use native_ui observe with typed step, then execute the exact selected_action_id and independently verify its effects.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -803,6 +2609,113 @@
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 5000
+              },
+              "ui_request": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "verb",
+                  "target",
+                  "expect"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "verb": {
+                    "type": "string",
+                    "enum": [
+                      "invoke",
+                      "focus",
+                      "set_value",
+                      "set_checked",
+                      "select",
+                      "scroll",
+                      "key_chord",
+                      "click",
+                      "double_click",
+                      "right_click",
+                      "drag_drop",
+                      "select_text",
+                      "switch_window"
+                    ]
+                  },
+                  "target": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "node_id": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "scope_id": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "args": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string"
+                      },
+                      "checked": {
+                        "type": "boolean"
+                      },
+                      "option": {
+                        "type": "string"
+                      },
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "up",
+                          "down",
+                          "left",
+                          "right"
+                        ]
+                      },
+                      "keys": {
+                        "type": "array",
+                        "maxItems": 4,
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "to_node_id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "start": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "end": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      }
+                    }
+                  },
+                  "expect": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "object"
+                    },
+                    "description": "Typed effects value/checked/selected/focused/text_selection/active_window with node_id (use $target); visible with role/name/visible; text with text; url with url. text_selection includes start/end; active_window binds the target window."
+                  }
+                }
               }
             },
             "additionalProperties": false,

@@ -88,6 +88,7 @@ resolve_runtime_profile() {
   local resolved
   local default_comp_disable_thinking=0
   local default_comp_repeat_penalty=1.0
+  local default_language_context_probe=0
   resolved=$("$PYTHON_BIN" -m qwen_omni_adapters resolve "$MODEL")
   SIDECAR_PROFILE=$(jq -r '.profile // "legacy-cascade"' <<<"$resolved")
   if [[ "$SIDECAR_PROFILE" == trained-audio-bridge ]]; then
@@ -99,6 +100,7 @@ resolve_runtime_profile() {
     ADAPTER_LANGUAGE_API=openai
     ADAPTER_LANGUAGE_URL="http://127.0.0.1:$COMP_PORT/v1/chat/completions"
     ADAPTER_LANGUAGE_MODEL=local-audio-bridge
+    default_language_context_probe=1
     default_comp_disable_thinking=1
     default_comp_repeat_penalty=1.1
     if [[ -z "$SPECULATIVE_TYPE" ]]; then
@@ -108,6 +110,7 @@ resolve_runtime_profile() {
   fi
   ADAPTER_COMPREHENSION_DISABLE_THINKING=${OMNI_COMPREHENSION_DISABLE_THINKING-$default_comp_disable_thinking}
   ADAPTER_COMPREHENSION_REPEAT_PENALTY=${OMNI_COMPREHENSION_REPEAT_PENALTY-$default_comp_repeat_penalty}
+  ADAPTER_LANGUAGE_CONTEXT_PROBE=${OMNI_LANGUAGE_LLAMA_CONTEXT_PROBE-$default_language_context_probe}
   if [[ ${OMNI_LANGUAGE_DISABLE_THINKING+x} ]]; then
     ADAPTER_LANGUAGE_DISABLE_THINKING=$OMNI_LANGUAGE_DISABLE_THINKING
   else
@@ -590,6 +593,7 @@ run_foreground() {
   OMNI_LANGUAGE_URL="$ADAPTER_LANGUAGE_URL" \
   OMNI_LANGUAGE_MODEL="$ADAPTER_LANGUAGE_MODEL" \
   OMNI_LANGUAGE_DISABLE_THINKING="$ADAPTER_LANGUAGE_DISABLE_THINKING" \
+  OMNI_LANGUAGE_LLAMA_CONTEXT_PROBE="$ADAPTER_LANGUAGE_CONTEXT_PROBE" \
   OMNI_TTS_URL="http://127.0.0.1:$TTS_PORT/synthesize" \
   OMNI_DECISION_PLANE_ENABLED="$decision_ready" \
   OMNI_DECISION_PLANE_URL="http://127.0.0.1:$LAYA_PORT" \

@@ -472,6 +472,7 @@ continue through broker-owned GPU lanes.
 | `OMNI_PORTAL_RUNTIME_ROOT` | `runtime-data` | State/cache/log root |
 | `OMNI_COMPREHENSION_GPU_UUID` | broker-selected | Explicit approved GPU override |
 | `OMNI_COMPREHENSION_VRAM_MIB` | `45000` | Shared comprehension/TTS scoped reservation |
+| `OMNI_GPU_LEASE_EXPECTED_DURATION` | `86400` | Expected lease duration in seconds, published to other broker clients; the service still releases on shutdown |
 | `OMNI_COMPREHENSION_CONTEXT_TOKENS` | `65536` | Native comprehension worker context; propagated to the adapter |
 | `OMNI_COMPREHENSION_PARALLEL` | `1` | llama-server slots; Tegra KV admission charges this exact count |
 | `OMNI_LANGUAGE_MAX_OUTPUT_TOKENS` | `4096` | Hard per-turn language output ceiling applied by the adapter |

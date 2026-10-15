@@ -25,6 +25,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from flask import Flask, Response, jsonify, request, stream_with_context
@@ -81,6 +82,9 @@ class Config:
     language_max_output_tokens: int = 4_096
     spoken_language_max_output_tokens: int = 512
     language_disable_thinking: bool = False
+    # Only the repository-owned local llama.cpp worker supports these exact
+    # rendering/tokenization endpoints. Other OpenAI providers stay unchanged.
+    language_llama_context_probe: bool = False
     # Trained audio bridges are optimized against the target trunk's native
     # no-thinking prefill. Stock Qwen3-Omni is not: its explicit false branch
     # is known to degenerate, so this stays opt-in per deployment profile.
@@ -134,6 +138,9 @@ class Config:
             ),
             language_disable_thinking=(
                 os.environ.get("OMNI_LANGUAGE_DISABLE_THINKING", "0") == "1"
+            ),
+            language_llama_context_probe=(
+                os.environ.get("OMNI_LANGUAGE_LLAMA_CONTEXT_PROBE", "0") == "1"
             ),
             comprehension_disable_thinking=(
                 os.environ.get("OMNI_COMPREHENSION_DISABLE_THINKING", "0") == "1"
@@ -1216,7 +1223,9 @@ def _context_overflow(response: httpx.Response) -> bool:
     )
 
 
-def _shed_language_context(payload: dict[str, Any]) -> bool:
+def _shed_language_context(
+    payload: dict[str, Any], *, preserve_current: bool = False,
+) -> bool:
     """Drop the oldest exchange so an over-long prompt can be retried.
 
     llama.cpp refuses a prompt that will not fit rather than truncating it, so
@@ -1253,6 +1262,29 @@ def _shed_language_context(payload: dict[str, Any]) -> bool:
         ):
             del messages[index]
             return True
+
+    if preserve_current:
+        # Exact local fitting retires old completed groups as a unit. Keep the
+        # newest call/results byte-for-byte, including opaque UI identities,
+        # alongside the current user, system policy, and offered contracts.
+        newest_result = max(
+            (index for index, item in enumerate(messages)
+             if isinstance(item, Mapping) and item.get("role") == "tool"),
+            default=-1,
+        )
+        for index in range(latest_user + 1, len(messages)):
+            item = messages[index]
+            if not (isinstance(item, Mapping) and item.get("role") == "assistant"
+                    and item.get("tool_calls")):
+                continue
+            end = index + 1
+            while (end < len(messages) and isinstance(messages[end], Mapping)
+                   and messages[end].get("role") == "tool"):
+                end += 1
+            if end > index + 1 and newest_result >= end:
+                del messages[index:end]
+                return True
+        return False
 
     # Tool schemas are rendered into the prompt and can outweigh everything
     # else: two dozen of them run to roughly three thousand tokens, so a
@@ -1463,19 +1495,66 @@ def _log_context_retry(payload: Mapping[str, Any], previous: int) -> None:
     )
 
 
+def _llama_context_probe_origin(config: Config | None) -> str | None:
+    if config is None or not config.language_llama_context_probe:
+        return None
+    endpoint = urlsplit(config.language_url)
+    if (config.language_api != "openai" or endpoint.scheme != "http"
+            or endpoint.hostname not in {"127.0.0.1", "::1", "localhost"}
+            or endpoint.path != "/v1/chat/completions"
+            or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment):
+        raise AdapterStageError("llama context probing requires an explicitly configured local llama.cpp chat endpoint")
+    return urlunsplit((endpoint.scheme, endpoint.netloc, "", "", ""))
+
+
+def _fit_llama_language_context(
+    client: httpx.Client, payload: dict[str, Any], config: Config | None,
+) -> None:
+    origin = _llama_context_probe_origin(config)
+    if origin is None:
+        return
+    reply = payload.get("max_tokens")
+    if not isinstance(reply, int) or isinstance(reply, bool) or reply <= 0:
+        raise AdapterStageError("local llama context fitting requires a positive max_tokens budget")
+    # llama.cpp stops one token before the slot boundary; leave a little room
+    # for that boundary in addition to the whole requested generation budget.
+    budget = _active_context_tokens(config) - reply - 32
+    while budget > 0:
+        rendered = _json_response(
+            client.post(origin + "/apply-template", json=payload), "llama prompt rendering",
+        ).get("prompt")
+        if not isinstance(rendered, str):
+            raise AdapterStageError("llama prompt rendering returned no text prompt")
+        tokens = _json_response(client.post(origin + "/tokenize", json={
+            "content": rendered, "add_special": True, "parse_special": True,
+        }), "llama prompt tokenization").get("tokens")
+        if not isinstance(tokens, list) or any(type(token) is not int for token in tokens):
+            raise AdapterStageError("llama prompt tokenization returned invalid tokens")
+        if len(tokens) <= budget:
+            return
+        if not _shed_language_context(payload, preserve_current=True):
+            break
+    raise AdapterStageError(
+        "current language request, newest evidence, and tool contracts cannot fit "
+        "the local llama context with the requested output headroom"
+    )
+
+
 def _post_language_with_context_retries(
     client: httpx.Client,
     url: str,
     payload: dict[str, Any],
+    config: Config | None = None,
 ) -> httpx.Response:
     """Retry an exact backend overflow after shedding one context layer."""
 
     while True:
+        _fit_llama_language_context(client, payload, config)
         response = client.post(url, json=payload)
         if not _context_overflow(response):
             return response
         previous = _estimated_prompt_tokens(payload)
-        if not _shed_language_context(payload):
+        if not _shed_language_context(payload, preserve_current=bool(_llama_context_probe_origin(config))):
             return response
         _log_context_retry(payload, previous)
 
@@ -1485,10 +1564,12 @@ def _stream_language_with_context_retries(
     client: httpx.Client,
     url: str,
     payload: dict[str, Any],
+    config: Config | None = None,
 ) -> Iterator[httpx.Response]:
     """Open a language stream, retrying only explicit prompt overflows."""
 
     while True:
+        _fit_llama_language_context(client, payload, config)
         with client.stream("POST", url, json=payload) as response:
             if response.status_code != 400:
                 yield response
@@ -1501,7 +1582,7 @@ def _stream_language_with_context_retries(
                 yield response
                 return
             previous = _estimated_prompt_tokens(payload)
-            if not _shed_language_context(payload):
+            if not _shed_language_context(payload, preserve_current=bool(_llama_context_probe_origin(config))):
                 yield response
                 return
             _log_context_retry(payload, previous)
@@ -1844,7 +1925,7 @@ def build_language_payload(
     # route did not do it, and that is the one the portal uses, so a
     # tool-using turn failed with "request (4179 tokens) exceeds the
     # available context size" while the streaming route was fine.
-    if config is not None:
+    if config is not None and not config.language_llama_context_probe:
         _fit_language_context(payload, config)
     return payload
 
@@ -1910,7 +1991,7 @@ def _retry_required_tool_call(
     """Retry once through the model; never synthesize a capability refusal."""
 
     retry = _required_tool_retry_payload(payload)
-    response = _post_language_with_context_retries(client, url, retry)
+    response = _post_language_with_context_retries(client, url, retry, config)
     result = _language_result(_json_response(response, "language"), config.language_api)
     if _required_tool_call_missing(retry, result):
         raise AdapterStageError(
@@ -2288,6 +2369,7 @@ def execute(
             client,
             language_url,
             language_payload,
+            config,
         )
         result = _language_result(_json_response(response, "language"), config.language_api)
         if _required_tool_call_missing(language_payload, result):
@@ -2446,7 +2528,7 @@ def execute_stream(
         # Make the prompt fit before sending it. llama.cpp refuses an
         # over-long prompt rather than truncating it, so a conversation that
         with _stream_language_with_context_retries(
-            client, language_request_url(config), payload
+            client, language_request_url(config), payload, config
         ) as response:
             if response.status_code >= 400:
                 response.read()

@@ -422,7 +422,11 @@ def _apply_audit_report(task: dict[str, Any], report: Mapping[str, Any]) -> None
         if isinstance(changed_paths, list)
         else []
     )
-    environmental_progress = authority == "mutation" and bool(changed_paths)
+    environmental_progress = authority == "mutation" and (
+        bool(changed_paths)
+        or normalized.get("ui_effect_applied") is True
+        and normalized.get("resource_kind") == "ui_state"
+    )
     if environmental_progress:
         environment["version"] = environment_before + 1
         for slot in closed_slots:

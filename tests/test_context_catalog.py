@@ -269,3 +269,37 @@ def test_tool_search_shows_what_each_family_does_when_choosing() -> None:
         assert f"{name}={definition['choice']}" in choices
     assert "media=analyze attached audio/video; never plays" in choices
     assert "shell=run programs, play sound" in choices
+
+
+def test_ui_routing_preserves_existing_app_and_browser_ownership() -> None:
+    """Both speech routing and discovery must distinguish browser ownership."""
+
+    from qwen_omni_adapters.context import configured_tools
+    from runtime.adapter_server import _LIVE_TOOL_FAMILY_CHOICES
+
+    catalog = context_catalog()
+    families = catalog["tool_families"]
+    functions = {
+        entry["schema"]["function"]["name"]: entry["schema"]["function"]
+        for entry in configured_tools()
+    }
+    discovery = functions["tool_search"]["parameters"]["properties"]["family"]["description"]
+
+    assert families["desktop"]["tools"] == ["native_ui", "gui_interact"]
+    assert families["browser"]["tools"] == ["browser_interact", "computer_use"]
+    for family, ownership in (
+        ("desktop", "actual apps and existing signed-in browser pages"),
+        ("browser", "requested runtime-owned isolated browser"),
+    ):
+        choice = families[family]["choice"]
+        assert ownership in choice
+        assert f"{family}={choice}" in discovery
+        assert f"{family.upper()}={choice}" in _LIVE_TOOL_FAMILY_CHOICES
+
+    native = functions["native_ui"]["description"]
+    assert "actual desktop applications and already-open browser windows" in native
+    assert "signed-in profiles, tabs, and page content" in native
+    assert "Browser content uses computer_use surface=browser" not in native
+    assert "runtime-owned isolated" in functions["browser_interact"]["description"]
+    assert "use native_ui for actual desktop apps" in functions["computer_use"]["description"]
+    assert "NEVER dispatch input" in functions["gui_interact"]["description"]

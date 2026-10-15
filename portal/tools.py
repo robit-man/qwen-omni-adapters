@@ -40,6 +40,7 @@ from urllib.parse import parse_qs, quote_plus, urljoin, urlsplit
 import httpx
 
 from qwen_omni_adapters.applications import discover_applications
+from qwen_omni_adapters.computer_use import ComputerUseError
 from qwen_omni_adapters.context import (
     configured_tool_families,
     configured_tools,
@@ -54,11 +55,13 @@ try:
         BrowserAutomationStore,
         BrowserDesktopUnavailable,
     )
+    from portal.computer_use import ComputerUseStore, SystemOneUiProvider
     from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
     from portal.desktop import desktop_subprocess_environment
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import runtime_environment_snapshot
     from portal.gui import GuiAutomation, GuiAutomationError
+    from portal.native_ui import NativeUiUnavailable
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
     from browser import (
@@ -66,11 +69,13 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
         BrowserAutomationStore,
         BrowserDesktopUnavailable,
     )
+    from computer_use import ComputerUseStore, SystemOneUiProvider
     from deliveries import FileDeliveryError, SessionFileDeliveryStore
     from desktop import desktop_subprocess_environment
     from documents import DocumentError, SessionDocumentStore
     from environment import runtime_environment_snapshot
     from gui import GuiAutomation, GuiAutomationError
+    from native_ui import NativeUiUnavailable
 
 MAX_SEARCH_RESULTS = 8
 MAX_SEARCH_QUERY_CHARS = 500
@@ -2408,6 +2413,13 @@ class PortalToolHarness:
             launch_reserve_gib=_TOOL_MEMORY_RESERVE_GIB.get("browser_interact"),
         )
         self.gui = gui_automation or GuiAutomation()
+        policy_url = os.environ.get("OMNI_COMPUTER_USE_POLICY_URL", "").strip()
+        policy = SystemOneUiProvider(
+            policy_url, mode=os.environ.get("OMNI_COMPUTER_USE_POLICY_MODE", "shadow"),
+            model=os.environ.get("OMNI_COMPUTER_USE_POLICY_MODEL",
+                                 "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52"),
+        ) if policy_url else None
+        self.computer_use = ComputerUseStore(self.browser, ttl_s=ttl_s, provider=policy)
 
     def clear(self, session_id: str) -> None:
         self.memory.clear(session_id)
@@ -2415,6 +2427,7 @@ class PortalToolHarness:
         self.workspace.clear(session_id)
         self.subagents.clear(session_id)
         self.location.clear(session_id)
+        self.computer_use.clear(session_id)
         self.browser.clear(session_id)
         self.gui.clear(session_id)
         if self.file_deliveries is not None:
@@ -2566,8 +2579,31 @@ class PortalToolHarness:
                 )
             elif name == "browser_interact":
                 result = self.browser.act(session_id, dict(arguments))
+            elif name in {"computer_use", "native_ui"}:
+                canonical = dict(arguments)
+                if name == "native_ui":
+                    if "surface" in canonical:
+                        raise ComputerUseError("native_ui has a fixed desktop surface")
+                    canonical["surface"] = "desktop"
+                result = self.computer_use.act(session_id, canonical,
+                                              goal=_TOOL_USER_CONTEXT.get()[:10000])
             elif name == "gui_interact":
-                result = self.gui.act(session_id, dict(arguments))
+                canonical = {"operation": "observe", "surface": "desktop"}
+                if "ui_request" in arguments:
+                    canonical["step"] = arguments["ui_request"]
+                observed = self.computer_use.act(session_id, canonical,
+                                                goal=_TOOL_USER_CONTEXT.get()[:10000])
+                result = {**observed, "canonical_tool": "native_ui",
+                          "legacy_action_executed": False,
+                          "alternative_tools": ["native_ui"], "task_blocked": False,
+                          "migration": {"schema": "robit.omni.native-ui-handoff.v1",
+                            "next": {"tool": "native_ui", "arguments": {
+                                "operation": "execute", "action_id": observed["selected_action_id"]}}
+                            if observed.get("selected_action_id") else {
+                                "tool": "native_ui", "arguments": {"operation": "observe"}, "required": ["step"]}}}
+                if arguments.get("action") not in {None, "snapshot"}:
+                    result.update(error="legacy_gui_input_retired", failure_scope="migration",
+                                  message="Legacy GUI input was not executed. Continue with native_ui and the returned typed candidate contract.")
             elif name == "web_crawl":
                 result = self.web.crawl(
                     session_id,
@@ -2824,7 +2860,7 @@ class PortalToolHarness:
                 "failure_scope": "capability",
                 "task_blocked": False,
                 "disposition": "change_capability",
-                "alternative_tools": ["gui_interact"],
+                "alternative_tools": ["native_ui"],
             }
         except ToolInputError as exc:
             result = {"error": type(exc).__name__, "message": str(exc)[:500]}
@@ -2848,7 +2884,10 @@ class PortalToolHarness:
                         ),
                     }
                 )
+        except NativeUiUnavailable as exc:
+            result = {"error": exc.code, "message": str(exc)[:500], "failure_scope": "capability"}
         except (
+            ComputerUseError,
             BrowserAutomationError,
             GuiAutomationError,
             DocumentError,

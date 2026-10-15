@@ -309,6 +309,8 @@ elif sys.argv[1:2] == ['-c']:
         "OMNI_LANGUAGE_DISABLE_THINKING": "1"}),
     ("robit/ornith-1.5-omni-audio-bridge:q4km", "trained-audio-bridge", "1", {
         "OMNI_LANGUAGE_DISABLE_THINKING": ""}),
+    ("robit/ornith-1.5-omni-audio-bridge:q4km", "trained-audio-bridge", "1", {
+        "OMNI_LANGUAGE_LLAMA_CONTEXT_PROBE": "0"}),
 ])
 def test_broker_resolved_profile_reaches_actual_adapter_environment_and_audio_chat_prompt(
     tmp_path: Path, logical_tag: str, profile: str, language_default: str, overrides: dict[str, str],
@@ -364,7 +366,8 @@ elif sys.argv[1].endswith('/runtime/adapter_server.py'):
     payload = build_comprehension_payload(parsed, config)
     names = ('OMNI_COMPREHENSION_MODEL', 'OMNI_COMPREHENSION_DISABLE_THINKING',
              'OMNI_COMPREHENSION_REPEAT_PENALTY', 'OMNI_LANGUAGE_MODEL',
-             'OMNI_LANGUAGE_DISABLE_THINKING', 'OMNI_LANGUAGE_API')
+             'OMNI_LANGUAGE_DISABLE_THINKING', 'OMNI_LANGUAGE_API',
+             'OMNI_LANGUAGE_LLAMA_CONTEXT_PROBE')
     Path(os.environ['ADAPTER_ENV_RECORD']).write_text(json.dumps({
         'environment': {name: os.environ[name] for name in names},
         'config': {'comprehension_disable_thinking': config.comprehension_disable_thinking,
@@ -408,6 +411,8 @@ launch_adapter_fixture() {
     expected_language = overrides.get("OMNI_LANGUAGE_DISABLE_THINKING", language_default)
     assert evidence["environment"]["OMNI_COMPREHENSION_DISABLE_THINKING"] == expected_comp
     assert evidence["environment"]["OMNI_LANGUAGE_DISABLE_THINKING"] == expected_language
+    assert evidence["environment"]["OMNI_LANGUAGE_LLAMA_CONTEXT_PROBE"] == overrides.get(
+        "OMNI_LANGUAGE_LLAMA_CONTEXT_PROBE", "1" if profile == "trained-audio-bridge" else "0")
     assert evidence["config"] == {"comprehension_disable_thinking": expected_comp == "1",
                                   "comprehension_repeat_penalty": expected_repeat,
                                   "language_disable_thinking": expected_language == "1"}

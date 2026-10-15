@@ -394,7 +394,7 @@ details hidden behind the adapter.
 | Semantic bridge | Adapter-generated tagged observation | Speech transcript, non-speech acoustics, and visual evidence stay separate and remain untrusted data |
 | Language, reasoning, tool choice | Selected Ollama base or configured OpenAI-compatible worker | Reasoning remains in `message.thinking`; unresolved tool calls cannot enter TTS |
 | Tool execution | Authenticated portal | Starts with compact discovery, exposes only relevant concrete schemas, records bounded evidence, blocks exact duplicate execution, and lets recovery continue until final/timeout/disconnect |
-| Computer use | `portal/browser.py` + `portal/gui.py` | Opens visible Chromium on the desktop, observes rendered screenshots, clicks/types through native DevTools input, and can see/control the wider workspace through `xdotool` plus fresh desktop screenshots |
+| Computer use | `portal/native_ui.py` + `portal/computer_use.py` | Operates signed-in desktop applications and existing browser windows through AT-SPI, guarded native pointer/keyboard input, finite Kev choices, and frame-bound visual pointing; effects require fresh verification |
 | Speech | Patched Qwen3-TTS worker | Emits ordered decoder PCM; generation state is reset between prompts and never leaks one utterance into the next |
 | Local conversation | `harness/` | VAD, interruption, ReSpeaker state/direction, camera capture, history, deferred memory writes, and foreground scheduling |
 | Persistent work | `harness/background_agent.py` + `portal/background_tasks.py` | Durable checkpoints and leases survive process restarts; long jobs may yield sparse spoken milestones, terminal speech is durable, and foreground speech wins every scheduling boundary |
@@ -979,6 +979,7 @@ separate so environmental sounds are never misrouted as the user's words.
   recursive retrieval, exact replay, and the bounded 16K working-set contract.
 
 - [Architecture and ownership](docs/architecture.md)
+- [Semantic computer use](docs/computer-use.md)
 - [Agent runbook](docs/agent-runbook.md)
 - [Runtime guide](docs/runtime.md)
 - [Context engineering and tool/phase map](docs/context-engineering.md)

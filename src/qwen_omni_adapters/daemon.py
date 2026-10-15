@@ -1119,6 +1119,10 @@ class OmniDaemon:
                 "OMNI_LANGUAGE_DISABLE_THINKING",
                 "1" if default_disable_language_thinking else "0",
             ),
+            "OMNI_LANGUAGE_LLAMA_CONTEXT_PROBE": os.environ.get(
+                "OMNI_LANGUAGE_LLAMA_CONTEXT_PROBE",
+                "1" if bridge_profile and self.config.enable_comprehension else "0",
+            ),
             "OMNI_TTS_URL": f"http://127.0.0.1:{self.config.tts_port}/synthesize",
             "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames),
             "OMNI_ADAPTER_HOST": "127.0.0.1",

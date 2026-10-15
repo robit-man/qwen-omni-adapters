@@ -65,6 +65,15 @@ The launcher runs `docker gpu discover`, acquires an exact UUID, verifies CUDA
 residency, and releases the lease only after workers stop. Direct mode is
 refused when the broker is present.
 
+The guided deployer recognizes both supervisor lifecycles. Direct deployments
+must publish fresh ready status for the selected model and systemd MainPID.
+Broker deployments must publish fresh supervisor, token, and protected URL
+artifacts from that same MainPID and pass an authenticated loopback
+`/api/status` check for the selected model and all component stages. Deployment
+output contains only a redacted readiness proof; use systemd for broker service
+control, since the portable daemon's stop/reload protocol belongs to direct
+mode.
+
 For unmanaged NVIDIA Linux and every NVIDIA Tegra module:
 
 ```bash
@@ -83,6 +92,16 @@ Desktop tool subprocesses recover the service user's session bus and its
 allowlisted display variables from the signed-in user manager, with live Unix
 socket discovery as a fallback. The system
 unit exposes only the X11 socket directory through its private `/tmp`.
+Snap Chromium cannot initialize its confinement inside that inherited service
+sandbox. On those launches only, the portal delegates its owned visible browser
+to the signed-in user's systemd manager, using a private profile below
+`~/snap/chromium/common` and an exact transient user unit. CDP stays on loopback;
+close/Trash stops that unit before removing its profile. Native Chrome and
+ordinary desktop launches retain their direct lifecycle. The core unit keeps
+`NoNewPrivileges`, `PrivateTmp`, and its filesystem protections.
+The core unit uses `KillMode=mixed` so its supervisor stops CUDA workers and
+releases the scoped lease before systemd kills any remaining processes. Shutdown
+ignores repeated termination signals while completing that cleanup.
 No-key HTML search does not launch a browser. Explicit browser work is visible
 on the joined desktop; it fails with a capability handoff rather than silently
 using headless Chromium when no graphical session is available.

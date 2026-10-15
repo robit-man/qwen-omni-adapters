@@ -224,7 +224,7 @@ def test_browser_desktop_failure_requests_gui_capability() -> None:
     assert result["error"] == "BrowserDesktopUnavailable"
     assert result["disposition"] == "change_capability"
     assert result["task_blocked"] is False
-    assert result["alternative_tools"] == ["gui_interact"]
+    assert result["alternative_tools"] == ["native_ui"]
 
 
 def test_browser_profile_process_discovery_is_exact(tmp_path: Path) -> None:
