@@ -2900,39 +2900,138 @@ def test_openai_stream_tool_call_fragments_are_reassembled() -> None:
     ]
 
 
-def test_think_false_avoids_the_broken_false_template_branch() -> None:
-    """Chain of thought before the first spoken word is pure added latency.
-
-    `think` is an Ollama field and is dropped for an OpenAI-shaped backend, so
-    this Qwen template's explicit false branch returns only newlines on a
-    multi-turn prompt. Omission answers normally without a reasoning channel.
-    """
-
-    from runtime import adapter_server
-
-    parsed = parse_adapter_request(
-        _base_request(messages=[{"role": "user", "content": "Hello."}], think=False)
+@pytest.mark.parametrize("think", [None, False, True], ids=["default", "false", "true"])
+@pytest.mark.parametrize("profile_flag", [None, False, True], ids=["no-config", "qwen", "ornith"])
+def test_openai_language_explicitly_translates_native_think(
+    think: bool | None, profile_flag: bool | None,
+) -> None:
+    request = _base_request(messages=[{"role": "user", "content": "Hello."}])
+    if think is None:
+        request.pop("think")
+    else:
+        request["think"] = think
+    parsed = parse_adapter_request(request)
+    original = dataclasses.asdict(parsed)
+    config = (
+        None if profile_flag is None
+        else _adapter_config(language_disable_thinking=profile_flag)
     )
 
-    payload = adapter_server.build_language_payload(parsed, None, "m", "openai")
+    payload = build_language_payload(parsed, None, "m", "openai", config)
 
-    assert "chat_template_kwargs" not in payload
-    assert payload["messages"][-1]["content"] == "Hello."
+    assert payload["chat_template_kwargs"] == {"enable_thinking": think is True}
+    assert payload["messages"][-1] == request["messages"][-1]
     assert "/no_think" not in json.dumps(payload["messages"])
     assert "reasoning_format" not in payload
+    assert "think" not in payload
+    assert dataclasses.asdict(parsed) == original
 
 
-def test_native_think_true_still_enables_reasoning_on_the_openai_path() -> None:
-    from runtime import adapter_server
+@pytest.mark.parametrize("think", [None, False, True], ids=["default", "false", "true"])
+def test_native_think_overrides_only_its_conflicting_template_option(
+    think: bool | None,
+) -> None:
+    template_kwargs = {"enable_thinking": think is not True, "custom_template_option": "kept"}
+    request = _base_request(chat_template_kwargs=template_kwargs)
+    if think is None:
+        request.pop("think")
+    else:
+        request["think"] = think
+    parsed = parse_adapter_request(request)
 
-    parsed = parse_adapter_request(
-        _base_request(messages=[{"role": "user", "content": "Hello."}], think=True)
+    payload = build_language_payload(parsed, None, "m", "openai")
+
+    assert payload["chat_template_kwargs"] == {
+        "enable_thinking": think is True, "custom_template_option": "kept",
+    }
+    assert template_kwargs["enable_thinking"] is (think is not True)
+    assert parsed.passthrough["chat_template_kwargs"] == template_kwargs
+
+
+@pytest.mark.parametrize("think", [None, False, True], ids=["default", "false", "true"])
+def test_ollama_native_think_and_template_options_remain_unchanged(
+    think: bool | None,
+) -> None:
+    template_kwargs = {"enable_thinking": think is not True, "custom_template_option": "kept"}
+    request = _base_request(chat_template_kwargs=template_kwargs)
+    if think is None:
+        request.pop("think")
+    else:
+        request["think"] = think
+
+    payload = build_language_payload(parse_adapter_request(request), None, "m", "ollama")
+
+    if think is None:
+        assert "think" not in payload
+    else:
+        assert payload["think"] is think
+    assert payload["chat_template_kwargs"] == template_kwargs
+
+
+@pytest.mark.parametrize("stream", [False, True], ids=["sync", "stream"])
+@pytest.mark.parametrize("think", [None, False, True], ids=["default", "false", "true"])
+@pytest.mark.parametrize("profile_flag", [False, True], ids=["qwen", "ornith"])
+def test_openai_execution_preserves_native_think_at_the_wire_boundary(
+    stream: bool, think: bool | None, profile_flag: bool,
+) -> None:
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url == "http://language/v1/chat/completions"
+        body = json.loads(request.content)
+        seen.append(body)
+        assert body["chat_template_kwargs"] == {
+            "enable_thinking": think is True, "custom_template_option": "kept",
+        }
+        assert body["stream"] is stream
+        assert "think" not in body
+        assert body["messages"][-1] == {"role": "user", "content": "Hello."}
+        message = {
+            "role": "assistant", "content": "Hello back.",
+            "reasoning_content": "Separate reasoning.",
+        }
+        if stream:
+            return httpx.Response(
+                200,
+                content=("data: " + json.dumps({"choices": [{"delta": message}]})
+                         + "\n\ndata: [DONE]\n\n").encode(),
+                headers={"content-type": "text/event-stream"},
+            )
+        return httpx.Response(200, json={"choices": [{"message": message}]})
+
+    request = _base_request(
+        messages=[{"role": "user", "content": "Hello."}],
+        chat_template_kwargs={
+            "enable_thinking": think is not True, "custom_template_option": "kept",
+        },
     )
+    if think is None:
+        request.pop("think")
+    else:
+        request["think"] = think
+    parsed = parse_adapter_request(request)
+    config = _adapter_config(
+        language_api="openai",
+        language_url="http://language/v1/chat/completions",
+        language_disable_thinking=profile_flag,
+    )
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        if stream:
+            events = [json.loads(chunk) for chunk in execute_stream(parsed, config, client)]
+            result = events[-1]["response"]
+            deltas = [event["message"] for event in events if event["type"] == "delta"]
+            assert "".join(delta.get("thinking", "") for delta in deltas) == (
+                "Separate reasoning." if think is True else ""
+            )
+        else:
+            result = execute(parsed, config, client)
 
-    payload = adapter_server.build_language_payload(parsed, None, "m", "openai")
-
-    assert payload["chat_template_kwargs"] == {"enable_thinking": True}
-    assert "reasoning_format" not in payload
+    assert len(seen) == 1
+    assert result["message"]["content"] == "Hello back."
+    if think is True:
+        assert result["message"]["thinking"] == "Separate reasoning."
+    else:
+        assert "thinking" not in result["message"]
 
 
 def test_required_tool_retry_switches_from_deliberation_to_execution() -> None:
@@ -2997,7 +3096,11 @@ def test_explicit_think_true_overrides_the_ornith_no_thinking_profile() -> None:
     assert payload["chat_template_kwargs"] == {"enable_thinking": True}
 
 
-def test_comprehension_does_not_set_the_thinking_flag() -> None:
+@pytest.mark.parametrize("think", [False, True])
+@pytest.mark.parametrize("language_flag", [False, True])
+def test_comprehension_does_not_set_the_thinking_flag(
+    think: bool, language_flag: bool,
+) -> None:
     """Qwen3-Omni's template degenerates on a multimodal prompt when thinking
     is explicitly disabled: measured on an AGX Orin, the identical request
     returns only newlines with the flag and a correct tagged transcript
@@ -3008,6 +3111,8 @@ def test_comprehension_does_not_set_the_thinking_flag() -> None:
 
     parsed = parse_adapter_request(
         _base_request(
+            think=think,
+            chat_template_kwargs={"enable_thinking": think},
             omni={"schema": ADAPTER_SCHEMA, "task": "transcribe"},
             messages=[
                 {
@@ -3019,19 +3124,25 @@ def test_comprehension_does_not_set_the_thinking_flag() -> None:
         )
     )
 
-    payload = adapter_server.build_comprehension_payload(parsed, _adapter_config())
+    payload = adapter_server.build_comprehension_payload(
+        parsed, _adapter_config(language_disable_thinking=language_flag)
+    )
 
     assert "chat_template_kwargs" not in payload
     assert "reasoning_format" not in payload
     assert payload["temperature"] == 0
     assert "repeat_penalty" not in payload
+    assert payload["cache_prompt"] is False
 
 
-def test_trained_bridge_comprehension_uses_its_no_thinking_prefill() -> None:
+@pytest.mark.parametrize("think", [False, True])
+def test_trained_bridge_comprehension_uses_its_no_thinking_prefill(think: bool) -> None:
     from runtime import adapter_server
 
     parsed = parse_adapter_request(
         _base_request(
+            think=think,
+            chat_template_kwargs={"enable_thinking": think},
             omni={"schema": ADAPTER_SCHEMA, "task": "transcribe"},
             messages=[
                 {
@@ -3055,6 +3166,7 @@ def test_trained_bridge_comprehension_uses_its_no_thinking_prefill() -> None:
     assert payload["repeat_penalty"] == 1.1
     assert payload["temperature"] == 0
     assert "reasoning_format" not in payload
+    assert payload["cache_prompt"] is False
 
 
 def _live_spoken_request() -> object:

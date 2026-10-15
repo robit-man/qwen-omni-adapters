@@ -33,8 +33,9 @@ receipts, frames and exact owned file readbacks remain local.
 | CU-006 | Qwen | Fail | Actual streamed ASR was correct, but repeated accessibility activations and unresolved/stale effect checks exhausted the 300-second action deadline. No exact `42` terminal result or authoritative final; Calculator cleanup and request idleness verified. | 309.32 s |
 | CU-007 | Qwen | Fail | Correct actual ASR and five guarded physical clicks; model bypassed the spoken visual reference with native identities. No pinned Moondream receipt or fresh owned-Calculator display proof. Cleanup and request idleness verified. | 244.76 s |
 | CU-008 | Qwen | Fail | Actual ASR was correct. Model did not exercise the required ambiguous role-only Kev selection, returned no accepted Kev receipts or authoritative final, and exhausted the 300-second action deadline. Native-only scope held; owned Calculator cleanup and request idleness verified. | 309.96 s |
-| CU-009 | Qwen | Fail | Correct actual ASR, but no dispatched task action. A pointer target was occluded; later attempts failed freshness checks. No authoritative final within 300 seconds. Owned Files window closed; outstanding inference subsequently became idle. | 319.59 s |
+| CU-009 | Qwen | Fail, later foreground confound | Correct actual ASR, but no dispatched task action. Initial owned-target click was rejected as occluded; later observations moved to another window and freshness checks failed. No authoritative final within 300 seconds. Owned Files window closed; outstanding inference subsequently became idle. | 319.59 s |
 | CU-010 | Qwen | Fail | Correct actual TTS/ASR and six verified native inputs across ten rounds. Navigation, Find, scrolling, sourced memory write and second-turn recall did not complete within 300 seconds. Owned Firefox window closed politely; inference subsequently became idle. | 322.99 s |
+| CU-011 | Qwen | Fail, foreground confound | Actual TTS/ASR completed, but the model observed another foreground window and dispatched no input. Independent capture proves focus and pointer changes without model input; the actor is unknown. File unchanged, owned Files window closed, inference idle. | 110.44 s |
 | CU-030 | Qwen | Fail, setup, two attempts | Owned Calc launch passed its OpenCL guard, but initial native observation failed before speech or task input. Installing the GTK3 accessibility plugin did not make the immediate second attempt pass. | 1.47 / 0.93 s |
 | CU-086 | Qwen | Pass | Actual 16 kHz Pulse monitor capture: 208,960 frames with quiet, click and steady noise; production VAD trace; zero submitted turns, stream events or GUI dispatch; call worker and owned Pulse module released. This is not physical-mic acceptance. | 13.16 s |
 | CU-087 | Qwen | Fail, document identity oracle | Real Bluetooth capture, one VAD utterance, actual ASR, verified physical `type_text`, and exact visible `copper finch ready` in the owned editor. Strict initial document identity changed from generation 1 to 2 after focus transitions; that one criterion failed. Cleanup and idleness verified; all attempts retained. | 117.69 s |
@@ -46,8 +47,8 @@ new GPU fault. Each attempt has a separate `after-test-note.md` and JSON note.
 The manifest retains all 200 slots; rows not recorded above remain pending,
 not passing.
 
-At this checkpoint, 13 distinct local model/case slots have been attempted:
-four passed and nine failed; 187 remain unrun. These counts include setup
+At this checkpoint, 14 distinct local model/case slots have been attempted:
+four passed and ten failed; 186 remain unrun. These counts include setup
 failures and exclude repeats. No local Ornith slot has run yet.
 
 The CU-003 failures are being triaged separately: model action-method fidelity
@@ -139,6 +140,21 @@ continuation evaluated exactly its 4,096-token output cap. Upstream stop reason
 and usage were not retained, so budget exhaustion is a hypothesis rather than
 a proven cause of the malformed arguments. Raising the limit or repairing JSON
 by guessing has not been applied.
+
+A later read-only query of the actual loaded Qwen chat template showed that
+omitting `enable_thinking` enables reasoning at its default `xhigh` effort.
+The language adapter omitted that native flag for `think:false` in the Qwen
+profile while suppressing reasoning from the returned stream. Two bounded
+actual-weight parameter probes reproduced the mismatch: explicit false returned
+the requested short answer in two completion tokens with no reasoning; omission
+returned the same answer in 23 completion tokens with 89 reasoning characters.
+Neither probe dispatched GUI input or counts as campaign acceptance. This
+proves a native-control defect, but not the exact cause of an earlier malformed
+or empty continuation. The language-only translation repair passed full source
+validation: 1,992 tests in 94.09 seconds, with the adapter, regression tests and
+runtime documentation unchanged during the gate (log SHA-256
+`0871806ff8531a41b85d339c130cd2838781f2b2a6e8ff628b57515a3d17e0f9`).
+Fresh deployed contract and spoken-action acceptance remain pending.
 
 The helper and expanded perception runners passed the next frozen source gate:
 1,872 tests in 99.84 seconds, with 221 checked source files unchanged (manifest
