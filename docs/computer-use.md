@@ -53,6 +53,12 @@ action using a different input backend. Missing accessibility or ambiguous foreg
 is a capability failure. Windows UIA and the architecture's full
 alternative-model comparison matrix are outside this tested port.
 
+Native `key_chord` receipts identify the attempted keyboard route as
+`backend: x11_guarded_xtest`. Nonzero exit, launch error or timeout remains an
+uncertain dispatched attempt and is never retried automatically. A rejection
+before input carries no backend claim. This metadata establishes the chosen
+route; fresh application effects still determine whether the task succeeded.
+
 On GNOME, enable the signed-in session's accessibility before using native
 browser controls: `gsettings set org.gnome.desktop.interface toolkit-accessibility true`.
 Firefox must register its actual AT-SPI tree; a missing tree remains an explicit

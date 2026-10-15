@@ -1127,17 +1127,22 @@ class _AtspiBridge:
         elif verb == "key_chord":
             geometry = _x11_geometry(self.foreground_identity)
 
-            def operation() -> Any:
+            def operation() -> dict[str, Any]:
                 if self.foreground() != self.foreground_identity or _x11_geometry(self.foreground_identity) != geometry:
                     return reject("native_key_binding_changed_before_dispatch")
                 self._clear_cache(node)
                 if item["id"] != before["scope"]["id"] and not self._read(node.get_state_set).contains(self.atspi.StateType.FOCUSED):
                     return reject("native_key_target_not_focused")
-                result = subprocess.run(  # noqa: S603 - fixed X11 input, never a shell.
-                    ["xdotool", "key", "--clearmodifiers", "+".join(args["keys"])],
-                    capture_output=True, timeout=2, check=False,
-                )
-                return result.returncode == 0
+                try:
+                    result = subprocess.run(  # noqa: S603 - fixed X11 input, never a shell.
+                        ["xdotool", "key", "--clearmodifiers", "+".join(args["keys"])],
+                        capture_output=True, timeout=2, check=False,
+                    )
+                    ok = result.returncode == 0
+                except (OSError, subprocess.TimeoutExpired):
+                    ok = False
+                return {"status": "dispatched", "backend": "x11_guarded_xtest",
+                        "reason": "native_key_input_invoked" if ok else "native_key_input_effect_unresolved"}
         elif verb == "type_text":
             geometry = _x11_geometry(self.foreground_identity)
 

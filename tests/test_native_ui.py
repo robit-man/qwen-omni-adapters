@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import subprocess
 import threading
 from types import SimpleNamespace
 from typing import Any
@@ -881,11 +882,54 @@ def test_key_chord_is_window_bound_fixed_argv_with_fresh_foreground_check(monkey
     monkeypatch.setattr("portal.native_ui._x11_geometry", lambda *_args, **_kwargs: {"x": 0, "y": 0, "width": 100, "height": 100})
     monkeypatch.setattr("portal.native_ui.subprocess.run", lambda command, **_kwargs:
                         commands.append(command) or SimpleNamespace(returncode=0))
-    assert fixture.adapter.perform(action)["status"] == "dispatched"
+    assert fixture.adapter.perform(action) == {"status": "dispatched", "backend": "x11_guarded_xtest",
+                                               "reason": "native_key_input_invoked"}
     assert commands == [["xdotool", "key", "--clearmodifiers", "ctrl+s"]]
     fixture.foreground["window_id"] = "18"
     assert fixture.adapter.perform(action)["status"] == "rejected"
     assert len(commands) == 1
+
+
+@pytest.mark.parametrize("target", ["Fixture", "Title"])
+@pytest.mark.parametrize("outcome", ["ok", "nonzero", "oserror", "timeout"])
+def test_key_chord_attempt_attests_backend_and_never_retries_uncertain_input(monkeypatch, target, outcome) -> None:
+    fixture = Fixture()
+    fixture.title.state.values.add("FOCUSED")
+    action = fixture.action(target, "key_chord", {"keys": ["ctrl", "a"]})
+    attempts = []
+    monkeypatch.setattr("portal.native_ui._x11_geometry", lambda _identity: {"x": 0, "y": 0, "width": 100, "height": 100})
+
+    def run(command, **options):
+        attempts.append(command)
+        assert options == {"capture_output": True, "timeout": 2, "check": False}
+        if outcome == "oserror":
+            raise OSError("input command may have partially run")
+        if outcome == "timeout":
+            raise subprocess.TimeoutExpired(command, 2)
+        return SimpleNamespace(returncode=0 if outcome == "ok" else 1)
+
+    monkeypatch.setattr("portal.native_ui.subprocess.run", run)
+    assert fixture.adapter.perform(action) == {
+        "status": "dispatched", "backend": "x11_guarded_xtest",
+        "reason": "native_key_input_invoked" if outcome == "ok" else "native_key_input_effect_unresolved",
+    }
+    assert attempts == [["xdotool", "key", "--clearmodifiers", "ctrl+a"]]
+    assert fixture.title.events == []  # No second focus, setter, or fallback.
+
+
+def test_key_chord_changed_geometry_rejects_before_attempt_without_backend_claim(monkeypatch) -> None:
+    fixture = Fixture()
+    action = fixture.action("Fixture", "key_chord", {"keys": ["ctrl", "s"]})
+    reads, attempts = [], []
+
+    def geometry(_identity):
+        reads.append(True)
+        return {"x": 0 if len(reads) == 1 else 10, "y": 0, "width": 100, "height": 100}
+
+    monkeypatch.setattr("portal.native_ui._x11_geometry", geometry)
+    monkeypatch.setattr("portal.native_ui.subprocess.run", lambda command, **_kw: attempts.append(command))
+    assert fixture.adapter.perform(action) == {"status": "rejected", "reason": "native_key_binding_changed_before_dispatch"}
+    assert len(reads) == 2 and attempts == []
 
 
 def test_native_key_chord_is_offered_only_on_focused_eligible_control_besides_window(monkeypatch) -> None:
