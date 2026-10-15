@@ -184,6 +184,7 @@ def test_cleanup_never_closes_preexisting_or_reassigned_windows(monkeypatch, fau
     monkeypatch.setattr(runner, "firefox_windows", lambda _environment: {"123", "old-window"})
     monkeypatch.setattr(runner, "process_start", lambda _pid: "changed" if fault == "process_reused" else "start-42")
     monkeypatch.setattr(runner, "command", lambda argv, _environment: commands.append(argv) or ("99" if fault == "pid_changed" else "42"))
+    monkeypatch.setattr(runner, "request_owned_window_close", lambda *_args: pytest.fail("Unowned close requested"))
     assert owner.close() is False
     assert not any("windowclose" in argv for argv in commands)
 
@@ -196,8 +197,11 @@ def test_cleanup_closes_only_exact_owned_window_and_waits_for_disappearance(monk
     monkeypatch.setattr(runner, "firefox_windows", lambda _environment: next(windows))
     monkeypatch.setattr(runner, "process_start", lambda _pid: "start-42")
     monkeypatch.setattr(runner, "command", lambda argv, _environment: commands.append(argv) or "42")
+    requests = []
+    monkeypatch.setattr(runner, "request_owned_window_close", lambda *args: requests.append(args) or True)
     assert owner.close() is True
-    assert commands == [["xdotool", "getwindowpid", "123"], ["xdotool", "windowclose", "123"]]
+    assert commands == [["xdotool", "getwindowpid", "123"]]
+    assert requests == [("123", "42", "start-42", {})]
 
 
 def test_partial_journals_survive_truncated_final_event(tmp_path):

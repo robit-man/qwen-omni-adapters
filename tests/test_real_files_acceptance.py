@@ -64,10 +64,13 @@ def test_files_cleanup_closes_only_exact_owned_window_in_shared_dbus_process(mon
     monkeypatch.setattr("runtime.verify_real_files.process_start", lambda _pid: "same-start")
     def command(argv, _environment):
         calls.append(argv)
-        if argv[1] == "windowclose":
-            windows.remove(argv[2])
         return "20"
+    def request_close(window, pid, start, environment):
+        assert (window, pid, start, environment) == ("new", "20", "same-start", {})
+        windows.remove(window)
+        return True
+    monkeypatch.setattr("runtime.verify_real_files.request_owned_window_close", request_close)
     monkeypatch.setattr("runtime.verify_real_files.command", command)
     assert owned.close()
     assert windows == {"old"}
-    assert calls == [["xdotool", "getwindowpid", "new"], ["xdotool", "windowclose", "new"]]
+    assert calls == [["xdotool", "getwindowpid", "new"]]

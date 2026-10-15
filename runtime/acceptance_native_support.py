@@ -23,6 +23,7 @@ from typing import Any
 from portal.desktop import desktop_subprocess_environment
 from portal.native_ui import NativeUiAdapter, _x11_foreground, _x11_geometry
 from runtime.computer_use_speech import audio_turn, synthesize_instruction
+from runtime.owned_window_close import request_owned_window_close
 from runtime.verify_real_desktop import PointerObserver as PointerObserver
 from runtime.verify_real_files import OwnedFiles
 from runtime.verify_real_firefox import process_start
@@ -272,7 +273,9 @@ class OwnedDesktop:
                         env=self.environment, capture_output=True, text=True, timeout=1, check=False)).returncode:
                     closed = True  # Exact owned XID no longer exists; send no close input.
                 elif probe.stdout.strip() == window.pid and process_start(window.pid) == window.process_start:
-                    command(["xdotool", "windowclose", window.window_id], self.environment)
+                    if not request_owned_window_close(window.window_id, window.pid, window.process_start, self.environment):
+                        receipts.append({"application": window.application, "window_id": window.window_id, "closed": False})
+                        continue
                     deadline = time.monotonic() + 3
                     while time.monotonic() < deadline:
                         probe = subprocess.run(["xdotool", "getwindowpid", window.window_id], env=self.environment,

@@ -33,8 +33,11 @@ receipts, frames and exact owned file readbacks remain local.
 | CU-006 | Qwen | Fail | Actual streamed ASR was correct, but repeated accessibility activations and unresolved/stale effect checks exhausted the 300-second action deadline. No exact `42` terminal result or authoritative final; Calculator cleanup and request idleness verified. | 309.32 s |
 | CU-007 | Qwen | Fail | Correct actual ASR and five guarded physical clicks; model bypassed the spoken visual reference with native identities. No pinned Moondream receipt or fresh owned-Calculator display proof. Cleanup and request idleness verified. | 244.76 s |
 | CU-008 | Qwen | Fail | Actual ASR was correct. Model did not exercise the required ambiguous role-only Kev selection, returned no accepted Kev receipts or authoritative final, and exhausted the 300-second action deadline. Native-only scope held; owned Calculator cleanup and request idleness verified. | 309.96 s |
+| CU-009 | Qwen | Fail | Correct actual ASR, but no dispatched task action. A pointer target was occluded; later attempts failed freshness checks. No authoritative final within 300 seconds. Owned Files window closed; outstanding inference subsequently became idle. | 319.59 s |
+| CU-030 | Qwen | Fail, setup, two attempts | Owned Calc launch passed its OpenCL guard, but initial native observation failed before speech or task input. Installing the GTK3 accessibility plugin did not make the immediate second attempt pass. | 1.47 / 0.93 s |
 | CU-086 | Qwen | Pass | Actual 16 kHz Pulse monitor capture: 208,960 frames with quiet, click and steady noise; production VAD trace; zero submitted turns, stream events or GUI dispatch; call worker and owned Pulse module released. This is not physical-mic acceptance. | 13.16 s |
 | CU-087 | Qwen | Fail, document identity oracle | Real Bluetooth capture, one VAD utterance, actual ASR, verified physical `type_text`, and exact visible `copper finch ready` in the owned editor. Strict initial document identity changed from generation 1 to 2 after focus transitions; that one criterion failed. Cleanup and idleness verified; all attempts retained. | 117.69 s |
+| CU-087, latest physical repeat | Qwen | Fail, malformed model tool arguments | Real Bluetooth capture and ASR preserved the requested words. The next model continuation returned `{` as structured arguments; strict validation rejected the entire batch before execution. No typing or authoritative final. Cleanup and idleness verified. | 110.21 s |
 
 CUDA process evidence and fresh broker discovery after each completed attempt
 proved the owned Qwen/Kev processes resident only on GPU 1, without a reported
@@ -65,7 +68,7 @@ capture → ASR → physical keyboard path ran. The user agreed to speak after
 a cue, which is issued only after actual microphone frames and the owned target
 window are ready. Opt-in capture/VAD/submitted-audio/stream evidence and an
 isolated voice-session scope are implemented and source-validated. The runner
-plays one 80 ms, 8 kHz blip, then waits for captured quiet before publishing its
+plays one 80 ms blip (the user selected 1 kHz in this headset), then waits for captured quiet before publishing its
 speech-ready marker. Ordinary deployment recording stays disabled.
 
 CU-087 exposed a setup failure before recording: Gedit created one mapped
@@ -100,7 +103,7 @@ the result is not relabeled as a full acceptance pass.
 The source cause has been reproduced: an unsuccessful native observation
 commits partial identity history before validating a unique active window.
 That falsely records the document's absence and renews its generation on the
-next successful read. A staged-history repair is under validation; complete
+next successful read. The staged-history repair is source-validated; complete
 successful observations must still renew identities after genuine absence.
 The repair and guarded Calc launcher passed full validation: 1,928 tests in
 90.87 seconds, with all 222 checked source files unchanged (manifest SHA-256
@@ -123,12 +126,37 @@ it retains the same threshold, eight-second bound and no-admitted-speech guard.
 Full source validation passed 1,931 tests in 89.45 seconds, with all 222 checked
 files unchanged (manifest SHA-256
 `98076ac9518ddb5f303036ce2fedbe5c1ca317f1bc7e966a4250a31cff640b0e`).
-Fresh physical acceptance of that repair remains pending.
+The next physical repeat passed cue readiness and produced actual ASR, then
+stopped at a separate malformed model continuation. The native generation
+repair still lacks a successful post-repair typing trajectory; no earlier
+failed attempt is promoted to a pass. Retained server timing shows the last
+continuation evaluated exactly its 4,096-token output cap. Upstream stop reason
+and usage were not retained, so budget exhaustion is a hypothesis rather than
+a proven cause of the malformed arguments. Raising the limit or repairing JSON
+by guessing has not been applied.
 
 The helper and expanded perception runners passed the next frozen source gate:
 1,872 tests in 99.84 seconds, with 221 checked source files unchanged (manifest
 SHA-256 `b8b073c34165ca658dd47dfa60cf540a0bc56c2894f8b278a98611166d04b90d`).
 This remains a source gate, not additional live acceptance. LibreOffice Calc
 24.2.7 was installed for future spreadsheet cases: 43 approved new packages,
-no existing package version changes, and a clean package audit. Calc has not
-been launched or tested in this campaign yet.
+no existing package version changes, and a clean package audit. A subsequent
+installation added only the GTK3 accessibility plugin, without changing
+existing package versions. The two CU-030 setup failures above remain failed.
+A separate read-only diagnostic later observed 376 native Calc nodes in 0.418
+seconds with the GTK3 plugin loaded; the snapshot was truncated and mostly
+menus, so spreadsheet cell access is not yet verified.
+
+Cleanup previously used `xdotool windowclose`, which destroys the X window.
+An observed Calc abort during cleanup exposed this harness defect. Cleanup now
+sends the application's advertised `WM_DELETE_WINDOW` message to the exact
+owned window after checking PID and process start identity twice. Closure must
+still be observed separately; refusal or timeout remains failed cleanup.
+The bounded live diagnostic verified polite Calc closure, process exit and no
+abort or unexpected-destruction error in 1.232 seconds total. It submitted no
+model requests or task inputs. Full source validation passed 1,950 tests in
+90.20 seconds with 249 source fingerprints unchanged (validation log SHA-256
+`9b0ac11b3cc6ee280e182a88621bb70545fba949fec1899d8b1a57389b4f3f8c`).
+
+Remote Egg-host Ornith runs are recorded separately; they do not fill local
+GPU 1 slots or establish pinned Moondream 3.1/Kev acceptance.

@@ -24,6 +24,7 @@ import httpx
 
 from portal.desktop import desktop_subprocess_environment
 from runtime.computer_use_speech import audio_turn, synthesize_instruction
+from runtime.owned_window_close import request_owned_window_close
 from runtime.verify_real_desktop import PointerObserver, outcomes_from_events, structured
 
 REPO = Path(__file__).resolve().parents[1]
@@ -210,7 +211,8 @@ class OwnedFirefox:
             if (command(["xdotool", "getwindowpid", self.window], self.environment) != self.pid
                     or process_start(self.pid) != self.start):
                 return False
-            command(["xdotool", "windowclose", self.window], self.environment)
+            if not request_owned_window_close(self.window, self.pid, self.start, self.environment):
+                return False
             deadline = time.monotonic() + 3
             while time.monotonic() < deadline:
                 if self.window not in firefox_windows(self.environment):
