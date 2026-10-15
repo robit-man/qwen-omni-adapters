@@ -165,6 +165,33 @@ The native-control criterion is verified; physical file clicking remains
 unverified. The currently healthy stack is retained for a separate bounded
 hit-test diagnosis, without another model reload.
 
+A separate read-only owned-Files diagnostic reproduced the rejected hit in
+1.37 seconds, with no model calls or task input. The native provider returned
+a panel outside the requested file's ancestry, then no child at the declared
+point. A second 1.84-second discriminator recorded that panel as showing,
+visible, non-defunct and childless; ownership, foreground, coordinate mapping
+and target bounds stayed stable. Its full snapshot revision changed, however,
+so the second diagnostic failed its postcheck and remains unverified. Both
+owned windows closed politely. These probes do not establish task acceptance
+or justify removing hit guards; the underlying provider failure remains open.
+The matching installed GTK 4.14.5 source always sets AT-SPI showing/visible
+flags, and its hit traversal does not apply the same presence filtering as
+exported child enumeration. Positive flags therefore cannot exclude an
+inactive branch. This is a provider limitation, not proof that the particular
+returned panel was hidden. No coordinate substitution or guard bypass was
+applied.
+
+Before the first CU-013 run, its independent oracle was tightened to require
+an observed alpha selection followed by actual Shift-arrow extension to alpha
+copper. It rejects wrong documents, generations, scopes, stage order and
+substituted selection methods. Independent observer IDs and portal IDs are
+bound within their own bridges, with agreement on the owned window and buffer.
+The oracle and portal structured-batch recovery passed the joint full gate:
+2,098 tests in 95.92 seconds, with all six reviewed source fingerprints
+unchanged (log SHA-256
+`fee1e1be07c0cafc1cfd738f27e7a4d42dcf321cf4ea9671d469b4bc2a0b4c59`).
+These checks do not add a passing live case.
+
 The helper and expanded perception runners passed the next frozen source gate:
 1,872 tests in 99.84 seconds, with 221 checked source files unchanged (manifest
 SHA-256 `b8b073c34165ca658dd47dfa60cf540a0bc56c2894f8b278a98611166d04b90d`).

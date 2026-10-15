@@ -122,6 +122,81 @@ def ordered_values(values: list[str], expected: list[str]) -> bool:
     return index == len(expected)
 
 
+def ordered_alpha_shift_extension(context: dict[str, Any], dispatched: list[dict[str, Any]],
+                                  records: list[dict[str, Any]], fresh: dict[str, Any]) -> bool:
+    """Bridge-local IDs are compared only within their own bridge.
+
+    Both bridges must retain their own document/scope identity in the owned
+    window and its original buffer. Model receipts must show alpha selected
+    before Shift-arrow extends it; later inputs cannot reset or replace that
+    selection. Multiple real arrow dispatches may extend the range to copper.
+    """
+    primary = context.get("primary_window")
+    binding = context.get("document_bindings", {}).get(primary)
+    initial = context.get("initial_records", [])
+    if not primary or not binding or not initial or not dispatched:
+        return False
+    independent_scope = initial[0].get("state", {}).get("scope", {}).get("id")
+    if not independent_scope or fresh.get("error"):
+        return False
+    independent_end = None
+    for record in [*initial, *records, fresh]:
+        state = record.get("state", {})
+        if record.get("error") or not state:
+            continue
+        node = document(state, binding)
+        if (state.get("scope", {}).get("window_id") != primary
+                or state.get("scope", {}).get("id") != independent_scope or node.get("value") != INITIAL):
+            return False
+        selection = node.get("text_selection") or {}
+        end = selection.get("end") if selection.get("start") == 0 else None
+        if independent_end is not None and (type(end) is not int or not independent_end <= end <= 12):
+            return False
+        if end == 5 or independent_end is not None:
+            independent_end = end
+    first = dispatched[0].get("before", {})
+    model_binding = document(first)
+    model_scope = first.get("scope", {}).get("id")
+    if not model_scope or not model_binding.get("id") or not model_binding.get("generation"):
+        return False
+    previous, extended = None, False
+    for outcome in dispatched:
+        before, after = outcome.get("before", {}), outcome.get("after", {})
+        for state in (before, after):
+            if (state.get("scope", {}).get("window_id") != primary
+                    or state.get("scope", {}).get("id") != model_scope
+                    or document(state, model_binding).get("value") != INITIAL):
+                return False
+        before_selection = document(before, model_binding).get("text_selection")
+        after_selection = document(after, model_binding).get("text_selection")
+        if previous is None and before_selection == {"start": 0, "end": 5}:
+            previous = before_selection
+        if previous is not None:
+            action = outcome.get("action", {})
+            keys = action.get("args", {}).get("keys", [])
+            arrow = (action.get("verb") == "key_chord" and outcome.get("receipt", {}).get("backend") == "x11_guarded_xtest"
+                     and any(str(k).startswith("Shift") for k in keys)
+                     and any(k in {"Right", "Left"} for k in keys))
+            if (action.get("node_id") != model_binding["id"] or before_selection != previous
+                    or action.get("scope_id", model_scope) != model_scope
+                    or action.get("generation", model_binding["generation"]) != model_binding["generation"]):
+                return False
+            if action.get("verb") == "focus" and after_selection == previous:
+                continue
+            end = after_selection.get("end") if isinstance(after_selection, dict) else None
+            if (not arrow or not isinstance(after_selection, dict) or after_selection.get("start") != 0 or type(end) is not int
+                    or not previous["end"] <= end <= 12):
+                return False
+            extended |= end > previous["end"]
+            previous = after_selection
+        elif after_selection == {"start": 0, "end": 5}:
+            previous = after_selection
+    current = fresh.get("state", {})
+    return (extended and previous == {"start": 0, "end": 12}
+            and current.get("scope", {}).get("window_id") == primary
+            and document(current, binding).get("text_selection") == previous)
+
+
 def entries_equal(actual: list[dict[str, Any]], expected: list[dict[str, Any]]) -> bool:
     return sorted(actual, key=lambda item: item["path"]) == sorted(expected, key=lambda item: item["path"])
 
@@ -299,6 +374,7 @@ def evaluate(case_id: str, context: dict[str, Any], records: list[dict[str, Any]
                   "shift_arrow_dispatch": any(item.get("action", {}).get("verb") == "key_chord"
                       and any(str(k).startswith("Shift") for k in item["action"]["args"].get("keys", []))
                       and any(k in {"Right", "Left"} for k in item["action"]["args"].get("keys", [])) for item in keyboard),
+                  "ordered_alpha_shift_extension": ordered_alpha_shift_extension(context, dispatched, records, fresh),
                   "file_bytes_unchanged": unchanged}
     elif number == 16:
         destination = context.get("destination_window")

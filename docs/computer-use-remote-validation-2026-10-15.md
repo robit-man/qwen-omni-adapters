@@ -59,8 +59,8 @@ Ornith model/language tags; an initial invocation had checked the CLI's default
 Qwen profile and is retained as an operator invocation failure. A single
 code-only adapter/portal reload completed in 4.98 seconds, preserving the
 supervisor, comprehension, pointing and TTS wrapper identities. The prior
-harness state was restored; health, idleness and residency passed. A separate
-physical edit/Save scenario remains pending.
+harness state was restored; health, idleness and residency passed. The separate
+physical edit/Save attempt is recorded below.
 
 The separate `edit-save-line` runner scenario is source-validated: 2,030 tests
 passed in 96.28 seconds, with runner and new oracle tests unchanged during
@@ -71,6 +71,29 @@ typing, a physical click on the exact Save button, a fresh unchanged document
 identity containing the exact 18 characters, and exact 19-byte saved content.
 Semantic Save, Save As, wrong newlines and intervening contradictions fail.
 These source checks are not a live edit/Save result.
+
+The first genuine `edit-save-line` attempt on `e27834f`, with `think:false`,
+failed after 87.57 seconds. Actual generated speech and ASR preserved the
+instruction. One native observation completed; the next model response contained
+malformed workflow JSON, rejected as a whole before any typing, Save click or
+pointer input. The owned editor closed, the original 19-byte file stayed
+unchanged, and service health, eventual idleness, worker identities and Tegra
+residency passed. No fresh terminal UI snapshot followed the protocol error;
+none is claimed. The proposed selection endpoint was also incorrect, but that
+proposal never executed. Output length and upstream stop reason were not
+retained, so truncation is not established. The failed attempt and after-test
+note remain preserved (summary SHA-256
+`5c72c0e36eb74acc6761d4a7a63ebe73a2957c9cf7a0cd2f7b4e8e43138b24b8`).
+
+The portal now allows one model-generated correction of a malformed structured
+batch before any call in that batch executes. It preserves earlier receipts,
+the accepted spoken command and execution scope; it never guesses JSON or
+replays the rejected proposal. Missing speech, visual media or prior output
+audio forbid recovery. A second malformed batch still fails. Focused checks
+and the joint full gate passed: 2,098 tests in 95.92 seconds, with all six
+reviewed source fingerprints unchanged (log SHA-256
+`fee1e1be07c0cafc1cfd738f27e7a4d42dcf321cf4ea9671d469b4bc2a0b4c59`).
+Live post-change recovery and edit/Save acceptance remain unverified.
 
 ## Egg41
 
@@ -123,3 +146,8 @@ source hashes. Health and Tegra residency passed. Another task was active at
 the latest check; no new inference, GUI action or lifecycle action was sent by
 this test operator. This proves deployment adoption, without claiming a new
 native-thinking or desktop task acceptance result on Egg41.
+
+A later read-only check confirmed clean `e27834f` adoption, healthy services,
+Tegra-resident Ornith and zero active, inflight or queued requests. No TTS child
+was running. No inference or reload was sent by this operator; this remains
+deployment evidence rather than an additional desktop test result.

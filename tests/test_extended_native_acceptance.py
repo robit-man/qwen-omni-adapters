@@ -98,6 +98,75 @@ def test_shift_extension_retains_unresolved_receipt_and_checks_generation(tmp_pa
     assert not evaluate("CU-013", ctx, [event], state(doc(selection=(0, 12), generation="2")))["exact_phrase_selection"]
 
 
+def test_shift_extension_allows_multiple_arrows_with_bridge_local_identity(tmp_path):
+    ctx = context(tmp_path)
+    def model_state(end):
+        return state(doc(selection=(0, end), id="model-doc", generation="4"),
+                     scope={"id": "model-scope", "window_id": "17"})
+    events = [item("key_chord", model_state(end), model_state(end+1), {"keys": ["Shift_R", "Right"]})
+              for end in range(5, 12)]
+    for event in events:
+        event["action"]["node_id"] = "model-doc"
+    assert all(evaluate("CU-013", ctx, events, state(doc(selection=(0, 12)))).values())
+
+
+@pytest.mark.parametrize("defect", ["missing_alpha", "incidental_shift", "wrong_document", "wrong_generation",
+                                     "wrong_window", "wrong_scope", "wrong_target", "wrong_action_generation", "wrong_backend", "reversed_order", "reset",
+                                     "substituted_selection", "changed_buffer"])
+def test_shift_extension_rejects_unbound_unordered_or_substituted_trajectory(tmp_path, defect):
+    ctx = context(tmp_path)
+    first = item("key_chord", state(doc(selection=(0, 5))), state(doc(selection=(0, 6))), {"keys": ["Shift_L", "Right"]})
+    last = item("key_chord", first["after"], state(doc(selection=(0, 12))), {"keys": ["Shift_L", "Right"]})
+    events = [first, last]
+    if defect == "missing_alpha":
+        first["before"] = state(doc(selection=(0, 4)))
+    elif defect == "incidental_shift":
+        events = [item("key_chord", last["after"], last["after"], {"keys": ["Shift_L", "Right"]})]
+    elif defect in {"wrong_document", "wrong_generation"}:
+        field = "id" if defect == "wrong_document" else "generation"
+        last["after"]["nodes"][0][field] = "different"
+    elif defect in {"wrong_window", "wrong_scope"}:
+        field = "window_id" if defect == "wrong_window" else "id"
+        last["after"]["scope"][field] = "different"
+    elif defect == "wrong_target":
+        last["action"]["node_id"] = "different"
+    elif defect == "wrong_action_generation":
+        last["action"]["generation"] = "different"
+    elif defect == "wrong_backend":
+        last["receipt"]["backend"] = "semantic"
+    elif defect == "reversed_order":
+        events.reverse()
+    elif defect == "reset":
+        reset = item("key_chord", first["after"], state(doc(selection=(0, 5))), {"keys": ["Home"]})
+        last["before"] = reset["after"]
+        events.insert(1, reset)
+    elif defect == "substituted_selection":
+        last["action"].update(verb="select_text", args={"start": 0, "end": 12})
+    else:
+        first["after"]["nodes"][0]["value"] = "changed then restored"
+    checks = evaluate("CU-013", ctx, events, state(doc(selection=(0, 12))))
+    assert all(value for criterion, value in checks.items() if criterion != "ordered_alpha_shift_extension")
+    assert not checks["ordered_alpha_shift_extension"]
+
+
+@pytest.mark.parametrize("selection", [None, "unobserved", []])
+def test_shift_extension_requires_observed_after_selection(tmp_path, selection):
+    ctx = context(tmp_path)
+    event = item("key_chord", state(doc(selection=(0, 5))), state(doc(text_selection=selection)), {"keys": ["Shift_L", "Right"]})
+    assert not evaluate("CU-013", ctx, [event], state(doc(selection=(0, 12))))["ordered_alpha_shift_extension"]
+
+
+def test_shift_extension_rejects_independent_document_changes_or_selection_reset(tmp_path):
+    ctx = context(tmp_path)
+    event = item("key_chord", state(doc(selection=(0, 5))), state(doc(selection=(0, 12))), {"keys": ["Shift_L", "Right"]})
+    for middle in [state(doc("changed then restored")), state(doc(generation="2")),
+                   state(doc(id="different")), state(doc(), window="other")]:
+        assert not evaluate("CU-013", ctx, [event], event["after"], [record(middle)])["ordered_alpha_shift_extension"]
+    records = [record(state(doc(selection=(0, 5)))), record(state(doc(selection=(0, 0)))),
+               record(state(doc(selection=(0, 12))))]
+    assert not evaluate("CU-013", ctx, [event], event["after"], records)["ordered_alpha_shift_extension"]
+
+
 def test_copy_between_documents_requires_source_and_destination_effects(tmp_path):
     ctx = context(tmp_path)
     ctx.update(destination_window="18", document_bindings={"17": doc(), "18": doc("", id="dest")})
