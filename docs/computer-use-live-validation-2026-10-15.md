@@ -36,6 +36,7 @@ receipts, frames and exact owned file readbacks remain local.
 | CU-009 | Qwen | Fail, later foreground confound | Correct actual ASR, but no dispatched task action. Initial owned-target click was rejected as occluded; later observations moved to another window and freshness checks failed. No authoritative final within 300 seconds. Owned Files window closed; outstanding inference subsequently became idle. | 319.59 s |
 | CU-010 | Qwen | Fail | Correct actual TTS/ASR and six verified native inputs across ten rounds. Navigation, Find, scrolling, sourced memory write and second-turn recall did not complete within 300 seconds. Owned Firefox window closed politely; inference subsequently became idle. | 322.99 s |
 | CU-011 | Qwen | Fail, foreground confound | Actual TTS/ASR completed, but the model observed another foreground window and dispatched no input. Independent capture proves focus and pointer changes without model input; the actor is unknown. File unchanged, owned Files window closed, inference idle. | 110.44 s |
+| CU-011, native-thinking repair repeat | Qwen | Fail, native hit test | Correct actual TTS/ASR and structured native rounds. The exact owned `alpha.txt` target was rejected as occluded; every model observation remained in the owned Files window and the pointer stayed at one position. No task input or authoritative final before the 300-second deadline. File unchanged; polite cleanup and idleness verified. | 306.93 s |
 | CU-030 | Qwen | Fail, setup, two attempts | Owned Calc launch passed its OpenCL guard, but initial native observation failed before speech or task input. Installing the GTK3 accessibility plugin did not make the immediate second attempt pass. | 1.47 / 0.93 s |
 | CU-086 | Qwen | Pass | Actual 16 kHz Pulse monitor capture: 208,960 frames with quiet, click and steady noise; production VAD trace; zero submitted turns, stream events or GUI dispatch; call worker and owned Pulse module released. This is not physical-mic acceptance. | 13.16 s |
 | CU-087 | Qwen | Fail, document identity oracle | Real Bluetooth capture, one VAD utterance, actual ASR, verified physical `type_text`, and exact visible `copper finch ready` in the owned editor. Strict initial document identity changed from generation 1 to 2 after focus transitions; that one criterion failed. Cleanup and idleness verified; all attempts retained. | 117.69 s |
@@ -154,7 +155,15 @@ or empty continuation. The language-only translation repair passed full source
 validation: 1,992 tests in 94.09 seconds, with the adapter, regression tests and
 runtime documentation unchanged during the gate (log SHA-256
 `0871806ff8531a41b85d339c130cd2838781f2b2a6e8ff628b57515a3d17e0f9`).
-Fresh deployed contract and spoken-action acceptance remain pending.
+The repair is pushed in `0f2267c`. After one fresh startup, actual authenticated
+portal requests passed both native controls: false returned the requested short
+answer with zero thinking in 1.032 seconds; true returned the answer and a
+separate 83-character thinking channel in 1.462 seconds. Neither request used
+audio, TTS or tools, and neither counts as a GUI case. The subsequent genuine
+spoken CU-011 repeat above still failed at the independent native hit guard.
+The native-control criterion is verified; physical file clicking remains
+unverified. The currently healthy stack is retained for a separate bounded
+hit-test diagnosis, without another model reload.
 
 The helper and expanded perception runners passed the next frozen source gate:
 1,872 tests in 99.84 seconds, with 221 checked source files unchanged (manifest

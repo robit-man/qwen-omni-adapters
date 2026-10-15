@@ -44,6 +44,34 @@ an ambiguity requiring Kev. Incorrect selection endpoints and confusion between
 node, step and offered action IDs were also retained. No guessed ID repair or
 weaker dispatch guard was applied.
 
+A separate default-mode `think:false` selection scenario passed in 127.88
+seconds on unchanged `c16c815`, using actual generated speech and ASR. An exact
+offered candidate dispatched native AT-SPI Text selection at offsets 0..18;
+fresh independent verification proved that selection, the unchanged 18-character
+buffer and exact original 19-byte file. All six selection criteria passed;
+the owned editor closed and worker identities, health, idleness and Tegra
+residency remained intact. This establishes native accessibility selection,
+without a physical keyboard or pointer claim. It does not replace the failed
+`think:true` result or establish an edit/Save chain pass.
+
+The later `0f2267c` update passed deployment doctor with explicit deployed
+Ornith model/language tags; an initial invocation had checked the CLI's default
+Qwen profile and is retained as an operator invocation failure. A single
+code-only adapter/portal reload completed in 4.98 seconds, preserving the
+supervisor, comprehension, pointing and TTS wrapper identities. The prior
+harness state was restored; health, idleness and residency passed. A separate
+physical edit/Save scenario remains pending.
+
+The separate `edit-save-line` runner scenario is source-validated: 2,030 tests
+passed in 96.28 seconds, with runner and new oracle tests unchanged during
+validation (log SHA-256
+`888c5e1b987d64aa606c451b5a2fde8c428d17a091566bd069082358f101b30a`).
+Its spoken instruction asks for no Return. Acceptance requires actual keyboard
+typing, a physical click on the exact Save button, a fresh unchanged document
+identity containing the exact 18 characters, and exact 19-byte saved content.
+Semantic Save, Save As, wrong newlines and intervening contradictions fail.
+These source checks are not a live edit/Save result.
+
 ## Egg41
 
 | Scenario | Actual evidence | Result |
@@ -87,3 +115,11 @@ Compact notes and measurements are retained privately under
 `runtime-data/gpu1-acceptance/remote-egg41-20261015/`; full speech and UI journals
 remain on the remote host. Setup-only output-directory and transient observer
 failures are preserved separately and do not count as executed speech tests.
+
+After `0f2267c` was pushed, Egg41's external updater changed the clean checkout
+and restarted its services. New adapter/portal processes started after that
+checkout update, executed from the expected repository, and matched the pushed
+source hashes. Health and Tegra residency passed. Another task was active at
+the latest check; no new inference, GUI action or lifecycle action was sent by
+this test operator. This proves deployment adoption, without claiming a new
+native-thinking or desktop task acceptance result on Egg41.

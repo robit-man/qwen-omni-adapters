@@ -63,6 +63,14 @@ SCENARIOS["full-spelled"] = {
                    "context menu, inspect that menu, and press Escape to close it. Verify the saved document and closed menu.",
     "changed": True, "criteria": SCENARIOS["full"]["criteria"],
 }
+SCENARIOS["edit-save-line"] = {
+    "instruction": "In the visible Text Editor, select all text in the document. Type the lowercase words "
+                   "copper finch ready without pressing Return or adding a blank line. Physically click the "
+                   "Save button using the mouse. Leave the saved text visible and verify it.",
+    "changed": True,
+    "criteria": ("actual_selection_observed", "actual_keyboard_typing_observed", "actual_save_click_verified",
+                 "independent_edit_save_terminal_verified", "exact_visible_document_buffer", "exact_saved_file_bytes"),
+}
 METHOD = (
     "Operate the actual signed-in desktop application exclusively through native_ui. Discover that tool if necessary. "
     "Observe, use finite offered actions, execute, and verify fresh effects. Never use browser_interact, isolated CDP, "
@@ -301,6 +309,88 @@ def context_terminal_evidence(outcomes: list[dict[str, Any]], fresh: dict[str, A
                                            for pair in closed for item in pair]}
 
 
+def edit_save_terminal_evidence(outcomes: list[dict[str, Any]], fresh: dict[str, Any], *,
+                                owned_scope: str, owned_window: str, document_id: str,
+                                initial_buffer: str, actual: bytes) -> dict[str, Any]:
+    expected = EXPECTED.decode().removesuffix("\n")
+
+    def document(state: dict[str, Any], value: str) -> dict[str, Any]:
+        node = next((n for n in state.get("nodes", []) if n.get("id") == document_id), {})
+        return node if (owned_scope and owned_window and document_id
+            and state.get("scope", {}).get("id") == owned_scope
+            and state.get("scope", {}).get("window_id") == owned_window
+            and node.get("scope_id") == owned_scope and node.get("generation")
+            and node.get("role") == "textbox" and node.get("visible") is True
+            and node.get("enabled") is True and not node.get("sensitive")
+            and "type_text" in node.get("operations", []) and node.get("value") == value) else {}
+
+    selected, typed, saved, recovered = [], [], [], []
+    final_document = document(fresh, expected)
+    for index, item in enumerate(outcomes):
+        if not dispatched_actions([item]):
+            continue
+        action = item.get("action", {})
+        before = document(item.get("before", {}), initial_buffer)
+        after = document(item.get("after", {}), initial_buffer)
+        full_range = {"start": 0, "end": len(initial_buffer)}
+        valid_selection = (action.get("verb") == "select_text" and action.get("node_id") == document_id
+            and action.get("args") == full_range or action.get("verb") == "key_chord"
+            and action.get("node_id") in {document_id, owned_scope}
+            and action.get("args", {}).get("keys") in (["Control_L", "a"], ["ctrl", "a"])
+            and item.get("receipt", {}).get("backend") == "x11_guarded_xtest")
+        target = action_node(item)
+        if (before and after and valid_selection and action.get("scope_id") == owned_scope
+                and action.get("generation") == target.get("generation")
+                and after.get("text_selection") == full_range and after.get("focused") is True
+                and after.get("generation") == before.get("generation")):
+            selected.append(item)
+        before = document(item.get("before", {}), initial_buffer)
+        after = document(item.get("after", {}), expected)
+        if not (selected and before and after and action.get("verb") == "type_text"
+                and action.get("scope_id") == owned_scope and action.get("node_id") == document_id
+                and action.get("generation") == before.get("generation") == after.get("generation")
+                and action.get("args") == {"text": expected} and before.get("focused") is True
+                and before.get("text_selection") == full_range
+                and item.get("receipt", {}).get("backend") == "x11_guarded_xtest"):
+            continue
+        if selected[-1].get("after", {}).get("nodes", []) and not any(
+                n.get("id") == document_id and n.get("generation") == before.get("generation")
+                for n in selected[-1]["after"]["nodes"]):
+            continue
+        typed.append(item)
+        generation = after["generation"]
+        later_saved = []
+        contradicted = False
+        for later in dispatched_actions(outcomes[index + 1:]):
+            later_action = later.get("action", {})
+            later_before = document(later.get("before", {}), expected)
+            later_after = document(later.get("after", {}), expected)
+            if (not later_before or not later_after
+                    or later_before.get("generation") != generation or later_after.get("generation") != generation
+                    or later_action.get("verb") in {"set_value", "type_text"}):
+                contradicted = True
+                break
+            target = action_node(later)
+            if (later_action.get("scope_id") == owned_scope and target.get("scope_id") == owned_scope
+                    and later_action.get("generation") == target.get("generation")
+                    and later_action.get("verb") in {"click", "invoke"} and physical_pointer_action(later)
+                    and later.get("receipt", {}).get("backend") == "x11_guarded_xtest"
+                    and target.get("role") == "button" and target.get("visible") is True
+                    and target.get("enabled") is True and not target.get("sensitive")
+                    and target.get("name") == "Save"):
+                saved.append(later)
+                later_saved.append(later)
+        if (not contradicted and later_saved and final_document and final_document.get("generation") == generation
+                and actual == EXPECTED):
+            recovered.extend([item["action"]["id"], later_saved[-1]["action"]["id"]])
+    valid = bool(recovered)
+    return {"status": "verified" if valid else "unresolved", "source": "independent_fresh_owned_native_observation_and_disk",
+            "actual_selection_observed": bool(selected), "actual_keyboard_typing_observed": bool(typed),
+            "actual_save_click_verified": bool(saved), "fresh_buffer_exact": bool(final_document),
+            "disk_bytes_exact": actual == EXPECTED, "action_status_rewritten": False,
+            "recovered_action_ids": recovered if valid else []}
+
+
 def acceptance(outcomes: list[dict[str, Any]], actual: bytes, selection_length: int, *,
                scenario: str = "full", initial_buffer: str = INITIAL.decode().removesuffix("\n"),
                fresh: dict[str, Any] | None = None, owned_scope: str = "", document_id: str = "",
@@ -335,6 +425,14 @@ def acceptance(outcomes: list[dict[str, Any]], actual: bytes, selection_length: 
               "actual_save_click_verified": save_click,
               "document_buffer_unchanged": len(last_documents) == 1 and last_documents[0].get("value") == initial_buffer,
               "exact_saved_file_bytes": actual == (EXPECTED if SCENARIOS[scenario]["changed"] else INITIAL)}
+    if scenario == "edit-save-line":
+        terminal = edit_save_terminal_evidence(outcomes, fresh or {}, owned_scope=owned_scope,
+            owned_window=owned_window, document_id=document_id, initial_buffer=initial_buffer, actual=actual)
+        checks.update(actual_selection_observed=terminal["actual_selection_observed"],
+                      actual_keyboard_typing_observed=terminal["actual_keyboard_typing_observed"],
+                      actual_save_click_verified=terminal["actual_save_click_verified"],
+                      independent_edit_save_terminal_verified=terminal["status"] == "verified",
+                      exact_visible_document_buffer=terminal["fresh_buffer_exact"])
     if scenario == "selection-only":
         terminal = selection_terminal_evidence(outcomes, fresh or {}, owned_scope=owned_scope, owned_window=owned_window,
             document_id=document_id, initial_buffer=initial_buffer, actual=actual)
@@ -494,7 +592,12 @@ def run(args: argparse.Namespace) -> int:
         report["criteria"] = acceptance(outcomes, actual, selection_length, scenario=args.scenario, initial_buffer=initial_buffer,
                                          fresh=fresh, owned_scope=owned_scope or "", document_id=document_id, owned_window=owned_window)
         recovered_ids: tuple[str, ...] = ()
-        if args.scenario == "selection-only":
+        if args.scenario == "edit-save-line":
+            report["recovered_terminal"] = edit_save_terminal_evidence(outcomes, fresh,
+                owned_scope=owned_scope or "", owned_window=owned_window, document_id=document_id,
+                initial_buffer=initial_buffer, actual=actual)
+            recovered_ids = tuple(report["recovered_terminal"]["recovered_action_ids"])
+        elif args.scenario == "selection-only":
             report["recovered_terminal"] = selection_terminal_evidence(outcomes, fresh, owned_scope=owned_scope or "",
                 owned_window=owned_window, document_id=document_id, initial_buffer=initial_buffer, actual=actual)
         elif args.scenario == "double-click-word":
