@@ -27,6 +27,7 @@ from portal.app import (
     DEFAULT_MODEL,
     PortalConfig,
     _close_live_tool_budget,
+    _malformed_tool_retry_payload,
     _model_tool_result,
     _with_heard_words,
     create_app,
@@ -5918,15 +5919,16 @@ def test_malformed_structured_arguments_reject_whole_batch_before_dispatch(monke
         headers={"Authorization": f"Bearer {TOKEN}"}, json=_request(stream=stream, portal_auto_tools=True))
     if stream:
         events = [json.loads(line) for line in response.data.splitlines()]
-        assert [event["type"] for event in events] == ["error"]
-        error = events[0]["error"]
+        assert [event["type"] for event in events] == ["reset", "error"]
+        assert events[0]["reason"] == "malformed_structured_tool_call"
+        error = events[-1]["error"]
     else:
         assert response.status_code >= 400
         error = response.json["error"]
     assert "structured tool call arguments" in error
     if isinstance(arguments, str) and "6350a6203c214" in arguments:
         assert "6350a6203c214" in error and "raw_arguments=" in error
-    assert dispatched == [] and len(requests) == 1
+    assert dispatched == [] and len(requests) == 2
 
 
 def test_portal_retries_one_network_stream_failure_and_resets_partial_text() -> None:
@@ -6974,3 +6976,340 @@ def test_an_idle_browser_owner_hands_the_window_to_a_new_session() -> None:
     store._sessions = {"voice": busy}
     with pytest.raises(browser_module.BrowserAutomationError):
         store._admit_single_window()
+
+
+def _format_call(name="native_ui", arguments=None, *, call_id="proposal"):
+    return {"id": call_id, "function": {"name": name, "arguments": arguments if arguments is not None else {"operation": "observe"}}}
+
+
+def _format_response(calls=None, **fields):
+    return {"message": {"role": "assistant", "content": "" if calls else "Verified final.",
+                        **({"tool_calls": calls} if calls is not None else {})}, **fields}
+
+
+def _format_request(client, stream, **fields):
+    return client.post("/api/chat/stream" if stream else "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_request(stream=stream, portal_auto_tools=True, **fields), buffered=True)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_format_correction_preserves_prior_effects_without_executing_any_rejected_batch_call(monkeypatch, stream):
+    requests, actions = [], []
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda _self, _session, name, args:
+                        actions.append((name, args)) or {"evidence_authority": "verification", "marker": args})
+    replies = [
+        _format_response([_format_call("memory_write", {"text": "earlier-effect"}, call_id="earlier")]),
+        _format_response([_format_call("memory_write", {"text": "must-not-run"}, call_id="valid-in-rejected-batch"),
+                          _format_call(arguments='{"operation":', call_id="invalid-batch")]),
+        _format_response([_format_call(call_id="corrected-next-action")]),
+        _format_response(),
+    ]
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        assert len(requests) <= len(replies)
+        return _spoken_adapter_response(replies[len(requests)-1], streaming=stream)
+
+    client = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client()
+    response = _format_request(client, stream, portal_tool_allowlist=["native_ui", "memory_write"],
+        options={"num_predict": 1200, "temperature": .2}, chat_template_kwargs={"custom": "kept"}, tool_choice="auto")
+    events = [json.loads(line) for line in response.data.splitlines()] if stream else []
+    final = events[-1]["response"] if stream else response.json
+    assert len(requests) == 4 and [name for name, _ in actions] == ["memory_write", "native_ui"]
+    assert actions[0][1] == {"text": "earlier-effect"}
+    before, correction = requests[1:3]
+    for field in ("tools", "think", "options", "chat_template_kwargs", "tool_choice", "format"):
+        assert correction.get(field) == before.get(field)
+    assert [m for m in correction["messages"] if m.get("role") == "user"] == [
+        m for m in before["messages"] if m.get("role") == "user"]
+    assert sum(m.get("role") == "system" for m in correction["messages"]) == 1
+    assert "foreground" not in correction["messages"][-1].get("content", "")
+    assert "<structured_call_recovery>" in correction["messages"][0]["content"]
+    assert "invalid-batch" not in json.dumps(correction) and "valid-in-rejected-batch" not in json.dumps(correction)
+    assert "earlier-effect" in json.dumps(correction)
+    assert [item["name"] for item in final["portal"]["safe_tools_executed"]] == ["memory_write", "native_ui"]
+    if stream:
+        resets = [e for e in events if e["type"] == "reset"]
+        assert resets == [{"type": "reset", "reason": "malformed_structured_tool_call", "attempt": 1}]
+        assert [e["round"] for e in events if e["type"] == "tool" and e["phase"] == "start"] == [1, 2]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_format_correction_budget_is_one_for_entire_request_even_after_a_valid_round(monkeypatch, stream):
+    requests, actions = [], []
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: actions.append(_args) or {})
+    replies = [_format_response([_format_call(arguments="{bad")]),
+               _format_response([_format_call(call_id="corrected")]),
+               _format_response([_format_call(arguments="{still-bad")])]
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        assert len(requests) <= 3
+        return _spoken_adapter_response(replies[len(requests)-1], streaming=stream)
+
+    response = _format_request(create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client(), stream)
+    assert len(requests) == 3 and len(actions) == 1
+    if stream:
+        events = [json.loads(line) for line in response.data.splitlines()]
+        assert events[-1]["type"] == "error"
+        assert sum(e["type"] == "reset" for e in events) == 1
+    else:
+        assert response.status_code == 502
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_initial_audio_format_correction_promotes_only_accepted_transcript_and_discards_media(monkeypatch, stream):
+    requests = []
+    transcript = "Select all text in the visible document."
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: {})
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            reply = _format_response([_format_call(arguments="{bad")], adapter={"input_transcript": transcript})
+        else:
+            assert body["omni"]["require_speech"] is False
+            assert all(not any(m.get(k) for k in ("images", "videos", "audios")) for m in body["messages"])
+            users = [m for m in body["messages"] if m.get("role") == "user"]
+            assert users[-1]["content"] == transcript
+            assert sum(m.get("role") == "system" for m in body["messages"]) == 1
+            reply = _format_response()
+        return _spoken_adapter_response(reply, streaming=stream)
+
+    client = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client()
+    response = client.post("/api/chat/stream" if stream else "/api/chat",
+        headers={"Authorization": f"Bearer {TOKEN}"}, json=_spoken_tool_request(streaming=stream), buffered=True)
+    assert response.status_code == 200 and len(requests) == 2
+    assert requests[0]["omni"]["require_speech"] is True
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("transcript", [None, "", "  ", 7])
+def test_audio_format_correction_rejects_missing_or_blank_attributed_speech(monkeypatch, stream, transcript):
+    requests, actions = [], []
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: actions.append(_args) or {})
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return _spoken_adapter_response(_format_response([_format_call(arguments="{bad")],
+            adapter={"input_transcript": transcript, "observation": "A microphone recording contains ambient noise."}), streaming=stream)
+
+    response = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client().post(
+        "/api/chat/stream" if stream else "/api/chat", headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_spoken_tool_request(streaming=stream))
+    assert len(requests) == 1 and actions == []
+    if stream:
+        assert [json.loads(line)["type"] for line in response.data.splitlines()] == ["error"]
+    else:
+        assert response.status_code == 502
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("modality", ["images", "videos"])
+def test_format_correction_refuses_to_reconstruct_current_visual_media(stream, modality):
+    requests = []
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return _spoken_adapter_response(_format_response([_format_call(arguments="{bad")]), streaming=stream)
+
+    response = _format_request(create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client(), stream,
+        messages=[{"role": "user", "content": "Use the attached view.", modality: ["opaque-current-media"]}])
+    assert len(requests) == 1
+    if stream:
+        assert [json.loads(line)["type"] for line in response.data.splitlines()] == ["error"]
+    else:
+        assert response.status_code == 502
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("audio_kind", ["message", "synthesized", "streamed"])
+@pytest.mark.parametrize("prior_round", [False, True])
+def test_format_correction_never_resets_any_evidenced_audio_output(monkeypatch, stream, audio_kind, prior_round):
+    requests = []
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: {})
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        reply = _format_response([_format_call(arguments="{bad")])
+        if prior_round and len(requests) == 1:
+            reply = _format_response([_format_call()])
+        if not prior_round or len(requests) == 1:
+            if audio_kind == "message":
+                reply["message"]["audio"] = {"data": "actual-audio-evidence"}
+            elif audio_kind == "synthesized":
+                reply["adapter"] = {"speech_synthesized": True}
+            else:
+                reply["adapter"] = {"audio_streamed": True}
+        return _spoken_adapter_response(reply, streaming=stream)
+
+    response = _format_request(create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client(), stream)
+    assert len(requests) == (2 if prior_round else 1)
+    if stream:
+        events = [json.loads(line) for line in response.data.splitlines()]
+        assert events[-1]["type"] == "error" and not any(e["type"] == "reset" for e in events)
+    else:
+        assert response.status_code == 502
+
+
+@pytest.mark.parametrize("audio_event", ["audio_start", "audio_delta", "audio_chunk", "audio_end"])
+def test_format_correction_audio_event_guard_survives_rounds_and_bad_event_order(monkeypatch, audio_event):
+    requests = []
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: {})
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        reply = _format_response([_format_call()]) if len(requests) == 1 else _format_response([_format_call(arguments="{bad")])
+        events = [{"type": audio_event, "audio": {"data": "actual-pcm"}}] if len(requests) == 1 else []
+        events.append({"type": "final", "response": reply})
+        return httpx.Response(200, content=b"".join((json.dumps(e)+"\n").encode() for e in events),
+                              headers={"content-type": "application/x-ndjson"})
+
+    response = _format_request(create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client(), True)
+    events = [json.loads(line) for line in response.data.splitlines()]
+    assert len(requests) == 2 and events[-1]["type"] == "error"
+    assert events[0]["type"] == audio_event and not any(e["type"] == "reset" for e in events)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_model_format_correction_cannot_expand_immutable_tool_allowlist(monkeypatch, stream):
+    requests, actions = [], []
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: actions.append(_args) or {})
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        calls = ([_format_call(arguments="{bad")] if len(requests) == 1 else
+                 [_format_call("memory_write", {"text": "denied"})] if len(requests) == 2 else None)
+        return _spoken_adapter_response(_format_response(calls), streaming=stream)
+
+    response = _format_request(create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client(), stream,
+                               portal_tool_allowlist=["native_ui"])
+    final = json.loads(response.data.splitlines()[-1])["response"] if stream else response.json
+    assert len(requests) == 3 and actions == []
+    assert final["portal"]["tool_allowlist"] == ["native_ui", "tool_search"]
+    denied = json.loads(final["portal"]["safe_tools_executed"][0]["result"])
+    assert denied["error"] == "tool_not_allowed_by_request"
+
+
+def test_malformed_retry_payload_preserves_input_and_native_controls():
+    payload = _spoken_tool_request(streaming=True)
+    payload.update(think=False, options={"num_predict": 777}, tool_choice="required",
+                   chat_template_kwargs={"enable_thinking": False, "custom": "kept"})
+    original = json.loads(json.dumps(payload))
+    retry = _malformed_tool_retry_payload(payload, {"adapter": {"input_transcript": "The actual spoken words."}})
+    assert retry is not None and payload == original
+    for field in ("tools", "think", "options", "tool_choice", "chat_template_kwargs"):
+        assert retry.get(field) == payload.get(field)
+    assert retry["messages"][-1] == {"role": "user", "content": "The actual spoken words."}
+    assert _malformed_tool_retry_payload({**payload, "messages": [*payload["messages"], {"role": "user", "content": "New text"}]},
+                                        {"adapter": {"input_transcript": "Historical audio"}}) is None
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("calls", [{"function": {}}, [None], [{"function": None}]])
+def test_malformed_structured_batch_shapes_receive_only_one_model_correction(stream, calls):
+    requests = []
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        reply = _format_response(calls) if len(requests) == 1 else _format_response()
+        return _spoken_adapter_response(reply, streaming=stream)
+
+    response = _format_request(create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client(), stream)
+    assert len(requests) == 2
+    final = json.loads(response.data.splitlines()[-1])["response"] if stream else response.json
+    assert final["portal"]["safe_tools_executed"] == []
+
+
+def test_stream_format_reset_precedes_replacement_deltas_and_retains_no_invalid_assistant():
+    requests = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        first = len(requests) == 1
+        if not first:
+            assert all(not m.get("tool_calls") for m in body["messages"])
+        events = [{"type": "delta", "message": {"content": "Speculative" if first else "Corrected"}},
+                  {"type": "final", "response": _format_response([_format_call(arguments="{bad")]) if first else _format_response()}]
+        return httpx.Response(200, content=b"".join((json.dumps(e)+"\n").encode() for e in events),
+                              headers={"content-type": "application/x-ndjson"})
+
+    response = _format_request(create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client(), True)
+    events = [json.loads(line) for line in response.data.splitlines()]
+    assert len(requests) == 2
+    assert [e["type"] for e in events] == ["delta", "reset", "delta", "final"]
+    assert events[1] == {"type": "reset", "reason": "malformed_structured_tool_call", "attempt": 1}
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_tool_result_error_prose_does_not_trigger_structured_format_recovery(monkeypatch, stream):
+    requests, actions = [], []
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: actions.append(_args) or {
+        "error": "ToolInputError", "message": "parse tool call arguments as JSON"})
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        assert "<structured_call_recovery>" not in json.dumps(body)
+        return _spoken_adapter_response(_format_response([_format_call()]) if len(requests) == 1 else _format_response(), streaming=stream)
+
+    response = _format_request(create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client(), stream)
+    assert len(requests) == 2 and len(actions) == 1
+    if stream:
+        assert not any(json.loads(line)["type"] == "reset" for line in response.data.splitlines())
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_format_correction_keeps_original_spoken_tool_budget_after_media_removal(monkeypatch, stream):
+    requests = []
+    monkeypatch.setattr("portal.app.LIVE_TOOL_ROUNDS", 2)
+    monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: {})
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        assert len(requests) <= 4
+        if len(requests) == 1:
+            reply = _format_response([_format_call(arguments="{bad")], adapter={"input_transcript": "Inspect the document."})
+        elif "tools" in body:
+            assert body["omni"]["require_speech"] is False
+            reply = _format_response([_format_call(call_id=f"valid-{len(requests)}")])
+        else:
+            assert "<live_tool_budget>" in body["messages"][0]["content"]
+            reply = _format_response()
+        return _spoken_adapter_response(reply, streaming=stream)
+
+    response = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler))).test_client().post(
+        "/api/chat/stream" if stream else "/api/chat", headers={"Authorization": f"Bearer {TOKEN}"},
+        json=_spoken_tool_request(streaming=stream), buffered=True)
+    final = json.loads(response.data.splitlines()[-1])["response"] if stream else response.json
+    assert len(requests) == 4 and len(final["portal"]["safe_tools_executed"]) == 2
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_virtual_correction_pack_retains_host_format_directive_without_mutating_base_contract(tmp_path, stream):
+    requests = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            reply = _format_response([_format_call(arguments="{bad")])
+        else:
+            systems = [m for m in body["messages"] if m.get("role") == "system"]
+            assert len(systems) == 1
+            assert "<structured_call_recovery>" in systems[0]["content"]
+            assert "Fixed host policy." in systems[0]["content"]
+            reply = _format_response()
+        return _spoken_adapter_response(reply, streaming=stream)
+
+    client = create_app(_config(virtual_context_mode="active", virtual_context_root=tmp_path / "virtual"),
+                       httpx.Client(transport=httpx.MockTransport(handler))).test_client()
+    response = _format_request(client, stream, messages=[{"role": "system", "content": "Fixed host policy."},
+                                                        {"role": "user", "content": "Inspect the document."}])
+    assert response.status_code == 200 and len(requests) == 2
+    assert "<structured_call_recovery>" not in json.dumps(requests[0])

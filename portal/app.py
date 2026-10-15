@@ -532,6 +532,10 @@ class PortalError(RuntimeError):
     """A safe, user-visible portal failure."""
 
 
+class _MalformedStructuredToolBatch(PortalError):
+    """A proposed structured batch failed validation before any dispatch."""
+
+
 class PortalRequestError(ValueError):
     """A safe client request validation failure."""
 
@@ -1079,7 +1083,7 @@ def _json_object(response: httpx.Response, stage: str) -> dict[str, Any]:
 def _tool_arguments(call: Mapping[str, Any]) -> Mapping[str, Any]:
     function = call.get("function")
     if not isinstance(function, Mapping):
-        raise PortalError("model emitted a malformed structured tool call function")
+        raise _MalformedStructuredToolBatch("model emitted a malformed structured tool call function")
     arguments = function.get("arguments", {})
     if isinstance(arguments, Mapping):
         return arguments
@@ -1087,13 +1091,13 @@ def _tool_arguments(call: Mapping[str, Any]) -> Mapping[str, Any]:
         try:
             decoded = json.loads(arguments)
         except json.JSONDecodeError as error:
-            raise PortalError(
+            raise _MalformedStructuredToolBatch(
                 "model emitted malformed structured tool call arguments: "
                 f"{error}; raw_arguments={arguments[:256]!r}"
             ) from error
         if isinstance(decoded, Mapping):
             return decoded
-    raise PortalError("model emitted structured tool call arguments that are not a JSON object")
+    raise _MalformedStructuredToolBatch("model emitted structured tool call arguments that are not a JSON object")
 
 
 _TEXT_TOOL_CALL_PATTERN = re.compile(
@@ -1138,10 +1142,12 @@ def _response_tool_calls(response: Mapping[str, Any]) -> list[Mapping[str, Any]]
     if not isinstance(message, Mapping):
         return []
     structured = message.get("tool_calls")
+    if structured is not None and not isinstance(structured, list):
+        raise _MalformedStructuredToolBatch("model emitted a structured tool call batch that is not a list")
     if isinstance(structured, list) and structured:
         for call in structured:
             if not isinstance(call, Mapping):
-                raise PortalError("model emitted a malformed structured tool call")
+                raise _MalformedStructuredToolBatch("model emitted a malformed structured tool call")
             # Validate the entire batch before recording a start, executing any
             # tool, or carrying the assistant call into a follow-up prompt.
             _tool_arguments(call)
@@ -1232,6 +1238,49 @@ def _without_media(messages: list[Any]) -> list[Any]:
                 # context that recalled memories and actual results need.
                 message.pop("thinking", None)
     return cleaned
+
+
+def _response_has_audio(response: Mapping[str, Any]) -> bool:
+    message = response.get("message")
+    adapter = response.get("adapter")
+    return bool(isinstance(message, Mapping) and message.get("audio")) or (
+        isinstance(adapter, Mapping)
+        and (adapter.get("speech_synthesized") is True or adapter.get("audio_streamed") is True)
+    )
+
+
+def _malformed_tool_retry_payload(
+    payload: Mapping[str, Any], response: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """Request a smaller new proposal without retaining invalid calls or media."""
+
+    followup = copy.deepcopy(dict(payload))
+    messages = list(followup.get("messages") or [])
+    if any(isinstance(message, Mapping) and (message.get("images") or message.get("videos"))
+           for message in messages):
+        return None
+    omni = followup.get("omni")
+    has_audio = any(isinstance(message, Mapping) and message.get("audios") for message in messages)
+    speech_required = isinstance(omni, Mapping) and omni.get("require_speech") is True
+    if has_audio or speech_required:
+        adapter = response.get("adapter")
+        transcript = adapter.get("input_transcript") if isinstance(adapter, Mapping) else None
+        latest_user = next((message for message in reversed(messages)
+                            if isinstance(message, Mapping) and message.get("role") == "user"), {})
+        if (not isinstance(transcript, str) or not transcript.strip()
+                or not latest_user.get("audios")):
+            return None
+        messages = _with_heard_words(messages, response)
+        if isinstance(omni, dict):
+            omni["require_speech"] = False
+    messages = _without_media(messages)
+    directive = context_text("directives", "foreground_malformed_tool_call")
+    if messages and isinstance(messages[0], Mapping) and messages[0].get("role") == "system":
+        messages[0] = {**messages[0], "content": f"{messages[0].get('content') or ''}\n\n{directive}"}
+    else:
+        messages.insert(0, {"role": "system", "content": directive})
+    followup["messages"] = messages
+    return followup
 
 
 def _model_ui_node_references(value: Any) -> tuple[str, ...]:
@@ -3182,6 +3231,8 @@ def create_app(
             round_index = 0
             recovery_pending = False
             recovery_refusals = 0
+            format_retries = 0
+            audio_started = False
             while True:
                 upstream = session.post(runtime.adapter_url, json=current_payload)
                 data = _json_object(upstream, "adapter")
@@ -3192,7 +3243,35 @@ def create_app(
                     return response, upstream.status_code
                 if not auto_tools:
                     break
-                calls = _response_tool_calls(data)
+                audio_started = audio_started or _response_has_audio(data)
+                try:
+                    calls = _response_tool_calls(data)
+                except _MalformedStructuredToolBatch:
+                    followup = (
+                        _malformed_tool_retry_payload(current_payload, data)
+                        if not format_retries and not audio_started else None
+                    )
+                    if followup is None:
+                        raise
+                    format_retries += 1
+                    current_payload = followup
+                    _repacked, repack_summary = safe_repack_virtual_followup(
+                        current_payload,
+                        session_id,
+                        query=virtual_query,
+                        system_contract=virtual_contract + "\n\n" + context_text(
+                            "directives", "foreground_malformed_tool_call"
+                        ),
+                        internal_background=internal_background,
+                        virtual_session_id=virtual_session_id,
+                    )
+                    virtual_summary.update(repack_summary)
+                    diagnostics.record(
+                        session_id, "malformed_structured_tool_recovery",
+                        {"request_id": request_id, "outcome": "batch_not_dispatched"},
+                        request_id=request_id,
+                    )
+                    continue
                 if calls:
                     round_index += 1
                     _record_tool_diagnostics(
@@ -3526,6 +3605,8 @@ def create_app(
             recovery_pending = False
             recovery_refusals = 0
             stream_retries = 0
+            format_retries = 0
+            audio_started = False
 
             def event_bytes(event: Mapping[str, Any]) -> bytes:
                 emitted = copy.deepcopy(dict(event))
@@ -3590,6 +3671,8 @@ def create_app(
                             break
                         if event.get("type") == "audio_start":
                             round_audio_started = True
+                        if event.get("type") in {"audio_start", "audio_delta", "audio_chunk", "audio_end"}:
+                            audio_started = True
                         yield event_bytes(event)
                     current_upstream.close()
                     if not stream_error and final_response is None:
@@ -3656,6 +3739,8 @@ def create_app(
                         yield event_bytes({"type": "error", "error": stream_error})
                         return
                     stream_retries = 0
+                    audio_started = audio_started or _response_has_audio(final_response)
+                    format_retry = False
 
                     if not auto_tools:
                         followup = None
@@ -3664,6 +3749,25 @@ def create_app(
                     else:
                         try:
                             calls = _response_tool_calls(final_response)
+                        except _MalformedStructuredToolBatch as exc:
+                            followup = (
+                                _malformed_tool_retry_payload(current_payload, final_response)
+                                if not format_retries and not audio_started else None
+                            )
+                            if followup is None:
+                                final_status = 502
+                                yield event_bytes({"type": "error", "error": str(exc)[:500]})
+                                return
+                            format_retries += 1
+                            format_retry = True
+                            calls, round_tools, _made_progress = [], [], False
+                            diagnostics.record(
+                                session_id, "malformed_structured_tool_recovery",
+                                {"request_id": request_id, "outcome": "batch_not_dispatched"},
+                                request_id=request_id,
+                            )
+                            yield event_bytes({"type": "reset", "reason": "malformed_structured_tool_call",
+                                               "attempt": format_retries})
                         except PortalError as exc:
                             final_status = 502
                             yield event_bytes(
@@ -3688,26 +3792,27 @@ def create_app(
                                     "tools": _tool_start_trace(calls),
                                 }
                             )
-                        followup, round_tools, _made_progress = _tool_followup(
-                            current_payload,
-                            final_response,
-                            tool_harness,
-                            session_id,
-                            {"shell"} if background_bridge and not shell_bridge else set(),
-                            decision_observer=lambda wave, state: observe_decision_wave(
-                                wave,
-                                state,
-                                session_id=session_id,
-                                request_id=request_id,
-                            ),
-                            allowed_tools=allowed_tools,
-                        )
+                        if not format_retry:
+                            followup, round_tools, _made_progress = _tool_followup(
+                                current_payload,
+                                final_response,
+                                tool_harness,
+                                session_id,
+                                {"shell"} if background_bridge and not shell_bridge else set(),
+                                decision_observer=lambda wave, state: observe_decision_wave(
+                                    wave,
+                                    state,
+                                    session_id=session_id,
+                                    request_id=request_id,
+                                ),
+                                allowed_tools=allowed_tools,
+                            )
                     recovery_transition = _tool_recovery_transition(round_tools)
                     if recovery_transition is not None:
                         recovery_pending = recovery_transition
                         if not recovery_pending:
                             recovery_refusals = 0
-                    recovery_retry = False
+                    recovery_retry = format_retry
                     if followup is None and recovery_pending:
                         recovery_refusals += 1
                         if recovery_refusals >= 2:
@@ -3762,7 +3867,9 @@ def create_app(
                         current_payload,
                         session_id,
                         query=virtual_query,
-                        system_contract=virtual_contract,
+                        system_contract=(virtual_contract + "\n\n" + context_text(
+                            "directives", "foreground_malformed_tool_call"
+                        ) if format_retry else virtual_contract),
                         internal_background=internal_background,
                         virtual_session_id=virtual_session_id,
                     )

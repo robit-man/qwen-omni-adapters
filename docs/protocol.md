@@ -283,6 +283,18 @@ audio must not have started, and every completed tool must be on the explicit
 read-only retry allowlist. Stateful browser, GUI, shell, memory-write, and task
 actions are never replayed automatically.
 
+For automatic tool execution, a malformed structured call batch may receive one
+model-generated format correction per request. The entire rejected batch remains
+undispatched; prior completed tool receipts are retained. The correction asks for
+one smaller valid action without repairing arguments or replaying prior effects.
+It keeps the same admission, live tool budget, upstream timeout policy and client
+cancellation semantics. Accepted speech is promoted to text and audio is removed;
+missing speech transcripts, images/video, or any prior output audio forbid this
+recovery. Textual-call, policy, execution and network failures do not trigger it.
+Streaming emits `{"type":"reset","reason":"malformed_structured_tool_call","attempt":1}`
+before correction deltas to clear speculative text and reasoning while retaining
+earlier tool receipts. A second malformed structured batch is terminal.
+
 ### `transcribe`
 
 Requires audio on the last user message. It executes only the comprehension
