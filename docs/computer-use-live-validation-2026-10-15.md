@@ -45,21 +45,22 @@ receipts, frames and exact owned file readbacks remain local.
 | CU-017 | Qwen | Fail, wrong edit method | Actual TTS/ASR, four native inputs and an authoritative final. The model selected `copper`, physically pressed Delete, then Ctrl-Z restored the original buffer. Guarded XTEST receipts and the two fresh document states were verified, but Delete did not satisfy the required Ctrl-X cut. Disk unchanged; editor and test frontend closed; deployment idle. | 95.41 s |
 | CU-001 | Ornith | Fail, interrupted stream | Actual Omni instruction synthesis and correct ASR. Repeated observe/verify calls dispatched no input; no selection or authoritative final. The stream ended with an incomplete chunked read. Saved file unchanged and owned editor closed; recovery proved a clean controller shutdown. | 231.31 s |
 | CU-002 | Ornith | Fail, foreground confound, cancelled | Correct actual TTS/ASR. Pinned Moondream 3.1 produced a grounding receipt, but observations moved to unrelated windows. The proposed double-click was rejected for changed UI identity/revision before input. Operator cancelled only the test client; no actual input, final or selected-word proof. Owned editor closed and requests became idle. | 202.05 s |
+| CU-004 | Ornith | Pass | Actual Omni TTS/ASR; guarded XTEST right-click opened an observed menu; physical Escape and independent positive popup-hidden evidence proved dismissal. Fresh document/file unchanged, pointer movement and authoritative final verified. The unresolved historical Escape receipt was retained. Owned editor closed and requests became idle. | 45.42 s |
 | CU-030 | Qwen | Fail, setup, two attempts | Owned Calc launch passed its OpenCL guard, but initial native observation failed before speech or task input. Installing the GTK3 accessibility plugin did not make the immediate second attempt pass. | 1.47 / 0.93 s |
 | CU-086 | Qwen | Pass | Actual 16 kHz Pulse monitor capture: 208,960 frames with quiet, click and steady noise; production VAD trace; zero submitted turns, stream events or GUI dispatch; call worker and owned Pulse module released. This is not physical-mic acceptance. | 13.16 s |
 | CU-087 | Qwen | Fail, document identity oracle | Real Bluetooth capture, one VAD utterance, actual ASR, verified physical `type_text`, and exact visible `copper finch ready` in the owned editor. Strict initial document identity changed from generation 1 to 2 after focus transitions; that one criterion failed. Cleanup and idleness verified; all attempts retained. | 117.69 s |
 | CU-087, latest physical repeat | Qwen | Fail, malformed model tool arguments | Real Bluetooth capture and ASR preserved the requested words. The next model continuation returned `{` as structured arguments; strict validation rejected the entire batch before execution. No typing or authoritative final. Cleanup and idleness verified. | 110.21 s |
 
 CUDA process evidence and fresh broker discovery after each completed attempt
-proved the owned Qwen/Kev processes resident only on GPU 1, without a reported
+proved the owned Omni/Kev processes resident only on GPU 1, without a reported
 new GPU fault. Each attempt has a separate `after-test-note.md` and JSON note.
 The manifest retains all 200 slots; rows not recorded above remain pending,
 not passing.
 
-At this checkpoint, 18 distinct local model/case slots have been attempted:
-four passed and fourteen failed; 182 remain unrun. These counts include setup
-and interrupted attempts and exclude repeats. Ornith's first local attempt
-failed; it does not establish desktop acceptance.
+At this checkpoint, 19 distinct local model/case slots have been attempted:
+five passed and fourteen failed; 181 remain unrun. These counts include setup
+and interrupted attempts and exclude repeats. Ornith's context-menu case passed;
+full desktop acceptance remains incomplete.
 
 The CU-003 failures are being triaged separately: model action-method fidelity
 and Gedit's implicit final-newline semantics. Neither the saved bytes nor the
@@ -302,5 +303,22 @@ file fingerprints unchanged and every validation gate passing (log SHA-256
 Source checks include both actual portal routes and detached streaming, forged
 client-origin rejection, cached-result freshness, exact receipt preservation,
 new-request isolation, accepted ASR/native think preservation and prefix-repack
-fallback. Live context reduction and task completion are still separate,
-pending criteria at this source checkpoint.
+fallback.
+
+One CPU-only portal frontend then loaded `68cc25c` against the existing Ornith
+graphs and exact GPU 1 lease, without restarting a GPU worker. The genuine
+CU-004 run above passed. Paired measurements at a fresh observation reduced
+the same working history from 84,729 to 34,671 UTF-8 JSON bytes, with six full
+maps becoming one. Across the run, nine older snapshot bodies were retired.
+All nine measured newest assistant/result pairs and immutable receipt digests
+stayed equal; the raw stream remained independently retained. These are byte
+measurements, not token counts or a causal latency comparison. The task used
+native semantic targeting; it did not exercise a Moondream point or Kev choice.
+
+The editor closed, both portal queues and trunk slots became idle, and TTS
+weights were shed. The test frontend was then stopped while preserving the
+original healthy Ornith workers, lease, inference hold and fault recorder.
+Historical unresolved action statuses were not rewritten. Summary SHA-256:
+`a9f6d8443235d1dce1e46c6b606a694d8dc717fdd959a13488aa6c626dc4e216`.
+Projection-metrics SHA-256:
+`17a386fd2ca8be613f0074269066f604627f905db9dea3e2e64e2d9b73acb8f7`.
