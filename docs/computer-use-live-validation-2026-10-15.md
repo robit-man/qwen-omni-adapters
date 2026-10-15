@@ -63,3 +63,21 @@ window are ready. Opt-in capture/VAD/submitted-audio/stream evidence and an
 isolated voice-session scope are implemented and source-validated. The runner
 plays one 80 ms, 8 kHz blip, then waits for captured quiet before publishing its
 speech-ready marker. Ordinary deployment recording stays disabled.
+
+CU-087 exposed a setup failure before recording: Gedit created one mapped
+document window and one unmapped helper with the same class and PID. The
+owned-app launcher now selects new visible windows while excluding every
+preexisting class-matching XID and retaining exact process identity checks.
+A fresh live CU-087 attempt passed window setup and cleaned up its owned
+window, then stopped at the separate ALSA-only microphone metadata guard.
+Read-only discovery confirmed that the default Bluetooth headset is connected;
+its stale PipeWire connection field is not authoritative. No microphone audio
+or attention cue was emitted in these blocked attempts.
+
+The helper and expanded perception runners passed the next frozen source gate:
+1,872 tests in 99.84 seconds, with 221 checked source files unchanged (manifest
+SHA-256 `b8b073c34165ca658dd47dfa60cf540a0bc56c2894f8b278a98611166d04b90d`).
+This remains a source gate, not additional live acceptance. LibreOffice Calc
+24.2.7 was installed for future spreadsheet cases: 43 approved new packages,
+no existing package version changes, and a clean package audit. Calc has not
+been launched or tested in this campaign yet.

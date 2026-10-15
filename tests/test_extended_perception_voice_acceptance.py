@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import io
 import json
+import os
 import wave
 
 import numpy as np
@@ -154,3 +156,138 @@ def test_attention_cue_cannot_play_before_real_readiness(tmp_path):
         runner.play_attention_cue(tmp_path, recorder, None)
     assert not (tmp_path / "attention-cue.wav").exists()
     recorder.close()
+
+
+def node(identity='doc', value='copper finch ready', **extra):
+    return {'id': identity, 'generation': 'g1', 'scope_id': 'scope', 'role': 'textbox', 'visible': True,
+            'enabled': True, 'sensitive': False, 'value': value, 'operations': ['set_value'], **extra}
+
+
+def state(nodes):
+    return {'revision': 'r1', 'scope': {'id': 'scope', 'window_id': '100'}, 'nodes': nodes}
+
+
+def binding():
+    return {'id': 'doc', 'generation': 'g1', 'scope_id': 'scope', 'window_id': '100'}
+
+
+def distribution():
+    candidates = [{'id': 'a', 'kind': 'action'}, {'id': 'b', 'kind': 'action'},
+                  {'id': 'observe', 'kind': 'observe'}, {'id': 'abstain', 'kind': 'abstain'}]
+    receipt = {'status': 'accepted', 'mode': 'active', 'model_confirmed': True, 'probability_kind': 'native',
+               'model': 'jaredpalmer/kev-4b@pinned', 'candidate_ids': [item['id'] for item in candidates],
+               'policy_choice': 'a', 'selected_action_id': 'abstain', 'state_revision': 'r1',
+               'probabilities': {'a': .6, 'b': .2, 'observe': .1, 'abstain': .1}}
+    return {'state': {'revision': 'r1'}, 'candidates': candidates, 'policy_receipt': receipt}
+
+
+def event(body):
+    return {'type': 'tool', 'tools': [{'name': 'native_ui', 'result': json.dumps(body)}]}
+
+
+def action(verb, *, name='', args=None):
+    return event({'action': {'id': verb+name, 'node_id': 'target', 'verb': verb, 'args': args or {}},
+                  'before': {'nodes': [{'id': 'target', 'name': name}]}, 'receipt': {'status': 'dispatched'}})
+
+
+def test_negative_policy_requires_actual_active_bound_finite_distribution():
+    body = distribution()
+    assert len(runner.policy_abstentions([event(body)], low_confidence=True)) == 1
+    assert not runner.policy_abstentions([event({'selected_action_id': 'abstain'})], low_confidence=False)
+    for mutate in (
+        lambda x: x['policy_receipt'].update(mode='shadow'),
+        lambda x: x['policy_receipt'].update(model_confirmed=False),
+        lambda x: x['policy_receipt'].update(probability_kind='synthetic'),
+        lambda x: x['policy_receipt'].update(state_revision='old'),
+        lambda x: x['policy_receipt'].update(selected_action_id='a'),
+        lambda x: x['policy_receipt']['probabilities'].update(a=.99),
+        lambda x: x['candidates'].pop(),
+    ):
+        bad = copy.deepcopy(body)
+        mutate(bad)
+        assert not runner.policy_abstentions([event(bad)], low_confidence=True)
+
+
+def test_confident_abstention_does_not_prove_low_confidence_gate():
+    body = distribution()
+    body['policy_receipt'].update(policy_choice='abstain', probabilities={'a': .01, 'b': .01, 'observe': .01, 'abstain': .97})
+    assert runner.policy_abstentions([event(body)], low_confidence=False)
+    assert not runner.policy_abstentions([event(body)], low_confidence=True)
+
+
+def test_positional_target_is_independently_geometry_derived_not_digit_answer():
+    digits = [{'id': f'n{i}', 'name': str(i), 'role': 'button', 'visible': True,
+               'bounds': {'x': (i%3)*20, 'y': (i//3)*20, 'width': 18, 'height': 18}} for i in range(10)]
+    assert runner.positional_digit(state(digits))['name'] == '0'
+    # Swapping positions changes the oracle, rather than hard-coding seven.
+    digits[0]['bounds'], digits[7]['bounds'] = digits[7]['bounds'], digits[0]['bounds']
+    assert runner.positional_digit(state(digits))['name'] == '7'
+    digits[1]['bounds'] = digits[2]['bounds']
+    assert runner.positional_digit(state(digits)) == {}
+
+
+@pytest.mark.parametrize('key,value', [('id', 'find'), ('generation', 'g2'), ('scope_id', 'other')])
+def test_spoken_text_oracle_rejects_unbound_document(key, value):
+    context = {'document_binding': binding()}
+    fresh = state([node(**{key: value})]) if key != 'id' else state([node(identity=value)])
+    checks = runner.native_checks('CU-081', context, [action('type_text')], fresh, [], [])
+    assert checks['exact_bound_document'] is False
+
+
+def test_spoken_correction_requires_real_first_turn_state_and_final_same_document():
+    context = {'document_binding': binding()}
+    good = state([node(value='copper robin ready')])
+    checks = runner.native_checks('CU-084', context, [action('type_text')], good,
+                                 [state([node()]), good], [])
+    assert all(checks.values())
+    assert not runner.native_checks('CU-084', context, [action('type_text')], good,
+                                   [state([node(value='unrelated')]), good], [])['first_turn_exact_intermediate']
+    assert not runner.native_checks('CU-084', context, [action('set_value')], good,
+                                   [state([node()]), good], [])['actual_keyboard_input']
+
+
+def test_negated_save_requires_exact_selection_hash_mtime_and_no_mutation(tmp_path):
+    path = tmp_path/'source.txt'
+    path.write_text('alpha copper ready')
+    context = {'document_binding': binding(), 'source': path, 'source_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+               'source_mtime_ns': path.stat().st_mtime_ns, 'initial_text': path.read_text()}
+    fresh = state([node(value=context['initial_text'], text_selection={'start': 0, 'end': len(context['initial_text'])})])
+    assert all(runner.native_checks('CU-083', context, [action('key_chord', args={'keys': ['Control_L', 'a']})], fresh, [], []).values())
+    assert not runner.native_checks('CU-083', context, [action('key_chord', args={'keys': ['Control_L', 's']})], fresh, [], [])['zero_typing_or_save']
+    os.utime(path, ns=(context['source_mtime_ns']+1000000, context['source_mtime_ns']+1000000))  # Same bytes cannot conceal a changed timestamp.
+    assert not runner.native_checks('CU-083', context, [], fresh, [], [])['file_hash_and_mtime_unchanged']
+
+
+def test_referent_move_requires_exact_initial_selection_and_whole_manifest():
+    before = [{'path': 'Destination', 'kind': 'directory'}, {'path': 'alpha.txt', 'kind': 'file', 'sha256': 'alpha'},
+              {'path': 'beta.txt', 'kind': 'file', 'sha256': 'beta'}]
+    context = {'manifest_before': before}
+    selected = state([{'id': 'list', 'visible': True, 'selected': ['alpha']},
+                      {'id': 'alpha', 'visible': True, 'name': 'alpha.txt'}])
+    after = [before[0], before[2], {**before[1], 'path': 'Destination/alpha.txt'}]
+    checks = runner.native_checks('CU-085', context, [action('key_chord', args={'keys': ['Control_L', 'v']})], {}, [selected, {}], after)
+    assert all(checks.values())
+    assert not runner.native_checks('CU-085', context, [], {}, [{}, {}], after)['first_turn_exact_selection']
+    after[1] = {**after[1], 'sha256': 'wrong-file-mutated'}
+    assert not runner.native_checks('CU-085', context, [action('key_chord', args={'keys': ['Control_L', 'v']})], {}, [selected, {}], after)['exact_selected_file_move']
+
+
+def test_all_perception_cases_resolve_and_missing_fault_barriers_remain_blocked():
+    assert len(runner.CASE_IDS) == 20
+    assert all(runner.case_spec(case)['id'] == case for case in runner.CASE_IDS)
+    assert {'CU-073', 'CU-074', 'CU-077', 'CU-080', 'CU-089'} == set(runner.BLOCKED_CASES)
+
+
+def test_independent_terminal_oracle_can_use_real_unresolved_frame_bound_input_without_rewriting_it():
+    frame = 'a'*64
+    point = {'model': runner.POINT_MODEL, 'revision': runner.POINT_REVISION, 'candidate_id': 'visual:target', 'frame_sha256': frame}
+    outcome = {'status': 'unresolved', 'action': {'id': 'a', 'node_id': 'visual:target', 'verb': 'click', 'generation': frame},
+               'receipt': {'status': 'dispatched', 'backend': 'x11_guarded_xtest'}, 'point_receipt': point}
+    assert runner.grounding_receipts([outcome]) == [point]
+    assert outcome['status'] == 'unresolved'
+    for field, bad in [('frame_sha256', 'b'*64), ('revision', 'wrong'), ('candidate_id', 'other')]:
+        broken = copy.deepcopy(outcome)
+        broken['point_receipt'][field] = bad
+        assert runner.grounding_receipts([broken]) == []
+    outcome['receipt']['status'] = 'rejected'
+    assert runner.grounding_receipts([outcome]) == []

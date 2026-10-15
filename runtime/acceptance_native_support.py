@@ -39,8 +39,8 @@ def command(argv: list[str], environment: dict[str, str], *, empty_ok: bool = Fa
     return result.stdout.strip()
 
 
-def class_windows(window_class: str, environment: dict[str, str]) -> set[str]:
-    return {value for value in command(["xdotool", "search", "--class", window_class], environment,
+def class_windows(window_class: str, environment: dict[str, str], *, visible: bool = False) -> set[str]:
+    return {value for value in command(["xdotool", "search", *(["--onlyvisible"] if visible else []), "--class", window_class], environment,
                                       empty_ok=True).splitlines() if value.isdecimal()}
 
 
@@ -89,19 +89,25 @@ class OwnedDesktop:
             start_new_session=True)  # noqa: S603
         pending = {"application": application, "process": process, "standalone": standalone, "registered": False}
         self._pending.append(pending)
+        launched_start = process_start(str(process.pid)) if standalone else None
         if stdin is not None:
             assert process.stdin is not None
             process.stdin.write(stdin)
             process.stdin.close()
         deadline = time.monotonic() + 12
         while time.monotonic() < deadline:
-            new = class_windows(window_class, self.environment) - before
+            # Toolkit client-leader/helper XIDs can share the application's
+            # class and PID while unmapped. Only mapped visible roots count;
+            # retain the complete prelaunch inventory to exclude old windows.
+            new = class_windows(window_class, self.environment, visible=True) - before
             if len(new) == 1:
                 xid = next(iter(new))
                 pid = command(["xdotool", "getwindowpid", xid], self.environment)
-                if not pid.isdecimal() or standalone and int(pid) != process.pid:
+                start = process_start(pid) if pid.isdecimal() else None
+                if (not pid.isdecimal() or standalone and (int(pid) != process.pid
+                        or process.poll() is not None or start != launched_start)):
                     raise RuntimeError("New application window has no exact owned process identity")
-                record = self.register(OwnedWindow(application, xid, pid, process_start(pid),
+                record = self.register(OwnedWindow(application, xid, pid, start,
                                                   process=process, standalone=standalone))
                 pending["registered"] = True
                 command(["xdotool", "windowactivate", "--sync", xid], self.environment)

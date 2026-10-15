@@ -6,6 +6,7 @@ import hashlib
 import json
 import subprocess
 import zipfile
+from types import SimpleNamespace
 
 import pytest
 
@@ -402,6 +403,78 @@ def test_absent_app_has_true_empty_cleanup_and_failed_unknown_launch_is_not_true
     assert owned.close() == []
     owned._pending.append({"application": "shared", "standalone": False, "registered": False, "process": None})
     assert owned.close()[0]["closed"] is False
+
+
+def application_discovery(monkeypatch, *, visible=("202",), pid="101", before=("17",), start_changed=False):
+    calls, starts = [], []
+    process = SimpleNamespace(pid=101, poll=lambda: None)
+    monkeypatch.setattr(support.shutil, "which", lambda _name: "/usr/bin/gedit")
+    monkeypatch.setattr(support.subprocess, "Popen", lambda *_a, **_k: process)
+    def process_start(actual_pid):
+        starts.append(actual_pid)
+        return "reused" if start_changed and len(starts) > 1 else "start-"+actual_pid
+    monkeypatch.setattr(support, "process_start", process_start)
+    def command(argv, _environment, **_kwargs):
+        calls.append(argv)
+        if argv[1] == "search":
+            return "\n".join(visible if "--onlyvisible" in argv else before)
+        if argv[1] == "getwindowpid":
+            return pid
+        if argv[1] == "windowactivate":
+            return ""
+        pytest.fail("Unexpected setup command")
+    monkeypatch.setattr(support, "command", command)
+    return support.OwnedDesktop({"DISPLAY": ":test"}), calls
+
+
+def test_owned_editor_discovery_ignores_unmapped_helper_and_retains_exact_pid_start(monkeypatch):
+    # Measured CU087 shape: helper201 is absent from --onlyvisible, while202
+    # is the single mapped window. They may share the same class and PID.
+    owned, calls = application_discovery(monkeypatch, visible=("202",))
+    window = owned.open_editor()
+    assert (window.window_id, window.pid, window.process_start) == ("202", "101", "start-101")
+    searches = [call for call in calls if call[1] == "search"]
+    assert searches == [["xdotool", "search", "--class", "[Gg]edit"],
+                        ["xdotool", "search", "--onlyvisible", "--class", "[Gg]edit"]]
+    assert calls[-1] == ["xdotool", "windowactivate", "--sync", "202"]
+
+
+@pytest.mark.parametrize("visible", [("202", "203"), ("17", "202", "203")])
+def test_two_genuinely_visible_new_windows_still_reject_without_activation(monkeypatch, visible):
+    owned, calls = application_discovery(monkeypatch, visible=visible)
+    with pytest.raises(RuntimeError, match="Concurrent"):
+        owned.open_editor()
+    assert owned.windows == [] and all(call[1] != "windowactivate" for call in calls)
+
+
+def test_preexisting_unmapped_window_that_becomes_visible_cannot_be_adopted(monkeypatch):
+    owned, calls = application_discovery(monkeypatch, before=("17", "201"), visible=("201", "202"))
+    assert owned.open_editor().window_id == "202"
+    assert [call for call in calls if call[1] == "windowactivate"] == [["xdotool", "windowactivate", "--sync", "202"]]
+
+
+@pytest.mark.parametrize(("pid", "changed"), [("99", False), ("101", True)])
+def test_visible_window_wrong_pid_or_reused_process_start_cannot_be_adopted(monkeypatch, pid, changed):
+    owned, calls = application_discovery(monkeypatch, pid=pid, start_changed=changed)
+    with pytest.raises(RuntimeError, match="exact owned process identity"):
+        owned.open_editor()
+    assert owned.windows == [] and all(call[1] != "windowactivate" for call in calls)
+
+
+def test_dbus_launcher_keeps_unique_new_window_pid_and_start_binding(monkeypatch):
+    owned, _calls = application_discovery(monkeypatch, pid="99")
+    window = owned.open_application("gedit", [], "shared-app", "class", standalone=False)
+    assert (window.window_id, window.pid, window.process_start) == ("202", "99", "start-99")
+
+
+def test_unmapped_only_startup_times_out_without_window_activation(monkeypatch):
+    owned, calls = application_discovery(monkeypatch, visible=("17",))
+    times = iter((0, 1, 13))
+    monkeypatch.setattr(support.time, "monotonic", lambda: next(times))
+    monkeypatch.setattr(support.time, "sleep", lambda _seconds: None)
+    with pytest.raises(support.CapabilityBlocked, match="did not expose"):
+        owned.open_editor()
+    assert owned.windows == [] and all(call[1] != "windowactivate" for call in calls)
 
 
 def test_independent_observer_never_reads_unowned_foreground_or_calls_pointing(tmp_path, monkeypatch):
