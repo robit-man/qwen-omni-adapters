@@ -1,0 +1,1948 @@
+{
+  "schema": "robit.omni.computer-use-acceptance-plan.v1",
+  "created_date": "2026-10-15",
+  "status": "specified_not_executed",
+  "distinct_cases": 100,
+  "required_model_case_results": 200,
+  "gpu": {
+    "host_index": 1,
+    "uuid": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+    "pci_bus_id": "00000000:82:00.0",
+    "serial": "1323222067591",
+    "all_cuda_components_same_uuid": true,
+    "omni_models_sequential": true,
+    "cpu_fallback": false,
+    "persistent_host_inference_hold": "preserve",
+    "authorization": "2026-10-15 user requested new tests restricted to GPU 1"
+  },
+  "models": [
+    {
+      "name": "qwen",
+      "tag": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+    },
+    {
+      "name": "ornith",
+      "tag": "robit/ornith-1.5-omni-audio-bridge:q4km"
+    }
+  ],
+  "support_models": {
+    "tts": "Selected Omni profile sidecar; record actual materialized view digests",
+    "point": {
+      "model": "moondream/moondream3.1-9B-A2B",
+      "revision": "1da27e6c2d2f9118de14560df456881dc62d91f3"
+    },
+    "policy": {
+      "model": "jaredpalmer/kev-4b",
+      "revision": "6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+      "mode": "active",
+      "minimum_native_probability": 0.95
+    }
+  },
+  "execution_order": [
+    "baseline",
+    "input",
+    "controls",
+    "files",
+    "browser",
+    "docs",
+    "memory",
+    "grounding",
+    "speech",
+    "workflows"
+  ],
+  "common_rules": [
+    "Every case runs separately against both exact Omni tags, sequentially on the same leased host GPU 1 UUID.",
+    "Normal signed-in desktop applications and the real default-profile Firefox are the target; no isolated browser or DOM-script task executor.",
+    "Setup may create owned inputs and open blank application windows; only the selected model receives the task audio and performs task actions.",
+    "No test-generated plan, typed transcript, direct filesystem mutation, shell, browser automation or web fetch may complete model-owned GUI steps.",
+    "All applicable cases use actual Omni TTS WAV -> ASR -> comprehension -> finite native input -> independent fresh verification.",
+    "Physical microphone and speaker-loopback cases retain actual capture/VAD evidence and are never reported as direct-WAV or mic-equivalent substitutes.",
+    "Allocate a fresh owned Workbench and random marker for each case/model; placeholders are expanded only into audio and owned setup paths.",
+    "Read-only oracles may inspect owned files, windows, AT-SPI, screenshots, visible public source and memory records; they cannot repair task state.",
+    "Pointer requirements need real motion and button/wheel events bound to guarded dispatch; accessibility invoke alone does not satisfy a click requirement.",
+    "Vision requirements need pinned live Moondream inference, current frame hash, grounded candidate binding, input receipt and fresh independent effect.",
+    "Kev requirements need real active-model distributions and choice/abstention receipts; unchanged 0.95 threshold; no semantic or keyboard bypass.",
+    "Record transcript fidelity separately from physical result and conversational completion; ASR errors cannot be repaired by substituting the source instruction.",
+    "Pass needs case-specific oracle plus method/provenance and required final response; a success claim, zero exit or old report never establishes completion.",
+    "Negative controls pass only on independently verified intended abstention/rejection/unchanged state, never by turning a failed positive task into a negative pass.",
+    "Record unrun, blocked_capability, blocked_environment, failed, or passed; unavailable apps and pending harnesses cannot count as passes.",
+    "Use native think:false for the 200-case baseline; optional think:true comparison is an additional explicitly labeled run.",
+    "Stop the current lane at the first failure; a later fresh selected-case run preserves earlier artifacts; never automatically replay an uncertain input.",
+    "Stop all owned CUDA testing at the first new fault and release only after owned allocations are gone; no reset, reboot or inference-hold release."
+  ],
+  "evidence_per_model_case": [
+    "case ID, exact source revision and hashes of runner/production files",
+    "model tag, installed model/sidecar digests, support model revisions and native think boolean",
+    "fresh broker discovery before lifecycle plus lease owner/scope and expected duration; never log lease token",
+    "CUDA process UUID residency before workload and at model inference; no CUDA activity outside GPU 1 by owned processes",
+    "source instruction hash, actual TTS WAV hash/format or physical capture/VAD provenance, ASR transcript and input hashes",
+    "session-isolated tool trace, finite action IDs, dispatch status, current scope/revision/frame and native/point/policy receipts",
+    "bounded owned-window recording or redacted frames plus actual pointer-event log for pointer cases",
+    "before/intermediate/after fresh UI observations and independent owned filesystem or source-memory checks",
+    "final response, exact terminal criteria, failure stage, latency and cleanup receipt"
+  ],
+  "official_documentation_targets": [
+    "https://docs.python.org/3/tutorial/introduction.html",
+    "https://docs.python.org/3/library/pathlib.html",
+    "https://docs.python.org/3/library/json.html",
+    "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/button",
+    "https://developer.mozilla.org/en-US/docs/Web/Accessibility",
+    "https://git-scm.com/docs/git-status"
+  ],
+  "tests": [
+    {
+      "id": "CU-001",
+      "category": "baseline",
+      "title": "Select the entire document",
+      "setup": "Gedit with alpha copper ready and one newline",
+      "spoken_instruction": "In the visible Text Editor, select all text in the document and verify the selection. Leave the document content unchanged.",
+      "independent_success_check": "Fresh AT-SPI selection covers the initial buffer; buffer and saved file bytes are unchanged",
+      "required_evidence": [
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "existing_runner",
+      "existing_suite_case": "gedit-selection-only",
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900,
+      "existing_runner": {
+        "module": "runtime.verify_real_desktop",
+        "scenario": "selection-only",
+        "require_policy": false,
+        "turns": 1
+      }
+    },
+    {
+      "id": "CU-002",
+      "category": "baseline",
+      "title": "Double-click one visible word",
+      "setup": "Gedit with alpha copper ready and one newline",
+      "spoken_instruction": "In the visible Text Editor, double click the word alpha at the beginning of the document. Verify that exactly the word alpha is selected. Leave all document content unchanged.",
+      "independent_success_check": "Actual Moondream-bound double-click selects precisely alpha at offsets 0..5; file unchanged",
+      "required_evidence": [
+        "pointer",
+        "vision"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "existing_runner",
+      "existing_suite_case": "gedit-double-click-word",
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900,
+      "existing_runner": {
+        "module": "runtime.verify_real_desktop",
+        "scenario": "double-click-word",
+        "require_policy": false,
+        "turns": 1
+      }
+    },
+    {
+      "id": "CU-003",
+      "category": "baseline",
+      "title": "Replace text and click Save",
+      "setup": "Gedit with a fresh speech-note.txt",
+      "spoken_instruction": "In the visible Text Editor, replace the document with the lowercase words copper finch ready, followed by exactly one newline. Click the Save button and verify the saved document.",
+      "independent_success_check": "Fresh buffer and independently read file both equal copper finch ready plus exactly one newline; Save has a pointer dispatch receipt",
+      "required_evidence": [
+        "keyboard",
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "existing_runner",
+      "existing_suite_case": "gedit-replace-save",
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900,
+      "existing_runner": {
+        "module": "runtime.verify_real_desktop",
+        "scenario": "replace-save",
+        "require_policy": false,
+        "turns": 1
+      }
+    },
+    {
+      "id": "CU-004",
+      "category": "baseline",
+      "title": "Inspect and dismiss a context menu",
+      "setup": "Gedit with a fresh speech-note.txt",
+      "spoken_instruction": "In the visible Text Editor, right click inside the document to open its context menu. Inspect the menu, then press Escape to close it. Leave the document content unchanged.",
+      "independent_success_check": "Right-click exposes a native menu; Escape closes that menu; buffer and disk bytes remain unchanged",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "existing_runner",
+      "existing_suite_case": "gedit-context-menu",
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900,
+      "existing_runner": {
+        "module": "runtime.verify_real_desktop",
+        "scenario": "context-menu",
+        "require_policy": false,
+        "turns": 1
+      }
+    },
+    {
+      "id": "CU-005",
+      "category": "baseline",
+      "title": "Complete the spelled-word edit workflow",
+      "setup": "Gedit with a fresh speech-note.txt",
+      "spoken_instruction": "In the visible Text Editor, select all text in the document. Replace it with one line of lowercase words copper finch ready. The last word is spelled R E A D Y. Do not add a blank line or an extra Return. Physically click the Save button using the mouse. Then right click inside the document to open its context menu, inspect that menu, and press Escape to close it. Verify the saved document and closed menu.",
+      "independent_success_check": "Exact saved bytes, real Save click, observed right-click menu and fresh menu-dismissal verification all hold",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "existing_runner",
+      "existing_suite_case": "gedit-full-spelled",
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900,
+      "existing_runner": {
+        "module": "runtime.verify_real_desktop",
+        "scenario": "full-spelled",
+        "require_policy": false,
+        "turns": 1
+      }
+    },
+    {
+      "id": "CU-006",
+      "category": "baseline",
+      "title": "Calculate using physical button clicks",
+      "setup": "Fresh normal Calculator window",
+      "spoken_instruction": "Use the visible Calculator. Clear the current calculation by clicking its clear button. Calculate seventeen plus twenty five by clicking the number and plus buttons. Click equals and verify the displayed answer.",
+      "independent_success_check": "Fresh displayed result is 42 after the actual Clear, 17, Plus, 25, Equals inputs; host code never calculates into the app",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "existing_runner",
+      "existing_suite_case": "calculator-arithmetic",
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900,
+      "existing_runner": {
+        "module": "runtime.verify_real_calculator",
+        "scenario": "click-arithmetic",
+        "require_policy": false,
+        "turns": 1
+      }
+    },
+    {
+      "id": "CU-007",
+      "category": "baseline",
+      "title": "Find Equals visually",
+      "setup": "Fresh normal Calculator window",
+      "spoken_instruction": "Use the visible Calculator. Clear the current calculation, then enter eight plus seven by clicking its buttons. Finally click the bottom right button with the equals sign, locating it by its visual position and appearance. Verify the displayed answer.",
+      "independent_success_check": "Result is 15; the Equals dispatch binds the pinned Moondream receipt to its current frame and actual pointer input",
+      "required_evidence": [
+        "pointer",
+        "vision"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "existing_runner",
+      "existing_suite_case": "calculator-visual-result",
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900,
+      "existing_runner": {
+        "module": "runtime.verify_real_calculator",
+        "scenario": "visual-result",
+        "require_policy": false,
+        "turns": 1
+      }
+    },
+    {
+      "id": "CU-008",
+      "category": "baseline",
+      "title": "Choose Calculator buttons through active Kev",
+      "setup": "Fresh Calculator; active pinned Kev endpoint",
+      "spoken_instruction": "Use the visible Calculator. Clear the current calculation by clicking its clear button. Calculate seventeen plus twenty five by clicking the number and plus buttons. Click equals and verify the displayed answer.",
+      "independent_success_check": "Result is 42 and accepted native-probability Kev choices are bound to the executed candidates; abstention fails task completion",
+      "required_evidence": [
+        "pointer",
+        "kev"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "existing_runner",
+      "existing_suite_case": "calculator-require-policy",
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900,
+      "existing_runner": {
+        "module": "runtime.verify_real_calculator",
+        "scenario": "click-arithmetic",
+        "require_policy": true,
+        "turns": 1
+      }
+    },
+    {
+      "id": "CU-009",
+      "category": "baseline",
+      "title": "Complete selection, rename and drag in Files",
+      "setup": "Owned Workbench containing alpha.txt, beta.txt and Destination",
+      "spoken_instruction": "In Files, double click the Workbench folder. Click alpha dot txt once and verify it is selected. Then select alpha dot txt and beta dot txt together and verify both are selected. Right click alpha dot txt and use Rename from its context menu to rename it copper dot txt. Drag copper dot txt onto the Destination folder. Double click Destination and verify copper dot txt is inside. Leave beta dot txt in Workbench and preserve both file contents.",
+      "independent_success_check": "Single and multiple selection observed; copper.txt ends in Destination; beta.txt remains in Workbench; both file hashes preserved",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "existing_runner",
+      "existing_suite_case": "files",
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900,
+      "existing_runner": {
+        "module": "runtime.verify_real_files",
+        "scenario": null,
+        "require_policy": false,
+        "turns": 1
+      }
+    },
+    {
+      "id": "CU-010",
+      "category": "baseline",
+      "title": "Browse real documentation and recall its source",
+      "setup": "New default-profile Firefox window; fresh session marker",
+      "spoken_instruction": "Use the actual Firefox window that was just opened. Go to Python's official documentation website, open its tutorial, and open the page titled An Informal Introduction to Python. Use mouse clicks to navigate. Use Firefox's Find in page to find Numbers. Scroll the page down with the mouse and read the sentence that describes how the interpreter acts as a simple calculator. Remember that exact sentence together with the actual source address in session memory under the marker {marker}. Leave that sentence visible in Firefox and tell me what you verified.\nSecond spoken turn: Recall the note under {marker}, with its quote and source address, without browsing again.",
+      "independent_success_check": "Fresh official Python URL, visible acquired sentence, real scroll/click, sourced memory write and second spoken memory-search recall all verified",
+      "required_evidence": [
+        "pointer",
+        "keyboard",
+        "memory",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "existing_runner",
+      "existing_suite_case": "firefox-docs-memory",
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800,
+      "existing_runner": {
+        "module": "runtime.verify_real_firefox",
+        "scenario": "python-numbers",
+        "require_policy": false,
+        "turns": 2
+      }
+    },
+    {
+      "id": "CU-011",
+      "category": "input",
+      "title": "Single-click without opening",
+      "setup": "Files showing one owned alpha.txt",
+      "spoken_instruction": "Click alpha dot txt once and leave it selected without opening it.",
+      "independent_success_check": "Exactly alpha.txt is selected; no editor opens and no file bytes change",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-012",
+      "category": "input",
+      "title": "Drag-select a text phrase",
+      "setup": "Gedit displaying alpha copper ready",
+      "spoken_instruction": "Drag across just the words copper ready and leave them selected.",
+      "independent_success_check": "Actual button-down/motion/button-up occurs; independent selection is offsets 6..18 with exact selected text",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-013",
+      "category": "input",
+      "title": "Extend a selection with Shift",
+      "setup": "Gedit displaying alpha copper ready",
+      "spoken_instruction": "Select alpha and then extend the selection to include copper using Shift and the arrow keys.",
+      "independent_success_check": "Fresh selected range is exactly alpha copper; modifier key receipts exist; file unchanged",
+      "required_evidence": [
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-014",
+      "category": "input",
+      "title": "Select nonadjacent files with Control",
+      "setup": "Files showing alpha.txt, beta.txt, gamma.txt",
+      "spoken_instruction": "Select alpha dot txt and gamma dot txt together using Control, leaving beta dot txt unselected.",
+      "independent_success_check": "Fresh selected-node set is exactly alpha.txt and gamma.txt, with physical modifier-assisted inputs",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-015",
+      "category": "input",
+      "title": "Select a contiguous range with Shift",
+      "setup": "Files in name-sorted list view showing five owned files",
+      "spoken_instruction": "Click the first file and Shift-click the third file so only the first three are selected.",
+      "independent_success_check": "Exactly first through third are selected in observed order; fourth and fifth remain unselected",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-016",
+      "category": "input",
+      "title": "Copy and paste between owned documents",
+      "setup": "Two Gedit documents, source alpha copper ready and empty destination",
+      "spoken_instruction": "Copy copper from the first document and paste it into the empty second document, without altering the first.",
+      "independent_success_check": "Actual copy/paste shortcuts occur; destination buffer equals copper and source bytes remain unchanged",
+      "required_evidence": [
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-017",
+      "category": "input",
+      "title": "Cut and undo",
+      "setup": "Gedit displaying alpha copper ready",
+      "spoken_instruction": "Cut the word copper, verify it disappeared, then undo and verify the original sentence is restored.",
+      "independent_success_check": "Fresh intermediate buffer lacks copper; later buffer exactly matches initial bytes; two separately observed states",
+      "required_evidence": [
+        "keyboard",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-018",
+      "category": "input",
+      "title": "Redo a restored edit",
+      "setup": "Gedit with one initial line alpha",
+      "spoken_instruction": "Append beta after alpha, undo that edit, then redo it and leave alpha beta visible.",
+      "independent_success_check": "Independent snapshots show alpha beta, alpha, alpha beta in order; no disk write required",
+      "required_evidence": [
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-019",
+      "category": "input",
+      "title": "Type punctuation literally",
+      "setup": "Empty Gedit document",
+      "spoken_instruction": "Type exactly: Copper, finch! Then add a newline and type: Ready?",
+      "independent_success_check": "Fresh buffer equals Copper, finch! newline Ready?; no shell, setter or clipboard substitute for required keyboard typing",
+      "required_evidence": [
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-020",
+      "category": "input",
+      "title": "Replace a selected middle word",
+      "setup": "Gedit displaying alpha copper ready",
+      "spoken_instruction": "Select only copper and type silver in its place, leaving the other words unchanged.",
+      "independent_success_check": "Fresh buffer equals alpha silver ready; preserved prefix/suffix and actual keyboard dispatch verified",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-021",
+      "category": "controls",
+      "title": "Switch between owned application windows",
+      "setup": "Owned Gedit and Calculator windows, both initially visible",
+      "spoken_instruction": "Bring Calculator to the front, then return to the Text Editor.",
+      "independent_success_check": "Fresh foreground XID/PID sequence matches the two owned windows; input never lands in another app",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-022",
+      "category": "controls",
+      "title": "Move and resize a window",
+      "setup": "Owned Gedit with recorded initial geometry",
+      "spoken_instruction": "Move this Text Editor toward the left side of the screen and make it smaller without hiding its document.",
+      "independent_success_check": "Actual pointer drag receipts and independent X11 geometry changes; document remains visible and unchanged",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-023",
+      "category": "controls",
+      "title": "Minimize and restore",
+      "setup": "Owned Calculator with result 42",
+      "spoken_instruction": "Minimize Calculator, then restore it from the desktop and verify forty two is still displayed.",
+      "independent_success_check": "Window visibility changes and returns; restored foreground identity and result 42 independently verified",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-024",
+      "category": "controls",
+      "title": "Maximize and restore geometry",
+      "setup": "Owned Gedit with recorded normal geometry",
+      "spoken_instruction": "Maximize the Text Editor and then restore its original window size.",
+      "independent_success_check": "Maximize state appears then clears; restored geometry within compositor tolerance; buffer unchanged",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-025",
+      "category": "controls",
+      "title": "Use a native Save As dialog",
+      "setup": "Unsaved owned Gedit document containing copper finch ready",
+      "spoken_instruction": "Save this document as copper note dot txt in the Workbench folder using Save As.",
+      "independent_success_check": "Native dialog is observed and dismissed by Save; new owned file has exact expected bytes and path",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-026",
+      "category": "controls",
+      "title": "Cancel a native file chooser",
+      "setup": "Owned Gedit and an unused target path",
+      "spoken_instruction": "Open Save As, type draft dot txt as the filename, then cancel without saving.",
+      "independent_success_check": "File chooser opens and closes; draft.txt does not exist; original file and buffer remain unchanged",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-027",
+      "category": "controls",
+      "title": "Toggle a preference and restore it",
+      "setup": "Owned Gedit preferences; original line-number setting recorded",
+      "spoken_instruction": "Turn line numbers on, verify they appear, and then put that setting back how it was.",
+      "independent_success_check": "Fresh checkbox/property and editor gutter evidence show temporary toggle and exact original value restored",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-028",
+      "category": "controls",
+      "title": "Choose from a native dropdown",
+      "setup": "Owned Gedit preferences with visible tab-width selector and original value recorded",
+      "spoken_instruction": "Set the tab width to four, verify it, then restore the original tab width.",
+      "independent_success_check": "Dropdown selection and effective property both change to 4 and return to preimage",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-029",
+      "category": "controls",
+      "title": "Adjust a media slider",
+      "setup": "Owned media player with a short generated local tone; initial volume recorded",
+      "spoken_instruction": "Set this player's volume near one quarter, pause playback, then restore its original volume.",
+      "independent_success_check": "Fresh slider value within documented tolerance, pause state verified, original value restored; system volume untouched",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-030",
+      "category": "controls",
+      "title": "Use a spreadsheet through its GUI",
+      "setup": "Owned LibreOffice Calc blank scratch workbook",
+      "spoken_instruction": "Put twelve in A1 and thirty in A2, enter a sum formula in A3, and save the workbook as totals dot ods in Workbench.",
+      "independent_success_check": "Fresh A3 displays 42; independently opened saved ODS contains the two numbers and formula, not just a screenshot",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-031",
+      "category": "files",
+      "title": "Create a folder",
+      "setup": "Files opened to empty owned Workbench",
+      "spoken_instruction": "Create a folder named Copper Notes in this Workbench.",
+      "independent_success_check": "Native creation dialog and resulting directory observed; independent tree receipt contains exactly Copper Notes",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-032",
+      "category": "files",
+      "title": "Rename a file",
+      "setup": "Files showing owned alpha.txt with recorded hash",
+      "spoken_instruction": "Rename alpha dot txt to meeting notes dot txt using the file manager.",
+      "independent_success_check": "Old path absent, new path present, file hash unchanged; native rename interaction observed",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-033",
+      "category": "files",
+      "title": "Copy a file to another folder",
+      "setup": "Owned Workbench with alpha.txt and Destination",
+      "spoken_instruction": "Copy alpha dot txt into Destination, leaving the original in Workbench.",
+      "independent_success_check": "Both paths exist with the original hash; actual GUI copy/paste observed",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-034",
+      "category": "files",
+      "title": "Move a file by cut and paste",
+      "setup": "Owned Workbench with beta.txt and Destination",
+      "spoken_instruction": "Cut beta dot txt and paste it into Destination.",
+      "independent_success_check": "Source absent, destination hash equals preimage; native cut/paste sequence observed",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-035",
+      "category": "files",
+      "title": "Drag a file onto a folder",
+      "setup": "Owned Workbench with gamma.txt and Destination",
+      "spoken_instruction": "Drag gamma dot txt onto Destination, then open Destination to verify the file is there.",
+      "independent_success_check": "Real guarded pointer drag and drop; source absent and destination hash unchanged; fresh destination view",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-036",
+      "category": "files",
+      "title": "Multi-select and copy two files",
+      "setup": "Owned Workbench with alpha.txt, beta.txt and Destination",
+      "spoken_instruction": "Select alpha dot txt and beta dot txt together and copy both into Destination.",
+      "independent_success_check": "Exactly both selected before copy; four resulting files match preimage hashes; no other file copied",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-037",
+      "category": "files",
+      "title": "Search within an owned folder",
+      "setup": "Owned Workbench containing many files including copper-report.txt",
+      "spoken_instruction": "Search this folder for copper report, then select copper report dot txt from the results.",
+      "independent_success_check": "Search field and result row observed; selected file resolves to the exact owned path; unrelated files unchanged",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-038",
+      "category": "files",
+      "title": "Sort and change the view",
+      "setup": "Owned Workbench with files of deliberately different names and sizes",
+      "spoken_instruction": "Switch Files to list view, sort by size, then return to name order.",
+      "independent_success_check": "Fresh native view state and row ordering reflect both sorts; filesystem hashes unchanged",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-039",
+      "category": "files",
+      "title": "Trash and restore an owned file",
+      "setup": "Owned disposable restore-me.txt; original path/hash recorded",
+      "spoken_instruction": "Move restore me dot txt to Trash, then restore that same file to its original folder.",
+      "independent_success_check": "Exact owned item enters Trash then returns with original hash; no preexisting Trash item touched",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-040",
+      "category": "files",
+      "title": "Handle a name collision by cancelling",
+      "setup": "Owned alpha.txt and beta.txt with different hashes",
+      "spoken_instruction": "Try renaming alpha dot txt to beta dot txt; when the conflict appears, cancel and keep both files.",
+      "independent_success_check": "Native conflict is observed; cancellation leaves both names and original hashes intact; no overwrite",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-041",
+      "category": "browser",
+      "title": "Type a URL with real keyboard input",
+      "setup": "New owned default-profile Firefox about:blank window",
+      "spoken_instruction": "Go to https://docs.python.org/3/ by typing it in the address bar and pressing Enter.",
+      "independent_success_check": "Guarded type_text and Enter dispatch; fresh actual address and document identify official Python docs, not address-bar text alone",
+      "required_evidence": [
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-042",
+      "category": "browser",
+      "title": "Follow a visible documentation link",
+      "setup": "Owned Firefox at official Python docs home",
+      "spoken_instruction": "Click the Tutorial link and verify the tutorial page opened.",
+      "independent_success_check": "Actual link click plus fresh committed document URL and tutorial heading",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-043",
+      "category": "browser",
+      "title": "Back and forward history",
+      "setup": "Owned Firefox with docs home then tutorial in history",
+      "spoken_instruction": "Go back to the documentation home and then forward to the tutorial again.",
+      "independent_success_check": "Two fresh document identities and corresponding current addresses in order",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-044",
+      "category": "browser",
+      "title": "Open and switch real tabs",
+      "setup": "Owned Firefox window with Python docs open",
+      "spoken_instruction": "Open Git's official documentation in another tab, switch back to Python, then return to the Git tab.",
+      "independent_success_check": "Exactly one additional owned tab; active-tab URL sequence Python, Git; no isolated browser profile",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-045",
+      "category": "browser",
+      "title": "Close only the newly opened tab",
+      "setup": "Owned Firefox with baseline tab inventory and one test Git tab",
+      "spoken_instruction": "Close the Git tab we just opened and leave the earlier Python tab alone.",
+      "independent_success_check": "Test tab removed, baseline tabs preserved, Python active; tab close dispatch recorded",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-046",
+      "category": "browser",
+      "title": "Find a phrase in a page",
+      "setup": "Owned Firefox on Python introduction page",
+      "spoken_instruction": "Find the words floor division in this page and leave the matching passage visible.",
+      "independent_success_check": "Find field has floor division; actual match is selected or highlighted and visible in read-only document content",
+      "required_evidence": [
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-047",
+      "category": "browser",
+      "title": "Scroll to a section and return",
+      "setup": "Owned Firefox on Python introduction page at top",
+      "spoken_instruction": "Scroll down to the Text section, then return to the top of the page.",
+      "independent_success_check": "Real wheel inputs, changed viewport, section visible at intermediate state, top heading visible at end",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-048",
+      "category": "browser",
+      "title": "Use page zoom and restore it",
+      "setup": "Owned Firefox with original zoom recorded",
+      "spoken_instruction": "Increase this page's zoom to one hundred twenty five percent, then restore the original zoom.",
+      "independent_success_check": "Fresh browser zoom state changes to 125 and returns to preimage; document URL unchanged",
+      "required_evidence": [
+        "keyboard",
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-049",
+      "category": "browser",
+      "title": "Use a browser context menu",
+      "setup": "Owned Firefox over a Python tutorial link",
+      "spoken_instruction": "Right click the Tutorial link, inspect its menu, then dismiss the menu without navigating.",
+      "independent_success_check": "Real right-click exposes link-specific native menu; Escape closes it; current document and tab count unchanged",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-050",
+      "category": "browser",
+      "title": "Bookmark and remove the test bookmark",
+      "setup": "Owned Firefox at Python introduction; exact bookmark preimage recorded",
+      "spoken_instruction": "Bookmark this page as Copper Test Bookmark, verify it exists, then remove only that bookmark.",
+      "independent_success_check": "Newly created bookmark has exact current URL and title; removal restores preimage and preserves existing bookmarks",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-051",
+      "category": "docs",
+      "title": "Read a Python arithmetic explanation",
+      "setup": "Firefox at Python docs home",
+      "spoken_instruction": "Use the tutorial to find how Python does floor division, and explain the operator after reading it on the page.",
+      "independent_success_check": "Native page navigation and fresh visible source establish the operator; answer agrees with that source and includes its URL",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-052",
+      "category": "docs",
+      "title": "Follow an in-page anchor",
+      "setup": "Firefox on Python introduction page",
+      "spoken_instruction": "Use the page's contents to jump to Lists, and read the first visible example there.",
+      "independent_success_check": "Actual contents-link click changes anchor/viewport; Lists heading and example visible in fresh document",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-053",
+      "category": "docs",
+      "title": "Navigate a documentation index",
+      "setup": "Firefox at Python docs home",
+      "spoken_instruction": "Find pathlib in the library reference and open its documentation.",
+      "independent_success_check": "Click-driven index traversal reaches official library/pathlib.html and its module heading",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-054",
+      "category": "docs",
+      "title": "Use a documentation search field",
+      "setup": "Firefox at Python docs home",
+      "spoken_instruction": "Use the website's search field to find JSON encoding and open the json library reference.",
+      "independent_success_check": "Actual search input/results/link navigation; committed library/json.html document with read-only module content",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-055",
+      "category": "docs",
+      "title": "Explore MDN button documentation",
+      "setup": "Firefox in owned new blank tab",
+      "spoken_instruction": "Open MDN's HTML button reference and find what its disabled attribute does.",
+      "independent_success_check": "Official MDN current URL and visible attribute explanation acquired through GUI; answer cites visible source",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-056",
+      "category": "docs",
+      "title": "Follow a cross-reference",
+      "setup": "Firefox on MDN HTML button reference",
+      "spoken_instruction": "Follow the accessibility-related link from this page and tell me which documentation page you reached.",
+      "independent_success_check": "Actual visible-link click; fresh target document heading and actual address agree with final answer",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-057",
+      "category": "docs",
+      "title": "Navigate Git command documentation",
+      "setup": "Firefox at Git's official documentation home",
+      "spoken_instruction": "Open git status documentation, find its short format option, and describe it using the page.",
+      "independent_success_check": "Fresh git-status page, visible short-format option text and matching source URL; no shell execution",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-058",
+      "category": "docs",
+      "title": "Compare two real documentation tabs",
+      "setup": "Owned Firefox tabs at Python pathlib and json references",
+      "spoken_instruction": "Read both pages and tell me which one is for filesystem paths and which one is for JSON, naming each source.",
+      "independent_success_check": "Fresh observed content from both tabs; attribution matches each actual URL; current and historical observations remain distinct",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-059",
+      "category": "docs",
+      "title": "Select a source passage visibly",
+      "setup": "Firefox on Python introduction at Numbers",
+      "spoken_instruction": "Use the mouse to select the short sentence describing the interpreter as a calculator, leaving it selected.",
+      "independent_success_check": "Actual pointer text-selection sequence and fresh document selection agree with the visible source substring",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-060",
+      "category": "docs",
+      "title": "Recover from a missing documentation page",
+      "setup": "Firefox on official Python docs",
+      "spoken_instruction": "Try the nonexistent page https://docs.python.org/3/copper-test-missing.html, then recover using the visible page or browser controls and open the tutorial.",
+      "independent_success_check": "Failure page observed and attributed; subsequent committed tutorial document verified; no fabricated successful first navigation",
+      "required_evidence": [
+        "pointer",
+        "keyboard",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-061",
+      "category": "memory",
+      "title": "Store a sourced documentation note",
+      "setup": "Firefox on Python introduction; empty session memory",
+      "spoken_instruction": "Read one short Numbers fact and remember it under marker {marker}, including the current source address.",
+      "independent_success_check": "Model memory_write stores marker, actual visible quote/fact and canonical current URL; readback matches acquired source",
+      "required_evidence": [
+        "pointer",
+        "memory"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-062",
+      "category": "memory",
+      "title": "Recall after leaving the source",
+      "setup": "Same session after a sourced note; Firefox changed to unrelated blank tab",
+      "spoken_instruction": "Without browsing again, recall the fact stored under {marker} and its source address.",
+      "independent_success_check": "Actual memory_search returns same note; answer agrees; no new page navigation or network search during recall",
+      "required_evidence": [
+        "memory",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-063",
+      "category": "memory",
+      "title": "Correct an earlier memory note",
+      "setup": "Same session with marker containing a deliberately mistaken draft note",
+      "spoken_instruction": "Reopen the source for {marker}, check it, and replace the incorrect note with what the page actually says.",
+      "independent_success_check": "Fresh page acquisition precedes memory update; current note corrected with source; old draft never presented as verified",
+      "required_evidence": [
+        "pointer",
+        "memory",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-064",
+      "category": "memory",
+      "title": "Recall an action recipe and apply it",
+      "setup": "Session contains a source-verified GUI recipe from an earlier successful owned-file rename",
+      "spoken_instruction": "Recall how you renamed a file earlier and use that approach to rename delta dot txt to copper dot txt here.",
+      "independent_success_check": "Actual memory_search plus fresh UI resolution; new file rename/hash receipt; no reuse of earlier opaque action IDs",
+      "required_evidence": [
+        "pointer",
+        "keyboard",
+        "memory",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-065",
+      "category": "memory",
+      "title": "Separate two similar notes",
+      "setup": "Same session with independently sourced Python and Git notes under distinct markers",
+      "spoken_instruction": "Recall the Python note under {marker}, not the Git note, and give its source.",
+      "independent_success_check": "Search and final use the requested marker/source; Git content is not substituted",
+      "required_evidence": [
+        "memory",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-066",
+      "category": "memory",
+      "title": "Keep another session's note private",
+      "setup": "Session A has a random private marker; session B is fresh",
+      "spoken_instruction": "Look in this session's memory for {marker}; if nothing is there, say you could not find it.",
+      "independent_success_check": "Session B search contains no A note/source or private canary; final accurately reports absence, with no mutation",
+      "required_evidence": [
+        "memory",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-067",
+      "category": "memory",
+      "title": "Trash clears remembered task state",
+      "setup": "Owned portal session with a canary note; only that session is trashed between speech turns",
+      "spoken_instruction": "Recall the note under {marker} from this session.",
+      "independent_success_check": "Post-Trash memory_search is empty and prior action IDs invalid; unrelated session remains intact",
+      "required_evidence": [
+        "memory",
+        "multi_turn",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-068",
+      "category": "memory",
+      "title": "Treat a recalled page as historical",
+      "setup": "Session has a sourced Python note; current Firefox page is Git",
+      "spoken_instruction": "Recall the Python fact under {marker}, and tell me separately what page is currently open.",
+      "independent_success_check": "Stored note labeled recalled/historical; current claim uses fresh Git observation; provenance never recasts recalled text as current vision",
+      "required_evidence": [
+        "memory",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-069",
+      "category": "memory",
+      "title": "Remember a verified file operation",
+      "setup": "Owned Files task has just moved alpha.txt to Destination",
+      "spoken_instruction": "Remember where you moved alpha dot txt under {marker}, then tell me its location on my next request.",
+      "independent_success_check": "Note derives from current verified move receipt; next spoken recall searches memory and reports the actual new path",
+      "required_evidence": [
+        "pointer",
+        "memory",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-070",
+      "category": "memory",
+      "title": "Resume a task from a session note",
+      "setup": "Same session with source-bound partial task note and fresh owned files",
+      "spoken_instruction": "Read the checkpoint under {marker}, inspect what is actually here now, and finish the remaining rename and save steps.",
+      "independent_success_check": "Memory retrieval followed by fresh UI observation and new action IDs; independently verified final files; completed steps not blindly replayed",
+      "required_evidence": [
+        "pointer",
+        "keyboard",
+        "memory",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-071",
+      "category": "grounding",
+      "title": "Ground a positional target",
+      "setup": "Fresh Calculator with observed geometry",
+      "spoken_instruction": "Click the number in the top left of the numeric keypad, then tell me the digit now displayed.",
+      "independent_success_check": "Pinned Moondream frame-bound point drives actual pointer input; fresh display matches the independently observed button",
+      "required_evidence": [
+        "pointer",
+        "vision"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-072",
+      "category": "grounding",
+      "title": "Ground an icon without a text label",
+      "setup": "Owned Firefox with visible back icon and one prior page",
+      "spoken_instruction": "Click the left-pointing arrow near the top left to return to the previous page.",
+      "independent_success_check": "Actual Moondream point receipt plus mouse click; independently verified previous committed URL",
+      "required_evidence": [
+        "pointer",
+        "vision"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-073",
+      "category": "grounding",
+      "title": "Re-ground after window movement",
+      "setup": "Owned Calculator; host moves window once after an observation before a pending input",
+      "spoken_instruction": "Click the bottom right Equals button using its appearance, even if the window moves.",
+      "independent_success_check": "Old geometry/frame action rejects without input; fresh grounding leads to exactly one valid input at new location or explicit unresolved failure",
+      "required_evidence": [
+        "pointer",
+        "vision",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-074",
+      "category": "grounding",
+      "title": "Choose between repeated labels",
+      "setup": "Two owned app panels with same button label but distinct visible context; active Kev",
+      "spoken_instruction": "Click the Apply button in the panel for the scratch document, leaving the other panel alone.",
+      "independent_success_check": "Actual Kev distribution preserves both contexts; accepted choice maps to correct panel; wrong panel unchanged",
+      "required_evidence": [
+        "pointer",
+        "kev"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-075",
+      "category": "grounding",
+      "title": "Abstain on genuinely ambiguous instruction",
+      "setup": "Owned Files with two visibly similar untargeted documents; active Kev",
+      "spoken_instruction": "Open that document.",
+      "independent_success_check": "Actual distribution/abstention or clarification; zero dispatch to either document and no invented successful opening",
+      "required_evidence": [
+        "kev",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-076",
+      "category": "grounding",
+      "title": "Keep low-confidence choices from clicking",
+      "setup": "Real app with ambiguous controls; active Kev confidence left at 0.95",
+      "spoken_instruction": "Choose the control that would save the scratch note, but stop if the current evidence does not identify it confidently.",
+      "independent_success_check": "Actual low-confidence Kev result causes not_dispatched; no threshold reduction or keyboard bypass; low confidence is not task completion",
+      "required_evidence": [
+        "kev",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-077",
+      "category": "grounding",
+      "title": "Reject a stale visual candidate",
+      "setup": "Owned Gedit; host changes content once after point offering before execution",
+      "spoken_instruction": "Double click the visible word alpha and verify the selection.",
+      "independent_success_check": "Old frame-bound candidate rejects without stale click; fresh current observation needed; selected text must match current owned buffer",
+      "required_evidence": [
+        "pointer",
+        "vision",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-078",
+      "category": "grounding",
+      "title": "Handle a covered target",
+      "setup": "Owned Calculator target briefly covered by another owned window",
+      "spoken_instruction": "Click seven in Calculator, bringing Calculator forward first if necessary.",
+      "independent_success_check": "Occluded hit rejects without input; fresh foreground/hit proof precedes valid click; covering app unchanged",
+      "required_evidence": [
+        "pointer",
+        "vision",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-079",
+      "category": "grounding",
+      "title": "Require a real policy decision in a workflow",
+      "setup": "Owned Calculator with ambiguous finite button offers; active Kev",
+      "spoken_instruction": "Using the offered button choices, calculate six plus nine and verify the answer.",
+      "independent_success_check": "Live Kev accepted distributions bind each required ambiguous choice to actual dispatch; result 15; semantic/keyboard bypass fails method criterion",
+      "required_evidence": [
+        "pointer",
+        "kev"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-080",
+      "category": "grounding",
+      "title": "Retain uncertain dispatch without replay",
+      "setup": "Owned Gedit; coordinator interrupts one action response after dispatch boundary",
+      "spoken_instruction": "Type copper once in the empty document, and verify what actually appeared before doing anything else.",
+      "independent_success_check": "Exactly one copper insertion; uncertain action never automatically replayed; fresh independent buffer resolves result or case remains unresolved",
+      "required_evidence": [
+        "keyboard",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-081",
+      "category": "speech",
+      "title": "Recognize a normal conversational request",
+      "setup": "Empty owned Gedit",
+      "spoken_instruction": "Could you put the words copper finch ready into this empty note for me?",
+      "independent_success_check": "Real Omni TTS WAV and ASR transcript retain task intent; keyboard input creates exact requested buffer; no typed goal substitute",
+      "required_evidence": [
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-082",
+      "category": "speech",
+      "title": "Recognize an indirect paraphrase",
+      "setup": "Owned Files showing alpha.txt and beta.txt",
+      "spoken_instruction": "I want the first file highlighted, just alpha, and I do not want it opened.",
+      "independent_success_check": "ASR/comprehension yield single native selection, no open; exact independent selected-node set",
+      "required_evidence": [
+        "pointer"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-083",
+      "category": "speech",
+      "title": "Preserve a negated action",
+      "setup": "Owned Gedit with original file hash",
+      "spoken_instruction": "Select all the text, but do not replace it and do not save anything.",
+      "independent_success_check": "Full selection verified; buffer/file hashes and modification timestamps unchanged; no Save or typing dispatch",
+      "required_evidence": [
+        "keyboard",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-084",
+      "category": "speech",
+      "title": "Apply a spoken correction",
+      "setup": "Empty owned Gedit; two generated speech turns within same session",
+      "spoken_instruction": "Turn one: Write copper finch ready. Turn two: Change only finch to robin and leave the other words alone.",
+      "independent_success_check": "Both real speech inputs and ASR traces exist; final buffer copper robin ready; no stale prior audio or text replay",
+      "required_evidence": [
+        "keyboard",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-085",
+      "category": "speech",
+      "title": "Resolve a follow-up referent",
+      "setup": "Owned Files with alpha.txt and Destination; two speech turns",
+      "spoken_instruction": "Turn one: Select alpha dot txt. Turn two: Move that selected file into Destination and verify it.",
+      "independent_success_check": "Fresh follow-up resolves actual current selected file; source absent, destination original hash; no wrong file moved",
+      "required_evidence": [
+        "pointer",
+        "keyboard",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-086",
+      "category": "speech",
+      "title": "Ignore actual quiet and click captures",
+      "setup": "Real call input with quiet, click and steady-noise waveforms played through capture path; no spoken task",
+      "spoken_instruction": "No spoken instruction in this case; play the bounded non-speech input and observe the call.",
+      "independent_success_check": "VAD submits zero model action turns for specified fixtures; no UI dispatch or claimed user transcript; actual capture provenance retained",
+      "required_evidence": [
+        "negative"
+      ],
+      "input_source": "captured_non_speech",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-087",
+      "category": "speech",
+      "title": "Accept one physical microphone command",
+      "setup": "Physical mic armed through local harness; owned Gedit empty; user speaks after cue",
+      "spoken_instruction": "In the Text Editor, type copper finch ready and leave it visible.",
+      "independent_success_check": "Actual mic frames, VAD segment, ASR transcript and keyboard input form one trace; exact fresh buffer; never labeled generated TTS",
+      "required_evidence": [
+        "keyboard",
+        "physical_microphone"
+      ],
+      "input_source": "physical_capture",
+      "automation": "human_microphone_operator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-088",
+      "category": "speech",
+      "title": "Handle acoustic playback through a microphone",
+      "setup": "Omni-generated instruction played over speaker into actual armed mic; owned Calculator",
+      "spoken_instruction": "Use Calculator to work out six plus nine by clicking the buttons and tell me the result.",
+      "independent_success_check": "Speaker WAV hash plus physical mic recording/VAD/ASR, actual clicks and fresh result 15; acoustic capture distinct from direct WAV submission",
+      "required_evidence": [
+        "pointer",
+        "physical_microphone"
+      ],
+      "input_source": "physical_capture",
+      "automation": "human_microphone_operator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 900
+    },
+    {
+      "id": "CU-089",
+      "category": "speech",
+      "title": "Interrupt ongoing speech with a correction",
+      "setup": "Active spoken reply; user mic or generated speaker correction with real capture; owned Gedit",
+      "spoken_instruction": "Stop that action. Leave the document unchanged and tell me what you have already done.",
+      "independent_success_check": "Actual barge-in duck/pause and sustained-speech handling; stale inference canceled; no later stale mutation; final cites actual current state",
+      "required_evidence": [
+        "physical_microphone",
+        "multi_turn",
+        "negative"
+      ],
+      "input_source": "physical_capture",
+      "automation": "human_microphone_operator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-090",
+      "category": "speech",
+      "title": "Consolidate several rapid spoken segments",
+      "setup": "Same real call; short generated speech segments captured as one pending request; owned Calculator",
+      "spoken_instruction": "Clear Calculator. Then calculate seventeen plus twenty five. Verify the answer.",
+      "independent_success_check": "Actual VAD/queue trace stays single-flight with bounded newest-audio consolidation; one coherent task finishes at 42 without overlapping dispatch",
+      "required_evidence": [
+        "pointer",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_through_call_capture",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-091",
+      "category": "workflows",
+      "title": "Documentation to saved note",
+      "setup": "Owned Firefox at Python docs, empty Gedit, owned Workbench",
+      "spoken_instruction": "Read a short Numbers fact in Python's tutorial, copy it into the Text Editor with its source address, and save python note dot txt in Workbench.",
+      "independent_success_check": "Fresh visible source, actual selection/copy/paste or keyboard inputs, exact saved note and actual URL independently read back",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-092",
+      "category": "workflows",
+      "title": "Calculator to a saved report",
+      "setup": "Owned Calculator, empty Gedit and Workbench",
+      "spoken_instruction": "Calculate seventeen plus twenty five using Calculator, then write the result into a note named total dot txt and save it in Workbench.",
+      "independent_success_check": "Real Calculator input/result 42 precedes editor entry; saved file has requested result; independent two-app and file receipts",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-093",
+      "category": "workflows",
+      "title": "Organize and edit a document",
+      "setup": "Owned Files Workbench with alpha.txt and Destination",
+      "spoken_instruction": "Rename alpha dot txt to copper dot txt, open it in the Text Editor, append ready on a new line, save it, and move it into Destination.",
+      "independent_success_check": "Rename, actual editor mutation/save and GUI move independently verified in order; exact final bytes and path; source absent",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-094",
+      "category": "workflows",
+      "title": "Read a local PDF and cite its page",
+      "setup": "Owned PDF viewer with two-page public-source test PDF and source URL; empty Gedit",
+      "spoken_instruction": "Open the PDF's second page, select its heading, and save that heading with the page number in a text note.",
+      "independent_success_check": "Fresh viewer page 2 and actual selected heading; saved note matches source heading and page; no off-screen invented text",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-095",
+      "category": "workflows",
+      "title": "Make a spreadsheet and export it",
+      "setup": "Owned blank LibreOffice Calc workbook and Workbench",
+      "spoken_instruction": "Enter the three expenses twelve, thirty and eight, total them, save expenses dot ods, and export a PDF in Workbench.",
+      "independent_success_check": "GUI cells total 50; saved ODS preserves inputs/formula; exported PDF contains expected total; actual export dialogs observed",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-096",
+      "category": "workflows",
+      "title": "Use retrieved memory in a desktop task",
+      "setup": "Same session has source-verified note under marker; empty Gedit and Workbench",
+      "spoken_instruction": "Recall the documentation fact under {marker}, put it and its source into a new note, and save recalled note dot txt in Workbench.",
+      "independent_success_check": "Actual memory_search supplies same-session sourced record; actual editor input; exact saved note; no new browser fetch needed",
+      "required_evidence": [
+        "keyboard",
+        "memory",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-097",
+      "category": "workflows",
+      "title": "Compare docs and save a sourced explanation",
+      "setup": "Firefox with Python pathlib/json tabs, empty Gedit and Workbench",
+      "spoken_instruction": "Compare what pathlib and json are for, write a short explanation with both source addresses, and save comparison dot txt.",
+      "independent_success_check": "Fresh acquisition from each actual tab; saved explanation correctly attributes both modules and URLs; no mixed-source fact",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-098",
+      "category": "workflows",
+      "title": "Resume after a harmless dialog interrupts",
+      "setup": "Owned multi-app documentation-to-note task; coordinator opens an owned harmless dialog once mid-task",
+      "spoken_instruction": "Finish putting the sourced documentation note into Workbench, closing only the dialog that gets in the way.",
+      "independent_success_check": "New dialog observed and dismissed once; fresh continuation uses current IDs; one correct final file; no unrelated window closed",
+      "required_evidence": [
+        "pointer",
+        "keyboard",
+        "negative"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-099",
+      "category": "workflows",
+      "title": "Verify before cleaning up a multi-app task",
+      "setup": "Owned Firefox, Gedit, Files and Workbench scratch inputs",
+      "spoken_instruction": "Read a Python Numbers fact, save a sourced note, rename it python fact dot txt, then close only the windows opened for this task after verifying the file.",
+      "independent_success_check": "Complete source acquisition, exact file write/rename, fresh final disk receipt, all owned windows closed and baseline windows untouched",
+      "required_evidence": [
+        "pointer",
+        "keyboard"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    },
+    {
+      "id": "CU-100",
+      "category": "workflows",
+      "title": "Long multi-turn task with remembered checkpoint",
+      "setup": "Same session; owned Firefox, Gedit, Files, Calculator; Workbench; three spoken turns",
+      "spoken_instruction": "Turn one: Read a Python Numbers fact and remember it under {marker}. Turn two: Calculate seventeen plus twenty five and save a note with the fact, its source and the answer. Turn three: Rename the note verified report dot txt, move it into Destination, and check everything.",
+      "independent_success_check": "Three actual speech/ASR turns, memory read/write, real result 42, source-bound exact saved report and final moved path; no stale input replay; bounded task completion",
+      "required_evidence": [
+        "pointer",
+        "keyboard",
+        "memory",
+        "multi_turn"
+      ],
+      "input_source": "omni_tts_to_asr",
+      "automation": "needs_orchestrator",
+      "existing_suite_case": null,
+      "result": "unrun",
+      "turn_deadline_seconds": 300,
+      "case_deadline_seconds": 1800
+    }
+  ]
+}

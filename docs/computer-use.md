@@ -193,6 +193,14 @@ A subset can report `selected_scope_passed` while full scope remains incomplete.
 `--keep-going` continues only when the prior runner confirmed its owned window
 was closed. The wrapper does not start services or load models.
 
+The [100-case live acceptance plan](computer-use-100-case-plan.md) extends this
+ten-case baseline to pointer/keyboard interaction, native controls, files,
+real browser/documentation navigation, sourced memory, live Kev/Moondream,
+physical capture and cross-application workflows. It specifies 200 results
+across Qwen and Ornith on the operator-selected GPU 1. Readiness labels
+distinguish the ten existing runners from cases still needing orchestration;
+the plan itself supplies no passing live results.
+
 All real runners default to native `think:false`. For an explicit Ornith
 deliberation comparison, select its already-running endpoint, exact model tag
 and token file, then add `--think`; for example, select
