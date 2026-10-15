@@ -172,3 +172,59 @@ A later read-only check confirmed clean `e27834f` adoption, healthy services,
 Tegra-resident Ornith and zero active, inflight or queued requests. No TTS child
 was running. No inference or reload was sent by this operator; this remains
 deployment evidence rather than an additional desktop test result.
+
+## Egg31 cut and undo at `d6c0b2e`
+
+The checkout was fast-forwarded to `d6c0b2e` after the preceding test became
+idle. The existing supervisor, comprehension, pointing, TTS, adapter and portal
+workers were preserved. Fresh native bridge process identities and source
+hashes proved that the guarded keyboard receipt change was loaded without a
+GPU-worker restart.
+
+The genuine Ornith `think:false` CU-017 run failed at its original 300-second
+action bound, taking 317.01 seconds including 11.84 seconds of actual Omni
+instruction synthesis. ASR preserved the cut, verification and undo request.
+Five unique native inputs selected `copper`, incorrectly typed `ready` over
+it, selected the whole changed document and finally deleted it. Fresh native
+observations recorded `alpha ready ready` and then an empty buffer. No Ctrl-X,
+Ctrl-Z, correct cut intermediate, restoration or authoritative final occurred.
+The saved 19-byte file remained unchanged.
+
+Guarded Ctrl-A and Delete receipts carried the new
+`x11_guarded_xtest` / `native_key_input_invoked` attestation. That receipt
+criterion passed independently; the task failed. The owned editor closed,
+natural activity drained to zero, worker identities and Tegra residency stayed
+intact, and no operator task action, cancellation, retry or reload was used.
+The historical failed attempts remain unchanged. No malformed-batch correction
+event occurred, so structured recovery remains unexercised. This host still
+uses Moondream 2 with Kev disabled; this is not pinned Moondream 3.1/Kev or local
+GPU 1 acceptance.
+
+Private evidence is retained at
+`runtime-data/gpu1-acceptance/remote-egg31/CU017-ornith-false-20261015T220610Z-af1867/`.
+Summary SHA-256:
+`7f2c99362b7edf2b36c8ff0c3488093589165a566287e91b9bf63aa64e9b89c2`.
+After-test note SHA-256:
+`6abb68d6d48447392d1741eff27cb2d20eaf39dfe8e3c2a9c7198298a1840b50`.
+
+## Egg31 punctuation typing at `d6c0b2e`
+
+The independent CU-019 `think:false` run failed at its unchanged 300-second
+action deadline, taking 317.43 seconds total. Actual Omni TTS took 9.64 seconds
+and produced a valid six-second WAV. The source instruction was
+`Type exactly: Copper, finch! Then add a newline and type: Ready?`;
+ASR returned `type exactly copper finch then add a new line and type ready.`
+The written fixture did not explicitly speak punctuation or capitalization
+directions. This is an input-fixture ambiguity, not proof that ASR dropped
+spoken words such as “comma” or “question mark.” The original expected buffer
+was retained without normalization.
+
+Independently of that ambiguity, the model made one unique focus input and no
+typing. Six fabricated execute IDs were rejected as unknown candidates; an
+earlier malformed workflow was rejected for missing valid effect predicates.
+The fresh owned document remained empty, no authoritative final arrived, and
+the keyboard criteria failed. The owned editor closed, worker identities and
+Tegra residency remained intact, and the active harness was preserved. The
+outstanding request drained naturally to zero activity, inflight and queued
+requests at 22:40:01 UTC before further work.
+No operator correction, task replay, source change or service reload occurred.

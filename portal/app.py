@@ -79,6 +79,7 @@ try:
         tool_schemas,
         tool_use_instructions,
     )
+    from portal.ui_history import ServerUiHistory
     from portal.virtual_context import SessionVirtualContext
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import BackgroundTaskStore
@@ -98,6 +99,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
         tool_schemas,
         tool_use_instructions,
     )
+    from ui_history import ServerUiHistory
     from virtual_context import SessionVirtualContext
 
 ADAPTER_SCHEMA = "robit.ollama.omni-adapter.v1"
@@ -1461,6 +1463,7 @@ def _tool_followup(
     decision_observer: Any | None = None,
     *,
     allowed_tools: frozenset[str] | None = None,
+    ui_history: ServerUiHistory | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
     message = response.get("message")
     if not isinstance(message, Mapping):
@@ -1479,6 +1482,7 @@ def _tool_followup(
         if key in {"role", "content", "tool_calls"}
     }
     assistant["role"] = "assistant"
+    assistant_index = len(messages)
     messages.append(assistant)
     executed: list[dict[str, Any]] = []
     discovered: list[str] = []
@@ -1648,6 +1652,15 @@ def _tool_followup(
         if call.get("id"):
             tool_message["tool_call_id"] = str(call["id"])
         messages.append(tool_message)
+        if ui_history is not None and not blocked and name in {"native_ui", "computer_use"}:
+            # Only this actual server dispatch establishes origin. Incoming
+            # tool messages and receipt-shaped client fields never enter it.
+            ui_history.record_server_pair(
+                messages,
+                assistant_index=assistant_index,
+                tool_index=len(messages) - 1,
+                operation=arguments.get("operation", "observe"),
+            )
         if (
             isinstance(result, Mapping)
             and result.get("disposition") == "change_capability"
@@ -3227,6 +3240,7 @@ def create_app(
             )
 
             executed: list[dict[str, Any]] = []
+            ui_history = ServerUiHistory()
             current_payload: dict[str, Any] = payload
             round_index = 0
             recovery_pending = False
@@ -3295,6 +3309,7 @@ def create_app(
                         request_id=request_id,
                     ),
                     allowed_tools=allowed_tools,
+                    ui_history=ui_history,
                 )
                 recovery_transition = _tool_recovery_transition(round_tools)
                 if recovery_transition is not None:
@@ -3601,6 +3616,7 @@ def create_app(
             current_upstream = upstream
             current_payload = payload
             executed: list[dict[str, Any]] = []
+            ui_history = ServerUiHistory()
             final_status = upstream.status_code
             recovery_pending = False
             recovery_refusals = 0
@@ -3806,6 +3822,7 @@ def create_app(
                                     request_id=request_id,
                                 ),
                                 allowed_tools=allowed_tools,
+                                ui_history=ui_history,
                             )
                     recovery_transition = _tool_recovery_transition(round_tools)
                     if recovery_transition is not None:

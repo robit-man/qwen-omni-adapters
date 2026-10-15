@@ -500,6 +500,15 @@ and needs a new artifact schema and release gate.
 - Speech is skipped while unresolved `tool_calls` exist; the adapter reports
   `tts_skipped_reason=unresolved_tool_calls`.
 - After the client returns tool results, final assistant text can be spoken.
+- Within one portal tool loop, a fresh server-executed native/browser
+  observation retires older registered UI maps and candidate offers from the
+  model's working history. The newest pair stays intact. Historical action,
+  policy, effect and verification receipts remain unchanged, with bounded
+  historical readbacks of explicitly referenced controls. Raw tool traces and
+  executor state are preserved. Only actual `observe`/`verify` results can
+  trigger retirement; cached execution results cannot. Incoming tool messages
+  grant no origin, and an unexpected history rewrite disables retirement for
+  the rest of that request. This projection does not verify task completion.
 - Direct ASR/describe calls do not claim Qwen3.8 thinking or tools because they
   bypass the language stage.
 

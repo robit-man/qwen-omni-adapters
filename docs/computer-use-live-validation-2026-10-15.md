@@ -4,6 +4,9 @@
 [100-case plan](computer-use-100-case-plan.md) against Qwen and Ornith for 200
 model/case results. Failed attempts remain preserved when a later repeat is
 run. No previous day's success is imported into this campaign.
+The [recent Omnius layer audit](computer-use-omnius-layer-audit-2026-10-15.md)
+identifies the exact reference commits and distinguishes model-driven browser
+evidence from fixed-planner native executor demonstrations.
 
 Only host GPU 1, `GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0`, is reserved for
 the selected Omni trunk, TTS, Moondream and Kev. Qwen and Ornith are sequential.
@@ -39,6 +42,9 @@ receipts, frames and exact owned file readbacks remain local.
 | CU-011, native-thinking repair repeat | Qwen | Fail, native hit test | Correct actual TTS/ASR and structured native rounds. The exact owned `alpha.txt` target was rejected as occluded; every model observation remained in the owned Files window and the pointer stayed at one position. No task input or authoritative final before the 300-second deadline. File unchanged; polite cleanup and idleness verified. | 306.93 s |
 | CU-013, first attempt | Qwen | Fail, test observer | The test frontend's observer stopped on an assertion after synthesis reached the queue. Its active-only lease check conflicted with legal pending transitions; the exact failing phase was not captured. No instruction WAV, ASR or task input completed. Owned editor closed; original GPU deployment stayed intact. | 1.96 s |
 | CU-013, observer repair repeat | Qwen | Fail, incomplete selection | Actual TTS/ASR and seven dispatched inputs. Initial double-clicks selected `ready`; a later selection reached `alpha`, then Shift-Right extended only to offsets 0..6 rather than 0..12. No authoritative final before the action deadline. Buffer/file unchanged; editor and test frontend closed; deployment idle and unchanged. | 306.69 s |
+| CU-017 | Qwen | Fail, wrong edit method | Actual TTS/ASR, four native inputs and an authoritative final. The model selected `copper`, physically pressed Delete, then Ctrl-Z restored the original buffer. Guarded XTEST receipts and the two fresh document states were verified, but Delete did not satisfy the required Ctrl-X cut. Disk unchanged; editor and test frontend closed; deployment idle. | 95.41 s |
+| CU-001 | Ornith | Fail, interrupted stream | Actual Omni instruction synthesis and correct ASR. Repeated observe/verify calls dispatched no input; no selection or authoritative final. The stream ended with an incomplete chunked read. Saved file unchanged and owned editor closed; recovery proved a clean controller shutdown. | 231.31 s |
+| CU-002 | Ornith | Fail, foreground confound, cancelled | Correct actual TTS/ASR. Pinned Moondream 3.1 produced a grounding receipt, but observations moved to unrelated windows. The proposed double-click was rejected for changed UI identity/revision before input. Operator cancelled only the test client; no actual input, final or selected-word proof. Owned editor closed and requests became idle. | 202.05 s |
 | CU-030 | Qwen | Fail, setup, two attempts | Owned Calc launch passed its OpenCL guard, but initial native observation failed before speech or task input. Installing the GTK3 accessibility plugin did not make the immediate second attempt pass. | 1.47 / 0.93 s |
 | CU-086 | Qwen | Pass | Actual 16 kHz Pulse monitor capture: 208,960 frames with quiet, click and steady noise; production VAD trace; zero submitted turns, stream events or GUI dispatch; call worker and owned Pulse module released. This is not physical-mic acceptance. | 13.16 s |
 | CU-087 | Qwen | Fail, document identity oracle | Real Bluetooth capture, one VAD utterance, actual ASR, verified physical `type_text`, and exact visible `copper finch ready` in the owned editor. Strict initial document identity changed from generation 1 to 2 after focus transitions; that one criterion failed. Cleanup and idleness verified; all attempts retained. | 117.69 s |
@@ -50,9 +56,10 @@ new GPU fault. Each attempt has a separate `after-test-note.md` and JSON note.
 The manifest retains all 200 slots; rows not recorded above remain pending,
 not passing.
 
-At this checkpoint, 15 distinct local model/case slots have been attempted:
-four passed and eleven failed; 185 remain unrun. These counts include setup
-failures and exclude repeats. No local Ornith slot has run yet.
+At this checkpoint, 18 distinct local model/case slots have been attempted:
+four passed and fourteen failed; 182 remain unrun. These counts include setup
+and interrupted attempts and exclude repeats. Ornith's first local attempt
+failed; it does not establish desktop acceptance.
 
 The CU-003 failures are being triaged separately: model action-method fidelity
 and Gedit's implicit final-newline semantics. Neither the saved bytes nor the
@@ -217,7 +224,30 @@ false-positive trajectories are rejected. The joint full source gate passed
 2,123 tests in 90.35 seconds with all seven reviewed file fingerprints unchanged
 (log SHA-256
 `015c70f082258aca7d91377ea0d9c533bf40560fb318639547ddc7cb844c5398`).
-Live post-change keyboard attestation and cut/undo completion remain pending.
+The subsequent genuine Qwen CU-017 run verified the new keyboard attestation
+on physical Delete and Ctrl-Z, without another dispatch or fallback. Fresh
+observations proved the exact `alpha  ready` intermediate and restoration to
+`alpha copper ready`. The task still failed because the model substituted
+Delete for the requested cut. Keyboard attestation is verified; cut/undo task
+completion remains pending. This run produced no malformed-batch correction
+event, so live structured recovery remains unexercised.
+
+After Qwen cleanup and idleness, the controller performed one planned switch
+to `robit/ornith-1.5-omni-audio-bridge:q4km`: Kev and the Qwen workers exited,
+their CUDA allocations disappeared and the old lease was released before the
+new scoped lease was acquired. Fresh readiness evidence proved Ornith and Kev
+resident only on GPU 1, with the pinned Moondream 3.1 worker ready and shed.
+The first local Ornith CU-001 run then failed as recorded above. The daemon
+interruption was followed by a read-only recovery check; the prior Ornith
+workers were absent. Their earlier readiness is historical evidence, not a
+claim that weights remain loaded after the interruption. Recovery subsequently
+proved a clean Kev-first controller shutdown, no remaining owned CUDA process,
+an empty lease list and no reported new hardware fault. The inference hold and
+fault recorder remained enabled. A fresh doctor and one supervised Ornith
+startup passed, with new trunk/Kev identities resident only on GPU 1 and the
+pinned Moondream 3.1 worker ready and shed. The bounded CU-002 attempt above
+used that stack; cleanup and idleness were verified while retaining the healthy
+deployment.
 
 The helper and expanded perception runners passed the next frozen source gate:
 1,872 tests in 99.84 seconds, with 221 checked source files unchanged (manifest
@@ -244,3 +274,33 @@ model requests or task inputs. Full source validation passed 1,950 tests in
 
 Remote Egg-host Ornith runs are recorded separately; they do not fill local
 GPU 1 slots or establish pinned Moondream 3.1/Kev acceptance.
+
+The source inventory at `d6c0b2e` routes all 100 cases to runner modules, but
+does not establish that all are executable. Twelve cases still have concrete
+capability or evidence gaps: CU-012 text-range dragging; CU-014/015 held-modifier
+clicks; CU-022 physical window move/resize; CU-023 minimized-window restoration;
+CU-029 media slider/playback evidence; CU-059 exact pointer passage selection;
+CU-073/077 deterministic pending-point barriers; CU-074 repeated-Apply setup;
+CU-080 interrupted-dispatch barrier; and CU-089 acoustic interruption evidence.
+The other 88 have candidate execution paths, not 88 live passes. These source
+gaps and all unrun model/case slots remain incomplete.
+
+The next bounded architecture change addresses repeated UI working context,
+which occupied 86–90% of recorded remote tool content. A request-local origin
+ledger now retires older server-produced maps and candidate offers only after
+a fresh canonical `observe`/`verify` result. Execute/workflow bodies, including
+cached results, cannot trigger retirement. The newest pair, raw traces and
+immutable action/policy/effect/verification receipts remain intact; explicitly
+referenced controls retain bounded historical readbacks. Unknown prefix changes
+disable retirement for that request. This is a local projection policy, not a
+verbatim claim about demonstrated Omnius behavior or a fix for wrong model
+choices.
+
+The frozen source gate passed 2,184 tests in 94.65 seconds, with all six reviewed
+file fingerprints unchanged and every validation gate passing (log SHA-256
+`974f2aa0250f41b2d811a692700a428a116ea4fbc7cfb0bbdff5d851aa47339d`).
+Source checks include both actual portal routes and detached streaming, forged
+client-origin rejection, cached-result freshness, exact receipt preservation,
+new-request isolation, accepted ASR/native think preservation and prefix-repack
+fallback. Live context reduction and task completion are still separate,
+pending criteria at this source checkpoint.
