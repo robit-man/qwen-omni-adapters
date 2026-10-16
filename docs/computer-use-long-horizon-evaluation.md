@@ -542,6 +542,85 @@ window verification, cancellation, idempotency and native budgets remain.
 These are source-verified capabilities. No new live task or remote switch ran
 during the gate; owned Flatpak launch/cleanup remains a separate setup gap.
 
+The next full Qwen LHN-001 run on `ec12821` reached nine phases in 263.65
+seconds (269.12 seconds including the runner). It failed with no dossier,
+matrix, archive or memory completion. Eleven outcomes dispatched real native
+input. Two pinned Moondream-guided physical double-clicks opened Input and the
+task brief. An already-active window request returned one independently
+verified no-input receipt with absent effect; the workflow continued. The
+model recovered from its incorrect selection-range expectation without help,
+then switched to the owned Firefox window and physically typed/submitted the
+official Python 3.10 URL in one compiled workflow. Committed DocURL verification
+passed. Kev remained unexercised.
+
+All three subsequent explicit visual-reading attempts failed the final pixel
+key comparison after valid configured reader replies. Native/document identity,
+semantic revision and capture geometry remained stable. This Firefox capture
+had no native content inset, so its transmitted image included the desktop
+clock in the window shadow margin. Saved pair differences were 135, 328 and
+965 pixels; the corresponding counts inside the positively observed
+DocumentWeb rectangle were zero, 200 and zero. The in-document change is a
+visible scrollbar thumb. Therefore excluding the desktop clock alone cannot
+be claimed to repair all three failures. The hook retained exact point HTTP
+requests but not reader HTTP bodies/latencies; validated replies are established
+by the control flow reaching each post-response capture, not fabricated packet
+records. Zero readings were accepted.
+
+Queues drained, exact owned windows closed, inputs and preexisting managed
+windows were preserved, and the original eight workers, same GPU1 lease and
+healthy CPU frontend remained. Evidence:
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-001-20261016T065927Z/`,
+immutable bundle SHA256
+`4395177a187ff7c4a202516db50c12fbe621c5564320eaabe25467ccf4946719`.
+The separate operator note SHA256 is
+`c139d322633ce34f8b8d92bff2be3b12ff1ba043bc3e2b05075582cc0d0fda8b`.
+Native execution and recovery milestones passed; complete-task and visual-reader
+acceptance failed. The next reader criterion is separate from those verified
+input capabilities.
+
+The source correction retains a valid, source-bound document reading as
+immutable captured-snapshot knowledge when only its document pixels change
+during inference. It uses positively observed native DocumentWeb bounds to
+exclude surrounding desktop pixels. Changed ownership, document identity,
+semantic revision, geometry or other nonpixel bindings still reject the
+reading; point/input checks remain exact. Even matching-pixel readings grant
+neither current UI authority nor mutation/progress credit. The next live run
+will additionally retain actual configured reader HTTP bodies and request
+latency; historical reader text remains unknown.
+
+That correction and the explicit [owned Flatpak Firefox setup](computer-use-flatpak-setup.md)
+passed one combined full source gate: 3,122 tests in 104.54 seconds, aggregate
+checks passing, unchanged validation HEAD `74f6a22` and all 370 tracked file
+fingerprints plus the staged private reader hook unchanged. Receipt:
+`/tmp/qwen-reader-flatpak-combined-post-receipt.json`, SHA256
+`337c288fbb675ac9637d9a16357d959e3f4e0099d6faa4a18b08d00c25545d92`.
+The isolated changes were adopted unchanged as `bdf82b6` and `a9d124b`.
+This is source validation; fresh live reader acceptance and owned Flatpak
+launch/cleanup qualification remain pending.
+
+The independent run-ledger audit at 07:32:49 UTC on 2026-10-16 found eight
+canonical submitted attempts: seven Qwen LHN-047 attempts and one Qwen LHN-001
+attempt. Those cover two of the 200 model/case cells, with six repeated attempts
+and zero full passes. All 100 task IDs remain incomplete; 98 task IDs and 198
+model/case cells have not been attempted. No canonical Ornith run is recorded.
+The ledger keeps the preflight block, older pilot runs, remote setup diagnostics
+and CPU source checks outside those counts. Its sealed-input audit is retained
+at `runtime-data/gpu1-acceptance/operator-audit/long-horizon-ledger-20261016T073249Z/`;
+`actual-run-ledger.json` SHA256 is
+`6bd0fae81e15b062b271ea7817f8272c7cc6e2685c4b04642eebd341cc19d8fd`.
+
+Layer evaluation follows the architecture guide's finite-action cascade.
+Native observation supplies identity, capabilities and current state; the Omni
+backbone plans and recovers; compiled workflows execute independently of the
+backbone between steps; Kev arbitrates eligible ambiguous candidate sets;
+Moondream supplies explicit visual readings or bound points; the executor and
+fresh observer verify dispatch and effects. A unique valid semantic target may
+bypass Kev, and an available semantic route may bypass vision. Model-call counts
+alone do not establish either a delegation defect or successful coverage.
+The current zero canonical Kev receipts require a source-and-trace eligibility
+audit before claiming that layer is exercised. Accepted document snapshots must
+remain knowledge, never current input authority or terminal mutation proof.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give
