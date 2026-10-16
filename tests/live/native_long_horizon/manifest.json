@@ -1,0 +1,17 @@
+{
+  "case_count": 100,
+  "cohort_spec_revision": "public-task-brief-and-prefrozen-archive-v2",
+  "family_count": 16,
+  "files": {
+    "README.md": "0b2854495b4698c7bb9a11a95b763d28be8d2785fd2e5b7a229c7aec9e7156cf",
+    "matrix.md": "bdac85a9a7cc2af9cc3d6f0a965f2eeb37745726552888fa01396a57180837bd",
+    "primary-source-registry.json": "99b45562cca6e0b10ca44ca23efffa5c7d827f137eb827321eef3a34063b4544",
+    "protocol.json": "757beb53dd0fa3c31c69a583c731df7a40a9d70379de18510a38595f62def533",
+    "tasks.json": "f628bc978d223a13ac07c7ddaca87a5863efea021dce4bca252106af8b0e1a62"
+  },
+  "passes": 0,
+  "ready": 0,
+  "runs": 0,
+  "schema": "robit.omni.long-native-suite-package.v1",
+  "source_design_manifest_sha256": "6c7669d72947f3d521130420f7cf9d6ff2f35d660d6b49b0b0cfc5d9149e09d3"
+}

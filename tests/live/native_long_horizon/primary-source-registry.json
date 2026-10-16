@@ -1,0 +1,182 @@
+{
+  "benchmark_inspiration": [
+    {
+      "condition_boundary": "paper cohort differs from OSWorld2.1; no original tasks/assets/evaluator reproduced",
+      "id": "OSW20",
+      "inspiration": "long cross-source workflows, checkpoint evaluation, challenge exposure",
+      "name": "OSWorld 2.0 paper cohort",
+      "url": "https://arxiv.org/abs/2606.29537v2"
+    },
+    {
+      "condition_boundary": "our actual user-desktop adaptations are not official guest-image runs",
+      "id": "OSW21",
+      "inspiration": "pin complete environment/assets/evaluator together",
+      "name": "OSWorld 2.1 release manifest",
+      "url": "https://github.com/xlang-ai/OSWorld-V2/blob/osworld-v2.1/benchmark_releases/osworld-v2.1.json"
+    },
+    {
+      "condition_boundary": "instruction-only, same-task demonstrations and variant demonstrations must remain separate",
+      "id": "OSWORKER",
+      "inspiration": "sustained office work and multiple applications",
+      "name": "OSWorkerBench / UI-Mate",
+      "url": "https://arxiv.org/abs/2608.15930"
+    },
+    {
+      "condition_boundary": "original tracks may allow CLI; our native-only scores cannot inherit theirs",
+      "id": "SCIENCE",
+      "inspiration": "tutorial transfer and actual saved-artifact properties",
+      "name": "OSWorld-Science",
+      "url": "https://arxiv.org/abs/2609.39903"
+    },
+    {
+      "condition_boundary": "local fictional office inputs are not ServiceNow tasks or original environment resets",
+      "id": "WORKARENA",
+      "inspiration": "multiple items, business constraints and knowledge-dependent changes",
+      "name": "WorkArena++",
+      "url": "https://arxiv.org/abs/2407.05291"
+    },
+    {
+      "condition_boundary": "public official-document browsing is not that controlled website benchmark",
+      "id": "WEBVERIFIED",
+      "inspiration": "structured independent final-state evaluation",
+      "name": "WebArena-Verified",
+      "url": "https://github.com/ServiceNow/webarena-verified"
+    },
+    {
+      "condition_boundary": "a correct point is not an input or whole-task pass",
+      "id": "SCREENSPOT",
+      "inspiration": "separate grounding diagnostics from execution and task completion",
+      "name": "ScreenSpot-Pro",
+      "url": "https://github.com/likaixin2000/ScreenSpot-Pro-GUI-Grounding"
+    }
+  ],
+  "document_snapshot_semantics": "Hashes identify the actual working documentation read; root may update its report during live work. Code baseline reviewed is d698cc50; these hashes do not assert every report byte belongs to that commit.",
+  "saved_source_hashes": {
+    "docs/computer-use-long-horizon-evaluation.md": "148662c60ab63041a65469c18555adb23006eafb0f4487b65afb21987a527216",
+    "runtime-data/gpu1-acceptance/benchmark-primary-research-20261015.md": "8302e0bdfbfb8746c984a4d04d6bae0a40fed2004ba98148b20ac0f0c573dfd9",
+    "runtime-data/gpu1-acceptance/benchmark-system-roadmap-20261015.md": "3d0a35626215800197634389d489641c6d5f4e4af8ac08db5d199a13a0eea5eb"
+  },
+  "schema": "robit.omni.long-native-primary-sources.v1",
+  "source_basis": "saved primary benchmark research; no new web access or benchmark download",
+  "task_source_registry": {
+    "arduino": {
+      "authority": "Arduino",
+      "url": "https://docs.arduino.cc/hardware/uno-rev3/"
+    },
+    "artic": {
+      "authority": "Art Institute of Chicago",
+      "url": "https://www.artic.edu/visit"
+    },
+    "bipm": {
+      "authority": "BIPM",
+      "url": "https://www.bipm.org/en/publications/si-brochure"
+    },
+    "british": {
+      "authority": "British Museum",
+      "url": "https://www.britishmuseum.org/visit"
+    },
+    "collection_artic": {
+      "authority": "Art Institute of Chicago",
+      "url": "https://www.artic.edu/collection"
+    },
+    "collection_getty": {
+      "authority": "J. Paul Getty Trust",
+      "url": "https://www.getty.edu/art/collection/"
+    },
+    "collection_met": {
+      "authority": "The Metropolitan Museum of Art",
+      "url": "https://www.metmuseum.org/art/collection"
+    },
+    "collection_rijks": {
+      "authority": "Rijksmuseum",
+      "url": "https://www.rijksmuseum.nl/en/rijksstudio"
+    },
+    "collection_si": {
+      "authority": "Smithsonian Institution",
+      "url": "https://www.si.edu/openaccess"
+    },
+    "collection_vam": {
+      "authority": "Victoria and Albert Museum",
+      "url": "https://collections.vam.ac.uk/"
+    },
+    "getty": {
+      "authority": "J. Paul Getty Trust",
+      "url": "https://www.getty.edu/visit/center/"
+    },
+    "git": {
+      "authority": "Git project",
+      "url": "https://git-scm.com/docs"
+    },
+    "gnome": {
+      "authority": "GNOME",
+      "url": "https://help.gnome.org/users/gnome-help/stable/"
+    },
+    "govuk": {
+      "authority": "UK Government Digital Service",
+      "url": "https://www.gov.uk/guidance/style-guide/a-to-z-of-gov-uk-style"
+    },
+    "libreoffice": {
+      "authority": "The Document Foundation",
+      "url": "https://help.libreoffice.org/"
+    },
+    "met": {
+      "authority": "The Metropolitan Museum of Art",
+      "url": "https://www.metmuseum.org/plan-your-visit"
+    },
+    "microsoft": {
+      "authority": "Microsoft",
+      "url": "https://learn.microsoft.com/en-us/style-guide/welcome/"
+    },
+    "nhm": {
+      "authority": "Natural History Museum",
+      "url": "https://www.nhm.ac.uk/visit.html"
+    },
+    "nist": {
+      "authority": "NIST",
+      "url": "https://www.nist.gov/pml/special-publication-811"
+    },
+    "pi": {
+      "authority": "Raspberry Pi Ltd",
+      "url": "https://www.raspberrypi.com/documentation/"
+    },
+    "pico": {
+      "authority": "Raspberry Pi Ltd",
+      "url": "https://datasheets.raspberrypi.com/pico/pico-datasheet.pdf"
+    },
+    "python": {
+      "authority": "Python Software Foundation",
+      "url": "https://docs.python.org/"
+    },
+    "rfc": {
+      "authority": "RFC Editor",
+      "url": "https://www.rfc-editor.org/"
+    },
+    "si": {
+      "authority": "Smithsonian Institution",
+      "url": "https://www.si.edu/visit"
+    },
+    "ubuntu": {
+      "authority": "Ubuntu documentation team",
+      "url": "https://help.ubuntu.com/stable/ubuntu-help/"
+    },
+    "usb": {
+      "authority": "USB Implementers Forum",
+      "url": "https://www.usb.org/documents"
+    },
+    "vam": {
+      "authority": "Victoria and Albert Museum",
+      "url": "https://www.vam.ac.uk/visit"
+    },
+    "vlc": {
+      "authority": "VideoLAN",
+      "url": "https://www.videolan.org/vlc/"
+    }
+  },
+  "task_source_registry_status": "candidate official starting URLs only; paths, availability, exact sections and content are unverified by this offline draft and must be frozen before a live case",
+  "unsupported_claims_excluded": [
+    "SOTA parity",
+    "original benchmark score reproduction",
+    "published-model result transfer",
+    "configured auxiliary model as exercised coverage"
+  ]
+}

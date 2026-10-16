@@ -1,0 +1,146 @@
+{
+  "app_prerequisites": {
+    "all": "An installed command alone does not prove ownership, observation, input, save/export or reopened-artifact readiness. Setup opens blank windows only; inputs are opened by the solver through GUI.",
+    "browser": "Real installed ordinary-profile browser with fresh authenticated X11/AT-SPI identity, native whole-observation and exact cleanup proof; no headless/CDP wrapper.",
+    "calc_and_writer": "Use the existing owned LibreOffice launch guards: exact installed soffice.bin/PID/start and safe per-child environment; SAL_DISABLE_OPENCL=1 and remove SC_FORCE_CALCULATION. Reject unsafe existing-process handoff. No private profile/global setting change or anonymous OpenCL setup.",
+    "vlc": "Prove real player native ownership, playlist persistence and read-only MPRIS state before executing any media case."
+  },
+  "authority": {
+    "allowlist": [
+      "native_ui",
+      "memory_write",
+      "memory_search"
+    ],
+    "endpoint": "authenticated /api/chat/stream",
+    "goal_only_not_hidden_solver_plan": true,
+    "goal_transport": "one initial foreground TEXT goal; no speech/ASR/TTS",
+    "portal_auto_tools": true,
+    "portal_execution_profile": "native_task",
+    "response_modalities": [
+      "text"
+    ],
+    "speech_mode": "never",
+    "think": false,
+    "tool_search_is_server_gateway": true
+  },
+  "exposure": [
+    "reached_and_handled",
+    "reached_and_blocking",
+    "untested_never_reached"
+  ],
+  "memory": {
+    "conversation_echo_is_not_memory_proof": true,
+    "no_ttl_change": true,
+    "required_case_rule": "write source-bound paths/facts near completion; immediate fresh same-cookie text recall with memory_search only",
+    "ttl_seconds_current": 300
+  },
+  "method": {
+    "cleanup": "polite exact owned XID/PID/start close only; unknown ownership is failure/uncertainty, never empty-list cleanup pass",
+    "forbidden": [
+      "shell",
+      "terminal",
+      "developer console",
+      "CDP/BiDi automation",
+      "private browser/profile",
+      "direct HTTP/search/fetch tools",
+      "direct filesystem solver tools",
+      "application macro/code",
+      "background bridge",
+      "operator task completion",
+      "transcript/goal substitution"
+    ],
+    "policy": "Unique semantic actions skip Kev; record actual calibrated policy receipts for ambiguity, not configured availability as exercised coverage.",
+    "required_evidence": [
+      "exact XID/PID/start plus owned transient guard",
+      "fresh raw controller before/after and dispatch receipts",
+      "actual keyboard typing receipt where text entered",
+      "actual physical mouse receipt and non-setup pointer movement",
+      "official source address and visible section acquisition through GUI",
+      "independent saved-artifact readback and reopen trace",
+      "unrelated input/window preservation"
+    ],
+    "setup_allowed": [
+      "empty owned workbench",
+      "only declared input fixture materialization",
+      "blank owned ordinary-profile apps",
+      "exact owned focus setup"
+    ],
+    "setup_forbidden": [
+      "navigate task sources",
+      "write requested output/answers",
+      "inject click plan",
+      "change unrelated desktop/profile state"
+    ],
+    "solver": "native actual desktop applications and ordinary browser profile only",
+    "vision": "Record actual model/revision/frame/digest/point receipts if invoked; configured-but-unused is unexercised. Only eligible missing named targets invoke native pointing."
+  },
+  "metrics": [
+    "exact source/template/checkpoint/quantization",
+    "auxiliary model revisions and actual calls",
+    "context/output/think/budget",
+    "observations/phase/model/tool rounds",
+    "unique dispatched input vs replay",
+    "first useful input/milestone",
+    "wall/prefill/generation/point latency",
+    "prompt/completion/reasoning tokens",
+    "resource snapshots",
+    "human/controlled perturbation events",
+    "first blocking cause and challenge exposure"
+  ],
+  "official_benchmark_reproduction": false,
+  "original_suite": true,
+  "pilot_LH001_in_denominator": false,
+  "proposed_budget": {
+    "budget_change_requires_new_cohort": true,
+    "hour_scale_extension": "separate cohort; not original benchmark equivalence",
+    "max_phases": 40,
+    "native_input_ceiling": 500,
+    "native_input_ceiling_guard_implemented": false,
+    "planner_effective_output_cap": null,
+    "planner_num_predict_requested": 8192,
+    "temperature": 0,
+    "wall_seconds": 1800
+  },
+  "readiness_claim": "All task readiness false. Specs, installed commands, CPU validation and earlier primitives are not long-task passes.",
+  "repeats": {
+    "executed_cells": 0,
+    "extra_repeats_require_separate_label": "do not silently turn200cells into600; report all attempts/model order",
+    "first_attempt_models": {
+      "ornith": "robit/ornith-1.5-omni-audio-bridge:q4km",
+      "qwen": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+    },
+    "independent_resets_for_later_reliability": 3,
+    "planned_first_attempt_cells": 200
+  },
+  "schema": "robit.omni.long-native-suite-protocol.v1",
+  "scoring": {
+    "metric_separation": [
+      "pass@1",
+      "mean repeated-run success",
+      "pass@k",
+      "best-of-N selected rollout",
+      "partial outcome",
+      "method compliance"
+    ],
+    "no_parity_claim": true,
+    "partial": "fixed checkpoint denominator reported separately; do not discard setup/blocked cases",
+    "reference_system_matched_run_performed": false,
+    "run_statuses": [
+      "unrun",
+      "blocked_prerequisite",
+      "running",
+      "failed",
+      "passed"
+    ],
+    "strict_success": "all mandatory outcome, method and preservation checks true from independent current evidence"
+  },
+  "source_freeze": {
+    "before_live": "Freeze exact official URLs, sections, as-of/version, primary-content hashes and independent fact rubric; these are not acquired by this draft",
+    "dynamic_venue_facts": "score against captured date/version, not future changed hours/prices",
+    "evaluator": "read-only primary reference verification is allowed; keep oracle/answer pack inaccessible to solver",
+    "solver": "find/read sources via real GUI; no setup navigation or answers"
+  },
+  "source_revision_reviewed": "d698cc50e9ec36b650a9b1a235b299de19aa60fa",
+  "status": "packaged_specs_with_conditional_native_runner_unrun",
+  "task_ids": "LHN-001..LHN-100"
+}
