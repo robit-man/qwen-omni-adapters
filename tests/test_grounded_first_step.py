@@ -22,7 +22,7 @@ def observation(*nodes):
 
 def step(verb="focus", target=None, args=None):
     value = {"id": "first", "verb": verb, "target": target or {"node_id": "current"},
-             "expect": [{"kind": "focused", "node_id": "$target"}]}
+             "expect": [{"kind": "active_window" if verb == "switch_window" else "focused", "node_id": "$target"}]}
     if args is not None:
         value["args"] = args
     return value

@@ -325,9 +325,8 @@ The compiler receives the same observation-derived private phase schema in its
 model context, decoder constraints and host validator, followed by canonical
 step and predicate validation before dispatch. Ordinary portal
 clients currently use the generic automatic loop; they do not select this
-profile. Live Ornith evidence establishes valid phase generation and controller
-handoff, with zero dispatched inputs in the retained long-task attempts. It
-does not yet establish successful action chaining.
+profile. Retained Qwen and Ornith attempts establish phase generation, controller
+handoff and actual desktop input. Whole-task completion remains unverified.
 
 The first UI step is constrained to target/verb pairs advertised by positive,
 visible, enabled, nonsensitive nodes in the current model observation. Exact-ID
@@ -335,8 +334,13 @@ selectors and grouped semantic selectors preserve the controller's finite
 ambiguity policy. The existing named visual discovery alternatives remain for
 invoke/click/double-click/right-click without invented IDs; their native
 protection, frame and input checks still decide availability. Steps 2–25 retain
-the canonical generic contract so controls created by earlier steps remain
-expressible. The native decoder uses 25 exact-length `prefixItems` tuples,
+the canonical generic target and argument contracts so controls created by earlier
+steps remain expressible. Every private planner `switch_window` step, including
+later steps, requires exactly `[{"kind":"active_window","node_id":"$target"}]`
+as its effect. The controller resolves that binding to the window actually
+selected; additional checks belong in independent final predicates. This prevents
+switching to one window while checking activation of another. Public direct-client
+step and predicate definitions remain unchanged. The native decoder uses 25 exact-length `prefixItems` tuples,
 without an `items` keyword that would override grounding on the pinned backend.
 Unknown grounding or a derived schema above 56 KiB withholds UI phases while
 preserving allowed memory, visual-inspection, complete and blocked phases; it

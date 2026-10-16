@@ -675,7 +675,7 @@ def parser():
     result.add_argument("--timeout", type=float, default=1800)
     result.add_argument("--drain-timeout", type=float, default=300)
     result.add_argument("--think", action="store_true")
-    result.add_argument("--browser", choices=["firefox", "chromium", "flatpak-firefox", "flatpak-chromium"], default="firefox")
+    result.add_argument("--browser", choices=["firefox", "chromium", "chromium-snap", "flatpak-firefox", "flatpak-chromium"], default="firefox")
     result.add_argument("--editor", choices=["gedit", "gnome-text-editor"], default="gedit")
     result.add_argument("--include-default-text-editor", action="store_true",
                         help="Own one blank selected text/plain handler when the fixture has no editor slot")

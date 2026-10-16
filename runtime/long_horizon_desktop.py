@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import stat
 import subprocess
 import time
 from pathlib import Path
@@ -23,6 +24,34 @@ from runtime.acceptance_native_support import (
 from runtime.owned_window_close import request_owned_window_close
 
 GNOME_TEXT_EDITOR = Path("/usr/bin/gnome-text-editor")
+SNAP_CHROMIUM = Path("/snap/bin/chromium")
+SNAP_DISPATCHER = Path("/usr/bin/snap")
+
+
+def _snap_chromium_launcher() -> str:
+    """Select the installed alias; browser ownership still requires normal guards."""
+    def identity(value):
+        return tuple(getattr(value, key) for key in (
+            "st_dev", "st_ino", "st_mode", "st_uid", "st_gid", "st_nlink",
+            "st_size", "st_mtime_ns", "st_ctime_ns"))
+
+    try:
+        resolved = SNAP_CHROMIUM.resolve(strict=True)
+        link, executable = SNAP_CHROMIUM.lstat(), resolved.stat()
+        if (resolved != SNAP_DISPATCHER or not SNAP_CHROMIUM.is_symlink()
+                or link.st_uid != 0 or executable.st_uid != 0
+                or not stat.S_ISREG(executable.st_mode) or executable.st_mode & 0o022
+                or not os.access(SNAP_CHROMIUM, os.X_OK)):
+            raise ValueError("Invalid installed Snap alias")
+        with resolved.open("rb") as source:
+            native = source.read(4) == b"\x7fELF"
+        if (not native or SNAP_CHROMIUM.resolve(strict=True) != resolved
+                or identity(SNAP_CHROMIUM.lstat()) != identity(link)
+                or identity(resolved.stat()) != identity(executable)):
+            raise ValueError("Installed Snap alias changed")
+    except (OSError, ValueError, RuntimeError):
+        raise CapabilityBlocked("Installed Snap Chromium launcher unavailable") from None
+    return str(SNAP_CHROMIUM)
 
 
 def _verify_native_editor_process(pid: str, executable: Path, expected_start: str,
@@ -170,6 +199,9 @@ class TaskDesktop(OwnedDesktop):
 
     def open_blank(self, application: str, work: Path, *, browser: str, log_path: Path):
         if application == "browser":
+            if browser == "chromium-snap":
+                return self.open_application(_snap_chromium_launcher(), ["--new-window", "about:blank"],
+                    "browser", "[Cc]hromium", log_path=log_path)
             if browser in {"flatpak-firefox", "flatpak-chromium"}:
                 from runtime.owned_flatpak_firefox import OwnedFlatpakFirefox
                 owner = (OwnedFlatpakFirefox(self.environment) if browser == "flatpak-firefox"

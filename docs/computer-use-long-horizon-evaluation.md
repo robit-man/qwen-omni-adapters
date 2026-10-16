@@ -1567,3 +1567,27 @@ XRes lifetime experiment showed that a destroyed resource ID can identify a
 different current client after its original connection closes. Current range
 identity cannot be used as historical transient ownership; that proposed
 Flatpak repair remains withheld.
+
+On source `29e2071`, the original local Ornith LHN-091 recovery task ended
+naturally after six phases and 273.41 seconds at 19:39:02 UTC. Its authoritative
+terminal status was blocked after three consecutive unverified phases; the runner
+records failed independent checks. Six unique dispatched attempts included one
+physical pointer and five native patterns, with no keyboard, Moondream, Kev,
+reader or memory calls. No deliverables were produced. All three inputs and 138
+preexisting window metadata rows were preserved, and all three owned windows
+closed. Its unchanged 28-member bundle is
+`f7561ced380f8c892fb4c1c7afdb4a4b9f460f4b25868a2be1f8808f9f019ca9`.
+Two cached intermediate focus outcomes were freshly verified before reuse with
+zero input and zero progress credit. Multiline typing and false cached-prefix
+rejection were not exercised by this attempt.
+Independent grading found nine failed criteria and preservation C08 passed under
+the frozen input/window oracle; unrelated document contents were not inspected.
+The sealed local campaign now contains 24 attempts, twelve model/case cells,
+ten task IDs and zero whole passes. Remote cohorts remain separate.
+
+That run also supplied an exact private-planner contract failure: phase 2 switched
+to Files while expecting the other editor window to be active. The observed
+Files activation could not satisfy that predicate. The causal switch candidate
+binds the private planner effect to `$target` at every phase position, leaving
+public definitions and the native executor unchanged. Source and decoder proofs
+for this restriction do not establish a new loaded-model task pass.

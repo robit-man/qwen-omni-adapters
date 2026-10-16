@@ -78,6 +78,19 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
     if not isinstance(nodes, list) or len(nodes) > 80:
         return non_ui()
     canonical = schema["$defs"]["step"]["oneOf"]
+    # A switch has one causal effect. Resolve $target only after the controller
+    # has selected the current window; independently authored IDs can name the
+    # previous window even when the requested switch itself succeeds.
+    switch_effect = {"type": "array", "minItems": 1, "maxItems": 1, "items": {
+        "type": "object", "additionalProperties": False, "required": ["kind", "node_id"],
+        "properties": {"kind": {"const": "active_window"}, "node_id": {"const": "$target"}}}}
+    switch = copy.deepcopy(canonical[0])
+    switch["properties"]["verb"] = {"const": "switch_window"}
+    switch["properties"]["expect"] = switch_effect
+    other_zero = copy.deepcopy(canonical[0])
+    other_zero["properties"]["verb"]["enum"].remove("switch_window")
+    schema["$defs"]["causal_step"] = {"oneOf": [other_zero,
+        {"$ref": "#/$defs/step/oneOf/1"}, switch]}
     arguments = {verb: copy.deepcopy(canonical[0])
                  for verb in canonical[0]["properties"]["verb"]["enum"]}
     for condition in canonical[1]["allOf"]:
@@ -135,13 +148,15 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
             branch = copy.deepcopy(arguments[verb])
             branch["properties"]["verb"] = {"const": verb}
             branch["properties"]["target"] = {"anyOf": selectors}
+            if verb == "switch_window":
+                branch["properties"]["expect"] = copy.deepcopy(switch_effect)
             first.append(branch)
     if not first:
         return non_ui()
     schema["$defs"]["grounded_first_step"] = {"oneOf": first}
     schema["oneOf"][0]["properties"]["steps"] = {"anyOf": [
         {"type": "array", "prefixItems": [{"$ref": "#/$defs/grounded_first_step"}]
-             + [{"$ref": "#/$defs/step"}] * (length - 1), "minItems": length, "maxItems": length}
+             + [{"$ref": "#/$defs/causal_step"}] * (length - 1), "minItems": length, "maxItems": length}
         for length in range(1, 26)]}
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
         return non_ui()

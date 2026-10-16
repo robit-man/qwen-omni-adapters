@@ -351,7 +351,8 @@ class ComputerUseStore:
                 # This host entry is reachable only through the existing explicit
                 # tool opt-in/authenticated execution path. The model may select
                 # an immutable offered candidate; it cannot supply authorization.
-                controller = RapidUiController(adapter, authorize=lambda action, state: True)
+                controller = RapidUiController(adapter, authorize=lambda action, state: True,
+                                               verification_timeout_s=10 if surface == "desktop" else 2.5)
                 owned = _OwnedController(controller, adapter, cancel=cancellation,
                                          window_scope=copy.deepcopy(window_scope))
                 self._sessions[key] = owned

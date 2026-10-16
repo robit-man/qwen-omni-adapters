@@ -577,11 +577,13 @@ class WindowCycleAdapter(Adapter):
         return {"status": "dispatched"}
 
 
-def test_actual_window_ABABA_cycle_cannot_keep_buying_recovery_with_new_expectations():
+@pytest.mark.parametrize("extra_expectations", [False, True])
+def test_actual_window_ABABA_cycle_cannot_keep_buying_recovery_with_new_expectations(extra_expectations):
     plans = []
     for index, target in enumerate(("right", "left", "right", "left", "right")):
         expect = [{"kind": "active_window", "node_id": "$target"}]
-        expect += [{"kind": "visible", "role": "window", "name": target, "visible": True}] * index
+        if extra_expectations:
+            expect += [{"kind": "visible", "role": "window", "name": target, "visible": True}] * index
         plans.append({"kind": "ui", "steps": [
             {"id": "switch" + str(index), "verb": "switch_window", "target": {"node_id": target},
              "args": {}, "expect": expect},
@@ -591,7 +593,10 @@ def test_actual_window_ABABA_cycle_cannot_keep_buying_recovery_with_new_expectat
     fixture = Fixture(plans + [{"kind": "complete", "message": "Cannot reach."}])
     fixture.adapter = WindowCycleAdapter()
     events = list(fixture.run())
-    assert len(fixture.adapter.calls) == len(fixture.packets) == 5
+    # Extra predicates now fail the private causal switch contract before any
+    # repeated input. Canonical ABABA still exercises the novelty guard.
+    assert len(fixture.adapter.calls) == (1 if extra_expectations else 5)
+    assert len(fixture.packets) == (4 if extra_expectations else 5)
     assert final(events)["portal"]["native_task"]["status"] == "blocked"
     assert all(tool["ok"] is False for tool in completed_tools(events))
     for tool in completed_tools(events):
