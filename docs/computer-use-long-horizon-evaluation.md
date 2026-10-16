@@ -231,6 +231,30 @@ controlled reproduction. This is a separate follow-on defect; revision guards
 were preserved. Source comprehension, editor/Files work, memory integration and
 whole-task completion remain unverified.
 
+A controlled CPU reproduction subsequently confirmed two identity failures with
+unchanged provider objects and paths: generation renewal after planning-view
+truncation, and renewal after a temporary inactive-window view without
+truncation. The positive control for actual removal and reappearance passed.
+The coverage-aware patch preserves unknown membership, retires only from
+complete native child boundaries, keeps current-only input handles and bounded
+transactional history, and marks cyclic/duplicate coverage incomplete. Its 239
+focused CPU checks passed; the full regression gate passed 2,313 tests. The
+subsequent live Qwen replay preserved the same IDs and generation 1 across
+truncated planning views and inactive-window exclusion. The identity criterion
+passed without changing the loaded GPU1 workers or lease.
+
+That replay ended naturally after nine phases and 237.88 seconds. Python
+navigation and a native scroll phase completed, and later observations confirmed
+the Git document URL. Three failed window-switch phases then stopped the task:
+two fresh prechecks rejected a global revision changed solely by one unrelated
+inactive window; the middle failure replayed the first cached rejection. The
+workbench target remained unchanged, and no native window activation was
+attempted. No output files were created. Source comprehension, editor/Files work,
+memory integration and whole-task completion remain unverified. Owned windows
+closed, both portal queues and the inference slot were idle, and GPU1 worker
+identities and the scoped lease remained unchanged. Evidence is under
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LH001-native-identity-20261016T012520Z/`.
+
 ## Expanded native suite
 
 These are original task specifications, inspired by the cited challenge

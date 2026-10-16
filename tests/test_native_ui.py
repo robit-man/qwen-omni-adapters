@@ -1227,3 +1227,174 @@ def test_protected_nonleaf_withholds_document_root_completeness():
     assert "url" not in state["scope"]
     assert state["document_evidence"]["reason"] == "native_document_root_scan_incomplete"
     assert "never-export-this" not in json.dumps(state)
+
+
+def _named_node(state, name):
+    return next(node for node in state['nodes'] if node['name'] == name)
+
+
+def test_unchanged_tail_keeps_generation_through_planning_budget_omission():
+    fixture = Fixture()
+    tail = Node('/unchanged-tail', 'label', 'Unchanged tail')
+    fixture.window.children.append(tail)
+    for index in range(2):
+        window = Node(f'/other-window-{index}', 'frame', f'Other {index}')
+        app = Node(f'/other-app-{index}', 'application', children=[window])
+        app.process_id = 100 + index
+        fixture.desktop.children.insert(index, app)
+    fixture.bridge._mapped_window = lambda _node, pid: str(1000 + pid)
+    fixture.bridge.MAX_NODES = 13
+    initial = fixture.bridge.observe()
+    first = _named_node(initial, 'Unchanged tail')
+    assert initial['truncated'] is False
+    planning = fixture.bridge.observe(include_windows=True)
+    assert planning['truncated'] is True
+    assert not any(node['id'] == first['id'] for node in planning['nodes'])
+    assert sum(node['operations'] == ['switch_window'] for node in planning['nodes']) == 2
+    assert fixture.window.children[-1] is tail  # Same exact provider object and native path throughout.
+    renewed = _named_node(fixture.bridge.observe(), 'Unchanged tail')
+    assert (renewed['id'], renewed['generation']) == (first['id'], first['generation'])
+
+
+def test_untruncated_inactive_window_exclusion_is_not_document_disappearance():
+    fixture = Fixture()
+    other_entry = Node('/other-entry', 'entry', 'Other document')
+    other_window = Node('/other-window', 'frame', 'Other editor', children=[other_entry])
+    fixture.application.children.append(other_window)
+    initial = fixture.bridge.observe()
+    first = _named_node(initial, 'Title')
+    fixture.window.state.values.remove('ACTIVE')
+    other_window.state.values.add('ACTIVE')
+    fixture.foreground['window_id'] = '18'
+    other = fixture.bridge.observe()
+    assert other['truncated'] is False
+    assert not any(node['id'] == first['id'] for node in other['nodes'])
+    other_window.state.values.remove('ACTIVE')
+    fixture.window.state.values.add('ACTIVE')
+    fixture.foreground['window_id'] = '17'
+    current = _named_node(fixture.bridge.observe(), 'Title')
+    assert (current['id'], current['generation']) == (first['id'], first['generation'])
+
+
+def test_complete_active_scope_disappearance_still_renews_generation():
+    fixture = Fixture()
+    first = _named_node(fixture.bridge.observe(), 'Preview')
+    fixture.window.children.remove(fixture.button)
+    missing = fixture.bridge.observe()
+    assert missing['truncated'] is False
+    assert not any(node['id'] == first['id'] for node in missing['nodes'])
+    fixture.window.children.append(fixture.button)
+    current = _named_node(fixture.bridge.observe(), 'Preview')
+    assert current['generation'] == '2'
+    assert current['id'] != first['id']
+
+
+@pytest.mark.parametrize("limit", ["MAX_NODES", "MAX_CHILDREN", "MAX_DEPTH"])
+def test_incomplete_child_coverage_preserves_unknown_identities_without_input_handles(limit):
+    fixture = Fixture()
+    first = _named_node(fixture.bridge.observe(), "Preview")
+    original_limit = getattr(fixture.bridge, limit)
+    setattr(fixture.bridge, limit, {"MAX_NODES": 4, "MAX_CHILDREN": 2, "MAX_DEPTH": 1}[limit])
+    partial = fixture.bridge.observe()
+    assert partial["truncated"] is True
+    assert first["id"] not in fixture.bridge.handles
+    assert ":1.42:/preview" in fixture.bridge.previous
+    assert all(node["id"] != first["id"] for node in partial["nodes"])
+    action = {"session_id": fixture.bridge.session_id, "revision": partial["revision"],
+              "scope_id": partial["scope"]["id"], "node_id": first["id"],
+              "generation": first["generation"], "verb": "invoke", "args": {}}
+    assert fixture.bridge.perform(action) == {"status": "rejected", "reason": "native_target_missing"}
+    assert not fixture.button.events
+    setattr(fixture.bridge, limit, original_limit)
+    current = _named_node(fixture.bridge.observe(), "Preview")
+    assert (current["id"], current["generation"]) == (first["id"], first["generation"])
+
+
+def test_complete_removal_retires_identity_even_when_other_branch_is_truncated():
+    fixture = Fixture()
+    fixture.window.children.remove(fixture.button)
+    completed_branch = Node("/complete-branch", "panel", children=[fixture.button])
+    other_branch = Node("/incomplete-branch", "panel")
+    fixture.window.children.extend([completed_branch, other_branch])
+    first = _named_node(fixture.bridge.observe(), "Preview")
+    completed_branch.children.clear()
+    other_branch.children = [Node(f"/unseen-{index}", "label") for index in range(129)]
+    partial = fixture.bridge.observe()
+    assert partial["truncated"] is True
+    assert ":1.42:/preview" not in fixture.bridge.previous
+    completed_branch.children.append(fixture.button)
+    current = _named_node(fixture.bridge.observe(), "Preview")
+    assert current["generation"] == "2" and current["id"] != first["id"]
+
+
+def test_complete_parent_removal_retires_a_previously_excluded_window_subtree():
+    fixture = Fixture()
+    other = Node("/other-window", "frame", children=[Node("/other-text", "entry", "Other")],
+                 states=["ACTIVE", "SENSITIVE", "SHOWING", "VISIBLE"])
+    fixture.window.state.values.remove("ACTIVE")
+    fixture.application.children.append(other)
+    first = _named_node(fixture.bridge.observe(), "Other")
+    other.state.values.remove("ACTIVE")
+    fixture.window.state.values.add("ACTIVE")
+    fixture.bridge.observe()
+    assert ":1.42:/other-text" in fixture.bridge.previous
+    fixture.application.children.remove(other)
+    fixture.bridge.observe()
+    assert ":1.42:/other-text" not in fixture.bridge.previous
+    assert ":1.42:/other-window" not in fixture.bridge._identity_children
+    fixture.window.state.values.remove("ACTIVE")
+    other.state.values.add("ACTIVE")
+    fixture.application.children.append(other)
+    current = _named_node(fixture.bridge.observe(), "Other")
+    assert current["generation"] == "2" and current["id"] != first["id"]
+
+
+@pytest.mark.parametrize("uncertain", ["duplicate", "cycle"])
+def test_duplicate_or_cyclic_native_coverage_cannot_prove_identity_absence(uncertain):
+    fixture = Fixture()
+    first = _named_node(fixture.bridge.observe(), "Preview")
+    fixture.window.children.remove(fixture.button)
+    if uncertain == "duplicate":
+        fixture.window.children.append(fixture.title)
+    else:
+        fixture.selection.children.append(fixture.window)
+    partial = fixture.bridge.observe()
+    assert partial["truncated"] is True
+    assert first["id"] not in fixture.bridge.handles
+    assert ":1.42:/preview" in fixture.bridge.previous
+    fixture.window.children.append(fixture.button)
+    current = _named_node(fixture.bridge.observe(), "Preview")
+    assert (current["id"], current["generation"]) == (first["id"], first["generation"])
+
+
+def test_failed_read_rolls_back_identity_child_coverage_and_presence():
+    fixture = Fixture()
+    fixture.bridge.observe()
+    old_coverage = {parent: set(children) for parent, children in fixture.bridge._identity_children.items()}
+    old_presence = set(fixture.bridge.previous)
+    old_generations = dict(fixture.bridge.generations)
+    new = Node("/new-before-failure", "label", "New")
+    fixture.window.children.insert(0, new)
+    fixture.button.get_name = lambda: (_ for _ in ()).throw(RuntimeError("late provider failure"))
+    with pytest.raises(NativeUiUnavailable):
+        fixture.bridge.observe()
+    assert fixture.bridge._identity_children == old_coverage
+    assert fixture.bridge.previous == old_presence
+    assert fixture.bridge.generations == old_generations
+    assert ":1.42:/new-before-failure" not in fixture.bridge.generations
+
+
+def test_identity_edge_storage_has_a_fatal_transactional_budget():
+    fixture = Fixture()
+    fixture.bridge.observe()
+    old_coverage = {parent: set(children) for parent, children in fixture.bridge._identity_children.items()}
+    old_presence = set(fixture.bridge.previous)
+    old_generations = dict(fixture.bridge.generations)
+    fixture.bridge.MAX_IDENTITIES = len(old_generations)
+    fixture.check.children.append(fixture.title)  # Another edge, no additional provider identity.
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.bridge.observe()
+    assert error.value.code == "native_identity_budget_exceeded"
+    assert fixture.bridge._identity_children == old_coverage
+    assert fixture.bridge.previous == old_presence
+    assert fixture.bridge.generations == old_generations

@@ -555,6 +555,7 @@ class _AtspiBridge:
         self.foreground = foreground
         self.key = os.urandom(32)
         self.previous: set[str] = set()
+        self._identity_children: dict[str, set[str]] = {}
         self.generations: dict[str, int] = {}
         self.handles: dict[str, tuple[Any, dict[str, Any], int | None]] = {}
         self.windows: dict[str, Any] = {}
@@ -949,6 +950,10 @@ class _AtspiBridge:
             raise NativeUiUnavailable("native_desktop_unavailable")
         self._clear_cache(desktop)
         nodes, seen, active, handles, windows, window_ids = [], set(), set(), {}, {}, {}
+        identity_root = "@desktop"
+        observed_children: dict[str, set[str]] = {}
+        complete_children: set[str] = set()
+        coverage_uncertain = False
         active_records = {}
         generations = dict(self.generations)
         history = self._window_history.copy()
@@ -969,18 +974,22 @@ class _AtspiBridge:
             "frame": "window",
         }
 
-        def visit(node: Any, window: str = "", depth: int = 0, application_pid: int | None = None) -> None:
-            nonlocal truncated, text_remaining
+        def visit(node: Any, window: str = "", depth: int = 0, application_pid: int | None = None,
+                  parent: str = identity_root) -> bool:
+            nonlocal truncated, text_remaining, coverage_uncertain
             if len(seen) >= self.MAX_NODES or depth > self.MAX_DEPTH:
                 truncated = True
-                return
+                return False
             if node is None:
                 raise NativeUiUnavailable("native_observation_unavailable")
             raw = self._read(lambda: str(node.app.bus_name) + ":" + str(node.path))
             if not raw or raw == ":":
                 raise NativeUiUnavailable("native_identity_unavailable")
+            observed_children.setdefault(parent, set()).add(raw)
             if raw in seen:
-                return
+                coverage_uncertain = True  # Aliases/cycles cannot prove absent descendants.
+                truncated = True
+                return False
             seen.add(raw)
             self._clear_cache(node)
             state = self._read(node.get_state_set)
@@ -992,7 +1001,7 @@ class _AtspiBridge:
             if role == "application":
                 application_pid = self._read(node.get_process_id)
                 if application_pid != process_id and (not include_windows or self.process_id is not None):
-                    return
+                    return True
             generation = generations.get(raw, 0) + int(raw not in self.previous)
             generations[raw] = generation
             if len(generations) > self.MAX_IDENTITIES:
@@ -1020,7 +1029,7 @@ class _AtspiBridge:
                             nodes.append(item)
                             handles[node_id] = (node, item, None)
                             window_ids[window] = xid
-                    return  # Inactive application trees cannot consume the active-window budget.
+                    return True  # Excluded contents provide no absence evidence.
             visible = all(state.contains(s) for s in (state_type.SHOWING, state_type.VISIBLE))
             enabled = state.contains(state_type.SENSITIVE)
             sensitive = role == "password text"
@@ -1120,16 +1129,28 @@ class _AtspiBridge:
                 handles[node_id] = (node, item, action_index)
             count = self._count(node)
             truncated |= count > self.MAX_CHILDREN
+            child_list_complete = count <= self.MAX_CHILDREN
+            observed_children.setdefault(raw, set())
             for index in range(min(count, self.MAX_CHILDREN)):
                 if len(seen) >= self.MAX_NODES:
                     truncated = True
+                    child_list_complete = False
                     break
-                visit(self._read(lambda i=index: node.get_child_at_index(i)), window, depth + 1, application_pid)
+                admitted = visit(self._read(lambda i=index: node.get_child_at_index(i)), window, depth + 1,
+                                 application_pid, raw)
+                child_list_complete &= admitted
+            if child_list_complete:
+                complete_children.add(raw)
+            return True
 
         count = self._count(desktop)
         truncated |= count > self.MAX_CHILDREN
+        desktop_complete = count <= self.MAX_CHILDREN
+        observed_children.setdefault(identity_root, set())
         for index in range(min(count, self.MAX_CHILDREN)):
-            visit(self._read(lambda i=index: desktop.get_child_at_index(i)))
+            desktop_complete &= visit(self._read(lambda i=index: desktop.get_child_at_index(i)))
+        if desktop_complete:
+            complete_children.add(identity_root)
         if len(active) != 1:
             raise NativeUiUnavailable(
                 "native_active_window_unavailable",
@@ -1161,9 +1182,28 @@ class _AtspiBridge:
         payload["revision"] = hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
+        # Unknown/excluded subtrees retain identities, never old input handles.
+        # Only complete native child lists prove an earlier child disappeared.
+        children = {parent: set(values) for parent, values in self._identity_children.items()}
+        for parent, values in observed_children.items():
+            if parent in complete_children and not coverage_uncertain:
+                children[parent] = values
+            else:
+                children.setdefault(parent, set()).update(values)
+        present, pending = set(), [identity_root]
+        while pending:
+            raw = pending.pop()
+            if raw not in present:
+                present.add(raw)
+                pending.extend(children.get(raw, ()))
+        children = {parent: values for parent, values in children.items() if parent in present}
+        present.discard(identity_root)
+        if len(present) > self.MAX_IDENTITIES or sum(map(len, children.values())) > self.MAX_IDENTITIES:
+            raise NativeUiUnavailable("native_identity_budget_exceeded")
         # Commit identities and handles only after the complete payload validates.
         self.generations, self._window_history = generations, history
-        self.previous, self.handles, self.windows, self.window_ids = seen, handles, windows, window_ids
+        self._identity_children = children
+        self.previous, self.handles, self.windows, self.window_ids = present, handles, windows, window_ids
         return payload
 
     def perform(self, action: Mapping[str, Any]) -> dict[str, Any]:

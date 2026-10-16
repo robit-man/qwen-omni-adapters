@@ -35,6 +35,12 @@ input retains the existing visibility, enabled-state, and hit-target checks.
 Password/one-time-code controls are excluded from finite candidates. Bounded
 or truncated observations cannot prove that an unobserved control is absent.
 
+Native identity history follows complete parent/child coverage. A budget cap or
+inactive-window view retains unknown membership without renewing generations;
+a complete child list can retire a genuinely removed subtree. Retained history
+contains bounded identity metadata only. Input handles still come exclusively
+from the current observation, and failed reads roll back the identity history.
+
 When an `invoke` step has no native match, a named visual target can be grounded
 by the configured local point worker. Its synthetic candidate is bound to the
 exact source image and semantic revision. The executor checks both again and
