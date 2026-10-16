@@ -56,6 +56,15 @@ action using a different input backend. Missing accessibility or ambiguous foreg
 is a capability failure. Windows UIA and the architecture's full
 alternative-model comparison matrix are outside this tested port.
 
+Native browser URL predicates use `scope.url` from the active window's sole
+visible top-level `DocumentWeb` and its fresh AT-SPI `DocURL` attribute.
+`document_evidence` binds that URI to the document node, generation, window and
+provider identity. Browser chrome, inactive documents, nested frames and typed
+address-bar text cannot supply it. An incomplete structural scan, ambiguity,
+unavailable capability or changing document withholds URL evidence; read-budget
+failures remain fatal. This uses the ordinary browser's accessibility API and
+does not introduce a separate browser session or input backend.
+
 Native `key_chord` receipts identify the attempted keyboard route as
 `backend: x11_guarded_xtest`. Nonzero exit, launch error or timeout remains an
 uncertain dispatched attempt and is never retried automatically. A rejection

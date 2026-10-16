@@ -592,6 +592,114 @@ class _AtspiBridge:
             raise NativeUiUnavailable("native_observation_unavailable")
         return count
 
+    def _document_evidence(self, window: Any, window_id: str, handles: Mapping[str, Any],
+                           generations: Mapping[str, int]) -> dict[str, Any]:
+        """Read committed top-level DocumentWeb evidence, never browser chrome text."""
+        unavailable = {"status": "unavailable", "source": "atspi.Document.DocURL"}
+        getter = getattr(getattr(self.atspi, "Document", None), "get_document_attribute_value", None)
+        if not callable(getter):
+            return {**unavailable, "reason": "document_interface_unavailable"}
+        state_type = self.atspi.StateType
+        seen, documents = set(), []
+
+        def identity(node: Any) -> str:
+            bus, path = self._read(lambda: (node.app.bus_name, node.path))
+            if not isinstance(bus, str) or not bus or not isinstance(path, str) or not path:
+                raise NativeUiUnavailable("native_document_identity_unavailable")
+            return bus + ":" + path
+
+        def visible(node: Any) -> bool:
+            state = self._read(node.get_state_set)
+            if state is None or state.contains(state_type.DEFUNCT):
+                raise NativeUiUnavailable("native_document_state_unavailable")
+            return all(
+                state.contains(value) for value in (state_type.VISIBLE, state_type.SHOWING)
+            )
+
+        def scan(node: Any, depth: int = 0) -> None:
+            if node is None or depth > self.MAX_DEPTH or len(seen) >= self.MAX_NODES:
+                raise NativeUiUnavailable("native_document_root_scan_incomplete")
+            raw = identity(node)
+            if raw in seen:
+                raise NativeUiUnavailable("native_document_root_scan_incomplete")
+            seen.add(raw)
+            self._clear_cache(node)
+            role = self._read(node.get_role_name)
+            if not isinstance(role, str) or not role:
+                raise NativeUiUnavailable("native_document_root_scan_incomplete")
+            showing = visible(node)
+            if role == "document web":
+                if showing:
+                    documents.append((node, raw))
+                return  # Nested frame documents can never replace the main document.
+            count = self._count(node)
+            if role == "password text":
+                if count:
+                    raise NativeUiUnavailable("native_document_root_scan_incomplete")
+                return
+            if count > self.MAX_CHILDREN:
+                raise NativeUiUnavailable("native_document_root_scan_incomplete")
+            for index in range(count):
+                scan(self._read(lambda i=index: node.get_child_at_index(i)), depth + 1)
+
+        def read_url(node: Any, raw: str) -> str | None:
+            self._clear_cache(node)
+            if (identity(node) != raw or self._read(node.get_role_name) != "document web"
+                    or not visible(node) or "Document" not in self._read(node.get_interfaces)):
+                return None
+            interface = self._read(node.get_document_iface)
+            uri = self._read(lambda: getter(interface, "DocURL"))
+            if (not isinstance(uri, str) or not uri or len(uri) > 20000
+                    or any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in uri)):
+                return None
+            try:
+                parsed = urlsplit(uri)
+                if not parsed.scheme or not (parsed.netloc or parsed.path):
+                    return None
+                if parsed.scheme.lower() in {"http", "https", "ftp"}:
+                    if not parsed.hostname:
+                        return None
+                    _ = parsed.port
+            except ValueError:
+                return None
+            return uri
+
+        try:
+            window_raw = identity(window)
+            window_state = self._read(window.get_state_set)
+            if not visible(window) or not window_state.contains(state_type.ACTIVE):
+                return {**unavailable, "reason": "document_window_not_active"}
+            scan(window)
+            if len(documents) != 1:
+                return {**unavailable, "reason": "document_root_not_unique"}
+            node, raw = documents[0]
+            generation = generations.get(raw)
+            record = handles.get(self._opaque(f"{raw}:{generation}")) if generation is not None else None
+            if record is None:
+                return {**unavailable, "reason": "document_not_in_current_observation"}
+            item = record[1]
+            if (item["scope_id"] != window_id or not item["visible"] or item["sensitive"]
+                    or item["role"] != "document_web"):
+                return {**unavailable, "reason": "document_binding_unavailable"}
+            uri = read_url(node, raw)
+            if uri is None or read_url(node, raw) != uri:
+                return {**unavailable, "reason": "document_url_unavailable_or_changed"}
+            self._clear_cache(window)
+            state = self._read(window.get_state_set)
+            if (identity(window) != window_raw or not visible(window) or not state.contains(state_type.ACTIVE)
+                    or self.foreground() != self.foreground_identity):
+                return {**unavailable, "reason": "document_window_binding_changed"}
+            return {"status": "observed", "source": "atspi.Document.DocURL", "url": uri,
+                    "node_id": item["id"], "generation": item["generation"], "scope_id": window_id,
+                    "window_id": self.foreground_identity["window_id"], "provider": "atspi2",
+                    "provider_identity_sha256": hashlib.sha256(raw.encode()).hexdigest()}
+        except NativeUiUnavailable as exc:
+            if exc.code == "native_observation_budget_exceeded":
+                raise
+            return {**unavailable, "reason": exc.code}
+        except (AttributeError, TypeError):
+            return {**unavailable, "reason": "document_interface_unavailable"}
+
     def _native_rect(self, node: Any, space: Any = None) -> dict[str, int] | None:
         component = self._read(node.get_component_iface)
         if not hasattr(component, "get_extents"):
@@ -1045,6 +1153,9 @@ class _AtspiBridge:
                 str(node.get("value", node["name"])) for node in nodes if not node["sensitive"]
             )[:32768],
         }
+        payload["document_evidence"] = self._document_evidence(windows[window_id], window_id, handles, generations)
+        if payload["document_evidence"]["status"] == "observed":
+            payload["scope"]["url"] = payload["document_evidence"]["url"]
         if self._coordinate_binding:
             payload["coordinate_binding"] = copy.deepcopy(self._coordinate_binding)
         payload["revision"] = hashlib.sha256(

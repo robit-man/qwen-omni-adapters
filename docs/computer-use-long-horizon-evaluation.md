@@ -153,9 +153,10 @@ GPU 1, with three retained results:
 The last two runs closed all three owned windows after downstream idleness,
 preserved the scoped GPU workers and skipped recall because no artifact existed.
 All remain failed LH001 attempts. Contract delivery, valid phase generation and
-the controller handoff are verified milestones; multi-input execution and whole
-task completion remain unverified. The earlier full state for the first stale
-action was not retained, so its exact changing field is unknown. Do not weaken
+the controller handoff are verified Ornith milestones; at that checkpoint,
+multi-input execution and whole-task completion remained unverified. The earlier
+full state for the first stale action was not retained, so its exact changing
+field is unknown. Do not weaken
 revision validation or infer that cause from the retained target alone.
 
 Compact evidence is retained under ignored
@@ -176,6 +177,59 @@ nor Moondream grounding. The mandatory compiler currently requires explicit
 foreground API opt-in; ordinary portal clients do not yet select it. Other
 remaining boundaries include causal references to newly created controls,
 selection-failure detail in replanning receipts, and verified workflow caching.
+
+Qwen was then loaded on GPU 1 with source `d698cc5` and the same LH001 goal,
+schema and sampling options. Its 101.50-second run issued three four-step UI
+phases and twelve actual guarded input dispatches. In phases two and three,
+Ctrl+A created a new address-bar selection and typing replaced its value and
+cleared the selection, with **zero intervening Omni requests**. This verifies
+the multi-input delegation milestone. It does not verify complete phases or
+LH001: every Return stopped at a URL predicate because native observations
+published no `scope.url`, the field read by the canonical verifier. No task
+file was created; recall was skipped; all owned windows closed after idleness.
+
+The loaded Python documentation title was observed, but the required `mkdir`
+facts were absent from the captured bounded native state. Source acquisition
+and comprehension therefore remain failed criteria. The exact traversal cutoff
+was not captured and must not be guessed from the `truncated` flag alone.
+
+This run retained full enumeration and pre-dispatch observations in
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LH001-native-task-20261016T003811Z/`.
+A separate read-only probe of one new owned blank Firefox window confirmed that
+the visible `document_web` exposes committed `DocURL:"about:blank"` through
+AT-SPI's Document interface. Firefox chrome also exposes a different Document
+URL, so navigation evidence must bind the top-level web document to the active
+window. The probe made no model request or task-source navigation and closed
+its owned window. Its evidence is in
+`runtime-data/gpu1-acceptance/gecko-document-diagnostic-20261016T004400Z/`.
+
+The DocURL patch passed 2,301 regression tests in 96.30 seconds, then a live
+Qwen replay completed both four-step navigation phases. Fresh committed URLs
+changed from `about:blank` to the Python page and then the Git page, with all
+step and independent terminal predicates verified and no intervening Omni
+requests inside either workflow. Typing alone left the committed URL unchanged;
+Return produced the document evidence that satisfied verification.
+
+The full task still failed. It then repeated focus-only phases with no new
+effects or files. The operator interrupted the test client after sufficient
+stall evidence. The client received thirteen workflows; the server completed
+fourteen before noticing disconnect, including one late owned focus. The
+server's twenty dispatched outcomes comprise eight navigation-phase inputs
+and twelve focus-only inputs. Owned windows and their ownership watch remained
+until that late work settled; both queues and trunk slots were then idle and
+the windows closed. No GPU worker was stopped. An aborted HTTP stream is not
+therefore a synchronous guarantee against another native input.
+
+Evidence is under
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LH001-native-docurl-20261016T005809Z/`.
+The exact captured focus-state differences affect only IDs and generations of
+sixteen hidden tail nodes omitted by intervening bounded planning views;
+visible content, focus, URL and capabilities are unchanged. The native identity
+history treats unseen identities as newly appearing even after truncation.
+Provider raw paths were not captured, so object continuity still needs a
+controlled reproduction. This is a separate follow-on defect; revision guards
+were preserved. Source comprehension, editor/Files work, memory integration and
+whole-task completion remain unverified.
 
 ## Expanded native suite
 

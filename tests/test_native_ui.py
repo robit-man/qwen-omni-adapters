@@ -1022,3 +1022,208 @@ def test_complete_native_error_reply_allows_a_later_fresh_observation(monkeypatc
         writer.write(json.dumps({**envelope, "ok": True, "result": {"recovered": True}}).encode() + b"\n")
         writer.flush()
         assert bridge.request({"op": "observe"}) == {"recovered": True}
+
+
+def document_fixture(uri="about:blank"):
+    fixture = Fixture()
+    document = Node("/document", "document web", "Committed page", interfaces=["Document"])
+    document.document_url = uri
+    document.get_document_iface = lambda: document
+    fixture.window.children.append(document)
+    fixture.api.Document = SimpleNamespace(
+        get_document_attribute_value=lambda node, attribute: node.document_url if attribute == "DocURL" else ""
+    )
+    return fixture, document
+
+
+def test_native_document_url_proves_committed_navigation_not_addressbar_text():
+    from qwen_omni_adapters.computer_use import predicate_satisfied
+
+    fixture, document = document_fixture("https://docs.python.org/3/library/pathlib.html")
+    fixture.title.value = "https://www.gnu.org/software/bash/manual/"
+    first = fixture.adapter.observe()
+    evidence = first["document_evidence"]
+    node = next(node for node in first["nodes"] if node["role"] == "document_web")
+    assert first["scope"]["url"] == document.document_url
+    assert evidence == {"status": "observed", "source": "atspi.Document.DocURL", "url": document.document_url,
+                        "node_id": node["id"], "generation": node["generation"], "scope_id": first["scope"]["id"],
+                        "window_id": "17", "provider": "atspi2",
+                        "provider_identity_sha256": evidence["provider_identity_sha256"]}
+    assert len(evidence["provider_identity_sha256"]) == 64
+    assert not predicate_satisfied({"kind": "url", "url": fixture.title.value}, first)
+    assert fixture.adapter.observe()["revision"] == first["revision"]
+    document.document_url = fixture.title.value
+    second = fixture.adapter.observe()
+    assert predicate_satisfied({"kind": "url", "url": fixture.title.value}, second)
+    assert second["revision"] != first["revision"]
+    assert second["document_evidence"]["node_id"] == node["id"]
+    assert not document.events and not fixture.title.events
+
+
+def test_native_document_url_preserves_provider_uri_and_model_projection():
+    from portal.app import _model_ui_observation
+
+    uri = "https://example.org/A%2fb?q=%2f#ExactCase"
+    fixture, _ = document_fixture(uri)
+    snapshot = fixture.adapter.observe()
+    projected = _model_ui_observation(snapshot)
+    assert snapshot["scope"]["url"] == uri
+    assert projected["scope"] == snapshot["scope"]
+    assert projected["document_evidence"] == snapshot["document_evidence"]
+
+
+def test_native_document_url_ignores_chrome_inactive_and_nested_documents():
+    fixture, document = document_fixture()
+    fixture.window.interfaces.append("Document")
+    fixture.window.get_document_iface = lambda: fixture.window
+    fixture.window.document_url = "chrome://browser/content/browser.xhtml"
+    nested = Node("/iframe", "document web", interfaces=["Document"])
+    nested.get_document_iface = lambda: nested
+    nested.document_url = "https://iframe.example/"
+    document.children.append(nested)
+    inactive_doc = Node("/inactive-doc", "document web", interfaces=["Document"])
+    inactive_doc.get_document_iface = lambda: inactive_doc
+    inactive_doc.document_url = "https://inactive.example/"
+    fixture.application.children.append(Node("/inactive-window", "frame", children=[inactive_doc]))
+    state = fixture.adapter.observe()
+    assert state["scope"]["url"] == "about:blank"
+    document.state.values.remove("SHOWING")
+    hidden = fixture.adapter.observe()
+    assert "url" not in hidden["scope"]  # Never promote a nested document through its hidden root.
+    assert hidden["document_evidence"]["status"] == "unavailable"
+
+
+@pytest.mark.parametrize("same_uri", [False, True])
+def test_native_document_url_requires_unique_visible_top_level_document(same_uri):
+    fixture, _ = document_fixture()
+    second = Node("/second-doc", "document web", interfaces=["Document"])
+    second.get_document_iface = lambda: second
+    second.document_url = "about:blank" if same_uri else "https://second.example/"
+    fixture.window.children.append(second)
+    state = fixture.adapter.observe()
+    assert "url" not in state["scope"]
+    assert state["document_evidence"]["reason"] == "document_root_not_unique"
+
+
+@pytest.mark.parametrize("uri", [None, 42, "", "http://", "https://[bad", "https://example.org:bad/",
+                                   "https://example.org/has space", "about:blank\x00", "relative/path"])
+def test_native_document_url_withholds_malformed_provider_values(uri):
+    fixture, _ = document_fixture(uri)
+    state = fixture.adapter.observe()
+    assert "url" not in state["scope"]
+    assert state["document_evidence"]["status"] == "unavailable"
+
+
+@pytest.mark.parametrize("unavailable", ["api", "method", "iface", "error", "defunct", "hidden", "role"])
+def test_optional_document_capability_failure_preserves_native_observation(unavailable):
+    fixture, document = document_fixture()
+    if unavailable == "api":
+        del fixture.api.Document
+    elif unavailable == "method":
+        fixture.api.Document = SimpleNamespace()
+    elif unavailable == "iface":
+        document.interfaces.clear()
+    elif unavailable == "error":
+        def fail(*_args):
+            raise RuntimeError("provider unavailable")
+        fixture.api.Document.get_document_attribute_value = fail
+    elif unavailable == "defunct":
+        # The already valid ordinary snapshot must still survive an optional read failure.
+        document.get_document_iface = lambda: document.state.values.add("DEFUNCT") or document
+    elif unavailable == "hidden":
+        document.state.values.remove("VISIBLE")
+    else:
+        document.role = "panel"
+    state = fixture.adapter.observe()
+    assert state["nodes"] and "url" not in state["scope"]
+    assert state["document_evidence"]["status"] == "unavailable"
+
+
+def test_document_body_truncation_does_not_hide_structural_root_uniqueness():
+    fixture, document = document_fixture()
+    document.children = [Node(f"/body-{index}", "paragraph") for index in range(fixture.bridge.MAX_CHILDREN + 1)]
+    state = fixture.adapter.observe()
+    assert state["truncated"] is True
+    assert state["scope"]["url"] == "about:blank"
+    document.children.clear()
+    fixture.window.children.extend(Node(f"/chrome-{index}", "panel") for index in range(fixture.bridge.MAX_CHILDREN))
+    incomplete = fixture.adapter.observe()
+    assert incomplete["truncated"] is True
+    assert "url" not in incomplete["scope"]
+    assert incomplete["document_evidence"]["reason"] == "native_document_root_scan_incomplete"
+
+
+@pytest.mark.parametrize("change", ["uri", "foreground", "identity", "role", "visibility"])
+def test_native_document_url_rechecks_fresh_document_and_foreground_binding(change):
+    fixture, document = document_fixture()
+    reads = []
+
+    def getter(node, _attribute):
+        reads.append(True)
+        value = node.document_url
+        if len(reads) == 1:
+            if change == "uri":
+                node.document_url = "https://changed.example/"
+            elif change == "foreground":
+                fixture.foreground["window_id"] = "18"
+            elif change == "identity":
+                node.path = "/changed-document"
+            elif change == "role":
+                node.role = "panel"
+            else:
+                node.state.values.remove("SHOWING")
+        return value
+
+    fixture.api.Document.get_document_attribute_value = getter
+    state = fixture.adapter.observe()
+    assert "url" not in state["scope"]
+    assert state["document_evidence"]["status"] == "unavailable"
+
+
+def test_optional_document_reads_preserve_fatal_budget_and_transactional_history():
+    fixture, document = document_fixture()
+    fixture.adapter.observe()
+    previous, generations = set(fixture.bridge.previous), dict(fixture.bridge.generations)
+
+    def exhaust(node, _attribute):
+        fixture.bridge.reads = fixture.bridge.MAX_READS
+        return node.document_url
+
+    fixture.api.Document.get_document_attribute_value = exhaust
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.adapter.observe()
+    assert error.value.code == "native_observation_budget_exceeded"
+    assert fixture.bridge.previous == previous
+    assert fixture.bridge.generations == generations
+
+
+def test_document_url_provenance_tracks_positive_disappearance_and_generation():
+    fixture, document = document_fixture()
+    first = fixture.adapter.observe()
+    fixture.window.children.remove(document)
+    missing = fixture.adapter.observe()
+    assert "url" not in missing["scope"]
+    fixture.window.children.append(document)
+    renewed = fixture.adapter.observe()
+    assert renewed["document_evidence"]["generation"] == "2"
+    assert renewed["document_evidence"]["node_id"] != first["document_evidence"]["node_id"]
+
+
+def test_hidden_generic_ancestor_cannot_hide_a_second_visible_document_root():
+    fixture, _ = document_fixture()
+    other = Node("/second-visible-doc", "document web", interfaces=["Document"])
+    other.get_document_iface = lambda: other
+    other.document_url = "https://second.example/"
+    fixture.window.children.append(Node("/hidden-container", "panel", children=[other], states=[]))
+    state = fixture.adapter.observe()
+    assert "url" not in state["scope"]
+    assert state["document_evidence"]["reason"] == "document_root_not_unique"
+
+
+def test_protected_nonleaf_withholds_document_root_completeness():
+    fixture, _ = document_fixture()
+    fixture.secret.children.append(Node("/protected-descendant", "panel"))
+    state = fixture.adapter.observe()
+    assert "url" not in state["scope"]
+    assert state["document_evidence"]["reason"] == "native_document_root_scan_incomplete"
+    assert "never-export-this" not in json.dumps(state)
