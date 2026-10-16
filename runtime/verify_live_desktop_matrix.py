@@ -12,6 +12,7 @@ import argparse
 import fcntl
 import hashlib
 import json
+import re
 import secrets
 import signal
 import subprocess
@@ -32,6 +33,53 @@ REPO = Path(__file__).resolve().parents[1]
 PLAN = REPO / ".aiwg/testing/computer-use-100-cases.json"
 GPU = "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0"
 SCHEMA = "robit.omni.live-desktop-campaign.v1"
+_GPU_UUID = re.compile(r"GPU-[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\Z")
+_ACCEPTANCE_CODES = frozenset({"discovery_unavailable", "admission_not_clear", "missing_selected_gpu_ids",
+    "unregistered_gpu_quarantine", "multiple_admission_blockers", "discovery_malformed", "gpu_health_malformed",
+    "gpu_scope_not_selected", "gpu_scope_residency_unproven"})
+
+
+def _diagnostic_gpu_ids(value: Any) -> list[str]:
+    return [item for item in value[:16] if isinstance(item, str) and _GPU_UUID.fullmatch(item)] if isinstance(value, list) else []
+
+
+class GpuAcceptanceBlocked(RuntimeError):
+    """Fail closed with the same guard snapshot, excluding free-form broker data."""
+
+    def __init__(self, codes: list[str], discovery: Any) -> None:
+        codes = [code for code in codes if code in _ACCEPTANCE_CODES]
+        self._code = codes[0] if len(codes) == 1 else "multiple_admission_blockers"
+        raw = discovery if isinstance(discovery, dict) else {}
+        health = raw.get("gpu_health")
+        health = health if isinstance(health, dict) else {}
+        missing = health.get("missing_selected_gpu_ids")
+        quarantine, selected = raw.get("unregistered_gpu_quarantine"), raw.get("selected_gpu_ids")
+        evidence = {"blocker_codes": codes,
+            "available": raw.get("available") if type(raw.get("available")) is bool else None,
+            "admission_blocked": health.get("admission_blocked") if type(health.get("admission_blocked")) is bool else None,
+            "admission_confirmed_clear": health.get("admission_blocked") is False,
+            "missing_selected_gpu_ids": _diagnostic_gpu_ids(missing),
+            "missing_selected_gpu_ids_present": bool(missing),
+            "missing_selected_gpu_ids_count": len(missing) if isinstance(missing, list) else None,
+            "unregistered_gpu_quarantine_present": bool(quarantine),
+            "unregistered_gpu_quarantine_count": len(quarantine) if isinstance(quarantine, list) else None,
+            "selected_gpu_ids": _diagnostic_gpu_ids(selected),
+            "selected_gpu_ids_count": len(selected) if isinstance(selected, list) else None}
+        self._diagnostic_json = json.dumps({"code": self._code, "evidence": evidence}, sort_keys=True, separators=(",", ":"))
+        super().__init__(self._diagnostic_json)
+
+    @property
+    def code(self) -> str:
+        return self._code
+
+    @property
+    def evidence(self) -> dict[str, Any]:
+        return json.loads(self._diagnostic_json)["evidence"]
+
+
+def gpu_acceptance_failure_evidence(error: BaseException) -> dict[str, Any]:
+    """Only this trusted diagnostic type may cross a redacting watchdog boundary."""
+    return {"code": error.code, "evidence": error.evidence} if isinstance(error, GpuAcceptanceBlocked) else {}
 
 
 def stamp() -> str:
@@ -95,13 +143,25 @@ def source_revision() -> str:
 def broker_evidence(pids: list[int]) -> dict[str, Any]:
     process = subprocess.run(["docker", "gpu", "discover"], capture_output=True,
                              text=True, check=True, timeout=15)
-    discovery = json.loads(process.stdout)
+    try:
+        discovery = json.loads(process.stdout)
+    except (TypeError, ValueError):
+        raise GpuAcceptanceBlocked(["discovery_malformed"], None) from None
+    if not isinstance(discovery, dict):
+        raise GpuAcceptanceBlocked(["discovery_malformed"], discovery)
     health = discovery.get("gpu_health", {})
+    if not isinstance(health, dict):
+        raise GpuAcceptanceBlocked(["gpu_health_malformed"], discovery)
     if (not discovery.get("available") or health.get("admission_blocked") is not False
             or health.get("missing_selected_gpu_ids") or discovery.get("unregistered_gpu_quarantine")):
-        raise RuntimeError("GPU health or quarantine blocks live acceptance")
+        codes = [code for blocked, code in (
+            (not discovery.get("available"), "discovery_unavailable"),
+            (health.get("admission_blocked") is not False, "admission_not_clear"),
+            (bool(health.get("missing_selected_gpu_ids")), "missing_selected_gpu_ids"),
+            (bool(discovery.get("unregistered_gpu_quarantine")), "unregistered_gpu_quarantine")) if blocked]
+        raise GpuAcceptanceBlocked(codes, discovery)
     if GPU not in discovery.get("selected_gpu_ids", []):
-        raise RuntimeError("GPU 1 is no longer broker-selected")
+        raise GpuAcceptanceBlocked(["gpu_scope_not_selected"], discovery)
     others = [item["uuid"] for item in discovery.get("gpus", []) if item.get("uuid") != GPU]
     residents = []
     for pid in pids:
@@ -114,7 +174,7 @@ def broker_evidence(pids: list[int]) -> dict[str, Any]:
         residents.append({"pid": pid, "cuda_visible_devices": visibility,
                           "resident_on_gpu1": on_scope, "other_selected_residency": outside})
         if visibility != GPU or not on_scope or outside:
-            raise RuntimeError("An owned CUDA process has not proved exact GPU 1 residency")
+            raise GpuAcceptanceBlocked(["gpu_scope_residency_unproven"], discovery)
     if not residents:
         raise ValueError("Supply the already-running trunk and required resident policy CUDA PIDs")
     # Discovery excludes tokens; retain only coordination and health fields.
