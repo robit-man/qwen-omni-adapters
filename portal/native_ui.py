@@ -582,7 +582,11 @@ class NativeUiAdapter:
                 finally:
                     self._visual, self._step = None, None
             result = self._request({"op": "perform", "action": dict(action)})
-            if result.get("status") not in {"rejected", "dispatched"}:
+            if result.get("status") == "already_satisfied" and (
+                result.get("input_attempted") is not False or not _already_active_window_action(action)
+            ):
+                return {"status": "rejected", "reason": "invalid_native_already_satisfied_receipt"}
+            if result.get("status") not in {"rejected", "dispatched", "already_satisfied"}:
                 raise NativeUiUnavailable("native_dispatch_unresolved")
             return result
 
@@ -895,6 +899,13 @@ def _process_start(process_id: int) -> str:
     except (OSError, IndexError):
         pass
     raise NativeUiUnavailable("native_window_process_identity_unavailable")
+
+
+def _already_active_window_action(action: Mapping[str, Any]) -> bool:
+    node_id = action.get("node_id")
+    return (action.get("verb") == "switch_window" and action.get("args") == {}
+            and isinstance(node_id, str) and node_id == action.get("scope_id")
+            and action.get("expect") == [{"kind": "active_window", "node_id": node_id}])
 
 
 def _window_query(target: Any) -> dict[str, str] | None:
@@ -1736,6 +1747,9 @@ class _AtspiBridge:
             }
             if window and (node_id == window or item["focused"]) and visible and enabled and not sensitive:
                 item["operations"].append("key_chord")
+            if (node_id in active and visible and enabled and not sensitive
+                    and window_ids.get(node_id) == self.foreground_identity["window_id"]):
+                item["operations"].append("switch_window")
             if bounds:
                 item["bounds"] = bounds
             if not sensitive and hasattr(node, "get_description"):
@@ -2020,26 +2034,44 @@ class _AtspiBridge:
                 return self.atspi.Text.add_selection(interface, args["start"], args["end"])
 
         elif verb == "switch_window":
-            xid = self.window_ids.get(item["id"])
-            owner = self._read(node.get_process_id)
-            if not xid or self._mapped_window(node, owner) != xid:
-                return reject("native_switch_window_mapping_changed")
-            expected = item.get("window_binding")
-            if expected is not None and expected != {"window_id": xid, "process_id": owner,
-                                                     "process_start": self._read(lambda: _process_start(owner))}:
-                return reject("native_switch_window_mapping_changed")
+            if item["id"] == before["scope"]["id"]:
+                if not _already_active_window_action(action):
+                    return reject("native_already_active_expectation_invalid")
 
-            def operation() -> bool | dict[str, Any]:
-                if not _window_scope_allows(self.window_scope, {"window_id": xid, "process_id": owner}):
-                    return reject("native_task_window_out_of_scope")
-                if expected is not None and (self._read(node.get_process_id) != expected["process_id"]
-                        or self._read(lambda: _process_start(owner)) != expected["process_start"]
-                        or self._mapped_window(node, owner) != expected["window_id"]
-                        or self.foreground() != self.foreground_identity):
+                def operation() -> dict[str, Any]:
+                    # Current-root authority comes from the fresh foreground
+                    # provider binding, including namespace proof when needed.
+                    # Inactive title/PID mapping grants no authority here.
+                    if (self.windows.get(item["id"]) is not node
+                            or self.window_ids.get(item["id"]) != self.foreground_identity["window_id"]
+                            or self.foreground() != self.foreground_identity
+                            or not self._read(node.get_state_set).contains(self.atspi.StateType.ACTIVE)
+                            or self.foreground() != self.foreground_identity):
+                        return reject("native_active_window_binding_changed")
+                    return {"status": "already_satisfied", "input_attempted": False,
+                            "reason": "native_window_already_active"}
+
+            else:
+                xid = self.window_ids.get(item["id"])
+                owner = self._read(node.get_process_id)
+                if not xid or self._mapped_window(node, owner) != xid:
                     return reject("native_switch_window_mapping_changed")
-                result = subprocess.run(["xdotool", "windowactivate", "--sync", xid],
-                                        capture_output=True, timeout=2, check=False)  # noqa: S603
-                return result.returncode == 0
+                expected = item.get("window_binding")
+                if expected is not None and expected != {"window_id": xid, "process_id": owner,
+                                                         "process_start": self._read(lambda: _process_start(owner))}:
+                    return reject("native_switch_window_mapping_changed")
+
+                def operation() -> bool | dict[str, Any]:
+                    if not _window_scope_allows(self.window_scope, {"window_id": xid, "process_id": owner}):
+                        return reject("native_task_window_out_of_scope")
+                    if expected is not None and (self._read(node.get_process_id) != expected["process_id"]
+                            or self._read(lambda: _process_start(owner)) != expected["process_start"]
+                            or self._mapped_window(node, owner) != expected["window_id"]
+                            or self.foreground() != self.foreground_identity):
+                        return reject("native_switch_window_mapping_changed")
+                    result = subprocess.run(["xdotool", "windowactivate", "--sync", xid],
+                                            capture_output=True, timeout=2, check=False)  # noqa: S603
+                    return result.returncode == 0
 
         elif verb in _POINTER_VERBS:
             # Pointer dispatch has its own immediate hit/geometry/foreground guard.

@@ -358,12 +358,20 @@ class RapidUiController:
             _check_cancel(cancel)
             self._record({**outcome, "reason": "Dispatch pending; effects remain unverified"})
             receipt = self.adapter.perform(copy.deepcopy(action))
-            if not isinstance(receipt, dict) or not isinstance(receipt.get("status"), str) or receipt["status"] not in {"dispatched", "rejected"}:
+            if not isinstance(receipt, dict) or not isinstance(receipt.get("status"), str) or receipt["status"] not in {"dispatched", "rejected", "already_satisfied"}:
                 raise ComputerUseError("Invalid input dispatch receipt")
             outcome["receipt"] = copy.deepcopy(receipt)
             if receipt["status"] == "rejected":
                 return self._record({**outcome, "status": "rejected", "reason": str(receipt.get("reason", "Input rejected"))[:1000]})
-            self._record({**outcome, "reason": "Dispatched; effects remain unverified"})
+            already_satisfied = receipt["status"] == "already_satisfied"
+            if already_satisfied and not (
+                receipt.get("input_attempted") is False and action["verb"] == "switch_window"
+                and action["args"] == {} and node["role"] == "window" and node["id"] == before["scope"]["id"]
+                and action["expect"] == [{"kind": "active_window", "node_id": node["id"]}]
+            ):
+                return self._record({**outcome, "status": "rejected", "reason": "Invalid already-satisfied window receipt"})
+            self._record({**outcome, "reason": "No input attempted; active window remains unverified" if already_satisfied
+                          else "Dispatched; effects remain unverified"})
             started = time.monotonic()
             deadline = started + self.verification_timeout_s
             for index in range(self.max_observations):
@@ -387,6 +395,15 @@ class RapidUiController:
                 _check_cancel(cancel)
                 if time.monotonic() > deadline:
                     break
+                if already_satisfied:
+                    fresh = next((item for item in after["nodes"] if item["id"] == action["node_id"]), None)
+                    if (after["session_id"] != before["session_id"] or after["scope"] != before["scope"]
+                            or after["revision"] != before["revision"] or fresh is None
+                            or fresh["generation"] != action["generation"] or not fresh["visible"]
+                            or not fresh["enabled"] or fresh["sensitive"] or fresh["role"] != "window"
+                            or "switch_window" not in fresh["operations"]):
+                        return self._record({**outcome, "status": "rejected",
+                                             "reason": "Already-satisfied window binding changed during verification"})
                 if all(predicate_satisfied(item, after, receipt) for item in action["expect"]):
                     return self._record({**outcome, "status": "verified"})
             return self._record({**outcome, "reason": "Expected effects were not observed within the verification budget"})

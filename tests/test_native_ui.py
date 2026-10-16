@@ -1529,11 +1529,13 @@ def test_prepared_switch_query_is_copied_and_planning_and_non_switch_clear_it(mo
     step["target"]["name"] = "Unrelated"
     scoped = fixture.adapter.observe()
     assert fixture.bridge._window_target == {"name": "Notes"}
-    assert {n["name"] for n in scoped["nodes"] if "switch_window" in n["operations"]} == {"Notes"}
+    assert {n["name"] for n in scoped["nodes"] if "switch_window" in n["operations"]
+            and n["id"] != scoped["scope"]["id"]} == {"Notes"}
     assert scoped["window_query_sha256"]
     broad = fixture.adapter.planning_observe()
     assert broad["window_query_sha256"] is None
-    assert {n["name"] for n in broad["nodes"] if "switch_window" in n["operations"]} == {"Notes", "Unrelated"}
+    assert {n["name"] for n in broad["nodes"] if "switch_window" in n["operations"]
+            and n["id"] != broad["scope"]["id"]} == {"Notes", "Unrelated"}
     fixture.adapter.prepare_step({"id": "ordinary", "verb": "focus", "target": {"name": "Title"},
                                   "expect": [{"kind": "focused", "node_id": "$target"}]})
     ordinary = fixture.adapter.observe()
@@ -1974,7 +1976,8 @@ def test_namespace_observation_never_offers_inactive_window_even_with_positive_l
     fixture.bridge._mapped_window = lambda *_args: pytest.fail("foreground proof must not reach inactive mapping")
     state = fixture.adapter.planning_observe()
     assert all(node["name"] != "Other Flatpak window" for node in state["nodes"])
-    assert all("switch_window" not in node["operations"] for node in state["nodes"])
+    assert all("switch_window" not in node["operations"] for node in state["nodes"]
+               if node["id"] != state["scope"]["id"])
     assert not any(record[0] is inactive for record in fixture.bridge.handles.values())
 
 

@@ -80,6 +80,13 @@ Planning observations remain broad. Traversal limits remain conservative: a
 changed bounded active view can still reject input, and truncation never proves
 that no other window matches.
 
+An activation whose exact target is already the active mapped root can return
+`receipt.status="already_satisfied"` with `input_attempted:false`. This is
+limited to `switch_window`, empty args and one exact `active_window` predicate.
+The controller independently re-observes the stable binding and predicate
+before advancing. The receipt is never dispatched input or mutation credit;
+ordinary inactive-window activation and all other actions retain their guards.
+
 When an `invoke` step has no native match, a named visual target can be grounded
 by the configured local point worker. Its synthetic candidate is bound to the
 exact source image and semantic revision. The executor checks both again and
