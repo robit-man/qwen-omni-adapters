@@ -192,7 +192,12 @@ class NativeUiAdapter:
 
     def _semantic_observe(self, *, include_windows: bool = False) -> dict[str, Any]:
         with _NATIVE_LOCK:
-            result = self._request({"op": "observe", "include_windows": include_windows or bool(self._step and self._step["verb"] == "switch_window")})
+            target = (copy.deepcopy(self._step["target"])
+                      if not include_windows and self._step and self._step["verb"] == "switch_window" else None)
+            request = {"op": "observe", "include_windows": include_windows or target is not None}
+            if target is not None:
+                request["window_target"] = target
+            result = self._request(request)
             if result.get("session_id") != self.session_id or not isinstance(
                 result.get("nodes"), list
             ):
@@ -538,6 +543,29 @@ def _pointer_dispatch(identity: Mapping[str, Any], geometry: Mapping[str, int], 
             "backend": "x11_guarded_xtest"}
 
 
+def _process_start(process_id: int) -> str:
+    if type(process_id) is not int or process_id <= 0:
+        raise NativeUiUnavailable("native_window_process_identity_unavailable")
+    try:
+        value = Path(f"/proc/{process_id}/stat").read_text().rsplit(")", 1)[1].split()[19]
+        if value.isdecimal():
+            return value
+    except (OSError, IndexError):
+        pass
+    raise NativeUiUnavailable("native_window_process_identity_unavailable")
+
+
+def _window_query(target: Any) -> dict[str, str] | None:
+    if target is None:
+        return None
+    if (not isinstance(target, dict) or set(target) - {"node_id", "role", "name", "scope_id"}
+            or not {"node_id", "role", "name"} & target.keys()
+            or any(not isinstance(value, str) or len(value) > 512 or (not value and key != "name")
+                   for key, value in target.items())):
+        raise NativeUiUnavailable("native_window_query_invalid")
+    return copy.deepcopy(target)
+
+
 class _AtspiBridge:
     """Fixed native patterns with bounded reads and no arbitrary call surface."""
 
@@ -556,6 +584,7 @@ class _AtspiBridge:
         self.key = os.urandom(32)
         self.previous: set[str] = set()
         self._identity_children: dict[str, set[str]] = {}
+        self._window_target: dict[str, str] | None = None
         self.generations: dict[str, int] = {}
         self.handles: dict[str, tuple[Any, dict[str, Any], int | None]] = {}
         self.windows: dict[str, Any] = {}
@@ -917,24 +946,27 @@ class _AtspiBridge:
                 history.pop(raw, None)
         return receipts
 
-    def observe(self, include_windows: bool = False) -> dict[str, Any]:
+    def observe(self, include_windows: bool = False, window_target: Any = None) -> dict[str, Any]:
         # A failed read is unknown evidence, never positive node disappearance.
         # Coordinate scratch state must also belong to the last successful read.
         missing = object()
         binding = self._coordinate_binding
+        target = self._window_target
         identity = getattr(self, "foreground_identity", missing)
         try:
-            return self._observe(include_windows)
+            return self._observe(include_windows, _window_query(window_target))
         except Exception:
             self._coordinate_binding = binding
+            self._window_target = target
             if identity is missing:
                 self.__dict__.pop("foreground_identity", None)
             else:
                 self.foreground_identity = identity
             raise
 
-    def _observe(self, include_windows: bool) -> dict[str, Any]:
+    def _observe(self, include_windows: bool, window_target: dict[str, str] | None) -> dict[str, Any]:
         self.reads, self.deadline = 0, time.monotonic() + 5
+        self._window_target = copy.deepcopy(window_target)
         self._coordinate_binding = None
         self.foreground_identity = self.foreground()
         process_id = self.foreground_identity["process_id"]
@@ -1026,6 +1058,20 @@ class _AtspiBridge:
                                     "role": "window", "name": str(self._read(node.get_name) or "")[:500],
                                     "visible": visible, "enabled": state.contains(state_type.SENSITIVE),
                                     "sensitive": False, "operations": ["switch_window"]}
+                            if window_target is not None and all(
+                                item.get("id" if key == "node_id" else key) == value
+                                for key, value in window_target.items()
+                            ):
+                                owner = self._read(node.get_process_id)
+                                try:
+                                    start = self._read(lambda: _process_start(owner))
+                                except NativeUiUnavailable as exc:
+                                    if exc.code == "native_observation_budget_exceeded":
+                                        raise
+                                    raise NativeUiUnavailable("native_switch_window_binding_unavailable") from None
+                                if owner != application_pid:
+                                    raise NativeUiUnavailable("native_switch_window_binding_unavailable")
+                                item["window_binding"] = {"window_id": xid, "process_id": owner, "process_start": start}
                             nodes.append(item)
                             handles[node_id] = (node, item, None)
                             window_ids[window] = xid
@@ -1163,12 +1209,25 @@ class _AtspiBridge:
         while len(history) > self.MAX_RETAINED_WINDOWS:
             history.popitem(last=False)
         nodes = [node for node in nodes if node["scope_id"] == window_id or "switch_window" in node["operations"]]
+        if window_target is not None:
+            nodes = [node for node in nodes if node["scope_id"] == window_id or all(
+                node.get("id" if key == "node_id" else key) == value for key, value in window_target.items()
+            )]
+            allowed = {node["id"] for node in nodes}
+            handles = {key: record for key, record in handles.items() if key in allowed}
+            windows = {key: node for key, node in windows.items() if key in allowed}
+            window_ids = {key: xid for key, xid in window_ids.items() if key in allowed}
+        visibility = self._window_visibility(process_id, history=history, generations=generations)
+        if window_target is not None:
+            visibility = [record for record in visibility if record["id"] in windows]
         payload = {
             "session_id": self.session_id,
             "scope": {"id": window_id, "kind": "desktop", "provider": "atspi2",
                       "window_id": self.foreground_identity["window_id"]},
             "nodes": nodes,
-            "window_visibility": self._window_visibility(process_id, history=history, generations=generations),
+            "window_visibility": visibility,
+            "window_query_sha256": hashlib.sha256(json.dumps(window_target, sort_keys=True,
+                separators=(",", ":")).encode()).hexdigest() if window_target is not None else None,
             "truncated": truncated,
             "text": "\n".join(
                 str(node.get("value", node["name"])) for node in nodes if not node["sensitive"]
@@ -1207,7 +1266,9 @@ class _AtspiBridge:
         return payload
 
     def perform(self, action: Mapping[str, Any]) -> dict[str, Any]:
-        before = self.observe(include_windows=action.get("verb") == "switch_window")
+        switching = action.get("verb") == "switch_window"
+        before = self.observe(include_windows=switching,
+                              window_target=copy.deepcopy(self._window_target) if switching else None)
 
         def reject(reason: str) -> dict[str, Any]:
             return {"status": "rejected", "reason": reason}
@@ -1346,8 +1407,17 @@ class _AtspiBridge:
             owner = self._read(node.get_process_id)
             if not xid or self._mapped_window(node, owner) != xid:
                 return reject("native_switch_window_mapping_changed")
+            expected = item.get("window_binding")
+            if expected is not None and expected != {"window_id": xid, "process_id": owner,
+                                                     "process_start": self._read(lambda: _process_start(owner))}:
+                return reject("native_switch_window_mapping_changed")
 
-            def operation() -> bool:
+            def operation() -> bool | dict[str, Any]:
+                if expected is not None and (self._read(node.get_process_id) != expected["process_id"]
+                        or self._read(lambda: _process_start(owner)) != expected["process_start"]
+                        or self._mapped_window(node, owner) != expected["window_id"]
+                        or self.foreground() != self.foreground_identity):
+                    return reject("native_switch_window_mapping_changed")
                 result = subprocess.run(["xdotool", "windowactivate", "--sync", xid],
                                         capture_output=True, timeout=2, check=False)  # noqa: S603
                 return result.returncode == 0
@@ -1458,7 +1528,8 @@ def _bridge_main() -> None:
             if request.get("process_id") != bridge.process_id:
                 raise NativeUiUnavailable("native_process_scope_mismatch")
             if request.get("op") == "observe":
-                result = bridge.observe(include_windows=request.get("include_windows") is True)
+                result = bridge.observe(include_windows=request.get("include_windows") is True,
+                                        window_target=request.get("window_target"))
             elif request.get("op") == "perform" and isinstance(request.get("action"), dict):
                 result = bridge.perform(request["action"])
             else:

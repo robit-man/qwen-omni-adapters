@@ -414,6 +414,7 @@ def test_native_window_switch_uses_observed_mapping_and_verifies_active_scope(mo
     application.process_id = 99
     fixture.desktop.children.append(application)
     fixture.bridge._mapped_window = lambda node, _pid: "21" if node is other else "17"
+    monkeypatch.setattr("portal.native_ui._process_start", lambda pid: f"{pid}01")
 
     def run(command, **_kwargs):
         assert command == ["xdotool", "windowactivate", "--sync", "21"]

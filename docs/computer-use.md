@@ -41,6 +41,16 @@ a complete child list can retire a genuinely removed subtree. Retained history
 contains bounded identity metadata only. Input handles still come exclusively
 from the current observation, and failed reads roll back the identity history.
 
+For a prepared native `switch_window` step, the execution observation contains
+the active window's controls and every observed inactive window matching the
+typed target query. The revision binds that query and each matched window's
+fresh XID, PID and process start. Unrelated inactive roots do not change that
+revision, while changed active evidence, matching windows or ownership still
+invalidate it. Both controller and bridge keep their exact revision checks.
+Planning observations remain broad. Traversal limits remain conservative: a
+changed bounded active view can still reject input, and truncation never proves
+that no other window matches.
+
 When an `invoke` step has no native match, a named visual target can be grounded
 by the configured local point worker. Its synthetic candidate is bound to the
 exact source image and semantic revision. The executor checks both again and

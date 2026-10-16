@@ -209,7 +209,8 @@ class Fixture:
 
     def request(self, request):
         return (
-            self.bridge.observe(include_windows=request.get("include_windows", False))
+            self.bridge.observe(include_windows=request.get("include_windows", False),
+                                window_target=request.get("window_target"))
             if request["op"] == "observe"
             else self.bridge.perform(request["action"])
         )
@@ -1398,3 +1399,276 @@ def test_identity_edge_storage_has_a_fatal_transactional_budget():
     assert fixture.bridge._identity_children == old_coverage
     assert fixture.bridge.previous == old_presence
     assert fixture.bridge.generations == old_generations
+
+
+def _switch_fixture(monkeypatch):
+    fixture = Fixture()
+    target = Node('/notes', 'frame', 'Notes')
+    unrelated = Node('/unrelated', 'frame', 'Unrelated')
+    fixture.application.children.extend([target, unrelated])
+    visible_mapping = {'target': '101', 'unrelated': '102'}
+    activations = []
+
+    def mapped(node, _pid):
+        if node is target:
+            return visible_mapping['target']
+        if node is unrelated:
+            return visible_mapping['unrelated']
+        return '201' if node.name == 'Notes' else '17'
+
+    def run(argv, **_kwargs):
+        assert argv == ['xdotool', 'windowactivate', '--sync', visible_mapping['target']]
+        activations.append(argv)
+        fixture.window.state.values.remove('ACTIVE')
+        target.state.values.add('ACTIVE')
+        fixture.foreground['window_id'] = visible_mapping['target']
+        return SimpleNamespace(returncode=0)
+
+    fixture.bridge._mapped_window = mapped
+    monkeypatch.setattr('portal.native_ui._process_start', lambda pid: f'{pid}01')
+    monkeypatch.setattr('portal.native_ui.subprocess.run', run)
+    step = {'id': 'switch-to-notes', 'verb': 'switch_window',
+            'target': {'role': 'window', 'name': 'Notes'}, 'args': {},
+            'expect': [{'kind': 'active_window', 'node_id': '$target'}]}
+    fixture.adapter.prepare_step(step)
+    from qwen_omni_adapters.computer_use import RapidUiController
+
+    control = RapidUiController(fixture.adapter, authorize=lambda _action, _state: True,
+                               max_observations=1, observation_interval_s=.001)
+    state = control.observe()
+    action = next(a for a in control.enumerate(step, state) if a['kind'] == 'action')
+    return fixture, target, unrelated, visible_mapping, activations, control, action
+
+
+def test_unrelated_inactive_membership_must_not_block_an_unchanged_switch_target(monkeypatch):
+    fixture, target, unrelated, mapping, activations, control, action = _switch_fixture(monkeypatch)
+    first = control._state
+    mapping['unrelated'] = None
+    fresh = fixture.adapter.observe()
+    old_target = next(n for n in first['nodes'] if n['id'] == action['node_id'])
+    new_target = next(n for n in fresh['nodes'] if n['id'] == action['node_id'])
+    assert old_target == new_target
+    assert fresh['scope'] == first['scope']
+    assert first['revision'] == fresh['revision']
+    assert all(n == next(m for m in fresh['nodes'] if m['id'] == n['id'])
+               for n in first['nodes'] if n['scope_id'] == first['scope']['id'])
+    assert target.path == '/notes' and unrelated.path == '/unrelated'
+    outcome = control.execute(action['id'])
+    assert outcome['status'] == 'verified', outcome.get('reason')
+    assert len(activations) == 1
+
+
+def test_native_executor_has_the_same_global_revision_conflict(monkeypatch):
+    fixture, _target, _unrelated, mapping, activations, _control, action = _switch_fixture(monkeypatch)
+    mapping['unrelated'] = None
+    receipt = fixture.bridge.perform(action)
+    assert receipt['status'] == 'dispatched', receipt.get('reason')
+    assert len(activations) == 1
+
+
+@pytest.mark.parametrize('change', ['active_text', 'target_missing', 'target_hidden', 'target_disabled', 'foreground', 'authority'])
+def test_fail_closed_controls_for_a_future_scoped_switch_revision(monkeypatch, change):
+    fixture, target, _unrelated, _mapping, activations, control, action = _switch_fixture(monkeypatch)
+    if change == 'active_text':
+        fixture.title.value = 'Changed current document'
+    elif change == 'target_missing':
+        fixture.application.children.remove(target)
+    elif change == 'target_hidden':
+        target.state.values.remove('SHOWING')
+    elif change == 'target_disabled':
+        target.state.values.remove('SENSITIVE')
+    elif change == 'foreground':
+        fixture.foreground['window_id'] = '999'
+    else:
+        control.authorize = lambda _action, _state: False
+    outcome = control.execute(action['id'])
+    assert outcome['status'] == 'rejected'
+    assert not activations
+
+
+@pytest.mark.parametrize("change", ["xid", "pid", "process_start", "generation", "query"])
+def test_prepared_switch_binds_exact_target_identity_mapping_and_query(monkeypatch, change):
+    fixture, target, _unrelated, mapping, activations, control, action = _switch_fixture(monkeypatch)
+    if change == "xid":
+        mapping["target"] = "201"
+    elif change == "pid":
+        target.process_id = 43
+    elif change == "process_start":
+        monkeypatch.setattr("portal.native_ui._process_start", lambda _pid: "new-start")
+    elif change == "generation":
+        fixture.application.children.remove(target)
+        fixture.adapter.observe()
+        fixture.application.children.append(target)
+    else:
+        fixture.adapter.prepare_step({"id": "different-query", "verb": "switch_window",
+            "target": {"node_id": action["node_id"]}, "args": {}, "expect": action["expect"]})
+    result = control.execute(action["id"])
+    assert result["status"] == ("unresolved" if change == "pid" else "rejected")
+    assert not activations
+
+
+def test_switch_query_preserves_all_observed_matches_and_new_ambiguity(monkeypatch):
+    fixture, _target, _unrelated, _mapping, activations, control, action = _switch_fixture(monkeypatch)
+    fixture.application.children.append(Node("/notes-second", "frame", "Notes"))
+    result = control.execute(action["id"])
+    assert result["status"] == "rejected"
+    step = {"id": "ambiguous-notes", "verb": "switch_window", "target": {"role": "window", "name": "Notes"},
+            "args": {}, "expect": [{"kind": "active_window", "node_id": "$target"}]}
+    fresh = control.run_step(step)
+    assert fresh["status"] == "abstained"
+    assert sum(node["name"] == "Notes" for node in control._state["nodes"]) == 2
+    assert not activations
+
+
+def test_prepared_switch_query_is_copied_and_planning_and_non_switch_clear_it(monkeypatch):
+    fixture, _target, _unrelated, _mapping, _activations, _control, action = _switch_fixture(monkeypatch)
+    step = {"id": "copy-query", "verb": "switch_window", "target": {"name": "Notes"},
+            "args": {}, "expect": action["expect"]}
+    fixture.adapter.prepare_step(step)
+    step["target"]["name"] = "Unrelated"
+    scoped = fixture.adapter.observe()
+    assert fixture.bridge._window_target == {"name": "Notes"}
+    assert {n["name"] for n in scoped["nodes"] if "switch_window" in n["operations"]} == {"Notes"}
+    assert scoped["window_query_sha256"]
+    broad = fixture.adapter.planning_observe()
+    assert broad["window_query_sha256"] is None
+    assert {n["name"] for n in broad["nodes"] if "switch_window" in n["operations"]} == {"Notes", "Unrelated"}
+    fixture.adapter.prepare_step({"id": "ordinary", "verb": "focus", "target": {"name": "Title"},
+                                  "expect": [{"kind": "focused", "node_id": "$target"}]})
+    ordinary = fixture.adapter.observe()
+    assert ordinary["window_query_sha256"] is None
+    assert fixture.bridge._window_target is None
+
+
+def test_unprepared_direct_native_switch_keeps_broad_compatibility(monkeypatch):
+    fixture, _target, _unrelated, _mapping, activations, _control, action = _switch_fixture(monkeypatch)
+    broad = fixture.bridge.observe(include_windows=True)
+    assert broad["window_query_sha256"] is None
+    action = {**action, "revision": broad["revision"]}
+    assert fixture.bridge.perform(action)["status"] == "dispatched"
+    assert len(activations) == 1
+
+
+def test_switch_rechecks_positive_mapping_at_final_activation_boundary(monkeypatch):
+    fixture, _target, _unrelated, mapping, activations, control, action = _switch_fixture(monkeypatch)
+    original = fixture.bridge._mapped_window
+    calls = []
+
+    def moving_mapping(node, owner):
+        if node.name == "Notes":
+            calls.append(True)
+            if len(calls) >= 4:  # core read, bridge read, builder guard, final activation guard
+                return "201"
+        return original(node, owner)
+
+    fixture.bridge._mapped_window = moving_mapping
+    result = control.execute(action["id"])
+    assert result["status"] == "rejected"
+    assert result["receipt"]["reason"] == "native_switch_window_mapping_changed"
+    assert mapping["target"] == "101"
+    assert not activations
+
+
+def test_scoped_switch_still_rejects_active_evidence_displaced_by_traversal_cap(monkeypatch):
+    fixture, target, _unrelated, _mapping, activations, control, _action = _switch_fixture(monkeypatch)
+    fixture.application.children.remove(target)
+    fixture.application.children.insert(0, target)
+    fixture.window.children.extend(Node(f"/bounded-tail-{i}", "label", f"Tail {i}") for i in range(20))
+    fixture.bridge.MAX_NODES = 20
+    step = {"id": "capped-switch", "verb": "switch_window", "target": {"name": "Notes"},
+            "expect": [{"kind": "active_window", "node_id": "$target"}]}
+    fixture.adapter.prepare_step(step)
+    before = control.observe()
+    action = next(a for a in control.enumerate(step, before) if a["kind"] == "action")
+    fixture.application.children.insert(0, Node("/unrelated-new", "frame", "Another"))
+    result = control.execute(action["id"])
+    assert result["status"] == "rejected"
+    assert result["before"]["truncated"] is True
+    assert not activations
+
+
+def test_switch_process_start_unavailable_aborts_target_query(monkeypatch):
+    fixture, _target, _unrelated, _mapping, activations, control, action = _switch_fixture(monkeypatch)
+
+    def unavailable(_owner):
+        raise OSError("process disappeared")
+
+    monkeypatch.setattr("portal.native_ui._process_start", unavailable)
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.adapter.observe()
+    assert error.value.code == "native_switch_window_binding_unavailable"
+    assert control.execute(action["id"])["status"] == "unresolved"
+    assert not activations
+
+
+def test_failed_native_read_rolls_back_prepared_query_and_current_handles(monkeypatch):
+    fixture, _target, _unrelated, _mapping, activations, _control, _action = _switch_fixture(monkeypatch)
+    target, handles = dict(fixture.bridge._window_target), dict(fixture.bridge.handles)
+    previous, generations = set(fixture.bridge.previous), dict(fixture.bridge.generations)
+    fixture.button.get_name = lambda: (_ for _ in ()).throw(RuntimeError("provider failure"))
+    with pytest.raises(NativeUiUnavailable):
+        fixture.bridge.observe(include_windows=True, window_target={"name": "Unrelated"})
+    assert fixture.bridge._window_target == target
+    assert fixture.bridge.handles == handles
+    assert fixture.bridge.previous == previous
+    assert fixture.bridge.generations == generations
+    assert not activations
+
+
+@pytest.mark.parametrize("query", [{}, {"scope_id": "x"}, {"name": 4}, {"node_id": ""}, {"unknown": "x"}])
+def test_invalid_window_query_is_rejected_without_publishing_state(monkeypatch, query):
+    fixture, _target, _unrelated, _mapping, activations, _control, _action = _switch_fixture(monkeypatch)
+    target, handles = dict(fixture.bridge._window_target), dict(fixture.bridge.handles)
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.bridge.observe(include_windows=True, window_target=query)
+    assert error.value.code == "native_window_query_invalid"
+    assert fixture.bridge._window_target == target and fixture.bridge.handles == handles
+    assert not activations
+
+
+@pytest.mark.parametrize("failure", ["unreadable_start", "mismatched_owner"])
+def test_uncertain_binding_of_one_matching_window_cannot_create_false_uniqueness(monkeypatch, failure):
+    fixture, _target, _unrelated, _mapping, activations, control, action = _switch_fixture(monkeypatch)
+    prior_handles = dict(fixture.bridge.handles)
+    prior_presence = set(fixture.bridge.previous)
+    prior_query = dict(fixture.bridge._window_target)
+    second = Node("/notes-second", "frame", "Notes")
+    fixture.application.children.append(second)
+    if failure == "mismatched_owner":
+        second.process_id = 43
+    else:
+        reads = []
+
+        def start(owner):
+            reads.append(owner)
+            if len(reads) % 2 == 0:
+                raise OSError("one matching process identity is unknown")
+            return f"{owner}01"
+
+        monkeypatch.setattr("portal.native_ui._process_start", start)
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.adapter.observe()
+    assert error.value.code == "native_switch_window_binding_unavailable"
+    assert fixture.bridge.handles == prior_handles
+    assert fixture.bridge.previous == prior_presence
+    assert fixture.bridge._window_target == prior_query
+    assert control.execute(action["id"])["status"] == "unresolved"
+    assert not activations
+
+
+def test_window_binding_read_budget_is_fatal_and_rolls_back_query(monkeypatch):
+    fixture, _target, _unrelated, _mapping, activations, _control, _action = _switch_fixture(monkeypatch)
+    prior_handles = dict(fixture.bridge.handles)
+    prior_query = dict(fixture.bridge._window_target)
+
+    def exhaust(owner):
+        fixture.bridge.reads = fixture.bridge.MAX_READS
+        return f"{owner}01"
+
+    monkeypatch.setattr("portal.native_ui._process_start", exhaust)
+    with pytest.raises(NativeUiUnavailable) as error:
+        fixture.adapter.observe()
+    assert error.value.code == "native_observation_budget_exceeded"
+    assert fixture.bridge.handles == prior_handles
+    assert fixture.bridge._window_target == prior_query
+    assert not activations

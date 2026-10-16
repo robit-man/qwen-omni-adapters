@@ -255,7 +255,46 @@ closed, both portal queues and the inference slot were idle, and GPU1 worker
 identities and the scoped lease remained unchanged. Evidence is under
 `runtime-data/gpu1-acceptance/long-horizon/qwen-LH001-native-identity-20261016T012520Z/`.
 
+The next bounded hypothesis scopes prepared window-switch observations to the
+typed target query while preserving the active controls and exact revision
+checks at both execution boundaries. A controlled pre-patch reproduction failed
+in both the real controller and native bridge when only an unrelated inactive
+window changed. Target ownership, active evidence and matching-window ambiguity
+remain required rejection controls. Whole-task results require a new live
+cohort after the scoped patch passes its source gates.
+
+The scoped patch passed 2,341 regression checks after one older CPU fixture was
+updated to provide its mocked process-start identity. Its single live replay
+ended naturally after four phases and 110.86 seconds. Python navigation passed,
+but the planner repeatedly requested `select_text` from 0 to 12,000 on a
+`document_web` node exposing five characters. The native range guard rejected
+the first selection before input; the next two phases replayed that same
+rejection. The model never requested a window switch, so the scoped-switch live
+criterion was **not exercised**. There were no output files or memory recall.
+Owned windows closed, queues and the inference slot were idle, and the original
+GPU1 workers and scoped lease were unchanged. Evidence is under
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LH001-native-scoped-switch-20261016T015830Z/`.
+
 ## Expanded native suite
+
+The [packaged runner](computer-use-long-horizon-runner.md) contains 100 original
+specifications and 200 planned Qwen/Ornith first-attempt cells. Its isolated
+regression gate passed 2,374 checks; the combined runtime gate passed 2,445.
+These are source checks, separate from model task outcomes. Fourteen cases
+still need media or controlled-event support.
+
+The first packaged attempt, Qwen LHN-047, failed independent checks after three
+phases and 56.27 seconds. Fresh source proofs, five declared inputs and three
+owned ordinary-app observations passed setup. The model's attempt to open the
+Files `Input` cell was rejected before pointer dispatch; semantic `invoke` had
+no matching capability, and the third phase replayed the first rejection. No
+native input was dispatched or deliverable created; all inputs and unrelated managed windows were
+preserved, and owned windows closed with queues idle. The scoped-switch live
+criterion was again not exercised. The immutable bundle is under
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-047-20261016T021140Z/`, with
+SHA256 `690be8a40578da864b46b4ce8ed0092da668da64bc1a9d604ed993bc9f546c6e`.
+One of the 200 planned cells has been attempted; none has passed. The failed
+attempt remains part of the record when later revisions are tested.
 
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
