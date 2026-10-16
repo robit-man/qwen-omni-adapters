@@ -293,8 +293,9 @@ preserved, and owned windows closed with queues idle. The scoped-switch live
 criterion was again not exercised. The immutable bundle is under
 `runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-047-20261016T021140Z/`, with
 SHA256 `690be8a40578da864b46b4ce8ed0092da668da64bc1a9d604ed993bc9f546c6e`.
-One of the 200 planned cells has been attempted; none has passed. The failed
-attempt remains part of the record when later revisions are tested.
+One distinct model/case cell has been attempted in two source cohorts; neither
+run passed. Failed attempts remain part of the record when later revisions are
+tested.
 
 The subsequent capture diagnostic exposed a separate host fault: the Files
 surface at `(-17,-23)` measured `972×1184`, while its visible image measured
@@ -326,7 +327,29 @@ only an eligible requested pointer capability to pinned Moondream. Incomplete,
 protected, stale or ambiguous evidence withholds that route. Grounding metadata
 is excluded from semantic mutation counts. Both defects reproduced before the
 patch; 355 focused checks and the full 2,568-check source gate passed afterward.
-Live model-driven acceptance remains pending a new, unchanged-task cohort.
+The unchanged LHN-047 replay on `24093a1` reached two real pinned Moondream 3.1
+point requests, taking 14.062 and 3.720 seconds respectively, including loading,
+inference and shedding. Both returned the same point inside the Input cell.
+The action was rejected before dispatch when whole-frame revisions differed;
+two later focus phases abstained. The run ended naturally after three phases
+and 82.48 seconds, with zero inputs, outputs or recall. Owned windows closed,
+inputs and unrelated windows were preserved, and queues and workers stayed
+healthy. Evidence is under
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-047-20261016T033016Z/`.
+
+Paired production PNGs had identical semantic/probe/owner/geometry bindings.
+Exactly 199 changed pixels were in the desktop clock outside the verified
+application content rectangle; zero content pixels changed. A derived analysis
+receipt was accidentally written after sealing inside the run folder. The
+initial immutability failure is retained; only that extra file was relocated
+unchanged to the sibling operator folder, restoring the original member set
+without rewriting any original file or manifest. The incident audit and final
+failure note remain outside the bundle. No solver input or workbench changed.
+
+The next patch crops the accepted image to positively verified native content
+bounds, retains original-source provenance, and compares the exact transmitted
+region. It passed 441 focused checks and the full 2,601-check source gate.
+Actual physical dispatch and whole-task acceptance remain pending a new cohort.
 
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded

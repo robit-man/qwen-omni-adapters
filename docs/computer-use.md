@@ -75,6 +75,19 @@ the full surface geometry guard. This follows ImageMagick 6's
 [root capture](https://raw.githubusercontent.com/ImageMagick/ImageMagick6/6.9.12-98/magick/xwindow.c)
 and [crop implementation](https://raw.githubusercontent.com/ImageMagick/ImageMagick6/6.9.12-98/magick/transform.c).
 
+When the native observer publishes a positive WINDOW-space coordinate binding,
+the adapter validates its exact owner, full surface, declared CSD margins and
+content inset before cropping the accepted root image to the visible content
+intersection. This uses host-derived geometry without resizing or pixel masking.
+The transmitted PNG is deterministic RGB, matching the point worker's decoded
+color input; source palette and PNG metadata cannot change that content hash.
+Its image origin and pixel offset describe the cropped region in root-screen
+coordinates, while dispatch still guards the full window surface. Point receipts
+retain the original `source_frame_sha256` and `source_image_geometry` as
+provenance, alongside `content_region`. Outside-source pixels are excluded from
+the content action key. Missing native mapping preserves full-window capture;
+a malformed present mapping withholds capture rather than guessing an inset.
+
 For a known native control, physical `click`, `double_click` and `right_click`
 can delegate to the pinned point worker before candidate selection when the
 native center hit is unavailable. This requires one exact semantic match in an
@@ -93,8 +106,8 @@ frame/probe-bound route. There is no duplicate synthetic control or private
 step rewrite. Dispatch repeats the bindings without another model call and
 never retries an uncertain input through another backend. Effects compare the
 base semantic revisions, so frame/probe metadata alone cannot count as a
-mutation. Whole-frame hashes remain exact: changing clocks, animations or other
-pixels in the captured rectangle can reject the action before input.
+mutation. Transmitted-region hashes remain exact: changing clocks, animations or
+other pixels inside that region can reject the action before input.
 
 Linux native controls use a fixed AT-SPI bridge and native action/editable-text/
 selection interfaces. Pointer and keyboard input use guarded native XTEST;

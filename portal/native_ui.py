@@ -277,14 +277,81 @@ class NativeUiAdapter:
         if state["scope"].get("window_id") != identity["window_id"]:
             raise NativeUiUnavailable("native_visual_scope_changed")
         capture = _capture_window(identity, environment)
+        if "coordinate_binding" in state:
+            import io
+
+            from PIL import Image
+
+            def rectangle(value: Any) -> bool:
+                return (isinstance(value, dict) and set(value) == {"x", "y", "width", "height"}
+                        and all(type(item) is int and abs(item) <= 1_000_000 for item in value.values())
+                        and min(value["width"], value["height"]) > 0)
+
+            binding = state["coordinate_binding"]
+            geometry, source = capture["geometry"], capture["image_geometry"]
+            root = capture["capture_root"]
+            if (not isinstance(binding, dict) or set(binding) != {"space", "window_id", "surface", "frame_extents", "content"}
+                    or binding["space"] != "window" or binding["window_id"] != identity["window_id"]
+                    or capture["identity"] != identity or not rectangle(geometry) or not rectangle(binding["surface"])
+                    or binding["surface"] != geometry or not rectangle(binding["content"])
+                    or not isinstance(root, dict) or set(root) != {"window_id", "geometry"}
+                    or not isinstance(root["window_id"], str) or not root["window_id"].isascii() or not root["window_id"].isdecimal()
+                    or not 0 < int(root["window_id"]) < 2**32 or not rectangle(root["geometry"])
+                    or root["geometry"]["x"] != 0 or root["geometry"]["y"] != 0 or not rectangle(source)):
+                raise NativeUiUnavailable("native_content_capture_binding_invalid")
+            margins, content = binding["frame_extents"], binding["content"]
+            if (not isinstance(margins, dict) or set(margins) != {"left", "right", "top", "bottom"}
+                    or any(type(item) is not int or not 0 <= item <= 4096 for item in margins.values())
+                    or content != {"x": geometry["x"] + margins["left"], "y": geometry["y"] + margins["top"],
+                                   "width": geometry["width"] - margins["left"] - margins["right"],
+                                   "height": geometry["height"] - margins["top"] - margins["bottom"]}
+                    or source != {"x": max(0, geometry["x"]), "y": max(0, geometry["y"]),
+                                  "width": min(root["geometry"]["width"], geometry["x"] + geometry["width"]) - max(0, geometry["x"]),
+                                  "height": min(root["geometry"]["height"], geometry["y"] + geometry["height"]) - max(0, geometry["y"])}
+                    or capture["pixel_offset"] != {"x": source["x"] - geometry["x"], "y": source["y"] - geometry["y"]}):
+                raise NativeUiUnavailable("native_content_capture_binding_invalid")
+            left, top = max(content["x"], source["x"]), max(content["y"], source["y"])
+            right = min(content["x"] + content["width"], source["x"] + source["width"])
+            bottom = min(content["y"] + content["height"], source["y"] + source["height"])
+            if right <= left or bottom <= top:
+                raise NativeUiUnavailable("native_content_capture_offscreen")
+            try:
+                raw = capture["image"]
+                if (not isinstance(raw, bytes) or not 33 <= len(raw) <= 8 * 1024 * 1024
+                        or hashlib.sha256(raw).hexdigest() != capture["sha256"]):
+                    raise ValueError("Invalid source frame")
+                with Image.open(io.BytesIO(raw)) as image:
+                    if image.format != "PNG" or image.size != (source["width"], source["height"]) or max(image.size) > 4096:
+                        raise ValueError("Invalid source dimensions")
+                    image.verify()
+                with Image.open(io.BytesIO(raw)) as image:
+                    pixels = image.convert("RGB").crop((left - source["x"], top - source["y"], right - source["x"], bottom - source["y"]))
+                    # Fresh RGB pixels exclude source palette/global PNG metadata.
+                    normalized = Image.frombytes("RGB", pixels.size, pixels.tobytes())
+                encoded = io.BytesIO()
+                normalized.save(encoded, format="PNG", optimize=False, compress_level=6)
+                raw = encoded.getvalue()
+                if len(raw) > 8 * 1024 * 1024:
+                    raise ValueError("Unbounded content frame")
+            except Exception:
+                raise NativeUiUnavailable("native_content_capture_image_invalid") from None
+            capture["source_frame_sha256"] = capture["sha256"]
+            capture["source_image_geometry"] = copy.deepcopy(source)
+            capture["content_region"] = copy.deepcopy(binding)
+            capture.update(image=raw, sha256=hashlib.sha256(raw).hexdigest(),
+                           image_geometry={"x": left, "y": top, "width": right - left, "height": bottom - top},
+                           pixel_offset={"x": left - geometry["x"], "y": top - geometry["y"]})
         capture["environment"] = environment
-        capture["key"] = hashlib.sha256(json.dumps({
+        key_binding = {
             "session_id": state["session_id"], "revision": state["revision"], "scope": state["scope"],
             "identity": identity, "geometry": capture["geometry"], "image_sha256": capture["sha256"],
             "process_start": capture["process_start"], "capture_source": capture["capture_source"],
             "capture_root": capture["capture_root"], "image_geometry": capture["image_geometry"],
             "pixel_offset": capture["pixel_offset"],
-        }, sort_keys=True).encode()).hexdigest()
+        }
+        if "content_region" in capture:
+            key_binding["content_region"] = capture["content_region"]
+        capture["key"] = hashlib.sha256(json.dumps(key_binding, sort_keys=True).encode()).hexdigest()
         return capture
 
     def observe(self) -> dict[str, Any]:
@@ -375,6 +442,9 @@ class NativeUiAdapter:
                 "identity": dict(capture["identity"]), "process_start": capture["process_start"],
                 "capture_source": capture["capture_source"], "capture_root": copy.deepcopy(capture["capture_root"]),
                 "image_geometry": dict(image_geometry), "pixel_offset": dict(capture["pixel_offset"])}
+            for name in ("content_region", "source_frame_sha256", "source_image_geometry"):
+                if name in capture:
+                    self.point_receipt[name] = copy.deepcopy(capture[name])
             if known:
                 self.point_receipt["native_probe"] = copy.deepcopy(probe)
                 self.point_receipt["semantic_target"] = {name: copy.deepcopy(known[name]) for name in
