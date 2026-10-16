@@ -153,6 +153,12 @@ action using a different input backend. Missing accessibility or ambiguous foreg
 is a capability failure. Windows UIA and the architecture's full
 alternative-model comparison matrix are outside this tested port.
 
+A null accessibility child marks its parent's child list incomplete while
+independently read siblings remain available in a truncated snapshot. Unknown
+subtrees retain identity history without input handles; complete sibling lists
+can still prove removals. Desktop/provider failures and the separate DocumentWeb
+root-completeness checks retain their existing failure behavior.
+
 For a foreground Flatpak window with an absent `_NET_WM_PID`, a read-only
 XRes 1.2 query can identify the server's host owner. A distinct AT-SPI relay is
 admitted only through one complete, fresh Flatpak instance proof: authenticated

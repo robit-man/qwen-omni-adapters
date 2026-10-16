@@ -1946,7 +1946,8 @@ class _AtspiBridge:
                 truncated = True
                 return False
             if node is None:
-                raise NativeUiUnavailable("native_observation_unavailable")
+                truncated = True
+                return False  # Unknown child coverage retains identities, never old handles.
             raw = self._read(lambda: str(node.app.bus_name) + ":" + str(node.path))
             if not raw or raw == ":":
                 raise NativeUiUnavailable("native_identity_unavailable")
