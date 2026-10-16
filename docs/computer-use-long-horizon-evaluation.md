@@ -960,3 +960,57 @@ SHA256 is `9d349ae1aa27065ace86689395691ed0be7c1af8a9b50062f291a1b5b15f7e34`.
 Production source and services remained unchanged during both private tests.
 Egg31's corresponding string-bounds library and source gate are prepared but
 not adopted. Remote setup/build results do not add local model/case coverage.
+
+### Bounded compiler recovery and second LHN-092 attempt
+
+Commit `1595aa3` converts only JSON decoding failures from successful compiler
+replies into a private typed error. The existing three-consecutive-failure
+budget consumes it without input, then obtains a fresh native observation for
+replanning. Cancellation/deadlines take priority; transport, HTTP, envelope and
+unexpected callback failures remain fatal. No JSON repair, model replay,
+schema relaxation or token-budget change was introduced. The full source gate
+passed 3,182 tests; receipt SHA256:
+`c0e59322b01efdebb1ec46c10a559a3b2e6159f07e8267cb68c311696d429685`.
+
+One CPU frontend handoff adopted the exact tested planner imports while
+preserving the Ornith GPU workers, library `372a44f8`, context and scoped lease.
+A fresh original LHN-092 attempt started at 12:06:59 UTC and failed after
+67.15 native-task seconds and four phases. All four actual compiler replies
+were canonical-valid JSON: recovery was not exercised live. One accepted
+Moondream reading described Files, without official-source acquisition credit.
+The reader and point HTTP requests took 14.932 and 4.080 seconds respectively.
+Two XTEST clicks were dispatched with unresolved expected effects. They targeted
+the Workbench window and a Recent Files item while expecting keyboard focus on
+the window root. The final pointer target referenced an older test's Recent
+entry and was rejected before input as occluded. These are distinct from the
+earlier Input-selection evidence. No typing, deliverables or memory followed.
+
+The immutable failed bundle SHA256 is
+`b6693980a674e6fca9debc60fef0b6135c5dec1c79815510410030c4ae93023e`.
+Owned cleanup, unchanged inputs/source, preexisting managed-window checks and
+GPU-worker/lease preservation passed. Final evidence:
+`runtime-data/gpu1-acceptance/operator-audit/native-phase-compile159-20261016T121434Z/final-index.json`.
+There are now 13 local attempts across the same five model/case cells and four
+task IDs, with zero complete passes. Ledger SHA256:
+`2d596cb694ae66969c730987fe2589347c60f73644bf2386648add306654d393`.
+
+Egg41 automatically adopted `ae767d3`, passed 3,159 ARM tests and proved the new
+mapped common library and healthy Ornith Tegra residency/context. A separate
+owned blank-window experiment retained two initial one-node observations,
+one normal frame-attribute read and three subsequent 232-node observations
+with 41 eligible controls and one DocumentWeb. Identity/scope remained stable;
+DocURL stayed unavailable. This supports a missing native accessibility
+initialization step, with the one-window temporal/causal limitation retained.
+It does not establish production browser readiness or a model-task pass.
+Experiment bundle SHA256:
+`48f08658bd763afe4dc0c70519699b69c52d04debf055b0920def554570f2d7e`.
+
+Egg31 installed `ae767d3` and library `0504a2f4` through one supported cold
+handoff. Its journal logged portal readiness after 86.59 seconds. The private
+adoption monitor incorrectly required the on-demand pointing graph to be
+resident while idle and failed to retain its loop samples; it stopped the
+ready runtime at its 180-second proof deadline. This is an operator proof
+defect, not evidence of model initialization failure. The private guard was
+corrected with explicit cold/on-demand versus resident-worker checks and
+bounded per-predicate samples. Recovery and remote model-task acceptance
+remain separate, pending checkpoints.
