@@ -112,6 +112,15 @@ class OwnedWindow:
     standalone: bool = False
 
 
+def _assert_host_process(pid: str, start: str) -> None:
+    from portal.native_ui import _host_process_identity
+    try:
+        if _host_process_identity(int(pid))["start"] != start:
+            raise CapabilityBlocked("Host process identity changed")
+    except Exception:
+        raise CapabilityBlocked("Host process ownership unavailable") from None
+
+
 class OwnedDesktop:
     def __init__(self, environment: dict[str, str] | None = None) -> None:
         self.environment = environment or desktop_subprocess_environment()
@@ -124,6 +133,7 @@ class OwnedDesktop:
         return {window.window_id for window in self.windows}
 
     def register(self, window: OwnedWindow) -> OwnedWindow:
+        _assert_host_process(window.pid, window.process_start)
         if (not window.window_id.isdecimal() or not window.pid.isdecimal() or not window.process_start
                 or process_start(window.pid) != window.process_start
                 or command(["xdotool", "getwindowpid", window.window_id], self.environment) != window.pid):

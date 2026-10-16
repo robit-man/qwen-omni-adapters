@@ -18,6 +18,8 @@ import json
 import os
 import re
 import selectors
+import shlex
+import shutil
 import stat
 import subprocess
 import sys
@@ -518,7 +520,12 @@ class _XDisplay:
 
 
 class _SystemBackend:
-    def __init__(self):
+    def __init__(self, *, browser="firefox"):
+        if browser not in {"firefox", "chromium"}:
+            raise OwnershipUnavailable("flatpak_descriptor_unavailable")
+        self.browser = browser
+        self.application = "org.mozilla.firefox" if browser == "firefox" else "org.chromium.Chromium"
+        self.executable_relative = "files/lib/firefox/firefox-bin" if browser == "firefox" else "files/chromium/chrome"
         spec = importlib.util.spec_from_file_location(
             "_omni_setup_native", REPO / "portal/native_ui.py"
         )
@@ -572,19 +579,19 @@ class _SystemBackend:
         return result.stdout.strip()
 
     def deployment(self) -> dict:
-        ref = self.command(["/usr/bin/flatpak", "info", "--show-ref", "org.mozilla.firefox"])
-        match = re.fullmatch(r"app/org\.mozilla\.firefox/(aarch64|x86_64)/stable", ref)
-        commit = self.command(["/usr/bin/flatpak", "info", "--show-commit", "org.mozilla.firefox"])
+        ref = self.command(["/usr/bin/flatpak", "info", "--show-ref", self.application])
+        match = re.fullmatch(r"app/" + re.escape(self.application) + r"/(aarch64|x86_64)/stable", ref)
+        commit = self.command(["/usr/bin/flatpak", "info", "--show-commit", self.application])
         if match is None or re.fullmatch(r"[0-9a-f]{64}", commit) is None:
             raise OwnershipUnavailable("flatpak_deployment_unavailable")
         location = Path(
-            self.command(["/usr/bin/flatpak", "info", "--show-location", "org.mozilla.firefox"])
+            self.command(["/usr/bin/flatpak", "info", "--show-location", self.application])
         )
-        expected = Path("/var/lib/flatpak/app/org.mozilla.firefox") / match[1] / "stable" / commit
+        expected = Path("/var/lib/flatpak/app") / self.application / match[1] / "stable" / commit
         if location.resolve(strict=True) != expected.resolve(strict=True):
             raise OwnershipUnavailable("flatpak_deployment_mismatch")
-        executable = location / "files/lib/firefox/firefox-bin"
-        entry = location / "files/share/applications/org.mozilla.firefox.desktop"
+        executable = location / self.executable_relative
+        entry = location / ("files/share/applications/" + self.application + ".desktop")
         stamp = executable.stat()
         with entry.open("rb") as source:
             raw = source.read(65537)
@@ -595,7 +602,32 @@ class _SystemBackend:
             or len(raw) > 65536
         ):
             raise OwnershipUnavailable("flatpak_deployment_mismatch")
+        launcher = None
+        if self.browser == "chromium":
+            installed = shutil.which("chromium")
+            if not installed:
+                raise OwnershipUnavailable("flatpak_installed_launcher_unavailable")
+            path = Path(installed)
+            info, data = path.stat(), path.read_bytes()
+            try:
+                lines = [line.strip() for line in data.decode("utf-8").splitlines()
+                         if line.strip() and not line.lstrip().startswith("#")]
+                words = shlex.split(lines[0]) if len(lines) == 1 else []
+            except (UnicodeError, ValueError):
+                raise OwnershipUnavailable("flatpak_installed_launcher_changed") from None
+            if words[:1] == ["exec"]:
+                words = words[1:]
+            if (path.is_symlink() or info.st_uid != 0 or info.st_mode & 0o022
+                    or not stat.S_ISREG(info.st_mode) or len(data) > 4096 or path.stat() != info
+                    or not data.startswith((b"#!/bin/bash\n", b"#!/bin/sh\n"))
+                    or words[:1] not in (["flatpak"], ["/usr/bin/flatpak"])
+                    or words[1:3] != ["run", self.application] or words[-1:] != ["$@"]
+                    or words[3:-1] not in ([], ["--no-sandbox"])):
+                raise OwnershipUnavailable("flatpak_installed_launcher_changed")
+            launcher = {"path": str(path), "sha256": hashlib.sha256(data).hexdigest(),
+                        "identity": self.identity._stamp(info), "existing_flags": words[3:-1]}
         return {
+            **({"launcher": launcher} if launcher else {}),
             "ref": ref,
             "arch": match[1],
             "commit": commit,
@@ -629,8 +661,8 @@ class _SystemBackend:
             raise OwnershipUnavailable("flatpak_launch_already_attempted")
         # Kept for the dedicated helper's lifetime; closed at process exit.
         self.launch_streams = [tempfile.TemporaryFile(), tempfile.TemporaryFile()]  # noqa: SIM115
-        self.launch_process = subprocess.Popen(
-            [
+        command = ([deployment["launcher"]["path"], "--new-window", "about:blank"]
+                   if self.browser == "chromium" else [
                 "/usr/bin/flatpak",
                 "run",
                 "--branch=stable",
@@ -639,7 +671,11 @@ class _SystemBackend:
                 "org.mozilla.firefox",
                 "--new-window",
                 "about:blank",
-            ],
+            ])
+        if self.deployment() != deployment:
+            raise OwnershipUnavailable("flatpak_launch_binding_changed")
+        self.launch_process = subprocess.Popen(
+            command,
             stdin=subprocess.DEVNULL,
             stdout=self.launch_streams[0],
             stderr=self.launch_streams[1],
@@ -734,7 +770,7 @@ class _SystemBackend:
         }
         if (
             actual != deployment["executable"]
-            or config.get("Application", "name") != "org.mozilla.firefox"
+            or config.get("Application", "name") != self.application
             or any(config.get("Instance", key) != value for key, value in expected.items())
         ):
             raise OwnershipUnavailable("flatpak_running_deployment_mismatch")
@@ -909,7 +945,10 @@ class _SystemBackend:
 class OwnedFlatpakFirefox:
     """Host-only handle to the private ledger retained by one fixed child."""
 
-    def __init__(self, environment):
+    def __init__(self, environment, *, browser="firefox"):
+        if browser not in {"firefox", "chromium"}:
+            raise OwnershipUnavailable("flatpak_descriptor_unavailable")
+        self.browser = browser
         self.environment, self.process, self.ledger, self.last_receipt = (
             dict(environment),
             None,
@@ -967,7 +1006,7 @@ class OwnedFlatpakFirefox:
                             "-I",
                             "-u",
                             str(Path(__file__).resolve()),
-                            "--owned-helper",
+                            "--owned-helper" if self.browser == "firefox" else "--owned-helper-chromium",
                         ],
                         env=self.environment,
                         stdin=subprocess.PIPE,
@@ -1041,7 +1080,7 @@ class OwnedFlatpakFirefox:
 
 
 def _main():
-    if sys.argv[1:] != ["--owned-helper"]:
+    if sys.argv[1:] not in (["--owned-helper"], ["--owned-helper-chromium"]):
         return 2
     backend, transaction, sequence = None, None, 0
     for raw in iter(lambda: sys.stdin.buffer.readline(257), b""):
@@ -1062,7 +1101,8 @@ def _main():
             if backend is None:
                 if request["op"] != "create":
                     raise OwnershipUnavailable("flatpak_launch_ledger_missing")
-                backend = _SystemBackend()
+                backend = (_SystemBackend() if sys.argv[1:] == ["--owned-helper"]
+                           else _SystemBackend(browser="chromium"))
                 transaction = _Transaction(backend)
             backend.begin()
             op = request["op"]

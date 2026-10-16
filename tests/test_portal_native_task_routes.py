@@ -6,6 +6,7 @@ import json
 
 import httpx
 import pytest
+from test_ui_task import NoEffectAdapter, no_effect_phase
 
 import portal.app as app_module
 import portal.tools as tools_module
@@ -108,6 +109,93 @@ def _post(client, body, stream):
     activity = client.get("/api/activity", headers=HEADERS).json
     assert activity["active"] == activity["inflight"] == activity["queued"] == 0
     return result, events
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_native_text_knowledge_reaches_real_compiler_and_phase_feedback(tmp_path, monkeypatch, stream):
+    _install_store(monkeypatch)
+    original_state = Adapter._state
+
+    def state_with_knowledge(self, include_windows=False):
+        state = original_state(self, include_windows)
+        state["nodes"][0]["text_observation"] = {
+            "character_count": len(self.value), "selection_count": 0,
+            "captured_range": {"start": 0, "end": len(self.value)}, "truncated": False}
+        return state
+
+    monkeypatch.setattr(Adapter, "_state", state_with_knowledge)
+    packets = []
+
+    def upstream(request):
+        payload = json.loads(request.content)
+        packet = json.loads(payload["messages"][1]["content"])
+        packets.append(packet)
+        assert packet["goal"] == GOAL
+        assert not {"text_observation", "selection_count", "character_count"} & payload.keys()
+        draft = next(node for node in packet["current_state"]["state"]["nodes"] if node["id"] == "draft")
+        assert draft["text_observation"]["selection_count"] == 0
+        assert draft["text_observation"]["captured_range"]["end"] == len(draft["value"])
+        if len(packets) == 1:
+            plan = _phase()
+        else:
+            effect = packet["last_result"]["outcomes"][0]["observed_effects"][0]
+            assert effect["text_observation"]["character_count"] == len("Reference note")
+            assert effect["text_observation"]["selection_count"] == 0
+            plan = {"kind": "complete", "message": "Fixture claim only"}
+        return httpx.Response(200, json={"model": DEFAULT_MODEL,
+            "message": {"role": "assistant", "content": json.dumps(plan)}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    result, _ = _post(app.test_client(), _request(stream), stream)
+    assert len(packets) == 2
+    assert result["portal"]["native_task"]["task_verified"] is False
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_metadata_only_changes_do_not_renew_zero_effect_budget_through_actual_route(tmp_path, monkeypatch, stream):
+    packets, adapters = [], []
+
+    def factory(session, surface):
+        assert surface == "desktop"
+        adapter = NoEffectAdapter()
+        observe = adapter.observe
+
+        def clarified():
+            state = observe()
+            state["session_id"] = session
+            state["nodes"][0].update(value="a" * 18, text_observation={
+                "character_count": 18 + len(packets), "selection_count": 1,
+                "captured_range": {"start": 0, "end": 18}, "truncated": bool(packets)})
+            return state
+
+        adapter.observe = adapter.planning_observe = clarified
+        adapters.append(adapter)
+        return adapter
+
+    store = ComputerUseStore(None, adapter_factory=factory)
+    monkeypatch.setattr(tools_module, "ComputerUseStore", lambda *_args, **_kwargs: store)
+
+    def upstream(request):
+        packet = json.loads(json.loads(request.content)["messages"][1]["content"])
+        packets.append(packet)
+        current = packet["current_state"]
+        draft = next(node for node in current["state"]["nodes"] if node["id"] == "draft")
+        assert draft["text_observation"]["character_count"] == 17 + len(packets)
+        plan = no_effect_phase() if len(packets) <= 4 else {"kind": "complete", "message": "Unverified claim"}
+        return httpx.Response(200, json={"message": {"content": json.dumps(plan)}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    result, _ = _post(app.test_client(), _request(stream), stream)
+    assert result["portal"]["native_task"]["status"] == "blocked"
+    assert len(packets) == 4 and len(adapters[0].calls) == 2
+    for packet in packets:
+        current = packet["current_state"]
+        assert current["content_sha256"] == current["state"]["model_projection"]["raw_source_sha256"]
+    feedback = packets[2]["last_result"]
+    assert feedback["error"] == "ui_phase_repeated_without_new_effect"
+    assert feedback["phase_handoff"]["new_effect_count"] == 0
+    assert [item["effect_receipt"]["effect_state"] for item in feedback["outcomes"]] == ["absent", "replayed", "replayed"]
+    assert all(item["status"] == "verified" for item in feedback["outcomes"])
 
 
 @pytest.mark.parametrize("stream", [False, True])

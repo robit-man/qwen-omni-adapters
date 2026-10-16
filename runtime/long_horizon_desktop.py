@@ -170,10 +170,11 @@ class TaskDesktop(OwnedDesktop):
 
     def open_blank(self, application: str, work: Path, *, browser: str, log_path: Path):
         if application == "browser":
-            if browser == "flatpak-firefox":
+            if browser in {"flatpak-firefox", "flatpak-chromium"}:
                 from runtime.owned_flatpak_firefox import OwnedFlatpakFirefox
-                owner = OwnedFlatpakFirefox(self.environment)
-                launch = {"application": "browser", "ownership_kind": "flatpak_firefox",
+                owner = (OwnedFlatpakFirefox(self.environment) if browser == "flatpak-firefox"
+                         else OwnedFlatpakFirefox(self.environment, browser="chromium"))
+                launch = {"application": "browser", "ownership_kind": "flatpak_firefox" if browser == "flatpak-firefox" else "flatpak_chromium",
                           "registered": False}
                 self.launches.append(launch)
                 self._flatpak_owners[id(launch)] = owner
@@ -234,7 +235,7 @@ class TaskDesktop(OwnedDesktop):
         matches = [row for row in self.windows if row.window_id == identity["window_id"]
                    and row.pid == str(identity["process_id"]) and row.process_start == identity["process_start"]]
         if len(matches) == 1 and matches[0].owner is not None:
-            ledgers = [launch for launch in self.launches if launch.get("ownership_kind") == "flatpak_firefox"
+            ledgers = [launch for launch in self.launches if launch.get("ownership_kind") in {"flatpak_firefox", "flatpak_chromium"}
                        and launch.get("registered") is True and self._flatpak_owners.get(id(launch)) is matches[0].owner
                        and launch.get("window_id") == identity["window_id"]]
             if len(ledgers) != 1:
@@ -252,7 +253,7 @@ class TaskDesktop(OwnedDesktop):
         for launch in reversed(self.launches):
             receipt = {key: value for key, value in launch.items() if key not in {"before_xids", "new_visible_xids"}}
             receipt["closed"] = False
-            if launch.get("ownership_kind") == "flatpak_firefox":
+            if launch.get("ownership_kind") in {"flatpak_firefox", "flatpak_chromium"}:
                 owner = self._flatpak_owners.get(id(launch))
                 try:
                     receipt.update(owner.close())

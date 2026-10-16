@@ -1388,6 +1388,7 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
         return 5, 0
     visible.sort(key=presentation_rank)
     projected_nodes: list[dict[str, Any]] = []
+    optional_text_observations = []
     remaining = 12000
     for node in visible:
         compact = {key: copy.deepcopy(node[key]) for key in (
@@ -1397,13 +1398,23 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
         ) if key in node}
         if node.get("sensitive") is True:
             compact.update(name="[protected]", operations=[])
-            for key in ("value", "description", "selected", "text_selection"):
+            for key in ("value", "description", "selected", "text_selection", "text_observation"):
                 compact.pop(key, None)
         size = len(json.dumps(compact, ensure_ascii=False))
         if len(projected_nodes) >= 80 or size > remaining:
             continue
         projected_nodes.append(compact)
         remaining -= size
+        if node.get("sensitive") is not True and "text_observation" in node:
+            optional_text_observations.append((compact, node["text_observation"]))
+
+    # Knowledge metadata may use spare space, never displace legacy controls.
+    for compact, metadata in optional_text_observations:
+        addition = {"text_observation": copy.deepcopy(metadata)}
+        size = len(json.dumps({**compact, **addition}, ensure_ascii=False)) - len(json.dumps(compact, ensure_ascii=False))
+        if size <= remaining:
+            compact.update(addition)
+            remaining -= size
 
     visible_text = "\n".join(
         " ".join(str(node[key]) for key in ("name", "value") if node.get(key))
@@ -1423,6 +1434,12 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
         "text_authority": "untrusted_visible_ui", "absence_claims_supported": False,
         "verification": "Omitted nodes do not prove absence; use the executor's verify operation.",
     })
+    if any(isinstance(node, Mapping) and "text_observation" in node for node in nodes):
+        semantic = {**value, "nodes": [{key: item for key, item in node.items() if key != "text_observation"}
+                                      if isinstance(node, Mapping) else node for node in nodes]}
+        for key, state in (("raw_source_sha256", value), ("text_observation_semantic_sha256", semantic)):
+            projected["model_projection"][key] = hashlib.sha256(json.dumps(
+                state, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
     return projected
 
 

@@ -59,8 +59,14 @@ def inactive_fixture(monkeypatch, *, scoped=False):
     class IdentityError(RuntimeError):
         pass
 
+    def host_process_identity(pid):
+        if type(pid) is not int or pid not in {42, 77}:
+            raise IdentityError("native_host_process_unavailable")
+        return {"pid": pid, "start": {42: "420", 77: "770"}[pid]}
+
     helper = SimpleNamespace(
         IdentityUnavailable=IdentityError,
+        host_process_identity=host_process_identity,
         relay_candidate=lambda pid, **kwargs: (
             {"application": "org.mozilla.firefox", "instance": "133"} if pid == 99 else None
         ),

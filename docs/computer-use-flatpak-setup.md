@@ -1,4 +1,4 @@
-# Owned Flatpak Firefox setup
+# Owned Flatpak browser setup
 
 Add `--browser flatpak-firefox` to an existing
 `runtime.verify_long_horizon_native` invocation when the declared browser is the
@@ -51,3 +51,21 @@ This capability is setup and cleanup only. All subsequent task work remains
 model-driven native GUI interaction under the normal controller guards. CPU
 controls are source validation; live owned-Flatpak launch/cleanup and long-task
 acceptance remain pending until separately executed and independently graded.
+
+`--browser flatpak-chromium` selects the closed `org.chromium.Chromium`
+descriptor with the same ownership ledger. It requires a root-owned, non-writable
+installed `chromium` launcher that transparently forwards arguments to that
+Flatpak application. Its bytes, file identity and existing `--no-sandbox` flag
+(when present) are pinned per deployment; the helper adds no profile or debugging
+flags. This selector does not change the ordinary `chromium` path.
+
+A present namespace-local WM PID is never treated as a host PID merely because
+its host metadata is invalid. Publishing a host tuple requires the separate full
+XRes, authenticated AT-SPI relay, Flatpak registry, NSpid, caller UID, executable
+and process-start proof. Ordinary valid host WM PIDs require no namespace or
+XRes query. Foreground and scope checks share an absolute deadline; repeated
+proofs spend that budget rather than extend it. They retain fresh checks, so a
+scoped namespace window can require multiple helper calls and may fail closed
+within the existing five-second observation budget. CPU fixture counts do not
+predict installed-browser latency. Installed Flatpak Chromium launch, native
+observation, guarded input and cleanup remain separately live-unqualified.

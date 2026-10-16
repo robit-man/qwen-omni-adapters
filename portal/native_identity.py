@@ -334,10 +334,185 @@ def provider_proof(identity: Mapping[str, Any], bus_name: str, reported_pid: int
             "digest": hashlib.sha256(json.dumps(before, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
 
 
+def host_process_identity(pid: int, *, proc_root: Path = Path("/proc")) -> dict:
+    """Positive ordinary host process identity; no XRes or namespace dependency."""
+    if type(pid) is not int or not 0 < pid < 2**31:
+        raise IdentityUnavailable("native_host_process_unavailable")
+    try:
+        root = proc_root / str(pid)
+        start = root.joinpath("stat").read_text().rsplit(")", 1)[1].split()[19]
+        uid = next(line.split()[1:] for line in root.joinpath("status").read_text().splitlines()
+                   if line.startswith("Uid:"))
+        executable = root.joinpath("exe").stat()
+        if (root.stat().st_uid != os.getuid() or uid != [str(os.getuid())] * 4
+                or not start.isascii() or not start.isdecimal() or int(start) <= 0
+                or not stat.S_ISREG(executable.st_mode)
+                or root.joinpath("stat").read_text().rsplit(")", 1)[1].split()[19] != start
+                or root.joinpath("exe").stat() != executable):
+            raise IdentityUnavailable("native_host_process_unavailable")
+        return {"pid": pid, "start": start, "uid": os.getuid(), "executable": _stamp(executable)}
+    except (OSError, ValueError, IndexError, StopIteration):
+        raise IdentityUnavailable("native_host_process_unavailable") from None
+
+
+def _check_namespace_owner(value: dict) -> dict:
+    try:
+        if set(value) != {"identity", "reported_wm_pid", "owner", "host_process", "proof", "digest"}:
+            raise ValueError
+        proof, identity, host = value["proof"], value["identity"], value["host_process"]
+        if set(proof) != {"source", "identity", "reported_pid", "bus_name", "values", "digest"}:
+            raise ValueError
+        values = proof["values"]
+        if set(values) != {"host", "peer", "child", "wrapper", "lineage", "registry", "credentials",
+                           "bus_name", "metadata", "installed_proxy", "running_proxy", "owner"}:
+            raise ValueError
+        process_fields = {"pid", "start", "ppid", "uid", "nspid", "namespaces", "cgroup"}
+        stamp_fields = {"device", "inode", "uid", "mode", "size", "mtime_ns", "ctime_ns"}
+        if (set(host) != {"pid", "start", "uid", "executable"}
+                or set(host["executable"]) != stamp_fields
+                or type(host["pid"]) is not int or not 0 < host["pid"] < 2**31
+                or not isinstance(host["start"], str) or re.fullmatch(r"[1-9][0-9]{0,19}", host["start"]) is None
+                or any(type(v) is not int for v in host["executable"].values())
+                or any(set(values[key]) != process_fields for key in ("host", "peer", "child", "wrapper"))
+                or any(set(item) != process_fields for item in values["lineage"])
+                or set(value["owner"]) != {"pid", "start"}
+                or set(values["credentials"]) != {"pid", "uid"}
+                or set(values["registry"]) != {"instance", "wrapper", "child", "application"}
+                or set(values["metadata"]) != {"host", "peer", "instance"}
+                or any(set(item) != {"application", "instance", "sha256", "file", "root", "read_only"}
+                       or set(item["file"]) != stamp_fields or set(item["root"]) != {"device", "inode", "uid"}
+                       for item in values["metadata"].values())
+                or any(set(values[key]) != stamp_fields for key in ("installed_proxy", "running_proxy"))
+                or proof["reported_pid"] != values["peer"]["pid"] or proof["bus_name"] != values["bus_name"]
+                or proof["digest"] != hashlib.sha256(json.dumps(values, sort_keys=True,
+                    separators=(",", ":")).encode()).hexdigest()):
+            raise ValueError
+        _validate(values)
+        record = proof["values"]["host"]
+        unsigned = {key: item for key, item in value.items() if key != "digest"}
+        if (set(identity) != {"window_id", "process_id"}
+                or proof["source"] != "flatpak_namespace_metadata" or proof["identity"] != identity
+                or proof["values"]["owner"] != value["owner"]
+                or host["pid"] != identity["process_id"] or host["pid"] != record["pid"]
+                or host["start"] != record["start"] or host["uid"] != os.getuid()
+                or value["owner"] != {"pid": host["pid"], "start": host["start"]}
+                or type(value["reported_wm_pid"]) is not int or value["reported_wm_pid"] <= 0
+                or host["pid"] == value["reported_wm_pid"] or len(record["nspid"]) < 2
+                or record["nspid"][-1] != value["reported_wm_pid"]
+                or not stat.S_ISREG(host["executable"]["mode"])
+                or value["digest"] != hashlib.sha256(json.dumps(unsigned, sort_keys=True,
+                    separators=(",", ":")).encode()).hexdigest()):
+            raise ValueError
+    except (KeyError, TypeError, ValueError, AttributeError, IndexError):
+        raise IdentityUnavailable("native_namespace_owner_unverified") from None
+    return value
+
+
+def collect_namespace_owner(window_id: str, reported_wm_pid: int, bridge: Any) -> dict:
+    """Complete bounded provider-root proof only; never recurse into observe."""
+    def fresh_owner():
+        remaining = bridge.deadline - time.monotonic()
+        if remaining < .05:
+            raise IdentityUnavailable("native_provider_identity_budget_exceeded")
+        return bridge._read(lambda: xres_owner(window_id, os.environ, timeout_s=remaining))
+    owner = fresh_owner()
+    host = bridge._read(lambda: host_process_identity(owner["pid"]))
+    if owner != {"pid": host["pid"], "start": host["start"]}:
+        raise IdentityUnavailable("native_namespace_owner_changed")
+    identity = {"window_id": window_id, "process_id": host["pid"]}
+    providers = bridge._inactive_namespace_providers()
+    matches = []
+    for _app, pid, bus, _raw in providers:
+        proof = provider_proof(identity, bus, pid, credentials=bridge._credentials,
+                               read=bridge._read, deadline=bridge.deadline)
+        if proof is not None:
+            matches.append(proof)
+    if len(matches) != 1:
+        raise IdentityUnavailable("native_namespace_owner_not_unique")
+    # A new provider cannot silently introduce another match after the scan.
+    if ([(pid, bus, raw) for _, pid, bus, raw in bridge._inactive_namespace_providers()]
+            != [(pid, bus, raw) for _, pid, bus, raw in providers]
+            or bridge._read(lambda: host_process_identity(owner["pid"])) != host
+            or fresh_owner() != owner):
+        raise IdentityUnavailable("native_namespace_owner_changed")
+    value = {"identity": identity, "reported_wm_pid": reported_wm_pid, "owner": owner,
+             "host_process": host, "proof": matches[0]}
+    value["digest"] = hashlib.sha256(json.dumps(value, sort_keys=True,
+                                               separators=(",", ":")).encode()).hexdigest()
+    return _check_namespace_owner(value)
+
+
+def _namespace_owner(window_id: str, reported_wm_pid: int, deadline: float) -> dict:
+    import importlib.util
+
+    import gi
+    gi.require_version("Atspi", "2.0")
+    from gi.repository import Atspi, GLib
+    spec = importlib.util.spec_from_file_location("_namespace_native", Path(__file__).with_name("native_ui.py"))
+    native = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(native)
+    bridge = native._AtspiBridge(Atspi, GLib, "namespace-owner-proof")
+    bridge.deadline, bridge.reads = min(deadline - .05, time.monotonic() + 2), 0
+    return collect_namespace_owner(window_id, reported_wm_pid, bridge)
+
+
+def namespace_window_owner(window_id: str, reported_wm_pid: int, environment: Mapping[str, str], *,
+                           deadline: float | None = None) -> dict:
+    if (not isinstance(window_id, str) or not re.fullmatch(r"[1-9][0-9]{0,9}", window_id)
+            or int(window_id) >= 2**32 or type(reported_wm_pid) is not int
+            or not 0 < reported_wm_pid < 2**31):
+        raise IdentityUnavailable("native_namespace_owner_invalid")
+    deadline = min(deadline if deadline is not None else time.monotonic() + 3, time.monotonic() + 3)
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise IdentityUnavailable("native_provider_identity_budget_exceeded")
+    try:
+        result = subprocess.run(["/usr/bin/python3", "-I", str(Path(__file__).resolve()),
+            "--namespace-window-owner", window_id, str(reported_wm_pid), repr(deadline)], env=dict(environment),
+            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=remaining, check=False)
+        if len(result.stdout) > 65536:
+            raise IdentityUnavailable("native_namespace_owner_unavailable")
+        if result.returncode:
+            failure = json.loads(result.stdout) if result.stdout else {}
+            if (isinstance(failure, dict) and set(failure) == {"error"}
+                    and isinstance(failure["error"], str) and failure["error"] in {"native_observation_budget_exceeded",
+                                            "native_provider_identity_budget_exceeded"}):
+                raise IdentityUnavailable(failure["error"])
+            raise IdentityUnavailable("native_namespace_owner_unavailable")
+        remaining = deadline - time.monotonic()
+        if remaining < .05:
+            raise IdentityUnavailable("native_provider_identity_budget_exceeded")
+        value = _check_namespace_owner(json.loads(result.stdout))
+        if (value["identity"]["window_id"] != window_id or value["reported_wm_pid"] != reported_wm_pid
+                or host_process_identity(value["identity"]["process_id"]) != value["host_process"]
+                or xres_owner(window_id, environment, timeout_s=remaining) != value["owner"]):
+            raise IdentityUnavailable("native_namespace_owner_changed")
+        if time.monotonic() >= deadline:
+            raise IdentityUnavailable("native_provider_identity_budget_exceeded")
+        return value
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        raise IdentityUnavailable("native_namespace_owner_unavailable") from None
+
+
 if __name__ == "__main__":
     try:
+        if len(sys.argv) == 5 and sys.argv[1] == "--namespace-window-owner":
+            if (re.fullmatch(r"[1-9][0-9]{0,9}", sys.argv[2]) is None or int(sys.argv[2]) >= 2**32
+                    or re.fullmatch(r"[1-9][0-9]{0,9}", sys.argv[3]) is None
+                    or int(sys.argv[3]) >= 2**31):
+                raise IdentityUnavailable("native_namespace_owner_invalid")
+            deadline = float(sys.argv[4])
+            if not time.monotonic() < deadline <= time.monotonic() + 3:
+                raise IdentityUnavailable("native_namespace_owner_invalid")
+            print(json.dumps(_namespace_owner(sys.argv[2], int(sys.argv[3]), deadline)))
+            raise SystemExit(0)
         if len(sys.argv) != 3 or sys.argv[1] != "--xres-owner":
             raise IdentityUnavailable("native_identity_operation_invalid")
         print(json.dumps(_xres(sys.argv[2])))
-    except Exception:
+    except Exception as exc:
+        if len(sys.argv) > 1 and sys.argv[1] == "--namespace-window-owner":
+            code = getattr(exc, "code", str(exc) if isinstance(exc, IdentityUnavailable) else None)
+            if not isinstance(code, str) or re.fullmatch(r"[a-z_][a-z0-9_]{0,127}", code) is None:
+                code = "native_namespace_owner_unavailable"
+            print(json.dumps({"error": code}))
         raise SystemExit(1) from None

@@ -153,6 +153,32 @@ def parse_step(value: Any) -> dict[str, Any]:
     return {**copy.deepcopy(step), "args": copy.deepcopy(args), "expect": _predicates(step.get("expect"))}
 
 
+def _text_observation(node: dict[str, Any]) -> None:
+    """Validate optional native text knowledge; omission never means zero."""
+    observation = _object(node["text_observation"],
+                          {"character_count", "selection_count", "captured_range", "truncated"},
+                          "text observation")
+    if not observation:
+        raise ComputerUseError("Empty text observation")
+    for key in ("character_count", "selection_count"):
+        if key in observation and (type(observation[key]) is not int or not 0 <= observation[key] < 2**31):
+            raise ComputerUseError("Invalid observed text count")
+    if "captured_range" in observation or "truncated" in observation:
+        if not {"character_count", "captured_range", "truncated"} <= observation.keys():
+            raise ComputerUseError("Incomplete observed text coverage")
+        captured = _object(observation["captured_range"], {"start", "end"}, "captured text range")
+        if (set(captured) != {"start", "end"} or type(captured["start"]) is not int or captured["start"] != 0
+                or type(captured["end"]) is not int or not 0 <= captured["end"] <= observation["character_count"]
+                or not isinstance(node.get("value"), str) or len(node["value"]) != captured["end"]
+                or type(observation["truncated"]) is not bool
+                or observation["truncated"] != (captured["end"] < observation["character_count"])):
+            raise ComputerUseError("Invalid observed text coverage")
+    selection = node.get("text_selection")
+    if selection is not None and (observation.get("selection_count") == 0
+            or "character_count" in observation and selection["end"] > observation["character_count"]):
+        raise ComputerUseError("Contradictory observed text selection")
+
+
 def _snapshot(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ComputerUseError("Invalid UI snapshot")
@@ -199,7 +225,10 @@ def _snapshot(value: Any) -> dict[str, Any]:
             node.pop("value", None)
             node.pop("selected", None)
             node.pop("text_selection", None)
+            node.pop("text_observation", None)
             node["operations"] = []
+        elif "text_observation" in node:
+            _text_observation(node)
     if "text" in state:
         _string(state["text"], "observed text", 40000, empty=True)
     if "truncated" in state and type(state["truncated"]) is not bool:

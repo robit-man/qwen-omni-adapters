@@ -11,6 +11,14 @@ interoperable implementations. The executable authority for validation is
 `qwen_omni_adapters.contract`; the JSON schemas provide a portable
 structural description.
 
+The canonical UI tools also return optional native-node `text_observation`
+knowledge; see [computer-use text evidence](computer-use.md). Known provider
+counts and captured-prefix coverage remain distinct from omitted unknown
+facts. This is inner tool-result evidence, with no new portable v1 envelope
+field, request option, predicate or input authority. Clients preserve such
+tool content opaquely; the executable UI-state validator is
+`qwen_omni_adapters.computer_use`, not the outer adapter JSON schemas.
+
 ## Endpoint and transport
 
 - Endpoint: `POST /api/chat`

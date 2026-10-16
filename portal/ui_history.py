@@ -98,7 +98,7 @@ def _retired(result: dict[str, Any], controller: tuple[str, str],
         if len(refs) <= 24:
             evidence = [{key: copy.deepcopy(node[key]) for key in
                          ("id", "generation", "scope_id", "role", "name", "value",
-                          "checked", "selected", "focused", "text_selection") if key in node}
+                          "checked", "selected", "focused", "text_selection", "text_observation") if key in node}
                         for node in value["nodes"] if isinstance(node, dict)
                         and node.get("id") in refs and not node.get("sensitive")
                         and node.get("visible") is not False]

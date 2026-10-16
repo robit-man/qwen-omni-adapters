@@ -101,12 +101,50 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
         after = item.get("after", {})
         wanted = {action.get("node_id")} | {predicate.get("node_id") for predicate in action.get("expect", [])}
         outcome["observed_effects"] = [{key: copy.deepcopy(node[key]) for key in
-            ("id", "generation", "scope_id", "role", "name", "value", "checked", "selected", "focused", "text_selection")
+            ("id", "generation", "scope_id", "role", "name", "value", "checked", "selected", "focused", "text_selection", "text_observation")
             if key in node} for node in after.get("nodes", []) if node.get("id") in wanted and not node.get("sensitive")][:21]
         outcomes.append(outcome)
     if outcomes:
         compact["outcomes"] = outcomes
     return compact
+
+
+def _text_observation_free_state(state: dict[str, Any]) -> dict[str, Any]:
+    """Copy actual snapshot nodes; similarly named action/authority fields stay."""
+    copied = copy.deepcopy(state)
+    nodes = copied.get("nodes")
+    for node in nodes if isinstance(nodes, list) else []:
+        if isinstance(node, dict):
+            node.pop("text_observation", None)
+    return copied
+
+
+def _phase_observation_fingerprint(observed: Mapping[str, Any]) -> dict[str, Any] | None:
+    copied = copy.deepcopy(dict(observed))
+    state = observed["state"]
+    projection = state.get("model_projection", {})
+    anchors = ("raw_source_sha256", "text_observation_semantic_sha256")
+    anchored = isinstance(projection, dict) and any(key in projection for key in anchors)
+    nodes = state.get("nodes")
+    metadata = isinstance(nodes, list) and any(isinstance(node, dict) and "text_observation" in node for node in nodes)
+    if not anchored and not metadata:
+        return copied
+    normalized = _text_observation_free_state(state)
+    if anchored:
+        if (any(not isinstance(projection.get(key), str) or re.fullmatch(r"[0-9a-f]{64}", projection[key]) is None
+                for key in anchors) or observed.get("content_sha256") != projection[anchors[0]]):
+            return None
+        copied["content_sha256"] = projection[anchors[1]]
+        for key in anchors:
+            normalized["model_projection"].pop(key)
+    else:
+        def digest(value):
+            return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+        if observed.get("content_sha256") != digest(state):
+            return None
+        copied["content_sha256"] = digest(normalized)
+    copied["state"] = normalized
+    return copied
 
 
 def _zero_effect_ui_phase_key(result: Mapping[str, Any], observed: Mapping[str, Any]) -> str | None:
@@ -138,8 +176,13 @@ def _zero_effect_ui_phase_key(result: Mapping[str, Any], observed: Mapping[str, 
         binding = {key: action[key] for key in fields}
         # Effect predicates are a conjunction; ordering conveys no new intent.
         binding["expect"] = sorted(binding["expect"], key=lambda item: json.dumps(item, sort_keys=True))
-        steps.append({"action": binding, "before": before, "after": after})
-    encoded = json.dumps({"observed": observed, "steps": steps, "terminal": terminal}, sort_keys=True,
+        steps.append({"action": binding, "before": _text_observation_free_state(before),
+                      "after": _text_observation_free_state(after)})
+    fingerprint_observed = _phase_observation_fingerprint(observed)
+    if fingerprint_observed is None:
+        return None
+    encoded = json.dumps({"observed": fingerprint_observed, "steps": steps,
+                          "terminal": _text_observation_free_state(terminal)}, sort_keys=True,
                          separators=(",", ":"), allow_nan=False).encode()
     return hashlib.sha256(encoded).hexdigest()
 

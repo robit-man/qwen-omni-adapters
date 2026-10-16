@@ -162,12 +162,16 @@ def test_unsafe_actual_window_process_stays_registered_for_exact_cleanup(office,
 
 
 def test_generic_application_launch_copies_explicit_child_environment(monkeypatch):
-    launched, queries = [], []
+    launched, queries, ownership_checks = [], [], []
     parent = {"DISPLAY": ":parent", "UNCHANGED": "yes"}
     child = {"DISPLAY": ":parent", "SAL_DISABLE_OPENCL": "1"}
     owned = support.OwnedDesktop(parent)
     monkeypatch.setattr(support.shutil, "which", lambda _name: "/usr/bin/app")
     monkeypatch.setattr(support, "process_start", lambda _pid: "stable")
+    def assert_host_process(pid, start):
+        assert (pid, start) == ("101", "stable")
+        ownership_checks.append((pid, start))
+    monkeypatch.setattr(support, "_assert_host_process", assert_host_process)
     def command(args, environment, **_kwargs):
         queries.append((args, environment))
         if args[1] == "search":
@@ -179,6 +183,7 @@ def test_generic_application_launch_copies_explicit_child_environment(monkeypatc
         return SimpleNamespace(pid=101, poll=lambda: None)
     monkeypatch.setattr(support.subprocess, "Popen", launch)
     owned.open_application("app", [], "app", "class", child_environment=child)
+    assert ownership_checks == [("101", "stable")]
     assert launched[0] == child and launched[0] is not child and launched[0] is not parent
     assert all(environment is parent for _args, environment in queries)
     launched[0]["SAL_DISABLE_OPENCL"] = "changed"

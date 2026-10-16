@@ -193,6 +193,29 @@ uncertain dispatched attempt and is never retried automatically. A rejection
 before input carries no backend claim. This metadata establishes the chosen
 route; fresh application effects still determine whether the task succeeded.
 
+Native text nodes may carry optional `text_observation` knowledge from the
+provider reads already made: full `character_count`, `selection_count`, and
+`captured_range: {start: 0, end: N}` with `truncated`. Counts are nonnegative
+provider integers; omitted components are unknown, never zero. A positive
+`selection_count` can coexist with an unavailable `text_selection` range.
+Only an actually read zero count establishes zero reported selections.
+
+Coverage describes the actual returned Unicode-character prefix in `value`,
+including a short provider return or the existing text budget. Empty captured
+text is `0..0`; `truncated` is false only when that prefix covers the valid
+full count. Coerced text, malformed counts and unavailable reads supply no
+coverage proof. Native offsets are not browser UTF-16 units, graphemes or key
+counts. Protected text exposes none of this metadata. Bounded planner views
+preserve it with the node; an omitted node remains unknown. Historical views
+retain only permitted control evidence with their existing historical labels.
+
+This object is observation knowledge, not a predicate or input capability.
+It is excluded from the existing native revision and idempotency payload, so
+clarification alone cannot create mutation credit, retry authority or failure
+counter progress. Raw state, tool and planner-packet hashes still cover it.
+Existing value and positive selection-range changes retain their normal
+verification semantics. No keyboard fallback or provider blacklist is added.
+
 On GNOME, enable the signed-in session's accessibility before using native
 browser controls: `gsettings set org.gnome.desktop.interface toolkit-accessibility true`.
 Firefox must register its actual AT-SPI tree; a missing tree remains an explicit

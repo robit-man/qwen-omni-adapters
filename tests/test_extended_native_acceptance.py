@@ -517,6 +517,7 @@ def test_manifest_never_follows_symlink_or_ignores_unexpected_file(tmp_path):
 
 
 def test_register_and_close_never_target_reused_pid_or_window(monkeypatch):
+    monkeypatch.setattr(support, "_assert_host_process", lambda pid, start: None)
     owned = support.OwnedDesktop({"DISPLAY": ":test"})
     monkeypatch.setattr(support, "process_start", lambda _pid: "start")
     monkeypatch.setattr(support, "command", lambda *_a, **_k: "20")
@@ -541,6 +542,7 @@ def test_absent_app_has_true_empty_cleanup_and_failed_unknown_launch_is_not_true
 
 def application_discovery(monkeypatch, *, visible=("202",), pid="101", before=("17",), start_changed=False):
     calls, starts = [], []
+    monkeypatch.setattr(support, "_assert_host_process", lambda pid, start: None)
     process = SimpleNamespace(pid=101, poll=lambda: None)
     monkeypatch.setattr(support.shutil, "which", lambda _name: "/usr/bin/gedit")
     monkeypatch.setattr(support.subprocess, "Popen", lambda *_a, **_k: process)

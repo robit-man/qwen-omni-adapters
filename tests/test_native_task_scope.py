@@ -26,6 +26,7 @@ def _identity_provider(monkeypatch, owners=None, transients=None, starts=None, a
     transients = transients if transients is not None else {}
     starts = starts if starts is not None else {42: "4201"}
     monkeypatch.setattr(native, "_process_start", lambda pid: starts.get(pid, "unknown"))
+    monkeypatch.setattr(native, "_host_process_identity", lambda pid: {"pid": pid, "start": starts.get(pid, "unknown")})
 
     def run(argv, **_kwargs):
         if argv[:2] == ["xdotool", "windowactivate"] and activate:

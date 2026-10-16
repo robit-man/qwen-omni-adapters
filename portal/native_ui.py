@@ -331,7 +331,7 @@ class NativeUiAdapter:
                 if node.get("sensitive"):
                     node["name"] = "[protected]"
                     node["operations"] = []
-                    for key in ("value", "selected", "checked", "text_selection"):
+                    for key in ("value", "selected", "checked", "text_selection", "text_observation"):
                         node.pop(key, None)
             return result
 
@@ -853,7 +853,70 @@ def _absent_property_owner(window_id: str, environment: Mapping[str, str]) -> in
         raise NativeUiUnavailable("native_foreground_unmapped") from None
 
 
-def _x11_foreground(environment: Mapping[str, str] | None = None) -> dict[str, Any]:
+def _host_process_identity(process_id: int) -> dict[str, Any]:
+    return _identity_helper().host_process_identity(process_id)
+
+
+def _x11_window_owner(window_id: str, environment: Mapping[str, str], *,
+                      include_binding: bool = False, deadline: float | None = None) -> dict[str, Any]:
+    """One typed owner path for foreground, allowed bases and direct transients."""
+    if (not isinstance(window_id, str) or re.fullmatch(r"[1-9][0-9]{0,9}", window_id) is None
+            or int(window_id) >= 2**32):
+        raise NativeUiUnavailable("native_foreground_unmapped")
+
+    deadline = deadline if deadline is not None else time.monotonic() + 3
+    def query() -> int:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise NativeUiUnavailable("native_observation_budget_exceeded")
+        try:
+            result = subprocess.run(["xdotool", "getwindowpid", window_id], capture_output=True,
+                                    text=True, timeout=min(1, remaining), check=False, env=dict(environment))
+        except (OSError, subprocess.TimeoutExpired):
+            raise NativeUiUnavailable("native_foreground_unavailable") from None
+        value = result.stdout.strip()
+        if result.returncode or re.fullmatch(r"[1-9][0-9]{0,9}", value) is None or int(value) >= 2**31:
+            raise NativeUiUnavailable("native_foreground_unmapped")
+        return int(value)
+
+    binding, absent = None, False
+    try:
+        process_id = query()
+    except NativeUiUnavailable as exc:
+        if exc.code != "native_foreground_unmapped":
+            raise
+        process_id = _absent_property_owner(window_id, environment)
+        absent = True  # The existing fallback still requires positive property absence.
+    try:
+        _host_process_identity(process_id)
+    except Exception:
+        if absent:
+            raise NativeUiUnavailable("native_foreground_unmapped") from None
+        try:
+            binding = _identity_helper().namespace_window_owner(window_id, process_id, environment, deadline=deadline)
+            if query() != binding["reported_wm_pid"]:
+                raise NativeUiUnavailable("native_namespace_owner_changed")
+            process_id = binding["identity"]["process_id"]
+        except NativeUiUnavailable:
+            raise
+        except Exception as exc:
+            helper = _identity_helper()
+            if (isinstance(exc, getattr(helper, "IdentityUnavailable", ()))
+                    and str(exc) == "native_provider_identity_budget_exceeded"):
+                raise NativeUiUnavailable("native_provider_identity_budget_exceeded") from None
+            if time.monotonic() >= deadline:
+                raise NativeUiUnavailable("native_observation_budget_exceeded") from None
+            raise NativeUiUnavailable("native_foreground_unmapped") from None
+    if time.monotonic() >= deadline:
+        raise NativeUiUnavailable("native_observation_budget_exceeded")
+    result = {"window_id": window_id, "process_id": process_id}
+    if include_binding and binding is not None:
+        result["_namespace_owner_binding"] = binding
+    return result
+
+
+def _x11_foreground(environment: Mapping[str, str] | None = None, *,
+                    include_binding: bool = False, deadline: float | None = None) -> dict[str, Any]:
     """Bind native semantics to the window manager's actual foreground owner."""
     environment = dict(os.environ if environment is None else environment)
     if environment.get("XDG_SESSION_TYPE") == "wayland" or environment.get("WAYLAND_DISPLAY"):
@@ -861,30 +924,30 @@ def _x11_foreground(environment: Mapping[str, str] | None = None) -> dict[str, A
     if not environment.get("DISPLAY"):
         raise NativeUiUnavailable("native_foreground_display_unavailable")
 
-    def query(arguments: list[str]) -> str:
+    deadline = deadline if deadline is not None else time.monotonic() + 3
+    def active() -> str:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise NativeUiUnavailable("native_observation_budget_exceeded")
         try:
-            result = subprocess.run(  # noqa: S603
-                ["xdotool", *arguments], capture_output=True, text=True, timeout=1, check=False, env=environment,
-            )
+            result = subprocess.run(["xdotool", "getactivewindow"], capture_output=True,
+                                    text=True, timeout=min(1, remaining), check=False, env=environment)
         except (OSError, subprocess.TimeoutExpired):
             raise NativeUiUnavailable("native_foreground_unavailable") from None
         value = result.stdout.strip()
-        if result.returncode or not value.isdecimal() or not 0 < int(value) < 2**32:
+        if result.returncode or re.fullmatch(r"[1-9][0-9]{0,9}", value) is None or int(value) >= 2**32:
             raise NativeUiUnavailable("native_foreground_unmapped")
         return value
 
-    window_id = query(["getactivewindow"])
-    try:
-        process_id = int(query(["getwindowpid", window_id]))
-    except NativeUiUnavailable as exc:
-        if exc.code != "native_foreground_unmapped":
-            raise
-        process_id = _absent_property_owner(window_id, environment)
-    # A second manager read prevents binding a PID to a window that lost focus
-    # between the two fixed queries. No native input has been attempted.
-    if query(["getactivewindow"]) != window_id:
+    window_id = active()
+    result = _x11_window_owner(window_id, environment, include_binding=include_binding, deadline=deadline)
+    if active() != window_id:
         raise NativeUiUnavailable("native_foreground_changed_during_observation")
-    return {"window_id": window_id, "process_id": process_id}
+    return result
+
+
+def _native_foreground_binding() -> dict[str, Any]:
+    return _x11_foreground(include_binding=True)
 
 
 def _x11_geometry(identity: Mapping[str, Any], environment: Mapping[str, str] | None = None) -> dict[str, int]:
@@ -1118,38 +1181,41 @@ def _window_query(target: Any) -> dict[str, str] | None:
     return copy.deepcopy(target)
 
 
-def _window_scope_allows(scope: dict[str, Any] | None, identity: Mapping[str, Any],
-                         environment: Mapping[str, str] | None = None) -> bool:
+def _window_scope_allows(scope: Mapping[str, Any] | None, identity: Mapping[str, Any],
+                         environment: Mapping[str, str] | None = None, *,
+                         deadline: float | None = None) -> bool:
     if scope is None:
         return True
     env = {**(environment or os.environ), "LC_ALL": "C"}
-
-    def owner(xid: str) -> int | None:
-        result = subprocess.run(["xdotool", "getwindowpid", xid], capture_output=True,
-                                text=True, timeout=1, check=False, env=env)  # noqa: S603
-        if not result.returncode and result.stdout.strip().isascii() and result.stdout.strip().isdecimal():
-            return int(result.stdout.strip())
-        return _absent_property_owner(xid, env)
-
+    deadline = deadline if deadline is not None else time.monotonic() + 3
+    def owner(xid: str) -> int:
+        return _x11_window_owner(xid, env, deadline=deadline)["process_id"]
     try:
         xid, pid = identity["window_id"], identity["process_id"]
-        if (not isinstance(xid, str) or type(pid) is not int
-                or not any(row["process_id"] == pid for row in scope["windows"]) or owner(xid) != pid):
+        if not isinstance(xid, str) or type(pid) is not int:
             return False
         start = _process_start(pid)
         bases = [row for row in scope["windows"] if row["process_id"] == pid and row["process_start"] == start]
-        if not bases:
+        if not bases or owner(xid) != pid:
             return False
-        if not any(row["window_id"] == xid for row in bases):
-            result = subprocess.run(["xprop", "-id", xid, "WM_TRANSIENT_FOR"], capture_output=True,
-                                    text=True, timeout=1, check=False, env=env)  # noqa: S603
-            match = re.fullmatch(r"WM_TRANSIENT_FOR\(WINDOW\): window id # (0x[0-9a-fA-F]+)\s*", result.stdout)
-            if result.returncode or match is None:
-                return False
-            bases = [row for row in bases if int(row["window_id"]) == int(match[1], 16)]
-        return (any(owner(row["window_id"]) == pid for row in bases)
+        if any(row["window_id"] == xid for row in bases):
+            return owner(xid) == pid and _process_start(pid) == start
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise NativeUiUnavailable("native_observation_budget_exceeded")
+        result = subprocess.run(["xprop", "-id", xid, "WM_TRANSIENT_FOR"], capture_output=True,
+                                text=True, timeout=min(1, remaining), check=False, env=env)
+        match = re.fullmatch(r"WM_TRANSIENT_FOR\(WINDOW\): window id # (0x[0-9a-fA-F]+)\s*", result.stdout)
+        if result.returncode or match is None:
+            return False
+        selected = [row for row in bases if int(row["window_id"]) == int(match[1], 16)]
+        return (len(selected) == 1 and owner(selected[0]["window_id"]) == pid
                 and owner(xid) == pid and _process_start(pid) == start)
-    except (KeyError, OSError, ValueError, subprocess.TimeoutExpired, NativeUiUnavailable):
+    except NativeUiUnavailable as exc:
+        if exc.code == "native_observation_budget_exceeded":
+            raise
+        return False
+    except (KeyError, OSError, ValueError, subprocess.TimeoutExpired):
         return False
 
 
@@ -1164,7 +1230,7 @@ class _AtspiBridge:
     MAX_RETAINED_WINDOWS = 16
 
     def __init__(self, atspi: Any, glib: Any, session_id: str, process_id: int | None = None,
-                 foreground: Callable[[], dict[str, Any]] = _x11_foreground,
+                 foreground: Callable[[], dict[str, Any]] = _native_foreground_binding,
                  window_scope: dict[str, Any] | None = None) -> None:
         self.atspi, self.glib, self.session_id = atspi, glib, session_id
         self.process_id = process_id
@@ -1180,6 +1246,8 @@ class _AtspiBridge:
         self._window_history: OrderedDict[str, dict[str, Any]] = OrderedDict()
         self._coordinate_binding: dict[str, Any] | None = None
         self._provider_binding: dict[str, Any] | None = None
+        self._host_owner_binding = None
+        self._host_owner_bound = False
         self._inactive_namespace_bindings: dict[str, dict[str, Any]] = {}
         self._inactive_namespace_error: str | None = None
         self._inactive_namespace_buses: set[str] = set()
@@ -1187,8 +1255,14 @@ class _AtspiBridge:
         self.atspi.set_timeout(250, 250)
 
     def foreground(self) -> dict[str, Any]:
-        identity = self._foreground_provider()
-        if not _window_scope_allows(self.window_scope, identity):
+        raw = (_x11_foreground(include_binding=True, deadline=self.deadline)
+               if self._foreground_provider is _native_foreground_binding else self._foreground_provider())
+        binding = raw.get("_namespace_owner_binding")
+        identity = {key: raw[key] for key in ("window_id", "process_id")}
+        if self._host_owner_bound and binding != self._host_owner_binding:
+            raise NativeUiUnavailable("native_namespace_owner_changed")
+        self._host_owner_binding, self._host_owner_bound = copy.deepcopy(binding), True
+        if not _window_scope_allows(self.window_scope, identity, deadline=getattr(self, "deadline", None)):
             raise NativeUiUnavailable("native_task_window_out_of_scope")
         return identity
 
@@ -1858,6 +1932,7 @@ class _AtspiBridge:
         missing = object()
         binding = self._coordinate_binding
         provider_binding = self._provider_binding
+        host_owner = (self._host_owner_binding, self._host_owner_bound)
         inactive = (self._inactive_namespace_bindings, self._inactive_namespace_buses, self._inactive_namespace_error)
         target = self._window_target
         identity = getattr(self, "foreground_identity", missing)
@@ -1866,6 +1941,7 @@ class _AtspiBridge:
         except Exception:
             self._coordinate_binding = binding
             self._provider_binding = provider_binding
+            self._host_owner_binding, self._host_owner_bound = host_owner
             self._inactive_namespace_bindings, self._inactive_namespace_buses, self._inactive_namespace_error = inactive
             self._window_target = target
             if identity is missing:
@@ -1879,6 +1955,7 @@ class _AtspiBridge:
         self._window_target = copy.deepcopy(window_target)
         self._coordinate_binding = None
         self._provider_binding = None
+        self._host_owner_binding, self._host_owner_bound = None, False
         self._inactive_namespace_bindings, self._inactive_namespace_buses, self._inactive_namespace_error = {}, set(), None
         self.foreground_identity = self.foreground()
         process_id = self.foreground_identity["process_id"]
@@ -2105,22 +2182,36 @@ class _AtspiBridge:
                 )
             if not sensitive and "Text" in interfaces and text_remaining:
                 interface = self._read(node.get_text_iface)
+                character_count = self._read(lambda: self.atspi.Text.get_character_count(interface))
                 count = min(
-                    max(0, self._read(lambda: self.atspi.Text.get_character_count(interface))),
+                    max(0, character_count),
                     2048,
                     text_remaining,
                 )
-                item["value"] = str(
-                    self._read(lambda: self.atspi.Text.get_text(interface, 0, count))
-                )[:count]
+                text = self._read(lambda: self.atspi.Text.get_text(interface, 0, count))
+                item["value"] = str(text)[:count]
                 text_remaining -= count
+                text_observation = {}
+                if type(character_count) is int and 0 <= character_count <= 2**31 - 1:
+                    text_observation["character_count"] = character_count
+                    # AT-SPI offsets count Unicode characters, not UTF-16 code
+                    # units or key events. A short return is a captured prefix;
+                    # a coerced or oversized return supplies no coverage proof.
+                    if isinstance(text, str) and len(text) <= count:
+                        text_observation.update(captured_range={"start": 0, "end": len(text)},
+                                                truncated=len(text) < character_count)
                 if all(hasattr(self.atspi.Text, method) for method in ("get_n_selections", "get_selection", "add_selection", "set_selection")):
                     item["operations"].append("select_text")
-                    if self._read(lambda: self.atspi.Text.get_n_selections(interface)) > 0:
+                    selection_count = self._read(lambda: self.atspi.Text.get_n_selections(interface))
+                    if type(selection_count) is int and 0 <= selection_count <= 2**31 - 1:
+                        text_observation["selection_count"] = selection_count
+                    if selection_count > 0:
                         selected_range = self._read(lambda: self.atspi.Text.get_selection(interface, 0))
                         start, end = selected_range.start_offset, selected_range.end_offset
                         if type(start) is int and type(end) is int and 0 <= start < end <= 1_000_000:
                             item["text_selection"] = {"start": start, "end": end}
+                if text_observation:
+                    item["text_observation"] = text_observation
             if (window and visible and enabled and not sensitive and item["role"] in {"textbox", "combobox"}
                     and "value" in item and state.contains(state_type.EDITABLE) and not state.contains(state_type.READ_ONLY)):
                 item["operations"].append("type_text")
@@ -2205,8 +2296,14 @@ class _AtspiBridge:
             payload["window_scope_count"] = len(self.window_scope["windows"])
         self._refresh_provider_binding()
         self._refresh_inactive_namespace_bindings()
-        revision_payload = payload if self._provider_binding is None else {
-            "snapshot": payload, "provider_identity_digest": self._provider_binding["proof"]["digest"]}
+        # Coverage/count facts are observation knowledge only. Clarification
+        # cannot change action idempotency, mutation credit or input authority.
+        revision_snapshot = {**payload, "nodes": [
+            {key: value for key, value in node.items() if key != "text_observation"} for node in nodes]}
+        revision_payload = revision_snapshot if self._provider_binding is None else {
+            "snapshot": revision_snapshot, "provider_identity_digest": self._provider_binding["proof"]["digest"]}
+        if self._host_owner_binding is not None:
+            revision_payload = {"snapshot": revision_payload, "namespace_owner_digest": self._host_owner_binding["digest"]}
         if self._inactive_namespace_bindings:
             revision_payload = {"snapshot": revision_payload, "inactive_namespace_bindings": self._inactive_namespace_bindings}
         payload["revision"] = hashlib.sha256(
@@ -2236,6 +2333,10 @@ class _AtspiBridge:
         self.previous, self.handles, self.windows, self.window_ids = present, handles, windows, window_ids
         if self._provider_binding is not None:
             payload["_namespace_provider_digest"] = self._provider_binding["proof"]["digest"]
+        if self._host_owner_binding is not None:
+            payload["_namespace_provider_digest"] = hashlib.sha256(json.dumps({
+                "provider": payload.get("_namespace_provider_digest"),
+                "owner": self._host_owner_binding["digest"]}, sort_keys=True).encode()).hexdigest()
         return payload
 
     def perform(self, action: Mapping[str, Any]) -> dict[str, Any]:

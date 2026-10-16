@@ -330,6 +330,9 @@ def test_installed_system_ref_commit_and_executable_are_checked_without_launch(m
         }[argv[2]]
 
     backend = owned._SystemBackend.__new__(owned._SystemBackend)
+    backend.browser = "firefox"
+    backend.application = "org.mozilla.firefox"
+    backend.executable_relative = "files/lib/firefox/firefox-bin"
     backend.command = command
     if fault:
         with pytest.raises(owned.OwnershipUnavailable):
@@ -372,6 +375,9 @@ def test_blank_proof_reads_committed_document_attribute_without_typing_or_active
         protected.children = [document]
         fixture.window.children = [protected]
     backend = owned._SystemBackend.__new__(owned._SystemBackend)
+    backend.browser = "firefox"
+    backend.application = "org.mozilla.firefox"
+    backend.executable_relative = "files/lib/firefox/firefox-bin"
     backend.bridge = fixture.bridge
     fixture.bridge.reads = 0
     fixture.bridge.deadline = __import__("time").monotonic() + 5
@@ -386,6 +392,9 @@ def test_blank_proof_reads_committed_document_attribute_without_typing_or_active
 
 def test_prelaunch_failure_has_safe_diagnostic_without_launch_streams():
     backend = owned._SystemBackend.__new__(owned._SystemBackend)
+    backend.browser = "firefox"
+    backend.application = "org.mozilla.firefox"
+    backend.executable_relative = "files/lib/firefox/firefox-bin"
     backend.launch_process = None
     backend.launch_identity = None
     backend.launch_streams = []
@@ -441,6 +450,9 @@ def test_actual_launcher_arguments_are_closed_ordinary_about_blank(monkeypatch):
     import subprocess
 
     backend = owned._SystemBackend.__new__(owned._SystemBackend)
+    backend.browser = "firefox"
+    backend.application = "org.mozilla.firefox"
+    backend.executable_relative = "files/lib/firefox/firefox-bin"
     backend.launch_process = None
     backend.launch_identity = None
     backend.launch_streams = []
@@ -451,6 +463,7 @@ def test_actual_launcher_arguments_are_closed_ordinary_about_blank(monkeypatch):
         return SimpleNamespace(pid=2147483000, poll=lambda: 0)
 
     monkeypatch.setattr(owned.subprocess, "Popen", popen)
+    backend.deployment = lambda: {"arch": "aarch64"}
     result = backend.launch({"arch": "aarch64"})
     assert calls[0][0] == [
         "/usr/bin/flatpak",
@@ -517,6 +530,9 @@ def test_namespace_polite_close_rechecks_proof_immediately_before_one_wm_delete(
     )
     monkeypatch.setattr(owned.importlib.util, "module_from_spec", lambda _spec: SimpleNamespace())
     backend = owned._SystemBackend.__new__(owned._SystemBackend)
+    backend.browser = "firefox"
+    backend.application = "org.mozilla.firefox"
+    backend.executable_relative = "files/lib/firefox/firefox-bin"
     backend.proof = Mock(return_value=proof)
     backend.polite_close(proof, {})
     assert sent == [21] and backend.proof.call_count == 2

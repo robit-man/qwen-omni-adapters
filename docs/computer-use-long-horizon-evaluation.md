@@ -1321,3 +1321,79 @@ SHA256:
 The committed executable/test tree matches the validated isolated tree; this
 evaluation narrative was updated afterward. This does not identify Egg31's
 historical underlying error or restore a missing ownership ledger.
+
+### Ornith LHN-001 and loaded decision-head audit
+
+After adopting `7ddf3ca`, Egg41 ran the original LHN-001 Python migration
+dossier task with three owned applications and unchanged inputs and rubric.
+The live Ornith request completed four phases before blocking. Switching to
+the editor verified, but the model requested unsupported window-root focus;
+a later advertised New Tab focus dispatched without a verified effect, then
+two further window-root focus requests found no eligible control. The whole
+task failed: no required output, source acquisition or memory result. Review
+scored nine failed criteria and preservation passed. The original browser
+cleanup result remains false; a separate saved later tree proves the three
+owned visible windows absent and all 61 prior rows unchanged. Three new
+unmapped resources remain unclaimed. Canonical bundle SHA256:
+`fa1b9397c645b76c2b2354079cb7509cc316e43a79b200c2814b36220c79e149`.
+
+Egg31's original LHN-001 setup stopped before any model call. The ordinary
+Flatpak Chromium window was registered using reported PID `2` and start `0`,
+which were not a positively verified caller-owned host identity. Observation
+then failed generically; that error does not identify a provider-read cause.
+A later complete tree proved the newly created visible window absent and all
+75 prior rows unchanged. No task criterion was exercised. Canonical bundle
+SHA256:
+`c820ac0ec26caa5c5bf31f6ce55dc2eb6cda5326bb08d99d92e97704ee2245d0`.
+Both remote results remain separate Tegra/Moondream-2/no-Kev cohorts.
+
+A separate, frozen 24-case local audit completed 24 actual Qwen-27B calls and
+24 actual Kev-4B head calls on the existing GPU 1 workers in 265.081 seconds.
+Every response passed its schema/protocol check; worker identities, lease,
+source and final idle state were preserved. Inputs were explicitly historical
+and conferred no current desktop input authority. Qwen returned 14 blocked,
+seven complete and three visual-inspection phases, with no UI phase. This
+authority condition confounds capability-planning evaluation; it supplies no
+positive current-desktop action-quality result.
+
+Kev's raw choices matched 13 of 18 nonzero-candidate target labels and all six
+zero-candidate safe labels. Every score remained below the unchanged 0.95
+threshold, yielding 24 abstentions. These hypothetical target labels are not
+GUI effects or completion grades, and unique/zero-candidate probes do not prove
+production policy routing. No threshold, prompt or label was adjusted.
+The actual language adapter retained its 4,096-token output cap despite the
+request's 8,192 option; upstream finish reason and usage were not exposed and
+remain unknown. There were no GUI inputs, executor calls, visual model calls,
+memory operations or whole-suite credits. Immutable audit bundle SHA256:
+`8bf4cfa32139e8e812c233dea3466b8ee58106a6127f9ed3a287f019500ba565`.
+
+The next source checkpoint adds optional native text counts and captured-prefix
+coverage, preserving unknown values separately from observed zero. It keeps
+legacy native revisions and idempotency unchanged. Review reproduced two
+prepublication regressions: metadata could displace an existing planner-visible
+node or make a repeated zero-effect phase appear new. Legacy controls now receive
+the existing projection budget first; optional metadata uses spare space.
+Repetition fingerprints use a metadata-free state copy and bound full-state
+hashes, while raw evidence hashes and other authority fields remain intact.
+The actual endpoint source fixtures now stop those loops rather than accepting
+an unverified completion claim. They are source tests, not live model runs.
+
+The same checkpoint requires positive host process ownership before ordinary
+window registration and supplies an explicit `flatpak-chromium` setup option.
+A namespace-local WM PID needs a complete authenticated host binding before
+publication; foreground and scope checks share that resolver. Ordinary valid
+host processes need no namespace/XRes query. Existing browser launchers and
+profiles are preserved. Installed Chromium latency and live task behavior are
+not established by the CPU proof fixtures.
+
+The composed focused gate passed 776 tests. Its first full gate failed 27 old
+fixture cases because two fixtures lacked the new physical-host identity
+boundary; production remained unchanged. Explicit fake-process identities and
+an asserted launch-boundary double repaired those fixtures without bypassing
+scope or namespace checks. Both affected files then passed 59 tests, and the
+second full gate passed all 3,432 tests in 103.96 seconds. All 381 source/test
+fingerprints and five reviewed private helpers were stable during each gate.
+The passing receipt SHA256 is
+`24aa74cb7e137da2af85168298b2a4e3b256cf49e4a2ebd0e13187ad94d2a040`.
+This evaluation narrative was amended after the source gate. Deployment and
+whole-task live qualification remain separate, pending results.

@@ -824,6 +824,7 @@ def test_foreground_manager_change_at_input_boundary_rejects_native_input() -> N
 
 
 def test_foreground_mapper_uses_only_fixed_queries_and_rechecks_window(monkeypatch) -> None:
+    monkeypatch.setattr("portal.native_ui._host_process_identity", lambda pid: {"pid": pid, "start": "420"})
     monkeypatch.setenv("DISPLAY", ":fixture")
     monkeypatch.setenv("XDG_SESSION_TYPE", "x11")
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
@@ -845,6 +846,7 @@ def test_foreground_mapper_uses_only_fixed_queries_and_rechecks_window(monkeypat
 
 
 def test_foreground_mapper_rejects_unmapped_or_racing_windows(monkeypatch) -> None:
+    monkeypatch.setattr("portal.native_ui._host_process_identity", lambda pid: {"pid": pid, "start": "420"})
     monkeypatch.setenv("DISPLAY", ":fixture")
     monkeypatch.setenv("XDG_SESSION_TYPE", "x11")
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
@@ -1830,6 +1832,7 @@ def test_xres_fallback_requires_exact_missing_property_not_malformed_or_present(
 
 
 def test_xres_missing_property_fallback_keeps_foreground_two_key_shape(monkeypatch):
+    monkeypatch.setattr("portal.native_ui._host_process_identity", lambda pid: {"pid": pid, "start": "420"})
     calls = []
 
     def run(command, **kwargs):
@@ -1982,6 +1985,7 @@ def test_namespace_observation_never_offers_inactive_window_even_with_positive_l
 
 
 def scoped_namespace_fixture(monkeypatch):
+    monkeypatch.setattr("portal.native_ui._host_process_identity", lambda pid: {"pid": pid, "start": "420"})
     from portal.native_ui import normalize_native_task_scope
 
     fixture, proof, calls, geometry = namespace_fixture(monkeypatch)
