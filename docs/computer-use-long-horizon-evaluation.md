@@ -491,6 +491,19 @@ warnings. These establish source and grammar compatibility only. No live reader
 request or new desktop task ran at this checkpoint; local inference remains
 pending watchdog evidence retention and fresh admission.
 
+The admission evidence patch, `fbc381f`, passed 2,928 checks. The isolated
+validation checkpoint and all 366 tracked/private-helper fingerprints remained
+unchanged. Blocked admission now retains fixed blocker codes and bounded
+boolean/count/UUID evidence from the same discovery snapshot; malformed
+responses remain fail-closed. The watchdog serializer accepts only that trusted
+diagnostic type and continues to redact generic exceptions. The guard, discovery
+timeout, GPU scope and residency requirements are unchanged. Its saved-JSON CPU
+check proves evidence retention, not GPU health or a desktop outcome. Receipt:
+`/tmp/qwen-broker-evidence-post-receipt.json`, SHA256
+`e6911be4c294eb00682ca9e8b0cff1e51f7bf01e6452ef6521675b32770a910f`.
+The historical interruption's cause remains unknown; no inference or service
+adoption occurred during this source validation.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give
