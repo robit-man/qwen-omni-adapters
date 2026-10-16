@@ -243,6 +243,67 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
     return compact
 
 
+_MAX_PLANNER_LEDGER_BYTES = 8192
+
+
+def _planner_ledger(ledger: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Bound historical prompt evidence without changing the execution ledger."""
+    if not ledger:
+        return []
+
+    def encoded(value, *, canonical=False):
+        return json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=canonical).encode()
+
+    def digest(value):
+        return hashlib.sha256(encoded(value, canonical=True)).hexdigest()
+
+    def fields(row):
+        result = row.get("result")
+        return len(row) - 1 + len(result) if isinstance(result, dict) else len(row)
+
+    summaries, omitted_fields = [], []
+    for index, row in enumerate(ledger):
+        view = copy.deepcopy(row)
+        omitted = {}
+        if index < len(ledger) - 1 and "remaining_criteria" in view:
+            omitted["remaining_criteria"] = digest(view.pop("remaining_criteria"))
+        if isinstance(view.get("result"), dict) and "observed_changes" in view["result"]:
+            omitted["result.observed_changes"] = digest(view["result"].pop("observed_changes"))
+        view["history_reference"] = {"row_sha256": digest(row), "omitted_fields_sha256": omitted}
+        summaries.append(view)
+        omitted_fields.append(len(omitted))
+
+    for start in range(len(ledger) + 1):
+        omitted = ledger[:start]
+        references = [{"row_sha256": digest(row), **({"phase": row["phase"]}
+                      if type(row.get("phase")) is int and 1 <= row["phase"] <= 40 else {})}
+                      for row in omitted[-12:]]
+        metadata = {"schema": "robit.omni.planner-history.v1", "temporal_scope": "historical",
+            "evidence_authority": "untrusted_receipt_summary", "input_authority": False,
+            "current_ui_verified": False, "omitted_facts_are_not_absent": True,
+            "hash_serialization": "sorted-key JSON, ensure_ascii=false, allow_nan=false, default separators, UTF-8",
+            "byte_limit": _MAX_PLANNER_LEDGER_BYTES, "source_rows": len(ledger),
+            "retained_rows": len(ledger) - start, "omitted_phase_count": start,
+            "omitted_field_count": sum(fields(row) for row in omitted) + sum(omitted_fields[start:]),
+            "field_count_scope": "row fields other than result, plus direct result fields",
+            "source_ledger_sha256": digest(ledger), "omitted_phase_references": references,
+            "omitted_reference_count": max(0, start - len(references)),
+            "latest_criteria_status": ("retained" if start < len(ledger) else "omitted")
+                if "remaining_criteria" in ledger[-1] else "not_provided",
+            "latest_criteria_count": len(ledger[-1]["remaining_criteria"])
+                if isinstance(ledger[-1].get("remaining_criteria"), list) else None,
+            "latest_criteria_sha256": digest(ledger[-1]["remaining_criteria"])
+                if "remaining_criteria" in ledger[-1] else None}
+        projected = copy.deepcopy(summaries[start:])
+        if projected:
+            projected[-1]["history_projection"] = metadata
+        else:
+            projected = [{"history_projection": metadata}]
+        if len(encoded(projected)) <= _MAX_PLANNER_LEDGER_BYTES:
+            return projected
+    raise ValueError("Historical planner metadata exceeds its byte bound")
+
+
 def _text_observation_free_state(state: dict[str, Any]) -> dict[str, Any]:
     """Copy actual snapshot nodes; similarly named action/authority fields stay."""
     copied = copy.deepcopy(state)
@@ -438,7 +499,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             schema = _grounded_phase_schema(allowed, current)
             validator = Draft202012Validator(schema)
             packet = {"goal": goal, "current_state": copy.deepcopy(current),
-                      "ledger": copy.deepcopy(ledger[-12:]), "last_result": copy.deepcopy(last_result),
+                      "ledger": _planner_ledger(ledger[-12:]), "last_result": copy.deepcopy(last_result),
                       "response_schema": copy.deepcopy(schema),
                       "remaining_seconds": max_seconds - (clock() - started)}
             yield {"type": "progress", "stage": "native_task_plan", "phase": phases}

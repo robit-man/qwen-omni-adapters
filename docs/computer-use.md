@@ -309,6 +309,24 @@ A completed phase does not verify the whole user goal. See the
 [long-horizon evaluation](computer-use-long-horizon-evaluation.md) for the live
 acceptance criteria and original task suite.
 
+Native phase planning projects historical ledger rows into at most 8,192 UTF-8
+JSON bytes, including projection metadata. This model-visible history omits old
+`observed_changes` and older planner criteria, retains included receipt flags,
+statuses and errors unchanged, and drops oldest summaries when necessary. Row
+and omitted-field hashes, omitted phase and field counts, and explicit historical,
+untrusted, non-authorizing labels distinguish omission from absence. Reference
+SHA-256 hashes use sorted-key JSON with `ensure_ascii=false`,
+`allow_nan=false`, default `(", ", ": ")` separators and UTF-8 encoding; it is
+distinct from compact execution-binding hashes. The newest row's pending
+criteria remain verbatim when that row fits; otherwise their omission, count
+and hash are explicit, without implying that no criteria remain. This is a
+prompt projection only: the newest `last_result` readback, original goal, current
+state, response schema, underlying ledger and full tool traces remain unchanged.
+It grants no input, current-state or completion authority and does not reset
+failure counters, renew cached actions or increase phase, time or token budgets.
+The history cap does not guarantee that every maximal goal or current receipt
+fits the model context; existing context admission remains fail-closed.
+
 The `native_task` compiler can also replan after a failed workflow whose
 verified prefix contains a new, dispatched and producer-bound applied effect.
 This is an execution-recovery allowance: the failed workflow, unresolved tail
