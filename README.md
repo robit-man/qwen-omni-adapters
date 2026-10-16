@@ -980,6 +980,7 @@ separate so environmental sounds are never misrouted as the user's words.
 
 - [Architecture and ownership](docs/architecture.md)
 - [Semantic computer use](docs/computer-use.md)
+- [Long-horizon desktop evaluation](docs/computer-use-long-horizon-evaluation.md)
 - [Agent runbook](docs/agent-runbook.md)
 - [Runtime guide](docs/runtime.md)
 - [Context engineering and tool/phase map](docs/context-engineering.md)

@@ -275,9 +275,11 @@ class RapidUiController:
         self._metadata = threading.RLock()
         self._input = threading.Lock()
 
-    def observe(self) -> dict[str, Any]:
+    def observe(self, *, planning: bool = False) -> dict[str, Any]:
         with self._metadata:
-            self._state = _snapshot(self.adapter.observe())
+            observer = (getattr(self.adapter, "planning_observe", self.adapter.observe)
+                        if planning else self.adapter.observe)
+            self._state = _snapshot(observer())
             return copy.deepcopy(self._state)
 
     def enumerate(self, step: dict[str, Any], state: dict[str, Any] | None = None) -> list[dict[str, Any]]:

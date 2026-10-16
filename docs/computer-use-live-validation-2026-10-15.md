@@ -1,6 +1,10 @@
 # GPU 1 live desktop campaign: 2026-10-15
 
-**In progress; full acceptance has not passed.** This campaign executes the
+**Historical primitive/speech campaign; full acceptance has not passed.** The
+user subsequently directed testing toward text-driven, long-horizon desktop
+work. See the [current long-horizon protocol](computer-use-long-horizon-evaluation.md).
+The results below remain preserved and are not promoted into workflow success.
+This campaign was designed to execute the
 [100-case plan](computer-use-100-case-plan.md) against Qwen and Ornith for 200
 model/case results. Failed attempts remain preserved when a later repeat is
 run. No previous day's success is imported into this campaign.
@@ -10,7 +14,12 @@ evidence from fixed-planner native executor demonstrations.
 
 Only host GPU 1, `GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0`, is reserved for
 the selected Omni trunk, TTS, Moondream and Kev. Qwen and Ornith are sequential.
-The global operator inference hold and fault recorder remain enabled.
+At the initial campaign checkpoint the global operator inference hold and
+fault recorder were enabled. At 23:12:56 UTC an external actor removed the
+hold; the test controller failed closed and released its workers and lease.
+No test agent toggled the hold. A separately authorized GPU 1 text-workflow
+startup subsequently observed healthy broker state with the hold absent and
+the fault recorder active, retaining scoped lease and residency checks.
 The live controller owns teardown order: free Kev first, then the portal's
 workers, then release the scoped lease. No GPU reset/reboot is authorized.
 

@@ -500,6 +500,29 @@ and needs a new artifact schema and release gate.
 - Speech is skipped while unresolved `tool_calls` exist; the adapter reports
   `tts_skipped_reason=unresolved_tool_calls`.
 - After the client returns tool results, final assistant text can be spoken.
+- Automatic portal UI work uses a phase-planning profile of `native_ui` and
+  `computer_use`. Omni inspects with bare `observe`, then submits a bounded
+  semantic `workflow`; it does not receive the per-action `execute` contract.
+  The server rejects `execute` and step-bearing `observe` before automatic
+  dispatch even if a model ignores its restricted schema. The existing rapid
+  controller freshly observes each step, takes unique semantic choices directly,
+  asks the configured Kev policy to resolve ambiguity, uses the configured point
+  layer when needed, and guards and verifies input before advancing. Omni resumes
+  at a phase boundary or the first unverified effect. Direct tool clients retain
+  the canonical observe(step)/execute API. Workflow results include a bounded
+  `phase_handoff`: position-bound verified/remaining steps, new applied-effect
+  count, terminal verification and the next planning disposition. Cached effects
+  add no new progress, and phase completion never verifies the whole user goal.
+- Foreground text callers can select `portal_execution_profile:"native_task"`
+  with automatic tools and `native_ui` permission. This explicitly enters the
+  mandatory planner/controller state machine instead of generic discovery.
+  Each fresh planning observation includes mapped inactive windows. One
+  schema-constrained Omni phase is validated before its first input; the rapid
+  controller owns its internal steps. Authorized memory phases use the existing
+  session store. The mode preserves native `think`/sampling, bounds phases,
+  wall time and failed replans, and retains raw receipts while compacting planner
+  history. It marks completion as an unverified planner claim. See
+  [the protocol](protocol.md) and [live evaluation](computer-use-long-horizon-evaluation.md).
 - Within one portal tool loop, a fresh server-executed native/browser
   observation retires older registered UI maps and candidate offers from the
   model's working history. The newest pair stays intact. Historical action,

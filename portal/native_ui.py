@@ -190,9 +190,9 @@ class NativeUiAdapter:
                 raise NativeUiUnavailable("native_python_unavailable") from None
         return self._bridge.request(payload)
 
-    def _semantic_observe(self) -> dict[str, Any]:
+    def _semantic_observe(self, *, include_windows: bool = False) -> dict[str, Any]:
         with _NATIVE_LOCK:
-            result = self._request({"op": "observe", "include_windows": bool(self._step and self._step["verb"] == "switch_window")})
+            result = self._request({"op": "observe", "include_windows": include_windows or bool(self._step and self._step["verb"] == "switch_window")})
             if result.get("session_id") != self.session_id or not isinstance(
                 result.get("nodes"), list
             ):
@@ -205,6 +205,10 @@ class NativeUiAdapter:
                     for key in ("value", "selected", "checked", "text_selection"):
                         node.pop(key, None)
             return result
+
+    def planning_observe(self) -> dict[str, Any]:
+        """Inspect active controls and mapped window identities without input/vision."""
+        return self._semantic_observe(include_windows=True)
 
     def _visual_capture(self, state: Mapping[str, Any]) -> dict[str, Any]:
         try:

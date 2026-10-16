@@ -174,7 +174,7 @@ def test_newest_actual_observation_retires_only_old_model_map_and_offers(
 
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("failure", ["malformed_result", "replayed_execute", "rejected_before"])
-def test_non_observation_execute_never_retires_existing_fresh_map(tmp_path, monkeypatch, stream, failure):
+def test_non_observation_workflow_never_retires_existing_fresh_map(tmp_path, monkeypatch, stream, failure):
     calls, executions = [], []
     observation = _observation("current")
     expected = _model_tool_result(observation, tool_name="native_ui")[0]
@@ -197,7 +197,12 @@ def test_non_observation_execute_never_retires_existing_fresh_map(tmp_path, monk
         if len(calls) == 1:
             return _answer(stream, [_call("native_ui", {"operation": "observe"}, "fresh")])
         if len(calls) == 2:
-            return _answer(stream, [_call("native_ui", {"operation": "execute", "action_id": "offered-current"}, "attempt")])
+            # Automatic agents delegate a phase; replayed/rejected internal
+            # action evidence is still not a new observe/verify operation.
+            return _answer(stream, [_call("native_ui", {"operation": "workflow", "steps": [
+                {"id": "focus", "verb": "focus", "target": {"node_id": "control-current"},
+                 "expect": [{"kind": "focused", "node_id": "$target"}]}],
+                "final_predicates": [{"kind": "focused", "node_id": "control-current"}]}, "attempt")])
         assert len(calls) == 3
         first, attempted = _tool_messages(body)
         assert first["content"] == expected and attempted["content"] == execution_expected
@@ -206,7 +211,7 @@ def test_non_observation_execute_never_retires_existing_fresh_map(tmp_path, monk
 
     monkeypatch.setattr(PortalToolHarness, "execute", execute)
     final = _post(create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream))), _request(stream), stream)
-    assert executions == ["observe", "execute"]
+    assert executions == ["observe", "workflow"]
     assert [trace["result"] for trace in final["portal"]["safe_tools_executed"]] == [expected, execution_expected]
 
 

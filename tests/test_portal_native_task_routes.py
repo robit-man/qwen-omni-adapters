@@ -1,0 +1,331 @@
+"""Native-task portal integration with CPU transport and guarded adapter doubles."""
+from __future__ import annotations
+
+import copy
+import json
+
+import httpx
+import pytest
+
+import portal.tools as tools_module
+from portal.app import DEFAULT_MODEL, SESSION_COOKIE_NAME, PortalConfig, create_app
+from portal.computer_use import ComputerUseStore
+from portal.native_ui import NativeUiAdapter
+
+TOKEN = "native-task-route-token-at-least-24-characters"
+HEADERS = {"Authorization": "Bearer " + TOKEN}
+GOAL = "Use the actual owned editor.\nWrite and commit the reference note, then report any unmet criteria."
+
+
+def _config(tmp_path):
+    return PortalConfig(adapter_url="http://adapter/api/chat", adapter_health_url="http://adapter/healthz",
+        comprehension_health_url="http://comprehension/health", tts_health_url="http://tts/healthz",
+        ollama_health_url="http://ollama/api/tags", model=DEFAULT_MODEL, access_token=TOKEN,
+        timeout_s=30, max_body_bytes=1024 * 1024, session_log_dir=tmp_path / "sessions")
+
+
+def _request(stream, think=False):
+    return {"model": DEFAULT_MODEL, "stream": stream, "think": think,
+            "messages": [{"role": "system", "content": "Preserve this exact caller policy."},
+                         {"role": "user", "content": "Earlier user context."},
+                         {"role": "assistant", "content": "Earlier reply."},
+                         {"role": "user", "content": GOAL}],
+            "omni": {"schema": "robit.ollama.omni-adapter.v1", "task": "chat"},
+            "response_modalities": ["text"], "speech_mode": "never",
+            "portal_auto_tools": True, "portal_execution_profile": "native_task",
+            "portal_tool_allowlist": ["native_ui"],
+            "options": {"num_predict": 437, "temperature": 0.1, "seed": 73}}
+
+
+def _phase():
+    return {"kind": "ui", "steps": [
+        {"id": "write", "verb": "set_value", "target": {"role": "textbox", "name": "Draft"},
+         "args": {"value": "Reference note"}, "expect": [{"kind": "value", "node_id": "$target", "value": "Reference note"}]},
+        {"id": "commit", "verb": "invoke", "target": {"role": "button", "name": "Commit"},
+         "expect": [{"kind": "value", "node_id": "receipt", "value": "Reference note"}]}],
+        "final_predicates": [{"kind": "value", "node_id": "receipt", "value": "Reference note"}]}
+
+
+class Adapter:
+    def __init__(self, session):
+        self.session, self.value, self.saved = session, "", ""
+        self.calls, self.planning_calls, self.ordinary_calls = [], 0, 0
+
+    def _state(self, include_windows=False):
+        nodes = [{"id": "draft", "role": "textbox", "name": "Draft", "value": self.value, "operations": ["set_value"]},
+                 {"id": "commit", "role": "button", "name": "Commit", "operations": ["invoke"]},
+                 {"id": "receipt", "role": "label", "name": "Receipt", "value": self.saved, "operations": []}]
+        nodes = [{"generation": "1", "scope_id": "form", "visible": True, "enabled": True,
+                  "sensitive": False, **node} for node in nodes]
+        if include_windows:
+            nodes.append({"id": "other-window", "generation": "1", "scope_id": "other-window", "role": "window",
+                          "name": "Already-open owned application", "visible": True, "enabled": True,
+                          "sensitive": False, "operations": ["switch_window"]})
+        return {"session_id": self.session, "revision": self.value + ":" + self.saved,
+                "scope": {"id": "form", "kind": "desktop", "window_id": "43001"}, "nodes": nodes}
+
+    def observe(self):
+        self.ordinary_calls += 1
+        return self._state()
+
+    def planning_observe(self):
+        self.planning_calls += 1
+        return self._state(True)
+
+    def perform(self, action):
+        self.calls.append(copy.deepcopy(action))
+        if action["verb"] == "set_value":
+            self.value = action["args"]["value"]
+        else:
+            self.saved = self.value
+        return {"status": "dispatched"}
+
+
+def _install_store(monkeypatch):
+    adapters = []
+
+    def factory(session, surface):
+        assert surface == "desktop"
+        adapter = Adapter(session)
+        adapters.append(adapter)
+        return adapter
+
+    store = ComputerUseStore(None, adapter_factory=factory)
+    monkeypatch.setattr(tools_module, "ComputerUseStore", lambda *args, **kwargs: store)
+    return store, adapters
+
+
+def _post(client, body, stream):
+    response = client.post("/api/chat/stream" if stream else "/api/chat", json=body, headers=HEADERS)
+    assert response.status_code == 200, response.data
+    if stream:
+        events = [json.loads(line) for line in response.data.splitlines() if line]
+        result = next(event["response"] for event in reversed(events) if event.get("type") == "final")
+    else:
+        events, result = [], response.json
+    activity = client.get("/api/activity", headers=HEADERS).json
+    assert activity["active"] == activity["inflight"] == activity["queued"] == 0
+    return result, events
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("think", [False, True])
+def test_native_profile_compiles_strict_phase_and_executes_two_inputs_internally(tmp_path, monkeypatch, stream, think):
+    store, adapters = _install_store(monkeypatch)
+    requests = []
+    body = _request(stream, think)
+
+    def upstream(request):
+        payload = json.loads(request.content)
+        requests.append(payload)
+        assert str(request.url) == "http://adapter/api/chat"  # Compiler uses one nonstream response, on either portal route.
+        assert payload["stream"] is False and payload["think"] is think
+        assert payload["options"] == body["options"]
+        assert payload["response_format"]["type"] == "json_schema"
+        assert payload["response_format"]["json_schema"]["schema"]["oneOf"]
+        assert not {"tools", "tool_choice", "format", "portal_execution_profile", "portal_auto_tools", "portal_tool_allowlist"} & payload.keys()
+        assert "Preserve this exact caller policy." in payload["messages"][0]["content"]
+        packet = json.loads(payload["messages"][1]["content"])
+        assert packet["goal"] == GOAL
+        assert packet["response_schema"] == payload["response_format"]["json_schema"]["schema"]
+        assert any(node["id"] == "other-window" for node in packet["current_state"]["state"]["nodes"])
+        if len(requests) == 1:
+            assert adapters[0].planning_calls == 1 and adapters[0].calls == []
+            plan = _phase()
+        else:
+            assert len(requests) == 2
+            assert [action["verb"] for action in adapters[0].calls] == ["set_value", "invoke"]
+            assert packet["last_result"]["phase_handoff"]["new_effect_count"] == 2
+            assert not any("before" in outcome or "after" in outcome for outcome in packet["last_result"]["outcomes"])
+            plan = {"kind": "complete", "message": "Planner completion claim."}
+        return httpx.Response(200, json={"model": DEFAULT_MODEL, "message": {"role": "assistant", "content": json.dumps(plan)}})
+
+    class NoDiscovery:
+        shadow_mode = False
+        config = {}
+
+        def evaluate(self, **kwargs):
+            pytest.fail("Mandatory native planner must not enter generic family discovery")
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)), decision_plane=NoDiscovery())
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, "native-phase-owned-session-12345")
+    result, events = _post(client, body, stream)
+    assert len(requests) == 2 and adapters[0].planning_calls == 2
+    assert adapters[0].ordinary_calls >= 5
+    assert result["message"]["content"] == "Planner completion claim."
+    assert result["portal"]["native_task"]["status"] == "planner_claim"
+    assert result["portal"]["native_task"]["task_verified"] is False
+    assert result["portal"]["tool_allowlist"] == ["native_ui"]
+    traces = result["portal"]["safe_tools_executed"]
+    assert len(traces) == 1 and traces[0]["name"] == "native_ui"
+    raw = json.loads(traces[0]["result"])
+    assert len(raw["outcomes"]) == 2 and raw["terminal_receipt"]["status"] == "verified"
+    assert all("before" in outcome and "after" in outcome for outcome in raw["outcomes"])
+    assert store._owned("native-phase-owned-session-12345", "desktop").cancel.is_set() is False
+    if stream:
+        assert [event["phase"] for event in events if event["type"] == "tool"] == ["start", "complete"]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_native_profile_session_memory_uses_only_explicit_scope(tmp_path, monkeypatch, stream):
+    _install_store(monkeypatch)
+    plans = iter([{"kind": "memory_write", "topic": "reference", "key": "owned", "value": "Source-bound note"},
+                  {"kind": "memory_search", "query": "Source-bound note", "max_results": 1},
+                  {"kind": "complete", "message": "Memory claim."}])
+    requests = []
+
+    def upstream(request):
+        payload = json.loads(request.content)
+        requests.append(payload)
+        if len(requests) == 3:
+            packet = json.loads(payload["messages"][1]["content"])
+            assert packet["last_result"]["results"][0]["value"] == "Source-bound note"
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": json.dumps(next(plans))}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, "native-memory-owned-session-12345")
+    body = _request(stream)
+    body["portal_tool_allowlist"] = ["native_ui", "memory_write", "memory_search"]
+    result, _ = _post(client, body, stream)
+    assert [item["name"] for item in result["portal"]["safe_tools_executed"]] == ["memory_write", "memory_search"]
+    other = app.test_client()
+    other.set_cookie(SESSION_COOKIE_NAME, "native-memory-other-session-12345")
+    recalled = other.post("/api/tools/memory_search/call", headers=HEADERS, json={"query": "Source-bound note"})
+    assert recalled.json["result"]["results"] == []
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("invalid", ["no_auto", "scope", "audio", "image", "detached", "background", "unknown", "bad_think", "no_goal", "bad_schema"])
+def test_invalid_native_profile_fails_before_model_or_native_dispatch(tmp_path, monkeypatch, stream, invalid):
+    _, adapters = _install_store(monkeypatch)
+
+    def no_upstream(request):
+        pytest.fail("Invalid profile must not contact a model")
+
+    body = _request(stream)
+    if invalid == "no_auto":
+        body["portal_auto_tools"] = False
+    elif invalid == "scope":
+        body["portal_tool_allowlist"] = ["memory_write"]
+    elif invalid in {"audio", "image"}:
+        body["messages"][-1]["audios" if invalid == "audio" else "images"] = ["attached"]
+    elif invalid == "detached":
+        body.update(portal_detached_turn=True, portal_turn_id="native-detached-turn-12345")
+    elif invalid == "background":
+        body["portal_background_worker"] = True
+    elif invalid == "unknown":
+        body["portal_execution_profile"] = "unrecognized"
+    elif invalid == "bad_think":
+        body["think"] = "false"
+    elif invalid == "no_goal":
+        body["messages"] = [{"role": "system", "content": "No task."}]
+    elif invalid == "bad_schema":
+        body["omni"]["schema"] = "wrong.schema"
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(no_upstream)))
+    response = app.test_client().post("/api/chat/stream" if stream else "/api/chat", headers=HEADERS, json=body)
+    assert response.status_code == 400, response.data
+    assert adapters == []
+
+
+def test_native_planning_read_uses_window_inspection_without_visual_policy_or_input(monkeypatch):
+    requests = []
+    active = Adapter("session")._state()
+    windows = Adapter("session")._state(True)
+    windows["nodes"].append({"id": "protected", "generation": "1", "scope_id": "form", "role": "textbox",
+                             "name": "Private", "value": "Protected value", "visible": True, "enabled": True,
+                             "sensitive": True, "operations": ["type_text"]})
+
+    def bridge(request):
+        requests.append(copy.deepcopy(request))
+        assert request["op"] == "observe"
+        return copy.deepcopy(windows if request["include_windows"] else active)
+
+    adapter = NativeUiAdapter("session", bridge_runner=bridge, pointing_url="http://127.0.0.1:8940")
+    monkeypatch.setattr(adapter, "_visual_capture", lambda *_: pytest.fail("Planning observation cannot call vision"))
+    store = ComputerUseStore(None, adapter_factory=lambda *_: adapter)
+
+    class NoPolicy:
+        def decide(self, *_args, **_kwargs):
+            pytest.fail("Read-only planning cannot request candidate policy")
+
+    store.provider = NoPolicy()
+    ordinary = store.act("session", {"operation": "observe", "surface": "desktop"})
+    planned = store.planning_observation("session")
+    assert requests == [{"op": "observe", "include_windows": False}, {"op": "observe", "include_windows": True}]
+    assert all(node["id"] != "other-window" for node in ordinary["state"]["nodes"])
+    assert any(node["id"] == "other-window" and node["operations"] == ["switch_window"] for node in planned["state"]["nodes"])
+    protected = next(node for node in planned["state"]["nodes"] if node["id"] == "protected")
+    assert protected["name"] == "[protected]" and "value" not in protected and protected["operations"] == []
+    assert "candidates" not in planned and planned["evidence_authority"] == "inspection"
+    assert store._owned("session", "desktop").controller._actions == {}
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_malformed_compiler_content_blocks_without_input_or_model_replay(tmp_path, monkeypatch, stream):
+    store, adapters = _install_store(monkeypatch)
+    requests = []
+
+    def upstream(request):
+        requests.append(request)
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": "{unfinished"}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, "native-malformed-owned-session-12345")
+    result, _ = _post(client, _request(stream), stream)
+    assert len(requests) == 1 and adapters[0].calls == []
+    assert result["portal"]["native_task"]["status"] == "blocked"
+    assert result["portal"]["safe_tools_executed"] == []
+    assert store._owned("native-malformed-owned-session-12345", "desktop").cancel.is_set()
+
+
+def test_stream_disconnect_before_observation_cancels_exact_scope_and_releases_queue(tmp_path, monkeypatch):
+    store, adapters = _install_store(monkeypatch)
+
+    def no_upstream(request):
+        pytest.fail("Disconnected task cannot start its compiler")
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(no_upstream)))
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, "native-disconnected-owned-session-12345")
+    response = client.post("/api/chat/stream", headers=HEADERS, json=_request(True), buffered=False)
+    assert response.status_code == 200
+    first = json.loads(next(iter(response.response)))
+    assert first["type"] == "progress" and first["stage"] == "native_task_observe"
+    response.close()
+    activity = client.get("/api/activity", headers=HEADERS).json
+    assert activity["active"] == activity["inflight"] == activity["queued"] == 0
+    assert store._owned("native-disconnected-owned-session-12345", "desktop").cancel.is_set()
+    assert all(adapter.calls == [] for adapter in adapters)
+
+
+def test_crowded_native_planning_projection_keeps_mapped_inactive_windows(tmp_path, monkeypatch):
+    _install_store(monkeypatch)
+    original = Adapter._state
+
+    def crowded(self, include_windows=False):
+        state = original(self, include_windows)
+        inactive = [node for node in state["nodes"] if node["id"] == "other-window"]
+        controls = [node for node in state["nodes"] if node["id"] != "other-window"]
+        controls.extend({"id": f"control-{index}", "generation": "1", "scope_id": "form", "role": "button",
+                         "name": f"Visible control {index}", "description": "Observed interface detail " * 20,
+                         "visible": True, "enabled": True, "sensitive": False, "operations": ["invoke"]}
+                        for index in range(28))  # 31 active controls, then mapped inactive windows.
+        state["nodes"] = controls + inactive
+        return state
+
+    monkeypatch.setattr(Adapter, "_state", crowded)
+
+    def upstream(request):
+        payload = json.loads(request.content)
+        observation = json.loads(payload["messages"][1]["content"])["current_state"]
+        assert any(node["id"] == "other-window" for node in observation["state"]["nodes"])
+        assert observation["state"]["model_projection"]["omitted_visible_nodes"] > 0
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": json.dumps({
+            "kind": "complete", "message": "Read-only planning claim."})}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    result, _ = _post(app.test_client(), _request(False), False)
+    assert result["portal"]["native_task"]["status"] == "planner_claim"

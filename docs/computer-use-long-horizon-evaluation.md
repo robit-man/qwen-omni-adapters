@@ -1,0 +1,241 @@
+# Long-horizon native computer-use evaluation
+
+Status on 2026-10-15: evaluation specification; no SOTA parity established.
+The user's current direction is **text goals into live Qwen/Ornith weights**,
+followed by real desktop work. Speech admission is outside this track. Earlier
+[100-case speech/gesture results](computer-use-live-validation-2026-10-15.md)
+remain historical evidence; repeating those primitives does not establish
+long-horizon capability.
+
+The target is reliable task completion with the complete local agent system:
+Omni planning, native observation/execution, Kev selection, Moondream grounding,
+memory and independent verification. Parameter counts alone do not define this
+target. Report auxiliary models separately and do not infer undisclosed closed
+model sizes.
+
+## What the current research changes
+
+Use the official [OSWorld 2.0 paper](https://arxiv.org/abs/2606.29537v2) for its
+original protocol and the [OSWorld 2.1 release
+manifest](https://github.com/xlang-ai/OSWorld-V2/blob/osworld-v2.1/benchmark_releases/osworld-v2.1.json)
+for the later release. These are different evaluation cohorts. The paper's
+primary budget is 500 steps; its workflows have a median human duration of
+about 1.6 hours. A 30-minute local pilot is a reduced adaptation. Its challenge
+families motivate cross-source reconciliation, hidden-state recovery, multiple
+items, changing requirements and substantive artifact verification.
+
+[OSWorkerBench/UI-Mate](https://arxiv.org/abs/2608.15930) adds sustained office
+work across applications. Instruction-only, same-task demonstrations and
+related-task demonstrations are separate conditions. [OSWorld-Science](https://arxiv.org/abs/2609.39903)
+motivates tutorial transfer and grading actual artifact properties; its original
+tasks may permit CLI, so our native-only track cannot inherit those scores.
+[WebArena-Verified](https://github.com/ServiceNow/webarena-verified) motivates
+structured, independently evaluated final state. [ScreenSpot-Pro](https://github.com/likaixin2000/ScreenSpot-Pro-GUI-Grounding)
+is a grounding diagnostic, not an end-to-end completion benchmark.
+
+Reported small/medium comparators include
+[UI-Mate-9B](https://huggingface.co/tencent/UI-Mate-9B),
+[UI-Mate-27B](https://huggingface.co/tencent/UI-Mate-27B) and
+[EvoCUA-1.5-32B](https://arxiv.org/abs/2607.09773v2). Their published results do
+not transfer to this runtime. Use their exact prompts, parsers, budgets and
+observation conditions for a matched comparison. Full success, partial credit,
+pass@1, pass@k and selecting the best of multiple rollouts are separate metrics.
+
+## Execution and authority
+
+The initial pilot uses authenticated, foreground `/api/chat/stream`, native
+`think:false`, `portal_auto_tools:true`, an immutable `portal_tool_allowlist`
+containing `native_ui`, `memory_write` and `memory_search`, both shell and
+background bridges disabled, `speech_mode:never`, and text response modality.
+Server discovery remains available. No audio or `require_speech` is supplied.
+The automatic model's native tool contract is a phase-planning profile: bare
+observation, bounded semantic workflows, verification and cancellation. The
+server blocks per-action `execute` and step-bearing `observe`; the existing
+controller owns fresh resolution, deterministic/fast-policy selection, visual
+grounding, guarded input and observed effects. The first delegation acceptance
+criterion requires a model-authored phase to execute multiple unique inputs
+without another Omni call between them. Whole-task artifact checks remain
+separate. Direct tool clients retain their canonical per-action interface.
+The runner imposes a 30-minute wall deadline and an 80-round pilot ceiling;
+these are our limits, not an official benchmark protocol.
+
+All solver interactions occur in real desktop applications and the ordinary
+browser profile. No shell, direct file tool, CDP, developer console, application
+macro or direct fetch/search may substitute for the GUI work. Tool scoping alone
+does not prevent entering code into an application; audit actual method evidence
+as well. Record physical pointer/key dispatch, accessibility activation, Kev
+selection and current-frame Moondream use separately. A configured model that
+was not invoked is not exercised coverage.
+
+Setup may create an empty owned workbench, seed declared input artifacts, and
+open blank owned application windows. It must not navigate task sources, write
+answers/output files or feed the model a hidden executor plan. Independent
+read-only evaluation may inspect saved files, application state and receipts.
+Only exact owned windows/transients may be closed. Preserve unrelated windows,
+browser tabs/profile state and files.
+
+Use the foreground route for this first native-only cohort. Background-task
+scope inheritance is a separate unresolved integration requirement. The current
+memory TTL is five minutes without a memory operation: write near completion
+and immediately test recall in a fresh text turn with the same cookie. Do not
+silently change TTL or count conversation echo as a successful memory search.
+
+Local CUDA runs reserve exactly the authorized GPU UUID through the broker and
+retain prepare/ready/residency checks. Observe external inference-hold state;
+the runner must not toggle it. Remote Tegra/MD2 configurations are separate
+cells from local A100/Moondream 3.1/Kev. Source changes start a new cohort.
+
+## Pilot LH001: documentation reference pack
+
+The complete user goal asks the model to find official Python `Path.mkdir` and
+Git short-status documentation through the browser; write sourced explanations
+and practical examples in Gedit; create a five-check checklist; use Files to
+create `Research` and `Archive`, rename and organize the notes, and preserve an
+original while editing an archive copy; reopen both; then store and recall the
+paths, sources and verification in session memory.
+
+Mandatory checkpoints are:
+
+1. Both relevant official source sections were actually acquired through GUI
+   navigation, with observed source addresses.
+2. The saved note correctly explains `parents`, `exist_ok` and the existing
+   non-directory case, plus both Git status columns and the untracked marker.
+3. Both source URLs and two valid practical examples are present.
+4. The separate checklist contains five relevant concrete checks.
+5. `Research/desktop-reference.txt` and `Research/checklist.txt` exist with
+   correct saved contents; the original temporary note name is gone.
+6. `Archive/desktop-reference.txt` is a genuine preserved copy with the required
+   archive-only verification line; the Research original lacks that line.
+7. Both saved notes were reopened and inspected; the archive note is left visible.
+8. An actual memory write records the verified paths and source-bound summary.
+9. A fresh same-cookie turn uses memory search to recall those facts without
+   another browser/file action.
+10. Method/scope and unrelated-state preservation checks pass, and the model's
+    final completion claim agrees with current independent evidence.
+
+No checkpoint passes merely because the model asserts it. Score terminal
+outcomes and acquisition/method evidence separately. The pilot is an integration
+diagnostic, not the long-suite denominator or a published benchmark instance.
+
+### Retained pilot evidence
+
+| Configuration | Result | Evidence and limitation |
+| --- | --- | --- |
+| Local Ornith, source `92dd678`, text, think false, temperature 0, output cap 8192 | Failed after 52.76 seconds at the 80-round ceiling | Two discovery calls, four native observations and 74 execute proposals. Two proposals copied an offered abstention; 72 copied a never-offered ID. No executable candidate was offered, no input dispatched, no task file created and no authoritative final received. All three owned windows closed, source hashes unchanged, requests idle and GPU scope healthy. |
+| Egg31 Ornith setup, source `92dd678` | Setup failed before any model call | The installed Firefox is Flatpak. Its window lacks `_NET_WM_PID`; authenticated XRes and accessibility identities refer to different host processes in the same sandbox instance. Current native identity handling cannot bind them. Zero model/audio/tool/input requests. A launched but unregistered window has uncertain ownership/cleanup and was left untouched. The accessibility prerequisite was enabled once; no source or GPU lifecycle changed. |
+
+Local evidence is retained under ignored
+`runtime-data/gpu1-acceptance/long-horizon/ornith-LH001-20261015T232600Z/`.
+Remote evidence is under
+`runtime-data/gpu1-acceptance/remote-egg31/LH001-ornith-text-20261015T232730Z-c95d81/`.
+These failures selected separate hypotheses: enforce planner-to-phase delegation
+locally; independently repair authenticated sandbox identity before remote GUI
+acceptance. Neither failure is silently replaced by a simpler primitive test.
+
+A subsequent local phase-profile replay also failed: 77 discovery calls and
+three native observations, with no workflow or GUI input in 41.67 seconds. The
+working view omitted inactive windows, and the generic tool loop never entered
+phase compilation. The current explicit `portal_execution_profile:"native_task"`
+therefore makes phase compilation mandatory and supplies bounded mapped window
+identities. Its inner requests use native JSON-schema output without tool
+discovery. The same user goal and native/sampling options remain frozen for the
+next live attempt; only the execution profile changes.
+
+The explicit compiler was then exercised against the loaded Ornith stack on
+GPU 1, with three retained results:
+
+| Cohort | Observed result |
+| --- | --- |
+| Mandatory compiler, first deployment | The worker rejected the generated grammar before a plan or input. CPU reproduction through the pinned llama.cpp converter/parser isolated the private `blocked.reason` limit of exactly 2,000 characters. Reducing that limit to 1,999 made the grammar parse; canonical native action contracts were preserved. |
+| Grammar-compatible compiler | Twelve planner requests in 64.09 seconds: eleven memory writes, then unterminated JSON rejected by the host. No UI workflow, GUI input or file. Some stored model claims falsely asserted that files had been created; they receive no outcome credit. |
+| Model-visible phase contract | The exact response schema was supplied both in model context and decoder constraints. Three valid UI phases of 4, 9 and 12 steps reached the controller in 28.49 seconds; each controller attempt contained zero intervening Omni requests. The first action failed fresh revision validation; the next two attempted to switch to already-active Firefox and abstained. Zero dispatched inputs, new effects or task files. |
+
+The last two runs closed all three owned windows after downstream idleness,
+preserved the scoped GPU workers and skipped recall because no artifact existed.
+All remain failed LH001 attempts. Contract delivery, valid phase generation and
+the controller handoff are verified milestones; multi-input execution and whole
+task completion remain unverified. The earlier full state for the first stale
+action was not retained, so its exact changing field is unknown. Do not weaken
+revision validation or infer that cause from the retained target alone.
+
+Compact evidence is retained under ignored
+`runtime-data/gpu1-acceptance/long-horizon/grammar-bound-cpu-20261016/`,
+`ornith-LH001-native-task-20261016T001159Z/`,
+`ornith-LH001-native-task-grammar-bound-20261016T002034Z/` and
+`ornith-LH001-native-task-visible-schema-20261016T002601Z/` within the same
+long-horizon evidence directory. The latest source gate passed 2,270 tests in
+94.19 seconds with 238 unchanged source fingerprints. These CPU gates do not
+count as desktop task successes.
+
+The division follows the supplied *Open-Weight Rapid Computer Use* design:
+Omni compiles phases and replans, the rapid controller owns each input loop,
+unique semantic matches avoid policy inference, Kev arbitrates ambiguity, and
+Moondream grounds eligible missing semantic targets. Native guards and fresh
+effects remain authoritative. The failed runs exercised neither Kev selection
+nor Moondream grounding. The mandatory compiler currently requires explicit
+foreground API opt-in; ordinary portal clients do not yet select it. Other
+remaining boundaries include causal references to newly created controls,
+selection-failure detail in replanning receipts, and verified workflow caching.
+
+## Expanded native suite
+
+These are original task specifications, inspired by the cited challenge
+families. Input fixtures and application/oracle readiness must be recorded
+before execution; a specification is not a runnable or passed test. Do not give
+the solver the procedure or sealed expected answers. All outputs remain in
+owned scratch locations; no real purchases, bookings or messages are required.
+
+| Case | Outcome | Independent completion checks |
+| --- | --- | --- |
+| LHT-01 Migration dossier | Reconcile three official versioned documentation pages, four behavior changes and supplied examples; write and package a migration note; recall one sourced finding. | Four correct version-bound facts, exact intended package, reopened note and source-bound memory. |
+| LHT-02 Accessible visit | Combine official access/hours/collection information with group constraints; produce a Calc schedule/cost sheet and editor handout. | Feasible timing, all mobility/budget constraints, correct formulas and matching handout. |
+| LHT-03 Programme repair | Repair a 12-session schedule using capacities and a revised speaker note; export and inspect a PDF. | Every session once, fixed slots preserved, no conflicts, correct change log and export. |
+| LHT-04 Workshop kit | Reconcile attendance, stock and official specifications; prepare supply quantities and a handoff checklist. | Correct counts/rounding, budget, source-bound compatibility and consistent artifacts. |
+| LHT-05 Mini exhibition | Catalogue six official collection objects, dates, provenance and distinct reuse conditions; organize permitted materials. | Six correct unique records, rights/source binding, matching assets and reopened catalogue. |
+| LHT-06 Public handover | Produce public and internal outputs from fictional records, carrying only the specified fields into each. | Required rows/fields, confidential canary absent from public output, originals preserved. |
+| LHT-07 Conflicting revisions | Resolve six document families using a ledger and embedded revisions; package current and superseded sets. | Correct authoritative version per family, exact membership, preserved old files and decision log. |
+| LHT-08 Editorial pass | Apply ten corrections across three drafts while preserving quotations and similar non-target passages. | Exact intended span changes only, protected text intact, new files and complete change index. |
+| LHT-09 Unit-aware data story | Clean a measurement table using official unit definitions; build derived values, a chart and an exclusions note. | Correct rows/units/formulas, chart ranges/labels and consistent exported narrative. |
+| LHT-10 Tutorial transfer | Follow an official office tutorial to build a specified multi-series chart and report; reopen native and PDF outputs. | Actual chart structure, numeric values, layout and export content; existence alone insufficient. |
+| LHT-11 Reading packet | Select four of six official references using version/language/topic constraints; download and annotate the packet. | Correct inclusion decisions, document identities, source/page references and exact files. |
+| LHT-12 Incident handbook | Combine three official troubleshooting topics with supplied incident facts into a decision handbook. | Correct branches and version claims; observed facts separated from advice and uncertainty. |
+| LHT-13 Production calendar | Reconcile tasks, staff availability and dependencies, including a predeclared late amendment. | All tasks/constraints, current amendment in both artifacts, no stale entries and correct totals. |
+| LHT-14 Screening dossier | Build a VLC playlist and schedule from six licensed clips and a programme brief; save and reopen. | Exact media identity/order, measured durations, break arithmetic and persisted playlist. |
+| LHT-15 Interrupted recovery | Finish research, notes and packaging across one declared owned-window interruption. | Fresh-state recovery, no stale dispatch or duplicate/lost output, complete original goal. |
+| LHT-16 Handoff capstone | Reconcile three official sources, a 12-row manifest and six assets into a sheet, narrative, viewing copy and archive. | Complete consistent manifest/asset mapping, formulas, exports, archive roundtrip and memory recall. |
+
+Begin with Gedit/Files/Firefox cases. Calc/Writer, Evince and VLC require real
+setup proof before their cases. An installed executable is not sufficient.
+Extend successful pilots to hour-scale tasks and richer state; do not label a
+shortened task equivalent to its inspiration.
+
+## Scoring and improvement decisions
+
+Freeze criteria before each run. Strict completion requires all mandatory
+outcomes plus method/preservation compliance. Report partial outcome credit
+separately, with a fixed denominator; retain setup failures and unfinished
+cases. Record source/checkpoint/quantization and auxiliary revisions, prompts,
+think/context/output budgets, observations/actions, wall time, first useful
+action, tool/model rounds, unique dispatched inputs/replays, tokens, phase
+latencies, resource use and human interventions. Unknown metrics remain unknown.
+
+Attribute the earliest blocking failure: setup/interference, missing observation,
+target selection, policy abstention, pointing, guarded dispatch, constraint/state
+loss, domain reasoning, saving/export, verification or transport/budget. Mark
+later challenges untested if the agent never reaches them. Preserve failures
+when a later revision succeeds. Improve one evidenced failure at a time, then
+repeat that acceptance criterion with fresh state before broadening.
+
+Development cases and locked evaluation cases must be separate. For local
+reliability, predeclare at least three independent resets per model/case and
+interleave model order; this is our protocol, not a universal benchmark rule.
+Successful recipes may be retrieved only in a separately labelled condition,
+with new handles and fresh verification, never stale action-ID replay.
+
+Claim parity only after an actual reference system runs the same tasks with
+matched inputs, observation/action authority, budgets, resets and evaluator.
+Predeclare a non-inferiority margin and evaluate paired uncertainty; sixteen
+tasks provide limited statistical power. Without a reference run, report local
+Qwen/Ornith results only. Original benchmark comparisons additionally require
+the original pinned environment, assets, evaluator and track. Never reset the
+user's desktop to construct that environment.

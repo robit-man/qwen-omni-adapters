@@ -7,6 +7,9 @@ Omnius main `0ae974bd6c08ed9a129075fd184e63462f6b0021`, including the October
 implements the contracts in Python around the signed-in Linux desktop and its
 existing application/browser windows. It does not require an adjacent checkout
 at runtime. An isolated browser context is used only when explicitly requested.
+The [later Omnius audit](computer-use-omnius-layer-audit-2026-10-15.md) pins the
+recent reference layer and distinguishes fixed-planner native demonstrations
+from model-driven evidence.
 
 The selected Qwen or Ornith Omni model produces a typed plan. The controller
 resolves each step against current semantic controls, offers opaque finite
@@ -87,6 +90,35 @@ prefers `native_ui`, a fixed-desktop alias using the very same session and
 controller. The retired `gui_interact` entry returns a canonical observation
 and typed migration instructions. Its old coordinate, drag, text and keyboard
 arguments never dispatch input.
+
+In the portal's automatic model loop, these schemas are projected to a
+**phase-planning interface**: bare `observe`, `workflow`, `verify` and `cancel`.
+Omni supplies semantic steps and expected effects for a bounded phase. The
+existing controller resolves and executes the steps internally, using direct
+unique matches, the fast policy for ambiguity and the configured visual layer
+for missing semantic targets. It freshly observes and verifies before advancing,
+and returns to Omni at the phase boundary or first failure. Automatic model
+calls to `execute` or step-bearing `observe` are rejected before host dispatch;
+the schema restriction alone is not relied on as enforcement.
+
+Workflow results include `phase_handoff`, with position-bound verified and
+remaining steps, new applied-effect count and independent terminal status.
+The failed step remains in the remaining work; a terminal failure still requires
+replanning after all step receipts verified. Cached receipts add no new effects.
+A completed phase does not verify the whole user goal. See the
+[long-horizon evaluation](computer-use-long-horizon-evaluation.md) for the live
+acceptance criteria and original task suite.
+
+Foreground text API callers can explicitly select
+`portal_execution_profile:"native_task"` for mandatory phase compilation.
+The compiler receives the same canonical phase schema in its model context and
+decoder constraints, with full host validation before dispatch. Ordinary portal
+clients currently use the generic automatic loop; they do not select this
+profile. Live Ornith evidence establishes valid phase generation and controller
+handoff, with zero dispatched inputs in the retained long-task attempts. It
+does not yet establish successful action chaining.
+
+Direct tool clients and client-owned adapter loops retain the canonical API:
 
 1. `operation: "observe"` returns semantic state. Supply `step` to enumerate
    finite candidates, including `observe` and `abstain`, plus

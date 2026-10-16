@@ -284,6 +284,21 @@ class ComputerUseStore:
         owned.selection_receipts = {choice: receipt}
         return {"selected_action_id": choice, "selection_status": receipt.get("status", "selected"), "policy_receipt": receipt}
 
+    def planning_observation(self, session_id: str) -> dict[str, Any]:
+        """Fresh native planning state, including bounded inactive window identities.
+
+        No candidate offer, policy call, pointing call or input is requested.
+        Subsequent workflow steps still independently resolve fresh state.
+        """
+        owned = self._owned(session_id, "desktop")
+        with owned.lock:
+            if owned.cancel.is_set():
+                self.clear(session_id)
+                return self.planning_observation(session_id)
+            state = owned.controller.observe(planning=True)
+            return _receipt_state({"state": state, "evidence_authority": "inspection",
+                                   "task_progress": False}, state)
+
     def act(self, session_id: str, arguments: dict[str, Any], *, goal: str = "") -> dict[str, Any]:
         op = arguments.get("operation", "observe")
         fields = {"observe": {"step"}, "execute": {"action_id"},
@@ -356,6 +371,29 @@ class ComputerUseStore:
                     provider=choose, cancel=owned.cancel)
                 outcomes = [_effect_result(item, owned.settled_effects) for item in result.get("outcomes", [])]
                 result["outcomes"] = outcomes
+                verified_count = 0
+                for outcome in outcomes:
+                    if outcome.get("status") != "verified":
+                        break
+                    verified_count += 1
+                terminal_verified = (result.get("status") == "complete"
+                                     and result.get("terminal_receipt", {}).get("status") == "verified")
+                result["phase_handoff"] = {
+                    "schema": "robit.omni.ui-phase-handoff.v1",
+                    "executor": "rapid_ui_controller",
+                    "status": ("cancelled" if result.get("status") == "cancelled" else
+                               "phase_complete" if terminal_verified else "needs_replan"),
+                    "verified_steps": [{"index": index, "id": item["id"]}
+                                       for index, item in enumerate(parsed[:verified_count])],
+                    "remaining_steps": [{"index": index, "id": item["id"]}
+                                        for index, item in enumerate(parsed) if index >= verified_count],
+                    "new_effect_count": sum(item.get("effect_receipt", {}).get("effect_state") == "applied"
+                                            for item in outcomes),
+                    "terminal_verified": terminal_verified,
+                    "goal_verified": False,
+                    "next": ("stop" if result.get("status") == "cancelled" else
+                             "plan_next_phase" if terminal_verified else "replan"),
+                }
                 result["policy_receipts"] = policy_receipts
                 result["point_receipts"] = point_receipts
                 mutations = [item for item in outcomes if item.get("evidence_authority") == "mutation"]

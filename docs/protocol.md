@@ -270,6 +270,44 @@ on the portable adapter or authorize direct calls made in a separate request.
 When supplied, the final response records the applied scope, including the
 discovery gateway, in `portal.tool_allowlist` on both portal transports.
 
+Within this automatic loop, the model-facing `native_ui` and `computer_use`
+schemas expose bare `observe`, bounded semantic `workflow`, independent
+`verify`, and `cancel`. Per-action enumeration/selection/execution belongs to
+the existing UI controller. Model-authored `execute` and step-bearing `observe`
+are rejected before dispatch with `ui_planner_phase_required`; the raw proposal
+remains in the tool trace. This restriction does not change the pinned canonical
+tool API for direct tool callers or client-owned adapter loops. A workflow tool
+result includes `phase_handoff` (`robit.omni.ui-phase-handoff.v1`) describing
+position-bound verified and remaining steps, newly applied effects, terminal
+verification and whether to plan another phase, replan or stop. A verified phase
+does not establish whole-task completion. These are tool-result details within
+the existing portal extension, not new portable adapter request fields.
+
+An explicit foreground text task can set
+`portal_execution_profile: "native_task"` together with
+`portal_auto_tools:true` and permission for `native_ui`. This portal-owned field
+is consumed before adapter transport. The server runs a mandatory phase compiler
+instead of the general discovery loop: fresh native state plus mapped inactive
+window identities → one Omni JSON-schema response → whole-phase validation →
+the existing rapid controller → observed result/replanning. Compiler requests
+contain no tools or tool choice; they use `response_format` on the deployed
+OpenAI-compatible language backend, preserving the caller's native `think` and
+sampling options. The identical phase schema is also present in model-visible
+context; a decoder grammar alone does not teach the planner its contract.
+Only authorized `memory_write`/`memory_search` phases may use
+session memory; a planner JSON value cannot enlarge the request scope.
+
+The profile rejects media, detached turns and background-worker requests. It
+holds the normal inference-queue ticket, has a 40-phase ceiling and a wall bound
+of the smaller of the configured portal timeout and 1,800 seconds, and stops
+after three consecutive invalid or unverified phases. Client disconnect and
+deadline cancellation stop the owning native controller. Raw executed receipts
+remain in standard tool events and `portal.safe_tools_executed`; the next
+compiler sees bounded recent handoffs/readbacks, not repeated UI maps. A final
+`portal.native_task.status:"planner_claim"` has `task_verified:false` and must
+not be interpreted as independently verified task completion. Ordinary requests
+and portable adapter/client-owned tool contracts are unchanged.
+
 If an adapter language stream ends with a classified network/timeout failure
 before audio starts, the portal retries that exact round once. It emits
 `{"type":"reset","reason":"upstream_network_retry","attempt":1}` before
