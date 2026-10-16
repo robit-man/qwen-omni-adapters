@@ -1246,3 +1246,23 @@ adoption receipt SHA256:
 These are deployment results, not desktop-task completion or live acceptance
 of the prefix-recovery condition. Both remote configurations remain separate
 Tegra/Moondream-2/no-Kev cohorts.
+
+Both subsequent original LHN-021 remote setups stopped before model submission.
+Egg41's owned Calc window exposed no usable native scope or nodes, after a
+partial browser observation. Its 8.166-second setup failure has no model,
+phase or task-criterion coverage. Canonical cleanup initially reported false;
+a separate later complete-tree/process proof found both task windows absent
+without replaying close. All 61 rows present after harness quiescence remained
+unchanged, and the final 62-row tree matched the pre-quiescence baseline.
+The original cleanup field remains false. Canonical bundle SHA256:
+`157acf9eda0d35c74a2053cf73b6845116f52a246efbe7a339f420ebaf625a49`.
+
+Egg31's 1.591-second setup received a valid negative helper `create` reply after
+the ordinary Flatpak launcher exited successfully. It created no ownership
+ledger; `close` then correctly returned `flatpak_launch_ledger_missing`.
+This was not the earlier transport EOF. The generic error code does not identify
+the failed internal substage. All 71 original X11 rows were preserved, but four
+new mapped resources remained and no affirmative cleanup authority existed.
+No second close or setup was attempted. Its canonical bundle SHA256 is
+`ddd3503246fcd51773ce41b1bbedfbca202c5ca153245b937a3f69a7ee6545d3`.
+Neither setup-only result enters the local 200-cell model denominator.
