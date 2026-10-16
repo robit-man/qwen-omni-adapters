@@ -84,6 +84,19 @@ executable/UID checks and closes only the registered window politely. Use this
 explicit condition when testing a host whose ordinary text-file default is
 GNOME Text Editor, and report it separately from the Gedit condition.
 
+`--include-default-text-editor --editor gnome-text-editor` is a separate,
+explicit host setup condition, disabled by default. It checks that the selected
+editor is the current `text/plain` default. An unknown or different handler
+blocks setup without changing the association. If the frozen fixture has no
+Gedit slot, setup first opens one blank selected editor using the same native
+ownership guards; an existing declared slot is never duplicated. The total
+window count must remain at most 16 before any app is launched. This option
+does not change the task's goal, inputs, rubric, fixture or signature, and does
+not give the model a procedure. The report and after-test note retain the host
+condition and matched default ID; setup receipts distinguish the supplemental
+window from declared slots. Only its new verified XID enters the actual scope
+and polite cleanup. A preexisting window sharing its PID remains excluded.
+
 After setup, the runner freezes `portal_native_task_scope` from exactly the
 registered windows, checking every XID's PID and process start immediately and
 again before HTTP submission. Other windows of a shared application process are
@@ -151,8 +164,9 @@ After validation, the runner copies the exact source pack, proof documents and
 primary-source bytes into owner-only `host-source-evidence` outside Workbench.
 Their identity and later immutability are part of the captured run bundle.
 
-For apps, setup uses the existing owned launcher guards and opens only the
-declared blank windows. Files opens the owned Workbench. Every new blank app
+For apps, setup uses the existing owned launcher guards and opens the
+declared blank windows plus the explicitly requested text-editor supplement,
+when applicable. Files opens the owned Workbench. Every new blank app
 must immediately produce a nonempty native observation bound to its exact XID,
 PID and process start before another app is opened or a task is submitted.
 Missing apps, inaccessible controls, ambiguous windows, namespace/provider

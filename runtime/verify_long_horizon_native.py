@@ -365,25 +365,54 @@ def cleanup_owned(desktop, *, request_started: bool, settled: bool) -> dict:
     return {"cleanup": receipts, "owned_windows_closed": all(item.get("closed") is True for item in receipts)}
 
 
-def prepare_blank_apps(desktop, observer, case, work, root, browser):
+def host_editor_condition(case, editor, include, environment):
+    """Explicit host setup only; never change a packaged task or MIME default."""
+    supplement = include and "gedit" not in case["fixture"]["blank_apps"]
+    count = sum(case["fixture"]["blank_app_window_counts"].values()) + int(supplement)
+    if count > 16:
+        raise CapabilityBlocked("owned_native_setup_window_limit")
+    default_id = None
+    if include:
+        expected = {"gedit": "org.gnome.gedit.desktop",
+                    "gnome-text-editor": "org.gnome.TextEditor.desktop"}.get(editor)
+        if expected is None:
+            raise CapabilityBlocked("unsupported_default_text_editor")
+        try:
+            actual = command(["xdg-mime", "query", "default", "text/plain"], environment)
+        except (OSError, RuntimeError, subprocess.SubprocessError):
+            raise CapabilityBlocked("default_text_editor_handler_unavailable") from None
+        if actual != expected:
+            raise CapabilityBlocked("default_text_editor_handler_mismatch")
+        default_id = actual
+    return {"include_default_text_editor": include, "selected_editor": editor if include else None,
+            "text_plain_default_desktop_id": default_id, "default_handler_verified": include,
+            "supplemental_blank_editor_planned": supplement, "planned_owned_window_count": count,
+            "setup_completed": False, "condition": "explicit_host_supplement_no_task_or_MIME_changes"}
+
+
+def prepare_blank_apps(desktop, observer, case, work, root, browser, *, supplement_editor=False):
     """Fresh native proof for every new owned window, before model submission."""
     receipts = []
-    for app in case["fixture"]["blank_apps"]:
-        for number in range(case["fixture"]["blank_app_window_counts"][app]):
-            window = desktop.open_blank(app, work, browser=browser, log_path=root / (app + str(number) + ".log"))
-            state = observer.fresh()
-            receipt = {"application": app, "window_id": window.window_id, "process_id": window.pid,
-                       "process_start": window.process_start, "native": state,
-                       "declared_application": app,
-                       "effective_application": getattr(desktop, "editor", "gedit") if app == "gedit" else app,
-                       **({"editor_condition": "explicit_editor_choice_no_MIME_or_preference_changes"}
-                          if app == "gedit" else {})}
-            receipts.append(receipt)
-            save(root / "setup-native-observations.json", receipts)
-            native = state.get("state", {})
-            if (state.get("outside_owned_foreground") or state.get("window_id") != window.window_id
-                    or native.get("scope", {}).get("window_id") != window.window_id or not native.get("nodes")):
-                raise CapabilityBlocked("owned_native_setup_observation_unavailable:" + app)
+    plan = [("gedit", 0, True)] if supplement_editor and "gedit" not in case["fixture"]["blank_apps"] else []
+    plan.extend((app, number, False) for app in case["fixture"]["blank_apps"]
+                for number in range(case["fixture"]["blank_app_window_counts"][app]))
+    for app, number, supplement in plan:
+        log_name = "default-text-editor.log" if supplement else app + str(number) + ".log"
+        window = desktop.open_blank(app, work, browser=browser, log_path=root / log_name)
+        state = observer.fresh()
+        receipt = {"application": app, "window_id": window.window_id, "process_id": window.pid,
+                   "process_start": window.process_start, "native": state,
+                   "declared_application": None if supplement else app,
+                   "setup_origin": "host_default_text_editor" if supplement else "declared_fixture",
+                   "effective_application": getattr(desktop, "editor", "gedit") if app == "gedit" else app,
+                   **({"editor_condition": "explicit_editor_choice_no_MIME_or_preference_changes"}
+                      if app == "gedit" else {})}
+        receipts.append(receipt)
+        save(root / "setup-native-observations.json", receipts)
+        native = state.get("state", {})
+        if (state.get("outside_owned_foreground") or state.get("window_id") != window.window_id
+                or native.get("scope", {}).get("window_id") != window.window_id or not native.get("nodes")):
+            raise CapabilityBlocked("owned_native_setup_observation_unavailable:" + app)
     return receipts
 
 
@@ -450,7 +479,8 @@ def finalize_run(report, root, case, *, desktop, observer, guard, client, reques
         save(root / "after-test-note.json", {key: report.get(key) for key in
             ("case_id", "model", "think", "status", "passed", "portal_turn_attempts", "readiness_blockers",
              "authoritative_final_received", "method", "downstream_idle", "owned_windows_closed", "error",
-             "teardown_errors", "elapsed_s", "source_unchanged", "editor", "native_task_scope")})
+             "teardown_errors", "elapsed_s", "source_unchanged", "editor", "host_fixture_condition",
+             "native_task_scope")})
     journals()
     try:
         freeze_evidence(root, case)
@@ -505,6 +535,8 @@ def run(args) -> int:
                          "declared_application": "gedit" if "gedit" in case["fixture"]["blank_apps"] else None,
                          "effective_application": args.editor if "gedit" in case["fixture"]["blank_apps"] else None,
                          "condition": "explicit_editor_choice_no_MIME_or_preference_changes"},
+              "host_fixture_condition": {"include_default_text_editor": args.include_default_text_editor,
+                                         "default_handler_verified": False, "setup_completed": False},
               "passed": False, "portal_turn_attempts": 0, "upstream_model_request_count": None,
               "authoritative_final_received": False,
               "owned_windows_closed": True, "status": "blocked_precondition"}
@@ -539,6 +571,8 @@ def run(args) -> int:
             raise ValueError("Invalid access-token file")
         environment = desktop_subprocess_environment()
         report["unrelated_windows_before"] = managed_inventory(environment)
+        report["host_fixture_condition"] = host_editor_condition(
+            case, args.editor, args.include_default_text_editor, environment)
         desktop = TaskDesktop(environment, editor=args.editor)
         client = httpx.Client(headers={"Authorization": "Bearer " + args.token_file.read_text().strip()},
             cookies={"omni_portal_session": secrets.token_hex(32)}, trust_env=False, timeout=10)
@@ -553,7 +587,10 @@ def run(args) -> int:
         if deployed.get("model") != args.model:
             raise CapabilityBlocked("exact_deployed_model_mismatch")
         observer = NativeEvidenceObserver(root, desktop)
-        setup = prepare_blank_apps(desktop, observer, case, work, root, args.browser)
+        setup = prepare_blank_apps(desktop, observer, case, work, root, args.browser,
+            supplement_editor=report["host_fixture_condition"]["supplemental_blank_editor_planned"])
+        report["host_fixture_condition"].update(setup_completed=True, supplemental_window_count=sum(
+            item["setup_origin"] == "host_default_text_editor" for item in setup))
         native_scope = registered_native_scope(desktop)
         report["native_task_scope"] = {"schema": native_scope["schema"],
             "sha256": native_task_scope_sha256(native_scope), "base_window_count": len(native_scope["windows"]),
@@ -640,6 +677,8 @@ def parser():
     result.add_argument("--think", action="store_true")
     result.add_argument("--browser", choices=["firefox", "chromium", "flatpak-firefox"], default="firefox")
     result.add_argument("--editor", choices=["gedit", "gnome-text-editor"], default="gedit")
+    result.add_argument("--include-default-text-editor", action="store_true",
+                        help="Own one blank selected text/plain handler when the fixture has no editor slot")
     result.add_argument("--prepare-only", action="store_true")
     result.add_argument("--evaluate", action="store_true")
     result.add_argument("--review-file", type=Path)

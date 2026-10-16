@@ -681,6 +681,63 @@ def mock_run(monkeypatch, tmp_path, case, *, settled=True, setup_failure=False, 
     return args, calls
 
 
+def test_explicit_host_editor_run_records_actual_supplement_without_changing_task(monkeypatch, tmp_path):
+    case = cases.load_case("LHN-059")
+    original = copy.deepcopy(case)
+    args, calls = mock_run(monkeypatch, tmp_path, case)
+    args.include_default_text_editor, args.editor = True, "gnome-text-editor"
+    runner.TaskDesktop({}).editor = args.editor
+    monkeypatch.setattr(runner, "command", lambda argv, _env:
+                        "org.gnome.TextEditor.desktop" if argv[0] == "xdg-mime" else "12")
+    assert runner.run(args) == 1
+    summary = cases.read_json(args.output / "summary.json")
+    note = cases.read_json(args.output / "after-test-note.json")
+    condition = summary["host_fixture_condition"]
+    assert condition == note["host_fixture_condition"]
+    assert condition["default_handler_verified"] and condition["setup_completed"]
+    assert condition["supplemental_window_count"] == 1 and condition["planned_owned_window_count"] == 6
+    assert not summary["editor"]["setup_slot_present"] and summary["editor"]["effective_application"] is None
+    assert [c for c in calls if c.startswith("open:")] == ["open:gedit", *[
+        "open:" + app for app in original["fixture"]["blank_apps"]]]
+    setup = cases.read_json(args.output / "setup-native-observations.json")
+    assert setup[0]["setup_origin"] == "host_default_text_editor"
+    assert setup[0]["declared_application"] is None and setup[0]["effective_application"] == args.editor
+    payload = cases.read_json(args.output / "request-payload.json")
+    expected = runner.task_payload("exact/model", original["goal_text"].replace("WORKBENCH", str(args.output / "Workbench")))
+    assert {k: v for k, v in payload.items() if k != "portal_native_task_scope"} == expected
+    assert len(payload["portal_native_task_scope"]["windows"]) == 6
+    assert summary["initial_input_hashes"] == {item["path"]: item["content_sha256"] for item in case["fixture"]["input_files"]}
+    assert case == original and not summary["passed"]
+
+
+@pytest.mark.parametrize("cause", ["unknown", "wrong_handler", "exception"])
+def test_default_handler_failure_prevents_desktop_construction_and_submission(monkeypatch, tmp_path, cause):
+    args, calls = mock_run(monkeypatch, tmp_path, cases.load_case("LHN-059"))
+    args.include_default_text_editor, args.editor = True, "gnome-text-editor"
+    def lookup(*_):
+        if cause == "exception":
+            raise RuntimeError("secret-canary")
+        return "unknown.desktop" if cause == "unknown" else "org.gnome.gedit.desktop"
+    monkeypatch.setattr(runner, "command", lookup)
+    monkeypatch.setattr(runner, "TaskDesktop", lambda *_args, **_kwargs: pytest.fail("No app before default proof"))
+    assert runner.run(args) == 2
+    assert "model_attempt" not in calls
+    assert not any(c.startswith("open:") for c in calls)
+    assert "secret-canary" not in (args.output / "summary.json").read_text()
+
+
+@pytest.mark.parametrize("failure", ["native_observation", "changed_pid"])
+def test_supplement_setup_failure_or_identity_change_never_submits(monkeypatch, tmp_path, failure):
+    args, calls = mock_run(monkeypatch, tmp_path, cases.load_case("LHN-059"),
+                           setup_failure=failure == "native_observation")
+    args.include_default_text_editor, args.editor = True, "gnome-text-editor"
+    monkeypatch.setattr(runner, "command", lambda argv, _env: "org.gnome.TextEditor.desktop"
+                        if argv[0] == "xdg-mime" else "13" if argv[-1] == "51" else "12")
+    assert runner.run(args) == 2
+    assert "model_attempt" not in calls and calls[-1] == "close"
+    assert [c for c in calls if c.startswith("open:")][0] == "open:gedit"
+
+
 def test_model_done_cannot_pass_and_cleanup_follows_drain(case, tmp_path, monkeypatch):
     args, calls = mock_run(monkeypatch, tmp_path, case)
     assert runner.run(args) == 1
