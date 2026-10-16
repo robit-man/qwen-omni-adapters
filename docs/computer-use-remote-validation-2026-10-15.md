@@ -228,3 +228,36 @@ Tegra residency remained intact, and the active harness was preserved. The
 outstanding request drained naturally to zero activity, inflight and queued
 requests at 22:40:01 UTC before further work.
 No operator correction, task replay, source change or service reload occurred.
+
+## Egg31 Flatpak foreground observation at `6f39e49`
+
+The exact staged source passed 2,842 ARM checks in 163.33 seconds and the
+explicit Ornith deployment doctor. One supported Python-only reload adopted
+the new adapter and portal. Supervisor, resident Ornith, pointing, TTS and
+tunnel process starts were preserved, as were configuration hashes and all
+18,030 untracked paths with their complete NUL-separated digest. The previously
+active harness was restored. Health, native Tegra residency and zero queue
+activity passed after adoption.
+
+One unchanged production `NativeUiAdapter.observe` then passed against the
+existing, independently rechecked active Firefox XID `60817411`, host PID
+`1510469` and start `10898437`. It used a fresh bridge and exact window scope,
+with pointing disabled and no prepared action. In 4.239 seconds it returned
+71 nodes without truncation, including a real `DocumentWeb`/DocURL capability.
+The verified namespace-provider digest bound the native revision; raw UI text,
+URLs and private proof metadata were excluded from the retained report.
+
+There were zero input, focus, browser-close, pointing or model calls. The bridge
+closed and the original Firefox window, all mapped client IDs, source, worker
+starts, configuration and untracked inventory remained unchanged. This passes
+foreground identity/observation only. Inactive Flatpak switching and owned
+Flatpak launch/cleanup remain unavailable, and no remote long task passed.
+The deployed remote stack still uses Moondream 2 with Kev unavailable; it is
+distinct from the local Moondream 3.1/Kev condition.
+
+Evidence is under
+`runtime-data/gpu1-acceptance/remote-egg31-namespace-adoption-20261016T053907Z/`.
+After-test note SHA256:
+`d93f63b597e079fc11c72e2e489485dd3b2d3ad13ee9170838dd67a3532d4726`.
+The 15-file evidence manifest SHA256 is
+`243ed9fb785fc0fd14e9a564de52e595121528c601b20b2518d0441303e394c4`.
