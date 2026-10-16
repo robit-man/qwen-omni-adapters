@@ -391,6 +391,35 @@ operator notes are under
 and its sibling operator directory. Source and transmitted PNGs are both
 retained in this cohort.
 
+The explicit GNOME Text Editor setup patch, `f0505fa`, passed 2,661 source
+checks. Its next full LHN-047 attempt registered a new owned editor XID
+`81788956`, sharing PID/start with the preexisting, unowned XID `81788932`.
+Setup passed, but Qwen's first phase selected that older window. The native
+controller offered the switch, and fresh verification showed that exact older
+window in the foreground before the runner's passive guard rejected it. The
+client cancelled after 22.33 seconds; the
+entire run took 29.41 seconds and received no final response or completed tool
+receipt. The sealed method index contains zero completed inputs, but the fresh
+verification snapshot proves the foreground switched: zero indexed receipts
+must not be reported as zero effects.
+
+There were no deliverables or observed text mutations; all five inputs were
+unchanged. The three registered windows closed politely, the preexisting editor
+remained, and the original workers, lease and idle queues were preserved.
+The full task failed; the separate host editor setup milestone passed. Opening
+a file into a newly authorized editor window was not exercised. Evidence is
+under `runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-047-20261016T045525Z/`,
+with immutable bundle SHA256
+`bca7778ef4dd0bf9a9ec1da3a432ccadf57472c785a0cb17e00ef121be65230c`.
+Manual notes remain in its sibling operator directory.
+
+The next bounded hypothesis is that controller planning/candidates and the
+runner must share the same immutable window authority. A portal-only scope
+derived from fresh setup must exclude that preexisting same-PID window before
+it can be offered or activated, with authorization repeated at dispatch. The
+backup foreground guard remains. This addresses an authority mismatch; it
+does not establish long-task completion, visual reading or Kev coverage.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give

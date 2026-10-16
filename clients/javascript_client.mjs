@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 // Minimal audio-chat client using only Node.js built-ins.
+// portal_native_task_scope is an authenticated portal restriction, not a portable
+// adapter field. This client never emits it or claims scoped desktop execution.
 
 import { readFile, writeFile } from "node:fs/promises";
 

@@ -2872,6 +2872,8 @@ def create_app(
     @app.post("/api/chat")
     def chat():
         try:
+            # Portable validation rejects portal_native_task_scope before any
+            # model transport; only the authenticated portal enforces that scope.
             parsed = parse_adapter_request(request.get_json(force=True))
             return jsonify(
                 execute(

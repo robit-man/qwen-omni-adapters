@@ -84,6 +84,13 @@ executable/UID checks and closes only the registered window politely. Use this
 explicit condition when testing a host whose ordinary text-file default is
 GNOME Text Editor, and report it separately from the Gedit condition.
 
+After setup, the runner freezes `portal_native_task_scope` from exactly the
+registered windows, checking every XID's PID and process start immediately and
+again before HTTP submission. Other windows of a shared application process are
+excluded. This separate authorization field does not change the goal, sampling
+or give the solver an action recipe. The report and after-test note retain its
+digest, count and setup provenance; memory recall receives no native scope.
+
 The client action deadline is at most 1,800 seconds. Requested sampling is
 temperature 0 and `num_predict:8192`. Server phase/deadline limits remain those of
 the deployed profile; this runner does not override them. At the reviewed base,
@@ -187,15 +194,17 @@ Unexpected foreground identity or read uncertainty stops this client. Newly
 opened unregistered windows are retained as uncertainty; they are never closed
 by guessing ownership. This can expose a missing application/window contract
 during a long task.
-This is passive foreground monitoring and receipt auditing, not a server-side
-XID authorization allowlist. It cannot guarantee that cancellation precedes every
-input into an unexpected window. Such uncertainty cannot become a method pass.
+The submitted scope also restricts server-side planning, finite candidates and
+fresh pre-input authorization. The passive foreground monitor remains an
+independent backup and audits actual effects. Neither layer is an OS sandbox;
+an application may create an unregistered top-level window, which is not
+automatically authorized. Read uncertainty cannot become a method pass.
 
 On an error or missing final event, the runner sends at most one cancel for its
-own cookie-scoped native controller. That endpoint sets the Store cancellation
-flag; the current native-task planner has a separate stop event and can renew
-the Store on a later observation. Neither that cancel receipt nor HTTP abort is
-proof that all further input has stopped. The runner waits for actual downstream
+own cookie-scoped native controller. Native cancellation latches the captured
+task epoch as well as its executor; renewal cannot turn it into new work.
+Neither that cancel receipt nor HTTP abort is proof that already admitted input
+has stopped. The runner waits for actual downstream
 natural idleness
 before closing anything. Failure to prove idleness keeps all owned windows
 open and reports `cleanup_deferred`. Cleanup requests polite closure for exact

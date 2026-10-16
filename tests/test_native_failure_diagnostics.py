@@ -129,6 +129,7 @@ def _transport_child(script, timeout_s):
     bridge.closed = False
     bridge.session_id = "owned-diagnostic-fixture"
     bridge.process_id = None
+    bridge.window_scope = None
     bridge.timeout_s = timeout_s
     bridge.process = subprocess.Popen(  # noqa: S603
         [sys.executable, "-I", "-u", "-c", script],

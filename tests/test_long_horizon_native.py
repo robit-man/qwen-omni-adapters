@@ -368,6 +368,86 @@ def test_text_payload_contains_only_goal_and_pinned_method():
         runner.task_payload("model", "goal", think="false")
 
 
+def scope_desktop(monkeypatch):
+    owned = SimpleNamespace(environment={"DISPLAY": ":owned"}, windows=[
+        SimpleNamespace(window_id="20", pid="42", process_start="100"),
+        SimpleNamespace(window_id="2", pid="43", process_start="200")])
+    calls = []
+    def query(argv, environment):
+        calls.append((argv, environment))
+        return {"20": "42", "2": "43"}[argv[-1]]
+    monkeypatch.setattr(runner, "command", query)
+    monkeypatch.setattr(runner, "process_start", lambda pid: {"42": "100", "43": "200"}[pid])
+    return owned, calls
+
+
+def test_native_scope_freezes_only_registered_windows_not_same_pid_preexisting(monkeypatch):
+    owned, calls = scope_desktop(monkeypatch)
+    owned.launches = [{"before_xids": ["10"], "window_id": "20", "pid": "42"}]
+    scope = runner.registered_native_scope(owned)
+    assert scope == {"schema": "robit.omni.native-task-scope.v1", "windows": [
+        {"window_id": "2", "process_id": 43, "process_start": "200"},
+        {"window_id": "20", "process_id": 42, "process_start": "100"}]}
+    assert calls == [(["xdotool", "getwindowpid", xid], owned.environment) for xid in ("2", "20")]
+    assert all(row["window_id"] != "10" for row in scope["windows"])
+    frozen = copy.deepcopy(scope)
+    owned.windows[0].window_id = "21"
+    owned.windows.append(SimpleNamespace(window_id="10", pid="42", process_start="100"))
+    assert scope == frozen
+
+
+@pytest.mark.parametrize("mutation", ["window_pid", "start", "reused_during_query", "process_missing"])
+def test_native_scope_identity_must_still_match_before_submission(monkeypatch, mutation):
+    owned, _ = scope_desktop(monkeypatch)
+    scope = runner.registered_native_scope(owned)
+    if mutation == "window_pid":
+        monkeypatch.setattr(runner, "command", lambda *_args: "99")
+    elif mutation == "start":
+        monkeypatch.setattr(runner, "process_start", lambda _pid: "201")
+    elif mutation == "reused_during_query":
+        starts = iter(["200", "201"])
+        monkeypatch.setattr(runner, "process_start", lambda _pid: next(starts))
+    else:
+        def missing(_pid):
+            raise FileNotFoundError("No process")
+        monkeypatch.setattr(runner, "process_start", missing)
+    with pytest.raises(desktop.CapabilityBlocked, match="owned_native_task_scope_identity"):
+        runner.verify_registered_native_scope(owned, scope)
+
+
+@pytest.mark.parametrize("mutation", ["empty", "duplicate_xid", "oversized", "noncanonical_xid", "inconsistent_pid_start"])
+def test_invalid_registered_scope_rejects_before_identity_queries(monkeypatch, mutation):
+    owned, calls = scope_desktop(monkeypatch)
+    if mutation == "empty":
+        owned.windows = []
+    elif mutation == "duplicate_xid":
+        owned.windows.append(copy.copy(owned.windows[0]))
+    elif mutation == "oversized":
+        owned.windows = [SimpleNamespace(window_id=str(i), pid="42", process_start="100") for i in range(1, 18)]
+    elif mutation == "noncanonical_xid":
+        owned.windows[0].window_id = "020"
+    else:
+        owned.windows[1].pid = "42"
+    with pytest.raises(ValueError):
+        runner.registered_native_scope(owned)
+    assert calls == []
+
+
+def test_native_scope_is_private_payload_copy_with_unchanged_goal_options(monkeypatch):
+    owned, _ = scope_desktop(monkeypatch)
+    scope = runner.registered_native_scope(owned)
+    original = runner.task_payload("exact/model", "Exact original goal", think=True)
+    payload = runner.task_payload("exact/model", "Exact original goal", think=True, native_scope=scope)
+    assert {key: value for key, value in payload.items() if key != "portal_native_task_scope"} == original
+    assert payload["portal_native_task_scope"] == scope and payload["portal_native_task_scope"] is not scope
+    scope["windows"][0]["window_id"] = "30"
+    assert payload["portal_native_task_scope"]["windows"][0]["window_id"] == "2"
+    assert "process_start" not in json.dumps(payload["messages"])
+    with pytest.raises(ValueError, match="Memory recall"):
+        runner.task_payload("exact/model", "Recall", recall=True, native_scope=payload["portal_native_task_scope"])
+    assert "portal_native_task_scope" not in runner.task_payload("exact/model", "Recall", recall=True)
+
+
 def test_drain_waits_for_real_idle_without_canceling_other_work():
     clock, queries = [0.0], []
     def handle(request):
@@ -535,9 +615,11 @@ def mock_run(monkeypatch, tmp_path, case, *, settled=True, setup_failure=False, 
     class FakeDesktop:
         environment = {}
         launches = []
+        windows = []
         def open_blank(self, app, *_args, **_kwargs):
             calls.append("open:" + app)
             self.window = SimpleNamespace(window_id=str(50 + len(calls)), pid="12", process_start="34")
+            self.windows.append(self.window)
             self.launches.append({"registered": True, "window_id": self.window.window_id})
             return self.window
         def close(self):
@@ -561,6 +643,8 @@ def mock_run(monkeypatch, tmp_path, case, *, settled=True, setup_failure=False, 
                 raise RuntimeError("observer shutdown not confirmed")
     monkeypatch.setattr(runner, "TaskDesktop", lambda _env, **_kwargs: owned)
     monkeypatch.setattr(runner, "NativeEvidenceObserver", FakeObserver)
+    monkeypatch.setattr(runner, "command", lambda _argv, _environment: "12")
+    monkeypatch.setattr(runner, "process_start", lambda _pid: "34")
     factory = httpx.Client
     def transport(request):
         if request.url.path == "/healthz":
@@ -609,6 +693,44 @@ def test_model_done_cannot_pass_and_cleanup_follows_drain(case, tmp_path, monkey
                for path in args.output.rglob("*.json"))
     goal = (args.output / "goal.txt").read_text()
     assert goal.strip() == case["goal_text"].replace("WORKBENCH", str(args.output / "Workbench"))
+    payload = cases.read_json(args.output / "request-payload.json")
+    scope = payload["portal_native_task_scope"]
+    assert len(scope["windows"]) == sum(case["fixture"]["blank_app_window_counts"].values())
+    assert report["native_task_scope"] == {"schema": scope["schema"],
+        "sha256": runner.native_task_scope_sha256(scope), "base_window_count": len(scope["windows"]),
+        "authority": "fresh_registered_setup_windows", "model_visible": False}
+    assert cases.read_json(args.output / "after-test-note.json")["native_task_scope"] == report["native_task_scope"]
+
+
+def test_scope_recheck_after_payload_blocks_model_submission(case, tmp_path, monkeypatch):
+    args, calls = mock_run(monkeypatch, tmp_path, case)
+    original = runner.verify_registered_native_scope
+    checks = []
+    def recheck(owned, scope):
+        checks.append(copy.deepcopy(scope))
+        if len(checks) == 2:
+            raise desktop.CapabilityBlocked("owned_native_task_scope_identity_changed")
+        return original(owned, scope)
+    monkeypatch.setattr(runner, "verify_registered_native_scope", recheck)
+    assert runner.run(args) == 2
+    report = cases.read_json(args.output / "summary.json")
+    assert len(checks) == 2 and checks[0] == checks[1]
+    assert "model_attempt" not in calls and report["portal_turn_attempts"] == 0
+    assert report["status"] == "blocked_precondition" and report["owned_windows_closed"]
+    assert report["error"]["code"] == "owned_native_task_scope_identity_changed"
+
+
+def test_native_scope_stays_on_foreground_request_and_not_memory_recall(case, tmp_path, monkeypatch):
+    args, _ = mock_run(monkeypatch, tmp_path, case, memory=True)
+    original = runner.stream_turn
+    payloads = []
+    def stream(*args, **kwargs):
+        payloads.append(copy.deepcopy(args[2]))
+        return original(*args, **kwargs)
+    monkeypatch.setattr(runner, "stream_turn", stream)
+    runner.run(args)
+    assert len(payloads) == 2 and "portal_native_task_scope" in payloads[0]
+    assert "portal_native_task_scope" not in payloads[1] and "portal_execution_profile" not in payloads[1]
 
 
 def test_run_preserves_windows_when_downstream_drain_unconfirmed(case, tmp_path, monkeypatch):

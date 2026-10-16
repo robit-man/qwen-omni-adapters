@@ -61,6 +61,31 @@ labels. The portal injects the browser subset as JSON when rendering the page;
 the local call harness reads the same catalog directly. Dynamic objective,
 media, environment, memory, and tool-result evidence is assembled per request.
 
+## Native desktop delegation
+
+The [computer-use controller](computer-use.md) applies the local rapid-control
+guide to the signed-in desktop. Its policy selector is separate from the
+adapter's general decision plane. The selected Qwen or Ornith trunk plans a
+bounded phase and recovers at a failed effect or phase boundary; it does not
+drive the cursor with model-authored coordinates.
+
+| Evidence and decision | Owning layer | Required result |
+| --- | --- | --- |
+| Current windows, controls and capabilities | Native AT-SPI/X11 observer | Fresh identities, generations, scope and revision; uncertainty remains explicit. |
+| One eligible legal action | Deterministic controller | Execute directly without a policy or vision call. |
+| Multiple eligible legal actions | Configured finite-choice policy, Kev on the A100 deployment | Select only an offered action or abstain; confidence cannot grant authority. |
+| Native targeting cannot resolve an eligible pointer target | Pinned Moondream point worker | Ground the exact captured region; native/frame/geometry guards still decide dispatch. |
+| Input and effect verification | Host executor and fresh observer | Revalidate before input, retain uncertain attempts, verify actual application effects. |
+| Ambiguity, unavailable capability or failed effect | Omni phase planner | Receive typed failure/readback evidence and replan within the same authority. |
+
+The caller's optional exact window scope restricts both planning and execution;
+its private authorization tuples are never model instructions. A verified phase
+is not a verified whole user task. Explicit visual reading through the native
+task planner remains a separate capability gap; a working point request does
+not prove that the model read a web page or document. The
+[live evaluation](computer-use-long-horizon-evaluation.md) distinguishes these
+milestones, actual auxiliary calls and unfinished long tasks.
+
 ## Artifact layout
 
 The Ollama tag retains normal runnable layers and adds one custom media layer:

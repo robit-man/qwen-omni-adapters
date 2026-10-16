@@ -20,8 +20,13 @@ from urllib.parse import urlsplit
 import httpx
 
 from portal.desktop import desktop_subprocess_environment
-from portal.native_ui import _x11_foreground
-from runtime.acceptance_native_support import CapabilityBlocked, NativeEvidenceObserver
+from portal.native_ui import _x11_foreground, native_task_scope_sha256, normalize_native_task_scope
+from runtime.acceptance_native_support import (
+    CapabilityBlocked,
+    NativeEvidenceObserver,
+    command,
+    process_start,
+)
 from runtime.computer_use_speech import _SpeechDeadline
 from runtime.long_horizon_cases import (
     bounded_bytes,
@@ -65,17 +70,45 @@ def endpoint(value: str) -> str:
     return value.rstrip("/")
 
 
-def task_payload(model: str, goal: str, *, think: bool = False, recall: bool = False):
+def task_payload(model: str, goal: str, *, think: bool = False, recall: bool = False, native_scope=None):
     if type(think) is not bool:
         raise ValueError("think must be a native boolean")
+    if recall and native_scope is not None:
+        raise ValueError("Memory recall has no native task scope")
     return {"model": model, "stream": True, "think": think,
             "messages": [{"role": "user", "content": goal}],
             "omni": {"schema": "robit.ollama.omni-adapter.v1", "task": "chat"},
             "portal_auto_tools": True, "portal_tool_allowlist": ["memory_search"] if recall else list(ALLOWED),
             **({} if recall else {"portal_execution_profile": "native_task"}),
+            **({} if native_scope is None else {"portal_native_task_scope": normalize_native_task_scope(native_scope)}),
             "portal_shell_bridge": False, "portal_background_bridge": False, "portal_camera_bridge": False,
             "response_modalities": ["text"], "speech_mode": "never",
             "options": {"temperature": 0, "num_predict": 8192}}
+
+
+def verify_registered_native_scope(desktop, scope):
+    """Recheck exact setup identities without adding same-process windows."""
+    normalized = normalize_native_task_scope(scope)
+    try:
+        for window in normalized["windows"]:
+            pid = str(window["process_id"])
+            if (process_start(pid) != window["process_start"]
+                    or command(["xdotool", "getwindowpid", window["window_id"]], desktop.environment) != pid
+                    or process_start(pid) != window["process_start"]):
+                raise CapabilityBlocked("owned_native_task_scope_identity_changed")
+    except CapabilityBlocked:
+        raise
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+        raise CapabilityBlocked("owned_native_task_scope_identity_unavailable") from None
+
+
+def registered_native_scope(desktop):
+    """Freeze only the windows registered by completed fresh app setup."""
+    scope = normalize_native_task_scope({"schema": "robit.omni.native-task-scope.v1", "windows": [
+        {"window_id": window.window_id, "process_id": int(window.pid), "process_start": window.process_start}
+        for window in tuple(desktop.windows)]})
+    verify_registered_native_scope(desktop, scope)
+    return scope
 
 
 def idle(client, base: str) -> bool:
@@ -411,7 +444,7 @@ def finalize_run(report, root, case, *, desktop, observer, guard, client, reques
         save(root / "after-test-note.json", {key: report.get(key) for key in
             ("case_id", "model", "think", "status", "passed", "portal_turn_attempts", "readiness_blockers",
              "authoritative_final_received", "method", "downstream_idle", "owned_windows_closed", "error",
-             "teardown_errors", "elapsed_s", "source_unchanged", "editor")})
+             "teardown_errors", "elapsed_s", "source_unchanged", "editor", "native_task_scope")})
     journals()
     try:
         freeze_evidence(root, case)
@@ -515,20 +548,26 @@ def run(args) -> int:
             raise CapabilityBlocked("exact_deployed_model_mismatch")
         observer = NativeEvidenceObserver(root, desktop)
         setup = prepare_blank_apps(desktop, observer, case, work, root, args.browser)
+        native_scope = registered_native_scope(desktop)
+        report["native_task_scope"] = {"schema": native_scope["schema"],
+            "sha256": native_task_scope_sha256(native_scope), "base_window_count": len(native_scope["windows"]),
+            "authority": "fresh_registered_setup_windows", "model_visible": False}
         before = setup[-1]["native"]
         save(root / "initial-native.json", before)
         observer.start()
         observer.task_started.set()
         goal = case["goal_text"].replace("WORKBENCH", str(work))
         (root / "goal.txt").write_text(goal + "\n")
-        save(root / "request-payload.json", task_payload(args.model, goal, think=args.think))
+        payload = task_payload(args.model, goal, think=args.think, native_scope=native_scope)
+        save(root / "request-payload.json", payload)
         def milestone(event, state):
             record = {"at_unix": time.time(), "round": event.get("round"), "native": state,
                       "files": file_evidence(work, initial, case)}
             with (root / "milestones.jsonl").open("a") as journal:
                 journal.write(json.dumps(record) + "\n")
+        verify_registered_native_scope(desktop, payload["portal_native_task_scope"])
         request_started, report["portal_turn_attempts"] = True, 1
-        result, guard = stream_turn(client, base, task_payload(args.model, goal, think=args.think),
+        result, guard = stream_turn(client, base, payload,
             root, args.timeout, desktop=desktop, observer=observer, milestone=milestone)
         report["task"] = turn_summary(result)
         report["authoritative_final_received"] = isinstance(result["final"], dict)

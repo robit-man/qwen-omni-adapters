@@ -5,6 +5,7 @@
   "type": "object",
   "required": ["model", "message", "done", "adapter"],
   "properties": {
+    "portal_native_task_scope": false,
     "model": {"type": "string", "minLength": 1},
     "created_at": {"type": "string"},
     "message": {

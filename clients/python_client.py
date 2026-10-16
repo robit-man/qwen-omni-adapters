@@ -1,4 +1,8 @@
-"""Small command-line client for the Omni adapter v1 examples."""
+"""Small command-line client for the Omni adapter v1 examples.
+
+Native task window restrictions belong to the authenticated portal; this portable
+client never emits portal_native_task_scope or claims that the adapter enforces it.
+"""
 
 # ruff: noqa: I001 -- direct script execution bootstraps the repository path.
 

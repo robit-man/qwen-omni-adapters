@@ -253,6 +253,7 @@ class _OwnedController:
     lock: Any = field(default_factory=threading.RLock)
     selection_receipts: dict[str, dict[str, Any]] = field(default_factory=dict)
     settled_effects: set[str] = field(default_factory=set)
+    window_scope: dict[str, Any] | None = None
 
 
 class ComputerUseStore:
@@ -264,10 +265,15 @@ class ComputerUseStore:
         self._lock = threading.RLock()
         self._task_binding = contextvars.ContextVar("computer_use_task_binding", default=None)
 
-    def begin_task(self, session_id: str, surface: str = "desktop") -> threading.Event:
+    def begin_task(self, session_id: str, surface: str = "desktop", *, window_scope=None) -> threading.Event:
         """Start a fresh controller epoch; earlier task events stay latched."""
         if surface not in {"browser", "desktop"}:
             raise ComputerUseError("surface must be browser or desktop")
+        if window_scope is not None:
+            from portal.native_ui import normalize_native_task_scope
+            if surface != "desktop":
+                raise ComputerUseError("Window scopes require the desktop surface")
+            window_scope = normalize_native_task_scope(window_scope)
         with self._lock:
             previous = self._sessions.pop((session_id, surface), None)
             if previous is not None:
@@ -275,7 +281,18 @@ class ComputerUseStore:
                 close = getattr(previous.adapter, "close", None)
                 if close:
                     close()
-            return self._owned(session_id, surface).cancel
+            return self._owned(session_id, surface, window_scope=window_scope).cancel
+
+    def end_task(self, session_id: str, surface: str, cancel: threading.Event) -> None:
+        """Release only this completed epoch, never a newer task or memory scope."""
+        cancel.set()
+        with self._lock:
+            owned = self._sessions.get((session_id, surface))
+            if owned is not None and owned.cancel is cancel:
+                self._sessions.pop((session_id, surface))
+                close = getattr(owned.adapter, "close", None)
+                if close:
+                    close()
 
     @contextmanager
     def task_scope(self, session_id: str, surface: str, cancel: threading.Event):
@@ -310,7 +327,7 @@ class ComputerUseStore:
                     if close:
                         close()
 
-    def _owned(self, session_id: str, surface: str) -> _OwnedController:
+    def _owned(self, session_id: str, surface: str, *, window_scope=None) -> _OwnedController:
         if surface not in {"browser", "desktop"}:
             raise ComputerUseError("surface must be browser or desktop")
         with self._lock:
@@ -326,11 +343,17 @@ class ComputerUseStore:
                            BrowserUiAdapter(self.browser, session_id) if surface == "browser" else
                            NativeUiAdapter(session_id, pointing_url=getattr(self.browser, "pointing_url", None),
                                            cancelled=cancellation.is_set))
+                if window_scope is not None:
+                    configure = getattr(adapter, "set_window_scope", None)
+                    if not callable(configure):
+                        raise ComputerUseError("Native adapter cannot enforce a window scope")
+                    configure(copy.deepcopy(window_scope))
                 # This host entry is reachable only through the existing explicit
                 # tool opt-in/authenticated execution path. The model may select
                 # an immutable offered candidate; it cannot supply authorization.
                 controller = RapidUiController(adapter, authorize=lambda action, state: True)
-                owned = _OwnedController(controller, adapter, cancel=cancellation)
+                owned = _OwnedController(controller, adapter, cancel=cancellation,
+                                         window_scope=copy.deepcopy(window_scope))
                 self._sessions[key] = owned
             owned.last_seen = now
             return owned
@@ -368,6 +391,8 @@ class ComputerUseStore:
             if self._task_cancelled(session_id, "desktop", owned):
                 return {"status": "cancelled"}
             if owned.cancel.is_set():
+                if owned.window_scope is not None:
+                    return {"status": "cancelled"}
                 self.clear(session_id)
                 return self.planning_observation(session_id)
             state = owned.controller.observe(planning=True)
@@ -393,6 +418,8 @@ class ComputerUseStore:
             if self._task_cancelled(session_id, surface, owned):
                 return {"status": "cancelled"}
             if owned.cancel.is_set():
+                if owned.window_scope is not None:
+                    return {"status": "cancelled"}
                 return {"status": "cancelled", "reason": "Observe again to start a new operation"} if op != "observe" else self._renew(session_id, arguments, goal)
             if op == "observe":
                 step = parse_step(arguments["step"]) if "step" in arguments else None

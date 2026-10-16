@@ -478,6 +478,8 @@ def parse_adapter_request(payload: Mapping[str, Any]) -> ParsedAdapterRequest:
     """Validate an Ollama-compatible Omni request and calculate its execution route."""
     if not isinstance(payload, Mapping):
         raise OmniAdapterError("request body must be a JSON object")
+    if "portal_native_task_scope" in payload:
+        raise OmniAdapterError("portal_native_task_scope is portal-only and must not be sent to the adapter")
     model = str(payload.get("model") or "").strip()
     if not model:
         raise OmniAdapterError("model is required")

@@ -308,6 +308,45 @@ compiler sees bounded recent handoffs/readbacks, not repeated UI maps. A final
 not be interpreted as independently verified task completion. Ordinary requests
 and portable adapter/client-owned tool contracts are unchanged.
 
+An authenticated `native_task` caller may additionally supply
+`portal_native_task_scope` to restrict native authority to exact host-registered
+windows:
+
+```json
+{
+  "schema": "robit.omni.native-task-scope.v1",
+  "windows": [
+    {"window_id": "81788956", "process_id": 3036686, "process_start": "4365561"}
+  ]
+}
+```
+
+Both objects are closed. `windows` contains 1–16 unique XIDs. `window_id` is a
+canonical positive decimal string in the unsigned 32-bit range; `process_id`
+is an integer from 1 through 2³¹−1, excluding booleans; `process_start` is a
+positive decimal string of at most 20 digits. Repeated PIDs must have the same
+start identity. Canonicalization sorts windows by numeric XID; its SHA256 binds
+ASCII, sorted-key, compact JSON. Invalid scopes or use outside an authenticated,
+native-enabled foreground `native_task` request return HTTP 400. Omission keeps
+the ordinary native authority of existing callers.
+
+The portal consumes this field before portable parsing, adapter transport,
+continuation storage and model context. The model receives a digest/count,
+not the authorization tuples. A direct portable adapter request containing the
+reserved field is rejected rather than silently accepting an unenforced scope.
+The scope is immutable within the native controller epoch, survives renewal,
+and binds native revisions. Planning and finite candidates include only
+positively mapped authorized windows. Input and visual dispatch repeat fresh
+authorization checks. A different top-level window sharing a PID is excluded;
+a same-PID/start direct `WM_TRANSIENT_FOR` dialog may be authorized only while
+its registered base remains live. New top-level windows are not auto-enrolled.
+
+Task finalization closes only its captured native epoch and scope. Late cleanup
+cannot cancel a replacement task; browser state and session memory remain
+available. This is a native-controller restriction, not an OS sandbox or a
+promise that an application cannot itself launch another window. Cancellation,
+identity, revision, hit-target and effect-verification guards still apply.
+
 If an adapter language stream ends with a classified network/timeout failure
 before audio starts, the portal retries that exact round once. It emits
 `{"type":"reset","reason":"upstream_network_retry","attempt":1}` before

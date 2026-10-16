@@ -67,6 +67,7 @@ try:
     from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import portal_behavior_system_message, runtime_environment_snapshot
+    from portal.native_ui import native_task_scope_sha256, normalize_native_task_scope
     from portal.observatory import ObservatoryReader
     from portal.session_state import SessionContinuationStore
     from portal.tools import (
@@ -89,6 +90,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from deliveries import FileDeliveryError, SessionFileDeliveryStore
     from documents import DocumentError, SessionDocumentStore
     from environment import portal_behavior_system_message, runtime_environment_snapshot
+    from native_ui import native_task_scope_sha256, normalize_native_task_scope
     from observatory import ObservatoryReader
     from session_state import SessionContinuationStore
     from tools import (
@@ -559,6 +561,18 @@ def _pop_tool_allowlist(payload: dict[str, Any]) -> frozenset[str] | None:
             or len(set(names)) != len(names)):
         raise PortalRequestError("portal_tool_allowlist must contain unique exact pinned tool names")
     return frozenset({"tool_search", *names})
+
+
+def _pop_native_task_scope(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if "portal_native_task_scope" not in payload:
+        return None
+    raw = payload.pop("portal_native_task_scope")
+    if payload.get("portal_execution_profile") != "native_task":
+        raise PortalRequestError("portal_native_task_scope requires native_task")
+    try:
+        return normalize_native_task_scope(raw)
+    except ValueError as exc:
+        raise PortalRequestError(str(exc)) from None
 
 
 def _pop_native_task_profile(
@@ -2275,13 +2289,13 @@ def create_app(
             }.values()
         ))
 
-    def native_task_events(payload, raw_messages, session_id, allowed_tools):
+    def native_task_events(payload, raw_messages, session_id, allowed_tools, window_scope=None):
         """Mandatory phase compilation; the model never owns the inner input loop."""
         goal = _latest_user_context(raw_messages)
         scope = frozenset({"native_ui", "memory_write", "memory_search"})
         if allowed_tools is not None:
             scope &= allowed_tools
-        stopped = tool_harness.computer_use.begin_task(session_id, "desktop")
+        stopped = tool_harness.computer_use.begin_task(session_id, "desktop", window_scope=window_scope)
 
         def cancel():
             stopped.set()
@@ -2365,11 +2379,19 @@ def create_app(
         timer.daemon = True
         timer.start()
         try:
-            yield from run_native_goal(goal, observe=observe, compile_phase=compile_phase,
+            events = run_native_goal(goal, observe=observe, compile_phase=compile_phase,
                 execute=execute, cancel=cancel, cancelled=stopped.is_set, allowed_tools=scope,
                 max_phases=40, max_seconds=budget, model=runtime.model)
+            for event in events:
+                if window_scope is not None and event.get("type") == "final":
+                    event["response"]["portal"]["native_task"].update(
+                        window_scope_sha256=native_task_scope_sha256(window_scope),
+                        window_scope_count=len(window_scope["windows"]))
+                yield event
         finally:
             timer.cancel()
+            if window_scope is not None:
+                tool_harness.computer_use.end_task(session_id, "desktop", stopped)
 
     def run_subagent(objective: str, role: str, context: str) -> Mapping[str, Any]:
         system_content = context_text("prompts", "subagent_system").format(
@@ -3252,6 +3274,7 @@ def create_app(
             raw_messages = copy.deepcopy(list(payload.get("messages") or []))
             auto_tools = payload.pop("portal_auto_tools", False) is True
             allowed_tools = _pop_tool_allowlist(payload)
+            native_window_scope = _pop_native_task_scope(payload)
             native_task_mode = _pop_native_task_profile(payload, auto_tools=auto_tools,
                 allowed_tools=allowed_tools, detached=payload.get("portal_detached_turn") is True)
             internal_background = payload.pop("portal_background_worker", False) is True
@@ -3384,7 +3407,7 @@ def create_app(
 
             if native_task_mode:
                 native_final = None
-                for event in native_task_events(payload, raw_messages, session_id, allowed_tools):
+                for event in native_task_events(payload, raw_messages, session_id, allowed_tools, native_window_scope):
                     if event.get("type") == "final":
                         native_final = event["response"]
                 if native_final is None:
@@ -3569,6 +3592,7 @@ def create_app(
         auto_tools = payload.pop("portal_auto_tools", False) is True
         try:
             allowed_tools = _pop_tool_allowlist(payload)
+            native_window_scope = _pop_native_task_scope(payload)
             native_task_mode = _pop_native_task_profile(payload, auto_tools=auto_tools,
                 allowed_tools=allowed_tools, detached=detached_turn)
         except PortalRequestError as exc:
@@ -3740,7 +3764,7 @@ def create_app(
             def relay_native_task():
                 final_status = 200
                 try:
-                    for event in native_task_events(payload, raw_messages, session_id, allowed_tools):
+                    for event in native_task_events(payload, raw_messages, session_id, allowed_tools, native_window_scope):
                         if event.get("type") == "final":
                             event["response"]["portal"]["schema"] = "robit.omni-phone-portal.v1"
                             event["response"]["portal"]["tool_allowlist"] = sorted(

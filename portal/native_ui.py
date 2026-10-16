@@ -37,6 +37,33 @@ _OPERATIONS = {"invoke", "focus", "set_value", "set_checked", "select", "key_cho
 _MAX_REPLY_BYTES = 2 * 1024 * 1024
 
 
+def normalize_native_task_scope(value: Any) -> dict[str, Any]:
+    """Pure validation of caller-owned restrictions; no window is granted here."""
+    if (not isinstance(value, dict) or set(value) != {"schema", "windows"}
+            or value["schema"] != "robit.omni.native-task-scope.v1"
+            or not isinstance(value["windows"], list) or not 1 <= len(value["windows"]) <= 16):
+        raise ValueError("Invalid native task window scope")
+    windows, xids, starts = [], set(), {}
+    for item in value["windows"]:
+        if not isinstance(item, dict) or set(item) != {"window_id", "process_id", "process_start"}:
+            raise ValueError("Invalid native task window identity")
+        xid, pid, start = item["window_id"], item["process_id"], item["process_start"]
+        if (not isinstance(xid, str) or re.fullmatch(r"[1-9][0-9]{0,9}", xid) is None
+                or int(xid) >= 2**32 or type(pid) is not int or not 0 < pid < 2**31
+                or not isinstance(start, str) or re.fullmatch(r"[1-9][0-9]{0,19}", start) is None
+                or xid in xids or (pid in starts and starts[pid] != start)):
+            raise ValueError("Invalid native task window identity")
+        xids.add(xid)
+        starts[pid] = start
+        windows.append(dict(item))
+    return {"schema": value["schema"], "windows": sorted(windows, key=lambda row: int(row["window_id"]))}
+
+
+def native_task_scope_sha256(value: Any) -> str:
+    return hashlib.sha256(json.dumps(normalize_native_task_scope(value), sort_keys=True,
+                                    separators=(",", ":"), allow_nan=False).encode("ascii")).hexdigest()
+
+
 class NativeUiUnavailable(RuntimeError):
     """Accessibility was unavailable; this does not establish target absence."""
 
@@ -48,7 +75,8 @@ class NativeUiUnavailable(RuntimeError):
 
 
 class _JsonBridge:
-    def __init__(self, session_id: str, python_bin: str, timeout_s: float, process_id: int | None = None) -> None:
+    def __init__(self, session_id: str, python_bin: str, timeout_s: float, process_id: int | None = None,
+                 window_scope: dict[str, Any] | None = None) -> None:
         try:
             from portal.desktop import desktop_subprocess_environment
         except ModuleNotFoundError:
@@ -64,6 +92,7 @@ class _JsonBridge:
         self.timeout_s = timeout_s
         self.session_id = session_id
         self.process_id = process_id
+        self.window_scope = normalize_native_task_scope(window_scope) if window_scope is not None else None
         self.process = subprocess.Popen(  # noqa: S603
             [python_bin, "-I", "-u", str(Path(__file__).resolve()), "--bridge"],
             stdin=subprocess.PIPE,
@@ -79,7 +108,7 @@ class _JsonBridge:
         request_id = uuid.uuid4().hex
         encoded = json.dumps(
             {"schema": _PROTOCOL, "id": request_id, "session_id": self.session_id,
-             "process_id": self.process_id, **value}
+             "process_id": self.process_id, **value, "window_scope": self.window_scope}
         ).encode() + b"\n"
         if len(encoded) > 65536:
             raise NativeUiUnavailable("native_request_too_large")
@@ -181,6 +210,21 @@ class NativeUiAdapter:
         if cancelled is not None and not callable(cancelled):
             raise ValueError("Native cancellation must be a host callable")
         self._cancelled = cancelled
+        self._window_scope: dict[str, Any] | None = None
+        self._scope_locked = False
+
+    def set_window_scope(self, scope: dict[str, Any]) -> None:
+        """Host-only setup of a fresh adapter; no tool argument can change it."""
+        if self._scope_locked:
+            raise NativeUiUnavailable("native_task_scope_immutable")
+        self._window_scope = normalize_native_task_scope(scope)
+        self._scope_locked = True
+
+    def _scoped_foreground(self, environment: Mapping[str, str] | None = None) -> dict[str, Any]:
+        identity = _x11_foreground(environment)
+        if not _window_scope_allows(self._window_scope, identity, environment):
+            raise NativeUiUnavailable("native_task_window_out_of_scope")
+        return identity
 
     def _check_cancelled(self) -> None:
         if self._closed:
@@ -231,6 +275,9 @@ class NativeUiAdapter:
     def _request(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         if self._closed:
             raise NativeUiUnavailable("native_session_closed")
+        self._scope_locked = True
+        if self._window_scope is not None:
+            payload = {**payload, "window_scope": copy.deepcopy(self._window_scope)}
         if self._runner is not None:
             return self._runner(copy.deepcopy(dict(payload)))
         if sys.platform != "linux":
@@ -239,7 +286,8 @@ class NativeUiAdapter:
             )
         if self._bridge is None:
             try:
-                self._bridge = _JsonBridge(self.session_id, self.python_bin, self.timeout_s, self.process_id)
+                self._bridge = _JsonBridge(self.session_id, self.python_bin, self.timeout_s, self.process_id,
+                                           self._window_scope)
             except OSError:
                 raise NativeUiUnavailable("native_python_unavailable") from None
         return self._bridge.request(payload)
@@ -276,10 +324,12 @@ class NativeUiAdapter:
             from desktop import desktop_subprocess_environment
 
         environment = desktop_subprocess_environment()
-        identity = _x11_foreground(environment)
+        identity = self._scoped_foreground(environment)
         if state["scope"].get("window_id") != identity["window_id"]:
             raise NativeUiUnavailable("native_visual_scope_changed")
         capture = _capture_window(identity, environment)
+        if self._window_scope is not None and self._scoped_foreground(environment) != identity:
+            raise NativeUiUnavailable("native_visual_scope_changed")
         if "coordinate_binding" in state:
             import io
 
@@ -496,7 +546,8 @@ class NativeUiAdapter:
                         return {"status": "rejected", "reason": "native_visual_frame_changed"}
                     self._check_cancelled()
                     result = _pointer_dispatch(fresh["identity"], fresh["geometry"], visual["point"],
-                        "click" if action["verb"] == "invoke" else action["verb"], environment=fresh["environment"])
+                        "click" if action["verb"] == "invoke" else action["verb"], environment=fresh["environment"],
+                        foreground=lambda: self._scoped_foreground(fresh["environment"]))
                     result["point_receipt"] = copy.deepcopy(self.point_receipt)
                     return result
                 except NativeUiUnavailable as exc:
@@ -812,6 +863,39 @@ def _window_query(target: Any) -> dict[str, str] | None:
     return copy.deepcopy(target)
 
 
+def _window_scope_allows(scope: dict[str, Any] | None, identity: Mapping[str, Any],
+                         environment: Mapping[str, str] | None = None) -> bool:
+    if scope is None:
+        return True
+    env = {**(environment or os.environ), "LC_ALL": "C"}
+
+    def owner(xid: str) -> int | None:
+        result = subprocess.run(["xdotool", "getwindowpid", xid], capture_output=True,
+                                text=True, timeout=1, check=False, env=env)  # noqa: S603
+        return int(result.stdout.strip()) if not result.returncode and result.stdout.strip().isascii() and result.stdout.strip().isdecimal() else None
+
+    try:
+        xid, pid = identity["window_id"], identity["process_id"]
+        if (not isinstance(xid, str) or type(pid) is not int
+                or not any(row["process_id"] == pid for row in scope["windows"]) or owner(xid) != pid):
+            return False
+        start = _process_start(pid)
+        bases = [row for row in scope["windows"] if row["process_id"] == pid and row["process_start"] == start]
+        if not bases:
+            return False
+        if not any(row["window_id"] == xid for row in bases):
+            result = subprocess.run(["xprop", "-id", xid, "WM_TRANSIENT_FOR"], capture_output=True,
+                                    text=True, timeout=1, check=False, env=env)  # noqa: S603
+            match = re.fullmatch(r"WM_TRANSIENT_FOR\(WINDOW\): window id # (0x[0-9a-fA-F]+)\s*", result.stdout)
+            if result.returncode or match is None:
+                return False
+            bases = [row for row in bases if int(row["window_id"]) == int(match[1], 16)]
+        return (any(owner(row["window_id"]) == pid for row in bases)
+                and owner(xid) == pid and _process_start(pid) == start)
+    except (KeyError, OSError, ValueError, subprocess.TimeoutExpired, NativeUiUnavailable):
+        return False
+
+
 class _AtspiBridge:
     """Fixed native patterns with bounded reads and no arbitrary call surface."""
 
@@ -823,10 +907,12 @@ class _AtspiBridge:
     MAX_RETAINED_WINDOWS = 16
 
     def __init__(self, atspi: Any, glib: Any, session_id: str, process_id: int | None = None,
-                 foreground: Callable[[], dict[str, Any]] = _x11_foreground) -> None:
+                 foreground: Callable[[], dict[str, Any]] = _x11_foreground,
+                 window_scope: dict[str, Any] | None = None) -> None:
         self.atspi, self.glib, self.session_id = atspi, glib, session_id
         self.process_id = process_id
-        self.foreground = foreground
+        self.window_scope = normalize_native_task_scope(window_scope) if window_scope is not None else None
+        self._foreground_provider = foreground
         self.key = os.urandom(32)
         self.previous: set[str] = set()
         self._identity_children: dict[str, set[str]] = {}
@@ -838,6 +924,12 @@ class _AtspiBridge:
         self._coordinate_binding: dict[str, Any] | None = None
         self.atspi.init()
         self.atspi.set_timeout(250, 250)
+
+    def foreground(self) -> dict[str, Any]:
+        identity = self._foreground_provider()
+        if not _window_scope_allows(self.window_scope, identity):
+            raise NativeUiUnavailable("native_task_window_out_of_scope")
+        return identity
 
     def _read(self, function: Callable[[], Any]) -> Any:
         self.reads += 1
@@ -1378,6 +1470,10 @@ class _AtspiBridge:
                 else:
                     if include_windows and type(application_pid) is int:
                         xid = self._mapped_window(node, application_pid)
+                        if xid and not _window_scope_allows(self.window_scope,
+                                {"window_id": xid, "process_id": application_pid}):
+                            windows.pop(window, None)
+                            return True
                         if xid:
                             visible = all(state.contains(s) for s in (state_type.SHOWING, state_type.VISIBLE))
                             item = {"id": node_id, "generation": str(generation), "scope_id": node_id,
@@ -1564,6 +1660,9 @@ class _AtspiBridge:
             payload["scope"]["url"] = payload["document_evidence"]["url"]
         if self._coordinate_binding:
             payload["coordinate_binding"] = copy.deepcopy(self._coordinate_binding)
+        if self.window_scope is not None:
+            payload["window_scope_sha256"] = native_task_scope_sha256(self.window_scope)
+            payload["window_scope_count"] = len(self.window_scope["windows"])
         payload["revision"] = hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
@@ -1739,6 +1838,8 @@ class _AtspiBridge:
                 return reject("native_switch_window_mapping_changed")
 
             def operation() -> bool | dict[str, Any]:
+                if not _window_scope_allows(self.window_scope, {"window_id": xid, "process_id": owner}):
+                    return reject("native_task_window_out_of_scope")
                 if expected is not None and (self._read(node.get_process_id) != expected["process_id"]
                         or self._read(lambda: _process_start(owner)) != expected["process_start"]
                         or self._mapped_window(node, owner) != expected["window_id"]
@@ -1807,6 +1908,8 @@ class _AtspiBridge:
                 return {"status": "dispatched", "reason": "native_checked_already_satisfied"}
         # Once a native pattern is attempted, failure/exception does not prove
         # absence of partial effects. Only the controller's fresh predicates can.
+        if self.window_scope is not None and self.foreground() != self.foreground_identity:
+            return reject("native_foreground_changed_before_dispatch")
         try:
             ok = operation()
         except NativeUiUnavailable as exc:
@@ -1842,17 +1945,24 @@ def _bridge_main() -> None:
                 if process_id is not None and (type(process_id) is not int or not 0 < process_id < 2**31):
                     raise NativeUiUnavailable("native_process_scope_invalid")
                 try:
+                    window_scope = (normalize_native_task_scope(request["window_scope"])
+                                    if request.get("window_scope") is not None else None)
+                except ValueError:
+                    raise NativeUiUnavailable("native_task_scope_invalid") from None
+                try:
                     import gi
 
                     gi.require_version("Atspi", "2.0")
                     from gi.repository import Atspi, GLib
                 except (ImportError, ValueError):
                     raise NativeUiUnavailable("native_atspi_bindings_unavailable") from None
-                bridge = _AtspiBridge(Atspi, GLib, session_id, process_id)
+                bridge = _AtspiBridge(Atspi, GLib, session_id, process_id, window_scope=window_scope)
             if request.get("session_id") != bridge.session_id:
                 raise NativeUiUnavailable("native_session_mismatch")
             if request.get("process_id") != bridge.process_id:
                 raise NativeUiUnavailable("native_process_scope_mismatch")
+            if request.get("window_scope") != bridge.window_scope:
+                raise NativeUiUnavailable("native_task_scope_mismatch")
             if request.get("op") == "observe":
                 result = bridge.observe(include_windows=request.get("include_windows") is True,
                                         window_target=request.get("window_target"))

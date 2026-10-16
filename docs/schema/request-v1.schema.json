@@ -5,6 +5,7 @@
   "type": "object",
   "required": ["model", "messages", "stream"],
   "properties": {
+    "portal_native_task_scope": false,
     "model": {"type": "string", "minLength": 1},
     "messages": {
       "type": "array",

@@ -46,6 +46,17 @@ Dispatch uncertainty is retained before verification, preventing a repeated
 request from applying the same input again. The host's existing authenticated
 tool opt-in grants execution authority; model confidence cannot grant it.
 
+A foreground native task can further restrict that authority with the
+portal-only `portal_native_task_scope` described in the
+[protocol](protocol.md). The caller registers exact XID/PID/process-start tuples;
+the planner and finite-action generator see only positively mapped authorized
+windows, and the executor freshly checks authority before input or visual
+dispatch. A shared application PID does not authorize its other top-level
+windows. The private immutable scope binds the controller epoch and revision;
+only its digest and count enter model context. Task cleanup cannot remove a
+replacement epoch's scope. Ordinary callers that omit this restriction retain
+their existing native authority.
+
 Chromium semantic observations skip screenshots and inference. The revision
 hash remains stable when the observed state is unchanged. Navigation generates
 a new document identity even if a new page reuses an element ID. Native DOM
@@ -229,7 +240,10 @@ Direct tool clients and client-owned adapter loops retain the canonical API:
 3. `operation: "workflow"` accepts 1–25 typed steps and independently resolved
    `final_predicates`. It stops at the first unverified step.
 4. `operation: "cancel"` cancels the current operation. A fresh observation
-   starts a new controller; old candidate IDs remain invalid.
+   starts a new controller for ordinary unscoped operations; old candidate IDs
+   remain invalid. A scoped native task stays cancelled until its captured
+   epoch ends or the host explicitly starts a new task. Observe cannot silently
+   remove its window restriction.
 5. `operation: "verify"` takes `predicates` and performs a fresh independent
    observation. It returns a bound verification receipt only when those
    explicit predicates hold; unresolved checks remain failed evidence.

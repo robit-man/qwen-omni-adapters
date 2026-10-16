@@ -1011,6 +1011,7 @@ def test_complete_native_error_reply_allows_a_later_fresh_observation(monkeypatc
     bridge = _JsonBridge.__new__(_JsonBridge)
     bridge.session_id, bridge.timeout_s, bridge.closed = "fixture-session", 1, False
     bridge.process_id = None
+    bridge.window_scope = None
     with os.fdopen(read_fd, "rb") as reader, os.fdopen(write_fd, "wb") as writer:
         bridge.process = SimpleNamespace(stdin=io.BytesIO(), stdout=reader)
         envelope = {"schema": "robit.omni.native-ui.v1", "id": "request"}
