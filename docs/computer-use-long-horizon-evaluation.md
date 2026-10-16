@@ -1014,3 +1014,78 @@ defect, not evidence of model initialization failure. The private guard was
 corrected with explicit cold/on-demand versus resident-worker checks and
 bounded per-predicate samples. Recovery and remote model-task acceptance
 remain separate, pending checkpoints.
+
+### Focus contract and first original LHN-041 runs
+
+Commit `c459b74` explains keyboard focus and foreground activation in both
+canonical predicate schemas, which feed the model-visible phase packet and
+decoder schema. It changes descriptions only: predicates, capabilities,
+authority, token budgets and failure limits are unchanged. The full source
+gate passed 3,194 tests. Actual-library controls reproduced identical grammar
+bytes with and without the descriptions; that receipt SHA256 is
+`19e852263e0700aacf7779cc35828b8b988bea262aedd5f6edc5653479a98473`.
+
+One local CPU frontend handoff adopted this source while preserving the exact
+eight underlying GPU-stack process starts, the scoped GPU1 lease and common
+library `372a44f8`. The first frontend launch failed its doctor before spawning
+because the private checkout lacked the expected binary path. An ignored link
+to the already verified immutable binaries corrected that setup omission;
+neither source nor GPU workers changed.
+
+The first local original LHN-041 conflicting-revisions task failed after
+53.87 runner seconds and three phases. All three actual compiler requests
+contained the new descriptions in identical packet and decoder schemas.
+Two window switches used `active_window` correctly. The first phase still
+requested unsupported focus on an editor window root; the second misused an
+already-active switch with unrelated visibility predicates. The third reached
+an actual editable browser control and dispatched focus, physical typing of
+the current owned Workbench URI, and Enter. A subsequent nonexistent control
+target caused abstention. Five unique inputs were dispatched, but no task
+brief, revisions or official sources were read, and no deliverables or memory
+were produced. Proposed reconciliation prose was not evidence of reconciliation
+and was never typed. Annotation adoption passed; planner adherence was mixed
+and the whole task failed.
+
+The immutable bundle SHA256 is
+`3259b1c3717cc57cce11841d37f452fd981c38182934d544cd6e863f94d21a02`.
+All 20 inputs, all 139 preexisting X11 tree rows, source and exact GPU workers
+were preserved; three owned windows closed and the stack drained. The runner's
+own worker snapshot was unavailable, so its `workers_preserved` field remains
+null; the separate exact-process proof is positive. Final evidence:
+`runtime-data/gpu1-acceptance/operator-audit/native-focus-c459-20261016T124944Z/final-index.json`.
+There are now 14 local attempts across six of 200 model/case cells and five
+task IDs, with zero complete passes: 194 cells and 95 task IDs remain
+unattempted. Ledger SHA256:
+`a7d1f3542c62401438be5efa689b0f2d17bcfb97a53de1d7138ad302a223996c`.
+
+Egg41 automatically adopted `f808fb2`, passing 3,182 ARM tests and proving
+Ornith Tegra residency, the mapped bounds-corrected library and 65,536-token
+context. Its updater replaced the full core, even for these Python changes.
+The first original whole LHN-041 model run then failed after 343.78 seconds
+and three phases. The first malformed JSON reply produced typed nondispatch
+feedback, followed by a fresh observation and a valid second-phase workflow:
+bounded compiler recovery was exercised live. Reply length, finish metadata
+and the next raw compiler packet were not retained, so no output-cap or exact
+packet-delivery claim follows. A verified window switch and physical XTEST
+click occurred; a subsequent focus call on an editable control left its focus
+false while another child remained focused. The model also drifted toward
+Qwen documentation instead of the supplied GNOME revision-selection task.
+No keyboard input, acquired sources, artifacts, reader, Kev or memory calls
+followed. Owned cleanup and preservation passed, including all 61 preexisting
+X11 rows. Its immutable bundle SHA256 is
+`2eeef23f9473c72c604265628ceb075bfa060a9eb59908105d453f407b2b68a3`.
+This Tegra/Moondream-2/no-Kev result is a separate remote cohort, not one of
+the 200 local A100 results.
+
+Egg31 recovered its healthy runtime in 86.02 seconds, then passed 3,182 ARM
+source tests and adopted `f808fb2` with one supported Python reload. The daemon,
+trunk, native libraries, GPU workers and existing X11 tree were unchanged.
+Its first LHN-041 setup selected an unavailable editor and stopped before a
+model request. A corrected setup using the installed Gedit observed all three
+owned applications, but the Flatpak Firefox ownership helper subsequently
+returned EOF during registration. Gedit and Files closed; Firefox cleanup was
+withheld because its proof channel had failed. That case has no model-task
+coverage and cleanup remains incomplete. A separate private-Xvfb CPU
+discriminator reproduced fatal default-Xlib handling of an invalid window,
+but the earlier helper's stderr and exit status were not retained: its actual
+historical cause remains unknown. No existing browser window was killed.
