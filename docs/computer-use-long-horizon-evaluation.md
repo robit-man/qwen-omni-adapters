@@ -898,3 +898,65 @@ state restored and source/configuration preserved. Recovery note SHA256:
 `359fbba6153438aca94cc6f947fea4567600dc89f6490066854dab40e32bf300`.
 It still ran `476be1c` at this checkpoint; the decoder patch had not yet been
 pushed or adopted there. Remote long-task acceptance remains pending.
+
+### String bounds, LHN-092 and remote observation checkpoint
+
+A separate offline review of LHN-071's retained pixels and native receipts
+confirmed that the pointer hit Input and its parent selection changed from
+empty to `Input`. The table cell's focus predicate remained false. This proves
+selection, without proving that the directory opened or changing the failed
+task grade. The derived audit SHA256 is
+`33db8f385e7bb67373c50f4a47422b5d9a62fc0cc692357393179c554b21fcfb`.
+
+Commit `497c3ae` preserves explicit string bounds through the native regex
+fallback and composes large finite repetitions without the pinned parser's
+2,000-repeat limitation. The full source gate passed 3,149 tests locally and
+on Egg31. The local receipt SHA256 is
+`fc33ca74aff3d63dd19c9aaf88b4d3c0cc51c5b9f886e75d341f4cc0132f648b`.
+An independently built library, SHA256
+`372a44f8b1e83ddb539d274a662ffba9a487ca6504459e45de517b422a75d49f`,
+passed actual-library CPU grammar controls and one supported GPU1 Ornith
+adoption, with process maps, residency, pins and context verified.
+
+The original whole LHN-092 duplicate-name recovery task then failed in
+41.53 seconds. Phase one was schema-valid and exercised exactly 2,048
+characters of proposed text. It dispatched one verified window switch, then
+abstained because its focus target was a window advertising neither focus
+nor typing. No text was entered. Phase two returned an unfinished JSON string;
+the actual new-library CPU grammar accepted it as a viable, incomplete prefix.
+The native log records exactly 4,096 generated tokens, matching the adapter's
+clamp despite the caller requesting 8,192. An output-cap stop is an inference:
+the native finish reason was not retained. The JSON parse exception terminated
+the task after two phases. No source acquisition, physical pointer/typing,
+reader, Kev or memory calls occurred, and all three deliverables were absent.
+
+An independent review reproduced the immutable bundle SHA256
+`d62163a9eb5188c57e0b74dcb2bf77fac61f9834c415c2b686c132b65b8d609a`.
+Nine mandatory criteria failed; the full preservation assertion remained
+unproven, with positive bounded checks for unchanged inputs, 16 preexisting
+managed clients and three politely closed owned windows. Final evidence:
+`runtime-data/gpu1-acceptance/operator-audit/native-grammar-497c3ae-20261016T114236Z/final-index.json`.
+The ledger now contains 12 attempts across five of 200 local model/case cells
+and four task IDs, with zero full passes: 195 cells and 96 task IDs remain
+unattempted. Ledger SHA256:
+`d3e37b454a517f0f22f0ad0a8b1293b8cff917f40d312d7a9303e0f4283e4815`.
+
+Egg41 automatically adopted `76eaa64`, passed its 3,147-test source gate and
+loaded the corrected ARM common library, SHA256
+`7545df822fad9fc4bac0ee4375038f23134ab514eab768033f1d868a68fb55b8`.
+Its original LHN-041 setup still failed before any model request. One private
+trace proved an explicit null-child guard caused the native observation error;
+no underlying GI read exception was recorded. Commit `93c95e4` changes that
+guard to incomplete child coverage, preserving current siblings and identity
+history without old input handles. Its validated tree passed 3,159 tests.
+
+One corrected private-source observation on Egg41 returned a truncated current
+window instead of aborting. It exposed only that window: no child control graph
+or DocumentWeb/DocURL. Browser task readiness therefore remains blocked, and
+no canonical model task followed. An earlier private launcher failed its
+access-time assertion before observation; that instrumentation failure was
+retained and corrected separately. The successful private acceptance receipt
+SHA256 is `9d349ae1aa27065ace86689395691ed0be7c1af8a9b50062f291a1b5b15f7e34`.
+Production source and services remained unchanged during both private tests.
+Egg31's corresponding string-bounds library and source gate are prepared but
+not adopted. Remote setup/build results do not add local model/case coverage.
