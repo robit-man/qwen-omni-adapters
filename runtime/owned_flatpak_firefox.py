@@ -1009,7 +1009,7 @@ class OwnedFlatpakFirefox:
                                 or not result["ok"]
                                 and (
                                     not isinstance(result["code"], str)
-                                    or re.fullmatch(r"[a-z_]{1,128}", result["code"]) is None
+                                    or re.fullmatch(r"[a-z_][a-z0-9_]{0,127}", result["code"]) is None
                                     or result["launch"] is not None
                                     and not isinstance(result["launch"], dict)
                                 )
@@ -1092,7 +1092,7 @@ def _main():
                 else None,
                 "ok": False,
                 "code": code
-                if isinstance(code, str) and re.fullmatch(r"[a-z_]{1,128}", code)
+                if isinstance(code, str) and re.fullmatch(r"[a-z_][a-z0-9_]{0,127}", code)
                 else "flatpak_ownership_unavailable",
                 "launch": backend.launch_record() if backend else None,
             }
