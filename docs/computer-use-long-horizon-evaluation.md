@@ -420,6 +420,36 @@ it can be offered or activated, with authorization repeated at dispatch. The
 backup foreground guard remains. This addresses an authority mismatch; it
 does not establish long-task completion, visual reading or Kev coverage.
 
+The scoped source, `a4df402`, passed 2,723 checks with all 360 source
+fingerprints unchanged during validation. Its single unchanged full LHN-047
+replay verified the scope milestone: all four actual planner packets carried
+the same digest/count, excluded the preexisting same-PID editor, and contained
+no raw authorization list. Two real pinned Moondream-grounded XTEST
+double-clicks opened Input and then `task-brief.txt`; independent observation
+and the fourth planner packet confirmed the brief in owned GNOME XID
+`81788968`. The backup foreground guard reported no failure.
+
+The full task failed naturally after four phases in 110.31 seconds. Phase two's
+step verified, but its terminal observation crossed from Files into the editor
+and remained unresolved. Phases three and four requested `switch_window` on
+the already-active editor. Both enumerations offered only observe/abstain.
+The actual fourth planner packet already contained correct feedback identifying
+the target as the current scope and listing its available operations without
+`switch_window`; the model repeated the unsupported request. This is not a
+missing-feedback claim. Later keyboard steps, including guessed selection
+ranges, never ran. There were zero Kev calls, keyboard inputs, deliverables or
+memory recall. No long-task or policy-selection pass is inferred.
+
+All inputs and preexisting windows were preserved, registered windows closed,
+and queues, original workers, source and the same GPU1 lease remained healthy.
+Evidence is under
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-047-20261016T052849Z/`,
+with immutable bundle SHA256
+`a464fada5d51743cf2807d3cdf26cf01dc93a5d40932fca495c5e1cee93c87f5`.
+The separate operator note and actual phase/feedback diagnostic remain in its
+sibling operator directory. Scope enforcement and owned file opening passed;
+whole-task completion remains unresolved.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give

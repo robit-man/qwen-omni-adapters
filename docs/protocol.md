@@ -326,8 +326,9 @@ canonical positive decimal string in the unsigned 32-bit range; `process_id`
 is an integer from 1 through 2³¹−1, excluding booleans; `process_start` is a
 positive decimal string of at most 20 digits. Repeated PIDs must have the same
 start identity. Canonicalization sorts windows by numeric XID; its SHA256 binds
-ASCII, sorted-key, compact JSON. Invalid scopes or use outside an authenticated,
-native-enabled foreground `native_task` request return HTTP 400. Omission keeps
+ASCII, sorted-key, compact JSON. Unauthenticated requests return HTTP 401.
+Invalid scopes or use outside a native-enabled foreground `native_task` request
+return HTTP 400. Omission keeps
 the ordinary native authority of existing callers.
 
 The portal consumes this field before portable parsing, adapter transport,
