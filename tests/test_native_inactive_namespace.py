@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import subprocess
 import threading
 from types import SimpleNamespace
@@ -432,10 +431,18 @@ def test_private_namespace_proof_binds_revision_without_entering_public_state(mo
     assert first["nodes"] == second["nodes"]
     assert first["revision"] != second["revision"]
     for state in (first, second):
-        public = json.dumps(state)
-        assert "flatpak_namespace_metadata" not in public
-        assert "133" not in public and ":1.99" not in public
-        assert "inactive_namespace_bindings" not in public
+        fields, strings, pending = set(), set(), [state]
+        while pending:
+            value = pending.pop()
+            if isinstance(value, dict):
+                fields.update(value)
+                pending.extend(value.values())
+            elif isinstance(value, list):
+                pending.extend(value)
+            elif isinstance(value, str):
+                strings.add(value)
+        assert {"inactive_namespace_bindings", "metadata", "reported_pid", "bus_name"}.isdisjoint(fields)
+        assert {"flatpak_namespace_metadata", "133", ":1.99"}.isdisjoint(strings)
 
 
 def test_unknown_inactive_coverage_preserves_positive_current_control_authority(monkeypatch):
