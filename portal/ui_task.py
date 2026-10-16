@@ -206,7 +206,9 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 return
         yield finish("phase_budget_exceeded", "Native task reached its bounded phase budget.")
     except Exception as exc:
-        yield finish("blocked", "Native task callback failed: " + type(exc).__name__)
+        reason = boundary()
+        yield finish(reason or "blocked", "Native task stopped: " + reason if reason else
+                     "Native task callback failed: " + type(exc).__name__)
     finally:
         if not normal and not cleaned:
             cleaned = True

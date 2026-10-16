@@ -329,3 +329,211 @@ def test_crowded_native_planning_projection_keeps_mapped_inactive_windows(tmp_pa
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     result, _ = _post(app.test_client(), _request(False), False)
     assert result["portal"]["native_task"]["status"] == "planner_claim"
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("external", ["cancel", "trash"])
+def test_external_native_cancel_latches_goal_before_late_memory_dispatch(tmp_path, monkeypatch, stream, external):
+    store, adapters = _install_store(monkeypatch)
+    session_id = "native-cancelled-owned-session-12345"
+    calls, events = [], []
+    cancel_client = None
+
+    def upstream(request):
+        calls.append(json.loads(request.content))
+        if len(calls) == 1:
+            events.append(store._owned(session_id, "desktop").cancel)
+            plan = {"kind": "memory_write", "topic": "test", "key": "one", "value": "Before cancellation"}
+        elif len(calls) == 2:
+            if external == "cancel":
+                response = cancel_client.post("/api/tools/native_ui/call", headers=HEADERS, json={"operation": "cancel"})
+                assert response.status_code == 200
+            else:
+                assert cancel_client.delete("/api/diagnostics", headers=HEADERS).status_code == 204
+            plan = {"kind": "memory_write", "topic": "test", "key": "two", "value": "Forbidden after cancellation"}
+        else:
+            pytest.fail("Cancelled native task cannot start another compiler call")
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": json.dumps(plan)}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client, cancel_client = app.test_client(), app.test_client()
+    for item in (client, cancel_client):
+        item.set_cookie(SESSION_COOKIE_NAME, session_id)
+    body = _request(stream)
+    body["portal_tool_allowlist"] = ["native_ui", "memory_write", "memory_search"]
+    result, _ = _post(client, body, stream)
+    assert result["portal"]["native_task"]["status"] == "cancelled"
+    assert len(calls) == 2 and events[0].is_set()
+    assert [trace["arguments"]["key"] for trace in result["portal"]["safe_tools_executed"]] == ["one"]
+    assert len(adapters) == 1 and adapters[0].calls == []
+    recalled = cancel_client.post("/api/tools/memory_search/call", headers=HEADERS, json={"query": "Forbidden after cancellation"})
+    assert all(item["key"] != "two" and item["value"] != "Forbidden after cancellation"
+               for item in recalled.json["result"]["results"])
+
+
+def test_external_cancel_at_stream_tool_start_prevents_callback_and_next_compiler(tmp_path, monkeypatch):
+    store, adapters = _install_store(monkeypatch)
+    calls = []
+
+    def upstream(request):
+        calls.append(request)
+        assert len(calls) == 1
+        return httpx.Response(200, json={"message": {"content": json.dumps(_phase())}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client, canceller = app.test_client(), app.test_client()
+    session_id = "native-tool-start-cancel-session-12345"
+    for item in (client, canceller):
+        item.set_cookie(SESSION_COOKIE_NAME, session_id)
+    response = client.post("/api/chat/stream", headers=HEADERS, json=_request(True), buffered=False)
+    iterator = iter(response.response)
+    for chunk in iterator:
+        event = json.loads(chunk)
+        if event.get("type") == "tool" and event.get("phase") == "start":
+            break
+    assert canceller.post("/api/tools/native_ui/call", headers=HEADERS, json={"operation": "cancel"}).status_code == 200
+    events = [json.loads(chunk) for chunk in iterator]
+    response.close()
+    result = next(event["response"] for event in events if event.get("type") == "final")
+    assert result["portal"]["native_task"]["status"] == "cancelled"
+    assert result["portal"]["safe_tools_executed"] == []
+    assert len(calls) == 1 and all(adapter.calls == [] for adapter in adapters)
+    assert store._owned(session_id, "desktop").cancel.is_set()
+    activity = client.get("/api/activity", headers=HEADERS).json
+    assert activity["active"] == activity["inflight"] == activity["queued"] == 0
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_cancel_and_external_renew_before_store_lookup_cannot_dispatch_into_new_epoch(tmp_path, monkeypatch, stream):
+    import contextvars
+
+    store, adapters = _install_store(monkeypatch)
+    session_id = "native-lookup-race-session-12345"
+    original = tools_module.PortalToolHarness.execute
+    old_events, renewed_events, compiler_calls = [], [], []
+
+    def execute(harness, session, name, arguments):
+        if name == "native_ui":
+            old_events.append(store._owned(session, "desktop").cancel)
+            store.clear(session)
+            # An independent request may renew the current session after Trash.
+            contextvars.Context().run(lambda: store.planning_observation(session))
+            renewed_events.append(store._owned(session, "desktop").cancel)
+        return original(harness, session, name, arguments)
+
+    monkeypatch.setattr(tools_module.PortalToolHarness, "execute", execute)
+
+    def upstream(request):
+        compiler_calls.append(request)
+        assert len(compiler_calls) == 1
+        return httpx.Response(200, json={"message": {"content": json.dumps(_phase())}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, session_id)
+    result, _ = _post(client, _request(stream), stream)
+    assert result["portal"]["native_task"]["status"] == "cancelled"
+    assert len(adapters) == 2 and all(adapter.calls == [] for adapter in adapters)
+    assert old_events[0].is_set() and old_events[0] is not renewed_events[0]
+    assert renewed_events[0].is_set() is False  # Old task cleanup cannot cancel the new controller.
+    trace = result["portal"]["safe_tools_executed"]
+    assert len(trace) == 1 and json.loads(trace[0]["result"])["status"] == "cancelled"
+
+
+def test_late_timer_from_completed_goal_cannot_cancel_next_goal_or_replay_old_receipts(tmp_path, monkeypatch):
+    store, adapters = _install_store(monkeypatch)
+    timers, task_events = [], []
+    session_id = "native-timer-epoch-session-12345"
+
+    class Timer:
+        def __init__(self, _seconds, callback, args=(), kwargs=None):
+            self.callback = lambda: callback(*args, **(kwargs or {}))
+            if callback.__name__ == "cancel":
+                timers.append(self)
+
+        def start(self):
+            pass
+
+        def cancel(self):
+            pass
+
+    monkeypatch.setattr("portal.app.threading.Timer", Timer)
+
+    def upstream(_request):
+        task_events.append(store._owned(session_id, "desktop").cancel)
+        if len(task_events) == 2:
+            timers[0].callback()  # Simulate a timer already admitted before cancel().
+            assert task_events[1].is_set() is False
+        return httpx.Response(200, json={"message": {"content": json.dumps({"kind": "complete", "message": "Claim only"})}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, session_id)
+    first, _ = _post(client, _request(False), False)
+    second, _ = _post(client, _request(False), False)
+    assert first["portal"]["native_task"]["status"] == second["portal"]["native_task"]["status"] == "planner_claim"
+    assert len(adapters) == 2 and task_events[0] is not task_events[1]
+    assert task_events[0].is_set() and not task_events[1].is_set()
+
+
+def test_new_native_goal_keeps_existing_session_memory(tmp_path, monkeypatch):
+    _install_store(monkeypatch)
+    plans = iter([
+        {"kind": "memory_write", "topic": "source", "key": "kept", "value": "Preserved source note"},
+        {"kind": "complete", "message": "First claim"},
+        {"kind": "memory_search", "query": "Preserved source note", "max_results": 1},
+        {"kind": "complete", "message": "Second claim"},
+    ])
+
+    def upstream(_request):
+        return httpx.Response(200, json={"message": {"content": json.dumps(next(plans))}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, "native-memory-epoch-session-12345")
+    body = _request(False)
+    body["portal_tool_allowlist"] = ["native_ui", "memory_write", "memory_search"]
+    _post(client, body, False)
+    second, _ = _post(client, body, False)
+    traces = second["portal"]["safe_tools_executed"]
+    assert len(traces) == 1 and traces[0]["name"] == "memory_search"
+    assert json.loads(traces[0]["result"])["results"][0]["value"] == "Preserved source note"
+
+
+@pytest.mark.parametrize('stream', [False, True])
+def test_cancel_renew_at_scope_entry_cannot_admit_memory_executor(tmp_path, monkeypatch, stream):
+    from contextlib import contextmanager
+
+    store, adapters = _install_store(monkeypatch)
+    original = store.task_scope
+    entries, next_events = [], []
+
+    @contextmanager
+    def scope(session_id, surface, event):
+        entries.append(event)
+        if len(entries) == 2:
+            store.clear(session_id)
+            next_events.append(store.begin_task(session_id, surface))
+        with original(session_id, surface, event):
+            yield
+
+    monkeypatch.setattr(store, 'task_scope', scope)
+    calls = []
+
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(200, json={'message': {'content': json.dumps({
+            'kind': 'memory_write', 'topic': 'test', 'key': 'forbidden', 'value': 'Must never be stored'})}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, 'native-scope-entry-session-12345')
+    body = _request(stream)
+    body['portal_tool_allowlist'] = ['native_ui', 'memory_write', 'memory_search']
+    result, _ = _post(client, body, stream)
+    assert result['portal']['native_task']['status'] == 'cancelled'
+    traces = result['portal']['safe_tools_executed']
+    assert not any(json.loads(trace['result']).get('stored') for trace in traces)
+    assert len(calls) == 1
+    assert next_events and not next_events[0].is_set()
+    assert all(adapter.calls == [] for adapter in adapters)

@@ -288,3 +288,16 @@ def test_invalid_host_budgets_fail_before_observation_or_planning(options):
     with pytest.raises(ValueError):
         list(fixture.run(**options))
     assert fixture.packets == [] and fixture.adapter.timeline == []
+
+
+def test_callback_cancellation_exception_finishes_cancelled_without_replanning():
+    fixture = Fixture([phase()])
+
+    def cancelled_plan(_packet):
+        fixture.cancelled.set()
+        raise TimeoutError("Cancelled planner settled with an exception")
+
+    fixture.compile = cancelled_plan
+    result = final(list(fixture.run()))
+    assert result["portal"]["native_task"]["status"] == "cancelled"
+    assert fixture.executions == [] and fixture.cancel_count == 1

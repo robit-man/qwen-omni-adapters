@@ -251,3 +251,50 @@ def test_ui_mutations_advance_environment_without_fabricated_file_paths_and_repl
     assert duplicate["status"] == "verified"
     assert duplicate["effect_receipt"]["effect_state"] == "replayed"
     assert _evidence_authority({"name": "native_ui", "result": duplicate}) == "inspection"
+
+
+def test_explicit_task_epoch_invalidates_old_candidates_without_cancelling_browser():
+    from test_portal_native_task_routes import Adapter, _phase
+
+    adapters = []
+    def factory(session, _surface):
+        adapter = Adapter(session)
+        adapters.append(adapter)
+        return adapter
+    store = ComputerUseStore(None, adapter_factory=factory)
+    browser = store._owned("session", "browser")
+    old_event = store.begin_task("session")
+    step = _phase()["steps"][0]
+    offer = store.act("session", {"surface": "desktop", "operation": "observe", "step": step})
+    candidate = offer["selected_action_id"]
+    before = store.act("session", {"surface": "desktop", "operation": "execute", "action_id": candidate})
+    assert before["status"] == "verified"
+    new_event = store.begin_task("session")
+    assert old_event.is_set() and new_event is not old_event and not new_event.is_set()
+    assert browser.cancel.is_set() is False
+    rejected = store.act("session", {"surface": "desktop", "operation": "execute", "action_id": candidate})
+    assert rejected["status"] == "rejected"
+    assert adapters[-1].calls == []
+    fresh = store.act("session", {"surface": "desktop", "operation": "observe", "step": step})
+    current = store.act("session", {"surface": "desktop", "operation": "execute", "action_id": fresh["selected_action_id"]})
+    assert current["status"] == "verified" and len(adapters[-1].calls) == 1
+    assert current["action"]["id"] != before["action"]["id"]
+    with store.task_scope("session", "desktop", old_event):
+        assert store.planning_observation("session")["status"] == "cancelled"
+    assert new_event.is_set() is False
+
+
+def test_task_scope_cannot_rebind_to_another_session_or_surface():
+    from test_portal_native_task_routes import Adapter
+
+    store = ComputerUseStore(None, adapter_factory=lambda session, _surface: Adapter(session))
+    event = store.begin_task("first")
+    with store.task_scope("first", "desktop", event):
+        assert store.act("second", {"surface": "desktop", "operation": "observe"})["status"] == "cancelled"
+    assert event.is_set()
+    assert ("second", "desktop") not in store._sessions
+    newer = store.begin_task("first")
+    with store.task_scope("first", "desktop", newer):
+        assert store.act("first", {"surface": "browser", "operation": "observe"})["status"] == "cancelled"
+    assert ("first", "browser") not in store._sessions
+    assert newer.is_set()

@@ -2281,14 +2281,16 @@ def create_app(
         scope = frozenset({"native_ui", "memory_write", "memory_search"})
         if allowed_tools is not None:
             scope &= allowed_tools
-        stopped = threading.Event()
+        stopped = tool_harness.computer_use.begin_task(session_id, "desktop")
 
         def cancel():
             stopped.set()
-            tool_harness.computer_use.act(session_id, {"operation": "cancel", "surface": "desktop"})
 
         def observe():
-            receipt = tool_harness.computer_use.planning_observation(session_id)
+            with tool_harness.computer_use.task_scope(session_id, "desktop", stopped):
+                receipt = tool_harness.computer_use.planning_observation(session_id)
+            if stopped.is_set():
+                return receipt
             window_ids = tuple(node["id"] for node in receipt["state"]["nodes"]
                 if node.get("role") == "window" and "switch_window" in node.get("operations", [])
                 and node.get("visible") is True and node.get("enabled") is True
@@ -2296,6 +2298,8 @@ def create_app(
             return _model_ui_observation(receipt, references=window_ids)
 
         def compile_phase(packet):
+            if stopped.is_set():
+                raise PortalError("Native task cancelled")
             system = (
                 "You are the Omni task planner in a layered native computer-use system. "
                 "Return exactly one JSON phase matching the supplied schema, without tools or code. "
@@ -2336,6 +2340,8 @@ def create_app(
             }
             if isinstance(payload.get("options"), Mapping):
                 request_payload["options"] = copy.deepcopy(payload["options"])
+            if stopped.is_set():
+                raise PortalError("Native task cancelled")
             upstream = session.post(runtime.adapter_url, json=request_payload,
                                     timeout=max(0.1, min(runtime.timeout_s, packet["remaining_seconds"])))
             data = _json_object(upstream, "native phase planner")
@@ -2347,7 +2353,11 @@ def create_app(
             return json.loads(message["content"])
 
         def execute(name, arguments):
-            with scoped_tool_user_context(goal):
+            if stopped.is_set():
+                return {"status": "cancelled", "error": "native_task_cancelled"}
+            with tool_harness.computer_use.task_scope(session_id, "desktop", stopped), scoped_tool_user_context(goal):
+                if stopped.is_set():
+                    return {"status": "cancelled", "error": "native_task_cancelled"}
                 return tool_harness.execute(session_id, name, arguments)
 
         budget = min(runtime.timeout_s, 1800)

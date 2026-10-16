@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextvars
 import copy
 import hashlib
 import json
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit
@@ -230,6 +232,43 @@ class ComputerUseStore:
         self.adapter_factory = adapter_factory
         self._sessions: dict[tuple[str, str], _OwnedController] = {}
         self._lock = threading.RLock()
+        self._task_binding = contextvars.ContextVar("computer_use_task_binding", default=None)
+
+    def begin_task(self, session_id: str, surface: str = "desktop") -> threading.Event:
+        """Start a fresh controller epoch; earlier task events stay latched."""
+        if surface not in {"browser", "desktop"}:
+            raise ComputerUseError("surface must be browser or desktop")
+        with self._lock:
+            previous = self._sessions.pop((session_id, surface), None)
+            if previous is not None:
+                previous.cancel.set()
+                close = getattr(previous.adapter, "close", None)
+                if close:
+                    close()
+            return self._owned(session_id, surface).cancel
+
+    @contextmanager
+    def task_scope(self, session_id: str, surface: str, cancel: threading.Event):
+        """Bind server callbacks to an epoch without adding portable tool fields."""
+        if surface not in {"browser", "desktop"} or not isinstance(cancel, threading.Event):
+            raise ComputerUseError("Invalid native task binding")
+        with self._lock:
+            owned = self._sessions.get((session_id, surface))
+            if cancel.is_set() or owned is None or owned.cancel is not cancel:
+                cancel.set()
+        token = self._task_binding.set((session_id, surface, cancel))
+        try:
+            yield
+        finally:
+            self._task_binding.reset(token)
+
+    def _task_cancelled(self, session_id: str, surface: str, owned: _OwnedController | None = None) -> bool:
+        binding = self._task_binding.get()
+        if binding is None:
+            return False
+        if binding[:2] != (session_id, surface) or (owned is not None and owned.cancel is not binding[2]):
+            binding[2].set()
+        return binding[2].is_set()
 
     def clear(self, session_id: str) -> None:
         with self._lock:
@@ -290,12 +329,18 @@ class ComputerUseStore:
         No candidate offer, policy call, pointing call or input is requested.
         Subsequent workflow steps still independently resolve fresh state.
         """
+        if self._task_cancelled(session_id, "desktop"):
+            return {"status": "cancelled"}
         owned = self._owned(session_id, "desktop")
         with owned.lock:
+            if self._task_cancelled(session_id, "desktop", owned):
+                return {"status": "cancelled"}
             if owned.cancel.is_set():
                 self.clear(session_id)
                 return self.planning_observation(session_id)
             state = owned.controller.observe(planning=True)
+            if self._task_cancelled(session_id, "desktop", owned):
+                return {"status": "cancelled"}
             return _receipt_state({"state": state, "evidence_authority": "inspection",
                                    "task_progress": False}, state)
 
@@ -305,11 +350,16 @@ class ComputerUseStore:
                   "workflow": {"steps", "final_predicates"}, "verify": {"predicates"}, "cancel": set()}
         if op not in fields or set(arguments) - ({"operation", "surface"} | fields[op]):
             raise ComputerUseError("Invalid computer-use operation or fields")
-        owned = self._owned(session_id, arguments.get("surface", "browser"))
+        surface = arguments.get("surface", "browser")
+        if self._task_cancelled(session_id, surface):
+            return {"status": "cancelled"}
+        owned = self._owned(session_id, surface)
         if op == "cancel":
             owned.cancel.set()
             return {"status": "cancelled"}
         with owned.lock:
+            if self._task_cancelled(session_id, surface, owned):
+                return {"status": "cancelled"}
             if owned.cancel.is_set():
                 return {"status": "cancelled", "reason": "Observe again to start a new operation"} if op != "observe" else self._renew(session_id, arguments, goal)
             if op == "observe":

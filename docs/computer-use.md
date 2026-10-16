@@ -143,6 +143,15 @@ profile. Live Ornith evidence establishes valid phase generation and controller
 handoff, with zero dispatched inputs in the retained long-task attempts. It
 does not yet establish successful action chaining.
 
+Each goal starts a fresh desktop controller and captures that controller's
+cancellation event. Native cancellation and Trash latch the outer goal as well
+as its UI executor. Planning and execution callbacks stay bound to that session,
+surface and controller epoch, so renewal cannot turn a cancelled goal into new
+work. A late timer or generator cleanup only cancels its captured epoch; it
+cannot cancel a later goal. Browser state and session memory survive a new
+native goal. Already admitted input or model transport may settle before the
+next cancellation boundary; cancellation does not claim atomic rollback.
+
 Direct tool clients and client-owned adapter loops retain the canonical API:
 
 1. `operation: "observe"` returns semantic state. Supply `step` to enumerate
