@@ -1266,3 +1266,58 @@ new mapped resources remained and no affirmative cleanup authority existed.
 No second close or setup was attempted. Its canonical bundle SHA256 is
 `ddd3503246fcd51773ce41b1bbedfbca202c5ca153245b937a3f69a7ee6545d3`.
 Neither setup-only result enters the local 200-cell model denominator.
+
+### Owned text-handler qualification and typed helper errors
+
+Commit `673c09a` adds a default-off, explicit host setup option to own one blank
+selected text editor when the frozen fixture lacks an editor slot. The selected
+native editor must match the actual `text/plain` handler; mismatches stop before
+app launch. Existing slots are not duplicated, the 16-window ceiling remains,
+and only the fresh proven XID joins scope and cleanup. Goal, inputs, rubric,
+task signature, MIME defaults and model instructions are unchanged. The 159
+focused checks and full 3,265-test gate passed. This is a changed host setup
+condition, not a matched replay of the original five-app fixture.
+
+One original-goal Qwen LHN-059 qualification used the new runner with the
+existing `ef6403f` frontend and `c459b74` GPU supervisor; neither was restarted.
+Moondream grounding and physical double-clicks opened Input and the task brief.
+Fresh observation bound the brief to the supplemental owned editor XID
+`81789121`, excluding preexisting `81788932` despite their shared process.
+The guard stayed clear throughout. This passes the host brief-opening criterion.
+The whole task failed after 252.224 task seconds and nine phases: selection
+`0..1` was dispatched but never verified, and two cached unresolved retries
+reached the three-failure stop. Eight unique dispatches include semantic and
+unchanged operations; they are not eight physical clicks. There was no authored
+keyboard input, required output, acquired official source or memory result.
+
+The real brief-opening phase had a verified new applied prefix but a failed
+terminal predicate. Replaying all completed receipts in original order with
+the actual novelty history verifies prefix-recovery eligibility and a reset
+there. The live run stopped at phase nine; the old counter arithmetic on this
+same saved trajectory would stop at eight. That arithmetic is not a separately
+executed old-controller comparison. All three inputs, all 139 preexisting X11
+rows, eight worker starts and the lease were preserved, all six owned windows
+closed, and downstream work drained. Unrelated document contents were not read;
+the preservation evidence is scoped input, guard, identity and metadata evidence.
+Immutable bundle SHA256:
+`23d249a6bfb8a210c539c6e05e551b2425a305d230746a6dbf1520af2cbb6d19`.
+Independent review scored eight failed criteria and preservation passed, based
+on unchanged inputs, exact before/after trees and managed identities, six owned
+close receipts and the immutable scope excluding the older editor window.
+That preservation verdict retains the uninspected-content limitation above.
+There are 19 local attempts across nine model/case cells and seven task IDs,
+with zero whole-task passes. The newest attempt has the explicit additional
+host-condition label. Ledger SHA256:
+`08970e223a0360c4d628d65250432eaccd03c65833ae6338a67dfe44923ef4c8`.
+
+Commit `b25476d` fixes a separately reproduced helper-protocol defect: its
+validator rejected digits in its own `flatpak_x11_*` codes. Producer and client
+now preserve bounded ASCII identifier codes, while malformed codes are still
+redacted/rejected and never confer ownership. Actual CPU pipes reproduced three
+failures before the patch. Afterward 237 focused controls and the combined
+3,291-test source gate passed with 378 unchanged fingerprints. POST receipt
+SHA256:
+`69d690e9b6c7effe27a3c6e7aaf0df109a119b29c30e0d583e8a7a3b70d3e694`.
+The committed executable/test tree matches the validated isolated tree; this
+evaluation narrative was updated afterward. This does not identify Egg31's
+historical underlying error or restore a missing ownership ledger.
