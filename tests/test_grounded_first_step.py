@@ -32,6 +32,10 @@ def phase(*steps):
     return {"kind": "ui", "steps": list(steps), "final_predicates": [{"kind": "focused", "node_id": "current"}]}
 
 
+def boundary(value):
+    return {"kind": "ui_boundary", "step": {key: item for key, item in value.items() if key != "expect"}}
+
+
 def test_real_planning_boundary_rejects_current_window_without_advertised_focus():
     packets, dispatches = [], []
     unsupported = phase(step())
@@ -53,7 +57,7 @@ def grounded(current, allowed=("native_ui", "memory_write", "memory_search")):
 
 def test_exact_id_and_semantic_selectors_keep_positive_pairs_without_cross_products():
     current = observation(node("button", role="button", name="Run", operations=("focus",)),
-                          node("edit", role="textbox", name="Draft", operations=("type_text",)))
+                          node("edit", role="textbox", name="Draft", operations=("type_text",), focused=True))
     validator = Draft202012Validator(grounded(current))
     for target in ({"node_id": "button"}, {"role": "button"}, {"name": "Run"},
                    {"role": "button", "name": "Run", "scope_id": "scope"}):
@@ -101,15 +105,15 @@ def test_hidden_disabled_sensitive_and_unprojected_ids_never_populate_first_fini
 def test_only_existing_named_visual_discovery_keeps_no_id_and_no_fabricated_focus():
     validator = Draft202012Validator(grounded(observation()))
     for verb in ("invoke", "click", "double_click", "right_click"):
-        assert validator.is_valid(phase(step(verb, {"name": "Unmapped named control"})))
-        assert not validator.is_valid(phase(step(verb, {"node_id": "invented"})))
-        assert not validator.is_valid(phase(step(verb, {"role": "button"})))
+        assert validator.is_valid(boundary(step(verb, {"name": "Unmapped named control"})))
+        assert not validator.is_valid(boundary(step(verb, {"node_id": "invented"})))
+        assert not validator.is_valid(boundary(step(verb, {"role": "button"})))
     assert not validator.is_valid(phase(step("focus", {"name": "Unmapped named control"})))
     current = observation(node())
     current["state"]["truncated"] = True
     # Existing missing-name discovery has no global truncated guard. No new
     # promise of absence/protection coverage is manufactured by this schema.
-    assert Draft202012Validator(grounded(current)).is_valid(phase(step("click", {"name": "Unmapped"})))
+    assert Draft202012Validator(grounded(current)).is_valid(boundary(step("click", {"name": "Unmapped"})))
 
 
 def test_canonical_and_non_ui_contracts_stay_byte_equivalent_and_schema_does_not_mutate_observation():
@@ -119,7 +123,7 @@ def test_canonical_and_non_ui_contracts_stay_byte_equivalent_and_schema_does_not
     schema = grounded(current, iter(("native_ui", "memory_write", "memory_search")))
     assert current == before
     assert {key: schema["$defs"][key] for key in base["$defs"]} == base["$defs"]
-    assert schema["oneOf"][1:] == base["oneOf"][1:]
+    assert [item for item in schema["oneOf"][1:] if item["properties"]["kind"]["const"] != "ui_boundary"] == base["oneOf"][1:]
     for plan in ({"kind": "memory_write", "topic": "t", "key": "k", "value": "v"},
                  {"kind": "memory_search", "query": "q", "max_results": 1},
                  {"kind": "visual_inspection"}, {"kind": "complete", "message": "Claim"},
@@ -188,11 +192,16 @@ def test_unknown_malformed_or_oversized_grounding_withholds_ui_but_preserves_non
     ("drag_drop", {"to_node_id": "future-drop"}), ("select_text", {"start": 0, "end": 1}),
     ("type_text", {"text": 'quote " \\ café'})])
 def test_all_first_verb_argument_branches_roundtrip_through_canonical_host_parser(verb, args):
-    validator = Draft202012Validator(grounded(observation(node(name="", operations=(verb,)))))
+    validator = Draft202012Validator(grounded(observation(node(name="", operations=(verb,), focused=True))))
     for target in ({"node_id": "current"}, {"role": "window"}, {"role": "window", "name": ""}):
         value = step(verb, target, args)
-        assert validator.is_valid(phase(value))
         assert parse_step(value)["verb"] == verb
+        assert Draft202012Validator(ui_task.phase_response_schema({"native_ui"})).is_valid(phase(value))
+        if verb in {"invoke", "click", "double_click", "right_click"}:
+            assert not validator.is_valid(phase(value))
+            assert validator.is_valid(boundary(value))
+        else:
+            assert validator.is_valid(phase(value))
     assert not validator.is_valid(phase(step(verb, {"node_id": "invented"}, args)))
 
 

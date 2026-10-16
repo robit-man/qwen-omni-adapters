@@ -1002,3 +1002,92 @@ def test_manifest_refuses_unbounded_or_symlinked_evidence(tmp_path, monkeypatch,
         monkeypatch.setattr(cases, "MAX_BUNDLE_FILE", 4)
     with pytest.raises((ValueError, OSError)):
         cases.evidence_manifest(tmp_path, "case", "signature")
+
+
+def _boundary_tool_event(identity='boundary', *, cached=False, after=True, rejected=False):
+    record = {'status': 'observed_unverified', 'reason': 'Observation only',
+              'action': {'id': identity, 'node_id': 'Input', 'generation': '1', 'kind': 'action',
+                         'verb': 'click', 'args': {}, 'idempotency_key': identity+'-key'},
+              'receipt': {'status': 'rejected' if rejected else 'dispatched', 'backend': 'x11_guarded_xtest'},
+              'before': {'scope': {'window_id': '50'}}}
+    if after:
+        record['after'] = {'scope': {'window_id': '50'}}
+    result = {'dispatch_record': record,
+              'ui_boundary_receipt': {'schema': 'robit.omni.ui-boundary.v1', 'verified': False,
+                 'task_progress': False, 'new_effect_count': 0, 'cached': cached, 'observed': after,
+                 'adapter_called': not cached,
+                 'input_attempted': False if cached else None if rejected else True},
+              'effect_receipt': {'effect_state': 'replayed' if cached else 'unknown'}}
+    return {'type': 'tool', 'phase': 'complete', 'round': 1, 'tools': [{'name': 'native_ui', 'result': result}]}
+
+
+def test_long_runner_mixed_boundary_canonical_and_cached_evidence_counts_actual_inputs_only():
+    first = _boundary_tool_event()
+    original = copy.deepcopy(first)
+    key = {'status': 'verified', 'action': {'id': 'keyboard', 'verb': 'type_text', 'kind': 'action'},
+           'receipt': {'status': 'dispatched', 'backend': 'x11_guarded_xtest'},
+           'before': {'scope': {'window_id': '50'}}, 'after': {'scope': {'window_id': '50'}}}
+    second = {'type': 'tool', 'phase': 'complete', 'round': 2,
+              'tools': [{'name': 'native_ui', 'result': {'outcomes': [key]}}]}
+    cached = _boundary_tool_event(cached=True)
+    events = [first, second, cached]
+    guard = SimpleNamespace(records=[{'window_id': '50'}], positions=[{'x': 1, 'y': 2}, {'x': 2, 'y': 3}], failure=None)
+    method = runner.method_evidence(events, guard)
+    assert method['unique_dispatched_inputs'] == 2 and method['actual_pointer'] and method['actual_keyboard']
+    index = runner.native_outcome_index(events)
+    assert len(index) == 2 and index[0]['status'] == 'observed_unverified'
+    assert index[0]['effect_receipt']['effect_state'] == 'unknown'
+    metrics = runner.measured_metrics(events, elapsed_s=1, method=method)
+    assert [item['new_unique_dispatched_inputs'] for item in metrics['inner_inputs_per_phase']] == [1, 1, 0]
+    assert first == original
+
+
+def test_cached_only_boundary_and_rejected_movement_are_not_new_acknowledged_inputs():
+    for event in [_boundary_tool_event(cached=True), _boundary_tool_event(rejected=True)]:
+        before = copy.deepcopy(event)
+        method = runner.method_evidence([event], None)
+        assert method['unique_dispatched_inputs'] == 0 and not method['verified']
+        assert runner.measured_metrics([event], elapsed_s=0, method=method)['inner_inputs_per_phase'][0]['new_unique_dispatched_inputs'] == 0
+        assert len(runner.native_outcome_index([event])) == 1
+        assert event == before
+
+
+def test_boundary_missing_after_preserves_unknown_scope_and_deduplicates_real_auxiliary_receipts():
+    event = _boundary_tool_event(after=False)
+    result = event['tools'][0]['result']
+    policy = {'id': 'policy', 'model': 'Kev', 'status': 'accepted'}
+    point = {'candidate_id': 'Input', 'model': 'MD3.1', 'revision': 'pinned', 'frame_sha256': 'frame'}
+    result.update(policy_receipts=[policy, policy], point_receipts=[point])
+    result['dispatch_record']['receipt']['point_receipt'] = point
+    result['dispatch_record']['policy_receipt'] = policy
+    original = copy.deepcopy(event)
+    guard = SimpleNamespace(records=[{'window_id': '50'}], positions=[], failure=None)
+    method = runner.method_evidence([event], guard)
+    assert method['unique_dispatched_inputs'] == 1 and not method['same_owned_scope'] and not method['verified']
+    metrics = runner.measured_metrics([event], elapsed_s=0, method=method)
+    assert metrics['delegation']['policy']['unique_receipts'] == metrics['delegation']['point']['unique_receipts'] == 1
+    assert event == original
+
+
+@pytest.mark.parametrize('changed', [{'verified': True}, {'task_progress': True}, {'new_effect_count': False},
+                                     {'schema': 'untrusted'}, {'new_effect_count': 1}])
+def test_boundary_extractor_rejects_untyped_or_false_zero_credit_wrapper(changed):
+    event = _boundary_tool_event()
+    event['tools'][0]['result']['ui_boundary_receipt'].update(changed)
+    assert not runner.native_outcomes_from_events([event])
+
+
+@pytest.mark.parametrize('key,value', [('cached', None), ('cached', 'false'), ('input_attempted', False),
+                                      ('input_attempted', None), ('input_attempted', 'true'),
+                                      ('adapter_called', False), ('adapter_called', None), ('adapter_called', 'true')])
+def test_boundary_acknowledged_input_requires_all_exact_current_call_flags(key, value):
+    event = _boundary_tool_event()
+    receipt = event['tools'][0]['result']['ui_boundary_receipt']
+    if value is None:
+        receipt.pop(key)
+    else:
+        receipt[key] = value
+    method = runner.method_evidence([event], None)
+    assert method['unique_dispatched_inputs'] == 0
+    assert len(runner.native_outcome_index([event])) == 1
+    assert runner.measured_metrics([event], elapsed_s=0, method=method)['inner_inputs_per_phase'][0]['new_unique_dispatched_inputs'] == 0

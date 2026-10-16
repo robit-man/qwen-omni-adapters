@@ -12,7 +12,8 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from portal.ui_task import phase_response_schema, run_native_goal
+from portal.ui_task import _grounded_phase_schema, phase_response_schema, run_native_goal
+from qwen_omni_adapters.computer_use import parse_step
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = "458681e1d5d4a29a1463c4732e03226cf384b997"
@@ -105,15 +106,18 @@ def test_wrong_vendor_pin_stops_before_patch_or_build(tmp_path):
     assert not Path(env["BUILD_CALLS"]).exists()
 
 
-def _text_observation():
+def _text_observation(focused=True):
     return {"state": {"nodes": [{"id": "button", "generation": "1", "scope_id": "scope", "role": "button",
                                "name": "Open", "visible": True, "enabled": True, "sensitive": False,
-                               "operations": ["invoke"]}]}}
+                               "operations": ["focus"], "focused": False},
+                              {"id": "document", "generation": "1", "scope_id": "scope", "role": "textbox",
+                               "name": "Document", "visible": True, "enabled": True, "sensitive": False,
+                               "operations": ["type_text"], **({"focused": focused} if focused is not None else {})}]}}
 
 
 def _text_phase(value):
     return {"kind": "ui", "steps": [
-        {"id": "earlier", "verb": "invoke", "target": {"node_id": "button"},
+        {"id": "earlier", "verb": "focus", "target": {"node_id": "button"},
          "expect": [{"kind": "focused", "node_id": "$target"}]},
         {"id": "write", "verb": "type_text", "target": {"node_id": "document"},
          "args": {"text": value}, "expect": [{"kind": "focused", "node_id": "$target"}]}],
@@ -126,6 +130,9 @@ def test_full_canonical_host_validation_blocks_fallback_empty_or_nul_before_any_
     schema = phase_response_schema(allowed)
     assert schema["$defs"]["step_args"]["oneOf"][7]["properties"]["text"]["pattern"] == r"^[^\u0000]+$"
     plan, dispatched = _text_phase(value), []
+    # Prove the first step is supported: only the later malformed text blocks
+    # this otherwise admissible phase, before either action can dispatch.
+    assert Draft202012Validator(_grounded_phase_schema(allowed, _text_observation())).is_valid(_text_phase("valid"))
     events = list(run_native_goal("Owned goal", observe=_text_observation, compile_phase=lambda _: copy.deepcopy(plan),
                                  execute=lambda *args: dispatched.append(args), cancel=lambda: None,
                                  allowed_tools=allowed))
@@ -138,6 +145,10 @@ def test_full_canonical_host_validation_blocks_fallback_empty_or_nul_before_any_
 def test_valid_decoded_text_preserves_host_schema_and_arguments(value):
     plan, dispatched = _text_phase(value), []
     Draft202012Validator(phase_response_schema({"native_ui"})).validate(plan)
+    public_invoke = copy.deepcopy(plan)
+    public_invoke["steps"][0]["verb"] = "invoke"
+    assert Draft202012Validator(phase_response_schema({"native_ui"})).is_valid(public_invoke)
+    assert not Draft202012Validator(_grounded_phase_schema({"native_ui"}, _text_observation())).is_valid(public_invoke)
     plans = iter([plan, {"kind": "complete", "message": "Claim"}])
     events = list(run_native_goal("Owned goal", observe=_text_observation, compile_phase=lambda _: copy.deepcopy(next(plans)),
                                  execute=lambda name, args: dispatched.append((name, copy.deepcopy(args))) or {"status": "complete"},
@@ -145,6 +156,24 @@ def test_valid_decoded_text_preserves_host_schema_and_arguments(value):
     assert len(dispatched) == 1
     assert dispatched[0][1]["steps"] == plan["steps"]
     assert events[-1]["response"]["portal"]["native_task"]["status"] == "planner_claim"
+
+
+@pytest.mark.parametrize("focused", [None, False])
+def test_first_typing_requires_positive_focus_while_public_and_future_typing_remain_valid(focused):
+    value = 'quote " and backslash \\ café'
+    plan = _text_phase(value)
+    first_typing = {**plan, "steps": [plan["steps"][1]]}
+    assert parse_step(first_typing["steps"][0])["args"]["text"] == value
+    assert Draft202012Validator(phase_response_schema({"native_ui"})).is_valid(first_typing)
+    assert Draft202012Validator(_grounded_phase_schema({"native_ui"}, _text_observation(True))).is_valid(first_typing)
+    assert Draft202012Validator(_grounded_phase_schema({"native_ui"}, _text_observation(focused))).is_valid(plan)
+    dispatched = []
+    events = list(run_native_goal("Owned goal", observe=lambda: _text_observation(focused),
+                                 compile_phase=lambda _: copy.deepcopy(first_typing),
+                                 execute=lambda *args: dispatched.append(args), cancel=lambda: None,
+                                 allowed_tools={"native_ui"}))
+    assert dispatched == []
+    assert events[-1]["response"]["portal"]["native_task"]["status"] == "blocked"
 
 
 def test_host_rejects_decoded_short_surrogate_pair_even_when_native_units_satisfy_minimum():

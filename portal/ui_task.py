@@ -19,7 +19,12 @@ from typing import Any
 from jsonschema import Draft202012Validator, ValidationError
 
 from portal.tools import tool_schemas
-from qwen_omni_adapters.computer_use import ComputerUseError, parse_predicates, parse_step
+from qwen_omni_adapters.computer_use import (
+    ComputerUseError,
+    parse_intent,
+    parse_predicates,
+    parse_step,
+)
 
 
 def phase_response_schema(allowed_tools: Iterable[str]) -> dict[str, Any]:
@@ -117,13 +122,15 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
         identities.add(node["id"])
         if node["visible"] is True and node["enabled"] is True and node["sensitive"] is False:
             for verb in set(node["operations"]):
+                if verb == "type_text" and node.get("focused") is not True:
+                    continue
                 eligible[verb].append(node)
 
     def target(properties, required):
         return {"type": "object", "additionalProperties": False,
                 "properties": properties, "required": required}
 
-    first = []
+    first, boundaries = [], []
     for verb, controls in eligible.items():
         selectors = []
         if controls:
@@ -150,14 +157,32 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
             branch["properties"]["target"] = {"anyOf": selectors}
             if verb == "switch_window":
                 branch["properties"]["expect"] = copy.deepcopy(switch_effect)
-            first.append(branch)
-    if not first:
+            if verb == "focus":
+                branch["properties"]["expect"] = copy.deepcopy(switch_effect)
+                branch["properties"]["expect"]["items"]["properties"]["kind"] = {"const": "focused"}
+            if verb in {"invoke", "click", "double_click", "right_click"}:
+                branch["properties"].pop("expect")
+                branch["required"].remove("expect")
+                boundaries.append(branch)
+            else:
+                first.append(branch)
+    if not first and not boundaries:
         return non_ui()
-    schema["$defs"]["grounded_first_step"] = {"oneOf": first}
-    schema["oneOf"][0]["properties"]["steps"] = {"anyOf": [
-        {"type": "array", "prefixItems": [{"$ref": "#/$defs/grounded_first_step"}]
-             + [{"$ref": "#/$defs/causal_step"}] * (length - 1), "minItems": length, "maxItems": length}
-        for length in range(1, 26)]}
+    if first:
+        schema["$defs"]["grounded_first_step"] = {"oneOf": first}
+        schema["oneOf"][0]["properties"]["steps"] = {"anyOf": [
+            {"type": "array", "prefixItems": [{"$ref": "#/$defs/grounded_first_step"}]
+                 + [{"$ref": "#/$defs/causal_step"}] * (length - 1), "minItems": length, "maxItems": length}
+            for length in range(1, 26)]}
+    else:
+        schema["oneOf"].pop(0)
+    if boundaries:
+        schema["oneOf"].append({"type": "object", "additionalProperties": False,
+            "required": ["kind", "step"], "properties": {
+                "kind": {"const": "ui_boundary"}, "step": {"oneOf": boundaries},
+                "remaining_criteria": copy.deepcopy(fallback["oneOf"][0]["properties"]["remaining_criteria"])},
+            "description": "One guarded input followed by semantic observation and replanning. "
+                           "No effect predicate, verified progress, or following step."})
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
         return non_ui()
     return schema
@@ -195,7 +220,7 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
               "verification_receipt", "ui_state_receipt", "effect_receipt", "action_receipt",
               "policy_receipts", "point_receipts", "selection_receipts", "evidence_authority", "resource", "stored",
               "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results",
-              "reading", "visual_inspection_receipt")
+              "reading", "visual_inspection_receipt", "ui_boundary_receipt", "observed_changes")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
     if not _accepted_visual_reading(result):
         compact.pop("reading", None)
@@ -381,6 +406,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
     failed, normal, cleaned, phases, claims = 0, False, False, 0, []
     zero_effect_ui_phases: set[str] = set()
     applied_ui_transitions: set[str] = set()
+    boundary_observations: set[str] = set()
 
     def boundary():
         if cancelled is not None and cancelled():
@@ -450,6 +476,8 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                     for step in plan["steps"]:
                         parse_step(step)
                     parse_predicates(plan["final_predicates"], terminal=True)
+                if kind == "ui_boundary":
+                    parse_intent(plan["step"])
             except (ValidationError, ComputerUseError, ValueError, TypeError) as exc:
                 last_result = {"error": "invalid_native_phase", "dispatch_status": "not_dispatched",
                                "reason": str(exc.message if isinstance(exc, ValidationError) else exc)[:600]}
@@ -464,9 +492,10 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 normal = kind == "complete"
                 yield finish("planner_claim" if normal else "blocked", plan.get("message", plan.get("reason", "")))
                 return
-            name = "native_ui" if kind in {"ui", "visual_inspection"} else kind
+            name = "native_ui" if kind in {"ui", "ui_boundary", "visual_inspection"} else kind
             arguments = ({"operation": "workflow", "steps": plan["steps"], "final_predicates": plan["final_predicates"]}
-                         if kind == "ui" else {"operation": "inspect_visual"} if kind == "visual_inspection" else {key: value for key, value in plan.items()
+                         if kind == "ui" else {"operation": "observation_boundary", "intent": plan["step"]}
+                         if kind == "ui_boundary" else {"operation": "inspect_visual"} if kind == "visual_inspection" else {key: value for key, value in plan.items()
                                                 if key not in {"kind", "remaining_criteria"}})
             if name not in allowed:
                 raise ValueError("Compiled phase exceeds immutable tool scope")
@@ -500,6 +529,18 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             ok = not result.get("error") and not replayed_only and (kind != "ui" or result.get("status") == "complete")
             if kind == "visual_inspection":
                 ok = ok and _accepted_visual_reading(result)
+            novel_boundary = False
+            if kind == "ui_boundary":
+                receipt = result.get("ui_boundary_receipt", {})
+                ok = (result.get("status") == "observed_unverified" and receipt.get("observed") is True
+                      and receipt.get("verified") is False and receipt.get("task_progress") is False
+                      and type(receipt.get("new_effect_count")) is int and receipt["new_effect_count"] == 0
+                      and result.get("effect_receipt", {}).get("effect_state") == "unknown")
+                key = receipt.get("novelty_key")
+                if (ok and receipt.get("input_attempted") is True and receipt.get("cached") is False
+                        and isinstance(key, str) and re.fullmatch(r"[0-9a-f]{64}", key)):
+                    novel_boundary = key not in boundary_observations
+                    boundary_observations.add(key)
             recoverable_prefix = kind == "ui" and _new_verified_ui_prefix(result, applied_ui_transitions)
             tool.update(ok=ok, status="complete", result=content)
             traces.append(copy.deepcopy(tool))
@@ -509,10 +550,15 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                            "criteria_authority": "planner_claim", "result": {
                                key: copy.deepcopy(last_result[key]) for key in
                                ("status", "error", "reason", "phase_handoff", "ui_state_receipt",
-                                "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt")
+                                "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt",
+                                "ui_boundary_receipt", "observed_changes")
                                if key in last_result}})
             ledger = ledger[-12:]
-            failed = 0 if ok or recoverable_prefix else failed + 1
+            if kind == "ui_boundary":
+                # Observation protocol success is not verified task progress.
+                failed += not novel_boundary
+            else:
+                failed = 0 if ok or recoverable_prefix else failed + 1
             yield {"type": "tool", "phase": "complete", "round": phases, "tools": [copy.deepcopy(tool)]}
             if failed >= 3:
                 yield finish("blocked", "Three consecutive native phases were invalid or unverified.")

@@ -19,6 +19,7 @@ import httpx
 from qwen_omni_adapters.computer_use import (
     ComputerUseError,
     RapidUiController,
+    parse_intent,
     parse_step,
     predicate_satisfied,
 )
@@ -217,6 +218,39 @@ def _effect_result(outcome: dict[str, Any], settled: set[str] | None = None) -> 
     return result
 
 
+def _boundary_changes(before: dict, after: dict) -> dict:
+    """Bounded factual readback, never a changed-state effect predicate."""
+    old = {node["id"]: node for node in before.get("nodes", [])}
+    new = {node["id"]: node for node in after.get("nodes", [])}
+    changes, count, remaining = [], 0, 6000
+    fields = ("focused", "selected", "checked", "value", "visible", "enabled")
+    for identity in dict.fromkeys((*old, *new)):
+        first, last = old.get(identity), new.get(identity)
+        if any(node and node.get("sensitive") for node in (first, last)):
+            continue
+        keys = [key for key in fields if (first or {}).get(key) != (last or {}).get(key)]
+        if first is not None and last is not None and not keys:
+            continue
+        count += 1
+        item = {"id": identity, "kind": "newly_observed" if first is None else "no_longer_observed" if last is None else "fields"}
+        for label, node in (("before", first), ("after", last)):
+            if node is not None:
+                view = {key: copy.deepcopy(node[key]) for key in
+                        ("generation", "scope_id", "role", "name", *keys) if key in node}
+                if isinstance(view.get("value"), str) and len(view["value"]) > 500:
+                    view["value"], view["value_truncated"] = view["value"][:500], True
+                item[label] = view
+        size = len(json.dumps(item, ensure_ascii=False))
+        if len(changes) < 21 and size <= remaining:
+            changes.append(item)
+            remaining -= size
+    return {"evidence_authority": "untrusted_observed_ui", "task_progress": False,
+            "snapshot_only": True, "absence_claims_supported": False,
+            "before_truncated": before.get("truncated", False), "after_truncated": after.get("truncated", False),
+            "nodes": changes, "change_count": count, "omitted": count - len(changes),
+            "scope_before": copy.deepcopy(before.get("scope")), "scope_after": copy.deepcopy(after.get("scope"))}
+
+
 def _selection_receipt(index: int, step: dict, state: dict, actions: list[dict], selection: dict) -> dict:
     """Factual selector feedback; observed matches never prove global absence."""
     selected = next(item for item in actions if item["id"] == selection["selected_action_id"])
@@ -265,10 +299,13 @@ class ComputerUseStore:
         self._lock = threading.RLock()
         self._task_binding = contextvars.ContextVar("computer_use_task_binding", default=None)
 
-    def begin_task(self, session_id: str, surface: str = "desktop", *, window_scope=None) -> threading.Event:
+    def begin_task(self, session_id: str, surface: str = "desktop", *, window_scope=None,
+                   private_boundaries: bool = False) -> threading.Event:
         """Start a fresh controller epoch; earlier task events stay latched."""
         if surface not in {"browser", "desktop"}:
             raise ComputerUseError("surface must be browser or desktop")
+        if type(private_boundaries) is not bool or private_boundaries and surface != "desktop":
+            raise ComputerUseError("Invalid native boundary protocol")
         if window_scope is not None:
             from portal.native_ui import normalize_native_task_scope
             if surface != "desktop":
@@ -281,7 +318,10 @@ class ComputerUseStore:
                 close = getattr(previous.adapter, "close", None)
                 if close:
                     close()
-            return self._owned(session_id, surface, window_scope=window_scope).cancel
+            owned = self._owned(session_id, surface, window_scope=window_scope)
+            if private_boundaries:
+                owned.controller.enable_native_task_protocol()
+            return owned.cancel
 
     def end_task(self, session_id: str, surface: str, cancel: threading.Event) -> None:
         """Release only this completed epoch, never a newer task or memory scope."""
@@ -401,6 +441,63 @@ class ComputerUseStore:
                 return {"status": "cancelled"}
             return _receipt_state({"state": state, "evidence_authority": "inspection",
                                    "task_progress": False}, state)
+
+    def observation_boundary(self, session_id: str, intent: dict[str, Any], *, goal: str = "") -> dict[str, Any]:
+        """Private authenticated native-task callback; not a public tool operation."""
+        parsed = parse_intent(intent)
+        owned = self._owned(session_id, "desktop")
+        binding = self._task_binding.get()
+        if binding != (session_id, "desktop", owned.cancel):
+            raise ComputerUseError("Boundary requires the current native task binding")
+        with owned.lock:
+            if self._task_cancelled(session_id, "desktop", owned) or owned.cancel.is_set():
+                return {"status": "cancelled", "task_progress": False}
+            choices = []
+            selections = []
+            policy_receipts = []
+            def choose(state, actions):
+                selected = self._select(owned, state, actions, parsed, goal)
+                choices.append(selected["selected_action_id"])
+                if "policy_receipt" in selected:
+                    policy_receipts.append(copy.deepcopy(selected["policy_receipt"]))
+                selections.append(_selection_receipt(0, parsed, state, actions, selected))
+                return {"choice": selected["selected_action_id"]}
+            record = owned.controller.run_boundary(parsed, choose, owned.cancel)
+            action = record.get("action", {})
+            cached = bool(choices and action.get("id") != choices[-1])
+            adapter_called = bool(not cached and record.get("dispatch_attempted"))
+            dispatch = record.get("receipt", {})
+            attempted = (False if not adapter_called else dispatch["input_attempted"]
+                         if type(dispatch.get("input_attempted")) is bool else True
+                         if dispatch.get("status") == "dispatched" else None)
+            may_have_changed = adapter_called and attempted is not False
+            before, after = record.get("before", {}), record.get("after", {})
+            observed = (not cached and record.get("status") == "observed_unverified"
+                        and not owned.cancel.is_set())
+            first = before.get("base_semantic_revision", before.get("revision"))
+            last = after.get("base_semantic_revision", after.get("revision"))
+            signature = (_digest({"intent": owned.controller._intent_key(before, action),
+                                  "after_scope": after["scope"], "after_semantic_revision": last})
+                         if observed and attempted and first != last else None)
+            changes = _boundary_changes(before, after) if observed else {"nodes": [], "change_count": 0, "omitted": 0}
+            result = {"status": "observed_unverified" if observed else record.get("status", "unresolved"),
+                "reason": str(record.get("reason", ""))[:1000],
+                "evidence_authority": "inspection", "task_progress": False, "new_effect_count": 0,
+                "dispatch_record": record, "selection_receipts": selections,
+                "policy_receipts": policy_receipts,
+                "point_receipts": [receipt] if (receipt := _point_receipt(owned.adapter)) else [],
+                "ui_boundary_receipt": {"schema": "robit.omni.ui-boundary.v1", "verified": False,
+                    "input_attempted": attempted, "cached": cached, "observed": observed,
+                    "adapter_called": adapter_called, "environment_may_have_changed": may_have_changed,
+                    "task_progress": False, "new_effect_count": 0, "novelty_key": signature,
+                    "before_semantic_revision": first, "after_semantic_revision": last},
+                "observed_changes": changes,
+                "effect_receipt": {"schema": "robit.omni.ui-effect-receipt.v1",
+                    "effect_state": "replayed" if cached else "unknown" if may_have_changed else "absent",
+                    "environment_may_have_changed": may_have_changed}, "next": "replan"}
+            if observed:
+                result = _receipt_state(result, after)
+            return result
 
     def act(self, session_id: str, arguments: dict[str, Any], *, goal: str = "") -> dict[str, Any]:
         op = arguments.get("operation", "observe")

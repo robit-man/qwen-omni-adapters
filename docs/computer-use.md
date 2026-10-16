@@ -333,7 +333,20 @@ visible, enabled, nonsensitive nodes in the current model observation. Exact-ID
 selectors and grouped semantic selectors preserve the controller's finite
 ambiguity policy. The existing named visual discovery alternatives remain for
 invoke/click/double-click/right-click without invented IDs; their native
-protection, frame and input checks still decide availability. Steps 2–25 retain
+protection, frame and input checks still decide availability. A first pointer or
+activation intent uses the private `ui_boundary` phase: one `step` with typed
+`id`, `verb`, `target` and `args`, without `expect`, final predicates or following
+steps. The shared controller guards dispatch, then makes one pure semantic read
+without another pointing request. Its `observed_unverified` result carries
+inspection evidence and zero verified effect, progress or execution-epoch credit.
+Bounded snapshot deltas retain actual selection/focus changes even when their
+nodes were omitted from the planning projection; they do not infer ancestry,
+creation, deletion or global absence. Protected data stays redacted and omitted
+or clipped readback is explicit. Unknown click/open consequences are observed for
+replanning, never converted into a placeholder effect predicate.
+
+First `focus` requires exactly `focused/$target`; first `type_text` requires a
+positively focused editable capability. Steps 2–25 retain
 the canonical generic target and argument contracts so controls created by earlier
 steps remain expressible. Every private planner `switch_window` step, including
 later steps, requires exactly `[{"kind":"active_window","node_id":"$target"}]`
@@ -348,12 +361,28 @@ never shortens the 25-step bound. This schema limit is not a universal prompt-fi
 or task-success guarantee. Native revision, identity, scope, cancellation,
 idempotency and effect verification remain authoritative.
 
-The bounded source check used the actual pinned native common library and both
-installed Qwen27B and Ornith9B templates/vocabularies, with CPU tokenization only.
-The measured near-limit 80-node stress used 54,284 prompt tokens plus an 8,192-token
-conservative output reserve within a 65,536-token context. All twelve retained
-packet UI schemas remained available. Applying the existing model observation
-projection reduced that stress to 40 nodes and 36,721 prompt tokens. Its node
+Only the trusted native-task controller enables the private boundary protocol.
+Its bounded intent registry binds session, full scope, node generation, verb,
+arguments and pre-input semantic revision, independently of model step ID,
+authored predicates or phase mode. Pending and unverified attempts stay locked
+through aliases, mode changes and unrelated mutation cycles. Only an existing
+verified semantic mutation may renew under the separate later-completion epoch
+rule. Public direct-client caches and canonical step definitions are unchanged.
+One newly observed semantic boundary permits replanning without resetting prior
+failures; cached, unchanged, repeated or unavailable observations consume the
+same three-failure budget. Original phase/time/cancellation bounds remain.
+
+The boundary source check used the actual pinned native common library and both
+installed Qwen27B and Ornith9B templates/vocabularies: 87 controls per template
+passed with CPU grammar/tokenization only, without inference or task credit.
+The selected near-limit schema was 57,163 bytes and its prompt 53,163 tokens;
+adding the 8,192-token reserve totals 61,355 within the 65,536-token context.
+Applying the existing observation projection reduced the stress to 40 nodes and
+36,898 prompt tokens. All twelve retained UI packet schemas remained available
+(maximum 55,684 bytes; maximum saved prompt 34,834 tokens). The selected largest
+over-cap non-UI fallback used 56,315 prompt tokens, or 64,507 with the reserve.
+Earlier pre-boundary 54,284/36,721-token measurements remain historical artifacts.
+The node
 budget counts 12,000 JSON characters with `ensure_ascii=False`, rather than
 12,000 UTF-8 bytes. These measurements include goal, ledger, last result, state
 and schema for the selected fixtures; arbitrary maximal goals or ledgers are

@@ -66,7 +66,11 @@ def test_private_restriction_preserves_public_canonical_definitions_and_observat
     derived = ui_task._grounded_phase_schema({"native_ui", "memory_search"}, observation)
     assert observation == before
     assert {key: derived["$defs"][key] for key in public["$defs"]} == public["$defs"]
-    assert derived["oneOf"][1:] == public["oneOf"][1:]
+    assert [item for item in derived["oneOf"][1:]
+            if item["properties"]["kind"]["const"] != "ui_boundary"] == public["oneOf"][1:]
+    boundary = {"kind": "ui_boundary", "step": {"id": "one", "verb": "click", "target": {"name": "Unmapped control"}}}
+    assert Draft202012Validator(derived).is_valid(boundary)
+    assert not Draft202012Validator(public).is_valid(boundary)
     # Existing direct-client contracts may name independent effects. Only the
     # private native goal planner uses the causal window-switch restriction.
     bad_for_private = phase([switch(effects=[{"kind": "active_window", "node_id": "editor"}])])

@@ -7,6 +7,7 @@ review; --evaluate consumes a separate host review bound to the captured bundle.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import os
@@ -46,9 +47,11 @@ from runtime.long_horizon_cases import (
 from runtime.long_horizon_desktop import TaskDesktop, managed_inventory, unrelated_preservation
 from runtime.verify_real_desktop import (
     dispatched_actions,
-    outcomes_from_events,
     physical_pointer_action,
     structured,
+)
+from runtime.verify_real_desktop import (
+    outcomes_from_events as canonical_outcomes_from_events,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -243,8 +246,48 @@ def stream_turn(client, base, payload, root, seconds, *, desktop=None, observer=
             "elapsed_s": time.monotonic() - started}, guard
 
 
+def native_outcomes_from_events(events):
+    """Chronological typed boundary views; raw dispatch records stay unchanged."""
+    outcomes, seen = [], set()
+    for event in events:
+        if event.get("type") != "tool" or event.get("phase") != "complete":
+            continue
+        for call in event.get("tools", []):
+            if call.get("name") not in {"native_ui", "computer_use"}:
+                continue
+            result = structured(call.get("result"))
+            values = canonical_outcomes_from_events([{"tools": [call]}])
+            boundary, record = result.get("ui_boundary_receipt"), result.get("dispatch_record")
+            if (isinstance(boundary, dict) and boundary.get("schema") == "robit.omni.ui-boundary.v1"
+                    and boundary.get("verified") is False and boundary.get("task_progress") is False
+                    and type(boundary.get("new_effect_count")) is int and boundary["new_effect_count"] == 0
+                    and isinstance(result.get("effect_receipt"), dict) and isinstance(record, dict)):
+                action = record.get("action")
+                if (isinstance(action, dict) and action.get("verb") in {"invoke", "click", "double_click", "right_click"}
+                        and all(isinstance(action.get(key), str) and action[key] for key in ("id", "node_id", "generation"))
+                        and action.get("args") == {}):
+                    view = copy.deepcopy(record)
+                    view["ui_boundary_receipt"] = copy.deepcopy(boundary)
+                    view["effect_receipt"] = copy.deepcopy(result.get("effect_receipt", {}))
+                    values.append(view)
+            for item in values:
+                key = item.get("action", {}).get("id")
+                if isinstance(key, str) and key and key not in seen:
+                    seen.add(key)
+                    outcomes.append(item)
+    return outcomes
+
+
+def _new_dispatch(item):
+    if item.get("effect_receipt", {}).get("effect_state") == "replayed":
+        return False
+    boundary = item.get("ui_boundary_receipt")
+    return (boundary.get("cached") is False and boundary.get("input_attempted") is True
+            and boundary.get("adapter_called") is True) if isinstance(boundary, dict) else True
+
+
 def method_evidence(events, guard) -> dict:
-    outcomes = dispatched_actions(outcomes_from_events(events))
+    outcomes = [item for item in dispatched_actions(native_outcomes_from_events(events)) if _new_dispatch(item)]
     unique = {item["action"].get("idempotency_key", item["action"].get("id")): item for item in outcomes}
     values = list(unique.values())
     expected_xids = {item["window_id"] for item in guard.records} if guard else set()
@@ -277,10 +320,10 @@ def turn_summary(result):
 
 
 def native_outcome_index(events):
-    return [{**{key: item[key] for key in ("status", "reason", "action", "receipt", "effect_receipt") if key in item},
+    return [{**{key: item[key] for key in ("status", "reason", "action", "receipt", "effect_receipt", "ui_boundary_receipt") if key in item},
              **{side + "_sha256": sha(json.dumps(item.get(side), sort_keys=True, allow_nan=False).encode())
                 for side in ("before", "after")}, "full_native_state_source": "events.ndjson"}
-            for item in outcomes_from_events(events)]
+            for item in native_outcomes_from_events(events)]
 
 
 def memory_written(events) -> bool:
@@ -300,11 +343,11 @@ def measured_metrics(events, *, elapsed_s, method) -> dict:
         new_inputs = 0
         for tool in event.get("tools", []):
             result = structured(tool.get("result"))
-            outcomes = result.get("outcomes", [])
+            outcomes = native_outcomes_from_events([{"type": "tool", "phase": "complete", "tools": [tool]}])
             for item in dispatched_actions(outcomes):
                 action = item["action"]
                 key = action.get("idempotency_key") or action.get("id")
-                if key and key not in seen_inputs and item.get("effect_receipt", {}).get("effect_state") != "replayed":
+                if key and key not in seen_inputs and _new_dispatch(item):
                     seen_inputs.add(key)
                     new_inputs += 1
             for family in receipts:

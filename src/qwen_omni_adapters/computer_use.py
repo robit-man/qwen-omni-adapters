@@ -20,6 +20,7 @@ from typing import Any, Protocol
 
 VERBS = frozenset({"invoke", "focus", "set_value", "set_checked", "select", "scroll", "key_chord",
                    "click", "double_click", "right_click", "drag_drop", "select_text", "switch_window", "type_text"})
+_BOUNDARY_VERBS = frozenset({"invoke", "click", "double_click", "right_click"})
 _ARGUMENTS = {
     "invoke": set(), "focus": set(), "set_value": {"value"},
     "set_checked": {"checked"}, "select": {"option"},
@@ -111,9 +112,8 @@ def _selection_range(value: Mapping[str, Any]) -> None:
         raise ComputerUseError("Expected bounded character selection offsets")
 
 
-def parse_step(value: Any) -> dict[str, Any]:
-    """Validate an explicit semantic operation; unknown fields never grant input."""
-    step = _object(value, {"id", "verb", "target", "args", "expect"}, "step")
+def _parse_intent(value: Any, *, effects: bool) -> dict[str, Any]:
+    step = _object(value, {"id", "verb", "target", "args"} | ({"expect"} if effects else set()), "step")
     _string(step.get("id"), "step identity", 200)
     verb = step.get("verb")
     if not isinstance(verb, str) or verb not in VERBS:
@@ -150,7 +150,21 @@ def parse_step(value: Any) -> dict[str, Any]:
             _string(key, "key", 30)
             if not all(char.isascii() and (char.isalnum() or char in "+_-") for char in key):
                 raise ComputerUseError("Invalid key name")
-    return {**copy.deepcopy(step), "args": copy.deepcopy(args), "expect": _predicates(step.get("expect"))}
+    return {**copy.deepcopy(step), "args": copy.deepcopy(args)}
+
+
+def parse_step(value: Any) -> dict[str, Any]:
+    """Validate the unchanged public operation and its required predicates."""
+    step = _parse_intent(value, effects=True)
+    return {**step, "expect": _predicates(step.get("expect"))}
+
+
+def parse_intent(value: Any) -> dict[str, Any]:
+    """Private native-task boundary: one pointer/activation intent, no effects."""
+    intent = _parse_intent(value, effects=False)
+    if intent["verb"] not in _BOUNDARY_VERBS:
+        raise ComputerUseError("Unsupported observation-boundary verb")
+    return intent
 
 
 def _text_observation(node: dict[str, Any]) -> None:
@@ -316,6 +330,9 @@ class RapidUiController:
         self._offers: dict[str, tuple[int, str]] = {}
         self._binding_keys: dict[str, str] = {}
         self._recorded_ids: dict[str, str] = {}
+        self._native_task_protocol = False
+        self._intent_keys: dict[str, str] = {}
+        self._boundary_offers: set[str] = set()
         self._metadata = threading.RLock()
         self._input = threading.Lock()
 
@@ -327,7 +344,23 @@ class RapidUiController:
             return copy.deepcopy(self._state)
 
     def enumerate(self, step: dict[str, Any], state: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-        step = parse_step(step)
+        return self._enumerate(parse_step(step), state)
+
+    def enable_native_task_protocol(self) -> None:
+        """Trusted host setup only; never change an existing client epoch."""
+        with self._metadata:
+            if self._actions or self._outcomes:
+                raise ComputerUseError("Native task protocol requires a fresh controller")
+            self._native_task_protocol = True
+
+    @staticmethod
+    def _intent_key(state: Mapping[str, Any], action: Mapping[str, Any]) -> str:
+        return _digest({"session_id": state["session_id"], "scope": state["scope"],
+            "semantic_revision": state.get("base_semantic_revision", state["revision"]),
+            **{key: action[key] for key in ("node_id", "generation", "verb", "args")}})
+
+    def _enumerate(self, step: dict[str, Any], state: dict[str, Any] | None = None,
+                   *, boundary: bool = False) -> list[dict[str, Any]]:
         with self._metadata:
             if self._state is None or (state is not None and state != self._state):
                 raise ComputerUseError("Observe the current UI before enumerating actions")
@@ -347,11 +380,13 @@ class RapidUiController:
                     if destination is None or not destination["visible"] or not destination["enabled"] or destination["sensitive"] or destination["scope_id"] != node["scope_id"]:
                         continue
                 expect = [{**predicate, "node_id": node["id"]} if predicate.get("node_id") == "$target" else copy.deepcopy(predicate)
-                          for predicate in step["expect"]]
+                          for predicate in step.get("expect", [])]
                 binding = {"session_id": current["session_id"], **common, "step_id": step["id"],
                            "node_id": node["id"], "generation": node["generation"],
                            "verb": step["verb"], "args": step["args"], "expect": expect}
                 legacy = _digest(binding)
+                if boundary:
+                    legacy = _digest({"boundary_intent": binding})
                 previous_key = self._binding_keys.get(legacy)
                 previous = self._outcomes.get(previous_key, {})
                 # Unknown/no-op intents retain their original lock even after
@@ -371,6 +406,7 @@ class RapidUiController:
                 raise ComputerUseError("Ambiguous UI target; narrow to at most 48 eligible controls")
             self._actions = {action["id"]: copy.deepcopy(action) for action in actions}
             self._offers = offers
+            self._boundary_offers = {action["id"] for action in actions if boundary and action["kind"] == "action"}
             return copy.deepcopy(actions)
 
     def candidate(self, action_id: str) -> dict[str, Any] | None:
@@ -401,6 +437,7 @@ class RapidUiController:
         with self._metadata:
             previous = copy.deepcopy(self._outcomes.get(action["idempotency_key"]))
             offer = self._offers.get(action_id)
+            boundary_offer = action_id in self._boundary_offers
         if previous is not None:
             return previous
         if not self._input.acquire(blocking=False):
@@ -432,6 +469,23 @@ class RapidUiController:
             if self.authorize is None or self.authorize(copy.deepcopy(action), copy.deepcopy(before)) is not True:
                 return record({**outcome, "status": "rejected", "reason": "Host authority did not admit this exact action"})
             _check_cancel(cancel)
+            if self._native_task_protocol:
+                with self._metadata:
+                    intent = self._intent_key(before, action)
+                    locked_key = self._intent_keys.get(intent)
+                    locked = self._outcomes.get(locked_key)
+                    may_renew = (locked is not None and _verified_mutation(locked)
+                                 and locked_key in self._completion_epochs
+                                 and self._execution_epoch > self._completion_epochs[locked_key])
+                    if locked is not None and not may_renew:
+                        self._recorded_ids[action_id] = locked_key
+                        if offer is not None:
+                            self._binding_keys[offer[1]] = locked_key
+                        return copy.deepcopy(locked)
+                    if intent not in self._intent_keys and len(self._intent_keys) >= 1000:
+                        return record({**outcome, "status": "rejected", "reason": "Native intent budget exhausted"})
+                    self._intent_keys[intent] = action["idempotency_key"]
+                outcome["dispatch_attempted"] = True
             record({**outcome, "reason": "Dispatch pending; effects remain unverified"})
             receipt = self.adapter.perform(copy.deepcopy(action))
             if not isinstance(receipt, dict) or not isinstance(receipt.get("status"), str) or receipt["status"] not in {"dispatched", "rejected", "already_satisfied"}:
@@ -450,6 +504,19 @@ class RapidUiController:
                           else "Dispatched; effects remain unverified"})
             started = time.monotonic()
             deadline = started + self.verification_timeout_s
+            if boundary_offer:
+                _check_cancel(cancel)
+                observer = getattr(self.adapter, "boundary_observe", None)
+                if not callable(observer):
+                    raise ComputerUseError("Pure semantic boundary observation unavailable")
+                with self._metadata:
+                    self._state = _snapshot(observer())
+                    outcome["after"] = copy.deepcopy(self._state)
+                _check_cancel(cancel)
+                if time.monotonic() > deadline or outcome["after"]["session_id"] != before["session_id"]:
+                    return record({**outcome, "reason": "Boundary observation binding or deadline changed"})
+                return record({**outcome, "status": "observed_unverified",
+                               "reason": "One input observed; no effect predicate or progress verified"})
             for index in range(self.max_observations):
                 _check_cancel(cancel)
                 remaining = deadline - time.monotonic()
@@ -493,14 +560,32 @@ class RapidUiController:
     def run_step(self, step: dict[str, Any], provider: Any = None,
                  cancel: threading.Event | None = None) -> dict[str, Any]:
         step = parse_step(step)
+        return self._run_intent(step, provider, cancel)
+
+    def run_boundary(self, intent: dict[str, Any], provider: Any = None,
+                     cancel: threading.Event | None = None) -> dict[str, Any]:
+        if not self._native_task_protocol:
+            raise ComputerUseError("Observation boundaries require a trusted native task")
+        parsed = parse_intent(intent)
+        try:
+            return self._run_intent(parsed, provider, cancel, boundary=True)
+        finally:
+            finish = getattr(self.adapter, "finish_intent", None)
+            if callable(finish):
+                finish()
+
+    def _run_intent(self, step: dict[str, Any], provider: Any,
+                    cancel: threading.Event | None, *, boundary: bool = False) -> dict[str, Any]:
         try:
             _check_cancel(cancel)
-            prepare = getattr(self.adapter, "prepare_step", None)
+            prepare = getattr(self.adapter, "prepare_intent" if boundary else "prepare_step", None)
+            if boundary and not callable(prepare):
+                raise ComputerUseError("Boundary intent preparation unavailable")
             if prepare is not None:
                 prepare(copy.deepcopy(step))
             _check_cancel(cancel)
             state = self.observe()
-            actions = self.enumerate(step, state)
+            actions = self._enumerate(step, state, boundary=True) if boundary else self.enumerate(step, state)
             if provider is None:
                 executable = [action for action in actions if action["kind"] == "action"]
                 choice = executable[0]["id"] if len(executable) == 1 else next(action["id"] for action in actions if action["kind"] == "abstain")

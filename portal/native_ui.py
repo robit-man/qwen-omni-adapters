@@ -744,12 +744,29 @@ class NativeUiAdapter:
     def prepare_step(self, step: Mapping[str, Any]) -> None:
         from qwen_omni_adapters.computer_use import parse_step
 
+        self._prepare(parse_step(dict(step)))
+
+    def prepare_intent(self, intent: Mapping[str, Any]) -> None:
+        from qwen_omni_adapters.computer_use import parse_intent
+
+        self._prepare(parse_intent(dict(intent)))
+
+    def _prepare(self, parsed: dict[str, Any]) -> None:
         with _NATIVE_LOCK:
-            parsed = parse_step(dict(step))
             if parsed != self._step:
                 self._visual = None
                 self.point_receipt = None
             self._step = parsed
+
+    def boundary_observe(self) -> dict[str, Any]:
+        """One owned semantic read; prepared pointer intent never invokes MD."""
+        with _NATIVE_LOCK:
+            self._check_cancelled()
+            return self._semantic_observe()
+
+    def finish_intent(self) -> None:
+        with _NATIVE_LOCK:
+            self._step, self._visual = None, None
 
     def perform(self, action: Mapping[str, Any]) -> dict[str, Any]:
         with _NATIVE_LOCK:

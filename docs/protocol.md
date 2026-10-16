@@ -316,6 +316,19 @@ feedback. Raw partial replies and decoder exceptions are not carried into that
 feedback. Cancellation and deadlines take priority; transport, HTTP, response
 envelope and unexpected callback faults remain fatal. Schema, token and phase
 budgets are unchanged.
+The compiler's private `ui_boundary` alternative requests exactly one grounded
+`invoke`, `click`, `double_click` or `right_click` intent without an effect
+predicate. It shares the existing input guards, lock and idempotency path, then
+returns one semantic observation with `ui_boundary_receipt`, zero progress and
+no verified/applied effect. Its bounded `observed_changes` are snapshot knowledge,
+with redaction, coverage and omission limits, not creation/deletion or task proof.
+Input-attempt evidence is tri-state where a backend rejection cannot prove that
+no pointer movement occurred. Original cached dispatch records remain unchanged.
+Native-task-only semantic intent locks prevent uncertain redispatch through a
+new step ID, invented effect or phase-mode change. Novel observation permits
+replanning without resetting accumulated failures; repeated, unchanged, cached
+or missing observations consume the same failure budget. The canonical public
+phase/step schemas, portable envelopes and direct-client behavior are unchanged.
 For this explicit `native_task` compiler, a first verified no-op remains valid.
 A repeated UI phase with the same host-observed state and effective action
 targets, arguments and effects, but no new applied effect, reports
