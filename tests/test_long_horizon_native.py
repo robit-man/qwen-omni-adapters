@@ -471,7 +471,7 @@ def test_missing_readiness_blocks_before_any_network_or_app(case, tmp_path, monk
     monkeypatch.setattr(runner, "source_state", lambda: {"revision": "frozen"})
     monkeypatch.setattr(runner, "worker_snapshot", lambda: {"available": False})
     monkeypatch.setattr(runner.httpx, "Client", lambda **_kw: pytest.fail("No network before readiness"))
-    monkeypatch.setattr(runner, "TaskDesktop", lambda _env: pytest.fail("No GUI before readiness"))
+    monkeypatch.setattr(runner, "TaskDesktop", lambda _env, **_kwargs: pytest.fail("No GUI before readiness"))
     args = runner.parser().parse_args(["--case", case["case_id"], "--output", str(tmp_path / "runtime-data/run")])
     assert runner.run(args) == 2
     report = cases.read_json(args.output / "summary.json")
@@ -559,7 +559,7 @@ def mock_run(monkeypatch, tmp_path, case, *, settled=True, setup_failure=False, 
             calls.append("stop_sampling")
             if observer_close_error:
                 raise RuntimeError("observer shutdown not confirmed")
-    monkeypatch.setattr(runner, "TaskDesktop", lambda _env: owned)
+    monkeypatch.setattr(runner, "TaskDesktop", lambda _env, **_kwargs: owned)
     monkeypatch.setattr(runner, "NativeEvidenceObserver", FakeObserver)
     factory = httpx.Client
     def transport(request):

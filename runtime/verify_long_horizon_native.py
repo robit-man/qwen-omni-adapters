@@ -334,7 +334,11 @@ def prepare_blank_apps(desktop, observer, case, work, root, browser):
             window = desktop.open_blank(app, work, browser=browser, log_path=root / (app + str(number) + ".log"))
             state = observer.fresh()
             receipt = {"application": app, "window_id": window.window_id, "process_id": window.pid,
-                       "process_start": window.process_start, "native": state}
+                       "process_start": window.process_start, "native": state,
+                       "declared_application": app,
+                       "effective_application": getattr(desktop, "editor", "gedit") if app == "gedit" else app,
+                       **({"editor_condition": "explicit_editor_choice_no_MIME_or_preference_changes"}
+                          if app == "gedit" else {})}
             receipts.append(receipt)
             save(root / "setup-native-observations.json", receipts)
             native = state.get("state", {})
@@ -407,7 +411,7 @@ def finalize_run(report, root, case, *, desktop, observer, guard, client, reques
         save(root / "after-test-note.json", {key: report.get(key) for key in
             ("case_id", "model", "think", "status", "passed", "portal_turn_attempts", "readiness_blockers",
              "authoritative_final_received", "method", "downstream_idle", "owned_windows_closed", "error",
-             "teardown_errors", "elapsed_s", "source_unchanged")})
+             "teardown_errors", "elapsed_s", "source_unchanged", "editor")})
     journals()
     try:
         freeze_evidence(root, case)
@@ -457,6 +461,11 @@ def run(args) -> int:
     report = {"schema": "robit.omni.long-native-run.v1", "case_id": case["case_id"], "model": args.model,
               "task_signature_sha256": case["task_signature_sha256"],
               "think": args.think, "source": "text_goal", "physical_microphone": False, "tts_or_asr_used": False,
+              "editor": {"configured_application": args.editor,
+                         "setup_slot_present": "gedit" in case["fixture"]["blank_apps"],
+                         "declared_application": "gedit" if "gedit" in case["fixture"]["blank_apps"] else None,
+                         "effective_application": args.editor if "gedit" in case["fixture"]["blank_apps"] else None,
+                         "condition": "explicit_editor_choice_no_MIME_or_preference_changes"},
               "passed": False, "portal_turn_attempts": 0, "upstream_model_request_count": None,
               "authoritative_final_received": False,
               "owned_windows_closed": True, "status": "blocked_precondition"}
@@ -491,7 +500,7 @@ def run(args) -> int:
             raise ValueError("Invalid access-token file")
         environment = desktop_subprocess_environment()
         report["unrelated_windows_before"] = managed_inventory(environment)
-        desktop = TaskDesktop(environment)
+        desktop = TaskDesktop(environment, editor=args.editor)
         client = httpx.Client(headers={"Authorization": "Bearer " + args.token_file.read_text().strip()},
             cookies={"omni_portal_session": secrets.token_hex(32)}, trust_env=False, timeout=10)
         health = client.get(base + "/healthz")
@@ -585,6 +594,7 @@ def parser():
     result.add_argument("--drain-timeout", type=float, default=300)
     result.add_argument("--think", action="store_true")
     result.add_argument("--browser", choices=["firefox", "chromium"], default="firefox")
+    result.add_argument("--editor", choices=["gedit", "gnome-text-editor"], default="gedit")
     result.add_argument("--prepare-only", action="store_true")
     result.add_argument("--evaluate", action="store_true")
     result.add_argument("--review-file", type=Path)

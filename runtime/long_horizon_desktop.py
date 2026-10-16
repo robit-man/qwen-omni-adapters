@@ -1,6 +1,7 @@
 """Exact owned ordinary-app setup and polite cleanup for text task evaluation."""
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -20,6 +21,22 @@ from runtime.acceptance_native_support import (
     process_start,
 )
 from runtime.owned_window_close import request_owned_window_close
+
+GNOME_TEXT_EDITOR = Path("/usr/bin/gnome-text-editor")
+
+
+def _verify_native_editor_process(pid: str, executable: Path, expected_start: str,
+                                  *, proc_root: Path = Path("/proc")) -> None:
+    """Bind a native editor handoff by UID/executable/start, never title or argv."""
+    try:
+        start = process_start(pid)
+        process = proc_root / pid
+        if (start != expected_start or process.stat().st_uid != os.getuid()
+                or (process / "exe").resolve(strict=True) != executable.resolve(strict=True)
+                or process_start(pid) != start):
+            raise CapabilityBlocked("Native editor process identity is unproven")
+    except (OSError, ValueError):
+        raise CapabilityBlocked("Native editor process identity is unavailable") from None
 
 
 def owned_foreground(windows: list[OwnedWindow], identity: dict[str, Any], environment: dict[str, str]) -> bool:
@@ -73,18 +90,26 @@ def unrelated_preservation(before: dict, after: dict) -> dict:
 class TaskDesktop(OwnedDesktop):
     """Retain launch identity before failure; never kill a browser/shared app."""
 
-    def __init__(self, environment: dict[str, str]) -> None:
+    def __init__(self, environment: dict[str, str], *, editor: str = "gedit") -> None:
+        if editor not in {"gedit", "gnome-text-editor"}:
+            raise ValueError("Unsupported explicit native editor")
         super().__init__(environment)
+        self.editor = editor
         self.launches: list[dict[str, Any]] = []
 
     def open_application(self, binary, args, application, window_class, *, stdin=None,
-                         standalone=False, log_path=None, child_environment=None):
+                         standalone=False, log_path=None, child_environment=None, expected_executable=None):
         executable = shutil.which(binary)
         if not executable:
             raise CapabilityBlocked("Installed application unavailable: " + application)
         before = class_windows(window_class, self.environment)
         launch = {"application": application, "window_class": window_class,
                   "before_xids": sorted(before), "registered": False}
+        if expected_executable is not None:
+            expected_executable = Path(expected_executable).resolve(strict=True)
+            if Path(executable).resolve(strict=True) != expected_executable:
+                raise CapabilityBlocked("Native editor launcher differs from installed executable")
+            launch["expected_executable"] = str(expected_executable)
         self.launches.append(launch)
         log = log_path.open("ab") if log_path else subprocess.DEVNULL
         if log_path:
@@ -104,6 +129,8 @@ class TaskDesktop(OwnedDesktop):
             process.stdin.close()
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
+            if expected_executable is not None and process.poll() not in {None, 0}:
+                raise CapabilityBlocked("Native editor launch failed before ownership proof")
             new = class_windows(window_class, self.environment, visible=True) - before
             launch["new_visible_xids"] = sorted(new)
             if len(new) > 1:
@@ -117,7 +144,20 @@ class TaskDesktop(OwnedDesktop):
                 start = process_start(pid)
                 if standalone and start != launch["launch_start"]:
                     raise CapabilityBlocked("Standalone process identity changed")
-                window = self.register(OwnedWindow(application, xid, pid, start))
+                if expected_executable is not None:
+                    _verify_native_editor_process(pid, expected_executable, start)
+                    if process.poll() not in {None, 0}:
+                        raise CapabilityBlocked("Native editor launch failed before ownership proof")
+                window = OwnedWindow(application, xid, pid, start)
+                self.register(window)
+                if expected_executable is not None:
+                    try:
+                        _verify_native_editor_process(pid, expected_executable, start)
+                        if process.poll() not in {None, 0}:
+                            raise CapabilityBlocked("Native editor launch failed before ownership proof")
+                    except CapabilityBlocked:
+                        self.windows.remove(window)
+                        raise
                 launch.update(registered=True, pid=pid, process_start=start, window_id=xid)
                 command(["xdotool", "windowactivate", "--sync", xid], self.environment)
                 return window
@@ -132,6 +172,16 @@ class TaskDesktop(OwnedDesktop):
             return self.open_application(browser, ["--new-window", "about:blank"], "browser",
                 "[Ff]irefox" if browser == "firefox" else "[Cc]hromium", log_path=log_path)
         if application == "gedit":
+            if self.editor == "gnome-text-editor":
+                installed = GNOME_TEXT_EDITOR
+                try:
+                    executable = installed.resolve(strict=True)
+                    if not installed.is_file() or executable.name != "gnome-text-editor":
+                        raise CapabilityBlocked("Installed native GNOME Text Editor unavailable")
+                except OSError:
+                    raise CapabilityBlocked("Installed native GNOME Text Editor unavailable") from None
+                return self.open_application(str(installed), ["--new-window"], "gnome-text-editor",
+                    "^gnome-text-editor$", log_path=log_path, expected_executable=executable)
             return self.open_editor(log_path=log_path)
         if application == "files":
             return self.open_files(work, log_path=log_path)
@@ -170,6 +220,8 @@ class TaskDesktop(OwnedDesktop):
                     if xid not in class_windows(launch["window_class"], self.environment):
                         receipt["closed"] = True
                     elif process_start(pid) == start and command(["xdotool", "getwindowpid", xid], self.environment) == pid:
+                        if launch.get("expected_executable"):
+                            _verify_native_editor_process(pid, Path(launch["expected_executable"]), start)
                         receipt["polite_close_requested"] = request_owned_window_close(xid, pid, start, self.environment)
                         deadline = time.monotonic() + 3
                         while time.monotonic() < deadline and xid in class_windows(launch["window_class"], self.environment):

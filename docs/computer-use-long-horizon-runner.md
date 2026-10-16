@@ -71,6 +71,19 @@ selects an ordinary installed Chromium instead of Firefox. The launcher never
 adds a remote-debugging flag, custom profile or headless mode. Token content is
 loaded only into the HTTP client; it is not copied to the evidence bundle.
 
+`--editor gnome-text-editor` explicitly substitutes the installed native GNOME
+Text Editor for declared Gedit setup slots. The default remains `--editor gedit`.
+This is a recorded host adaptation, not a changed task goal or an instruction
+sequence for the solver. GNOME setup uses `/usr/bin/gnome-text-editor
+--new-window`, with no preference, MIME-association or session-option changes.
+It binds exactly one new visible XID to the signed-in UID, installed executable
+and stable process start before registration and activation. An existing editor
+process may own that new window; its other windows remain outside the owned
+set. Aliases to Gedit and uncertain ownership fail setup. Cleanup repeats the
+executable/UID checks and closes only the registered window politely. Use this
+explicit condition when testing a host whose ordinary text-file default is
+GNOME Text Editor, and report it separately from the Gedit condition.
+
 The client action deadline is at most 1,800 seconds. Requested sampling is
 temperature 0 and `num_predict:8192`. Server phase/deadline limits remain those of
 the deployed profile; this runner does not override them. At the reviewed base,
