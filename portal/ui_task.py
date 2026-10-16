@@ -18,6 +18,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, ValidationError
 
+from portal.computer_use import parse_subgoal
 from portal.tools import tool_schemas
 from qwen_omni_adapters.computer_use import (
     ComputerUseError,
@@ -63,7 +64,8 @@ def phase_response_schema(allowed_tools: Iterable[str]) -> dict[str, Any]:
 _MAX_GROUNDED_SCHEMA_BYTES = 56 * 1024
 
 
-def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[str, Any]) -> dict[str, Any]:
+def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[str, Any], *,
+                           intent_choice: bool = False) -> dict[str, Any]:
     """Ground only the first position in positive, model-visible capabilities.
 
     Semantic selectors may remain ambiguous. Named visual discovery is still
@@ -130,7 +132,7 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
         return {"type": "object", "additionalProperties": False,
                 "properties": properties, "required": required}
 
-    first, boundaries = [], []
+    first, boundaries, intent_selectors = [], [], []
     for verb, controls in eligible.items():
         selectors = []
         if controls:
@@ -146,6 +148,14 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
             for scope, names in sorted(scopes.items()):
                 selectors.append(target({"scope_id": {"const": scope}, "name": {"enum": sorted(names)}}, ["name"]))
         if verb in {"invoke", "click", "double_click", "right_click"}:
+            if intent_choice:
+                for selector in selectors:
+                    if selector not in intent_selectors:
+                        intent_selectors.append(copy.deepcopy(selector))
+                # Positive current controls go to primitive Choice. The four
+                # missing-target discovery paths remain, but the host rejects
+                # a discovery-shaped selector that actually matches a control.
+                selectors = []
             # No guessed ID: existing exact-match/protection/frame checks decide
             # whether a named semantic target can use visual discovery.
             discovery = copy.deepcopy(schema["$defs"]["target"]["oneOf"][1]["properties"])
@@ -183,6 +193,20 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
                 "remaining_criteria": copy.deepcopy(fallback["oneOf"][0]["properties"]["remaining_criteria"])},
             "description": "One guarded input followed by semantic observation and replanning. "
                            "No effect predicate, verified progress, or following step."})
+    if intent_selectors:
+        schema["oneOf"].append({"type": "object", "additionalProperties": False,
+            "required": ["kind", "subgoal"], "properties": {
+                "kind": {"const": "ui_subgoal"}, "subgoal": {"type": "object",
+                    "additionalProperties": False, "required": ["id", "family", "objective", "target"],
+                    "properties": {"id": {"type": "string", "minLength": 1, "maxLength": 200},
+                        "family": {"const": "pointer_or_activation"},
+                        "objective": {"type": "string", "minLength": 1, "maxLength": 500},
+                        "target": {"anyOf": intent_selectors}}},
+                "remaining_criteria": copy.deepcopy(fallback["oneOf"][0]["properties"]["remaining_criteria"])},
+            "description": "State a planner objective within the exact user goal and a current semantic selector. "
+                "The active policy chooses a finite native primitive; the host resolves it freshly. "
+                "No input authority or expected effect is supplied. Positive targets must use this family, "
+                "not named ui_boundary discovery."})
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
         return non_ui()
     return schema
@@ -218,7 +242,7 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
     """Keep receipts and readback; never multiply historical UI maps in planning."""
     fields = ("status", "error", "reason", "message", "phase_handoff", "terminal_receipt",
               "verification_receipt", "ui_state_receipt", "effect_receipt", "action_receipt",
-              "policy_receipts", "point_receipts", "selection_receipts", "evidence_authority", "resource", "stored",
+              "policy_receipts", "point_receipts", "selection_receipts", "intent_selection_receipt", "evidence_authority", "resource", "stored",
               "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results",
               "reading", "visual_inspection_receipt", "ui_boundary_receipt", "observed_changes")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
@@ -447,7 +471,8 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                     execute: Callable[[str, dict], dict], cancel: Callable[[], None],
                     allowed_tools: Iterable[str], max_phases: int = 40, max_seconds: float = 1200,
                     model: str = "", clock: Callable[[], float] = time.monotonic,
-                    cancelled: Callable[[], bool] | None = None) -> Iterator[dict[str, Any]]:
+                    cancelled: Callable[[], bool] | None = None,
+                    intent_choice: bool = False) -> Iterator[dict[str, Any]]:
     """Compile each phase once, execute internally, then return to the planner.
 
     The caller enforces callback I/O deadlines using remaining_seconds. Checks
@@ -496,7 +521,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             if reason := boundary():
                 yield finish(reason, "Native task stopped: " + reason)
                 return
-            schema = _grounded_phase_schema(allowed, current)
+            schema = _grounded_phase_schema(allowed, current, intent_choice=intent_choice)
             validator = Draft202012Validator(schema)
             packet = {"goal": goal, "current_state": copy.deepcopy(current),
                       "ledger": _planner_ledger(ledger[-12:]), "last_result": copy.deepcopy(last_result),
@@ -539,6 +564,8 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                     parse_predicates(plan["final_predicates"], terminal=True)
                 if kind == "ui_boundary":
                     parse_intent(plan["step"])
+                if kind == "ui_subgoal":
+                    parse_subgoal(plan["subgoal"])
             except (ValidationError, ComputerUseError, ValueError, TypeError) as exc:
                 last_result = {"error": "invalid_native_phase", "dispatch_status": "not_dispatched",
                                "reason": str(exc.message if isinstance(exc, ValidationError) else exc)[:600]}
@@ -553,10 +580,14 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 normal = kind == "complete"
                 yield finish("planner_claim" if normal else "blocked", plan.get("message", plan.get("reason", "")))
                 return
-            name = "native_ui" if kind in {"ui", "ui_boundary", "visual_inspection"} else kind
+            name = "native_ui" if kind in {"ui", "ui_boundary", "ui_subgoal", "visual_inspection"} else kind
             arguments = ({"operation": "workflow", "steps": plan["steps"], "final_predicates": plan["final_predicates"]}
                          if kind == "ui" else {"operation": "observation_boundary", "intent": plan["step"]}
-                         if kind == "ui_boundary" else {"operation": "inspect_visual"} if kind == "visual_inspection" else {key: value for key, value in plan.items()
+                         if kind == "ui_boundary" else {"operation": "intent_boundary", "subgoal": plan["subgoal"],
+                             "feedback": {key: copy.deepcopy(last_result[key]) for key in
+                                 ("status", "error", "reason", "effect_receipt", "ui_boundary_receipt")
+                                 if key in last_result} if last_result is not None else None}
+                         if kind == "ui_subgoal" else {"operation": "inspect_visual"} if kind == "visual_inspection" else {key: value for key, value in plan.items()
                                                 if key not in {"kind", "remaining_criteria"}})
             if name not in allowed:
                 raise ValueError("Compiled phase exceeds immutable tool scope")
@@ -591,7 +622,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             if kind == "visual_inspection":
                 ok = ok and _accepted_visual_reading(result)
             novel_boundary = False
-            if kind == "ui_boundary":
+            if kind in {"ui_boundary", "ui_subgoal"}:
                 receipt = result.get("ui_boundary_receipt", {})
                 ok = (result.get("status") == "observed_unverified" and receipt.get("observed") is True
                       and receipt.get("verified") is False and receipt.get("task_progress") is False
@@ -612,10 +643,10 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                key: copy.deepcopy(last_result[key]) for key in
                                ("status", "error", "reason", "phase_handoff", "ui_state_receipt",
                                 "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt",
-                                "ui_boundary_receipt", "observed_changes")
+                                "ui_boundary_receipt", "observed_changes", "intent_selection_receipt")
                                if key in last_result}})
             ledger = ledger[-12:]
-            if kind == "ui_boundary":
+            if kind in {"ui_boundary", "ui_subgoal"}:
                 # Observation protocol success is not verified task progress.
                 failed += not novel_boundary
             else:

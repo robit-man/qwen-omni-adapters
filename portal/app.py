@@ -2314,6 +2314,7 @@ def create_app(
             scope &= allowed_tools
         stopped = tool_harness.computer_use.begin_task(session_id, "desktop", window_scope=window_scope,
                                                      private_boundaries=True)
+        intent_choice = tool_harness.computer_use.intent_choice_enabled
 
         def cancel():
             stopped.set()
@@ -2361,6 +2362,14 @@ def create_app(
                 "whole task. Use only allowed memory phases for session memory. Never use a "
                 "terminal, developer console, application macro or scripting as a GUI substitute."
             )
+            if intent_choice:
+                system += (" For positively observed pointer or activation controls, use ui_subgoal: "
+                    "supply a compact active objective within the exact user goal and a semantic selector, "
+                    "without choosing a primitive or promising its effect. The active local policy selects "
+                    "among finite non-authorizing native intents; the executor resolves and guards a fresh "
+                    "offer before one input. ui_boundary's explicit verb is reserved for genuinely missing "
+                    "named visual targets; a positively matching discovery selector is rejected, never "
+                    "silently changed to another primitive. Legal input is not task alignment or progress.")
             caller_policy = "\n\n".join(str(message.get("content") or "")
                 for message in raw_messages if isinstance(message, Mapping) and message.get("role") == "system")
             if caller_policy:
@@ -2405,6 +2414,9 @@ def create_app(
                     return {"status": "cancelled", "error": "native_task_cancelled"}
                 if name == "native_ui" and arguments.get("operation") == "observation_boundary":
                     return tool_harness.computer_use.observation_boundary(session_id, arguments["intent"], goal=goal)
+                if name == "native_ui" and arguments.get("operation") == "intent_boundary":
+                    return tool_harness.computer_use.intent_boundary(session_id, arguments["subgoal"],
+                                                                   goal=goal, feedback=arguments["feedback"])
                 return tool_harness.execute(session_id, name, arguments)
 
         budget = min(runtime.timeout_s, 1800)
@@ -2414,7 +2426,7 @@ def create_app(
         try:
             events = run_native_goal(goal, observe=observe, compile_phase=compile_phase,
                 execute=execute, cancel=cancel, cancelled=stopped.is_set, allowed_tools=scope,
-                max_phases=40, max_seconds=budget, model=runtime.model)
+                max_phases=40, max_seconds=budget, model=runtime.model, intent_choice=intent_choice)
             for event in events:
                 if window_scope is not None and event.get("type") == "final":
                     event["response"]["portal"]["native_task"].update(

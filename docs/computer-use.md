@@ -363,6 +363,30 @@ creation, deletion or global absence. Protected data stays redacted and omitted
 or clipped readback is explicit. Unknown click/open consequences are observed for
 replanning, never converted into a placeholder effect predicate.
 
+With an actively configured local Kev policy, positive native pointer/activation
+controls instead use private `ui_subgoal`: an `id`, family
+`pointer_or_activation`, compact planner `objective` and semantic `target`.
+Kev receives the exact original user Goal, the objective labelled planner intent,
+current eligible referents/capabilities and bounded prior status/error/effect
+facts labelled historical and untrusted. Request-local intent keys grant no input
+authority. One control advertising several primitives yields several choices;
+the unchanged .95 threshold and exact confirmed model identity gate selection.
+Missing, oversized, invalid or uncertain choices abstain without repairing or
+truncating the Goal, node or feedback. The service retains its strict token bounds.
+The host clears prior visual/switch preparation, takes a validated active semantic
+snapshot, and refreshes session/full scope/task scope/base revision/generation,
+eligibility and provider binding before selecting only a freshly offered action
+for the chosen verb. Existing native and core guards, points and uncertainty locks
+remain authoritative. A positive-match `ui_boundary` discovery selector receives
+`intent_choice_required`; its explicit verb is never silently changed. The current
+offer callback repeats this check if a native target appears during preparation.
+Only a synthetic `visual:` node with current matching frame, semantic, selected-verb
+and private point provenance retains discovery; a namespace string alone does not.
+Genuine missing-target discovery and no-policy/shadow behavior remain available.
+This first interface still returns to Omni after one boundary, with unknown effect
+and zero progress credit. Four legal primitives on the wrong target do not prove
+goal alignment. It provides neither a fast autonomous loop nor whole-task credit.
+
 First `focus` requires exactly `focused/$target`; first `type_text` requires a
 positively focused editable capability. Steps 2–25 retain
 the canonical generic target and argument contracts so controls created by earlier
