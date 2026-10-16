@@ -1089,3 +1089,109 @@ coverage and cleanup remains incomplete. A separate private-Xvfb CPU
 discriminator reproduced fatal default-Xlib handling of an invalid window,
 but the earlier helper's stderr and exit status were not retained: its actual
 historical cause remains unknown. No existing browser window was killed.
+
+### Programme repair and X11 ownership diagnostics
+
+Egg41 subsequently adopted `1ba1850` automatically. Its 3,194-test ARM gate
+passed, new workers proved Tegra residency and the existing 65,536-token
+context, and the live read-only tool catalog exposed both exact focus/activation
+annotations for both native tool aliases. Configuration, native library and
+all 62 preexisting X11 rows were preserved. Adoption receipt SHA256:
+`c37e41f57816b086a1298fede767fab810e79134867004ebb42fdbe5481acc95`.
+
+The unattempted LHN-011 museum-visit task could not freeze fresh primary source
+bytes: the museum's public endpoints returned HTTP 403. Cached search content
+was not substituted for fresh evidence. No model request or canonical attempt
+was credited. LHN-021 programme repair was selected instead, with unchanged
+inputs and goal, five blank native apps and eight current official TDF/GNOME
+source captures kept outside the solver's inputs.
+
+The original Ornith LHN-021 run failed after 47.875 seconds and three valid
+compiler replies. All five owned apps passed setup, but no input was dispatched.
+One phase had no eligible control; two pointing requests returned points outside
+the bound target. Offline inspection verified the exact transmitted PNG/crop
+and production floor transform. Both points landed near Recent Files, outside
+the requested breadcrumb button; its full basename was not painted. This
+supports correct pre-input rejection, not a global coordinate-transform defect.
+The two HTTP 200 grounding requests took 3.924 and 4.052 seconds; neither
+produced an accepted point receipt. No source, keyboard, artifact or memory
+criterion passed. All four inputs, the exact GPU workers and lease, and all
+139 preexisting X11 rows were preserved; all five owned windows closed.
+
+The immutable bundle SHA256 is
+`a3cb89169358359d1a63c280ed9ee54d109d401f0bcf18b5bb96fc5ac5d9a1b4`.
+Independent review passed preservation and failed the other eight criteria;
+review SHA256:
+`37a0df2724342c50840d2643c754f9229e58f796249129d0208c07e736a4c0ff`.
+The local ledger contains 15 attempts across seven of 200 model/case cells
+and six task IDs, with zero full passes. Its SHA256 is
+`50433ea05827ffab336fe99327f07a99576c9a57f5f5d388ac05704263027257`.
+
+Commit `9107b3b` converts protocol errors on the ownership helper's own X11
+connection into typed failures instead of default-Xlib process termination.
+Incomplete tree/subscription/event evidence permanently invalidates that
+connection. Other connections retain their prior/default handler. Nine real
+private-Xvfb controls passed, including destroyed resources, asynchronous
+selection errors, foreign-handler delegation and a real 4,096-window boundary;
+the full source gate passed 3,203 tests. Code/test bytes match the frozen gate;
+the explanatory documentation was added afterward and was not represented as
+part of that gate's frozen tree. Control receipt SHA256:
+`553009aa4f743022cfdb5be0e1e4cf9e5f3689b23fbf6049807888fc2168da64`.
+This establishes the reproduced protocol-error behavior, not the unknown cause
+of Egg31's historical EOF or a live browser/task success. Its blank-page RPC
+verification requirement is used during setup; cleanup already permits a
+navigated page. No unused generic-verifier change was made.
+
+### Matched Qwen run and bounded prefix recovery
+
+One controlled GPU1 handoff replaced Ornith with the installed Qwen audio-bridge
+tag, preserving context 65,536, common library `372a44f8`, policy/vision pins and
+the fault recorder. All eight old processes and CUDA allocations disappeared,
+Kev stopped before the old supervisor, and the old lease released before the
+new scoped lease. The new Qwen parent was ready in 102 seconds. A separate
+`c459b74` CPU frontend bound the actual new parent, model and module paths.
+
+The first Qwen LHN-021 attempt failed after 82.036 seconds and three valid
+compiler replies. It correctly targeted Input, but all three Moondream requests
+returned HTTP 500 `FileNotFoundError` before input. The private checkout lacked
+its default weights/tokenizer paths; installed pinned files existed in the main
+checkout. This is an operator asset-path configuration failure, not evidence
+of grounding accuracy, planner inability or a hardware fault. Independent
+review failed eight criteria and passed preservation. Immutable bundle SHA256:
+`8e69148c3edbb8f5b2d8b4afdeefcaf01b379529abd28904f0c657d804cc0401`.
+
+Exactly two absent ignored asset links corrected the configuration. Production
+artifact validation accepted the real checkpoint/tokenizer/CUDA-runtime hashes
+and inodes without loading a model or initializing CUDA. Source, workers and
+lease stayed unchanged. One original Qwen LHN-021 retry then exercised actual
+Moondream 3.1 reading and pointing successfully: two guarded physical
+double-clicks opened Input and `task-brief.txt`, with fresh native effects.
+The task still failed after 220.673 seconds and eight phases. Later selection
+requested 2,048 characters from a 1,261-character buffer and was rejected;
+repeated focus received no-progress feedback, and a subsequent selection
+remained unverified. No text entry, output files or memory result followed.
+The four unique dispatched actions include two physical double-clicks, one
+semantic focus and one selection; they are not four physical clicks.
+Immutable retry bundle SHA256:
+`168584d638b78e283c6a29db72db95753c21ccd524e54f9fcc8de1b78b57a87f`.
+Both Qwen attempts preserved all four inputs and 139 preexisting X11 rows,
+closed all five owned windows and drained the stack. The corrected retry also
+preserved the new eight-worker graph, lease and installed artifact inodes.
+The local ledger now contains 17 attempts across eight of 200 model/case cells
+and six task IDs, with zero full passes: 192 cells and 94 task IDs remain
+unattempted. Ledger SHA256:
+`2029981b87721d46f2b7035d37bff049e0a3fd48e7828957aae065086dbeb250`.
+
+Commit `3855b4b` grants another bounded replan when a failed workflow has a
+verified prefix containing a new dispatched, producer-bound applied effect.
+The workflow stays failed and whole-task verification stays false. Novelty
+uses semantic action/effect transitions, not opaque IDs or expectation wording;
+stable window cycles cannot repeatedly buy recovery. Three unsuccessful phases
+without a new eligible transition, cancellation, deadlines and the 40-phase
+ceiling still stop execution. No token, schema or input-authority limit changed.
+The combined full source gate passed 3,242 tests. POST receipt SHA256:
+`319904f0d7de594fb66c06066ed3368aaef23e066b6b12641113c8b20d0e9040`.
+The exact saved LHN-041 results reach a synthetic fourth planning phase, while
+the original zero-effect Ornith LHN-021 results still stop at three. Those are
+CPU replay controls, not live task completion. Live adoption remains a separate
+checkpoint.
