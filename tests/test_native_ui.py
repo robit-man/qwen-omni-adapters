@@ -2004,8 +2004,13 @@ def scoped_namespace_fixture(monkeypatch):
         owners.append(xid)
         return {"pid": 42, "start": "420"}
 
+    class FixtureIdentityUnavailable(RuntimeError):
+        pass
+
     monkeypatch.setattr("portal.native_ui.subprocess.run", run)
-    monkeypatch.setattr("portal.native_ui._identity_helper", lambda: SimpleNamespace(xres_owner=owner))
+    monkeypatch.setattr("portal.native_ui._identity_helper", lambda: SimpleNamespace(
+        xres_owner=owner, IdentityUnavailable=FixtureIdentityUnavailable,
+        relay_candidate=lambda _pid, **_kwargs: False))  # No inactive relay is modeled here.
     monkeypatch.setattr("portal.native_ui._process_start", lambda _pid: "420")
     return fixture, proof, calls, geometry, owners
 
