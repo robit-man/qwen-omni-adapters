@@ -327,3 +327,84 @@ def test_metadata_parse_failure_is_typed_and_retains_no_raw_content(tmp_path, ra
     (tmp_path / "info").write_bytes(raw)
     with pytest.raises(identity.IdentityUnavailable, match="metadata_invalid"):
         identity._metadata(tmp_path, "info", read=direct, deadline=time.monotonic() + 1)
+
+
+def test_client_inventory_uses_complete_wm_property_fixed_argv_and_explicit_env(monkeypatch):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(
+            returncode=0, stdout="_NET_CLIENT_LIST(WINDOW): window id # 0x15, 0x11\n"
+        )
+
+    monkeypatch.setattr(identity.subprocess, "run", run)
+    environment = {"DISPLAY": ":9", "LC_ALL": "other"}
+    assert identity.client_windows(environment) == ["17", "21"]
+    command, options = calls[0]
+    assert command == ["xprop", "-root", "_NET_CLIENT_LIST"]
+    assert options["env"] == {"DISPLAY": ":9", "LC_ALL": "C"} and options["timeout"] <= 1
+    assert environment["LC_ALL"] == "other"
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "_NET_CLIENT_LIST:  not found.",
+        "_NET_CLIENT_LIST(WINDOW): window id # ",
+        "_NET_CLIENT_LIST(WINDOW): window id # 0x0",
+        "_NET_CLIENT_LIST(WINDOW): window id # 0x100000000",
+        "_NET_CLIENT_LIST(WINDOW): window id # 0x11, 0x11",
+        "_NET_CLIENT_LIST(WINDOW): window id # 0x11\n_NET_CLIENT_LIST(WINDOW): window id # 0x12",
+        "_NET_CLIENT_LIST(WINDOW): window id # 17",
+        "_NET_CLIENT_LIST(WINDOW): window id # "
+        + ", ".join(hex(index + 1) for index in range(129)),
+    ],
+)
+def test_client_inventory_rejects_missing_ambiguous_or_unbounded_list(monkeypatch, raw):
+    monkeypatch.setattr(
+        identity.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=raw),
+    )
+    with pytest.raises(identity.IdentityUnavailable):
+        identity.client_windows({"DISPLAY": ":9"})
+
+
+@pytest.mark.parametrize(
+    "fault", [None, "missing_installed", "missing_running", "other_executable", "invalid_pid"]
+)
+def test_relay_candidate_is_only_exact_executable_discovery_not_namespace_authority(
+    monkeypatch, fault
+):
+    installed = SimpleNamespace(st_dev=1, st_ino=2)
+
+    def stat(path):
+        if str(path) == str(identity.PROXY):
+            if fault == "missing_installed":
+                raise FileNotFoundError
+            return installed
+        assert str(path) == "/proc/99/exe"
+        if fault == "missing_running":
+            raise PermissionError
+        return SimpleNamespace(st_dev=1, st_ino=3 if fault == "other_executable" else 2)
+
+    monkeypatch.setattr(identity.Path, "stat", stat)
+    monkeypatch.setattr(
+        identity,
+        "_metadata",
+        lambda *args, **kwargs: pytest.fail("discovery grants no metadata authority"),
+    )
+    assert identity.relay_candidate(
+        0 if fault == "invalid_pid" else 99, read=direct, deadline=time.monotonic() + 1
+    ) is (fault is None)
+
+
+def test_relay_discovery_retains_read_deadline_accounting(monkeypatch):
+    monkeypatch.setattr(
+        identity.Path,
+        "stat",
+        lambda *args, **kwargs: pytest.fail("deadline must precede filesystem read"),
+    )
+    with pytest.raises(identity.IdentityUnavailable, match="budget_exceeded"):
+        identity.relay_candidate(99, read=direct, deadline=time.monotonic() - 1)

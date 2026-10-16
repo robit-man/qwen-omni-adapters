@@ -164,8 +164,13 @@ and [xdg-desktop-portal 1.14.4's peer identification](https://github.com/flatpak
 The proxy copy may be writable; this proves neither proxy ancestry nor a socket
 peer edge. The full tuple is refreshed before input and its private digest binds
 the observation revision. Raw proof metadata never enters model-facing state.
-This foreground observer change grants no inactive-window switching or owned
-Flatpak launch/cleanup authority; those remain separate capabilities.
+Inactive namespace windows are mapped only through a complete managed-client
+inventory, XRes host ownership, the full provider proof and unique exact native
+SCREEN geometry. Identity ambiguity is resolved before applying any optional
+session window scope; that scope narrows existing native authority. Missing proof
+never falls back to a title or relay PID. Private bindings are refreshed before one
+ordinary activation, then the active observer independently verifies the result.
+This grants no owned Flatpak launch/cleanup authority.
 
 Native browser URL predicates use `scope.url` from the active window's sole
 visible top-level `DocumentWeb` and its fresh AT-SPI `DocURL` attribute.

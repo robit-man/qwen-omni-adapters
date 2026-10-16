@@ -1079,6 +1079,9 @@ class _AtspiBridge:
         self._window_history: OrderedDict[str, dict[str, Any]] = OrderedDict()
         self._coordinate_binding: dict[str, Any] | None = None
         self._provider_binding: dict[str, Any] | None = None
+        self._inactive_namespace_bindings: dict[str, dict[str, Any]] = {}
+        self._inactive_namespace_error: str | None = None
+        self._inactive_namespace_buses: set[str] = set()
         self.atspi.init()
         self.atspi.set_timeout(250, 250)
 
@@ -1144,11 +1147,11 @@ class _AtspiBridge:
             finally:
                 timer.cancel()
 
-    def _provider_proof(self, application: Any, reported_pid: int) -> dict | None:
+    def _provider_proof(self, application: Any, reported_pid: int, *, identity: Mapping[str, Any] | None = None) -> dict | None:
         helper = _identity_helper()
         bus_name = self._read(lambda: application.app.bus_name)
         try:
-            return helper.provider_proof(self.foreground_identity, bus_name, reported_pid,
+            return helper.provider_proof(self.foreground_identity if identity is None else identity, bus_name, reported_pid,
                 credentials=self._credentials, read=self._read, deadline=self.deadline)
         except helper.IdentityUnavailable as exc:
             raise NativeUiUnavailable(str(exc)) from None
@@ -1220,6 +1223,127 @@ class _AtspiBridge:
             if exc.code in {"native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"}:
                 raise
             return False
+
+    def _inactive_namespace_providers(self) -> list[tuple]:
+        helper = _identity_helper()
+        desktop = self._read(lambda: self.atspi.get_desktop(0))
+        self._clear_cache(desktop)
+        count = self._count(desktop)
+        if count > self.MAX_CHILDREN:
+            raise NativeUiUnavailable("native_inactive_provider_scan_incomplete")
+        providers = []
+        for index in range(count):
+            app = self._read(lambda index=index: desktop.get_child_at_index(index))
+            if app is None:
+                raise NativeUiUnavailable("native_inactive_provider_scan_incomplete")
+            self._clear_cache(app)
+            reported = self._read(app.get_process_id)
+            try:
+                candidate = helper.relay_candidate(reported, read=self._read, deadline=self.deadline)
+            except helper.IdentityUnavailable as exc:
+                raise NativeUiUnavailable(str(exc)) from None
+            if candidate:
+                raw = self._read(lambda app=app: str(app.app.bus_name) + ":" + str(app.path))
+                providers.append((app, reported, self._read(lambda app=app: app.app.bus_name), raw))
+        return providers
+
+    def _collect_inactive_namespace_bindings(self, providers: list[tuple] | None = None) -> dict[str, dict[str, Any]]:
+        """Map complete native frames to server-owned clients; grant no scope."""
+        helper = _identity_helper()
+        if providers is None:
+            providers = self._inactive_namespace_providers()
+        if not providers:
+            return {}
+        client_ids = self._read(lambda: helper.client_windows(os.environ, timeout_s=self.deadline-time.monotonic()))
+        physical, matched = [], {}
+        for xid in client_ids:
+            owner = self._read(lambda xid=xid: helper.xres_owner(xid, os.environ, timeout_s=self.deadline-time.monotonic()))
+            identity = {"window_id": xid, "process_id": owner["pid"]}
+            matches = []
+            for app, reported, bus, raw in providers:
+                proof = self._provider_proof(app, reported, identity=identity)
+                if proof is not None:
+                    if (proof["identity"] != identity or proof["reported_pid"] != reported
+                            or proof["bus_name"] != bus or proof["values"]["owner"] != owner):
+                        raise NativeUiUnavailable("native_inactive_provider_binding_changed")
+                    matches.append((app, raw, proof, bus, reported))
+            if len(matches) > 1:
+                raise NativeUiUnavailable("native_inactive_provider_ambiguous")
+            if matches:
+                app, raw, proof, bus, reported = matches[0]
+                matched[raw] = (app, bus, reported)
+                physical.append({"identity": identity, "process_start": owner["start"],
+                    "geometry": self._read(lambda identity=identity: _x11_geometry(identity)),
+                    "application": raw, "proof": proof})
+        if not matched:
+            raise NativeUiUnavailable("native_inactive_provider_unavailable")
+        frames = {}
+        for application, (app, bus, reported) in matched.items():
+            seen = set()
+
+            def scan(node: Any, depth: int = 0, *, seen=seen, application=application, bus=bus, reported=reported) -> None:
+                if node is None or depth > self.MAX_DEPTH or len(seen) >= self.MAX_NODES:
+                    raise NativeUiUnavailable("native_inactive_frame_scan_incomplete")
+                raw = self._read(lambda: str(node.app.bus_name) + ":" + str(node.path))
+                if self._read(lambda: node.app.bus_name) != bus:
+                    raise NativeUiUnavailable("native_inactive_frame_provider_changed")
+                if raw in seen:
+                    raise NativeUiUnavailable("native_inactive_frame_scan_incomplete")
+                seen.add(raw)
+                self._clear_cache(node)
+                state, role = self._read(node.get_state_set), self._read(node.get_role_name)
+                if state is None or state.contains(self.atspi.StateType.DEFUNCT):
+                    raise NativeUiUnavailable("native_inactive_frame_state_unavailable")
+                if role in {"frame", "dialog", "window", "alert", "file chooser"}:
+                    if self._read(node.get_process_id) != reported:
+                        raise NativeUiUnavailable("native_inactive_frame_provider_changed")
+                    eligible = all(state.contains(flag) for flag in (self.atspi.StateType.VISIBLE,
+                        self.atspi.StateType.SHOWING, self.atspi.StateType.SENSITIVE))
+                    if eligible:
+                        rect = self._native_rect(node)
+                        if rect is None:
+                            raise NativeUiUnavailable("native_inactive_frame_geometry_unavailable")
+                        frames[raw] = {"application": application, "geometry": rect,
+                            "active": state.contains(self.atspi.StateType.ACTIVE)}
+                    return
+                children = self._count(node)
+                if role == "password text":
+                    if children:
+                        raise NativeUiUnavailable("native_inactive_frame_protected_ancestor")
+                    return
+                if children > self.MAX_CHILDREN:
+                    raise NativeUiUnavailable("native_inactive_frame_scan_incomplete")
+                for index in range(children):
+                    scan(self._read(lambda index=index: node.get_child_at_index(index)), depth+1,
+                         seen=seen, application=application, bus=bus, reported=reported)
+
+            scan(app)
+        bindings = {}
+        for raw, frame in frames.items():
+            matches = [window for window in physical if window["application"] == frame["application"]
+                       and window["geometry"] == frame["geometry"]]
+            if (len(matches) != 1 or sum(
+                    item["application"] == frame["application"] and item["geometry"] == frame["geometry"]
+                    for item in frames.values()) != 1):
+                raise NativeUiUnavailable("native_inactive_window_ambiguous")
+            if frame["active"]:
+                continue
+            bindings[raw] = {**matches[0], "frame": raw}
+        if self._read(lambda: helper.client_windows(os.environ)) != client_ids:
+            raise NativeUiUnavailable("native_client_inventory_changed")
+        for window in physical:
+            identity = window["identity"]
+            owner = self._read(lambda identity=identity: helper.xres_owner(identity["window_id"], os.environ))
+            if (owner != {"pid": identity["process_id"], "start": window["process_start"]}
+                    or self._read(lambda identity=identity: _x11_geometry(identity)) != window["geometry"]):
+                raise NativeUiUnavailable("native_inactive_window_changed")
+        if self.foreground() != self.foreground_identity:
+            raise NativeUiUnavailable("native_foreground_changed_during_observation")
+        return bindings
+
+    def _refresh_inactive_namespace_bindings(self) -> None:
+        if self._inactive_namespace_bindings and self._collect_inactive_namespace_bindings() != self._inactive_namespace_bindings:
+            raise NativeUiUnavailable("native_inactive_namespace_changed")
 
     def _document_evidence(self, window: Any, window_id: str, handles: Mapping[str, Any],
                            generations: Mapping[str, int]) -> dict[str, Any]:
@@ -1633,6 +1757,7 @@ class _AtspiBridge:
         missing = object()
         binding = self._coordinate_binding
         provider_binding = self._provider_binding
+        inactive = (self._inactive_namespace_bindings, self._inactive_namespace_buses, self._inactive_namespace_error)
         target = self._window_target
         identity = getattr(self, "foreground_identity", missing)
         try:
@@ -1640,6 +1765,7 @@ class _AtspiBridge:
         except Exception:
             self._coordinate_binding = binding
             self._provider_binding = provider_binding
+            self._inactive_namespace_bindings, self._inactive_namespace_buses, self._inactive_namespace_error = inactive
             self._window_target = target
             if identity is missing:
                 self.__dict__.pop("foreground_identity", None)
@@ -1652,6 +1778,7 @@ class _AtspiBridge:
         self._window_target = copy.deepcopy(window_target)
         self._coordinate_binding = None
         self._provider_binding = None
+        self._inactive_namespace_bindings, self._inactive_namespace_buses, self._inactive_namespace_error = {}, set(), None
         self.foreground_identity = self.foreground()
         process_id = self.foreground_identity["process_id"]
         if self.process_id is not None and process_id != self.process_id:
@@ -1677,6 +1804,15 @@ class _AtspiBridge:
         namespace_candidate = not direct_provider
         if namespace_candidate and application_count > self.MAX_CHILDREN:
             raise NativeUiUnavailable("native_provider_scan_incomplete")
+        if include_windows:
+            providers = self._inactive_namespace_providers()
+            self._inactive_namespace_buses = {row[2] for row in providers}
+            try:
+                self._inactive_namespace_bindings = self._collect_inactive_namespace_bindings(providers)
+            except NativeUiUnavailable as exc:
+                if exc.code in {"native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"}:
+                    raise
+                self._inactive_namespace_error = exc.code  # Unknown windows grant no input handles.
         nodes, seen, active, handles, windows, window_ids = [], set(), set(), {}, {}, {}
         identity_root = "@desktop"
         observed_children: dict[str, set[str]] = {}
@@ -1685,7 +1821,7 @@ class _AtspiBridge:
         active_records = {}
         generations = dict(self.generations)
         history = self._window_history.copy()
-        truncated, text_remaining = False, 32768
+        truncated, text_remaining = self._inactive_namespace_error is not None, 32768
         state_type = self.atspi.StateType
         roles = {
             "push button": "button",
@@ -1703,7 +1839,7 @@ class _AtspiBridge:
         }
 
         def visit(node: Any, window: str = "", depth: int = 0, application_pid: int | None = None,
-                  parent: str = identity_root) -> bool:
+                  parent: str = identity_root, namespace_relay: bool = False) -> bool:
             nonlocal truncated, text_remaining, coverage_uncertain
             if len(seen) >= self.MAX_NODES or depth > self.MAX_DEPTH:
                 truncated = True
@@ -1727,6 +1863,7 @@ class _AtspiBridge:
             if not isinstance(role, str) or not role:
                 raise NativeUiUnavailable("native_observation_unavailable")
             if role == "application":
+                namespace_relay = self._read(lambda: node.app.bus_name) in self._inactive_namespace_buses
                 application_pid = self._read(node.get_process_id)
                 if application_pid != process_id and namespace_candidate:
                     proof = self._provider_proof(node, application_pid)
@@ -1757,13 +1894,16 @@ class _AtspiBridge:
                     if "Component" in self._read(node.get_interfaces):
                         self._coordinate_binding = self._coordinate_for(node)
                 else:
-                    if (self._provider_binding is not None and self._read(lambda: node.app.bus_name)
-                            == self._provider_binding["proof"]["bus_name"]):
-                        return True  # Foreground namespace proof grants no inactive-window authority.
+                    namespace_binding = self._inactive_namespace_bindings.get(raw)
+                    if (namespace_binding is None and (namespace_relay
+                            or self._provider_binding is not None and self._read(lambda: node.app.bus_name)
+                            == self._provider_binding["proof"]["bus_name"])):
+                        return True  # Relay/executable discovery alone grants no inactive authority.
                     if include_windows and type(application_pid) is int:
-                        xid = self._mapped_window(node, application_pid)
+                        owner = namespace_binding["identity"]["process_id"] if namespace_binding else application_pid
+                        xid = namespace_binding["identity"]["window_id"] if namespace_binding else self._mapped_window(node, owner)
                         if xid and not _window_scope_allows(self.window_scope,
-                                {"window_id": xid, "process_id": application_pid}):
+                                {"window_id": xid, "process_id": owner}):
                             windows.pop(window, None)
                             return True
                         if xid:
@@ -1772,7 +1912,10 @@ class _AtspiBridge:
                                     "role": "window", "name": str(self._read(node.get_name) or "")[:500],
                                     "visible": visible, "enabled": state.contains(state_type.SENSITIVE),
                                     "sensitive": False, "operations": ["switch_window"]}
-                            if window_target is not None and all(
+                            if namespace_binding is not None:
+                                item["window_binding"] = {"window_id": xid, "process_id": owner,
+                                    "process_start": namespace_binding["process_start"]}
+                            elif window_target is not None and all(
                                 item.get("id" if key == "node_id" else key) == value
                                 for key, value in window_target.items()
                             ):
@@ -1900,7 +2043,7 @@ class _AtspiBridge:
                     child_list_complete = False
                     break
                 admitted = visit(self._read(lambda i=index: node.get_child_at_index(i)), window, depth + 1,
-                                 application_pid, raw)
+                                 application_pid, raw, namespace_relay)
                 child_list_complete &= admitted
             if child_list_complete:
                 complete_children.add(raw)
@@ -1959,8 +2102,11 @@ class _AtspiBridge:
             payload["window_scope_sha256"] = native_task_scope_sha256(self.window_scope)
             payload["window_scope_count"] = len(self.window_scope["windows"])
         self._refresh_provider_binding()
+        self._refresh_inactive_namespace_bindings()
         revision_payload = payload if self._provider_binding is None else {
             "snapshot": payload, "provider_identity_digest": self._provider_binding["proof"]["digest"]}
+        if self._inactive_namespace_bindings:
+            revision_payload = {"snapshot": revision_payload, "inactive_namespace_bindings": self._inactive_namespace_bindings}
         payload["revision"] = hashlib.sha256(
             json.dumps(revision_payload, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
@@ -2151,8 +2297,10 @@ class _AtspiBridge:
 
             else:
                 xid = self.window_ids.get(item["id"])
-                owner = self._read(node.get_process_id)
-                if not xid or self._mapped_window(node, owner) != xid:
+                raw = self._read(lambda: str(node.app.bus_name) + ":" + str(node.path))
+                namespace_binding = self._inactive_namespace_bindings.get(raw)
+                owner = namespace_binding["identity"]["process_id"] if namespace_binding else self._read(node.get_process_id)
+                if not xid or (namespace_binding["identity"]["window_id"] if namespace_binding else self._mapped_window(node, owner)) != xid:
                     return reject("native_switch_window_mapping_changed")
                 expected = item.get("window_binding")
                 if expected is not None and expected != {"window_id": xid, "process_id": owner,
@@ -2160,11 +2308,23 @@ class _AtspiBridge:
                     return reject("native_switch_window_mapping_changed")
 
                 def operation() -> bool | dict[str, Any]:
+                    if namespace_binding is not None:
+                        try:
+                            self._refresh_inactive_namespace_bindings()
+                        except NativeUiUnavailable as exc:
+                            if exc.code in {"native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"}:
+                                raise
+                            return reject("native_switch_namespace_changed")
+                        if (self._inactive_namespace_bindings.get(raw) != namespace_binding
+                                or self._read(lambda: str(node.app.bus_name) + ":" + str(node.path)) != raw
+                                or str(self.generations.get(raw)) != item["generation"]
+                                or self._read(node.get_process_id) != namespace_binding["proof"]["reported_pid"]):
+                            return reject("native_switch_namespace_changed")
                     if not _window_scope_allows(self.window_scope, {"window_id": xid, "process_id": owner}):
                         return reject("native_task_window_out_of_scope")
-                    if expected is not None and (self._read(node.get_process_id) != expected["process_id"]
+                    if expected is not None and ((not namespace_binding and self._read(node.get_process_id) != expected["process_id"])
                             or self._read(lambda: _process_start(owner)) != expected["process_start"]
-                            or self._mapped_window(node, owner) != expected["window_id"]
+                            or (namespace_binding["identity"]["window_id"] if namespace_binding else self._mapped_window(node, owner)) != expected["window_id"]
                             or self.foreground() != self.foreground_identity):
                         return reject("native_switch_window_mapping_changed")
                     result = subprocess.run(["xdotool", "windowactivate", "--sync", xid],

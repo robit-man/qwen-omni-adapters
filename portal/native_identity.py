@@ -149,6 +149,39 @@ def _registry(*, read: Read, deadline: float) -> list[dict]:
     return rows
 
 
+def relay_candidate(pid: int, *, read: Read, deadline: float) -> bool:
+    """Candidate discovery only; never authority to map, switch or close."""
+    if type(pid) is not int or not 0 < pid < 2**31:
+        return False
+
+    def optional_stat(path: Path) -> os.stat_result | None:
+        try:
+            return path.stat()
+        except OSError:
+            return None
+
+    installed = _io(lambda: optional_stat(PROXY), read, deadline)
+    running = _io(lambda: optional_stat(Path(f"/proc/{pid}/exe")), read, deadline)
+    return (installed is not None and running is not None
+            and (installed.st_dev, installed.st_ino) == (running.st_dev, running.st_ino))
+
+
+def client_windows(environment: Mapping[str, str], *, timeout_s: float = 1) -> list[str]:
+    """Read the complete bounded WM-managed client list, never a title search."""
+    result = subprocess.run(["xprop", "-root", "_NET_CLIENT_LIST"],  # noqa: S603
+        env={**environment, "LC_ALL": "C"}, capture_output=True, text=True,
+        timeout=max(.05, min(1, timeout_s)), check=False)
+    raw = result.stdout.strip()
+    if (result.returncode or len(raw) > 65536 or re.fullmatch(
+            r"_NET_CLIENT_LIST\(WINDOW\): window id # 0x[0-9a-fA-F]+(?:, 0x[0-9a-fA-F]+)*", raw) is None):
+        raise IdentityUnavailable("native_client_inventory_unavailable")
+    values = [str(int(value, 16)) for value in re.findall(r"0x[0-9a-fA-F]+", raw)]
+    if (not 1 <= len(values) <= 128 or len(set(values)) != len(values)
+            or any(not 0 < int(value) < 2**32 for value in values)):
+        raise IdentityUnavailable("native_client_inventory_incomplete")
+    return sorted(values, key=int)
+
+
 def _xres(window_id: str) -> dict:
     """Run only in the fixed isolated child with the recovered desktop env."""
     if not isinstance(window_id, str) or not window_id.isascii() or not window_id.isdecimal() or not 0 < int(window_id) < 2**32:
