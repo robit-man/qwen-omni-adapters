@@ -91,6 +91,12 @@ def verify_registered_native_scope(desktop, scope):
     normalized = normalize_native_task_scope(scope)
     try:
         for window in normalized["windows"]:
+            verifier = getattr(desktop, "verify_registered_window", None)
+            verified = verifier(window) if callable(verifier) else None
+            if verified is not None:
+                if verified is not True:
+                    raise CapabilityBlocked("owned_native_task_scope_identity_changed")
+                continue
             pid = str(window["process_id"])
             if (process_start(pid) != window["process_start"]
                     or command(["xdotool", "getwindowpid", window["window_id"]], desktop.environment) != pid
@@ -632,7 +638,7 @@ def parser():
     result.add_argument("--timeout", type=float, default=1800)
     result.add_argument("--drain-timeout", type=float, default=300)
     result.add_argument("--think", action="store_true")
-    result.add_argument("--browser", choices=["firefox", "chromium"], default="firefox")
+    result.add_argument("--browser", choices=["firefox", "chromium", "flatpak-firefox"], default="firefox")
     result.add_argument("--editor", choices=["gedit", "gnome-text-editor"], default="gedit")
     result.add_argument("--prepare-only", action="store_true")
     result.add_argument("--evaluate", action="store_true")

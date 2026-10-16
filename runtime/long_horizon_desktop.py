@@ -96,6 +96,7 @@ class TaskDesktop(OwnedDesktop):
         super().__init__(environment)
         self.editor = editor
         self.launches: list[dict[str, Any]] = []
+        self._flatpak_owners: dict[int, Any] = {}
 
     def open_application(self, binary, args, application, window_class, *, stdin=None,
                          standalone=False, log_path=None, child_environment=None, expected_executable=None):
@@ -169,6 +170,25 @@ class TaskDesktop(OwnedDesktop):
 
     def open_blank(self, application: str, work: Path, *, browser: str, log_path: Path):
         if application == "browser":
+            if browser == "flatpak-firefox":
+                from runtime.owned_flatpak_firefox import OwnedFlatpakFirefox
+                owner = OwnedFlatpakFirefox(self.environment)
+                launch = {"application": "browser", "ownership_kind": "flatpak_firefox",
+                          "registered": False}
+                self.launches.append(launch)
+                self._flatpak_owners[id(launch)] = owner
+                try:
+                    ledger = owner.open_blank()
+                    identity = ledger["window"]
+                    owner.verify()
+                    window = OwnedWindow("browser", identity["window_id"], str(identity["process_id"]),
+                                         identity["process_start"], owner=owner)
+                    self.windows.append(window)  # Only the private launch ledger grants this registration.
+                    launch.update(registered=True, window_id=window.window_id, pid=window.pid,
+                                  process_start=window.process_start, ownership_evidence=ledger)
+                    return window
+                finally:
+                    launch["last_ownership_receipt"] = owner.last_receipt
             return self.open_application(browser, ["--new-window", "about:blank"], "browser",
                 "[Ff]irefox" if browser == "firefox" else "[Cc]hromium", log_path=log_path)
         if application == "gedit":
@@ -209,11 +229,38 @@ class TaskDesktop(OwnedDesktop):
     def is_owned(self, identity):
         return owned_foreground(self.windows, identity, self.environment)
 
+    def verify_registered_window(self, identity):
+        """Return None for ordinary launchers; namespace scopes require their own live ledger."""
+        matches = [row for row in self.windows if row.window_id == identity["window_id"]
+                   and row.pid == str(identity["process_id"]) and row.process_start == identity["process_start"]]
+        if len(matches) == 1 and matches[0].owner is not None:
+            ledgers = [launch for launch in self.launches if launch.get("ownership_kind") == "flatpak_firefox"
+                       and launch.get("registered") is True and self._flatpak_owners.get(id(launch)) is matches[0].owner
+                       and launch.get("window_id") == identity["window_id"]]
+            if len(ledgers) != 1:
+                return False
+            try:
+                return matches[0].owner.verify()["window"] == identity
+            finally:
+                for launch in self.launches:
+                    if self._flatpak_owners.get(id(launch)) is matches[0].owner:
+                        launch["last_ownership_receipt"] = matches[0].owner.last_receipt
+        return None
+
     def close(self):
         receipts = []
         for launch in reversed(self.launches):
             receipt = {key: value for key, value in launch.items() if key not in {"before_xids", "new_visible_xids"}}
             receipt["closed"] = False
+            if launch.get("ownership_kind") == "flatpak_firefox":
+                owner = self._flatpak_owners.get(id(launch))
+                try:
+                    receipt.update(owner.close())
+                except Exception:
+                    receipt["identity_or_close_unavailable"] = True
+                receipt["last_ownership_receipt"] = owner.last_receipt if owner else None
+                receipts.append(receipt)
+                continue
             if launch.get("registered"):
                 try:
                     xid, pid, start = launch["window_id"], launch["pid"], launch["process_start"]
