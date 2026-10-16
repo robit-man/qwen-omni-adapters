@@ -32,6 +32,14 @@ or malformed replies permanently close that transport and stop only its CPU
 helper. An uncertain browser window may remain; neither a late reply nor a new
 helper may silently restore ownership or count cleanup as successful.
 
+Protocol errors on the helper's own X connection return a typed ownership
+failure. An incomplete tree, subscription or event witness permanently
+invalidates that connection; queued subscriptions and consumed events are not
+rolled back, and later calls cannot establish ownership. The scoped Xlib error
+handler preserves the previous/default handler for other connections and is
+restored afterward. Private Xvfb controls reproduce this failure path; they do
+not establish the cause of a historical helper EOF, live readiness or cleanup.
+
 After the runner proves task drain, cleanup refreshes the exact ownership proof
 and requests one polite `WM_DELETE_WINDOW` for the owned XID. It never kills the
 shared Firefox process or closes other same-PID windows. Closure requires actual

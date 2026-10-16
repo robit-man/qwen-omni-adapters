@@ -24,6 +24,8 @@ import sys
 import tempfile
 import threading
 import time
+from contextlib import contextmanager
+from functools import wraps
 from pathlib import Path
 
 SCHEMA = "robit.omni.owned-flatpak-firefox.v1"
@@ -307,6 +309,27 @@ class _Event(ctypes.Union):
     _fields_ = [("window", _WindowEvent), ("pad", ctypes.c_long * 24)]
 
 
+class _XError(ctypes.Structure):
+    _fields_ = [
+        ("type", ctypes.c_int), ("display", ctypes.c_void_p),
+        ("resourceid", ctypes.c_ulong), ("serial", ctypes.c_ulong),
+        ("error_code", ctypes.c_ubyte), ("request_code", ctypes.c_ubyte),
+        ("minor_code", ctypes.c_ubyte),
+    ]
+
+
+_X_ERROR_HANDLER = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.POINTER(_XError))
+_X_ERROR_LOCK = threading.RLock()
+
+
+def _checked_x(method):
+    @wraps(method)
+    def checked(self, *args, **kwargs):
+        with self._errors():
+            return method(self, *args, **kwargs)
+    return checked
+
+
 class _XDisplay:
     def __init__(self):
         self.lib = ctypes.CDLL("libX11.so.6")
@@ -334,12 +357,80 @@ class _XDisplay:
         lib.XPending.argtypes = [ctypes.c_void_p]
         lib.XNextEvent.argtypes = [ctypes.c_void_p, ctypes.POINTER(_Event)]
         lib.XFree.argtypes, lib.XCloseDisplay.argtypes = [ctypes.c_void_p], [ctypes.c_void_p]
+        lib.XSetErrorHandler.argtypes, lib.XSetErrorHandler.restype = [ctypes.c_void_p], ctypes.c_void_p
         self.display = lib.XOpenDisplay(None)
         if not self.display:
             raise OwnershipUnavailable("flatpak_x11_unavailable")
         self.root = lib.XDefaultRootWindow(self.display)
         self.armed, self.selected = False, set()
+        self._poisoned, self._error_handlers = False, []
 
+    @contextmanager
+    def _errors(self):
+        # XSetErrorHandler is process-global. Only this connection's errors are
+        # trapped; another Display retains its exact previous/default handler.
+        with _X_ERROR_LOCK:
+            if self._poisoned or len(self._error_handlers) >= MAX_WINDOWS:
+                raise OwnershipUnavailable("flatpak_x11_connection_unavailable")
+            errors, previous, published = [], None, threading.Event()
+            installer = threading.get_ident()
+
+            def handle(display, event):
+                try:
+                    if display == self.display:
+                        if not errors:
+                            error = event.contents
+                            errors.append((error.error_code, error.request_code,
+                                           error.minor_code, error.resourceid, error.serial))
+                        return 0
+                    # The setter sends no protocol requests. An unrelated
+                    # thread may enter before its returned pointer is published.
+                    if (threading.get_ident() == installer and not published.is_set()
+                            or not published.wait(1) or previous is None):
+                        os._exit(1)
+                    return previous(display, event)
+                except BaseException:
+                    os._exit(1)  # Never propagate a Python exception into Xlib.
+
+            callback = _X_ERROR_HANDLER(handle)
+            # Keep C callback stubs alive even for a foreign callback already
+            # entering at restoration. The private connection's lifetime is bounded.
+            self._error_handlers.append(callback)
+            old = None
+            installed = False
+            try:
+                old = self.lib.XSetErrorHandler(callback)
+                installed = True
+                previous = _X_ERROR_HANDLER(old) if old else None
+                published.set()
+                if previous is None:
+                    raise OwnershipUnavailable("flatpak_x11_error_handler_unavailable")
+                self.lib.XSync(self.display, False)
+                if errors:
+                    raise OwnershipUnavailable("flatpak_x11_protocol_error")
+                try:
+                    yield
+                finally:
+                    # Includes asynchronous XSelectInput errors. Never return a
+                    # complete tree/event witness with an unprocessed X error.
+                    self.lib.XSync(self.display, False)
+                    if errors:
+                        raise OwnershipUnavailable("flatpak_x11_protocol_error")
+            except BaseException:
+                # Subscriptions and consumed events cannot be rolled back. No
+                # subsequent operation on this connection can establish ownership.
+                self._poisoned = True
+                raise
+            finally:
+                published.set()
+                if installed:
+                    replaced = self.lib.XSetErrorHandler(old)
+                    if replaced != ctypes.cast(callback, ctypes.c_void_p).value:
+                        self.lib.XSetErrorHandler(replaced)
+                        self._poisoned = True
+                        raise OwnershipUnavailable("flatpak_x11_error_handler_changed")
+
+    @_checked_x
     def snapshot(self, deadline: float) -> dict:
         pending, rows = [(self.root, 0)], {}
         while pending:
@@ -381,19 +472,28 @@ class _XDisplay:
         return {"root": str(self.root), "windows": rows, "complete": True}
 
     def arm(self, tree: dict) -> None:
+        pending = set(tree["windows"]) - self.selected
+        with self._errors():
+            for xid in pending:
+                self.lib.XSelectInput(self.display, int(xid), (1 << 19) | (1 << 17))
+        self.selected.update(pending)
         self.armed = True
-        for xid in tree["windows"]:
-            self.select(xid)
-        self.lib.XSync(self.display, False)
 
     def select(self, xid: str) -> None:
-        if xid not in self.selected:
-            self.lib.XSelectInput(self.display, int(xid), (1 << 19) | (1 << 17))
-            self.selected.add(xid)
+        with self._errors():
+            if xid not in self.selected:
+                self.lib.XSelectInput(self.display, int(xid), (1 << 19) | (1 << 17))
+        self.selected.add(xid)
 
     def events(self) -> list[dict]:
+        with self._errors():
+            rows, selected = self._events()
+        self.selected.update(selected)
+        return rows
+
+    def _events(self):
         self.lib.XSync(self.display, False)
-        rows = []
+        rows, selected = [], set()
         while self.lib.XPending(self.display):
             if len(rows) >= MAX_WINDOWS:
                 raise OwnershipUnavailable("flatpak_window_events_incomplete")
@@ -410,10 +510,11 @@ class _XDisplay:
                 }
                 if item["synthetic"]:
                     raise OwnershipUnavailable("flatpak_synthetic_window_event")
-                if row.type == 16:
-                    self.select(item["window_id"])
+                if row.type == 16 and item["window_id"] not in self.selected:
+                    self.lib.XSelectInput(self.display, row.window, (1 << 19) | (1 << 17))
+                    selected.add(item["window_id"])
                 rows.append(item)
-        return rows
+        return rows, selected
 
 
 class _SystemBackend:
