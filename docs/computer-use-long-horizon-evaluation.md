@@ -598,6 +598,51 @@ The isolated changes were adopted unchanged as `bdf82b6` and `a9d124b`.
 This is source validation; fresh live reader acceptance and owned Flatpak
 launch/cleanup qualification remain pending.
 
+The next unassisted Qwen LHN-001 run on `eff4fa5` ended after 13 completed
+phases: 383.27 seconds for the request, 394.83 seconds including the runner.
+It failed with a transport read error and no authoritative model final. The
+runner retained an outside-owned-scope foreground diagnostic, cancelled the
+task, proved downstream idle and closed only its three owned windows. The
+offending historical foreground tuple was not retained; its actor and cause
+remain unknown. The CPU frontend stayed healthy, all original worker identities
+and the exact GPU1 lease were preserved, and fresh fault checks found no new
+GPU fault. No deliverables or reader calls occurred: reader acceptance is
+unexercised in this run, not a failed reader response.
+
+Independently of that interruption, phases 5–13 prove a generic repetition
+defect. Each repeated the same already-active editor switch, cached focus and
+cached Ctrl+A on identical observed state. All nine effect vectors were
+`[absent, replayed, replayed]`, with zero new effects. The compiler's all-replayed
+check excludes this mixed vector, so complete workflows reset its failure
+counter. The separate diagnostic SHA256 is
+`d56828818889733c21e5db2e96d65e2c03416bb1bca8e6bf1f5606464b8d735a`.
+The immutable failed bundle at
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-001-20261016T075430Z/`
+has SHA256 `28bb43d4ea942750d6746562a0b3e99f1e829030d0fbe9f579483b4fbd6e01ac`.
+No retry followed. A bounded typed repetition correction is a separate source
+criterion; first legitimate no-ops and useful knowledge phases must remain valid.
+
+The correction, adopted as `f1b9cf0`, annotates a repeated verified zero-effect
+UI phase with `ui_phase_repeated_without_new_effect`, preserving its original
+complete workflow and input/verification receipts. The next native-task compiler
+receives that nonprogress reason through its ordinary compact result; repeated
+failures use the existing three-failure bound. Effective action bindings and
+complete existing observations determine repetition, rather than planner step
+IDs or claims. Actual mutations clear the history. First valid no-ops, changed
+state/actions and separate reader/memory phases remain valid. This applies to
+the explicit native-task compiler, not ordinary chat/voice tool-loop routing.
+All nine saved repeats produce one signature with no observed fields omitted.
+
+One full source gate passed on frozen `035c03fd`: 3,139 tests in 107.35 seconds
+plus aggregate checks, with all 370 tracked files and five reviewed private
+helpers unchanged. Receipt `/tmp/qwen-native-phase-repeat-post-validation-receipt.json`,
+SHA256 `1719fb1958305c3c823f0c06114ef3284a80a37dd22777afd34585c5bb71ddac`.
+The first launcher attempt found no interpreter in the isolate and exited
+before running the gate; the recorded passing run used the existing environment
+with verified isolated imports. No live adoption or new model run occurred
+during this gate. Fresh acceptance is planned on local GPU1 Ornith before the
+next remote model-task runs.
+
 The independent run-ledger audit at 07:32:49 UTC on 2026-10-16 found eight
 canonical submitted attempts: seven Qwen LHN-047 attempts and one Qwen LHN-001
 attempt. Those cover two of the 200 model/case cells, with six repeated attempts
@@ -620,6 +665,29 @@ alone do not establish either a delegation defect or successful coverage.
 The current zero canonical Kev receipts require a source-and-trace eligibility
 audit before claiming that layer is exercised. Accepted document snapshots must
 remain knowledge, never current input authority or terminal mutation proof.
+
+The subsequent delegation audit found 18 direct selector receipts and ten
+first-step reconstructions: 21 unique executable matches, seven zero-eligible
+matches and no ambiguous candidate set. Excluding the invalid-seal historical
+run leaves 25 opportunities, with 20 unique and five zero-eligible. Interrupted
+and incomplete evidence limits remain explicit. These counts use evidence
+available at the audit's 07:54:47 UTC capture, before the later 13-phase run
+completed; they do not count its subsequently retained selection receipts.
+This does not demonstrate a
+missed Kev dispatch or a successful Kev decision. Audit:
+`runtime-data/gpu1-acceptance/operator-audit/kev-delegation-20261016T075447Z/report.json`,
+SHA256 `1fd87730bf88ff7f580fcdbe6cdcb05a97c31932a36a05d48e14792d87857bfd`.
+
+After the push, read-only SSH evidence established actual Egg41 adoption of
+`eff4fa5`: reflog advance, core restart, new portal/adapter identities and the
+matching deployed marker. Its Ornith trunk was healthy and resident; auxiliary
+wrapper liveness alone did not prove their CUDA residency. Egg31 remained on
+`ec12821`, with its previous worker identities and an existing request left
+untouched. Neither observation is a remote task pass. Receipt:
+`runtime-data/gpu1-acceptance/egg-auto-adoption-watch-20261016T075600Z/watch-summary.json`,
+SHA256 `7c6e070d4fca88b8871d054dc4bf7f146f2b195e9c07e0dc278fd656d51dc0f2`.
+The next model-test sequence is local GPU1 Ornith, then live Egg tasks after
+their exact source adoption and idle readiness are verified.
 
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
