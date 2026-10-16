@@ -1127,6 +1127,7 @@
                     ]
                   },
                   {
+                    "description": "Verify keyboard focus on this exact observed node (focused=true), which may be a child of the foreground window. Being the active window or receiving a click does not establish keyboard focus. Use the focus action only on a target advertising focus; for typing, target the actual editable control and verify its value separately. This predicate does not verify click success or task completion.",
                     "type": "object",
                     "additionalProperties": false,
                     "properties": {
@@ -1175,6 +1176,7 @@
                     ]
                   },
                   {
+                    "description": "Verify that the exact role=window node equals current scope.id: foreground activation, independent of its focused flag. Pair switch_window with this predicate for window activation. An already active window needs no activation input; this predicate alone gives no mutation or whole-task progress credit.",
                     "type": "object",
                     "additionalProperties": false,
                     "properties": {
@@ -2061,6 +2063,7 @@
                     ]
                   },
                   {
+                    "description": "Verify keyboard focus on this exact observed node (focused=true), which may be a child of the foreground window. Being the active window or receiving a click does not establish keyboard focus. Use the focus action only on a target advertising focus; for typing, target the actual editable control and verify its value separately. This predicate does not verify click success or task completion.",
                     "type": "object",
                     "additionalProperties": false,
                     "properties": {
@@ -2109,6 +2112,7 @@
                     ]
                   },
                   {
+                    "description": "Verify that the exact role=window node equals current scope.id: foreground activation, independent of its focused flag. Pair switch_window with this predicate for window activation. An already active window needs no activation input; this predicate alone gives no mutation or whole-task progress credit.",
                     "type": "object",
                     "additionalProperties": false,
                     "properties": {

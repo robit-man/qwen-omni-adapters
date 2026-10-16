@@ -12,7 +12,7 @@ import portal.tools as tools_module
 from portal.app import DEFAULT_MODEL, SESSION_COOKIE_NAME, PortalConfig, create_app
 from portal.computer_use import ComputerUseStore
 from portal.native_ui import NativeUiAdapter
-from portal.ui_task import NativePhaseCompilationError
+from portal.ui_task import NativePhaseCompilationError, phase_response_schema
 
 TOKEN = "native-task-route-token-at-least-24-characters"
 HEADERS = {"Authorization": "Bearer " + TOKEN}
@@ -130,6 +130,13 @@ def test_native_profile_compiles_strict_phase_and_executes_two_inputs_internally
         packet = json.loads(payload["messages"][1]["content"])
         assert packet["goal"] == GOAL
         assert packet["response_schema"] == payload["response_format"]["json_schema"]["schema"]
+        predicates = {item["properties"]["kind"]["const"]: item for item in
+                      packet["response_schema"]["$defs"]["predicate"]["oneOf"]}
+        canonical = {item["properties"]["kind"]["const"]: item for item in
+                     phase_response_schema(["native_ui"])["$defs"]["predicate"]["oneOf"]}
+        for kind in ("focused", "active_window"):
+            assert predicates[kind]["description"] == canonical[kind]["description"]
+            assert predicates[kind]["description"].strip()
         assert any(node["id"] == "other-window" for node in packet["current_state"]["state"]["nodes"])
         if len(requests) == 1:
             assert adapters[0].planning_calls == 1 and adapters[0].calls == []

@@ -294,6 +294,17 @@ Example step:
 
 Supported predicate kinds are `value`, `checked`, `selected`, `focused`,
 `text_selection`, `active_window`, `visible`, `text`, and `url`.
+`active_window` verifies that the exact observed window node is the current
+scope root. `focused` verifies the exact node's reported keyboard-focus flag;
+an active window can have that flag false while an editable child has it true.
+A provider-reported focused window remains valid. Use `switch_window` with
+`active_window` for activation, and request `focus` only from a control that
+advertises that operation. Neither a click nor activation proves keyboard
+focus, and typing still needs a separate value readback. These distinctions
+are included in both canonical predicate schemas and the native-task planner's
+model-visible response schema; predicate evaluation and input authority are
+unchanged. An already-active verification gives no mutation or task-progress
+credit.
 A terminal predicate cannot use `$target`.
 File creation still requires the existing filesystem receipt/readback path;
 clicking Save alone does not prove a file exists. Session Trash/TTL removes
