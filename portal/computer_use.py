@@ -217,6 +217,33 @@ def _effect_result(outcome: dict[str, Any], settled: set[str] | None = None) -> 
     return result
 
 
+def _selection_receipt(index: int, step: dict, state: dict, actions: list[dict], selection: dict) -> dict:
+    """Factual selector feedback; observed matches never prove global absence."""
+    selected = next(item for item in actions if item["id"] == selection["selected_action_id"])
+    count = sum(item["kind"] == "action" for item in actions)
+    receipt = {"schema": "robit.omni.ui-selection-receipt.v1", "step_index": index, "step_id": step["id"],
+               "session_id": _digest(state["session_id"]), "current_scope_id": state["scope"]["id"],
+               "semantic_revision": state.get("base_semantic_revision", state["revision"]),
+               "selection_status": copy.deepcopy(selection["selection_status"]),
+               "executable_candidate_count": count, "selected_kind": selected["kind"],
+               "source_truncated": state.get("truncated", False), "absence_claims_supported": False}
+    if count == 0:
+        matched = [node for node in state["nodes"] if all(
+            node.get("id" if key == "node_id" else key) == value for key, value in step["target"].items())]
+        controls = []
+        for node in matched[:8]:
+            item = {key: copy.deepcopy(node[key]) for key in (
+                "id", "generation", "scope_id", "role", "name", "focused", "visible", "enabled", "sensitive", "operations"
+            ) if key in node}
+            if node["sensitive"]:
+                item.update(name="[protected]", operations=[])
+            item["is_current_scope"] = node["id"] == state["scope"]["id"]
+            controls.append(item)
+        receipt.update(observed_matching_control_count=len(matched), matched_controls=controls,
+                       omitted_matching_controls=max(0, len(matched) - len(controls)))
+    return receipt
+
+
 @dataclass
 class _OwnedController:
     controller: RapidUiController
@@ -411,11 +438,14 @@ class ComputerUseStore:
             if op == "workflow":
                 steps = arguments.get("steps")
                 parsed = [parse_step(item) for item in steps] if isinstance(steps, (list, tuple)) else []
-                cursor = iter(parsed)
+                cursor = iter(enumerate(parsed))
                 policy_receipts: list[dict[str, Any]] = []
                 point_receipts: list[dict[str, Any]] = []
+                selection_receipts: list[dict[str, Any]] = []
                 def choose(state, actions):
-                    selection = self._select(owned, state, actions, next(cursor), goal)
+                    index, step = next(cursor)
+                    selection = self._select(owned, state, actions, step, goal)
+                    selection_receipts.append(_selection_receipt(index, step, state, actions, selection))
                     if "policy_receipt" in selection:
                         policy_receipts.append(selection["policy_receipt"])
                     if receipt := _point_receipt(owned.adapter):
@@ -451,6 +481,7 @@ class ComputerUseStore:
                 }
                 result["policy_receipts"] = policy_receipts
                 result["point_receipts"] = point_receipts
+                result["selection_receipts"] = selection_receipts
                 mutations = [item for item in outcomes if item.get("evidence_authority") == "mutation"]
                 result.update(evidence_authority="mutation" if mutations else "inspection", task_progress=False)
                 if outcomes and outcomes[-1].get("after"):

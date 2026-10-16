@@ -19,6 +19,17 @@ and a separate fresh observation verifies the plan's terminal predicates.
 Ambiguity, unavailable observation, stale state, cancellation, and missing
 effects remain explicit outcomes.
 
+Workflow feedback retains a bounded selection receipt for each actual selector
+call, including the step, semantic revision, current scope, typed selection
+status, executable candidate count and selected kind. If no executable action
+is offered, bounded exact target matches report their observed capabilities and
+whether their identity is the current scope. Widget focus is not evidence that
+a window is inactive. Truncation and omitted matches remain explicit; an empty
+list cannot prove absence. Protected names are redacted, and neither these
+receipts nor policy confidence authorize input or count as mutation evidence.
+The next Omni phase receives this feedback through the compact result, while
+the controller retains its original candidates and exact execution checks.
+
 ## Host-owned execution
 
 An action ID binds the session, scope, document/control generation, semantic

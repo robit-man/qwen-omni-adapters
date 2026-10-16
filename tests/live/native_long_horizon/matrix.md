@@ -1,6 +1,6 @@
 # Draft 100-task long-horizon native suite
 
-Specifications only: 100 unrun tasks / 16 correlated workflow families / 200 planned first-attempt model cells. Readiness and pass counts are both zero. LH001 pilots are excluded from this denominator.
+Frozen specification matrix: 100 tasks / 16 correlated workflow families / 200 planned first-attempt model cells. The Ready column records specification-time readiness, not current execution results. See `docs/computer-use-long-horizon-evaluation.md` for retained attempts and `docs/computer-use-long-horizon-runner.md` for executable coverage. LH001 pilots are excluded from this denominator.
 
 | ID | Family | Outcome task | Apps | Checks | Memory | Ready |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -107,6 +107,6 @@ Specifications only: 100 unrun tasks / 16 correlated workflow families / 200 pla
 
 Each full task in tasks.json contains a complete outcome-only text goal, inline declared input fixture content, GUI-only official source acquisition, output paths, independent criterion specifications, native method constraints, model cells and host-specific readiness blockers.
 
-No fixture, evaluator, app, model or trajectory was executed. Input materializers/oracles/source pins are not implemented. Existence alone, model prose, exit status and primitive tests cannot pass a task. The sealed evaluator section must never be provided to the solver.
+This matrix alone does not establish execution or readiness. The subsequent runner implements declared input materialization, source-proof admission and selected independent oracles; remaining coverage and blocked specifications are documented in its guide. Existence alone, model prose, exit status and primitive tests cannot pass a task. The sealed evaluator section must never be provided to the solver.
 
-The benchmark references are inspiration/protocol boundaries taken from the saved primary research, not inherited scores or copied official tasks. Tasks within a family are correlated variants; report both task and family aggregates. Any live run must freeze source/model/auxiliary revisions, source facts, assets, evaluator, method, seed and budget before starting. The current draft does not authorize execution.
+The benchmark references are inspiration/protocol boundaries taken from the saved primary research, not inherited scores or copied official tasks. Tasks within a family are correlated variants; report both task and family aggregates. Any live run must freeze source/model/auxiliary revisions, source facts, assets, evaluator, method, seed and budget before starting. Execution uses the user's task authorization and the runner's actual host-readiness checks.

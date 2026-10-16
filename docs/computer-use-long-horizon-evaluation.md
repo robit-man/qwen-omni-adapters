@@ -349,7 +349,25 @@ failure note remain outside the bundle. No solver input or workbench changed.
 The next patch crops the accepted image to positively verified native content
 bounds, retains original-source provenance, and compares the exact transmitted
 region. It passed 441 focused checks and the full 2,601-check source gate.
-Actual physical dispatch and whole-task acceptance remain pending a new cohort.
+The `7c9b79a` replay then made one actual pinned Moondream 3.1 point request
+(HTTP 200, 3.968 seconds) and dispatched a physical double-click through guarded
+XTEST. An independent native observation confirmed that the same owned Files
+window changed from Workbench to Input and exposed all five input files. The
+transmitted content image stayed identical across three captures while the
+original root-image hashes changed. This verifies the content-bound grounding
+and physical directory-opening milestone.
+
+The full task still failed naturally after three phases in 74.21 seconds. The
+first plan targeted Input but expected that disappearing directory cell to
+remain focused; verification correctly remained unresolved. The next two plans
+requested `switch_window` on the already-active Input scope. Its observed
+operations did not include that verb, and both attempts abstained without input.
+The workflow dropped the selector's typed status, leaving opaque abstentions
+in replanning feedback. There was one physical input, no output artifact and no
+memory recall. Evidence is under
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-047-20261016T040026Z/`;
+manual notes remain in its separate sibling operator directory. This is another
+failed attempt of the same model/case cell, not another distinct suite task.
 
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded

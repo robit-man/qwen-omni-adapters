@@ -55,7 +55,7 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
     """Keep receipts and readback; never multiply historical UI maps in planning."""
     fields = ("status", "error", "reason", "message", "phase_handoff", "terminal_receipt",
               "verification_receipt", "ui_state_receipt", "effect_receipt", "action_receipt",
-              "policy_receipts", "point_receipts", "evidence_authority", "resource", "stored",
+              "policy_receipts", "point_receipts", "selection_receipts", "evidence_authority", "resource", "stored",
               "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
     outcomes = []
