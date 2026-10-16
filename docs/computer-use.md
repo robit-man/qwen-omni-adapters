@@ -331,6 +331,31 @@ arguments fail before tool dispatch. External OpenAI-compatible services and
 Ollama retain their existing behavior unless explicitly configured for this
 local llama.cpp contract.
 
+## Explicit visual inspection
+
+`native_ui {"operation":"inspect_visual"}` explicitly requests one bounded reading
+from the configured pinned local Moondream `/observe` endpoint. The mandatory
+native-task compiler can request `{"kind":"visual_inspection"}`. Neither accepts
+a question, image, coordinates or model selection. Ordinary observations and
+pointer grounding are unchanged. Browser-surface `computer_use` calls cannot
+request this desktop capability.
+
+The reader receives the existing guarded content capture. Fresh native scope,
+owner, geometry, committed DocumentWeb URI and exact transmitted pixels must
+still agree after inference; otherwise the reading is withheld. A visible
+protected control intersecting the capture, or with unknown bounds, also
+withholds the read. Native truncation alone permits the explicitly authorized
+local inspection, with unknown coverage and no absence claim. No masking,
+automatic retry or input fallback is used.
+
+Accepted `reading` and `visual_inspection_receipt` are untrusted producing-tool
+snapshot evidence. Only fresh native DocURL proof supplies a source URL. They
+are never a current user image, speech transcript, input authorization, mutation
+receipt or independent verification. No image bytes enter the Omni prompt.
+Only an accepted nonempty reading makes that read phase successful; whole-task
+completion remains independently scored. Animation or caret changes may cause
+the exact post-capture check to reject the snapshot.
+
 ## Validation
 
 Run `./scripts/validate.sh` for controller, adapter, session, policy, deployment,

@@ -348,6 +348,20 @@ available. This is a native-controller restriction, not an OS sandbox or a
 promise that an application cannot itself launch another window. Cancellation,
 identity, revision, hit-target and effect-verification guards still apply.
 
+The portal's native-task phase schema also accepts `kind:"visual_inspection"`,
+which invokes the existing `native_ui` tool with `operation:"inspect_visual"`.
+This closed read-only operation accepts no query, image, coordinates or model
+choice. A pinned local reader receives one guarded desktop content snapshot;
+fresh native/document bindings and exact transmitted pixels are rechecked after
+inference. Changed, cancelled, protected or unavailable reads provide no accepted
+text. A successful result carries bounded `reading` plus an untrusted
+`visual_inspection_receipt`, with no input or mutation/verification credit.
+
+These are canonical tool arguments/results and portal compiler details within
+existing tool events. They add no portable adapter media fields or event types,
+and never set `current_visual_input`, images or user transcript evidence.
+Client-owned adapter tools remain client-owned and are not auto-executed.
+
 If an adapter language stream ends with a classified network/timeout failure
 before audio starts, the portal retries that exact round once. It emits
 `{"type":"reset","reason":"upstream_network_retry","attempt":1}` before

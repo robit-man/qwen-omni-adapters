@@ -404,10 +404,13 @@ class ComputerUseStore:
     def act(self, session_id: str, arguments: dict[str, Any], *, goal: str = "") -> dict[str, Any]:
         op = arguments.get("operation", "observe")
         fields = {"observe": {"step"}, "execute": {"action_id"},
-                  "workflow": {"steps", "final_predicates"}, "verify": {"predicates"}, "cancel": set()}
+                  "workflow": {"steps", "final_predicates"}, "verify": {"predicates"}, "cancel": set(),
+                  "inspect_visual": set()}
         if op not in fields or set(arguments) - ({"operation", "surface"} | fields[op]):
             raise ComputerUseError("Invalid computer-use operation or fields")
         surface = arguments.get("surface", "browser")
+        if op == "inspect_visual" and surface != "desktop":
+            raise ComputerUseError("Visual inspection requires the desktop surface")
         if self._task_cancelled(session_id, surface):
             return {"status": "cancelled"}
         owned = self._owned(session_id, surface)
@@ -421,6 +424,16 @@ class ComputerUseStore:
                 if owned.window_scope is not None:
                     return {"status": "cancelled"}
                 return {"status": "cancelled", "reason": "Observe again to start a new operation"} if op != "observe" else self._renew(session_id, arguments, goal)
+            if op == "inspect_visual":
+                inspect = getattr(owned.adapter, "inspect_visual", None)
+                if not callable(inspect):
+                    return {"status": "unavailable", "error": "native_visual_reader_unavailable",
+                            "dispatch_status": "not_dispatched", "evidence_authority": "inspection", "task_progress": False}
+                result = inspect()
+                if self._task_cancelled(session_id, surface, owned) or owned.cancel.is_set():
+                    return {"status": "cancelled", "dispatch_status": "not_dispatched",
+                            "evidence_authority": "inspection", "task_progress": False}
+                return {**result, "dispatch_status": "not_dispatched", "evidence_authority": "inspection", "task_progress": False}
             if op == "observe":
                 step = parse_step(arguments["step"]) if "step" in arguments else None
                 prepare = getattr(owned.adapter, "prepare_step", None)

@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 UI_TOOLS = frozenset({"native_ui", "computer_use"})
-PLANNER_OPERATIONS = frozenset({"observe", "workflow", "verify", "cancel"})
+PLANNER_OPERATIONS = frozenset({"observe", "workflow", "verify", "cancel", "inspect_visual"})
 
 _DESCRIPTION = (
     "Plan bounded semantic phases for the existing UI controller. First use "
@@ -40,7 +40,9 @@ _DESCRIPTION = (
     "goal. Plan the next unmet phase after checking the handoff and freshest "
     "state. Use verify for an independent current-state check, or cancel to "
     "stop. No code, raw coordinates, input fallback or permission may be "
-    "supplied by the planner."
+    "supplied by the planner. Request inspect_visual explicitly when visible text "
+    "is needed from the desktop screenshot; it returns a bounded untrusted reading "
+    "of a captured snapshot, without input or task-progress credit."
 )
 
 

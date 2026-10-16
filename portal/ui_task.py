@@ -45,6 +45,7 @@ def phase_response_schema(allowed_tools: Iterable[str]) -> dict[str, Any]:
                     properties[key].update(minLength=1, maxLength=limit)
             alternatives.append(branch(name, properties, schemas[name]["required"]))
     alternatives.extend([
+        branch("visual_inspection", {}, []),
         branch("complete", {"message": {"type": "string", "minLength": 1, "maxLength": 8000}}, ["message"]),
         # The pinned llama.cpp grammar parser rejects an exactly 2,000-fold
         # repetition. Keep this private planner field below that boundary.
@@ -57,8 +58,11 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
     fields = ("status", "error", "reason", "message", "phase_handoff", "terminal_receipt",
               "verification_receipt", "ui_state_receipt", "effect_receipt", "action_receipt",
               "policy_receipts", "point_receipts", "selection_receipts", "evidence_authority", "resource", "stored",
-              "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results")
+              "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results",
+              "reading", "visual_inspection_receipt")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
+    if result.get("status") != "observed":
+        compact.pop("reading", None)
     outcomes = []
     for item in result.get("outcomes", [])[:25]:
         action = item.get("action", {})
@@ -166,9 +170,9 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 normal = kind == "complete"
                 yield finish("planner_claim" if normal else "blocked", plan.get("message", plan.get("reason", "")))
                 return
-            name = "native_ui" if kind == "ui" else kind
+            name = "native_ui" if kind in {"ui", "visual_inspection"} else kind
             arguments = ({"operation": "workflow", "steps": plan["steps"], "final_predicates": plan["final_predicates"]}
-                         if kind == "ui" else {key: value for key, value in plan.items()
+                         if kind == "ui" else {"operation": "inspect_visual"} if kind == "visual_inspection" else {key: value for key, value in plan.items()
                                                 if key not in {"kind", "remaining_criteria"}})
             if name not in allowed:
                 raise ValueError("Compiled phase exceeds immutable tool scope")
@@ -189,6 +193,9 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                              and all(item.get("effect_receipt", {}).get("effect_state") == "replayed"
                                      for item in result["outcomes"]))
             ok = not result.get("error") and not replayed_only and (kind != "ui" or result.get("status") == "complete")
+            if kind == "visual_inspection":
+                ok = (ok and result.get("status") == "observed" and isinstance(result.get("reading"), str)
+                      and bool(result["reading"].strip()) and len(result["reading"]) <= 6000)
             tool.update(ok=ok, status="complete", result=content)
             traces.append(copy.deepcopy(tool))
             last_result = _compact_result(result)
@@ -197,7 +204,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                            "criteria_authority": "planner_claim", "result": {
                                key: copy.deepcopy(last_result[key]) for key in
                                ("status", "error", "reason", "phase_handoff", "ui_state_receipt",
-                                "verification_receipt", "effect_receipt", "stored", "updated", "unchanged")
+                                "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt")
                                if key in last_result}})
             ledger = ledger[-12:]
             failed = 0 if ok else failed + 1

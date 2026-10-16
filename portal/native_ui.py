@@ -339,6 +339,104 @@ class NativeUiAdapter:
         """Inspect active controls and mapped window identities without input/vision."""
         return self._semantic_observe(include_windows=True)
 
+    def inspect_visual(self) -> dict[str, Any]:
+        """Read one explicitly requested snapshot; never create input authority."""
+        import httpx
+
+        base = {"dispatch_status": "not_dispatched", "evidence_authority": "inspection",
+                "task_progress": False}
+
+        def failed(status: str, code: str) -> dict[str, Any]:
+            safe = (code if isinstance(code, str) and len(code) <= 128
+                    and re.fullmatch(r"[a-z][a-z0-9_]{0,127}", code) else "native_visual_reader_unavailable")
+            return {**base, "status": status, "error": safe}
+
+        def binding(state: Mapping[str, Any]) -> tuple[Any, ...]:
+            return (state["session_id"], state["revision"], state["scope"],
+                    state.get("document_evidence"), state.get("window_scope_sha256"))
+
+        def protected(state: Mapping[str, Any], image: Mapping[str, Any] | None = None) -> bool:
+            for node in state["nodes"]:
+                if node.get("visible") is not True or node.get("sensitive") is not True:
+                    continue
+                rect = node.get("bounds")
+                if (not isinstance(rect, dict) or set(rect) != {"x", "y", "width", "height"}
+                        or any(type(value) is not int for value in rect.values())
+                        or min(rect["width"], rect["height"]) <= 0):
+                    return True
+                if image and (max(rect["x"], image["x"]) < min(rect["x"] + rect["width"], image["x"] + image["width"])
+                              and max(rect["y"], image["y"]) < min(rect["y"] + rect["height"], image["y"] + image["height"])):
+                    return True
+            return False
+
+        with _NATIVE_LOCK:
+            try:
+                self._check_cancelled()
+                if not self.pointing_url:
+                    return failed("unavailable", "native_visual_reader_not_configured")
+                state = self.planning_observe()
+                if protected(state):
+                    return failed("unavailable", "native_visual_reading_protected")
+                capture = self._visual_capture(state)
+                captured_at = time.time()
+                if protected(state, capture["image_geometry"]):
+                    return failed("unavailable", "native_visual_reading_protected")
+                self._check_cancelled()
+                if binding(self.planning_observe()) != binding(state):
+                    return failed("stale", "native_visual_inspection_changed")
+                self._check_cancelled()
+                response = httpx.post(self.pointing_url + "/observe", json={
+                    "image": base64.b64encode(capture["image"]).decode()}, timeout=self.pointing_timeout_s)
+                self._check_cancelled()
+                response.raise_for_status()
+                if len(response.content) > 65536:
+                    return failed("unavailable", "native_visual_reader_reply_too_large")
+                result = response.json()
+                if (not isinstance(result, dict) or set(result) != {"model", "revision", "observation"}
+                        or result.get("model") != self.pointing_model
+                        or result.get("revision") != self.pointing_revision):
+                    return failed("unavailable", "native_visual_reader_identity_changed")
+                reading = result.get("observation")
+                if not isinstance(reading, str) or not reading.strip() or len(reading) > 6000:
+                    return failed("unavailable", "native_visual_reader_invalid_reading")
+                fresh = self.planning_observe()
+                if binding(fresh) != binding(state):
+                    return failed("stale", "native_visual_inspection_changed")
+                self._check_cancelled()
+                checked = self._visual_capture(fresh)
+                self._check_cancelled()
+                if (checked["key"] != capture["key"] or protected(fresh, checked["image_geometry"])
+                        or binding(self.planning_observe()) != binding(state)):
+                    return failed("stale", "native_visual_inspection_changed")
+                self._check_cancelled()
+                receipt = {"schema": "robit.omni.native-visual-inspection.v1", "id": uuid.uuid4().hex,
+                    "source_type": "native_window_visual_inspection", "authority": "untrusted_tool_observation",
+                    "session_id": hashlib.sha256(self.session_id.encode()).hexdigest(),
+                    "scope_id": state["scope"]["id"], "semantic_revision": state["revision"],
+                    "captured_at_unix": captured_at, "checked_at_unix": time.time(),
+                    "model": result["model"], "revision": result["revision"], "frame_sha256": capture["sha256"],
+                    "coverage": "unknown" if state.get("truncated") else "bounded_native_observation",
+                    "source_truncated": bool(state.get("truncated")), "absence_claims_supported": False}
+                for name in ("identity", "process_start", "geometry", "capture_source", "capture_root",
+                             "image_geometry", "pixel_offset", "content_region", "source_frame_sha256", "source_image_geometry"):
+                    if name in capture:
+                        receipt[name] = copy.deepcopy(capture[name])
+                document = state.get("document_evidence", {})
+                if (isinstance(document, Mapping) and document.get("status") == "observed" and document.get("source") == "atspi.Document.DocURL"
+                        and document.get("url") == state["scope"].get("url")
+                        and document.get("scope_id") == state["scope"]["id"]
+                        and document.get("window_id") == capture["identity"]["window_id"]):
+                    receipt.update(source_url=document["url"], document_evidence=copy.deepcopy(document))
+                return {**base, "status": "observed", "reading": reading.strip(),
+                        "resource": receipt.get("source_url", state["scope"]["id"]),
+                        "visual_inspection_receipt": receipt}
+            except NativeUiUnavailable as exc:
+                if exc.code in ("native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"):
+                    raise
+                return failed("cancelled" if exc.code == "native_operation_cancelled" else "unavailable", exc.code)
+            except (httpx.HTTPError, ValueError):
+                return failed("unavailable", "native_visual_reader_unavailable")
+
     def _visual_capture(self, state: Mapping[str, Any]) -> dict[str, Any]:
         try:
             from portal.desktop import desktop_subprocess_environment

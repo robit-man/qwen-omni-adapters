@@ -110,9 +110,9 @@ def _post(client, body, stream):
 def _assert_profile(payload, name):
     function = next(tool["function"] for tool in payload["tools"] if tool["function"]["name"] == name)
     parameters = function["parameters"]
-    assert set(parameters["properties"]["operation"]["enum"]) == {"observe", "workflow", "verify", "cancel"}
+    assert set(parameters["properties"]["operation"]["enum"]) == {"observe", "workflow", "verify", "cancel", "inspect_visual"}
     assert not {"action_id", "step"} & parameters["properties"].keys()
-    assert {branch["properties"]["operation"]["const"] for branch in parameters["oneOf"]} == {"observe", "workflow", "verify", "cancel"}
+    assert {branch["properties"]["operation"]["const"] for branch in parameters["oneOf"]} == {"observe", "workflow", "verify", "cancel", "inspect_visual"}
     assert payload["think"] is False
     assert any("Keep this host policy." in message.get("content", "") for message in payload["messages"] if message["role"] == "system")
 

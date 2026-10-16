@@ -35,7 +35,7 @@ def test_projected_schema_removes_action_handoff_but_keeps_valid_phase_contract(
     assert canonical == original
     assert parameters["$defs"] == base["$defs"]
     assert not {"step", "action_id"} & parameters["properties"].keys()
-    assert set(parameters["properties"]["operation"]["enum"]) == {"observe", "workflow", "verify", "cancel"}
+    assert set(parameters["properties"]["operation"]["enum"]) == {"observe", "workflow", "verify", "cancel", "inspect_visual"}
     valid = [ {"operation": "observe"}, {"operation": "cancel"},
               {"operation": "verify", "predicates": [{"kind": "value", "node_id": "receipt", "value": "Saved Report"}]},
               workflow()]
