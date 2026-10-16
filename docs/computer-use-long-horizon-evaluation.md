@@ -450,6 +450,36 @@ The separate operator note and actual phase/feedback diagnostic remain in its
 sibling operator directory. Scope enforcement and owned file opening passed;
 whole-task completion remains unresolved.
 
+The already-active window patch, `b13bff5`, passed 2,870 source checks and a
+before/after controller reproduction: an exact already-active request received
+an explicit no-input receipt, then the following typed step ran and fresh
+terminal verification passed. Its single full live LHN-047 replay did **not
+exercise** that path. During the first compiler request, the CPU frontend's
+watchdog raised `GPU health or quarantine blocks live acceptance` and stopped
+its frontend. The failing discovery snapshot was not retained, so the precise
+blocking condition is unknown. Fresh broker, worker and kernel checks showed
+no current hardware fault or quarantine; this does not establish the historical
+cause or make the stop a proven false positive.
+
+The audit captured one planner request and one planning observation, with zero
+phase replies, tool starts, point requests or controller dispatches. No output
+was created. The runner exhausted its 300-second drain bound against the dead
+frontend and sealed `cleanup_deferred` / `downstream_idle:false`, taking 322.67
+seconds in total. That failure record remains unchanged. Separate operator
+recovery proved frontend/native children gone, the original portal and trunk
+idle, and adapter transport drained before politely closing exactly the three
+registered setup windows. All preexisting windows, inputs, original workers,
+source and the same GPU1 lease were preserved. No inference retry occurred.
+
+Evidence is under
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-047-20261016T055452Z/`,
+with immutable bundle SHA256
+`15707460477aff783f28253e2b61b27eb152f1222c8a722e692914b1461050b1`.
+The separate watchdog diagnosis and operator cleanup receipt remain in its
+sibling operator directory. Whole-task result is failed/incomplete; live
+already-active verification remains unexercised. The next diagnostic change
+must preserve the actual sanitized blocker evidence without relaxing admission.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give

@@ -242,8 +242,10 @@ activity passed after adoption.
 One unchanged production `NativeUiAdapter.observe` then passed against the
 existing, independently rechecked active Firefox XID `60817411`, host PID
 `1510469` and start `10898437`. It used a fresh bridge and exact window scope,
-with pointing disabled and no prepared action. In 4.239 seconds it returned
-71 nodes without truncation, including a real `DocumentWeb`/DocURL capability.
+with pointing disabled and no prepared action. It returned 71 nodes without
+truncation, including a real `DocumentWeb`/DocURL capability. The whole observer
+driver took 4.239 seconds, including pre/post checks and bridge startup/cleanup;
+isolated native-read latency was not measured.
 The verified namespace-provider digest bound the native revision; raw UI text,
 URLs and private proof metadata were excluded from the retained report.
 
