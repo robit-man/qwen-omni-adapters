@@ -7,6 +7,7 @@ that whole receipt is current_state. No model tool-discovery loop runs here.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import math
 import re
@@ -108,6 +109,41 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
     return compact
 
 
+def _zero_effect_ui_phase_key(result: Mapping[str, Any], observed: Mapping[str, Any]) -> str | None:
+    """Identify an already verified UI phase, never a planner progress claim.
+
+    Fresh terminal and per-input observations remain part of the exact binding.
+    Opaque action/step IDs do not make unchanged effective inputs new work.
+    Incomplete or uncertain effect evidence cannot establish this equivalence.
+    """
+    outcomes, terminal = result.get("outcomes"), result.get("terminal")
+    if (result.get("status") != "complete" or result.get("error")
+            or result.get("terminal_receipt", {}).get("status") != "verified"
+            or not isinstance(outcomes, list) or not outcomes or not isinstance(terminal, dict)
+            or not isinstance(observed.get("state"), dict)):
+        return None
+    steps = []
+    fields = ("session_id", "scope_id", "node_id", "generation", "verb", "args", "expect")
+    for outcome in outcomes:
+        action, effect = outcome.get("action", {}), outcome.get("effect_receipt", {})
+        if (outcome.get("status") != "verified" or action.get("kind") != "action"
+                or outcome.get("receipt", {}).get("status") not in {"dispatched", "already_satisfied"}
+                or effect.get("effect_state") not in {"absent", "unchanged", "replayed"}
+                or any(key not in action for key in fields)):
+            return None
+        before, after = outcome.get("before"), outcome.get("after")
+        if any(not isinstance(state, dict) or not all(key in state for key in
+                   ("session_id", "scope", "revision", "nodes")) for state in (before, after, terminal)):
+            return None
+        binding = {key: action[key] for key in fields}
+        # Effect predicates are a conjunction; ordering conveys no new intent.
+        binding["expect"] = sorted(binding["expect"], key=lambda item: json.dumps(item, sort_keys=True))
+        steps.append({"action": binding, "before": before, "after": after})
+    encoded = json.dumps({"observed": observed, "steps": steps, "terminal": terminal}, sort_keys=True,
+                         separators=(",", ":"), allow_nan=False).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Callable[[dict], dict],
                     execute: Callable[[str, dict], dict], cancel: Callable[[], None],
                     allowed_tools: Iterable[str], max_phases: int = 40, max_seconds: float = 1200,
@@ -132,6 +168,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
     validator = Draft202012Validator(schema)
     started, traces, ledger, last_result = clock(), [], [], None
     failed, normal, cleaned, phases, claims = 0, False, False, 0, []
+    zero_effect_ui_phases: set[str] = set()
 
     def boundary():
         if cancelled is not None and cancelled():
@@ -214,6 +251,17 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             result = execute(name, copy.deepcopy(arguments))
             if not isinstance(result, dict):
                 raise ValueError("Native executor returned no typed receipt")
+            if kind == "ui":
+                if any(item.get("effect_receipt", {}).get("effect_state") == "applied"
+                       for item in result.get("outcomes", [])):
+                    zero_effect_ui_phases.clear()
+                if signature := _zero_effect_ui_phase_key(result, current):
+                    if signature in zero_effect_ui_phases:
+                        result = {**result, "error": "ui_phase_repeated_without_new_effect",
+                            "reason": "This verified UI phase repeats the same effective actions and observed state "
+                                      "without a new applied effect. Replan from the retained evidence."}
+                    else:
+                        zero_effect_ui_phases.add(signature)
             content = json.dumps(result, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
             replayed_only = (kind == "ui" and bool(result.get("outcomes"))
                              and all(item.get("effect_receipt", {}).get("effect_state") == "replayed"

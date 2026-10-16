@@ -300,7 +300,16 @@ session memory; a planner JSON value cannot enlarge the request scope.
 The profile rejects media, detached turns and background-worker requests. It
 holds the normal inference-queue ticket, has a 40-phase ceiling and a wall bound
 of the smaller of the configured portal timeout and 1,800 seconds, and stops
-after three consecutive invalid or unverified phases. Client disconnect and
+after three consecutive invalid, unverified or repeated zero-effect phases.
+For this explicit `native_task` compiler, a first verified no-op remains valid.
+A repeated UI phase with the same host-observed state and effective action
+targets, arguments and effects, but no new applied effect, reports
+`ui_phase_repeated_without_new_effect` and returns to planning without resetting
+that failure count. Planner step IDs and remaining-criteria claims cannot make
+the phase new. Original input and verification receipts remain unchanged;
+actual mutations reset this repetition history. Reader and memory phases are
+separate knowledge operations and are unaffected. This check does not change
+ordinary chat or voice tool-loop routing. Client disconnect and
 deadline cancellation stop the owning native controller. Raw executed receipts
 remain in standard tool events and `portal.safe_tools_executed`; the next
 compiler sees bounded recent handoffs/readbacks, not repeated UI maps. A final
