@@ -144,6 +144,12 @@ def _zero_effect_ui_phase_key(result: Mapping[str, Any], observed: Mapping[str, 
     return hashlib.sha256(encoded).hexdigest()
 
 
+class NativePhaseCompilationError(Exception):
+    """Trusted compiler JSON-decode failure; never carries the model's reply."""
+
+    code = "invalid_native_phase_json"
+
+
 def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Callable[[dict], dict],
                     execute: Callable[[str, dict], dict], cancel: Callable[[], None],
                     allowed_tools: Iterable[str], max_phases: int = 40, max_seconds: float = 1200,
@@ -206,7 +212,24 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 yield finish(reason, "Native task stopped: " + reason)
                 return
             packet["remaining_seconds"] = max_seconds - (clock() - started)
-            plan = compile_phase(packet)
+            try:
+                plan = compile_phase(packet)
+            except NativePhaseCompilationError:
+                if reason := boundary():
+                    yield finish(reason, "Native task stopped: " + reason)
+                    return
+                last_result = {"error": NativePhaseCompilationError.code,
+                    "dispatch_status": "not_dispatched", "input_attempted": False,
+                    "new_effect_count": 0,
+                    "reason": "The compiler reply was not complete valid JSON. Return a smaller complete phase "
+                              "matching the unchanged schema, without repairing or replaying the invalid reply."}
+                ledger.append({"phase": phases, "kind": "invalid", **last_result})
+                ledger = ledger[-12:]
+                failed += 1
+                if failed >= 3:
+                    yield finish("blocked", "Three consecutive native phases were invalid or unverified.")
+                    return
+                continue
             if reason := boundary():
                 yield finish(reason, "Native task stopped: " + reason)
                 return

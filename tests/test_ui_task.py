@@ -10,7 +10,12 @@ from jsonschema import Draft202012Validator
 
 from portal.computer_use import ComputerUseStore
 from portal.tools import tool_schemas
-from portal.ui_task import _zero_effect_ui_phase_key, phase_response_schema, run_native_goal
+from portal.ui_task import (
+    NativePhaseCompilationError,
+    _zero_effect_ui_phase_key,
+    phase_response_schema,
+    run_native_goal,
+)
 
 GOAL = "Write the exact owned draft, then commit it."
 ALLOWED = frozenset({"native_ui", "memory_write", "memory_search"})
@@ -488,3 +493,120 @@ def test_callback_cancellation_exception_finishes_cancelled_without_replanning()
     result = final(list(fixture.run()))
     assert result["portal"]["native_task"]["status"] == "cancelled"
     assert fixture.executions == [] and fixture.cancel_count == 1
+
+
+def compilation_fixture(plans):
+    fixture = Fixture(plans)
+    compile_phase = fixture.compile
+
+    def compile_or_raise(packet):
+        result = compile_phase(packet)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    fixture.compile = compile_or_raise
+    return fixture
+
+
+def test_compilation_error_reobserves_and_recovers_before_any_input():
+    fixture = compilation_fixture([NativePhaseCompilationError(), phase(),
+                                   {"kind": "complete", "message": "Claim."}])
+    events = list(fixture.run())
+    assert len(fixture.packets) == 3
+    assert fixture.adapter.timeline[:4] == ["observe", "compile", "observe", "compile"]
+    feedback = fixture.packets[1]["last_result"]
+    assert feedback["error"] == "invalid_native_phase_json"
+    assert feedback["dispatch_status"] == "not_dispatched" and feedback["input_attempted"] is False
+    assert feedback["new_effect_count"] == 0
+    assert "smaller complete phase" in feedback["reason"]
+    assert len(fixture.executions) == 1
+    assert [action["verb"] for action in fixture.adapter.calls] == ["set_value", "invoke"]
+    assert final(events)["portal"]["native_task"]["status"] == "planner_claim"
+
+
+def test_three_compilation_errors_use_the_existing_failure_budget_without_dispatch():
+    fixture = compilation_fixture([NativePhaseCompilationError()] * 4)
+    result = final(list(fixture.run()))
+    task = result["portal"]["native_task"]
+    assert task["status"] == "blocked" and task["phases"] == 3
+    assert len(fixture.packets) == 3 and len(task["ledger"]) == 3
+    assert fixture.adapter.timeline == ["observe", "compile"] * 3
+    assert fixture.executions == [] and fixture.adapter.calls == [] and fixture.cancel_count == 1
+    assert all(item["kind"] == "invalid" and item["input_attempted"] is False for item in task["ledger"])
+
+
+@pytest.mark.parametrize("failure", ["schema", "unverified"])
+def test_compilation_and_existing_invalid_unverified_phases_share_one_counter(failure):
+    bad = {"kind": "ui", "steps": [], "final_predicates": []}
+    if failure == "unverified":
+        bad = phase()
+        bad["steps"][0]["target"] = {"node_id": "missing"}
+    fixture = compilation_fixture([NativePhaseCompilationError(), bad, NativePhaseCompilationError(),
+                                   {"kind": "complete", "message": "Cannot reach."}])
+    result = final(list(fixture.run()))
+    assert result["portal"]["native_task"]["status"] == "blocked"
+    assert len(fixture.packets) == 3 and fixture.adapter.calls == []
+    assert len(fixture.executions) == (1 if failure == "unverified" else 0)
+
+
+def test_verified_executor_success_retains_its_existing_failure_counter_reset():
+    fixture = compilation_fixture([NativePhaseCompilationError(), phase(), NativePhaseCompilationError(),
+        NativePhaseCompilationError(), {"kind": "complete", "message": "Claim."}])
+    result = final(list(fixture.run()))
+    assert result["portal"]["native_task"]["status"] == "planner_claim"
+    assert len(fixture.packets) == 5 and len(fixture.executions) == 1
+    assert fixture.packets[2]["last_result"]["phase_handoff"]["new_effect_count"] == 2
+    assert len(fixture.adapter.calls) == 2
+
+
+@pytest.mark.parametrize("late", ["cancel", "deadline"])
+def test_late_compilation_error_obeys_boundary_before_recording_or_replanning(late):
+    now = [0]
+    fixture = Fixture([], clock=lambda: now[0])
+
+    def expired(_packet):
+        if late == "cancel":
+            fixture.cancelled.set()
+        else:
+            now[0] = 6
+        raise NativePhaseCompilationError()
+
+    fixture.compile = expired
+    result = final(list(fixture.run(max_seconds=5)))
+    task = result["portal"]["native_task"]
+    assert task["status"] == ("cancelled" if late == "cancel" else "deadline_exceeded")
+    assert task["ledger"] == [] and task["phases"] == 1
+    assert fixture.executions == [] and fixture.cancel_count == 1
+
+
+@pytest.mark.parametrize("error", [TimeoutError("private transport canary"), ValueError("private callback canary"),
+                                  json.JSONDecodeError("private decode canary", "private raw reply", 0)])
+def test_untyped_compiler_faults_remain_fatal_and_redacted(error):
+    fixture = compilation_fixture([error, {"kind": "complete", "message": "Cannot reach."}])
+    result = final(list(fixture.run()))
+    assert result["portal"]["native_task"]["status"] == "blocked"
+    assert len(fixture.packets) == 1 and fixture.executions == []
+    assert "private" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("origin", ["observe", "execute"])
+def test_typed_compilation_error_outside_compiler_callback_remains_fatal(origin):
+    fixture = Fixture([phase(), {"kind": "complete", "message": "Cannot reach."}])
+
+    def wrong_boundary(*_):
+        raise NativePhaseCompilationError()
+
+    setattr(fixture, origin, wrong_boundary)
+    result = final(list(fixture.run()))
+    assert result["portal"]["native_task"]["status"] == "blocked"
+    assert result["portal"]["native_task"]["phases"] == 1
+    assert len(fixture.packets) == (0 if origin == "observe" else 1)
+    assert fixture.adapter.calls == [] and fixture.cancel_count == 1
+
+
+def test_compilation_error_does_not_extend_the_phase_budget():
+    fixture = compilation_fixture([NativePhaseCompilationError()] * 2)
+    result = final(list(fixture.run(max_phases=1)))
+    assert result["portal"]["native_task"]["status"] == "phase_budget_exceeded"
+    assert len(fixture.packets) == 1 and fixture.executions == [] and fixture.cancel_count == 1

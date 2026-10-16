@@ -83,7 +83,7 @@ try:
     )
     from portal.ui_history import ServerUiHistory
     from portal.ui_planner import planner_call_error, planner_tool_schemas
-    from portal.ui_task import run_native_goal
+    from portal.ui_task import NativePhaseCompilationError, run_native_goal
     from portal.virtual_context import SessionVirtualContext
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import BackgroundTaskStore
@@ -106,7 +106,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     )
     from ui_history import ServerUiHistory
     from ui_planner import planner_call_error, planner_tool_schemas
-    from ui_task import run_native_goal
+    from ui_task import NativePhaseCompilationError, run_native_goal
     from virtual_context import SessionVirtualContext
 
 ADAPTER_SCHEMA = "robit.ollama.omni-adapter.v1"
@@ -2367,7 +2367,12 @@ def create_app(
             message = data.get("message")
             if not isinstance(message, Mapping) or not isinstance(message.get("content"), str):
                 raise PortalError("native phase planner returned no JSON content")
-            return json.loads(message["content"])
+            try:
+                return json.loads(message["content"])
+            except json.JSONDecodeError:
+                # Leave the decoder exception (and its raw .doc) behind.
+                pass
+            raise NativePhaseCompilationError()
 
         def execute(name, arguments):
             if stopped.is_set():

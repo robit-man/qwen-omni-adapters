@@ -301,6 +301,13 @@ The profile rejects media, detached turns and background-worker requests. It
 holds the normal inference-queue ticket, has a 40-phase ceiling and a wall bound
 of the smaller of the configured portal timeout and 1,800 seconds, and stops
 after three consecutive invalid, unverified or repeated zero-effect phases.
+Malformed or incomplete JSON in a successful compiler reply consumes that same
+failure budget, records `invalid_native_phase_json` with no dispatched input or
+effect credit, and returns to a fresh observation with bounded replanning
+feedback. Raw partial replies and decoder exceptions are not carried into that
+feedback. Cancellation and deadlines take priority; transport, HTTP, response
+envelope and unexpected callback faults remain fatal. Schema, token and phase
+budgets are unchanged.
 For this explicit `native_task` compiler, a first verified no-op remains valid.
 A repeated UI phase with the same host-observed state and effective action
 targets, arguments and effects, but no new applied effect, reports

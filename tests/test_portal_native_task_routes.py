@@ -7,10 +7,12 @@ import json
 import httpx
 import pytest
 
+import portal.app as app_module
 import portal.tools as tools_module
 from portal.app import DEFAULT_MODEL, SESSION_COOKIE_NAME, PortalConfig, create_app
 from portal.computer_use import ComputerUseStore
 from portal.native_ui import NativeUiAdapter
+from portal.ui_task import NativePhaseCompilationError
 
 TOKEN = "native-task-route-token-at-least-24-characters"
 HEADERS = {"Authorization": "Bearer " + TOKEN}
@@ -263,22 +265,103 @@ def test_native_planning_read_uses_window_inspection_without_visual_policy_or_in
 
 
 @pytest.mark.parametrize("stream", [False, True])
-def test_malformed_compiler_content_blocks_without_input_or_model_replay(tmp_path, monkeypatch, stream):
+def test_malformed_compiler_content_stops_at_three_failures_without_input(tmp_path, monkeypatch, stream):
     store, adapters = _install_store(monkeypatch)
     requests = []
+    original_goal = app_module.run_native_goal
+    errors = []
+
+    def checked_goal(*args, compile_phase, **kwargs):
+        def compile_without_raw_reply(packet):
+            try:
+                return compile_phase(packet)
+            except NativePhaseCompilationError as error:
+                errors.append(error)
+                assert error.args == () and error.__context__ is None
+                raise
+
+        return original_goal(*args, compile_phase=compile_without_raw_reply, **kwargs)
+
+    monkeypatch.setattr(app_module, "run_native_goal", checked_goal)
 
     def upstream(request):
-        requests.append(request)
-        return httpx.Response(200, json={"message": {"role": "assistant", "content": "{unfinished"}})
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": '{"private-partial-canary"'}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()
     client.set_cookie(SESSION_COOKIE_NAME, "native-malformed-owned-session-12345")
     result, _ = _post(client, _request(stream), stream)
-    assert len(requests) == 1 and adapters[0].calls == []
+    assert len(requests) == 3 and adapters[0].planning_calls == 3 and adapters[0].calls == []
+    assert len(errors) == 3
     assert result["portal"]["native_task"]["status"] == "blocked"
     assert result["portal"]["safe_tools_executed"] == []
     assert store._owned("native-malformed-owned-session-12345", "desktop").cancel.is_set()
+    assert "private-partial-canary" not in json.dumps(result)
+    for payload in requests[1:]:
+        packet = json.loads(payload["messages"][1]["content"])
+        assert packet["last_result"]["error"] == "invalid_native_phase_json"
+        assert packet["last_result"]["input_attempted"] is False
+        assert "private-partial-canary" not in json.dumps(packet)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_malformed_compiler_content_recovers_with_fresh_observation_and_real_workflow(tmp_path, monkeypatch, stream):
+    _, adapters = _install_store(monkeypatch)
+    requests = []
+    body = _request(stream)
+
+    def upstream(request):
+        payload = json.loads(request.content)
+        requests.append(payload)
+        packet = json.loads(payload["messages"][1]["content"])
+        assert packet["goal"] == GOAL and payload["options"] == body["options"]
+        assert payload["think"] is False and not payload.get("tools")
+        if len(requests) == 1:
+            assert adapters[0].calls == []
+            adapters[0].value = "Fresh independently observed marker"
+            content = '{"private-partial-canary"'
+        elif len(requests) == 2:
+            assert adapters[0].planning_calls == 2 and adapters[0].calls == []
+            assert next(node for node in packet["current_state"]["state"]["nodes"] if node["id"] == "draft")["value"] == "Fresh independently observed marker"
+            assert packet["last_result"]["error"] == "invalid_native_phase_json"
+            assert "private-partial-canary" not in json.dumps(packet)
+            content = json.dumps(_phase())
+        else:
+            assert len(requests) == 3 and len(adapters[0].calls) == 2
+            content = json.dumps({"kind": "complete", "message": "Planner claim after recovery."})
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": content}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    result, _ = _post(app.test_client(), body, stream)
+    assert result["portal"]["native_task"]["status"] == "planner_claim"
+    assert [action["verb"] for action in adapters[0].calls] == ["set_value", "invoke"]
+    assert len(result["portal"]["safe_tools_executed"]) == 1
+    assert result["portal"]["tool_allowlist"] == ["native_ui"]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("fault", ["transport", "HTTP", "response_JSON", "missing_content"])
+def test_non_compiler_JSON_faults_are_fatal_without_replanning(tmp_path, monkeypatch, stream, fault):
+    _, adapters = _install_store(monkeypatch)
+    requests = []
+
+    def upstream(request):
+        requests.append(request)
+        if fault == "transport":
+            raise httpx.ReadTimeout("private transport canary")
+        if fault == "HTTP":
+            return httpx.Response(500, json={"error": "private upstream canary"})
+        if fault == "response_JSON":
+            return httpx.Response(200, text="private invalid envelope canary")
+        return httpx.Response(200, json={"message": {"role": "assistant"}})
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    result, _ = _post(app.test_client(), _request(stream), stream)
+    assert len(requests) == 1 and adapters[0].calls == []
+    assert result["portal"]["native_task"]["status"] == "blocked"
+    assert result["portal"]["safe_tools_executed"] == []
+    assert "private" not in json.dumps(result)
 
 
 def test_stream_disconnect_before_observation_cancels_exact_scope_and_releases_queue(tmp_path, monkeypatch):
