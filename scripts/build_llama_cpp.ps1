@@ -10,6 +10,7 @@ $PinnedCommit = "458681e1d5d4a29a1463c4732e03226cf384b997"
 $PatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-pcm-stream.patch"
 $PersistentPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-persistent.patch"
 $StreamStatePatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-stream-state.patch"
+$JsonPatternPatchFile = Join-Path $RepoRoot "patches\llama.cpp-json-pattern-safety.patch"
 $BuildDir = Join-Path $SourceDir "build"
 
 if (-not (Test-Path (Join-Path $SourceDir ".git"))) {
@@ -24,7 +25,8 @@ if ($Current -ne $PinnedCommit) {
 foreach ($Patch in @(
   @{ File = $PatchFile; Label = "Qwen3-TTS PCM stream" },
   @{ File = $PersistentPatchFile; Label = "Qwen3-TTS persistent worker" },
-  @{ File = $StreamStatePatchFile; Label = "Qwen3-TTS streaming decoder state" }
+  @{ File = $StreamStatePatchFile; Label = "Qwen3-TTS streaming decoder state" },
+  @{ File = $JsonPatternPatchFile; Label = "JSON pattern string safety" }
 )) {
   git -C $SourceDir apply --reverse --check $Patch.File 2>$null
   if ($LASTEXITCODE -ne 0) {

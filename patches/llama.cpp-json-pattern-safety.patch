@@ -1,0 +1,281 @@
+diff --git a/common/json-schema-to-grammar.cpp b/common/json-schema-to-grammar.cpp
+index 0aee51b26..95a717503 100644
+--- a/common/json-schema-to-grammar.cpp
++++ b/common/json-schema-to-grammar.cpp
+@@ -336,6 +336,83 @@ static size_t gbnf_escape_length(const std::string & pattern, size_t pos) {
+     return 2 + n_hex;
+ }
+ 
++
++// Pattern atoms describe decoded characters, whereas GBNF consumes JSON text/codepoints.
++// Until escaping can be composed with arbitrary regexes, only emit atoms that
++// cannot consume a JSON delimiter, escape introducer or unescaped control.
++static bool pattern_codepoint(const std::string & text, size_t & pos, uint32_t & c) {
++    if (pos >= text.size()) {
++        return false;
++    }
++    c = static_cast<unsigned char>(text[pos++]);
++    if (c == '\\') {
++        if (gbnf_escape_length(text, pos - 1) == 0) {
++            return false;
++        }
++        char escape = text[pos++];
++        switch (escape) {
++            case 't': c = '\t'; break;
++            case 'r': c = '\r'; break;
++            case 'n': c = '\n'; break;
++            case 'x': case 'u': case 'U': {
++                size_t digits = escape == 'x' ? 2 : escape == 'u' ? 4 : 8;
++                c = std::stoul(text.substr(pos, digits), nullptr, 16);
++                pos += digits;
++                break;
++            }
++            default: c = static_cast<unsigned char>(escape); break;
++        }
++    } else if (c >= 0x80) {
++        int continuation = c < 0xE0 ? 1 : c < 0xF0 ? 2 : 3;
++        if (c < 0xC2 || c > 0xF4 || text.size() - pos < static_cast<size_t>(continuation)) {
++            return false;
++        }
++        uint32_t minimum = continuation == 1 ? 0x80 : continuation == 2 ? 0x800 : 0x10000;
++        c &= (1u << (6 - continuation)) - 1;
++        while (continuation--) {
++            auto next = static_cast<unsigned char>(text[pos++]);
++            if ((next & 0xC0) != 0x80) {
++                return false;
++            }
++            c = (c << 6) | (next & 0x3F);
++        }
++        if (c < minimum) {
++            return false;
++        }
++    }
++    return c <= 0x10FFFF && !(c >= 0xD800 && c <= 0xDFFF);
++}
++
++static bool json_safe_pattern_class(const std::string & text) {
++    bool negated = text[1] == '^';
++    bool matched[0x5D] = {};
++    size_t pos = negated ? 2 : 1;
++    while (pos < text.size() - 1) {
++        uint32_t first;
++        if (!pattern_codepoint(text, pos, first)) {
++            return false;
++        }
++        uint32_t last = first;
++        if (pos < text.size() - 2 && text[pos] == '-') {
++            ++pos;
++            if (!pattern_codepoint(text, pos, last)) {
++                return false;
++            }
++        }
++        for (uint32_t c = 0; c < 0x5D; ++c) {
++            if (first <= c && c <= last) {
++                matched[c] = true;
++            }
++        }
++    }
++    for (uint32_t c = 0; c < 0x5D; ++c) {
++        if ((c < 0x20 || c == '"' || c == '\\') && matched[c] != negated) {
++            return false;
++        }
++    }
++    return true;
++}
++
+ class common_schema_converter {
+ private:
+     friend class common_schema_info;
+@@ -418,14 +495,8 @@ private:
+         std::function<literal_or_rule()> transform = [&]() -> literal_or_rule {
+             std::vector<literal_or_rule> seq;
+ 
+-            auto get_dot = [&]() {
+-                std::string rule;
+-                if (_dotall) {
+-                    rule = "[\\U00000000-\\U0010FFFF]";
+-                } else {
+-                    rule = "[^\\x0A\\x0D]";
+-                }
+-                return _add_rule("dot", rule);
++            auto get_dot = [&]() -> std::string {
++                throw unsupported_pattern("wildcard needs JSON string escaping");
+             };
+ 
+             // Joins the sequence, merging consecutive literals together.
+@@ -510,6 +581,9 @@ private:
+                         throw invalid_pattern("unterminated character class");
+                     }
+                     square_brackets += ']';
++                    if (!json_safe_pattern_class(square_brackets)) {
++                        throw unsupported_pattern("character class needs JSON string escaping");
++                    }
+                     i++;
+                     seq.emplace_back(square_brackets, false);
+                 } else if (c == '|') {
+@@ -611,6 +685,12 @@ private:
+                     if (literal.empty()) { // nothing was consumed, ex. a stray ']' or '}'
+                         throw unsupported_pattern(std::string("unsupported character: ") + c);
+                     }
++                    for (size_t pos = 0; pos < literal.size();) {
++                        uint32_t value;
++                        if (!pattern_codepoint(literal, pos, value) || value < 0x20 || value == '"' || value == '\\') {
++                            throw unsupported_pattern("literal needs JSON string escaping");
++                        }
++                    }
+                     seq.emplace_back(literal, true);
+                 }
+             }
+diff --git a/tests/test-json-schema-to-grammar.cpp b/tests/test-json-schema-to-grammar.cpp
+index 214dbe199..db16d57b4 100755
+--- a/tests/test-json-schema-to-grammar.cpp
++++ b/tests/test-json-schema-to-grammar.cpp
+@@ -12,6 +12,8 @@
+ #include <fstream>
+ #include <sstream>
+ #include <regex>
++#include <codecvt>
++#include <locale>
+ 
+ static std::string trim(const std::string & source) {
+     std::string s(source);
+@@ -30,14 +32,16 @@ struct TestCase {
+     std::string name;
+     std::string schema;
+     std::string expected_grammar;
++    std::string cpp_expected_grammar = {};
+ 
+     void _print_failure_header() const {
+         fprintf(stderr, "#\n# Test '%s' failed.\n#\n%s\n", name.c_str(), schema.c_str());
+     }
+-    void verify(const std::string & actual_grammar) const {
+-        if (trim(actual_grammar) != trim(expected_grammar)) {
++    void verify(const std::string & actual_grammar, bool cpp = false) const {
++        const auto & expected = cpp && !cpp_expected_grammar.empty() ? cpp_expected_grammar : expected_grammar;
++        if (trim(actual_grammar) != trim(expected)) {
+         _print_failure_header();
+-        fprintf(stderr, "# EXPECTED:\n%s\n# ACTUAL:\n%s\n", expected_grammar.c_str(), actual_grammar.c_str());
++        fprintf(stderr, "# EXPECTED:\n%s\n# ACTUAL:\n%s\n", expected.c_str(), actual_grammar.c_str());
+         assert(false);
+         }
+     }
+@@ -791,7 +795,14 @@ static void test_all(const std::string & lang, std::function<void(const TestCase
+         R"""(
+             root ::= "\"" ("\"") "\""
+             space ::= | " " | "\n"{1,2} [ \t]{0,20}
+-        )"""
++        )""",
++        R"""(
++char ::= [^"\\\x7F\x00-\x1F] | [\\] (["\\bfnrt] | "u" [0-9a-fA-F]{4})
++root ::= string
++space ::= | " " | "\n"{1,2} [ \t]{0,20}
++string ::= "\"" char* "\""
++
++)"""
+     });
+ 
+     test({
+@@ -819,7 +830,14 @@ static void test_all(const std::string & lang, std::function<void(const TestCase
+             root ::= "\"" (("(" root-1{1,3} ")")? root-1{3,3} "-" root-1{4,4} " " "a"{3,5} "nd" dot dot dot) "\""
+             root-1 ::= [0-9]
+             space ::= | " " | "\n"{1,2} [ \t]{0,20}
+-        )"""
++        )""",
++        R"""(
++char ::= [^"\\\x7F\x00-\x1F] | [\\] (["\\bfnrt] | "u" [0-9a-fA-F]{4})
++root ::= string
++space ::= | " " | "\n"{1,2} [ \t]{0,20}
++string ::= "\"" char* "\""
++
++)"""
+     });
+ 
+     test({
+@@ -1509,15 +1527,77 @@ static void test_resolves_to_string() {
+     fprintf(stderr, "All resolves_to_string tests passed!\n");
+ }
+ 
++
++static std::pair<bool, bool> accepts_json(const std::string & grammar, const std::string & text) {
++    auto * state = llama_grammar_init_impl(nullptr, grammar.c_str(), "root", false, nullptr, 0, nullptr, 0);
++    assert(state != nullptr);
++    std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> utf8;
++    for (auto c : utf8.from_bytes(text)) {
++        llama_grammar_accept(state, c);
++        if (state->stacks.empty()) {
++            llama_grammar_free_impl(state);
++            return {false, false};
++        }
++    }
++    bool complete = false;
++    for (const auto & stack : state->stacks) {
++        complete |= stack.empty();
++    }
++    llama_grammar_free_impl(state);
++    return {true, complete};
++}
++
++static void test_json_pattern_safety() {
++    const auto plain = json_schema_to_grammar(common_json::parse(R"({"type":"string","pattern":"unanchored"})"), true);
++    // These decoded-character patterns cannot be emitted directly between JSON
++    // quotes. Existing warned string fallback preserves JSON syntax; the caller
++    // still validates the decoded pattern (including nonempty/non-NUL).
++    const std::vector<std::string> unsafe = {
++        R"(^[^\u0000]+$)", R"(^[\u0000-\uFFFF]+$)", R"(^[\U00000022]+$)",
++        R"(^[ -~]+$)", R"(^["a]+$)", R"(^[\\]+$)", R"(^[\t]+$)", R"(^[^a]+$)",
++        R"(^.*$)", R"(^"$)", R"(^\\$)", R"(^\n$)", R"(^\u0022$)"
++    };
++    for (const auto & pattern : unsafe) {
++        const auto grammar = json_schema_to_grammar(common_json{{"type", "string"}, {"pattern", pattern}}, true);
++        assert(grammar == plain);
++        for (const auto & body : {R"("plain")", R"("quoted\"text")", R"("slash\\text")",
++                                 R"("line\n\tend")", R"("\u0000")", R"("")", R"("caf\u00e9")"}) {
++            assert(accepts_json(grammar, body) == std::make_pair(true, true));
++        }
++        for (const auto & body : {R"("x"}})", R"("a"b")", R"("a\q")", "\"raw\nline\"", "\"raw\tcontrol\""}) {
++            assert(!accepts_json(grammar, body).first);
++        }
++    }
++    for (const auto & pattern : {R"(^[A-Za-z][A-Za-z0-9_]*$)", R"(^[^"\\\x00-\x1F]+$)", R"(^[\u0100-\u0200]+$)"}) {
++        const auto grammar = json_schema_to_grammar(common_json{{"type", "string"}, {"pattern", pattern}}, true);
++        assert(grammar != plain);
++        assert(!accepts_json(grammar, R"("bad\q")").first);
++    }
++    // Public C++ callers can construct strings that a JSON parser would reject.
++    // Truncated and malformed UTF-8 atoms must never read beyond their bounds.
++    for (const auto & atom : {std::string("\xC2", 1), std::string("\xE0\x80", 2),
++                             std::string("\xF0\x80\x80", 3), std::string("\xC0\x80", 2),
++                             std::string("\xED\xA0\x80", 3), std::string("\xF5\x80\x80\x80", 4)}) {
++        for (const auto & pattern : {"^" + atom + "$", "^[" + atom + "]$", "^[a-" + atom + "]$"}) {
++            assert(json_schema_to_grammar(common_json{{"type", "string"}, {"pattern", pattern}}, true) == plain);
++        }
++    }
++    for (const auto & pattern : {R"(^[\u002]$)", R"(^[a-\U0000002]$)", R"(^\u002$)"}) {
++        assert(json_schema_to_grammar(common_json{{"type", "string"}, {"pattern", pattern}}, true) == plain);
++    }
++    fprintf(stderr, "JSON pattern structural-safety controls passed\n");
++}
++
+ int main() {
+     fprintf(stderr, "LLAMA_NODE_AVAILABLE = %s\n", getenv("LLAMA_NODE_AVAILABLE") ? "true" : "false");
+     fprintf(stderr, "LLAMA_PYTHON_AVAILABLE = %s\n", getenv("LLAMA_PYTHON_AVAILABLE") ? "true" : "false");
+ 
+     test_resolves_to_string();
++    test_json_pattern_safety();
+ 
+     test_all("C++", [](const TestCase & tc) {
+         try {
+-            tc.verify(json_schema_to_grammar(common_json::parse(tc.schema), true));
++            tc.verify(json_schema_to_grammar(common_json::parse(tc.schema), true), true);
+             tc.verify_status(SUCCESS);
+         } catch (const std::invalid_argument & ex) {
+             fprintf(stderr, "Error: %s\n", ex.what());
+@@ -1531,7 +1611,7 @@ int main() {
+         auto run = [](const TestCase & tc) {
+             fprintf(stderr, "- %s\n", tc.name.c_str());
+             try {
+-                tc.verify(json_schema_to_grammar(common_json::parse(tc.schema), true));
++                tc.verify(json_schema_to_grammar(common_json::parse(tc.schema), true), true);
+                 tc.verify_status(SUCCESS);
+             } catch (const std::invalid_argument & ex) {
+                 fprintf(stderr, "Error: %s\n", ex.what());

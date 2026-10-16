@@ -1,6 +1,7 @@
 # Long-horizon native computer-use evaluation
 
-Status on 2026-10-15: evaluation specification; no SOTA parity established.
+Status on 2026-10-16: live evaluation in progress; no full long-suite pass or
+SOTA parity established.
 The user's current direction is **text goals into live Qwen/Ornith weights**,
 followed by real desktop work. Speech admission is outside this track. Earlier
 [100-case speech/gesture results](computer-use-live-validation-2026-10-15.md)
@@ -689,6 +690,91 @@ SHA256 `7c6e070d4fca88b8871d054dc4bf7f146f2b195e9c07e0dc278fd656d51dc0f2`.
 The next model-test sequence is local GPU1 Ornith, then live Egg tasks after
 their exact source adoption and idle readiness are verified.
 
+### Local Ornith and remote adoption checkpoint, 2026-10-16
+
+The supported local Qwen-to-Ornith handoff freed the old workers and lease
+before acquiring the replacement lease on the same authorized GPU1 UUID.
+The new Ornith trunk, Kev and pinned Moondream 3.1 stack passed readiness
+checks. Moondream sheds its weights between requests; idle worker health does
+not establish resident vision weights. Worker identity and residency receipts
+are retained separately from task outcomes.
+
+One unassisted local Ornith LHN-001 attempt on `476be1c` failed. The first
+model-authored phase switched to its owned Firefox window, then stopped at
+`no_matching_control`. The second compilation failed with the native parser
+error `The model produced output that does not match the expected peg-native
+format.` The task took 30.08 seconds, or 35.67 seconds including the runner.
+No deliverable, reader call, point call, Kev decision or memory operation
+occurred. The new reader and repetition guards therefore remain unexercised
+in this trajectory. Cancellation, downstream drain and exact owned-window
+cleanup passed; the new GPU1 workers and lease were preserved. Failed bundle:
+`runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-20261016T083450Z/`,
+SHA256 `7c63d8de363ec1dc7b05bac51bff496062e1d253591b04e7ca2f0a91eb946f90`.
+Its separate after-test note has SHA256
+`48870ba91f9f7b6e70b36dcf9c339f8e0062c298a6e61e12e90290486499ca2d`.
+
+A separate decoder-only replay increased only the actual output cap from
+4,096 to 8,192 tokens. It reproduced the same malformed prefix and parser
+failure, with no GUI actions or canonical attempt counted. A CPU-only
+discriminator then reproduced the production chat template and grammar
+without loading weights: the generated grammar accepts the malformed prefix,
+while the native parser rejects it. The successful first phase passes both.
+The responsible schema pattern `^[^\u0000]+$` becomes a character class that
+also accepts unescaped JSON quotes and raw controls, allowing malformed
+structure to be consumed as unfinished string content. Raising the token cap
+does not repair this defect. The discriminator receipt is retained at
+`runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-20261016T083450Z-operator/cpu-grammar-discriminator-evidence.json`,
+SHA256 `a03a8b76791e5bcb7f85de29d190522cd13ad371300c85ac56a58c6e05030772`.
+A source correction and fresh live acceptance are separate pending criteria.
+
+The actual-run ledger now records ten submitted canonical attempts across
+three of the 200 model/case cells: Qwen LHN-001, Qwen LHN-047 and Ornith
+LHN-001. There are zero full passes; 197 cells and 98 task IDs remain
+unattempted. This includes the later Qwen and Ornith attempts through
+08:38:53 UTC. Setup failures, decoder diagnostics and CPU checks are excluded.
+The append-only update ledger has SHA256
+`cb2e361fe3cbd974fbb77dbd865f94df2f59900f33e2774de0fa65bdf6bc3644`.
+
+Egg41's automatic updater adopted `476be1c` after a natural retry passed all
+3,139 tests and restarted the core service. Its earlier invocation failed one
+background-task test; that failure remains retained and unexplained. Egg31's
+isolated ARM gate also passed all 3,139 tests; source adoption was initially
+held because an existing request remained active. Neither
+source validation nor a service restart is a remote task pass.
+
+After the local Ornith run, the Egg41 LHN-041 driver stopped at its initial
+HTTP health preflight on 09:20:54 UTC. The canonical runner was never called:
+zero applications, native inputs or model submissions occurred. The owned
+deployment lock was released, the harness was untouched, and source,
+configuration and worker identities were preserved. Its aggregate health
+helper did not retain the exact timed-out endpoint; current health and
+activity were unknown at that observation. This is a preflight block, not a
+failed submitted model task. Receipt:
+`runtime-data/gpu1-acceptance/operator-audit/egg41-LHN041-20261016T091053Z/after-test-note.json`,
+SHA256 `f6fd97eac418389da1514ef087c7a1dfffd47381c979216a74a4064f3ba08250`.
+The remote MD2/no-Kev condition remains distinct from local MD3.1/Kev.
+
+At 09:29:43 UTC, Egg31 completed the separately authorized `476be1c`
+adoption after becoming naturally idle. One supported Python reload took
+3.32 seconds; new portal/adapter identities, six healthy idle observations,
+unchanged loaded supervisor/model/pointing workers and restored harness were
+verified. Configuration and all 18,030 preexisting untracked paths were
+preserved. The absent full-deployment marker was not fabricated. Compact
+adoption receipt:
+`runtime-data/gpu1-acceptance/remote-egg31-qwen476-cutover-20261016T092834Z/adoption-receipt.json`,
+SHA256 `195f78ec6b8cd4cde6d9d4d190805fd3011a67f404bdc404774bcf8c59786c3c`.
+
+Egg41's subsequent endpoint-specific diagnosis found its core inactive, with
+no runtime listeners or access-token file. Its installed unit explicitly
+requires absence of `runtime-data/state/voice-service.paused`; that marker
+was present and had been created before the recorded core stop. The actor
+and reason were not established. The proposed supported start stopped at
+this prerequisite: no marker removal, harness stop or core start occurred.
+This actual pause remains respected pending the user's direction. Recovery
+preflight note:
+`runtime-data/gpu1-acceptance/operator-audit/egg41-supported-start-20261016T093113Z/after-test-note.json`,
+SHA256 `5a58c477d50c99adcf8ebee4b4fc7451d4c2dfae860d2140a566522b7a278bfa`.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give
@@ -749,3 +835,15 @@ tasks provide limited statistical power. Without a reference run, report local
 Qwen/Ornith results only. Original benchmark comparisons additionally require
 the original pinned environment, assets, evaluator and track. Never reset the
 user's desktop to construct that environment.
+
+The bounded CPU follow-up isolated the malformed-delimiter admission to decoded
+regex atoms emitted directly inside JSON wire-string grammar. The pinned C++
+converter patch uses its existing warned canonical-string fallback for unsafe
+atoms, retaining the complete phase schema and host validation. Native engine
+controls accept the captured valid phase and reject the captured malformed phase
+at body byte 3,581, where the unchanged PEG parser rejects it. Safe character
+classes and the other phase branches remain covered. This is CPU decoder proof;
+it does not claim a patched native deployment or another completed desktop task.
+The fallback may admit empty or decoded-NUL strings at generation time; host
+validation rejects those before any step is dispatched. Python/JavaScript schema
+converters are unchanged and were not claimed fixed.

@@ -566,6 +566,19 @@ four global admissions.
 Do not infer GPU placement from a static free-VRAM scan. On broker-managed
 hosts, every CUDA service follows `/usr/local/share/ollama-unify/AGENTS.md`.
 
+
+The pinned native build also applies `llama.cpp-json-pattern-safety.patch` in both
+platform builders. The C++ schema converter keeps JSON syntax valid when a
+regex atom could consume unescaped quotes, backslashes or controls: it uses the
+existing warned JSON-string fallback for those unsupported decoded patterns.
+Safe literal/class patterns still compile normally. This approximates the regex
+only in the decoder; the full canonical phase schema and all-step host validation
+remain authoritative, including rejection of empty or NUL text before any input.
+The companion native C++ tests exercise grammar acceptance and update only C++
+expectations; the Python/JavaScript converters are unchanged. Adoption requires a
+new native common library and a supported worker restart; reloading the Python
+portal cannot change the resident decoder.
+
 ## Response and observability
 
 The response keeps Ollama's normal fields and adds an `adapter` trace and, when
