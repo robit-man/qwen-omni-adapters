@@ -1509,3 +1509,61 @@ ten model/case cells, eight task IDs and zero whole-task passes. The following
 source checkpoint separates first-action grounding from cache renewal after a
 later verified mutation; whole-task live qualification of those corrections
 remains pending.
+
+## Three-host qualification of `3f2d845`
+
+The local CPU frontend adopted this checkpoint while preserving the eight GPU
+workers, GPU-1 lease and mapped native library. Egg41 adopted it automatically;
+Egg31 passed its isolated ARM gate and one CPU-only reload. Source gates passed
+3,584 checks locally and on Egg31; Egg41 reported 3,572 passes and twelve skips
+without individual skip reasons. Adoption does not establish task success.
+
+The next different local task, Qwen LHN-042, retained its original twenty inputs
+and ten criteria. Seventeen unique dispatched inputs comprised two pointer,
+nine keyboard and six native attempts. Two Moondream point calls and two
+accepted snapshot readings were exercised; Kev and memory were not. The model
+selected all six correct filenames, but four claimed embedded revisions were
+wrong, and its submitted actions did not read the authority ledger or document
+versions before authorship. No required output, official-source navigation,
+archive, reopen or physical Save/delivery completed.
+
+Five multiline typing attempts remained unresolved. Two requested 370
+characters including six line feeds; the observed value contained exactly the
+other 364 characters. A later cached selection receipt was consumed even though
+the fresh input prestate had no selection: a new 549-character write appended
+543 characters to the existing 364, producing 907. These are separate input and
+workflow-consumer faults. The operator requested supported cancellation at
+18:36:30 UTC on 2026-10-16 after reproducing systematic line-feed loss. A late
+compiler reply was retained without subsequent completed-phase/input evidence;
+this was not natural termination at the consecutive-failure limit.
+
+All twenty inputs and 138 prior window metadata rows were preserved. The owned
+editor's polite close was negative and four new editor/dialog resources remained
+at the canonical checkpoint. Independent grading records eight failed criteria,
+literal keyboard/mouse occurrence C07 passed, and C08 unknown. The unchanged
+43-member bundle is
+`7f48b578683e1cd18d391f7b0c76b95d357edd0c3d925ae52beca956c3986891`.
+The local campaign is 23 sealed attempts, eleven model/case cells, nine task IDs
+and zero whole passes; subsequent cleanup must not rewrite this negative seal.
+
+Both Eggs received the unchanged original Ornith LHN-072 task. Egg31 stopped
+during Flatpak setup before a model submission, retaining BadWindow 3,
+request 2, resource 67108865 at `events:post_sync` and a poisoned connection.
+No launch ledger or cleanup authority was established. Egg41 ran four phases
+with three unique input attempts: a verified switch, an unresolved switch and
+unresolved Ctrl+L. An older switch receipt was replayed without input; the fourth
+phase returned invalid JSON. No source acquisition, output or memory completed.
+Its three owned windows closed, but three new unmanaged resources had unknown
+owners. Independent grading is eight failures, literal C02 passed and C08
+unknown. These Tegra/Moondream-2/no-Kev cohorts remain separate from local cells.
+
+Actual private-Xvfb experiments reproduced both the lost line feeds and a
+CreateNotify/destroy-before-drain subscription fault. The multiline input
+candidate's literal physical sequence passed read-back controls, including the
+exact 370-character fixture. The cached-prefix candidate blocks the saved
+364-to-907 append before input while preserving the stored historical outcome.
+These are source regression proofs, not new loaded-model task passes. A separate
+XRes lifetime experiment showed that a destroyed resource ID can identify a
+different current client after its original connection closes. Current range
+identity cannot be used as historical transient ownership; that proposed
+Flatpak repair remains withheld.

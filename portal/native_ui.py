@@ -39,6 +39,20 @@ _MAX_REPLY_BYTES = 2 * 1024 * 1024
 _IDENTITY_HELPER: Any = None
 
 
+def _x11_text_command(text: str) -> list[str]:
+    """One preselected XTEST sequence; every caller string stays a literal argv."""
+    if "\n" not in text:
+        return ["xdotool", "type", "--clearmodifiers", "--delay", "1", "--", text]
+    command = ["xdotool"]
+    for index, line in enumerate(text.split("\n")):
+        if index:
+            command.extend(["key", "--clearmodifiers", "--delay", "1", "Return"])
+        # --args limits this command to exactly one literal string. Without it,
+        # xdotool type consumes the remainder of a chained command as text.
+        command.extend(["type", "--clearmodifiers", "--delay", "1", "--args", "1", "--", line])
+    return command
+
+
 def _identity_helper() -> Any:
     global _IDENTITY_HELPER
     if _IDENTITY_HELPER is None:
@@ -2454,6 +2468,10 @@ class _AtspiBridge:
                 )) or current.contains(self.atspi.StateType.READ_ONLY) or current.contains(self.atspi.StateType.DEFUNCT)
                         or self._read(node.get_role_name) not in {"text", "entry", "combo box"}):
                     return reject("native_text_target_not_editable")
+                if "\n" in args["text"]:
+                    multiline = getattr(self.atspi.StateType, "MULTI_LINE", None)
+                    if multiline is None or not current.contains(multiline):
+                        return reject("native_multiline_text_target_not_multiline")
                 # Last host reads immediately precede the one chosen XTEST input.
                 # A failed/partial type remains dispatched; no setter/clipboard retry.
                 if (self.foreground() != self.foreground_identity or _x11_geometry(self.foreground_identity) != geometry
@@ -2461,7 +2479,7 @@ class _AtspiBridge:
                     return reject("native_text_binding_changed_before_dispatch")
                 try:
                     result = subprocess.run(  # noqa: S603 - bounded text is one literal argv value, never shell code.
-                        ["xdotool", "type", "--clearmodifiers", "--delay", "1", "--", args["text"]],
+                        _x11_text_command(args["text"]),
                         capture_output=True, timeout=5, check=False,
                     )
                     ok = result.returncode == 0

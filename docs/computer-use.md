@@ -60,6 +60,14 @@ metadata clarification cannot renew them. A never-dispatched offer from an
 earlier execution version rejects before input and must be enumerated again.
 These bindings add no public action fields and do not clear outcome caches.
 
+A historical intermediate workflow receipt is rechecked against a fresh UI
+before the next step. Its original resolved predicates and relevant control
+generations must still hold in the same session and scope. Otherwise the
+workflow returns for replanning before further input. This check does not
+redispatch the cached action, change its stored receipt or grant new progress
+credit. Freshly dispatched steps retain their existing effect verification;
+a final cached step still requires the independent terminal observation.
+
 A foreground native task can further restrict that authority with the
 portal-only `portal_native_task_scope` described in the
 [protocol](protocol.md). The caller registers exact XID/PID/process-start tuples;
@@ -263,6 +271,16 @@ retry an uncertain action. `set_value` retains its separate accessibility-setter
 semantics. A failed setter never automatically triggers typing. Both operations
 need fresh observed effects and independent verification. The explicit Chromium
 adapter does not advertise this native keyboard verb.
+
+Literal line feeds use fixed Return events between literal text chunks, in the
+same bounded XTEST subprocess. This route requires a freshly read positive
+native `MULTI_LINE` state; single-line or unknown controls reject before input,
+so text cannot turn into a submit command. Each chunk is limited to one literal
+argument with `type --args 1 --`; command-looking text remains text. The five
+second timeout, focus/ownership/geometry checks and exact observed-effect
+verification still apply. This route is selected before any input and has no
+setter, clipboard or retry fallback. Actual private GTK/XTEST read-back tests
+cover line breaks, empty lines, leading/trailing breaks and literal arguments.
 
 ## Portal tool
 

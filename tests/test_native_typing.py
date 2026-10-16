@@ -36,12 +36,22 @@ def typing_fixture(monkeypatch, role="entry"):
 @pytest.mark.parametrize("role", ["entry", "text", "combo box"])
 def test_type_text_uses_one_literal_xtest_argv_on_observed_editable_text_roles(monkeypatch, role):
     fixture, commands, _geometry = typing_fixture(monkeypatch, role)
-    text = '--option $(literal) `literal` "quoted" é\nnext line'
+    text = r'--option $(literal) `literal` "quoted" é\nnext line'
     action = fixture.action("Title", "type_text", {"text": text})
     assert fixture.adapter.perform(action) == {"status": "dispatched", "backend": "x11_guarded_xtest",
                                              "reason": "native_text_input_invoked"}
     assert commands == [["xdotool", "type", "--clearmodifiers", "--delay", "1", "--", text]]
     assert fixture.title.events == []  # No implicit focus, setter, selection or clipboard operation.
+
+
+@pytest.mark.parametrize("role", ["entry", "text", "combo box"])
+def test_real_linefeed_requires_positive_multiline_state_before_input(monkeypatch, role):
+    fixture, commands, _geometry = typing_fixture(monkeypatch, role)
+    text = '--option $(literal) `literal` "quoted" é\nnext line'
+    action = fixture.action("Title", "type_text", {"text": text})
+    assert fixture.adapter.perform(action) == {
+        "status": "rejected", "reason": "native_multiline_text_target_not_multiline"}
+    assert commands == [] and fixture.title.events == []
 
 
 @pytest.mark.parametrize("ineligible", ["hidden", "disabled", "readonly", "not-editable", "sensitive", "no-text", "other-role"])

@@ -531,12 +531,47 @@ def run_workflow(controller: RapidUiController, steps: Sequence[dict[str, Any]],
     parsed = [parse_step(step) for step in steps]
     final = _predicates(final_predicates, terminal=True)
     outcomes: list[dict[str, Any]] = []
-    for step in parsed:
+    for index, step in enumerate(parsed):
         outcome = controller.run_step(step, provider, cancel)
         outcomes.append(outcome)
         if outcome["status"] != "verified":
             return {"status": "cancelled" if outcome["status"] == "cancelled" else "needs_replan",
                     "outcomes": outcomes, "reason": outcome.get("reason", outcome["status"])}
+        # A new run_step enumerates fresh candidate IDs. A returned historical
+        # ID proves cache reuse, not that its prerequisite still holds now.
+        if index + 1 < len(parsed) and controller.candidate(outcome["action"]["id"]) is None:
+            try:
+                _check_cancel(cancel)
+                current = controller.observe()
+                _check_cancel(cancel)
+                after, action = outcome["after"], outcome["action"]
+                previous_nodes = {node["id"]: node for node in after["nodes"]}
+                current_nodes = {node["id"]: node for node in current["nodes"]}
+                effect_nodes = {item["node_id"] for item in action["expect"] if "node_id" in item}
+                verified = (current["session_id"] == after["session_id"] and current["scope"] == after["scope"]
+                            and all(node_id in previous_nodes and node_id in current_nodes
+                                    and current_nodes[node_id]["generation"] == previous_nodes[node_id]["generation"]
+                                    and current_nodes[node_id]["scope_id"] == previous_nodes[node_id]["scope_id"]
+                                    and not current_nodes[node_id]["sensitive"] for node_id in effect_nodes)
+                            and all(predicate_satisfied(item, current) for item in action["expect"]))
+                outcome["current_prefix_verification"] = {
+                    "schema": "robit.omni.ui-verification.v1", "status": "verified" if verified else "unresolved",
+                    "session_id": current["session_id"], "scope_id": current["scope"]["id"],
+                    "revision": current["revision"], "content_sha256": _digest(current),
+                    "predicates_sha256": _digest(action["expect"]), "input_attempted": False,
+                    "task_progress": False,
+                }
+                if not verified:
+                    outcome.update(status="unresolved", reason="Historical workflow prefix did not satisfy its predicates in the current UI")
+                    return {"status": "needs_replan", "outcomes": outcomes, "terminal": current, "reason": outcome["reason"]}
+            except _Cancelled as exc:
+                return {"status": "cancelled", "outcomes": outcomes, "reason": str(exc)}
+            except Exception as exc:
+                outcome.update(status="unresolved", reason="Historical workflow prefix could not be freshly verified",
+                               current_prefix_verification={"schema": "robit.omni.ui-verification.v1",
+                                   "status": "unresolved", "error_type": type(exc).__name__,
+                                   "input_attempted": False, "task_progress": False})
+                return {"status": "needs_replan", "outcomes": outcomes, "reason": outcome["reason"]}
     try:
         _check_cancel(cancel)
         terminal = controller.observe()
