@@ -1195,3 +1195,54 @@ The exact saved LHN-041 results reach a synthetic fourth planning phase, while
 the original zero-effect Ornith LHN-021 results still stop at three. Those are
 CPU replay controls, not live task completion. Live adoption remains a separate
 checkpoint.
+
+### Prefix-recovery adoption and tutorial-transfer setup
+
+The local `ef6403f` Python frontend passed its bounded readiness window while
+preserving the Qwen GPU workers, native library, lease and model pins. Its first
+original LHN-059 tutorial-transfer run failed after 64.884 task seconds. One
+Moondream-grounded physical double-click opened Input with all three declared
+filenames verified. A second compiler phase reached grounding, then the stream
+disconnected with `foreground_identity_outside_owned_scope`; no completed
+dispatch/effect receipt or authoritative final was received for that phase.
+That second input's outcome is unknown. No required workbook, Writer document,
+PDF, acquired official source or memory result existed. The new prefix-recovery
+condition was unexercised: phase one completed, and phase two had no completed
+workflow result.
+
+Post-terminal metadata identified a preexisting GNOME Text Editor window as
+foreground. The frozen five-app fixture had no text editor, and the host's
+actual `text/plain` handler was GNOME Text Editor. The earlier LHN-021 fixture
+included an owned window in that application and opened its brief successfully.
+These observations support a separate host-setup hypothesis; the historical
+guard record did not retain the foreign identity and does not prove that actor.
+All three inputs, all 139 preexisting X11 rows, the exact GPU workers and lease
+were preserved, and all five owned windows closed. Foreign editor contents were
+not inspected, so full unrelated-content preservation remains **unknown**.
+Immutable bundle SHA256:
+`d99e65b87e8d931127de8f02ce2fcfec6299e5cdfc3e6e8c4bdb44db89f46a30`.
+The local ledger contains 18 attempts across nine of 200 model/case cells and
+seven task IDs, with zero complete passes. Ledger SHA256:
+`6ced0706aa7e867ea05c51cebbd54e2889783c56aef2a063ef402106df9fd993`.
+
+Egg41 automatically adopted `ef6403f` after its actual ARM gate reported
+3,233 passed and nine skipped. Its host lacked Xvfb; the individual skip reasons
+were not emitted, so no claim follows that the nine private-Xvfb controls ran
+there. The updater performed a full core restart. Fresh source/catalog hashes,
+the mapped native library, actual Ornith Tegra residency, 65,536-token context,
+idle health, config and all 62 preexisting X11 rows passed the adoption review.
+Review SHA256:
+`ba3d9745fe34c8c40826b2efd421022b2d839b9d1b1de75e40b658dc3a9e41ba`.
+
+Egg31 separately passed all 3,242 ARM tests before adopting the same source.
+The first private doctor invocation mistakenly checked its default Qwen tag,
+which was not installed on this Ornith host; that attempt performed no reload
+and remains retained. Explicit configured-Ornith doctor checks passed before
+the single supported Python reload. Adapter and portal changed, while the
+daemon, trunk, pointing/TTS controls, tunnel, native libraries, config and all
+71 preexisting X11 rows were preserved. The continuation took 9.858 seconds;
+adoption receipt SHA256:
+`e27834ae30d69b3271323101d1fa4bed8858f33e906fe513805bea217aa35e14`.
+These are deployment results, not desktop-task completion or live acceptance
+of the prefix-recovery condition. Both remote configurations remain separate
+Tegra/Moondream-2/no-Kev cohorts.
