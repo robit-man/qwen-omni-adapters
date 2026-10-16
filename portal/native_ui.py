@@ -2474,11 +2474,85 @@ class _AtspiBridge:
             count = self._read(lambda: self.atspi.Text.get_character_count(interface))
             if args["end"] > count:
                 return reject("native_text_selection_out_of_range")
+            coverage, value = item.get("text_observation"), item.get("value")
+            captured = coverage.get("captured_range") if isinstance(coverage, Mapping) else None
+            complete = (
+                type(count) is int and count > 0 and isinstance(value, str) and len(value) == count
+                and args == {"start": 0, "end": count}
+                and isinstance(coverage, Mapping) and type(coverage.get("character_count")) is int
+                and coverage["character_count"] == count and coverage.get("truncated") is False
+                and isinstance(captured, Mapping) and set(captured) == {"start", "end"}
+                and type(captured["start"]) is int and type(captured["end"]) is int
+                and captured == {"start": 0, "end": count}
+                and item.get("focused") is True
+                and {"select_text", "type_text", "key_chord"}.issubset(item["operations"])
+                and state.contains(self.atspi.StateType.EDITABLE)
+                and not state.contains(self.atspi.StateType.READ_ONLY)
+            )
+            if complete:
+                geometry = _x11_geometry(self.foreground_identity)
+                raw = self._read(lambda: str(node.app.bus_name) + ":" + str(node.path))
 
-            def operation() -> Any:
-                if self.atspi.Text.get_n_selections(interface):
-                    return self.atspi.Text.set_selection(interface, 0, args["start"], args["end"])
-                return self.atspi.Text.add_selection(interface, args["start"], args["end"])
+                def operation() -> dict[str, Any]:
+                    # Select the whole revision-bound value, never a guessed
+                    # partial range or a retry after an uncertain native setter.
+                    try:
+                        if not self._provider_guard():
+                            return reject("native_provider_changed_before_dispatch")
+                        self._clear_cache(node)
+                        current = self._read(node.get_state_set)
+                        if (not all(current.contains(flag) for flag in (
+                            self.atspi.StateType.EDITABLE, self.atspi.StateType.FOCUSED,
+                            self.atspi.StateType.VISIBLE, self.atspi.StateType.SHOWING,
+                            self.atspi.StateType.SENSITIVE,
+                        )) or current.contains(self.atspi.StateType.READ_ONLY)
+                                or current.contains(self.atspi.StateType.DEFUNCT)
+                                or self._read(node.get_role_name) not in {"text", "entry", "combo box"}):
+                            return reject("native_text_selection_target_changed")
+                        if not self._provider_guard():
+                            return reject("native_provider_changed_before_dispatch")
+                        fresh = self._read(node.get_text_iface)
+                        fresh_count = self._read(lambda: self.atspi.Text.get_character_count(fresh))
+                        if (type(fresh_count) is not int or fresh_count != count
+                                or self._read(lambda: self.atspi.Text.get_text(fresh, 0, count)) != value):
+                            return reject("native_text_selection_value_changed")
+                        if (self._read(lambda: str(node.app.bus_name) + ":" + str(node.path)) != raw
+                                or str(self.generations.get(raw)) != item["generation"]
+                                or self.handles.get(item["id"], (None,))[0] is not node):
+                            return reject("native_text_selection_target_changed")
+                        self._clear_cache(node)
+                        current = self._read(node.get_state_set)
+                        if (not all(current.contains(flag) for flag in (
+                            self.atspi.StateType.EDITABLE, self.atspi.StateType.FOCUSED,
+                            self.atspi.StateType.VISIBLE, self.atspi.StateType.SHOWING,
+                            self.atspi.StateType.SENSITIVE,
+                        )) or current.contains(self.atspi.StateType.READ_ONLY)
+                                or current.contains(self.atspi.StateType.DEFUNCT)
+                                or self._read(node.get_role_name) not in {"text", "entry", "combo box"}):
+                            return reject("native_text_selection_target_changed")
+                        if (self.foreground() != self.foreground_identity
+                                or _x11_geometry(self.foreground_identity) != geometry
+                                or self.foreground() != self.foreground_identity):
+                            return reject("native_text_selection_binding_changed")
+                    except Exception:
+                        # None of these reads attempted input. In particular a
+                        # budget/provider failure must not become 'dispatched'.
+                        return reject("native_text_selection_preflight_unavailable")
+                    try:
+                        result = subprocess.run(  # noqa: S603 - fixed whole-text XTEST input, never shell code.
+                            ["xdotool", "key", "--clearmodifiers", "Control_L+a"],
+                            capture_output=True, timeout=2, check=False,
+                        )
+                        ok = result.returncode == 0
+                    except (OSError, subprocess.TimeoutExpired):
+                        ok = False
+                    return {"status": "dispatched", "backend": "x11_guarded_xtest",
+                            "reason": "native_key_input_invoked" if ok else "native_key_input_effect_unresolved"}
+            else:
+                def operation() -> Any:
+                    if self.atspi.Text.get_n_selections(interface):
+                        return self.atspi.Text.set_selection(interface, 0, args["start"], args["end"])
+                    return self.atspi.Text.add_selection(interface, args["start"], args["end"])
 
         elif verb == "switch_window":
             if item["id"] == before["scope"]["id"]:

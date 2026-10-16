@@ -52,6 +52,16 @@ model-driven native GUI interaction under the normal controller guards. CPU
 controls are source validation; live owned-Flatpak launch/cleanup and long-task
 acceptance remain pending until separately executed and independently graded.
 
+An own-connection X11 protocol failure may include a closed `x11_error` object
+in its correlated private negative reply. It retains only the first numeric
+error/request/minor codes, resource ID and serial, a fixed method/sync boundary,
+and the permanently poisoned connection flag. The boundary identifies where an
+asynchronous error surfaced; it does not identify an actor or establish the
+cause of an earlier failure. These diagnostics confer no ownership or cleanup
+authority. Malformed or misplaced diagnostic fields terminate the private
+transport; legacy negative replies remain valid without them. Private Xvfb and
+actual-pipe controls validate retention, not installed-browser correctness.
+
 `--browser flatpak-chromium` selects the closed `org.chromium.Chromium`
 descriptor with the same ownership ledger. It requires a root-owned, non-writable
 installed `chromium` launcher that transparently forwards arguments to that

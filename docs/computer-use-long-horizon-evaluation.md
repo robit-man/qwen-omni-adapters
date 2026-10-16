@@ -1397,3 +1397,60 @@ The passing receipt SHA256 is
 `24aa74cb7e137da2af85168298b2a4e3b256cf49e4a2ebd0e13187ad94d2a040`.
 This evaluation narrative was amended after the source gate. Deployment and
 whole-task live qualification remain separate, pending results.
+
+### Live qualification of the text and browser-owner checkpoint
+
+Published revision `8c3926c` passed all 3,432 tests on Egg31 and 3,423 tests with
+nine skips on Egg41. Egg41's automatic updater adopted the revision within its
+600-second window: fresh Ornith workers, actual Tegra residency, native library,
+65,536-token context, health and idle checks passed. All 62 desktop metadata rows
+and configuration were preserved. Individual skip reasons were not exported;
+auxiliary-head warmth was not established. Adoption receipt SHA256:
+`5fcbafa95d80099e94a12c6851784ae1a688698a5725993c292cdef39e4c235f`.
+
+The local CPU frontend adopted the revision while preserving the eight model
+workers, GPU 1 lease, mapped native library and 139-row desktop baseline.
+A newly added private import observer initially rejected an already wrapped
+method; that failed frontend startup is retained. An unwrapped-method proof
+passed with the real metric hooks, then recovery startup passed its preservation
+window. This was instrumentation repair, with no production change or model
+request. Egg31's single CPU reload also passed. Its earlier pre-adoption hold
+retains an unexplained unmapped resource disappearance; the successful reload
+preserves a declared fresh 75-row post-quiescence baseline, not the older 76.
+
+One full original-goal Qwen LHN-059 run used the same explicit owned-editor host
+condition. Two real Moondream-3.1/XTEST double-clicks opened Input and the brief
+in owned editor XID `81789161`, excluding older `81788932`. The whole task failed
+after five phases. Native selection `0..1000` remained unresolved, then a new
+`0..1077` attempt also remained unresolved; only the final phase replayed the
+cached second attempt. Five unique dispatches comprise those two double-clicks,
+one native focus and two native selections. There was no physical keyboard
+input, required output or memory result.
+
+The raw brief node positively reported 1,077 characters, complete captured
+coverage and zero selections. The current planner view had 11,998 of 12,000
+compact characters and omitted that optional metadata. Crucially, both later
+compiler packets retained the typed facts twice in action feedback. The changed
+full-range request used the observed length; a blanket feedback-loss claim is
+unsupported. All three inputs, model workers and lease were preserved; all six
+owned windows closed and work drained. One prior X resource disappeared and nine
+metadata rows changed, with actor and unrelated contents unknown. Independent
+grading is eight failed criteria and C08 unknown. Canonical bundle SHA256:
+`28c8c41c282f7a6f73c97d632a5623ba075bf12e330db97df56ddd80432c8448`;
+peer review SHA256:
+`b2b69ecf976ed29a7d9c16abe50d4e7a1c926b8960e0ab9dfb1371a62dd798ba`.
+The reconciled local campaign has 20 unique attempts across nine model/case cells
+and seven task IDs, with zero whole-task passes. Remote setup results remain
+outside the 200-cell local denominator.
+
+Egg31's original LHN-001 qualification used the explicit owned Flatpak Chromium
+setup. The real ordinary-profile launcher started, then the helper returned
+`flatpak_x11_protocol_error`; no portal or model submission occurred. Cleanup
+returned `flatpak_launch_ledger_missing`. All 75 preexisting rows remained, but
+five new resources lack an affirmative ownership ledger and remain untouched.
+Solver criteria are unexercised and preservation remains unknown. The exact
+failed X request, resource and stage were not retained, so no causal diagnosis
+follows from the stable code. Canonical bundle SHA256:
+`1c93554681bc7516a8edd774d91aeabd3d77280bac28255dacf312efcc95dbfc`;
+independent peer review SHA256:
+`702f04cab4c01d1649ce406ee82339250b4c2e8ee0b2527a207863bc980b11e6`.

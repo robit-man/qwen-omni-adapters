@@ -214,7 +214,21 @@ It is excluded from the existing native revision and idempotency payload, so
 clarification alone cannot create mutation credit, retry authority or failure
 counter progress. Raw state, tool and planner-packet hashes still cover it.
 Existing value and positive selection-range changes retain their normal
-verification semantics. No keyboard fallback or provider blacklist is added.
+verification semantics. Knowledge alone grants no input or retry authority.
+
+Native `select_text` may choose one guarded Ctrl+A input for an explicitly
+requested complete, nonempty `0..N` range. The revision-bound value must have
+exactly N Unicode characters, the captured prefix must cover the full provider
+count, and the focused editable control must already advertise `select_text`,
+`type_text` and `key_chord`. Immediately before input, the backend independently
+rereads the complete value/count and rechecks provider, owner, scope, generation,
+focus, editability and window geometry. A failed check rejects before input.
+The original action, exact range, idempotency and selection predicate remain
+unchanged; a fresh observed range still determines success. The physical route
+reports `backend: x11_guarded_xtest`, including uncertain attempts. It is chosen
+before any native setter, never after a failed setter, and cannot fall back to
+or retry native input. Partial, incomplete or ineligible text retains the native
+selection path and receives no inferred caret or Unicode offset mapping.
 
 On GNOME, enable the signed-in session's accessibility before using native
 browser controls: `gsettings set org.gnome.desktop.interface toolkit-accessibility true`.

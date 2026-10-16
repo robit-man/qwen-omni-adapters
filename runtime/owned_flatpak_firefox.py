@@ -34,12 +34,35 @@ SCHEMA = "robit.omni.owned-flatpak-firefox.v1"
 REPO = Path(__file__).resolve().parents[1]
 MAX_WINDOWS = 4096
 MAX_REPLY = 2 * 1024 * 1024
+_X11_FIELDS = {"error_code", "request_code", "minor_code", "resource_id", "serial",
+               "stage", "connection_poisoned"}
+_X11_STAGES = {method + ":" + boundary for method in ("snapshot", "arm", "select", "events", "internal")
+               for boundary in ("pre_sync", "post_sync")}
+
+
+def _valid_x11_error(value):
+    return (isinstance(value, dict) and set(value) == _X11_FIELDS
+            and isinstance(value["stage"], str) and value["stage"] in _X11_STAGES
+            and value["connection_poisoned"] is True
+            and all(type(value[key]) is int and lower <= value[key] < upper
+                    for key, lower, upper in (("error_code", 1, 256), ("request_code", 1, 256),
+                        ("minor_code", 0, 256), ("resource_id", 0, 2**32), ("serial", 0, 2**64))))
 
 
 class OwnershipUnavailable(RuntimeError):
     def __init__(self, code: str):
         self.code = code
         super().__init__(code)
+
+
+class _XProtocolUnavailable(OwnershipUnavailable):
+    def __init__(self, event, stage):
+        super().__init__("flatpak_x11_protocol_error")
+        self._event, self._stage = tuple(event), stage
+
+    def diagnostic(self):
+        return {**dict(zip(("error_code", "request_code", "minor_code", "resource_id", "serial"),
+                           self._event, strict=True)), "stage": self._stage, "connection_poisoned": True}
 
 
 def _source() -> dict:
@@ -327,7 +350,7 @@ _X_ERROR_LOCK = threading.RLock()
 def _checked_x(method):
     @wraps(method)
     def checked(self, *args, **kwargs):
-        with self._errors():
+        with self._errors(method.__name__):
             return method(self, *args, **kwargs)
     return checked
 
@@ -368,7 +391,7 @@ class _XDisplay:
         self._poisoned, self._error_handlers = False, []
 
     @contextmanager
-    def _errors(self):
+    def _errors(self, stage="internal"):
         # XSetErrorHandler is process-global. Only this connection's errors are
         # trapped; another Display retains its exact previous/default handler.
         with _X_ERROR_LOCK:
@@ -409,7 +432,8 @@ class _XDisplay:
                     raise OwnershipUnavailable("flatpak_x11_error_handler_unavailable")
                 self.lib.XSync(self.display, False)
                 if errors:
-                    raise OwnershipUnavailable("flatpak_x11_protocol_error")
+                    self._poisoned = True
+                    raise _XProtocolUnavailable(errors[0], stage + ":pre_sync")
                 try:
                     yield
                 finally:
@@ -417,7 +441,8 @@ class _XDisplay:
                     # complete tree/event witness with an unprocessed X error.
                     self.lib.XSync(self.display, False)
                     if errors:
-                        raise OwnershipUnavailable("flatpak_x11_protocol_error")
+                        self._poisoned = True
+                        raise _XProtocolUnavailable(errors[0], stage + ":post_sync")
             except BaseException:
                 # Subscriptions and consumed events cannot be rolled back. No
                 # subsequent operation on this connection can establish ownership.
@@ -475,20 +500,20 @@ class _XDisplay:
 
     def arm(self, tree: dict) -> None:
         pending = set(tree["windows"]) - self.selected
-        with self._errors():
+        with self._errors("arm"):
             for xid in pending:
                 self.lib.XSelectInput(self.display, int(xid), (1 << 19) | (1 << 17))
         self.selected.update(pending)
         self.armed = True
 
     def select(self, xid: str) -> None:
-        with self._errors():
+        with self._errors("select"):
             if xid not in self.selected:
                 self.lib.XSelectInput(self.display, int(xid), (1 << 19) | (1 << 17))
         self.selected.add(xid)
 
     def events(self) -> list[dict]:
-        with self._errors():
+        with self._errors("events"):
             rows, selected = self._events()
         self.selected.update(selected)
         return rows
@@ -1034,6 +1059,7 @@ class OwnedFlatpakFirefox:
                             result = json.loads(data)
                             key = {"create": "ledger", "verify": "proof", "close": "receipt"}[op]
                             common = {"schema", "op", "request_id", "ok"}
+                            extra = {"x11_error"} if isinstance(result, dict) and "x11_error" in result else set()
                             if (
                                 not isinstance(result, dict)
                                 or result.get("schema") != SCHEMA
@@ -1042,7 +1068,7 @@ class OwnedFlatpakFirefox:
                                 or result["request_id"] != self._sequence
                                 or type(result.get("ok")) is not bool
                                 or set(result)
-                                != common | ({key} if result["ok"] else {"code", "launch"})
+                                != common | ({key} if result["ok"] else {"code", "launch"} | extra)
                                 or result["ok"]
                                 and not isinstance(result[key], dict)
                                 or not result["ok"]
@@ -1051,6 +1077,8 @@ class OwnedFlatpakFirefox:
                                     or re.fullmatch(r"[a-z_][a-z0-9_]{0,127}", result["code"]) is None
                                     or result["launch"] is not None
                                     and not isinstance(result["launch"], dict)
+                                    or extra and (result["code"] != "flatpak_x11_protocol_error"
+                                                  or not _valid_x11_error(result["x11_error"]))
                                 )
                             ):
                                 self._poison("flatpak_ownership_protocol_invalid")
@@ -1136,6 +1164,9 @@ def _main():
                 else "flatpak_ownership_unavailable",
                 "launch": backend.launch_record() if backend else None,
             }
+            if (isinstance(exc, _XProtocolUnavailable) and output["code"] == "flatpak_x11_protocol_error"
+                    and _valid_x11_error(exc.diagnostic())):
+                output["x11_error"] = exc.diagnostic()
         finally:
             if backend:
                 backend.end()
