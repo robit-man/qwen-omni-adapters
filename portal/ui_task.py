@@ -53,6 +53,32 @@ def phase_response_schema(allowed_tools: Iterable[str]) -> dict[str, Any]:
     return copy.deepcopy({"$defs": ui["$defs"], "oneOf": alternatives})
 
 
+def _accepted_visual_reading(result: Mapping[str, Any]) -> bool:
+    reading, receipt = result.get("reading"), result.get("visual_inspection_receipt")
+    if (result.get("status") not in ("observed", "captured_snapshot")
+            or result.get("dispatch_status") != "not_dispatched" or result.get("evidence_authority") != "inspection"
+            or result.get("task_progress") is not False
+            or not isinstance(reading, str) or not reading.strip() or len(reading) > 6000
+            or not isinstance(receipt, dict) or receipt.get("schema") != "robit.omni.native-visual-inspection.v1"
+            or receipt.get("authority") != "untrusted_tool_observation" or receipt.get("snapshot_only") is not True
+            or receipt.get("temporal_scope") != "captured_snapshot"
+            or receipt.get("current_ui_verified") is not False or receipt.get("input_authority") is not False):
+        return False
+    before, after = receipt.get("frame_sha256"), receipt.get("checked_frame_sha256")
+    if any(not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None for value in (before, after)):
+        return False
+    same = before == after
+    if receipt.get("post_capture_pixels_match") is not same or same != (result["status"] == "observed"):
+        return False
+    if not same:
+        document = receipt.get("document_evidence")
+        if (not isinstance(receipt.get("document_region"), dict) or not isinstance(document, dict)
+                or document.get("status") != "observed" or document.get("source") != "atspi.Document.DocURL"
+                or document.get("url") != receipt.get("source_url")):
+            return False
+    return True
+
+
 def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
     """Keep receipts and readback; never multiply historical UI maps in planning."""
     fields = ("status", "error", "reason", "message", "phase_handoff", "terminal_receipt",
@@ -61,7 +87,7 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
               "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results",
               "reading", "visual_inspection_receipt")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
-    if result.get("status") != "observed":
+    if not _accepted_visual_reading(result):
         compact.pop("reading", None)
     outcomes = []
     for item in result.get("outcomes", [])[:25]:
@@ -194,8 +220,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                      for item in result["outcomes"]))
             ok = not result.get("error") and not replayed_only and (kind != "ui" or result.get("status") == "complete")
             if kind == "visual_inspection":
-                ok = (ok and result.get("status") == "observed" and isinstance(result.get("reading"), str)
-                      and bool(result["reading"].strip()) and len(result["reading"]) <= 6000)
+                ok = ok and _accepted_visual_reading(result)
             tool.update(ok=ok, status="complete", result=content)
             traces.append(copy.deepcopy(tool))
             last_result = _compact_result(result)

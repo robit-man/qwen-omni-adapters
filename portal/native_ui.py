@@ -352,8 +352,12 @@ class NativeUiAdapter:
             return {**base, "status": status, "error": safe}
 
         def binding(state: Mapping[str, Any]) -> tuple[Any, ...]:
+            document = state.get("document_evidence")
+            document_id = document.get("node_id") if isinstance(document, Mapping) else None
+            nodes = [{key: node.get(key) for key in ("id", "generation", "scope_id", "role", "bounds", "visible", "enabled", "sensitive")}
+                     for node in state["nodes"] if node.get("id") == document_id]
             return (state["session_id"], state["revision"], state["scope"],
-                    state.get("document_evidence"), state.get("window_scope_sha256"))
+                    document, state.get("window_scope_sha256"), nodes)
 
         def protected(state: Mapping[str, Any], image: Mapping[str, Any] | None = None) -> bool:
             for node in state["nodes"]:
@@ -377,7 +381,7 @@ class NativeUiAdapter:
                 state = self.planning_observe()
                 if protected(state):
                     return failed("unavailable", "native_visual_reading_protected")
-                capture = self._visual_capture(state)
+                capture = self._visual_read_capture(state)
                 captured_at = time.time()
                 if protected(state, capture["image_geometry"]):
                     return failed("unavailable", "native_visual_reading_protected")
@@ -403,22 +407,35 @@ class NativeUiAdapter:
                 if binding(fresh) != binding(state):
                     return failed("stale", "native_visual_inspection_changed")
                 self._check_cancelled()
-                checked = self._visual_capture(fresh)
+                checked = self._visual_read_capture(fresh)
                 self._check_cancelled()
-                if (checked["key"] != capture["key"] or protected(fresh, checked["image_geometry"])
-                        or binding(self.planning_observe()) != binding(state)):
+                def nonpixel(value):
+                    return {key: item for key, item in value.items()
+                            if key not in {"key", "sha256", "image", "environment", "source_frame_sha256"}}
+                if nonpixel(checked) != nonpixel(capture) or protected(fresh, checked["image_geometry"]):
+                    return failed("stale", "native_visual_inspection_changed")
+                final = self.planning_observe()
+                if binding(final) != binding(state) or protected(final, checked["image_geometry"]):
+                    return failed("stale", "native_visual_inspection_changed")
+                pixels_match = checked["sha256"] == capture["sha256"]
+                if "document_region" not in capture and (not pixels_match or checked["key"] != capture["key"]):
                     return failed("stale", "native_visual_inspection_changed")
                 self._check_cancelled()
                 receipt = {"schema": "robit.omni.native-visual-inspection.v1", "id": uuid.uuid4().hex,
                     "source_type": "native_window_visual_inspection", "authority": "untrusted_tool_observation",
+                    "snapshot_only": True, "temporal_scope": "captured_snapshot",
+                    "current_ui_verified": False, "input_authority": False,
+                    "post_capture_pixels_match": pixels_match,
                     "session_id": hashlib.sha256(self.session_id.encode()).hexdigest(),
                     "scope_id": state["scope"]["id"], "semantic_revision": state["revision"],
                     "captured_at_unix": captured_at, "checked_at_unix": time.time(),
                     "model": result["model"], "revision": result["revision"], "frame_sha256": capture["sha256"],
+                    "checked_frame_sha256": checked["sha256"],
+                    "checked_source_frame_sha256": checked.get("source_frame_sha256", checked["sha256"]),
                     "coverage": "unknown" if state.get("truncated") else "bounded_native_observation",
                     "source_truncated": bool(state.get("truncated")), "absence_claims_supported": False}
                 for name in ("identity", "process_start", "geometry", "capture_source", "capture_root",
-                             "image_geometry", "pixel_offset", "content_region", "source_frame_sha256", "source_image_geometry"):
+                             "image_geometry", "pixel_offset", "content_region", "document_region", "source_frame_sha256", "source_image_geometry"):
                     if name in capture:
                         receipt[name] = copy.deepcopy(capture[name])
                 document = state.get("document_evidence", {})
@@ -427,7 +444,7 @@ class NativeUiAdapter:
                         and document.get("scope_id") == state["scope"]["id"]
                         and document.get("window_id") == capture["identity"]["window_id"]):
                     receipt.update(source_url=document["url"], document_evidence=copy.deepcopy(document))
-                return {**base, "status": "observed", "reading": reading.strip(),
+                return {**base, "status": "observed" if pixels_match else "captured_snapshot", "reading": reading.strip(),
                         "resource": receipt.get("source_url", state["scope"]["id"]),
                         "visual_inspection_receipt": receipt}
             except NativeUiUnavailable as exc:
@@ -436,6 +453,90 @@ class NativeUiAdapter:
                 return failed("cancelled" if exc.code == "native_operation_cancelled" else "unavailable", exc.code)
             except (httpx.HTTPError, ValueError):
                 return failed("unavailable", "native_visual_reader_unavailable")
+
+    @staticmethod
+    def _reader_document_region(state: Mapping[str, Any]) -> dict[str, Any] | None:
+        document = state.get("document_evidence")
+        if (not isinstance(document, Mapping) or document.get("status") != "observed"
+                or document.get("source") != "atspi.Document.DocURL"):
+            return None
+        scope = state["scope"]
+        nodes = [node for node in state["nodes"] if node.get("id") == document.get("node_id")]
+        digest = document.get("provider_identity_sha256")
+        if (document.get("provider") != "atspi2" or document.get("scope_id") != scope["id"]
+                or document.get("window_id") != scope.get("window_id")
+                or not isinstance(document.get("url"), str) or not document["url"]
+                or document["url"] != scope.get("url") or not isinstance(digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", digest) is None or len(nodes) != 1):
+            raise NativeUiUnavailable("native_visual_document_binding_invalid")
+        node = nodes[0]
+        bounds = node.get("bounds")
+        if (node.get("role") != "document_web" or node.get("scope_id") != scope["id"]
+                or not isinstance(node.get("generation"), str) or not node["generation"]
+                or node["generation"] != document.get("generation")
+                or node.get("visible") is not True or node.get("enabled") is not True
+                or node.get("sensitive") is not False or not isinstance(bounds, dict)
+                or set(bounds) != {"x", "y", "width", "height"}
+                or any(type(value) is not int or abs(value) > 1_000_000 for value in bounds.values())
+                or min(bounds["width"], bounds["height"]) <= 0):
+            raise NativeUiUnavailable("native_visual_document_binding_invalid")
+        return {"node_id": node["id"], "generation": node["generation"], "bounds": copy.deepcopy(bounds)}
+
+    def _visual_read_capture(self, state: Mapping[str, Any]) -> dict[str, Any]:
+        """Crop only positively bound document pixels; pointer capture is unchanged."""
+        region = self._reader_document_region(state)
+        capture = self._visual_capture(state)
+        if region is None:
+            return capture
+        import io
+
+        from PIL import Image
+
+        source, geometry, bounds = capture["image_geometry"], capture["geometry"], region["bounds"]
+        def rectangle(value: Any) -> bool:
+            return (isinstance(value, dict) and set(value) == {"x", "y", "width", "height"}
+                    and all(type(item) is int and abs(item) <= 1_000_000 for item in value.values())
+                    and min(value["width"], value["height"]) > 0)
+        root = capture.get("capture_root")
+        if (capture["identity"]["window_id"] != state["scope"]["window_id"]
+                or not rectangle(source) or not rectangle(geometry)
+                or not isinstance(root, dict) or not rectangle(root.get("geometry"))
+                or root["geometry"]["x"] != 0 or root["geometry"]["y"] != 0
+                or bounds["x"] < geometry["x"] or bounds["y"] < geometry["y"]
+                or bounds["x"] + bounds["width"] > geometry["x"] + geometry["width"]
+                or bounds["y"] + bounds["height"] > geometry["y"] + geometry["height"]
+                or source["x"] < 0 or source["y"] < 0
+                or source["x"] + source["width"] > root["geometry"]["width"]
+                or source["y"] + source["height"] > root["geometry"]["height"]):
+            raise NativeUiUnavailable("native_visual_document_capture_invalid")
+        left, top = max(bounds["x"], source["x"]), max(bounds["y"], source["y"])
+        right = min(bounds["x"] + bounds["width"], source["x"] + source["width"])
+        bottom = min(bounds["y"] + bounds["height"], source["y"] + source["height"])
+        if right <= left or bottom <= top:
+            raise NativeUiUnavailable("native_visual_document_capture_invalid")
+        try:
+            raw = capture["image"]
+            if (not isinstance(raw, bytes) or not 33 <= len(raw) <= 8 * 1024 * 1024
+                    or hashlib.sha256(raw).hexdigest() != capture["sha256"]):
+                raise ValueError("Invalid source frame")
+            with Image.open(io.BytesIO(raw)) as image:
+                if image.format != "PNG" or image.size != (source["width"], source["height"]) or max(image.size) > 4096:
+                    raise ValueError("Invalid source dimensions")
+                image.verify()
+            with Image.open(io.BytesIO(raw)) as image:
+                pixels = image.convert("RGB").crop((left - source["x"], top - source["y"], right - source["x"], bottom - source["y"]))
+                normalized = Image.frombytes("RGB", pixels.size, pixels.tobytes())
+            encoded = io.BytesIO()
+            normalized.save(encoded, format="PNG", optimize=False, compress_level=6)
+        except Exception:
+            raise NativeUiUnavailable("native_visual_document_capture_invalid") from None
+        result = copy.deepcopy(capture)
+        result.update(image=encoded.getvalue(), sha256=hashlib.sha256(encoded.getvalue()).hexdigest(),
+                      document_region=region, image_geometry={"x": left, "y": top, "width": right-left, "height": bottom-top},
+                      pixel_offset={"x": left-geometry["x"], "y": top-geometry["y"]},
+                      source_frame_sha256=capture.get("source_frame_sha256", capture["sha256"]),
+                      source_image_geometry=copy.deepcopy(capture.get("source_image_geometry", source)))
+        return result
 
     def _visual_capture(self, state: Mapping[str, Any]) -> dict[str, Any]:
         try:

@@ -345,21 +345,32 @@ a question, image, coordinates or model selection. Ordinary observations and
 pointer grounding are unchanged. Browser-surface `computer_use` calls cannot
 request this desktop capability.
 
-The reader receives the existing guarded content capture. Fresh native scope,
-owner, geometry, committed DocumentWeb URI and exact transmitted pixels must
-still agree after inference; otherwise the reading is withheld. A visible
+For a positively identified active DocumentWeb, the reader receives the exact
+visible intersection of that node's native bounds with the verified root image.
+Node ID, generation, scope, committed DocURL and provider identity must agree;
+an unproven document binding never supplies source authority. Other desktop
+reads retain the existing guarded capture and exact pixel check. Pointer
+captures and input freshness checks are unchanged. A visible
 protected control intersecting the capture, or with unknown bounds, also
 withholds the read. Native truncation alone permits the explicitly authorized
 local inspection, with unknown coverage and no absence claim. No masking,
 automatic retry or input fallback is used.
 
 Accepted `reading` and `visual_inspection_receipt` are untrusted producing-tool
-snapshot evidence. Only fresh native DocURL proof supplies a source URL. They
+snapshot evidence. Native, document, owner, process start, root, surface, region,
+protected-control and cancellation checks still apply after inference. If only
+the document pixels changed, `status=captured_snapshot` preserves knowledge
+about the original image, with both frame hashes and capture/check times.
+Unchanged pixels retain `status=observed` compatibility. Both statuses explicitly
+carry `snapshot_only=true`, `temporal_scope=captured_snapshot`,
+`current_ui_verified=false` and `input_authority=false`; neither attests that the
+reading describes the current screen. Nonpixel changes withhold the reading.
+Only positive native DocURL proof supplies a source URL. These results
 are never a current user image, speech transcript, input authorization, mutation
 receipt or independent verification. No image bytes enter the Omni prompt.
-Only an accepted nonempty reading makes that read phase successful; whole-task
-completion remains independently scored. Animation or caret changes may cause
-the exact post-capture check to reject the snapshot.
+Only an accepted nonempty reading with its typed snapshot receipt makes that
+knowledge phase successful; it grants no input, mutation or task-progress credit.
+Whole-task completion remains independently scored.
 
 ## Validation
 

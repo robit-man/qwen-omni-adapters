@@ -23,6 +23,16 @@ from qwen_omni_adapters.computer_use import ComputerUseError
 from runtime.pointing_server import PHOTON_MODEL, PHOTON_REVISION
 
 
+def _inspection_receipt(*, changed=False):
+    return {"schema": "robit.omni.native-visual-inspection.v1", "authority": "untrusted_tool_observation",
+            "snapshot_only": True, "temporal_scope": "captured_snapshot", "current_ui_verified": False,
+            "input_authority": False, "post_capture_pixels_match": not changed,
+            "source_url": "https://docs.example/page", "frame_sha256": "a" * 64,
+            "checked_frame_sha256": ("b" if changed else "a") * 64, "model": PHOTON_MODEL,
+            "document_evidence": {"status": "observed", "source": "atspi.Document.DocURL", "url": "https://docs.example/page"},
+            "document_region": {"node_id": "document", "generation": "1", "bounds": {"x": 12, "y": 22, "width": 16, "height": 12}}}
+
+
 def test_native_phase_contract_can_explicitly_request_visual_reading():
     Draft202012Validator(phase_response_schema({"native_ui"})).validate({"kind": "visual_inspection"})
 
@@ -50,10 +60,11 @@ def _reader(monkeypatch, *, truncated=False):
         "scope": {"id": "active", "kind": "desktop", "window_id": "17", "url": "https://docs.example/page"},
         "document_evidence": {"status": "observed", "source": "atspi.Document.DocURL", "provider": "atspi2",
             "scope_id": "active", "window_id": "17", "node_id": "document", "generation": "1",
-            "provider_identity_sha256": "doc-provider", "url": "https://docs.example/page"},
+            "provider_identity_sha256": "d" * 64, "url": "https://docs.example/page"},
         "nodes": [{"id": "document", "generation": "1", "scope_id": "active", "role": "document_web",
                    "name": "Document", "visible": True, "enabled": True, "sensitive": False,
-                   "operations": [], "value": "\ufffc" * 5}]}
+                   "operations": [], "value": "\ufffc" * 5,
+                   "bounds": {"x": 12, "y": 22, "width": 16, "height": 12}}]}
     output = io.BytesIO()
     Image.new("RGB", (16, 12), "white").save(output, format="PNG")
     png = output.getvalue()
@@ -147,10 +158,10 @@ def test_document_change_during_final_capture_is_not_source_authority(monkeypatc
     assert result["status"] == "stale" and "reading" not in result
 
 
-def test_changed_transmitted_pixels_fail_but_outside_source_clock_metadata_is_provenance(monkeypatch):
+def test_invalid_pixel_digest_fails_but_outside_source_clock_metadata_is_provenance(monkeypatch):
     adapter, _state, _capture, _counts, _calls, changed, _response = _reader(monkeypatch)
     changed["capture"] = lambda capture: capture.update(key="changed-content", sha256="changed-pixels")
-    assert adapter.inspect_visual()["status"] == "stale"
+    assert adapter.inspect_visual()["status"] == "unavailable"
     adapter, _state, _capture, _counts, _calls, changed, _response = _reader(monkeypatch)
     changed["capture"] = lambda capture: capture.update(source_frame_sha256="different-outside-clock")
     assert adapter.inspect_visual()["status"] == "observed"
@@ -254,8 +265,7 @@ def test_explicit_compiler_reading_handoff_is_bounded_tool_data_without_mutation
     fixture = Fixture([{"kind": "visual_inspection"}, {"kind": "complete", "message": "Unverified claim"}])
     calls = []
     reading = "Visible source text from the captured frame."
-    receipt = {"schema": "robit.omni.native-visual-inspection.v1", "authority": "untrusted_tool_observation",
-               "source_url": "https://docs.example/page", "frame_sha256": "frame", "model": PHOTON_MODEL}
+    receipt = _inspection_receipt()
 
     def inspect():
         calls.append("read")
@@ -329,8 +339,7 @@ def test_real_portal_profile_hands_reader_tool_evidence_to_next_compiler_only(tm
     def inspect(_adapter):
         reads.append("read")
         return {"status": "observed", "reading": "Visible source text.",
-            "visual_inspection_receipt": {"source_url": "https://docs.example/page",
-                "authority": "untrusted_tool_observation", "frame_sha256": "frame", "model": PHOTON_MODEL}}
+                "visual_inspection_receipt": _inspection_receipt()}
 
     monkeypatch.setattr(Adapter, "inspect_visual", inspect, raising=False)
 
