@@ -30,6 +30,13 @@ receipts nor policy confidence authorize input or count as mutation evidence.
 The next Omni phase receives this feedback through the compact result, while
 the controller retains its original candidates and exact execution checks.
 
+Native capability failures retain a bounded diagnostic code in unresolved step
+reasons and the native-task terminal message. Only ASCII identifier codes of at
+most 128 characters are displayed; arbitrary provider text and tracebacks are
+excluded at the task boundary. Cancellation and deadlines retain precedence.
+This improves failure evidence without retrying input, accepting a failed
+observation as state or changing executor guards.
+
 ## Host-owned execution
 
 An action ID binds the session, scope, document/control generation, semantic

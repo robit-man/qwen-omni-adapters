@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import re
 import time
 import uuid
 from collections.abc import Callable, Iterable, Iterator, Mapping
@@ -207,8 +208,14 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
         yield finish("phase_budget_exceeded", "Native task reached its bounded phase budget.")
     except Exception as exc:
         reason = boundary()
+        diagnostic = type(exc).__name__
+        if reason is None:
+            code = getattr(exc, "code", None)
+            if (isinstance(code, str) and len(code) <= 128
+                    and re.fullmatch(r"[a-z][a-z0-9_]{0,127}", code)):
+                diagnostic += f" ({code})"
         yield finish(reason or "blocked", "Native task stopped: " + reason if reason else
-                     "Native task callback failed: " + type(exc).__name__)
+                     "Native task callback failed: " + diagnostic)
     finally:
         if not normal and not cleaned:
             cleaned = True

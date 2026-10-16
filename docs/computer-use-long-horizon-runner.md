@@ -1,9 +1,13 @@
 # Native long-horizon task runner
 
 `runtime.verify_long_horizon_native` packages the 100 original task specifications
-in `tests/live/native_long_horizon`. They remain **unrun, with zero readiness
-proofs and zero passes**. The 200 Qwen/Ornith first-attempt cells are an intended
-evaluation matrix. CPU tests of this harness do not execute those cells.
+in `tests/live/native_long_horizon`. The 200 Qwen/Ornith first-attempt cells are an
+intended evaluation matrix. The specification manifest's zero counters are
+frozen design metadata, not a live run ledger. Retained Qwen LHN-047 attempts
+and their source cohorts are recorded in
+[the evaluation report](computer-use-long-horizon-evaluation.md); none has
+passed the full task. Other cells remain pending. CPU tests of this harness do
+not execute those cells.
 
 The runner submits one outcome-only text goal to the existing authenticated
 `/api/chat/stream` endpoint with the `native_task` profile. The server compiles

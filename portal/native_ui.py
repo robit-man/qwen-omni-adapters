@@ -14,6 +14,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import selectors
 import struct
 import subprocess
@@ -40,7 +41,9 @@ class NativeUiUnavailable(RuntimeError):
     """Accessibility was unavailable; this does not establish target absence."""
 
     def __init__(self, code: str, message: str = "Native accessibility is unavailable") -> None:
-        super().__init__(message)
+        safe_code = (code if isinstance(code, str) and len(code) <= 128
+                     and re.fullmatch(r"[a-z][a-z0-9_]{0,127}", code) else None)
+        super().__init__(f"{safe_code}: {message}" if safe_code else message)
         self.code = code
 
 

@@ -369,6 +369,28 @@ memory recall. Evidence is under
 manual notes remain in its separate sibling operator directory. This is another
 failed attempt of the same model/case cell, not another distinct suite task.
 
+The next source, `bc33666`, retained factual per-step selection feedback and
+passed 2,617 regression checks. Its full replay verified the physical Input
+double-click, and the actual second planner request contained the corresponding
+`semantic_unique` selection receipt. Qwen then opened `task-brief.txt` with a
+second physical double-click, without requesting an active-window switch in
+this trajectory. The unsupported-switch feedback path was not exercised live,
+so this is not evidence that the feedback caused that planning difference.
+
+The task still failed after 57.75 seconds: post-click native observation became
+unavailable, and the third phase stopped at its observation callback. No output
+or memory result earned completion credit. The exact historical native error
+code was not retained. A later pinned read of the newly observed GNOME Text
+Editor succeeded in 0.62 seconds with 375 nodes and truncation, establishing
+current capability rather than the cause of the earlier failure. Its window
+remains untouched because solver ownership is unproven. Registered windows
+closed, queues became idle, and workers, lease, source, unrelated managed
+windows and the sealed evidence bundle were preserved. Evidence and separate
+operator notes are under
+`runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-047-20261016T041638Z/`
+and its sibling operator directory. Source and transmitted PNGs are both
+retained in this cohort.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give
