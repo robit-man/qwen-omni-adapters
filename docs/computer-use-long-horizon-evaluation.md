@@ -504,6 +504,44 @@ check proves evidence retention, not GPU health or a desktop outcome. Receipt:
 The historical interruption's cause remains unknown; no inference or service
 adoption occurred during this source validation.
 
+The single CPU-only adoption at `84f3c55` then passed four read-only admission
+samples over 30.873 seconds, preserving all eight original worker identities,
+the same GPU1 lease and idle queues. At 06:33:00.925 UTC on 2026-10-16, its
+watchdog stopped only the test frontend. The new trusted diagnostic retained
+`unregistered_gpu_quarantine`, count one, with availability true, admission
+unblocked and no missing selected GPU. LHN-001 subsequently failed preflight:
+zero applications launched, zero model requests and no solver case attempted.
+
+Bounded broker journal evidence identifies GPU0 and GPU2 quarantine intervals
+in that event window, with neither including leased GPU1. Installed broker
+policy and transition code block the affected GPU intersection; the acceptance
+watchdog instead rejected any quarantine globally. This is a demonstrated scope
+mismatch for this interruption. Its actor identity was not recorded, and it
+does not establish the cause of the earlier 05:55 failure. Fresh quarantine had
+cleared; original workers and lease remained intact, with no new hardware fault
+evidenced. No reset, inference retry or frontend restart followed diagnosis.
+The separate evidence and per-test note are under
+`runtime-data/gpu1-acceptance/LHN-001-preflight-block-20261016T063519Z-operator/`.
+
+The scoped quarantine correction, `ca863ab`, and inactive Flatpak mapping,
+`2803b0e`, passed the combined final source gate: 3,019 checks, unchanged
+validation HEAD and all 366 tracked fingerprints. The first mapping gate's
+fixture-interface failure and a focused test's random substring collision were
+retained and corrected in tests; production mapping stayed unchanged. Final
+receipt: `/tmp/qwen-flatpak-inactive-b13/runtime-data/inactive-flatpak-design/final-full-post-receipt.json`,
+SHA256 `360120c542edbfcd78a34767a4755a400e8428f0f57213fb9351860766eb5445`.
+
+The watchdog now accepts only complete, canonical broker quarantine inventories
+proved outside GPU1; affected, unknown, malformed or oversized scope remains
+blocked, as do the original health and residency failures. Diagnostic records
+retain sanitized quarantine UUIDs and scope-verification flags. Inactive
+Flatpak windows require full namespace/XRes identity and complete, unique frame
+geometry before optional scope filtering; private proofs bind revisions and
+refresh before activation. Unknown mappings grant no handles. Existing current
+window verification, cancellation, idempotency and native budgets remain.
+These are source-verified capabilities. No new live task or remote switch ran
+during the gate; owned Flatpak launch/cleanup remains a separate setup gap.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give
