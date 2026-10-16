@@ -279,6 +279,16 @@ def _check_cancel(cancel: threading.Event | None) -> None:
         raise _Cancelled("Computer-use task cancelled")
 
 
+def _verified_mutation(outcome: Mapping[str, Any]) -> bool:
+    before, after = outcome.get("before", {}), outcome.get("after", {})
+    first = before.get("base_semantic_revision", before.get("revision"))
+    last = after.get("base_semantic_revision", after.get("revision"))
+    return bool(outcome.get("status") == "verified"
+                and outcome.get("receipt", {}).get("status") == "dispatched"
+                and before.get("session_id") == after.get("session_id")
+                and isinstance(first, str) and first and isinstance(last, str) and last and first != last)
+
+
 class RapidUiController:
     """Own candidate authority and serialize side effects for one adapter session."""
 
@@ -301,6 +311,11 @@ class RapidUiController:
         self._state: dict[str, Any] | None = None
         self._actions: dict[str, dict[str, Any]] = {}
         self._outcomes: dict[str, dict[str, Any]] = {}
+        self._execution_epoch = 0
+        self._completion_epochs: dict[str, int] = {}
+        self._offers: dict[str, tuple[int, str]] = {}
+        self._binding_keys: dict[str, str] = {}
+        self._recorded_ids: dict[str, str] = {}
         self._metadata = threading.RLock()
         self._input = threading.Lock()
 
@@ -317,6 +332,7 @@ class RapidUiController:
             if self._state is None or (state is not None and state != self._state):
                 raise ComputerUseError("Observe the current UI before enumerating actions")
             current = self._state
+            offers = {}
             common = {"session_id": current["session_id"], "scope_id": current["scope"]["id"], "revision": current["revision"]}
             actions = [{**common, "id": uuid.uuid4().hex, "kind": kind, "expect": [],
                         "idempotency_key": uuid.uuid4().hex, "description": kind}
@@ -335,35 +351,63 @@ class RapidUiController:
                 binding = {"session_id": current["session_id"], **common, "step_id": step["id"],
                            "node_id": node["id"], "generation": node["generation"],
                            "verb": step["verb"], "args": step["args"], "expect": expect}
+                legacy = _digest(binding)
+                previous_key = self._binding_keys.get(legacy)
+                previous = self._outcomes.get(previous_key, {})
+                # Unknown/no-op intents retain their original lock even after
+                # unrelated verified mutations. Only a proved applied intent
+                # may renew after a separate verified mutation beyond its own
+                # completion. Missing completion evidence keeps the old lock.
+                may_renew = (_verified_mutation(previous) and previous_key in self._completion_epochs
+                             and self._execution_epoch > self._completion_epochs[previous_key])
+                key = (previous_key if previous_key is not None and not may_renew
+                       else _digest({"binding": binding, "execution_epoch": self._execution_epoch}))
                 actions.append({**common, "id": uuid.uuid4().hex, "kind": "action", "node_id": node["id"],
                                 "generation": node["generation"], "verb": step["verb"], "args": copy.deepcopy(step["args"]),
-                                "expect": expect, "idempotency_key": _digest(binding),
+                                "expect": expect, "idempotency_key": key,
                                 "description": f"{step['verb']} {node['role']} {node['name']}"[:500]})
+                offers[actions[-1]["id"]] = (self._execution_epoch, legacy)
             if len(actions) > 50:
                 raise ComputerUseError("Ambiguous UI target; narrow to at most 48 eligible controls")
             self._actions = {action["id"]: copy.deepcopy(action) for action in actions}
+            self._offers = offers
             return copy.deepcopy(actions)
 
     def candidate(self, action_id: str) -> dict[str, Any] | None:
         with self._metadata:
             return copy.deepcopy(self._actions.get(action_id)) if isinstance(action_id, str) else None
 
-    def _record(self, outcome: dict[str, Any]) -> dict[str, Any]:
+    def _record(self, outcome: dict[str, Any], legacy_binding: str | None = None) -> dict[str, Any]:
         with self._metadata:
-            self._outcomes[outcome["action"]["idempotency_key"]] = copy.deepcopy(outcome)
+            action = outcome["action"]
+            key = action["idempotency_key"]
+            if _verified_mutation(outcome) and not _verified_mutation(self._outcomes.get(key, {})):
+                self._execution_epoch += 1
+                self._completion_epochs[key] = self._execution_epoch
+            self._outcomes[key] = copy.deepcopy(outcome)
+            self._recorded_ids[action["id"]] = key
+            if legacy_binding is not None:
+                self._binding_keys[legacy_binding] = key
         return copy.deepcopy(outcome)
 
     def execute(self, action_id: str, cancel: threading.Event | None = None) -> dict[str, Any]:
         action = self.candidate(action_id)
         if action is None:
+            with self._metadata:
+                historical = self._outcomes.get(self._recorded_ids.get(action_id)) if isinstance(action_id, str) else None
+                if historical is not None:
+                    return copy.deepcopy(historical)
             return {"status": "rejected", "reason": "Unknown candidate; observe and enumerate again"}
         with self._metadata:
             previous = copy.deepcopy(self._outcomes.get(action["idempotency_key"]))
+            offer = self._offers.get(action_id)
         if previous is not None:
             return previous
         if not self._input.acquire(blocking=False):
             return {"status": "unresolved", "action": action, "reason": "Input is already in progress; effect state is unknown"}
         outcome: dict[str, Any] = {"status": "unresolved", "action": action}
+        def record(value: dict[str, Any]) -> dict[str, Any]:
+            return self._record(value, offer[1] if offer is not None else None)
         try:
             with self._metadata:
                 previous = copy.deepcopy(self._outcomes.get(action["idempotency_key"]))
@@ -371,35 +415,38 @@ class RapidUiController:
                     return {"status": "rejected", "reason": "Session action budget exhausted"}
             if previous is not None:
                 return previous
+            with self._metadata:
+                if action["kind"] == "action" and (offer is None or offer[0] != self._execution_epoch):
+                    return {**outcome, "status": "rejected", "reason": "Execution epoch changed; observe and enumerate again"}
             _check_cancel(cancel)
             if action["kind"] == "abstain":
-                return self._record({**outcome, "status": "abstained"})
+                return record({**outcome, "status": "abstained"})
             before = self.observe()
             outcome["before"] = before
             _check_cancel(cancel)
             if action["kind"] == "observe":
-                return self._record({**outcome, "after": before, "reason": "Observed; no input requested"})
+                return record({**outcome, "after": before, "reason": "Observed; no input requested"})
             node = next((item for item in before["nodes"] if item["id"] == action["node_id"]), None)
             if before["session_id"] != action["session_id"] or before["scope"]["id"] != action["scope_id"] or before["revision"] != action["revision"] or node is None or node["generation"] != action["generation"] or not node["enabled"] or not node["visible"] or node["sensitive"] or action["verb"] not in node["operations"]:
-                return self._record({**outcome, "status": "rejected", "reason": "UI identity or revision changed; observe again"})
+                return record({**outcome, "status": "rejected", "reason": "UI identity or revision changed; observe again"})
             if self.authorize is None or self.authorize(copy.deepcopy(action), copy.deepcopy(before)) is not True:
-                return self._record({**outcome, "status": "rejected", "reason": "Host authority did not admit this exact action"})
+                return record({**outcome, "status": "rejected", "reason": "Host authority did not admit this exact action"})
             _check_cancel(cancel)
-            self._record({**outcome, "reason": "Dispatch pending; effects remain unverified"})
+            record({**outcome, "reason": "Dispatch pending; effects remain unverified"})
             receipt = self.adapter.perform(copy.deepcopy(action))
             if not isinstance(receipt, dict) or not isinstance(receipt.get("status"), str) or receipt["status"] not in {"dispatched", "rejected", "already_satisfied"}:
                 raise ComputerUseError("Invalid input dispatch receipt")
             outcome["receipt"] = copy.deepcopy(receipt)
             if receipt["status"] == "rejected":
-                return self._record({**outcome, "status": "rejected", "reason": str(receipt.get("reason", "Input rejected"))[:1000]})
+                return record({**outcome, "status": "rejected", "reason": str(receipt.get("reason", "Input rejected"))[:1000]})
             already_satisfied = receipt["status"] == "already_satisfied"
             if already_satisfied and not (
                 receipt.get("input_attempted") is False and action["verb"] == "switch_window"
                 and action["args"] == {} and node["role"] == "window" and node["id"] == before["scope"]["id"]
                 and action["expect"] == [{"kind": "active_window", "node_id": node["id"]}]
             ):
-                return self._record({**outcome, "status": "rejected", "reason": "Invalid already-satisfied window receipt"})
-            self._record({**outcome, "reason": "No input attempted; active window remains unverified" if already_satisfied
+                return record({**outcome, "status": "rejected", "reason": "Invalid already-satisfied window receipt"})
+            record({**outcome, "reason": "No input attempted; active window remains unverified" if already_satisfied
                           else "Dispatched; effects remain unverified"})
             started = time.monotonic()
             deadline = started + self.verification_timeout_s
@@ -431,15 +478,15 @@ class RapidUiController:
                             or fresh["generation"] != action["generation"] or not fresh["visible"]
                             or not fresh["enabled"] or fresh["sensitive"] or fresh["role"] != "window"
                             or "switch_window" not in fresh["operations"]):
-                        return self._record({**outcome, "status": "rejected",
+                        return record({**outcome, "status": "rejected",
                                              "reason": "Already-satisfied window binding changed during verification"})
                 if all(predicate_satisfied(item, after, receipt) for item in action["expect"]):
-                    return self._record({**outcome, "status": "verified"})
-            return self._record({**outcome, "reason": "Expected effects were not observed within the verification budget"})
+                    return record({**outcome, "status": "verified"})
+            return record({**outcome, "reason": "Expected effects were not observed within the verification budget"})
         except _Cancelled as exc:
-            return self._record({**outcome, "status": "cancelled", "reason": str(exc)})
+            return record({**outcome, "status": "cancelled", "reason": str(exc)})
         except Exception as exc:
-            return self._record({**outcome, "reason": f"Input/effect observation uncertain: {exc}"[:1000]})
+            return record({**outcome, "reason": f"Input/effect observation uncertain: {exc}"[:1000]})
         finally:
             self._input.release()
 

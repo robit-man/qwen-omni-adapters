@@ -54,6 +54,100 @@ def phase_response_schema(allowed_tools: Iterable[str]) -> dict[str, Any]:
     return copy.deepcopy({"$defs": ui["$defs"], "oneOf": alternatives})
 
 
+# Keep the private schema bounded without shortening the canonical 25-step phase.
+_MAX_GROUNDED_SCHEMA_BYTES = 56 * 1024
+
+
+def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[str, Any]) -> dict[str, Any]:
+    """Ground only the first position in positive, model-visible capabilities.
+
+    Semantic selectors may remain ambiguous. Named visual discovery is still
+    guarded by the native adapter; this projection creates no input authority.
+    Unknown/oversized observations retain the unchanged non-UI phase choices.
+    """
+    schema = phase_response_schema(allowed_tools)
+    fallback = {"$defs": copy.deepcopy(schema["$defs"]),
+                "oneOf": copy.deepcopy([branch for branch in schema["oneOf"]
+                           if branch["properties"]["kind"]["const"] != "ui"])}
+
+    def non_ui():
+        return fallback
+
+    state = observation.get("state") if isinstance(observation, Mapping) else None
+    nodes = state.get("nodes") if isinstance(state, dict) else None
+    if not isinstance(nodes, list) or len(nodes) > 80:
+        return non_ui()
+    canonical = schema["$defs"]["step"]["oneOf"]
+    arguments = {verb: copy.deepcopy(canonical[0])
+                 for verb in canonical[0]["properties"]["verb"]["enum"]}
+    for condition in canonical[1]["allOf"]:
+        verb = condition["if"]["properties"]["verb"]["const"]
+        required = condition["then"]["properties"]["args"]["required"]
+        index = next(index for index, item in enumerate(schema["$defs"]["step_args"]["oneOf"])
+                     if item["required"] == required)
+        branch = copy.deepcopy(canonical[1])
+        branch.pop("allOf")
+        branch["properties"]["args"] = {"$ref": f"#/$defs/step_args/oneOf/{index}"}
+        arguments[verb] = branch
+    eligible: dict[str, list[dict]] = {verb: [] for verb in arguments}
+    identities = set()
+    for node in nodes:
+        if (not isinstance(node, dict) or any(not isinstance(node.get(key), str)
+                or len(node[key]) > 512 or (not node[key] and key != "name")
+                for key in ("id", "generation", "scope_id", "role", "name"))
+                or node["id"] in identities
+                or any(type(node.get(key)) is not bool for key in ("visible", "enabled", "sensitive"))
+                or not isinstance(node.get("operations"), list)
+                or len(node["operations"]) > len(arguments)
+                or any(not isinstance(verb, str) or verb not in arguments for verb in node["operations"])):
+            return non_ui()
+        identities.add(node["id"])
+        if node["visible"] is True and node["enabled"] is True and node["sensitive"] is False:
+            for verb in set(node["operations"]):
+                eligible[verb].append(node)
+
+    def target(properties, required):
+        return {"type": "object", "additionalProperties": False,
+                "properties": properties, "required": required}
+
+    first = []
+    for verb, controls in eligible.items():
+        selectors = []
+        if controls:
+            selectors.append(target({"node_id": {"enum": sorted({node["id"] for node in controls})}}, ["node_id"]))
+            groups: dict[tuple[str, str], set[str]] = {}
+            scopes: dict[str, set[str]] = {}
+            for node in controls:
+                groups.setdefault((node["role"], node["scope_id"]), set()).add(node["name"])
+                scopes.setdefault(node["scope_id"], set()).add(node["name"])
+            for (role, scope), names in sorted(groups.items()):
+                selectors.append(target({"role": {"const": role}, "scope_id": {"const": scope},
+                                         "name": {"enum": sorted(names)}}, ["role"]))
+            for scope, names in sorted(scopes.items()):
+                selectors.append(target({"scope_id": {"const": scope}, "name": {"enum": sorted(names)}}, ["name"]))
+        if verb in {"invoke", "click", "double_click", "right_click"}:
+            # No guessed ID: existing exact-match/protection/frame checks decide
+            # whether a named semantic target can use visual discovery.
+            discovery = copy.deepcopy(schema["$defs"]["target"]["oneOf"][1]["properties"])
+            discovery["name"]["minLength"] = 1
+            selectors.append(target(discovery, ["name"]))
+        if selectors:
+            branch = copy.deepcopy(arguments[verb])
+            branch["properties"]["verb"] = {"const": verb}
+            branch["properties"]["target"] = {"anyOf": selectors}
+            first.append(branch)
+    if not first:
+        return non_ui()
+    schema["$defs"]["grounded_first_step"] = {"oneOf": first}
+    schema["oneOf"][0]["properties"]["steps"] = {"anyOf": [
+        {"type": "array", "prefixItems": [{"$ref": "#/$defs/grounded_first_step"}]
+             + [{"$ref": "#/$defs/step"}] * (length - 1), "minItems": length, "maxItems": length}
+        for length in range(1, 26)]}
+    if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
+        return non_ui()
+    return schema
+
+
 def _accepted_visual_reading(result: Mapping[str, Any]) -> bool:
     reading, receipt = result.get("reading"), result.get("visual_inspection_receipt")
     if (result.get("status") not in ("observed", "captured_snapshot")
@@ -268,8 +362,6 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
     allowed = frozenset(allowed_tools)
     if "native_ui" not in allowed:
         raise ValueError("Native task requires explicit native_ui permission")
-    schema = phase_response_schema(allowed)
-    validator = Draft202012Validator(schema)
     started, traces, ledger, last_result = clock(), [], [], None
     failed, normal, cleaned, phases, claims = 0, False, False, 0, []
     zero_effect_ui_phases: set[str] = set()
@@ -302,6 +394,8 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             if reason := boundary():
                 yield finish(reason, "Native task stopped: " + reason)
                 return
+            schema = _grounded_phase_schema(allowed, current)
+            validator = Draft202012Validator(schema)
             packet = {"goal": goal, "current_state": copy.deepcopy(current),
                       "ledger": copy.deepcopy(ledger[-12:]), "last_result": copy.deepcopy(last_result),
                       "response_schema": copy.deepcopy(schema),

@@ -105,6 +105,12 @@ def test_wrong_vendor_pin_stops_before_patch_or_build(tmp_path):
     assert not Path(env["BUILD_CALLS"]).exists()
 
 
+def _text_observation():
+    return {"state": {"nodes": [{"id": "button", "generation": "1", "scope_id": "scope", "role": "button",
+                               "name": "Open", "visible": True, "enabled": True, "sensitive": False,
+                               "operations": ["invoke"]}]}}
+
+
 def _text_phase(value):
     return {"kind": "ui", "steps": [
         {"id": "earlier", "verb": "invoke", "target": {"node_id": "button"},
@@ -120,7 +126,7 @@ def test_full_canonical_host_validation_blocks_fallback_empty_or_nul_before_any_
     schema = phase_response_schema(allowed)
     assert schema["$defs"]["step_args"]["oneOf"][7]["properties"]["text"]["pattern"] == r"^[^\u0000]+$"
     plan, dispatched = _text_phase(value), []
-    events = list(run_native_goal("Owned goal", observe=lambda: {}, compile_phase=lambda _: copy.deepcopy(plan),
+    events = list(run_native_goal("Owned goal", observe=_text_observation, compile_phase=lambda _: copy.deepcopy(plan),
                                  execute=lambda *args: dispatched.append(args), cancel=lambda: None,
                                  allowed_tools=allowed))
     assert not Draft202012Validator(schema).is_valid(plan)
@@ -133,7 +139,7 @@ def test_valid_decoded_text_preserves_host_schema_and_arguments(value):
     plan, dispatched = _text_phase(value), []
     Draft202012Validator(phase_response_schema({"native_ui"})).validate(plan)
     plans = iter([plan, {"kind": "complete", "message": "Claim"}])
-    events = list(run_native_goal("Owned goal", observe=lambda: {}, compile_phase=lambda _: copy.deepcopy(next(plans)),
+    events = list(run_native_goal("Owned goal", observe=_text_observation, compile_phase=lambda _: copy.deepcopy(next(plans)),
                                  execute=lambda name, args: dispatched.append((name, copy.deepcopy(args))) or {"status": "complete"},
                                  cancel=lambda: None, allowed_tools={"native_ui"}))
     assert len(dispatched) == 1

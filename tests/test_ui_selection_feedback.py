@@ -176,8 +176,21 @@ def test_duplicate_step_positions_and_cached_outcomes_keep_idempotency_and_effec
 
 
 def test_actual_next_compiler_packet_retains_selector_facts_and_raw_tool_result_is_unchanged():
-    store = ComputerUseStore(None, adapter_factory=lambda session, _surface: CurrentWindow(session))
+    class ChangingCapabilityWindow(CurrentWindow):
+        reads = 0
+
+        def observe(self):
+            state = super().observe()
+            self.reads += 1
+            if self.reads == 1:
+                # Positively advertised during planning, genuinely unavailable
+                # on the controller's independent fresh workflow observation.
+                state["nodes"][0]["operations"].append("switch_window")
+            return state
+
+    store = ComputerUseStore(None, adapter_factory=lambda session, _surface: ChangingCapabilityWindow(session))
     request = _switch_request()
+    request["steps"][0]["target"] = {"node_id": "owned-window"}
     plans = iter([{'kind': 'ui', 'steps': request['steps'], 'final_predicates': request['final_predicates']},
                   {'kind': 'blocked', 'reason': 'Planner stops after reviewing factual feedback.'}])
     packets, raw_results = [], []

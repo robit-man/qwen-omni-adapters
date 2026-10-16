@@ -46,6 +46,20 @@ Dispatch uncertainty is retained before verification, preventing a repeated
 request from applying the same input again. The host's existing authenticated
 tool opt-in grants execution authority; model confidence cannot grant it.
 
+A private execution version advances only after a dispatched input has a freshly
+verified semantic state change. A newly enumerated intent for a previously
+verified applied action can receive a new idempotency binding only after a
+separate verified semantic mutation later than that action's own completion,
+including when the UI returns to an earlier state. Its own completion or an
+external reset alone cannot renew it; missing completion evidence keeps the
+original binding. The original recorded token still
+returns its historical cached outcome without input or fresh verification.
+Uncertain, cancelled, rejected, unchanged and already-satisfied intents keep
+their original binding across unrelated verified changes. Observation or text
+metadata clarification cannot renew them. A never-dispatched offer from an
+earlier execution version rejects before input and must be enumerated again.
+These bindings add no public action fields and do not clear outcome caches.
+
 A foreground native task can further restrict that authority with the
 portal-only `portal_native_task_scope` described in the
 [protocol](protocol.md). The caller registers exact XID/PID/process-start tuples;
@@ -289,12 +303,40 @@ their separate behavior.
 
 Foreground text API callers can explicitly select
 `portal_execution_profile:"native_task"` for mandatory phase compilation.
-The compiler receives the same canonical phase schema in its model context and
-decoder constraints, with full host validation before dispatch. Ordinary portal
+The compiler receives the same observation-derived private phase schema in its
+model context, decoder constraints and host validator, followed by canonical
+step and predicate validation before dispatch. Ordinary portal
 clients currently use the generic automatic loop; they do not select this
 profile. Live Ornith evidence establishes valid phase generation and controller
 handoff, with zero dispatched inputs in the retained long-task attempts. It
 does not yet establish successful action chaining.
+
+The first UI step is constrained to target/verb pairs advertised by positive,
+visible, enabled, nonsensitive nodes in the current model observation. Exact-ID
+selectors and grouped semantic selectors preserve the controller's finite
+ambiguity policy. The existing named visual discovery alternatives remain for
+invoke/click/double-click/right-click without invented IDs; their native
+protection, frame and input checks still decide availability. Steps 2–25 retain
+the canonical generic contract so controls created by earlier steps remain
+expressible. The native decoder uses 25 exact-length `prefixItems` tuples,
+without an `items` keyword that would override grounding on the pinned backend.
+Unknown grounding or a derived schema above 56 KiB withholds UI phases while
+preserving allowed memory, visual-inspection, complete and blocked phases; it
+never shortens the 25-step bound. This schema limit is not a universal prompt-fit
+or task-success guarantee. Native revision, identity, scope, cancellation,
+idempotency and effect verification remain authoritative.
+
+The bounded source check used the actual pinned native common library and both
+installed Qwen27B and Ornith9B templates/vocabularies, with CPU tokenization only.
+The measured near-limit 80-node stress used 54,284 prompt tokens plus an 8,192-token
+conservative output reserve within a 65,536-token context. All twelve retained
+packet UI schemas remained available. Applying the existing model observation
+projection reduced that stress to 40 nodes and 36,721 prompt tokens. Its node
+budget counts 12,000 JSON characters with `ensure_ascii=False`, rather than
+12,000 UTF-8 bytes. These measurements include goal, ledger, last result, state
+and schema for the selected fixtures; arbitrary maximal goals or ledgers are
+not covered by a universal fit guarantee. The prior 64 KiB stress overflow is
+retained as a failed source acceptance check, with no model-generation credit.
 
 Each goal starts a fresh desktop controller and captures that controller's
 cancellation event. Native cancellation and Trash latch the outer goal as well

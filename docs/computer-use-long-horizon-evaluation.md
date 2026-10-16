@@ -1454,3 +1454,58 @@ follows from the stable code. Canonical bundle SHA256:
 `1c93554681bc7516a8edd774d91aeabd3d77280bac28255dacf312efcc95dbfc`;
 independent peer review SHA256:
 `702f04cab4c01d1649ce406ee82339250b4c2e8ee0b2527a207863bc980b11e6`.
+
+### Live full-text selection and a repeated-window cache fault
+
+Revision `d8a4bf5` passed 3,531 source tests and adopted locally without changing
+the eight GPU workers or GPU 1 lease. Egg31 passed 3,531 tests and one CPU-only
+reload. Egg41 automatically adopted it after 3,519 passes and twelve skips;
+individual skip reasons were not logged. Both remote runtimes were healthy and
+idle. The proposed read-only X11 discriminator was not applicable: all five
+specified resources were absent. Their historical disappearance remains
+unattributed, and no invalid query or new browser was used to manufacture an
+error.
+
+One original full Qwen LHN-059 qualification failed before reaching selection.
+Three actual Moondream calls returned points, but all attempted double-clicks
+were rejected before input with `native_observation_unavailable`. The precise
+provider read was redacted and remains unknown. A separate bounded read-only
+Files diagnostic did not reproduce it. The task retained zero dispatched
+inputs, five successful owned closes and one negative close, with four new
+editor/dialog resources left untouched. Independent grading is eight failures
+and C08 unknown. Its sealed bundle SHA256 is
+`79b3d08c94590eb3bd869ef954cba093ff9c5ceb44463d17210745aafb2755fa`.
+
+The next, different original task, Qwen LHN-072, ran for 619.06 seconds and
+eighteen phases. It verified physical double-clicks opening Input and the brief.
+After unresolved partial selection `0..1200`, the model authored the exact
+complete range `0..1412`. One guarded Ctrl+A was chosen before any native setter,
+and a fresh native observation verified that exact range. The runtime did not
+expand the earlier partial request or retry its uncertain dispatch.
+
+The same trajectory navigated ordinary Firefox to the official Git-status page
+through focus, physical URL typing and Return; the committed DocURL was
+verified. One source-bound Moondream reading was accepted as captured-snapshot
+knowledge, with limited section coverage and no current-input authority. Across
+the task there were thirteen unique dispatch receipts: two physical
+double-clicks, four keyboard inputs and seven native pattern/activation attempts.
+Two point calls and one reading call exercised Moondream; Kev and memory were
+unexercised. All three inputs and three owned closes passed their checks. No
+required output existed, and the whole task failed. Its sealed bundle SHA256 is
+`83ccf97b02b19ccb03562f6f1235b8048f2f6a5158cc5b8ea643f78c25baaf6f`.
+
+The terminal failure exposes a separate cache problem: after intervening
+verified window changes, newly planned editor switches reproduced an earlier
+state/step binding and returned its old verified receipt. They sent no new input
+while fresh terminal observations remained in Firefox. A new source cycle must
+distinguish that new intent from retries of the original uncertain input. The
+live full-range selection milestone does not establish general task completion
+or repair this separate fault. Independent grading records six failed literal
+criteria, three passed occurrence/scope criteria (C02, C07 and C08), and C04
+source-section coverage unknown. The stronger whole-goal authored-output and
+physical Save/delivery requirements remain unmet. The 26-member bundle was
+unchanged before and after review. The campaign now has 22 distinct attempts,
+ten model/case cells, eight task IDs and zero whole-task passes. The following
+source checkpoint separates first-action grounding from cache renewal after a
+later verified mutation; whole-task live qualification of those corrections
+remains pending.

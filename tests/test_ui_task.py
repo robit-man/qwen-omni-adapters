@@ -96,6 +96,33 @@ class Fixture:
                                clock=self.clock, model="owned-model", **kwargs)
 
 
+def disappear_before_execution(fixture, *, times=1):
+    """A positive planner target genuinely disappears before fresh execution."""
+    original_execute = fixture.execute
+    remaining = times
+
+    def execute(name, arguments):
+        nonlocal remaining
+        if name != "native_ui" or remaining == 0:
+            return original_execute(name, arguments)
+        remaining -= 1
+        original_observe = fixture.adapter.observe
+
+        def missing():
+            state = original_observe()
+            state["nodes"] = [node for node in state["nodes"] if node["id"] != "draft"]
+            return state
+
+        fixture.adapter.observe = missing
+        try:
+            return original_execute(name, arguments)
+        finally:
+            fixture.adapter.observe = original_observe
+
+    fixture.execute = execute
+    return fixture
+
+
 def final(events):
     return events[-1]["response"]
 
@@ -149,8 +176,7 @@ def test_actual_controller_runs_two_inputs_between_compiler_calls_and_delegates_
 
 def test_first_unverified_phase_returns_to_planner_with_actual_failed_step_and_fresh_state():
     bad = phase()
-    bad["steps"][0]["target"] = {"node_id": "missing"}
-    fixture = Fixture([bad, phase(), {"kind": "complete", "message": "Claim."}])
+    fixture = disappear_before_execution(Fixture([bad, phase(), {"kind": "complete", "message": "Claim."}]))
     events = list(fixture.run())
     assert fixture.packets[1]["last_result"]["phase_handoff"]["remaining_steps"][0] == {"index": 0, "id": "write"}
     assert fixture.packets[1]["last_result"]["status"] == "needs_replan"
@@ -396,8 +422,7 @@ def test_authorized_memory_still_rejects_oversized_value_before_execution():
 
 def test_three_unverified_phases_stop_without_replaying_any_input():
     bad = phase()
-    bad["steps"][0]["target"] = {"node_id": "missing"}
-    fixture = Fixture([bad] * 4)
+    fixture = disappear_before_execution(Fixture([bad] * 4), times=3)
     result = final(list(fixture.run()))
     assert len(fixture.packets) == len(fixture.executions) == 3
     assert fixture.adapter.calls == []
@@ -740,9 +765,10 @@ def test_compilation_and_existing_invalid_unverified_phases_share_one_counter(fa
     bad = {"kind": "ui", "steps": [], "final_predicates": []}
     if failure == "unverified":
         bad = phase()
-        bad["steps"][0]["target"] = {"node_id": "missing"}
     fixture = compilation_fixture([NativePhaseCompilationError(), bad, NativePhaseCompilationError(),
                                    {"kind": "complete", "message": "Cannot reach."}])
+    if failure == "unverified":
+        disappear_before_execution(fixture)
     result = final(list(fixture.run()))
     assert result["portal"]["native_task"]["status"] == "blocked"
     assert len(fixture.packets) == 3 and fixture.adapter.calls == []
