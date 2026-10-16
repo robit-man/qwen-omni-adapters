@@ -54,7 +54,8 @@ that no other window matches.
 When an `invoke` step has no native match, a named visual target can be grounded
 by the configured local point worker. Its synthetic candidate is bound to the
 exact source image and semantic revision. The executor checks both again and
-maps image pixels into CDP CSS coordinates before input. It never executes
+maps browser image pixels into CDP CSS coordinates, or native image pixels into
+the bound X11 screen rectangle, before input. It never executes
 coordinates supplied by a decision model. This A100 deployment uses
 **Moondream 3.1 9B-A2B**, pinned to
 `1da27e6c2d2f9118de14560df456881dc62d91f3`, through the native Photon backend.
@@ -63,6 +64,16 @@ The existing Moondream2/Transformers backend remains available on Tegra.
 Broker hosts prepare the exact scoped lease before point-worker CUDA growth,
 prove residency, and shed weights after each request. Tegra retains its own
 integrated-GPU residency proof.
+
+Native vision uses `import -screen -window XID` to capture current root-screen
+pixels cropped to the foreground window's visible rectangle, without resizing.
+The frame binds the verified default-root ID and dimensions, full window surface,
+clipped image rectangle, pixel offset, PID/process start and image hash. Exact
+before/after checks reject changing bindings; they do not make capture atomic.
+Point normalization uses the image rectangle while physical dispatch retains
+the full surface geometry guard. This follows ImageMagick 6's
+[root capture](https://raw.githubusercontent.com/ImageMagick/ImageMagick6/6.9.12-98/magick/xwindow.c)
+and [crop implementation](https://raw.githubusercontent.com/ImageMagick/ImageMagick6/6.9.12-98/magick/transform.c).
 
 Linux native controls use a fixed AT-SPI bridge and native action/editable-text/
 selection interfaces. Pointer and keyboard input use guarded native XTEST;

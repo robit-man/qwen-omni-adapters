@@ -437,6 +437,9 @@ def _visual_fixture(monkeypatch, **adapter_options):
                               pointing_model="fixture/moondream", pointing_revision="pinned", **adapter_options)
     frame = {"key": "bound-frame", "sha256": "a"*64, "image": b"fixture-png",
              "geometry": {"x": 100, "y": 200, "width": 600, "height": 400},
+             "image_geometry": {"x": 100, "y": 200, "width": 600, "height": 400},
+             "capture_root": {"window_id": "1", "geometry": {"x": 0, "y": 0, "width": 1920, "height": 1200}},
+             "pixel_offset": {"x": 0, "y": 0}, "capture_source": "x11_root_screen", "process_start": "101",
              "identity": dict(fixture.foreground), "environment": {}}
     monkeypatch.setattr(adapter, "_visual_capture", lambda _state: copy.deepcopy(frame))
     requests = []

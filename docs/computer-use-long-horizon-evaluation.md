@@ -296,6 +296,22 @@ SHA256 `690be8a40578da864b46b4ce8ed0092da668da64bc1a9d604ed993bc9f546c6e`.
 One of the 200 planned cells has been attempted; none has passed. The failed
 attempt remains part of the record when later revisions are tested.
 
+The subsequent capture diagnostic exposed a separate host fault: the Files
+surface at `(-17,-23)` measured `972×1184`, while its visible image measured
+`955×1161`. Capture now binds the verified root-screen intersection and image
+origin separately from the full surface used by dispatch guards. The source
+gate passed 2,512 checks. One unchanged production capture then passed against
+the real owned Files window, with root `492` measuring `1440×2500`, image origin
+`(0,0)` and pixel offset `(17,23)`. Root, surface, process start and native
+coordinate mapping remained stable; semantic revision drift is recorded
+separately. Evidence is under
+`runtime-data/gpu1-acceptance/files-capture-acceptance-20261016T025152Z/`;
+the accepted PNG SHA256 is
+`da142163bf19a365adc614b2d86f31dae5a355ca6d1532d344585a493ac78491`.
+There were zero hit queries, inputs or model calls, and the owned window closed.
+This verifies capture geometry only. The Files native-hit fault and whole-task
+completion remain unresolved; the suite denominator is unchanged.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give

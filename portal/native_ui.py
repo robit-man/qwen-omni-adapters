@@ -230,6 +230,9 @@ class NativeUiAdapter:
         capture["key"] = hashlib.sha256(json.dumps({
             "session_id": state["session_id"], "revision": state["revision"], "scope": state["scope"],
             "identity": identity, "geometry": capture["geometry"], "image_sha256": capture["sha256"],
+            "process_start": capture["process_start"], "capture_source": capture["capture_source"],
+            "capture_root": capture["capture_root"], "image_geometry": capture["image_geometry"],
+            "pixel_offset": capture["pixel_offset"],
         }, sort_keys=True).encode()).hexdigest()
         return capture
 
@@ -271,9 +274,9 @@ class NativeUiAdapter:
             point = points[0]
             if any(type(point.get(key)) not in (int, float) or not 0 <= point[key] < 1 for key in ("x", "y")):
                 raise NativeUiUnavailable("native_point_invalid_coordinates")
-            geometry = capture["geometry"]
-            position = (geometry["x"] + int(point["x"] * geometry["width"]),
-                        geometry["y"] + int(point["y"] * geometry["height"]))
+            image_geometry = capture["image_geometry"]
+            position = (image_geometry["x"] + int(point["x"] * image_geometry["width"]),
+                        image_geometry["y"] + int(point["y"] * image_geometry["height"]))
             if any(node.get("sensitive") and node.get("bounds") and
                    node["bounds"]["x"] <= position[0] < node["bounds"]["x"] + node["bounds"]["width"] and
                    node["bounds"]["y"] <= position[1] < node["bounds"]["y"] + node["bounds"]["height"]
@@ -289,7 +292,10 @@ class NativeUiAdapter:
             self.point_receipt = {"schema": "robit.omni.native-point.v1", "model": self.pointing_model,
                 "revision": self.pointing_revision, "frame_sha256": capture["sha256"],
                 "semantic_revision": state["revision"], "candidate_id": node_id,
-                "point": dict(point), "geometry": dict(geometry)}
+                "point": dict(point), "geometry": dict(capture["geometry"]),
+                "identity": dict(capture["identity"]), "process_start": capture["process_start"],
+                "capture_source": capture["capture_source"], "capture_root": copy.deepcopy(capture["capture_root"]),
+                "image_geometry": dict(image_geometry), "pixel_offset": dict(capture["pixel_offset"])}
             self._visual = {"key": capture["key"], "state": grounded, "capture": capture,
                             "node": synthetic, "point": position, "receipt": copy.deepcopy(self.point_receipt)}
             return grounded
@@ -463,21 +469,91 @@ def _x11_frame_extents(identity: Mapping[str, Any], environment: Mapping[str, st
     return dict(zip(("left", "right", "top", "bottom"), map(int, values), strict=True))
 
 
+def _x11_capture_root(identity: Mapping[str, Any], environment: Mapping[str, str]) -> dict[str, Any]:
+    """Prove the client's root is the default screen root used by IM6 import."""
+    query_environment = dict(environment)
+    query_environment["LC_ALL"] = "C"
+
+    def query(arguments: list[str]) -> str:
+        try:
+            result = subprocess.run(  # noqa: S603 - fixed read-only X11 identity queries.
+                ["xwininfo", *arguments], capture_output=True, text=True, timeout=2,
+                check=False, env=query_environment,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            raise NativeUiUnavailable("native_capture_root_unavailable") from None
+        if result.returncode or not isinstance(result.stdout, str) or len(result.stdout) > 65536:
+            raise NativeUiUnavailable("native_capture_root_unavailable")
+        return result.stdout
+
+    def window_id(output: str, prefix: str) -> int:
+        values = [line.strip().removeprefix(prefix).split(" ", 1)[0]
+                  for line in output.splitlines() if line.strip().startswith(prefix)]
+        try:
+            if len(values) == 1 and values[0].startswith("0x") and 0 < int(values[0], 16) < 2**32:
+                return int(values[0], 16)
+        except ValueError:
+            pass
+        raise NativeUiUnavailable("native_capture_root_unavailable")
+
+    client = query(["-id", identity["window_id"], "-children"])
+    if window_id(client, "xwininfo: Window id: ") != int(identity["window_id"]):
+        raise NativeUiUnavailable("native_capture_root_unavailable")
+    client_root = window_id(client, "Root window id: ")
+    default_root = query(["-root"])
+    if window_id(default_root, "xwininfo: Window id: ") != client_root:
+        raise NativeUiUnavailable("native_capture_root_unavailable")
+    fields: dict[str, int] = {}
+    names = {"Absolute upper-left X": "x", "Absolute upper-left Y": "y", "Width": "width", "Height": "height"}
+    for line in default_root.splitlines():
+        key, separator, value = line.strip().partition(":")
+        if key in names:
+            value = value.strip()
+            if not separator or names[key] in fields or not value.isascii() or not value.isdecimal():
+                raise NativeUiUnavailable("native_capture_root_unavailable")
+            fields[names[key]] = int(value)
+    if (set(fields) != set(names.values()) or fields["x"] != 0 or fields["y"] != 0
+            or not 0 < fields["width"] <= 16384 or not 0 < fields["height"] <= 16384):
+        raise NativeUiUnavailable("native_capture_root_unavailable")
+    return {"window_id": str(client_root), "geometry": fields}
+
+
 def _capture_window(identity: Mapping[str, Any], environment: Mapping[str, str]) -> dict[str, Any]:
+    if _x11_foreground(environment) != identity:
+        raise NativeUiUnavailable("native_capture_window_changed")
+    process_start = _process_start(identity["process_id"])
     geometry = _x11_geometry(identity, environment)
-    result = subprocess.run(  # noqa: S603 - exact foreground-window capture, never a screen search.
-        ["import", "-window", identity["window_id"], "png:-"], capture_output=True,
+    root = _x11_capture_root(identity, environment)
+    image_geometry = {
+        "x": max(0, geometry["x"]), "y": max(0, geometry["y"]),
+        "width": min(root["geometry"]["width"], geometry["x"] + geometry["width"]) - max(0, geometry["x"]),
+        "height": min(root["geometry"]["height"], geometry["y"] + geometry["height"]) - max(0, geometry["y"]),
+    }
+    if min(image_geometry["width"], image_geometry["height"]) <= 0:
+        raise NativeUiUnavailable("native_capture_window_offscreen")
+    if max(image_geometry["width"], image_geometry["height"]) > 4096:
+        raise NativeUiUnavailable("native_capture_geometry_mismatch")
+    if _x11_foreground(environment) != identity or _process_start(identity["process_id"]) != process_start:
+        raise NativeUiUnavailable("native_capture_window_changed")
+    # IM6 XImportImage's -screen path reads root pixels, then CropImage clips the
+    # requested client rectangle to that root without scaling (6.9.12-98).
+    result = subprocess.run(  # noqa: S603 - current screen pixels, cropped by the exact foreground XID.
+        ["import", "+frame", "+border", "-screen", "-window", identity["window_id"], "png:-"], capture_output=True,
         timeout=5, check=False, env=dict(environment),
     )
     raw = result.stdout
     if result.returncode or not 33 <= len(raw) <= 8 * 1024 * 1024 or raw[:8] != b"\x89PNG\r\n\x1a\n" or raw[12:16] != b"IHDR":
         raise NativeUiUnavailable("native_window_capture_unavailable")
     width, height = struct.unpack(">II", raw[16:24])
-    if (width, height) != (geometry["width"], geometry["height"]) or max(width, height) > 4096:
+    if (width, height) != (image_geometry["width"], image_geometry["height"]):
         raise NativeUiUnavailable("native_capture_geometry_mismatch")
-    if _x11_foreground(environment) != identity or _x11_geometry(identity, environment) != geometry:
+    if (_x11_capture_root(identity, environment) != root or _x11_geometry(identity, environment) != geometry
+            or _x11_foreground(environment) != identity or _process_start(identity["process_id"]) != process_start):
         raise NativeUiUnavailable("native_capture_window_changed")
-    return {"image": raw, "sha256": hashlib.sha256(raw).hexdigest(), "geometry": geometry, "identity": dict(identity)}
+    return {"image": raw, "sha256": hashlib.sha256(raw).hexdigest(), "geometry": geometry, "identity": dict(identity),
+            "process_start": process_start, "capture_source": "x11_root_screen", "capture_root": root,
+            "image_geometry": image_geometry,
+            "pixel_offset": {"x": image_geometry["x"] - geometry["x"], "y": image_geometry["y"] - geometry["y"]}}
 
 
 def _pointer_dispatch(identity: Mapping[str, Any], geometry: Mapping[str, int], point: tuple[int, int],
