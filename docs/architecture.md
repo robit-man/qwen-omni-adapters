@@ -75,14 +75,16 @@ drive the cursor with model-authored coordinates.
 | One eligible legal action | Deterministic controller | Execute directly without a policy or vision call. |
 | Multiple eligible legal actions | Configured finite-choice policy, Kev on the A100 deployment | Select only an offered action or abstain; confidence cannot grant authority. |
 | Native targeting cannot resolve an eligible pointer target | Pinned Moondream point worker | Ground the exact captured region; native/frame/geometry guards still decide dispatch. |
+| Explicitly requested visible text missing from native state | Configured pinned Moondream reader | Return bounded, untrusted text bound to the captured region and producing-tool source; grant no input authority. |
 | Input and effect verification | Host executor and fresh observer | Revalidate before input, retain uncertain attempts, verify actual application effects. |
 | Ambiguity, unavailable capability or failed effect | Omni phase planner | Receive typed failure/readback evidence and replan within the same authority. |
 
 The caller's optional exact window scope restricts both planning and execution;
 its private authorization tuples are never model instructions. A verified phase
-is not a verified whole user task. Explicit visual reading through the native
-task planner remains a separate capability gap; a working point request does
-not prove that the model read a web page or document. The
+is not a verified whole user task. Native task phases can explicitly request
+visual reading without attaching the screenshot as new user media. Live
+acceptance of that reading remains pending; a working point request does not
+prove that the model read a web page or document. The
 [live evaluation](computer-use-long-horizon-evaluation.md) distinguishes these
 milestones, actual auxiliary calls and unfinished long tasks.
 

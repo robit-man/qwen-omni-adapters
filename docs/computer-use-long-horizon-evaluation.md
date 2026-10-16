@@ -480,6 +480,17 @@ sibling operator directory. Whole-task result is failed/incomplete; live
 already-active verification remains unexercised. The next diagnostic change
 must preserve the actual sanitized blocker evidence without relaxing admission.
 
+The explicit native visual reader, `0922eba`, subsequently passed 2,912 source
+checks with all 364 fingerprints unchanged. Its closed `visual_inspection`
+phase delegates to the existing pinned `/observe` worker without input, raw
+image promotion or mutation credit. Focused checks bind reading to fresh native
+and document identity, exact transmitted pixels and producing-tool authority;
+stale, protected, cancelled or invalid output is withheld. All three changed
+schema objects passed the pinned llama.cpp CPU converter/parser with zero
+warnings. These establish source and grammar compatibility only. No live reader
+request or new desktop task ran at this checkpoint; local inference remains
+pending watchdog evidence retention and fresh admission.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give
