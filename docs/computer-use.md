@@ -146,6 +146,20 @@ action using a different input backend. Missing accessibility or ambiguous foreg
 is a capability failure. Windows UIA and the architecture's full
 alternative-model comparison matrix are outside this tested port.
 
+For a foreground Flatpak window with an absent `_NET_WM_PID`, a read-only
+XRes 1.2 query can identify the server's host owner. A distinct AT-SPI relay is
+admitted only through one complete, fresh Flatpak instance proof: authenticated
+D-Bus credentials, process starts/UIDs/namespaces, host-to-sandbox lineage,
+registry and cgroup, installed proxy identity, matching namespace metadata, and
+one active native frame with exact SCREEN/X11 geometry. The metadata trust
+boundary follows [Flatpak 1.12.7's proxy copy](https://github.com/flatpak/flatpak/blob/1.12.7/common/flatpak-run.c#L1101)
+and [xdg-desktop-portal 1.14.4's peer identification](https://github.com/flatpak/xdg-desktop-portal/blob/1.14.4/src/xdp-utils.c#L534).
+The proxy copy may be writable; this proves neither proxy ancestry nor a socket
+peer edge. The full tuple is refreshed before input and its private digest binds
+the observation revision. Raw proof metadata never enters model-facing state.
+This foreground observer change grants no inactive-window switching or owned
+Flatpak launch/cleanup authority; those remain separate capabilities.
+
 Native browser URL predicates use `scope.url` from the active window's sole
 visible top-level `DocumentWeb` and its fresh AT-SPI `DocURL` attribute.
 `document_evidence` binds that URI to the document node, generation, window and

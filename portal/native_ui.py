@@ -12,6 +12,7 @@ import base64
 import copy
 import hashlib
 import hmac
+import importlib.util
 import json
 import os
 import re
@@ -35,6 +36,21 @@ _VISUAL_POINTER_VERBS = {"click", "double_click", "right_click"}
 _OPERATIONS = {"invoke", "focus", "set_value", "set_checked", "select", "key_chord",
                "select_text", "switch_window", "type_text", *_POINTER_VERBS}
 _MAX_REPLY_BYTES = 2 * 1024 * 1024
+_IDENTITY_HELPER: Any = None
+
+
+def _identity_helper() -> Any:
+    global _IDENTITY_HELPER
+    if _IDENTITY_HELPER is None:
+        # The fixed system-Python bridge runs with -I, without a package path.
+        source = Path(__file__).with_name("native_identity.py")
+        spec = importlib.util.spec_from_file_location("_omni_native_identity", source)
+        if spec is None or spec.loader is None:
+            raise NativeUiUnavailable("native_provider_identity_unavailable")
+        helper = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        _IDENTITY_HELPER = helper
+    return _IDENTITY_HELPER
 
 
 def normalize_native_task_scope(value: Any) -> dict[str, Any]:
@@ -196,6 +212,7 @@ class NativeUiAdapter:
         )
         self._runner = bridge_runner
         self._bridge: _JsonBridge | None = None
+        self._provider_digest: str | None = None
         self._closed = False
         self.pointing_url = (pointing_url or "").rstrip("/")
         if self.pointing_url:
@@ -305,6 +322,11 @@ class NativeUiAdapter:
             ):
                 raise NativeUiUnavailable("native_bridge_protocol_error")
             result = copy.deepcopy(result)
+            digest = result.pop("_namespace_provider_digest", None)
+            if digest is not None and (not isinstance(digest, str) or len(digest) != 64
+                    or any(char not in "0123456789abcdef" for char in digest)):
+                raise NativeUiUnavailable("native_bridge_protocol_error")
+            self._provider_digest = digest
             for node in result["nodes"]:
                 if node.get("sensitive"):
                     node["name"] = "[protected]"
@@ -544,6 +566,9 @@ class NativeUiAdapter:
                     fresh = self._visual_capture(state)
                     if self._visual_key(fresh, probe) != visual["key"]:
                         return {"status": "rejected", "reason": "native_visual_frame_changed"}
+                    # Refresh private provider identity after capture, before input.
+                    if self._provider_digest is not None and self._semantic_observe()["revision"] != state["revision"]:
+                        return {"status": "rejected", "reason": "native_visual_provider_changed"}
                     self._check_cancelled()
                     result = _pointer_dispatch(fresh["identity"], fresh["geometry"], visual["point"],
                         "click" if action["verb"] == "invoke" else action["verb"], environment=fresh["environment"],
@@ -551,7 +576,7 @@ class NativeUiAdapter:
                     result["point_receipt"] = copy.deepcopy(self.point_receipt)
                     return result
                 except NativeUiUnavailable as exc:
-                    if exc.code == "native_observation_budget_exceeded":
+                    if exc.code in {"native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"}:
                         raise
                     return {"status": "rejected", "reason": exc.code}
                 finally:
@@ -610,6 +635,21 @@ def _valid_arguments(verb: Any, args: Any) -> bool:
     return True
 
 
+def _absent_property_owner(window_id: str, environment: Mapping[str, str]) -> int:
+    """XRes is available only after positively proving the WM PID is absent."""
+    try:
+        result = subprocess.run(  # noqa: S603 - fixed read-only property query.
+            ["xprop", "-id", window_id, "_NET_WM_PID"], capture_output=True,
+            text=True, timeout=1, check=False, env={**environment, "LC_ALL": "C"})
+        if result.returncode or result.stdout.strip() != "_NET_WM_PID:  not found.":
+            raise NativeUiUnavailable("native_foreground_unmapped")
+        return _identity_helper().xres_owner(window_id, environment)["pid"]
+    except NativeUiUnavailable:
+        raise
+    except Exception:
+        raise NativeUiUnavailable("native_foreground_unmapped") from None
+
+
 def _x11_foreground(environment: Mapping[str, str] | None = None) -> dict[str, Any]:
     """Bind native semantics to the window manager's actual foreground owner."""
     environment = dict(os.environ if environment is None else environment)
@@ -631,7 +671,12 @@ def _x11_foreground(environment: Mapping[str, str] | None = None) -> dict[str, A
         return value
 
     window_id = query(["getactivewindow"])
-    process_id = int(query(["getwindowpid", window_id]))
+    try:
+        process_id = int(query(["getwindowpid", window_id]))
+    except NativeUiUnavailable as exc:
+        if exc.code != "native_foreground_unmapped":
+            raise
+        process_id = _absent_property_owner(window_id, environment)
     # A second manager read prevents binding a PID to a window that lost focus
     # between the two fixed queries. No native input has been attempted.
     if query(["getactivewindow"]) != window_id:
@@ -872,7 +917,9 @@ def _window_scope_allows(scope: dict[str, Any] | None, identity: Mapping[str, An
     def owner(xid: str) -> int | None:
         result = subprocess.run(["xdotool", "getwindowpid", xid], capture_output=True,
                                 text=True, timeout=1, check=False, env=env)  # noqa: S603
-        return int(result.stdout.strip()) if not result.returncode and result.stdout.strip().isascii() and result.stdout.strip().isdecimal() else None
+        if not result.returncode and result.stdout.strip().isascii() and result.stdout.strip().isdecimal():
+            return int(result.stdout.strip())
+        return _absent_property_owner(xid, env)
 
     try:
         xid, pid = identity["window_id"], identity["process_id"]
@@ -922,6 +969,7 @@ class _AtspiBridge:
         self.windows: dict[str, Any] = {}
         self._window_history: OrderedDict[str, dict[str, Any]] = OrderedDict()
         self._coordinate_binding: dict[str, Any] | None = None
+        self._provider_binding: dict[str, Any] | None = None
         self.atspi.init()
         self.atspi.set_timeout(250, 250)
 
@@ -959,6 +1007,110 @@ class _AtspiBridge:
         if not isinstance(count, int) or count < 0:
             raise NativeUiUnavailable("native_observation_unavailable")
         return count
+
+    def _credentials(self, bus_name: str) -> dict[str, int]:
+        from gi.repository import Gio
+
+        cancellable, bus = Gio.Cancellable(), None
+        timer = threading.Timer(max(.01, self.deadline - time.monotonic()), cancellable.cancel)
+        timer.daemon = True
+        timer.start()
+        try:
+            session = self._read(lambda: Gio.bus_get_sync(Gio.BusType.SESSION, cancellable))
+            address = self._read(lambda: session.call_sync(
+                "org.a11y.Bus", "/org/a11y/bus", "org.a11y.Bus", "GetAddress", None,
+                self.glib.VariantType.new("(s)"), Gio.DBusCallFlags.NONE, 500, cancellable)).unpack()[0]
+            bus = self._read(lambda: Gio.DBusConnection.new_for_address_sync(address,
+                Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,
+                None, cancellable))
+            return {key: self._read(lambda method=method: bus.call_sync(
+                "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", method,
+                self.glib.Variant("(s)", (bus_name,)), self.glib.VariantType.new("(u)"),
+                Gio.DBusCallFlags.NONE, 500, cancellable)).unpack()[0]
+                for key, method in (("pid", "GetConnectionUnixProcessID"), ("uid", "GetConnectionUnixUser"))}
+        finally:
+            try:
+                if bus is not None:
+                    bus.close_sync(cancellable)  # Never close Gio's shared session bus.
+            finally:
+                timer.cancel()
+
+    def _provider_proof(self, application: Any, reported_pid: int) -> dict | None:
+        helper = _identity_helper()
+        bus_name = self._read(lambda: application.app.bus_name)
+        try:
+            return helper.provider_proof(self.foreground_identity, bus_name, reported_pid,
+                credentials=self._credentials, read=self._read, deadline=self.deadline)
+        except helper.IdentityUnavailable as exc:
+            raise NativeUiUnavailable(str(exc)) from None
+
+    def _refresh_provider_binding(self) -> None:
+        binding = self._provider_binding
+        if binding is None:
+            return
+        desktop = self._read(lambda: self.atspi.get_desktop(0))
+        self._clear_cache(desktop)
+        count = self._count(desktop)
+        if count > self.MAX_CHILDREN:
+            raise NativeUiUnavailable("native_provider_scan_incomplete")
+        matches = []
+        for index in range(count):
+            application = self._read(lambda index=index: desktop.get_child_at_index(index))
+            if application is None:
+                raise NativeUiUnavailable("native_provider_scan_incomplete")
+            self._clear_cache(application)
+            reported = self._read(application.get_process_id)
+            if reported == self.foreground_identity["process_id"]:
+                raise NativeUiUnavailable("native_provider_identity_ambiguous")
+            proof = self._provider_proof(application, reported)
+            if proof is not None:
+                matches.append((application, proof))
+        if len(matches) != 1 or matches[0][1] != binding["proof"]:
+            raise NativeUiUnavailable("native_provider_identity_changed")
+        application = matches[0][0]
+        if self._read(lambda: str(application.app.bus_name) + ":" + str(application.path)) != binding["application"]:
+            raise NativeUiUnavailable("native_provider_identity_changed")
+        frames, seen = [], set()
+
+        def scan(node: Any, depth: int = 0) -> None:
+            if node is None or depth > self.MAX_DEPTH or len(seen) >= self.MAX_NODES:
+                raise NativeUiUnavailable("native_provider_scan_incomplete")
+            raw = self._read(lambda: str(node.app.bus_name) + ":" + str(node.path))
+            if raw in seen:
+                raise NativeUiUnavailable("native_provider_scan_incomplete")
+            seen.add(raw)
+            self._clear_cache(node)
+            state = self._read(node.get_state_set)
+            if state is None or state.contains(self.atspi.StateType.DEFUNCT):
+                raise NativeUiUnavailable("native_provider_scan_incomplete")
+            role = self._read(node.get_role_name)
+            if role in {"frame", "dialog", "window", "alert", "file chooser"}:
+                if state.contains(self.atspi.StateType.ACTIVE):
+                    if not all(state.contains(flag) for flag in (self.atspi.StateType.VISIBLE,
+                            self.atspi.StateType.SHOWING, self.atspi.StateType.SENSITIVE)):
+                        raise NativeUiUnavailable("native_provider_frame_ineligible")
+                    frames.append((raw, self._native_rect(node)))
+                return
+            count = self._count(node)
+            if count > self.MAX_CHILDREN:
+                raise NativeUiUnavailable("native_provider_scan_incomplete")
+            for index in range(count):
+                scan(self._read(lambda index=index: node.get_child_at_index(index)), depth + 1)
+
+        scan(application)
+        if (len(frames) != 1 or frames[0][0] != binding["frame"]
+                or frames[0][1] != _x11_geometry(self.foreground_identity)
+                or self.foreground() != self.foreground_identity):
+            raise NativeUiUnavailable("native_provider_frame_changed")
+
+    def _provider_guard(self) -> bool:
+        try:
+            self._refresh_provider_binding()
+            return True
+        except NativeUiUnavailable as exc:
+            if exc.code in {"native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"}:
+                raise
+            return False
 
     def _document_evidence(self, window: Any, window_id: str, handles: Mapping[str, Any],
                            generations: Mapping[str, int]) -> dict[str, Any]:
@@ -1308,6 +1460,8 @@ class _AtspiBridge:
         geometry = _x11_geometry(self.foreground_identity)
         if binding and (geometry != binding["surface"] or not binding_matches()):
             return {"status": "rejected", "reason": "native_pointer_coordinate_binding_changed"}
+        if not self._provider_guard():
+            return {"status": "rejected", "reason": "native_provider_changed_before_dispatch"}
         return _pointer_dispatch(self.foreground_identity, geometry, point, action["verb"],
                                  destination=destination, direction=action["args"].get("direction"), foreground=self.foreground)
 
@@ -1369,12 +1523,14 @@ class _AtspiBridge:
         # Coordinate scratch state must also belong to the last successful read.
         missing = object()
         binding = self._coordinate_binding
+        provider_binding = self._provider_binding
         target = self._window_target
         identity = getattr(self, "foreground_identity", missing)
         try:
             return self._observe(include_windows, _window_query(window_target))
         except Exception:
             self._coordinate_binding = binding
+            self._provider_binding = provider_binding
             self._window_target = target
             if identity is missing:
                 self.__dict__.pop("foreground_identity", None)
@@ -1386,6 +1542,7 @@ class _AtspiBridge:
         self.reads, self.deadline = 0, time.monotonic() + 5
         self._window_target = copy.deepcopy(window_target)
         self._coordinate_binding = None
+        self._provider_binding = None
         self.foreground_identity = self.foreground()
         process_id = self.foreground_identity["process_id"]
         if self.process_id is not None and process_id != self.process_id:
@@ -1399,6 +1556,18 @@ class _AtspiBridge:
         if desktop is None:
             raise NativeUiUnavailable("native_desktop_unavailable")
         self._clear_cache(desktop)
+        application_count = self._count(desktop)
+        applications = [self._read(lambda index=index: desktop.get_child_at_index(index))
+                        for index in range(min(application_count, self.MAX_CHILDREN))]
+        direct_provider = False
+        for application in applications:
+            if application is None:
+                raise NativeUiUnavailable("native_observation_unavailable")
+            self._clear_cache(application)
+            direct_provider |= self._read(application.get_process_id) == process_id
+        namespace_candidate = not direct_provider
+        if namespace_candidate and application_count > self.MAX_CHILDREN:
+            raise NativeUiUnavailable("native_provider_scan_incomplete")
         nodes, seen, active, handles, windows, window_ids = [], set(), set(), {}, {}, {}
         identity_root = "@desktop"
         observed_children: dict[str, set[str]] = {}
@@ -1450,6 +1619,13 @@ class _AtspiBridge:
                 raise NativeUiUnavailable("native_observation_unavailable")
             if role == "application":
                 application_pid = self._read(node.get_process_id)
+                if application_pid != process_id and namespace_candidate:
+                    proof = self._provider_proof(node, application_pid)
+                    if proof is not None:
+                        if self._provider_binding is not None:
+                            raise NativeUiUnavailable("native_provider_identity_ambiguous")
+                        self._provider_binding = {"proof": proof, "application": raw, "frame": None}
+                        application_pid = process_id
                 if application_pid != process_id and (not include_windows or self.process_id is not None):
                     return True
             generation = generations.get(raw, 0) + int(raw not in self.previous)
@@ -1461,6 +1637,10 @@ class _AtspiBridge:
                 window = node_id
                 windows[window] = node
                 if state.contains(state_type.ACTIVE) and application_pid == process_id:
+                    if self._provider_binding is not None:
+                        if self._read(lambda: node.app.bus_name) != self._provider_binding["proof"]["bus_name"]:
+                            raise NativeUiUnavailable("native_provider_identity_ambiguous")
+                        self._provider_binding["frame"] = raw
                     active.add(window)
                     window_ids[window] = self.foreground_identity["window_id"]
                     active_records[raw] = {"node": node, "id": node_id, "generation": generation,
@@ -1468,6 +1648,9 @@ class _AtspiBridge:
                     if "Component" in self._read(node.get_interfaces):
                         self._coordinate_binding = self._coordinate_for(node)
                 else:
+                    if (self._provider_binding is not None and self._read(lambda: node.app.bus_name)
+                            == self._provider_binding["proof"]["bus_name"]):
+                        return True  # Foreground namespace proof grants no inactive-window authority.
                     if include_windows and type(application_pid) is int:
                         xid = self._mapped_window(node, application_pid)
                         if xid and not _window_scope_allows(self.window_scope,
@@ -1611,12 +1794,12 @@ class _AtspiBridge:
                 complete_children.add(raw)
             return True
 
-        count = self._count(desktop)
+        count = application_count
         truncated |= count > self.MAX_CHILDREN
         desktop_complete = count <= self.MAX_CHILDREN
         observed_children.setdefault(identity_root, set())
-        for index in range(min(count, self.MAX_CHILDREN)):
-            desktop_complete &= visit(self._read(lambda i=index: desktop.get_child_at_index(i)))
+        for application in applications:
+            desktop_complete &= visit(application)
         if desktop_complete:
             complete_children.add(identity_root)
         if len(active) != 1:
@@ -1663,8 +1846,11 @@ class _AtspiBridge:
         if self.window_scope is not None:
             payload["window_scope_sha256"] = native_task_scope_sha256(self.window_scope)
             payload["window_scope_count"] = len(self.window_scope["windows"])
+        self._refresh_provider_binding()
+        revision_payload = payload if self._provider_binding is None else {
+            "snapshot": payload, "provider_identity_digest": self._provider_binding["proof"]["digest"]}
         payload["revision"] = hashlib.sha256(
-            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+            json.dumps(revision_payload, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
         # Unknown/excluded subtrees retain identities, never old input handles.
         # Only complete native child lists prove an earlier child disappeared.
@@ -1688,6 +1874,8 @@ class _AtspiBridge:
         self.generations, self._window_history = generations, history
         self._identity_children = children
         self.previous, self.handles, self.windows, self.window_ids = present, handles, windows, window_ids
+        if self._provider_binding is not None:
+            payload["_namespace_provider_digest"] = self._provider_binding["proof"]["digest"]
         return payload
 
     def perform(self, action: Mapping[str, Any]) -> dict[str, Any]:
@@ -1769,6 +1957,8 @@ class _AtspiBridge:
             geometry = _x11_geometry(self.foreground_identity)
 
             def operation() -> dict[str, Any]:
+                if not self._provider_guard():
+                    return reject("native_provider_changed_before_dispatch")
                 if self.foreground() != self.foreground_identity or _x11_geometry(self.foreground_identity) != geometry:
                     return reject("native_key_binding_changed_before_dispatch")
                 self._clear_cache(node)
@@ -1788,6 +1978,8 @@ class _AtspiBridge:
             geometry = _x11_geometry(self.foreground_identity)
 
             def operation() -> dict[str, Any]:
+                if not self._provider_guard():
+                    return reject("native_provider_changed_before_dispatch")
                 if (self.foreground() != self.foreground_identity or _x11_geometry(self.foreground_identity) != geometry
                         or self.foreground() != self.foreground_identity):
                     return reject("native_text_binding_changed_before_dispatch")
@@ -1908,12 +2100,14 @@ class _AtspiBridge:
                 return {"status": "dispatched", "reason": "native_checked_already_satisfied"}
         # Once a native pattern is attempted, failure/exception does not prove
         # absence of partial effects. Only the controller's fresh predicates can.
+        if not self._provider_guard():
+            return reject("native_provider_changed_before_dispatch")
         if self.window_scope is not None and self.foreground() != self.foreground_identity:
             return reject("native_foreground_changed_before_dispatch")
         try:
             ok = operation()
         except NativeUiUnavailable as exc:
-            if exc.code == "native_observation_budget_exceeded":
+            if exc.code in {"native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"}:
                 raise
             ok = False
         except Exception:

@@ -1673,3 +1673,375 @@ def test_window_binding_read_budget_is_fatal_and_rolls_back_query(monkeypatch):
     assert fixture.bridge.handles == prior_handles
     assert fixture.bridge._window_target == prior_query
     assert not activations
+
+
+def namespace_fixture(monkeypatch):
+    """A proxy provider with independently mocked private proof; no real GI/X11."""
+    fixture = Fixture()
+    fixture.application.process_id = 99
+    fixture.window.interfaces = ["Component"]
+    fixture.api.CoordType = SimpleNamespace(SCREEN="screen", WINDOW="window")
+    geometry = {"x": 70, "y": 64, "width": 925, "height": 1016}
+    fixture.window.get_extents = lambda _space: SimpleNamespace(**geometry)
+    monkeypatch.setattr("portal.native_ui._x11_geometry", lambda _identity: dict(geometry))
+    proof = {"source": "flatpak_namespace_metadata", "identity": dict(fixture.foreground),
+             "reported_pid": 99, "bus_name": ":1.42", "values": {"private": "never-model-facing"}, "digest": "a" * 64}
+    calls = []
+
+    def provider(application, reported):
+        calls.append((application, reported))
+        return json.loads(json.dumps(proof)) if reported == 99 else None
+
+    fixture.bridge._provider_proof = provider
+    return fixture, proof, calls, geometry
+
+
+def test_namespace_provider_observation_keeps_host_identity_and_private_proof(monkeypatch):
+    fixture, proof, calls, _geometry = namespace_fixture(monkeypatch)
+    state = fixture.adapter.observe()
+    assert state["scope"]["window_id"] == "17"
+    assert "Title" in [item["name"] for item in state["nodes"]]
+    assert fixture.bridge._provider_binding["proof"] == proof
+    assert fixture.bridge._provider_binding["application"] == ":1.42:/app"
+    assert fixture.adapter._provider_digest == proof["digest"]
+    assert "never-model-facing" not in json.dumps(state)
+    assert "_namespace_provider_digest" not in state and len(calls) == 2
+
+
+def test_direct_host_provider_does_not_load_namespace_helper(monkeypatch):
+    fixture = Fixture()
+    other = Node("/other-app", "application")
+    other.process_id = 99
+    fixture.desktop.children.insert(0, other)
+    monkeypatch.setattr("portal.native_ui._identity_helper", lambda: pytest.fail("direct apps need no namespace proof"))
+    fixture.adapter.observe()
+    assert fixture.bridge._provider_binding is None and fixture.adapter._provider_digest is None
+
+
+def test_namespace_proof_digest_changes_revision_without_changing_ui_ids(monkeypatch):
+    fixture, proof, _calls, _geometry = namespace_fixture(monkeypatch)
+    first = fixture.adapter.observe()
+    proof["digest"] = "b" * 64
+    second = fixture.adapter.observe()
+    assert first["revision"] != second["revision"]
+    assert [(node["id"], node["generation"]) for node in first["nodes"]] == [
+        (node["id"], node["generation"]) for node in second["nodes"]]
+
+
+@pytest.mark.parametrize("fault", ["ambiguous_provider", "ambiguous_frame", "missing_frame", "ineligible_frame", "geometry", "incomplete", "proof_changed"])
+def test_namespace_observation_rejects_unknown_ambiguous_or_changed_binding_and_rolls_back(monkeypatch, fault):
+    fixture, proof, calls, geometry = namespace_fixture(monkeypatch)
+    first = fixture.adapter.observe()
+    old_binding = fixture.bridge._provider_binding
+    old_handles = fixture.bridge.handles
+    old_generations = dict(fixture.bridge.generations)
+    if fault == "ambiguous_provider":
+        other = Node("/other-app", "application")
+        other.process_id = 99
+        fixture.desktop.children.append(other)
+    elif fault == "ambiguous_frame":
+        fixture.application.children.append(Node("/second-frame", "frame", states=["ACTIVE", "VISIBLE", "SHOWING", "SENSITIVE"]))
+    elif fault == "missing_frame":
+        fixture.window.state.values.discard("ACTIVE")
+    elif fault == "ineligible_frame":
+        fixture.window.state.values.discard("SENSITIVE")
+    elif fault == "geometry":
+        fixture.window.get_extents = lambda _space: SimpleNamespace(**{**geometry, "x": 71})
+    elif fault == "incomplete":
+        fixture.bridge.MAX_CHILDREN = 0
+    elif fault == "proof_changed":
+        original = fixture.bridge._provider_proof
+
+        def changing(application, reported):
+            result = original(application, reported)
+            if len(calls) % 2 == 0:
+                result["digest"] = "b" * 64
+            return result
+
+        fixture.bridge._provider_proof = changing
+    with pytest.raises(NativeUiUnavailable):
+        fixture.adapter.observe()
+    assert fixture.bridge._provider_binding is old_binding
+    assert fixture.bridge.handles is old_handles
+    assert fixture.bridge.generations == old_generations
+    assert first["revision"]
+    assert not fixture.button.events
+
+
+@pytest.mark.parametrize("verb", ["invoke", "set_value", "focus", "key_chord", "type_text"])
+def test_namespace_final_proof_change_rejects_before_any_native_input(monkeypatch, verb):
+    fixture, _proof, _calls, _geometry = namespace_fixture(monkeypatch)
+    fixture.title.state.values.add("FOCUSED")
+    name = "Preview" if verb == "invoke" else "Fixture" if verb == "key_chord" else "Title"
+    args = {"value": "new"} if verb == "set_value" else {"text": "new"} if verb == "type_text" else {"keys": ["Escape"]} if verb == "key_chord" else {}
+    action = fixture.action(name, verb, args)
+    original = fixture.bridge._refresh_provider_binding
+    refreshes = 0
+
+    def refresh():
+        nonlocal refreshes
+        refreshes += 1
+        if refreshes > 1:
+            raise NativeUiUnavailable("native_provider_identity_changed")
+        return original()
+
+    fixture.bridge._refresh_provider_binding = refresh
+    monkeypatch.setattr("portal.native_ui.subprocess.run", lambda *args, **kwargs: pytest.fail("no input on rejected proof"))
+    result = fixture.adapter.perform(action)
+    assert result == {"status": "rejected", "reason": "native_provider_changed_before_dispatch"}
+    assert not any(node.events for node in (fixture.title, fixture.button, fixture.window))
+
+
+def test_namespace_input_budget_error_propagates_without_dispatch(monkeypatch):
+    fixture, _proof, _calls, _geometry = namespace_fixture(monkeypatch)
+    action = fixture.action()
+    original = fixture.bridge._refresh_provider_binding
+    refreshes = 0
+
+    def refresh():
+        nonlocal refreshes
+        refreshes += 1
+        if refreshes > 1:
+            raise NativeUiUnavailable("native_observation_budget_exceeded")
+        return original()
+
+    fixture.bridge._refresh_provider_binding = refresh
+    with pytest.raises(NativeUiUnavailable, match="budget_exceeded"):
+        fixture.adapter.perform(action)
+    assert not fixture.button.events
+
+
+@pytest.mark.parametrize("property_text", ["_NET_WM_PID(CARDINAL) = 99", "_NET_WM_PID: malformed", ""])
+def test_xres_fallback_requires_exact_missing_property_not_malformed_or_present(monkeypatch, property_text):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stdout=property_text) if command[0] == "xprop" else SimpleNamespace(
+            returncode=0 if command[1] == "getactivewindow" else 1, stdout="17")
+
+    monkeypatch.setattr("portal.native_ui.subprocess.run", run)
+    monkeypatch.setattr("portal.native_ui._identity_helper", lambda: pytest.fail("property is not absent"))
+    with pytest.raises(NativeUiUnavailable, match="foreground_unmapped"):
+        _x11_foreground({"DISPLAY": ":9"})
+    assert len(calls) == 3
+
+
+def test_xres_missing_property_fallback_keeps_foreground_two_key_shape(monkeypatch):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        if command[0] == "xprop":
+            assert kwargs["env"]["LC_ALL"] == "C"
+            return SimpleNamespace(returncode=0, stdout="_NET_WM_PID:  not found.\n")
+        return SimpleNamespace(returncode=0 if command[1] == "getactivewindow" else 1, stdout="17")
+
+    monkeypatch.setattr("portal.native_ui.subprocess.run", run)
+    monkeypatch.setattr("portal.native_ui._identity_helper", lambda: SimpleNamespace(
+        xres_owner=lambda xid, environment: {"pid": 42, "start": "1"}))
+    assert _x11_foreground({"DISPLAY": ":9"}) == {"window_id": "17", "process_id": 42}
+    assert calls[-1] == ["xdotool", "getactivewindow"]
+
+
+@pytest.mark.parametrize(("namespace", "changed", "expected_reads", "expected_status"), [
+    (False, False, 2, "dispatched"), (True, False, 3, "dispatched"), (True, True, 3, "rejected")])
+def test_extra_visual_provider_refresh_is_namespace_only(monkeypatch, namespace, changed, expected_reads, expected_status):
+    from test_native_manipulation import _visual_fixture
+
+    from qwen_omni_adapters.computer_use import RapidUiController
+
+    fixture, adapter, _frame, _requests = _visual_fixture(monkeypatch)
+    observations = 0
+
+    def request(payload):
+        nonlocal observations
+        state = fixture.request(payload)
+        if payload["op"] == "observe":
+            observations += 1
+            if namespace:
+                state["_namespace_provider_digest"] = "a" * 64
+                if changed and observations == 3:
+                    state["revision"] = "b" * 64
+        return state
+
+    adapter._runner = request
+    controller = RapidUiController(adapter, authorize=lambda *_args: True)
+    state = controller.observe()
+    action = next(item for item in controller.enumerate(adapter._step, state) if item["kind"] == "action")
+    attempts = []
+    monkeypatch.setattr("portal.native_ui._pointer_dispatch", lambda *args, **kwargs: attempts.append(args) or {"status": "dispatched"})
+    result = adapter.perform(action)
+    assert result["status"] == expected_status
+    assert observations == expected_reads
+    assert len(attempts) == (expected_status == "dispatched")
+    assert "_namespace_provider_digest" not in state
+
+
+@pytest.mark.parametrize("failure", [None, "peer_error", "budget"])
+def test_namespace_credentials_use_authenticated_bus_and_close_only_private_connection(monkeypatch, failure):
+    import sys
+
+    fixture = Fixture()
+    fixture.adapter.observe()
+    closed, methods = [], []
+
+    class Session:
+        def call_sync(self, *args):
+            assert args[:4] == ("org.a11y.Bus", "/org/a11y/bus", "org.a11y.Bus", "GetAddress")
+            return SimpleNamespace(unpack=lambda: ("unix:path=private-a11y",))
+
+        def close_sync(self, *_args):
+            pytest.fail("shared session bus must remain open")
+
+    class Bus:
+        def call_sync(self, *args):
+            methods.append(args[3])
+            assert args[:3] == ("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus")
+            assert args[4] == ("(s)", (":1.42",)) and args[7] == 500
+            if args[3] == "GetConnectionUnixUser" and failure == "peer_error":
+                raise RuntimeError("provider vanished")
+            return SimpleNamespace(unpack=lambda: (99 if args[3] == "GetConnectionUnixProcessID" else os.getuid(),))
+
+        def close_sync(self, _cancellable):
+            closed.append(True)
+
+    def connect(address, *_args):
+        assert address == "unix:path=private-a11y"
+        if failure == "budget":
+            fixture.bridge.MAX_READS = fixture.bridge.reads
+        return Bus()
+
+    gio = SimpleNamespace(Cancellable=lambda: SimpleNamespace(cancel=lambda: None),
+        BusType=SimpleNamespace(SESSION="session"), bus_get_sync=lambda *_args: Session(),
+        DBusCallFlags=SimpleNamespace(NONE=0),
+        DBusConnectionFlags=SimpleNamespace(AUTHENTICATION_CLIENT=1, MESSAGE_BUS_CONNECTION=2),
+        DBusConnection=SimpleNamespace(new_for_address_sync=connect))
+    monkeypatch.setitem(sys.modules, "gi.repository", SimpleNamespace(Gio=gio))
+    fixture.glib.VariantType = SimpleNamespace(new=lambda value: value)
+    fixture.glib.Variant = lambda *args: args
+    if failure:
+        with pytest.raises(NativeUiUnavailable, match="budget_exceeded" if failure == "budget" else "observation_unavailable"):
+            fixture.bridge._credentials(":1.42")
+    else:
+        assert fixture.bridge._credentials(":1.42") == {"pid": 99, "uid": os.getuid()}
+        assert methods == ["GetConnectionUnixProcessID", "GetConnectionUnixUser"]
+    assert closed == [True]
+
+
+def test_namespace_late_preinput_budget_is_not_mislabeled_as_dispatch(monkeypatch):
+    fixture, _proof, _calls, _geometry = namespace_fixture(monkeypatch)
+    action = fixture.action("Fixture", "key_chord", {"keys": ["Escape"]})
+    original = fixture.bridge._refresh_provider_binding
+    count = 0
+
+    def refresh():
+        nonlocal count
+        count += 1
+        if count == 3:
+            raise NativeUiUnavailable("native_provider_identity_budget_exceeded")
+        return original()
+
+    fixture.bridge._refresh_provider_binding = refresh
+    monkeypatch.setattr("portal.native_ui.subprocess.run", lambda *args, **kwargs: pytest.fail("must not input"))
+    with pytest.raises(NativeUiUnavailable, match="identity_budget_exceeded"):
+        fixture.adapter.perform(action)
+    assert not fixture.window.events
+
+
+def test_namespace_uncertain_native_attempt_is_not_replayed(monkeypatch):
+    from qwen_omni_adapters.computer_use import RapidUiController
+
+    fixture, _proof, _calls, _geometry = namespace_fixture(monkeypatch)
+    fixture.button.fail_action = True
+    control = RapidUiController(fixture.adapter, authorize=lambda *_args: True, max_observations=1, verification_timeout_s=.1)
+    step = {"id": "preview", "verb": "invoke", "target": {"role": "button", "name": "Preview"},
+            "args": {}, "expect": [{"kind": "text", "text": "Not actually verified"}]}
+    offered = control.enumerate(step, control.observe())
+    action = next(item for item in offered if item["kind"] == "action")
+    first = control.execute(action["id"])
+    second = control.execute(action["id"])
+    assert first["status"] == "unresolved" and second["status"] == "unresolved"
+    assert first["receipt"] == second["receipt"]
+    assert fixture.button.events == ["invoke"]
+
+
+def test_namespace_observation_never_offers_inactive_window_even_with_positive_legacy_mapping(monkeypatch):
+    fixture, _proof, _calls, _geometry = namespace_fixture(monkeypatch)
+    inactive = Node("/namespace-inactive", "frame", "Other Flatpak window")
+    inactive.process_id = 99
+    fixture.application.children.append(inactive)
+    fixture.bridge._mapped_window = lambda *_args: pytest.fail("foreground proof must not reach inactive mapping")
+    state = fixture.adapter.planning_observe()
+    assert all(node["name"] != "Other Flatpak window" for node in state["nodes"])
+    assert all("switch_window" not in node["operations"] for node in state["nodes"])
+    assert not any(record[0] is inactive for record in fixture.bridge.handles.values())
+
+
+def scoped_namespace_fixture(monkeypatch):
+    from portal.native_ui import normalize_native_task_scope
+
+    fixture, proof, calls, geometry = namespace_fixture(monkeypatch)
+    scope = {"schema": "robit.omni.native-task-scope.v1",
+             "windows": [{"window_id": "17", "process_id": 42, "process_start": "420"}]}
+    fixture.bridge.window_scope = normalize_native_task_scope(scope)
+    owners = []
+
+    def run(command, **kwargs):
+        if command[0] == "xdotool":
+            assert command[1] == "getwindowpid"
+            return SimpleNamespace(returncode=1, stdout="")
+        assert command[0] == "xprop"
+        if command[-1] == "_NET_WM_PID":
+            return SimpleNamespace(returncode=0, stdout="_NET_WM_PID:  not found.\n")
+        assert command[-1] == "WM_TRANSIENT_FOR"
+        return SimpleNamespace(returncode=0, stdout="WM_TRANSIENT_FOR:  not found.\n")
+
+    def owner(xid, environment):
+        owners.append(xid)
+        return {"pid": 42, "start": "420"}
+
+    monkeypatch.setattr("portal.native_ui.subprocess.run", run)
+    monkeypatch.setattr("portal.native_ui._identity_helper", lambda: SimpleNamespace(xres_owner=owner))
+    monkeypatch.setattr("portal.native_ui._process_start", lambda _pid: "420")
+    return fixture, proof, calls, geometry, owners
+
+
+def test_scoped_namespace_identity_requires_both_full_proof_and_exact_window_authority(monkeypatch):
+    fixture, _proof, calls, _geometry, owners = scoped_namespace_fixture(monkeypatch)
+    action = fixture.action("Preview", "invoke")
+    result = fixture.adapter.perform(action)
+    assert result == {"status": "dispatched", "reason": "native_pattern_invoked"}
+    assert fixture.button.events == ["invoke"]
+    assert calls and owners and set(owners) == {"17"}
+
+
+@pytest.mark.parametrize("fault", ["unlisted_xid", "wrong_pid", "reused_pid", "missing_namespace_proof", "namespace_changed_before_input"])
+def test_flatpak_identity_proof_cannot_expand_or_bypass_session_window_scope(monkeypatch, fault):
+    fixture, _proof, _calls, _geometry, _owners = scoped_namespace_fixture(monkeypatch)
+    action = fixture.action("Preview", "invoke")
+    if fault == "unlisted_xid":
+        fixture.foreground["window_id"] = "18"  # Same PID, different unowned XID, no positive transient.
+    elif fault == "wrong_pid":
+        fixture.bridge.window_scope["windows"][0]["process_id"] = 43
+    elif fault == "reused_pid":
+        monkeypatch.setattr("portal.native_ui._process_start", lambda _pid: "421")
+    elif fault == "missing_namespace_proof":
+        fixture.bridge._provider_proof = lambda *_args: None
+    else:
+        original, refreshes = fixture.bridge._refresh_provider_binding, 0
+
+        def refresh():
+            nonlocal refreshes
+            refreshes += 1
+            if refreshes > 1:
+                fixture.foreground["window_id"] = "18"
+            return original()
+
+        fixture.bridge._refresh_provider_binding = refresh
+    if fault == "namespace_changed_before_input":
+        assert fixture.adapter.perform(action)["status"] == "rejected"
+    else:
+        with pytest.raises(NativeUiUnavailable):
+            fixture.adapter.perform(action)
+    assert fixture.button.events == []
