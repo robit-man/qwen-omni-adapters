@@ -74,6 +74,18 @@ output contains only a redacted readiness proof; use systemd for broker service
 control, since the portable daemon's stop/reload protocol belongs to direct
 mode.
 
+A guided deployment of an already paused runtime can instead finish as
+`HELD_PAUSED`. It requires the install account's regular 0600 pause marker,
+the existing shared pause/resume lock, and an inactive managed core with no PID
+before handoff and after installation. The marker stays unchanged, the core is
+not started, and the prior user harness activity is restored and checked without
+a listening/readiness claim. Missing, unsafe, busy or changed pause evidence and
+unknown/active core state fail installation. An unpaused deployment keeps its
+normal startup and readiness gates. A deployed-commit marker in `HELD_PAUSED`
+records installed source/config/unit, not loaded code, GPU/model residency,
+runtime health or a published tunnel. Resume through `qwen-omni service resume`;
+its doctor/start path and the supervisor's GPU/smoke/tunnel gates remain required.
+
 For unmanaged NVIDIA Linux and every NVIDIA Tegra module:
 
 ```bash

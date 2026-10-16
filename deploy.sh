@@ -28,6 +28,10 @@ SERVICE_WAS_ENABLED=0
 SERVICE_START_EPOCH=0
 SERVICE_READY_MODE=""
 SERVICE_READY_STATUS=""
+DEPLOY_PAUSED=0
+PAUSE_MARKER_BINDING=""
+PAUSE_LOCK_BINDING=""
+PAUSE_CONTROL_FD=""
 HARNESS_START_EPOCH=0
 DEPLOY_COMPLETE=0
 HANDOFF_STARTED=0
@@ -1154,6 +1158,65 @@ record_deployed_commit() {
   fi
 }
 
+pause_evidence() {
+  "$REPO_ROOT/.venv/bin/python" - "$REPO_ROOT" "$1" "$2" "${3:--1}" <<'PY'
+import os
+import stat
+import sys
+
+root, kind, owner, descriptor = sys.argv[1:]
+name = "voice-service.paused" if kind == "marker" else "voice-service-control.lock"
+try:
+    value = os.lstat(os.path.join(root, "runtime-data/state", name))
+except FileNotFoundError:
+    if kind == "marker":
+        print("absent")
+        raise SystemExit(0)
+    raise SystemExit(1)
+mode = stat.S_IMODE(value.st_mode)
+if (not stat.S_ISREG(value.st_mode) or value.st_uid != int(owner)
+        or (mode != 0o600 if kind == "marker" else mode & 0o7002 or mode & 0o600 != 0o600)):
+    raise SystemExit(1)
+fields = ("st_dev", "st_ino", "st_mode", "st_uid", "st_gid", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns")
+identity = tuple(getattr(value, field) for field in fields)
+if int(descriptor) >= 0 and identity != tuple(getattr(os.fstat(int(descriptor)), field) for field in fields):
+    raise SystemExit(1)
+print(":".join(map(str, identity)))
+PY
+}
+
+check_deployment_pause() {
+  local owner marker lock active sub pid
+  owner=$(id -u "${SUDO_USER:-$USER}") || die 'cannot resolve the service account for pause ownership'
+  marker=$(pause_evidence marker "$owner") || die 'pause marker ownership or type is invalid'
+  lock=$(pause_evidence lock "$owner" "$PAUSE_CONTROL_FD") || die 'pause control lock identity is invalid'
+  [[ $marker == "$PAUSE_MARKER_BINDING" && $lock == "$PAUSE_LOCK_BINDING" ]] \
+    || die 'pause evidence changed during deployment'
+  active=$(sudo systemctl show "$SERVICE_NAME" -p ActiveState --value) || die 'cannot inspect paused core state'
+  sub=$(sudo systemctl show "$SERVICE_NAME" -p SubState --value) || die 'cannot inspect paused core state'
+  pid=$(sudo systemctl show "$SERVICE_NAME" -p MainPID --value) || die 'cannot inspect paused core state'
+  [[ $active == inactive && $sub == dead && $pid == 0 ]] \
+    || die 'pause marker does not prove an inactive managed core'
+}
+
+bind_deployment_pause() {
+  local owner marker lock
+  owner=$(id -u "${SUDO_USER:-$USER}") || die 'cannot resolve the service account for pause ownership'
+  marker=$(pause_evidence marker "$owner") || die 'pause marker ownership or type is invalid'
+  [[ $marker != absent ]] || return 0
+  lock=$(pause_evidence lock "$owner") || die 'pause control lock is missing or unsafe'
+  command -v flock >/dev/null || die 'pause preservation requires the existing flock utility'
+  # Read-only open never creates/truncates a file. fstat below must still match
+  # the owned regular pathname before its shared pause/resume lock is trusted.
+  exec {PAUSE_CONTROL_FD}<"$REPO_ROOT/runtime-data/state/voice-service-control.lock" \
+    || die 'cannot open the pause control lock'
+  PAUSE_MARKER_BINDING=$marker
+  PAUSE_LOCK_BINDING=$lock
+  flock -n "$PAUSE_CONTROL_FD" || die 'pause or resume is already in progress'
+  check_deployment_pause
+  DEPLOY_PAUSED=1
+}
+
 deploy_service() {
   local doctor=("$REPO_ROOT/.venv/bin/qwen-omni" doctor --deployment \
     --model "$OMNI_MODEL" --language-model "$OMNI_LANGUAGE_MODEL")
@@ -1191,6 +1254,7 @@ deploy_service() {
 
   PRIOR_OMNI_MODEL=$(configured_value OMNI_MODEL)
   PRIOR_LANGUAGE_MODEL=$(configured_value OMNI_LANGUAGE_MODEL)
+  bind_deployment_pause
   backup_environment
   backup_service_unit
   prepare_runtime_handoff
@@ -1203,6 +1267,31 @@ deploy_service() {
   install_desktop_package_lock_policy
 
   sudo systemctl enable "$SERVICE_NAME"
+  if ((DEPLOY_PAUSED)); then
+    check_deployment_pause
+    # Handoff recorded this exact user unit's prior activity. Restore only it;
+    # a paused indicator is not evidence of microphone/runtime readiness.
+    local unit prior_harness_active=0 harness_state expected_harness_state=inactive
+    for unit in "${STOPPED_USER_UNITS[@]}"; do
+      if [[ $unit == "$HARNESS_NAME" ]]; then
+        prior_harness_active=1
+        expected_harness_state=active
+        systemctl --user start "$HARNESS_NAME"
+      fi
+    done
+    retire_prior_services
+    check_deployment_pause
+    if ((WITH_HARNESS || prior_harness_active)); then
+      harness_state=$(systemctl --user show "$HARNESS_NAME" -p ActiveState --value) \
+        || die 'cannot verify prior harness activity while paused'
+      [[ $harness_state == "$expected_harness_state" ]] || die 'prior harness activity was not preserved'
+    fi
+    SERVICE_READY_MODE=held_paused
+    SERVICE_READY_STATUS='HELD_PAUSED: source/config/unit installed; core not started; runtime health and tunnel unverified.'
+    printf '\n%s\n' "$SERVICE_READY_STATUS"
+    DEPLOY_COMPLETE=1
+    return 0
+  fi
   SERVICE_START_EPOCH=$(date +%s)
   sudo systemctl start "$SERVICE_NAME"
 
