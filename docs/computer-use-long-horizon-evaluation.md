@@ -847,3 +847,54 @@ it does not claim a patched native deployment or another completed desktop task.
 The fallback may admit empty or decoded-NUL strings at generation time; host
 validation rejects those before any step is dispatched. Python/JavaScript schema
 converters are unchanged and were not claimed fixed.
+
+### Patched native deployment and LHN-071 checkpoint
+
+The exact correction commit `b8dca607` passed the full source gate on both
+hosts: 3,147 tests in 106.74 seconds locally and 166.05 seconds on Egg31.
+The local validation receipt has SHA256
+`d8ca02a76ccd61596e78a07df77d9f0c48678c4baebf6d56fd3f3de29ef4e7d6`.
+A separate native build preserved loaded files and produced common-library
+SHA256 `59d7f67d375f16c2308e70c11c8f7b4374f1ec26e53c00a85fc233fa4d0f830b`.
+After one supported GPU1 handoff, the new Ornith trunk's process maps proved
+that exact library loaded, with the same model pins and 65,536-token context.
+
+One unassisted LHN-071 CSV incident-handbook attempt then failed after
+72.59 seconds and three phases. All three actual compiler replies returned
+HTTP 200 and valid JSON, establishing live acceptance of the delimiter repair.
+Canonical host validation rejected phases one and three before any of their
+inputs: proposed text lengths were 3,135 and 2,283 characters, exceeding the
+unchanged 2,048-character limit. Phase two dispatched one real XTEST click
+grounded by pinned Moondream 3.1. Its expected focus remained false across
+four verification observations; the effect remains unknown. The point HTTP
+request took 13.797 seconds including worker load, inference and shedding.
+There were no reader, Kev or memory calls, and all three deliverables were
+absent. Task cancellation/drain, exact three-window cleanup, input and
+preexisting managed-window preservation, unchanged source, the new workers,
+lease and recorder checks passed. No retry or second source fix followed.
+
+The immutable failed bundle has SHA256
+`dd5dd5bc8eb772b8a69ae1c3c0b14cf9cabd5655f999b4d0dc7ed8f772a35586`.
+Compact after-test note:
+`runtime-data/gpu1-acceptance/operator-audit/native-grammar-b8dca607-20261016T105049Z/operator-after-test-note.json`,
+SHA256 `b3fbbc508600b8f8e986da88ce76ab243c76258f774ee18fb952c0d3c3388362`.
+The append-only ledger now records 11 submitted attempts across four of
+200 model/case cells and three task IDs, with zero full passes. Thus 196 cells
+and 97 task IDs remain unattempted. Updated ledger SHA256:
+`cd750b3a7e5b438981c7b7774a8eb11f9c2eaf63dae810748585e65d328406d4`.
+
+Egg31 separately qualified the actual owned Flatpak Firefox setup: native
+`about:blank` document evidence, registered scope, exact polite close and
+preexisting-tree preservation passed in 33.28 seconds. The sealed receipt
+SHA256 is `ff715d2f2426733ffcf908db02ac22b1f32da07bed000bf3258b010738859ef8`.
+Its private ARM native build also passed the actual-library CPU grammar proof,
+preserving five host-specific media/TTS source variants; runtime adoption
+remained pending. Neither result is a remote model-task pass.
+
+After the user's continuation instruction, Egg41 resumed through its normal
+service API. One start reached healthy idle readiness in 110.50 seconds,
+with Ornith's Tegra device handles and context verified, the prior harness
+state restored and source/configuration preserved. Recovery note SHA256:
+`359fbba6153438aca94cc6f947fea4567600dc89f6490066854dab40e32bf300`.
+It still ran `476be1c` at this checkpoint; the decoder patch had not yet been
+pushed or adopted there. Remote long-task acceptance remains pending.
