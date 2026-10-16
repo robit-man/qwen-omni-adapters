@@ -150,6 +150,61 @@ class NativePhaseCompilationError(Exception):
     code = "invalid_native_phase_json"
 
 
+def _new_verified_ui_prefix(result: Mapping[str, Any], seen: set[str]) -> bool:
+    """Allow recovery after a new bound input/effect transition, not goal credit."""
+    novel = False
+    for outcome in result.get("outcomes", []):
+        if not isinstance(outcome, dict) or outcome.get("status") != "verified":
+            break
+        action, receipt, effect = (outcome.get(key, {}) for key in ("action", "receipt", "effect_receipt"))
+        before, after = outcome.get("before", {}), outcome.get("after", {})
+        if any(not isinstance(value, dict) for value in (action, receipt, effect, before, after)):
+            break
+        if receipt.get("status") != "dispatched" or effect.get("effect_state") != "applied":
+            continue
+        before_scope, after_scope = before.get("scope", {}), after.get("scope", {})
+        before_semantic = before.get("base_semantic_revision", before.get("revision"))
+        after_semantic = after.get("base_semantic_revision", after.get("revision"))
+        fields = ("session_id", "scope_id", "node_id", "generation", "verb", "revision", "id", "idempotency_key")
+        if (action.get("kind") != "action" or any(not isinstance(action.get(key), str) or not action[key] for key in fields)
+                or not isinstance(action.get("args"), dict) or not isinstance(action.get("expect"), list)
+                or not isinstance(before_scope, dict) or not isinstance(after_scope, dict)
+                or not after_scope.get("id") or not isinstance(before.get("nodes"), list)
+                or before.get("session_id") != action["session_id"] or after.get("session_id") != action["session_id"]
+                or before_scope.get("id") != action["scope_id"]
+                or action["revision"] != before.get("revision")
+                or effect.get("schema") != "robit.omni.ui-effect-receipt.v1"
+                or effect.get("action_id") != action["id"] or effect.get("idempotency_key") != action["idempotency_key"]
+                or effect.get("before_revision") != before.get("revision")
+                or effect.get("after_revision") != after.get("revision")
+                or effect.get("before_semantic_revision") != before_semantic
+                or effect.get("after_semantic_revision") != after_semantic
+                or not before_semantic or not after_semantic or before_semantic == after_semantic):
+            break
+        targets = [node for node in before["nodes"] if isinstance(node, dict) and node.get("id") == action["node_id"]]
+        if (len(targets) != 1 or targets[0].get("generation") != action["generation"]
+                or targets[0].get("visible") is not True or targets[0].get("enabled") is not True
+                or targets[0].get("sensitive") is not False or action["verb"] not in targets[0].get("operations", [])):
+            break
+        try:
+            predicates = json.dumps(action["expect"], sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+            if effect.get("predicates_sha256") != hashlib.sha256(predicates).hexdigest():
+                break
+            # Opaque input IDs and changed verification wording do not make an
+            # already observed semantic transition new. Authority bindings stay.
+            transition = {"action": {key: action[key] for key in
+                ("session_id", "scope_id", "node_id", "generation", "verb", "args")},
+                "before": {"scope": before_scope, "semantic_revision": before_semantic},
+                "after": {"scope": after_scope, "semantic_revision": after_semantic}}
+            signature = hashlib.sha256(json.dumps(transition, sort_keys=True, separators=(",", ":"),
+                                                 allow_nan=False).encode()).hexdigest()
+        except (TypeError, ValueError):
+            break
+        novel |= signature not in seen
+        seen.add(signature)
+    return novel
+
+
 def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Callable[[dict], dict],
                     execute: Callable[[str, dict], dict], cancel: Callable[[], None],
                     allowed_tools: Iterable[str], max_phases: int = 40, max_seconds: float = 1200,
@@ -175,6 +230,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
     started, traces, ledger, last_result = clock(), [], [], None
     failed, normal, cleaned, phases, claims = 0, False, False, 0, []
     zero_effect_ui_phases: set[str] = set()
+    applied_ui_transitions: set[str] = set()
 
     def boundary():
         if cancelled is not None and cancelled():
@@ -292,6 +348,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             ok = not result.get("error") and not replayed_only and (kind != "ui" or result.get("status") == "complete")
             if kind == "visual_inspection":
                 ok = ok and _accepted_visual_reading(result)
+            recoverable_prefix = kind == "ui" and _new_verified_ui_prefix(result, applied_ui_transitions)
             tool.update(ok=ok, status="complete", result=content)
             traces.append(copy.deepcopy(tool))
             last_result = _compact_result(result)
@@ -303,7 +360,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                 "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt")
                                if key in last_result}})
             ledger = ledger[-12:]
-            failed = 0 if ok else failed + 1
+            failed = 0 if ok or recoverable_prefix else failed + 1
             yield {"type": "tool", "phase": "complete", "round": phases, "tools": [copy.deepcopy(tool)]}
             if failed >= 3:
                 yield finish("blocked", "Three consecutive native phases were invalid or unverified.")

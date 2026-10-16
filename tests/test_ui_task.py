@@ -8,10 +8,11 @@ import threading
 import pytest
 from jsonschema import Draft202012Validator
 
-from portal.computer_use import ComputerUseStore
+from portal.computer_use import ComputerUseStore, _digest
 from portal.tools import tool_schemas
 from portal.ui_task import (
     NativePhaseCompilationError,
+    _new_verified_ui_prefix,
     _zero_effect_ui_phase_key,
     phase_response_schema,
     run_native_goal,
@@ -402,6 +403,204 @@ def test_three_unverified_phases_stop_without_replaying_any_input():
     assert fixture.adapter.calls == []
     assert result["portal"]["native_task"]["status"] == "blocked"
     assert fixture.cancel_count == 1
+
+
+def partial_write_phase(value):
+    plan = phase()
+    plan["steps"][0]["args"]["value"] = value
+    plan["steps"][0]["expect"][0]["value"] = value
+    plan["steps"][1]["target"] = {"node_id": "missing"}
+    return plan
+
+
+def test_three_novel_verified_prefixes_reach_next_planner_without_success_relabel():
+    fixture = Fixture([partial_write_phase(value) for value in ("Alpha", "Beta", "Gamma")]
+                      + [{"kind": "complete", "message": "CPU planner claim."}])
+    events = list(fixture.run())
+    assert len(fixture.packets) == 4
+    assert len(fixture.adapter.calls) == 3
+    tools = completed_tools(events)
+    assert [tool["ok"] for tool in tools] == [False, False, False]
+    for packet in fixture.packets[1:]:
+        result = packet["last_result"]
+        assert result["status"] == "needs_replan" and result["error"] == "ui_workflow_unresolved"
+        assert result["phase_handoff"]["new_effect_count"] == 1
+        assert [item["effect_receipt"]["effect_state"] for item in result["outcomes"]] == ["applied", "absent"]
+        assert result["phase_handoff"]["terminal_verified"] is False
+    assert final(events)["portal"]["native_task"]["status"] == "planner_claim"
+    assert final(events)["portal"]["native_task"]["task_verified"] is False
+
+
+def produced_partial_result():
+    fixture = Fixture([])
+    plan = partial_write_phase("Alpha")
+    return fixture.execute("native_ui", {"operation": "workflow", "steps": plan["steps"],
+                                         "final_predicates": plan["final_predicates"]})
+
+
+@pytest.mark.parametrize("corruption", [
+    "unverified", "already_active", "unchanged", "unknown", "replayed", "schema", "action_id", "idempotency",
+    "before_revision", "after_revision", "before_semantic", "after_semantic", "session", "scope", "generation",
+    "action_revision", "missing_before", "missing_after", "protected", "disabled", "invisible", "operation", "predicates",
+    "before_session", "after_session", "before_scope", "before_generation", "duplicate_target", "target_id",
+    "receipt_status", "same_semantic_state",
+])
+def test_partial_recovery_requires_producer_bound_verified_applied_prefix(corruption):
+    result = produced_partial_result()
+    outcome = result["outcomes"][0]
+    action, receipt, effect = outcome["action"], outcome["receipt"], outcome["effect_receipt"]
+    if corruption == "unverified":
+        outcome["status"] = "unresolved"
+    elif corruption == "already_active":
+        receipt.update(status="already_satisfied", input_attempted=False)
+    elif corruption in {"unchanged", "unknown", "replayed"}:
+        effect["effect_state"] = corruption
+    elif corruption == "schema":
+        effect["schema"] = "untrusted"
+    elif corruption in {"action_id", "idempotency", "before_revision", "after_revision"}:
+        key = "idempotency_key" if corruption == "idempotency" else corruption
+        effect[key] = "mismatch"
+    elif corruption in {"before_semantic", "after_semantic"}:
+        effect[corruption + "_revision"] = "mismatch"
+    elif corruption in {"session", "scope", "generation", "action_revision"}:
+        key = {"session": "session_id", "scope": "scope_id", "generation": "generation", "action_revision": "revision"}[corruption]
+        action[key] = "mismatch"
+    elif corruption in {"missing_before", "missing_after"}:
+        outcome.pop(corruption.removeprefix("missing_"))
+    elif corruption in {"before_session", "after_session"}:
+        outcome[corruption.removesuffix("_session")]["session_id"] = "mismatch"
+    elif corruption == "before_scope":
+        outcome["before"]["scope"]["id"] = "mismatch"
+    elif corruption in {"before_generation", "duplicate_target", "target_id"}:
+        target = next(node for node in outcome["before"]["nodes"] if node["id"] == action["node_id"])
+        if corruption == "duplicate_target":
+            outcome["before"]["nodes"].append(copy.deepcopy(target))
+        else:
+            target["generation" if corruption == "before_generation" else "id"] = "mismatch"
+    elif corruption == "receipt_status":
+        receipt["status"] = "rejected"
+    elif corruption == "same_semantic_state":
+        outcome["before"]["base_semantic_revision"] = outcome["after"]["revision"]
+        effect["before_semantic_revision"] = outcome["after"]["revision"]
+    elif corruption in {"protected", "disabled", "invisible", "operation"}:
+        target = next(node for node in outcome["before"]["nodes"] if node["id"] == action["node_id"])
+        if corruption == "operation":
+            target["operations"] = []
+        else:
+            target[{"protected": "sensitive", "disabled": "enabled", "invisible": "visible"}[corruption]] = corruption == "protected"
+    else:
+        effect["predicates_sha256"] = "mismatch"
+    result["phase_handoff"]["new_effect_count"] = 999  # A scalar claim cannot repair the receipt.
+    seen = set()
+    assert _new_verified_ui_prefix(result, seen) is False
+    assert seen == set()
+
+
+def test_applied_outcome_after_first_unverified_is_not_a_recovery_prefix():
+    result = produced_partial_result()
+    result["outcomes"].reverse()
+    assert _new_verified_ui_prefix(result, set()) is False
+
+
+def test_input_id_step_id_or_expectation_relabel_does_not_make_transition_new():
+    result = produced_partial_result()
+    seen = set()
+    assert _new_verified_ui_prefix(result, seen) is True
+    renamed = copy.deepcopy(result)
+    action = renamed["outcomes"][0]["action"]
+    action.update(id="new-opaque-action", idempotency_key="new-opaque-key", description="New planner label")
+    action["expect"].append({"kind": "visible", "role": "textbox", "name": "Draft", "visible": True})
+    effect = renamed["outcomes"][0]["effect_receipt"]
+    effect.update(action_id=action["id"], idempotency_key=action["idempotency_key"],
+                  predicates_sha256=_digest(action["expect"]))
+    renamed["phase_handoff"]["verified_steps"] = [{"id": "renamed", "index": 0}]
+    assert _new_verified_ui_prefix(renamed, seen) is False
+    assert len(seen) == 1
+
+
+def test_capture_revision_changes_use_producer_base_semantic_revision_for_novelty():
+    result = produced_partial_result()
+    seen = set()
+    assert _new_verified_ui_prefix(result, seen) is True
+    framed = copy.deepcopy(result)
+    outcome = framed["outcomes"][0]
+    for direction in ("before", "after"):
+        snapshot = outcome[direction]
+        snapshot["base_semantic_revision"] = snapshot["revision"]
+        snapshot["revision"] = "capture-" + direction
+        outcome["effect_receipt"][direction + "_revision"] = snapshot["revision"]
+    outcome["action"]["revision"] = outcome["before"]["revision"]
+    assert _new_verified_ui_prefix(framed, seen) is False
+    assert len(seen) == 1
+
+
+class WindowCycleAdapter(Adapter):
+    def __init__(self):
+        super().__init__()
+        self.active = "left"
+
+    def observe(self):
+        self.timeline.append("observe")
+        return {"session_id": "session", "scope": {"id": self.active, "kind": "desktop"},
+                "revision": self.active, "nodes": [{"id": name, "generation": "1", "scope_id": name,
+                    "role": "window", "name": name, "visible": True, "enabled": True, "sensitive": False,
+                    "operations": ["switch_window"]} for name in ("left", "right")]}
+
+    def perform(self, action):
+        self.calls.append(copy.deepcopy(action))
+        self.active = action["node_id"]
+        return {"status": "dispatched"}
+
+
+def test_actual_window_ABABA_cycle_cannot_keep_buying_recovery_with_new_expectations():
+    plans = []
+    for index, target in enumerate(("right", "left", "right", "left", "right")):
+        expect = [{"kind": "active_window", "node_id": "$target"}]
+        expect += [{"kind": "visible", "role": "window", "name": target, "visible": True}] * index
+        plans.append({"kind": "ui", "steps": [
+            {"id": "switch" + str(index), "verb": "switch_window", "target": {"node_id": target},
+             "args": {}, "expect": expect},
+            {"id": "missing", "verb": "focus", "target": {"node_id": "missing"},
+             "args": {}, "expect": [{"kind": "focused", "node_id": "$target"}]}],
+            "final_predicates": [{"kind": "active_window", "node_id": target}]})
+    fixture = Fixture(plans + [{"kind": "complete", "message": "Cannot reach."}])
+    fixture.adapter = WindowCycleAdapter()
+    events = list(fixture.run())
+    assert len(fixture.adapter.calls) == len(fixture.packets) == 5
+    assert final(events)["portal"]["native_task"]["status"] == "blocked"
+    assert all(tool["ok"] is False for tool in completed_tools(events))
+    for tool in completed_tools(events):
+        result = json.loads(tool["result"])
+        assert result["phase_handoff"]["new_effect_count"] == 1
+        assert result["phase_handoff"]["goal_verified"] is False
+
+
+@pytest.mark.parametrize("late", ["cancel", "deadline"])
+def test_partial_recovery_never_dispatches_a_late_next_phase(late):
+    now = [0]
+    fixture = Fixture([partial_write_phase("Alpha"), partial_write_phase("Beta")], clock=lambda: now[0])
+    compile_phase = fixture.compile
+
+    def late_compile(packet):
+        if fixture.packets:
+            if late == "cancel":
+                fixture.cancelled.set()
+            else:
+                now[0] = 6
+        return compile_phase(packet)
+
+    fixture.compile = late_compile
+    events = list(fixture.run(max_seconds=5))
+    assert len(fixture.adapter.calls) == len(fixture.executions) == 1
+    assert final(events)["portal"]["native_task"]["status"] == ("cancelled" if late == "cancel" else "deadline_exceeded")
+
+
+def test_novel_partial_recovery_keeps_the_forty_phase_ceiling_and_no_task_verification():
+    fixture = Fixture([partial_write_phase("Draft " + str(index)) for index in range(40)])
+    events = list(fixture.run(max_phases=40))
+    assert len(fixture.adapter.calls) == len(fixture.packets) == 40
+    assert final(events)["portal"]["native_task"]["status"] == "phase_budget_exceeded"
+    assert final(events)["portal"]["native_task"]["task_verified"] is False
 
 
 def test_late_compiler_result_never_dispatches_and_phase_budget_cancels():

@@ -240,6 +240,16 @@ A completed phase does not verify the whole user goal. See the
 [long-horizon evaluation](computer-use-long-horizon-evaluation.md) for the live
 acceptance criteria and original task suite.
 
+The `native_task` compiler can also replan after a failed workflow whose
+verified prefix contains a new, dispatched and producer-bound applied effect.
+This is an execution-recovery allowance: the failed workflow, unresolved tail
+and whole-task verification status remain unchanged. Repeated semantic
+action/effect transitions do not earn another allowance through new action IDs
+or changed expectation wording. Three consecutive unsuccessful phases without
+such a new transition still stop the task; cancellation, the deadline and the
+40-phase ceiling remain in force. Existing successful knowledge phases keep
+their separate behavior.
+
 Foreground text API callers can explicitly select
 `portal_execution_profile:"native_task"` for mandatory phase compilation.
 The compiler receives the same canonical phase schema in its model context and
