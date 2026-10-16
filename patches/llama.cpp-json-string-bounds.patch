@@ -1,0 +1,178 @@
+diff --git a/common/json-schema-to-grammar.cpp b/common/json-schema-to-grammar.cpp
+index 95a7175..82e0cbf 100644
+--- a/common/json-schema-to-grammar.cpp
++++ b/common/json-schema-to-grammar.cpp
+@@ -449,6 +449,61 @@ private:
+         return string_join(rules, " | ");
+     }
+ 
++    std::string _build_string_rule(const json & schema, const std::string & name) {
++        if (!schema.contains("minLength") && !schema.contains("maxLength")) {
++            return _add_rule(name, _add_primitive("string", PRIMITIVE_RULES.at("string")));
++        }
++        int min_len = schema.contains("minLength") ? schema["minLength"].get<int>() : 0;
++        bool has_max = schema.contains("maxLength");
++        int max_len = has_max ? schema["maxLength"].get<int>() : std::numeric_limits<int>::max();
++        if (min_len < 0 || max_len < min_len) {
++            throw std::invalid_argument("Invalid string length bounds");
++        }
++        auto character = _add_primitive("char", PRIMITIVE_RULES.at("char"));
++        std::string repeated;
++        if (min_len < 2000 && (!has_max || max_len < 2000)) {
++            repeated = build_repetition(character, min_len, max_len);
++        } else {
++            // The pinned parser rejects an exact 2,000 repeat and silently
++            // treats larger maxima as unbounded. Compose the same finite
++            // language from named binary blocks, without large repetitions.
++            std::map<int, std::string> blocks{{1, character}};
++            std::function<std::string(int)> block = [&](int count) {
++                auto found = blocks.find(count);
++                if (found != blocks.end()) {
++                    return found->second;
++                }
++                auto half = block(count / 2);
++                return blocks[count] = _add_rule(name + "-count-" + std::to_string(count), half + " " + half);
++            };
++            std::function<std::string(int)> upto = [&](int count) -> std::string {
++                if (count == 0) {
++                    return "";
++                }
++                int power = 1;
++                while (power <= count / 2) {
++                    power *= 2;
++                }
++                auto lower = upto(power - 1);
++                if (count - power == power - 1) {
++                    return block(power) + "? " + lower;
++                }
++                return _add_rule(name + "-upto-" + std::to_string(count),
++                    lower + " | " + block(power) + " " + upto(count - power));
++            };
++            for (int remaining = min_len; remaining > 0;) {
++                int power = 1;
++                while (power <= remaining / 2) {
++                    power *= 2;
++                }
++                repeated += block(power) + " ";
++                remaining -= power;
++            }
++            repeated += has_max ? upto(max_len - min_len) : character + "*";
++        }
++        return _add_rule(name, "\"\\\"\" " + repeated + " \"\\\"\"");
++    }
++
+     // thrown when the pattern is a valid regex with no grammar equivalent
+     struct unsupported_pattern : public std::runtime_error {
+         using std::runtime_error::runtime_error;
+@@ -459,15 +514,16 @@ private:
+         using std::runtime_error::runtime_error;
+     };
+ 
+-    std::string _visit_pattern(const std::string & pattern, const std::string & name) {
++    std::string _visit_pattern(const json & schema, const std::string & name) {
++        auto pattern = schema["pattern"].get<std::string>();
+         auto rules_snapshot = _rules;
+         try {
+             return _pattern_to_rule(pattern, name);
+         } catch (const unsupported_pattern & err) {
+             // revert rules
+             _rules = std::move(rules_snapshot);
+-            _warnings.push_back("pattern " + pattern + " is not supported (" + err.what() + "), accepting any string");
+-            return _add_rule(name, _add_primitive("string", PRIMITIVE_RULES.at("string")));
++            _warnings.push_back("pattern " + pattern + " is not supported (" + err.what() + "), accepting JSON strings with explicit length bounds preserved");
++            return _build_string_rule(schema, name);
+         } catch (const invalid_pattern & err) {
+             _rules = std::move(rules_snapshot);
+             _errors.push_back("Invalid pattern " + pattern + ": " + err.what());
+@@ -1114,7 +1170,7 @@ public:
+             return _add_rule(rule_name, "\"[\" space " + build_repetition(item_rule_name, min_items, max_items, "\",\" space") + " space \"]\"");
+         }
+         if ((schema_type.is_null() || schema_type == "string") && schema.contains("pattern")) {
+-            return _visit_pattern(schema["pattern"], rule_name);
++            return _visit_pattern(schema, rule_name);
+         }
+         if ((schema_type.is_null() || schema_type == "string") && std::regex_match(schema_format, std::regex("^uuid[1-5]?$"))) {
+             return _add_primitive(rule_name == "root" ? "root" : schema_format, PRIMITIVE_RULES.at("uuid"));
+@@ -1124,10 +1180,7 @@ public:
+             return _add_rule(rule_name, _add_primitive(prim_name, STRING_FORMAT_RULES.at(prim_name)));
+         }
+         if (schema_type == "string" && (schema.contains("minLength") || schema.contains("maxLength"))) {
+-            std::string char_rule = _add_primitive("char", PRIMITIVE_RULES.at("char"));
+-            int min_len = schema.contains("minLength") ? schema["minLength"].get<int>() : 0;
+-            int max_len = schema.contains("maxLength") ? schema["maxLength"].get<int>() : std::numeric_limits<int>::max();
+-            return _add_rule(rule_name, "\"\\\"\" " + build_repetition(char_rule, min_len, max_len) + " \"\\\"\"");
++            return _build_string_rule(schema, rule_name);
+         }
+         if (schema_type == "integer" && (schema.contains("minimum") || schema.contains("exclusiveMinimum") || schema.contains("maximum") || schema.contains("exclusiveMaximum"))) {
+             int64_t min_value = std::numeric_limits<int64_t>::min();
+diff --git a/tests/test-json-schema-to-grammar.cpp b/tests/test-json-schema-to-grammar.cpp
+index db16d57..7e203f6 100755
+--- a/tests/test-json-schema-to-grammar.cpp
++++ b/tests/test-json-schema-to-grammar.cpp
+@@ -1454,6 +1454,57 @@ string ::= "\"" char* "\""
+     });
+ }
+ 
++static std::pair<bool, bool> accepts_json(const std::string & grammar, const std::string & text);
++
++static void test_json_string_bounds() {
++    for (int maximum : {1999, 2000, 2048, 4096}) {
++        for (int minimum : {0, 1, maximum}) {
++            auto schema = common_json{{"type", "string"}, {"minLength", minimum}, {"maxLength", maximum}};
++            for (bool pattern : {false, true}) {
++                if (pattern) {
++                    schema["pattern"] = R"(^[^\u0000]+$)";
++                }
++                auto grammar = json_schema_to_grammar(schema, true);
++                for (int length : {0, 1, maximum - 1, maximum, maximum + 1}) {
++                    bool expected = length >= minimum && length <= maximum;
++                    auto text = common_json(std::string(length, 'a')).dump();
++                    assert(accepts_json(grammar, text).second == expected);
++                }
++            }
++        }
++    }
++    for (const auto & unit : {std::string("\\\""), std::string("\\\\"), std::string("\\u00e9"), std::string("😀")}) {
++        auto grammar = json_schema_to_grammar(common_json{{"type", "string"}, {"minLength", 1},
++            {"maxLength", 2048}, {"pattern", R"(^[^\u0000]+$)"}}, true);
++        for (int length : {1, 2047, 2048, 2049}) {
++            std::string text = "\"";
++            for (int i = 0; i < length; ++i) {
++                text += unit;
++            }
++            text += "\"";
++            assert(accepts_json(grammar, text).second == (length <= 2048));
++        }
++    }
++    // Existing JSON char units count surrogate escapes separately. This may
++    // reject valid paired-escape encodings conservatively; never over-admit an
++    // upper bound or claim all equivalent Unicode encodings are accepted.
++    auto conservative = json_schema_to_grammar(common_json{{"type", "string"}, {"minLength", 1},
++        {"maxLength", 2048}, {"pattern", R"(^[^\u0000]+$)"}}, true);
++    std::string paired = "\"";
++    for (int i = 0; i < 2048; ++i) {
++        paired += R"(\ud83d\ude00)";
++    }
++    paired += "\"";
++    assert(!accepts_json(conservative, paired).second);
++    // For decoded minima > 1 the same existing unit behavior can over-admit
++    // too-short paired-escape strings. Full host validation remains required.
++    auto lower = json_schema_to_grammar(common_json{{"type", "string"},
++        {"minLength", 2}, {"maxLength", 2}}, true);
++    assert(accepts_json(lower, R"("\ud83d\ude00")").second);
++
++    fprintf(stderr, "JSON string bound native controls passed\n");
++}
++
+ static void test_resolves_to_string() {
+     fprintf(stderr, "#\n# Testing resolves_to_string\n#\n");
+ 
+@@ -1710,6 +1761,8 @@ int main() {
+         });
+     }
+ 
++    test_json_string_bounds();
++
+     if (getenv("LLAMA_SKIP_TESTS_SLOW_ON_EMULATOR")) {
+         fprintf(stderr, "\033[33mWARNING: Skipping slow tests on emulator.\n\033[0m");
+     } else {

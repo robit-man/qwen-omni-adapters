@@ -579,6 +579,22 @@ expectations; the Python/JavaScript converters are unchanged. Adoption requires 
 new native common library and a supported worker restart; reloading the Python
 portal cannot change the resident decoder.
 
+The separate incremental `llama.cpp-json-string-bounds.patch` retains explicit
+`minLength`/`maxLength` when an unsupported regex falls back to JSON strings.
+It also composes large string lengths from named binary character blocks: the
+pinned parser rejects an exact 2,000 repeat and silently removes larger maxima.
+Public limits, including 2,048 characters for `type_text`, remain unchanged; the
+host still validates every compiled step before dispatch. Existing JSON grammar
+character units count escaped UTF-16 surrogate halves separately, so equivalent
+paired-escape spellings can be rejected conservatively at an upper bound.
+For decoded minima greater than one, the same existing unit behavior can also
+admit decoded strings that are too short; the full host validator rejects them.
+The canonical `type_text` minimum is one. Escaped quotes,
+backslashes, BMP Unicode escapes and raw astral Unicode retain the tested bounds;
+this is not a claim that every equivalent Unicode encoding is accepted.
+The structural patch remains independent so already patched installations can
+apply the length correction through the normal native builders.
+
 ## Response and observability
 
 The response keeps Ollama's normal fields and adds an `adapter` trace and, when
