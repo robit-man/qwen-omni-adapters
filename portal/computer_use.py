@@ -188,7 +188,9 @@ def _effect_result(outcome: dict[str, Any], settled: set[str] | None = None) -> 
     before, after = outcome.get("before", {}), outcome.get("after", {})
     state = after or before
     dispatched = outcome.get("receipt", {}).get("status") == "dispatched"
-    changed = bool(dispatched and after and before.get("revision") != after.get("revision"))
+    before_semantic = before.get("base_semantic_revision", before.get("revision"))
+    after_semantic = after.get("base_semantic_revision", after.get("revision"))
+    changed = bool(dispatched and after and before_semantic != after_semantic)
     applied = outcome.get("status") == "verified" and changed
     effect = "applied" if applied else "unknown" if dispatched and outcome.get("status") != "verified" else "unchanged" if dispatched else "absent"
     key = action.get("idempotency_key")
@@ -201,6 +203,7 @@ def _effect_result(outcome: dict[str, Any], settled: set[str] | None = None) -> 
                   "schema": "robit.omni.ui-effect-receipt.v1", "effect_state": effect,
                   "action_id": action.get("id"), "idempotency_key": action.get("idempotency_key"),
                   "before_revision": before.get("revision"), "after_revision": after.get("revision"),
+                  "before_semantic_revision": before_semantic, "after_semantic_revision": after_semantic,
                   "predicates_sha256": _digest(action.get("expect", [])), "environment_may_have_changed": dispatched}}
     if action.get("kind") == "action" and outcome.get("status") != "verified":
         result["error"] = "ui_effect_unverified"
@@ -291,14 +294,16 @@ class ComputerUseStore:
             key = (session_id, surface)
             owned = self._sessions.get(key)
             if owned is None:
+                cancellation = threading.Event()
                 adapter = (self.adapter_factory(session_id, surface) if self.adapter_factory else
                            BrowserUiAdapter(self.browser, session_id) if surface == "browser" else
-                           NativeUiAdapter(session_id, pointing_url=getattr(self.browser, "pointing_url", None)))
+                           NativeUiAdapter(session_id, pointing_url=getattr(self.browser, "pointing_url", None),
+                                           cancelled=cancellation.is_set))
                 # This host entry is reachable only through the existing explicit
                 # tool opt-in/authenticated execution path. The model may select
                 # an immutable offered candidate; it cannot supply authorization.
                 controller = RapidUiController(adapter, authorize=lambda action, state: True)
-                owned = _OwnedController(controller, adapter)
+                owned = _OwnedController(controller, adapter, cancel=cancellation)
                 self._sessions[key] = owned
             owned.last_seen = now
             return owned

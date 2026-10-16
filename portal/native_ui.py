@@ -30,6 +30,7 @@ from urllib.parse import urlsplit
 _PROTOCOL = "robit.omni.native-ui.v1"
 _NATIVE_LOCK = threading.RLock()
 _POINTER_VERBS = {"click", "double_click", "right_click", "drag_drop", "scroll"}
+_VISUAL_POINTER_VERBS = {"click", "double_click", "right_click"}
 _OPERATIONS = {"invoke", "focus", "set_value", "set_checked", "select", "key_chord",
                "select_text", "switch_window", "type_text", *_POINTER_VERBS}
 _MAX_REPLY_BYTES = 2 * 1024 * 1024
@@ -146,6 +147,7 @@ class NativeUiAdapter:
         pointing_model: str | None = None,
         pointing_revision: str | None = None,
         pointing_timeout_s: float = 60,
+        cancelled: Callable[[], bool] | None = None,
     ) -> None:
         if not isinstance(session_id, str) or not session_id or len(session_id) > 200:
             raise ValueError("A bounded native session ID is required")
@@ -173,6 +175,55 @@ class NativeUiAdapter:
         self._step: dict[str, Any] | None = None
         self._visual: dict[str, Any] | None = None
         self.point_receipt: dict[str, Any] | None = None
+        if cancelled is not None and not callable(cancelled):
+            raise ValueError("Native cancellation must be a host callable")
+        self._cancelled = cancelled
+
+    def _check_cancelled(self) -> None:
+        if self._closed:
+            raise NativeUiUnavailable("native_session_closed")
+        if self._cancelled is not None and self._cancelled():
+            raise NativeUiUnavailable("native_operation_cancelled", "Native operation cancelled")
+
+    def _probe_pointer(self, state: Mapping[str, Any], node: Mapping[str, Any], verb: str) -> dict[str, Any]:
+        self._check_cancelled()
+        if (not node.get("visible") or not node.get("enabled") or node.get("sensitive")
+                or verb not in node.get("operations", []) or not node.get("bounds")):
+            raise NativeUiUnavailable("native_pointer_probe_ineligible")
+        binding = {"session_id": self.session_id, "revision": state["revision"], "scope_id": state["scope"]["id"],
+                   "node_id": node["id"], "generation": node["generation"], "verb": verb, "bounds": node["bounds"]}
+        result = self._request({"op": "probe_pointer", "binding": copy.deepcopy(binding)})
+        fields = {"schema", "status", "reason", "complete", "input_attempted", "binding", "identity",
+                  "process_start", "geometry", "coordinate_binding", "point"}
+        if (not isinstance(result, dict) or set(result) != fields or result.get("schema") != "robit.omni.native-pointer-probe.v1"
+                or result.get("binding") != binding or result.get("input_attempted") is not False
+                or not isinstance(result.get("status"), str) or result["status"] not in {"target_proven", "blocked", "provider_unknown"}
+                or type(result.get("complete")) is not bool
+                or not isinstance(result.get("reason"), str)):
+            raise NativeUiUnavailable("native_pointer_probe_protocol_error")
+        self._check_cancelled()
+        if result["status"] == "blocked" or not result["complete"]:
+            raise NativeUiUnavailable("native_pointer_probe_unavailable", result["reason"])
+        identity, geometry = result["identity"], result["geometry"]
+        if (result["reason"] not in ({"native_hit_target"} if result["status"] == "target_proven" else
+                                     {"native_hit_null", "native_hit_interface_unavailable"})
+                or not isinstance(identity, dict) or set(identity) != {"window_id", "process_id"}
+                or identity["window_id"] != state["scope"].get("window_id")
+                or type(identity["process_id"]) is not int or identity["process_id"] <= 0
+                or not isinstance(result["process_start"], str) or not result["process_start"].isascii()
+                or not result["process_start"].isdecimal()
+                or not isinstance(geometry, dict) or set(geometry) != {"x", "y", "width", "height"}
+                or any(type(value) is not int for value in geometry.values())
+                or min(geometry["width"], geometry["height"]) <= 0
+                or result["coordinate_binding"] != state.get("coordinate_binding")
+                or result["point"] != {"x": node["bounds"]["x"] + node["bounds"]["width"] // 2,
+                                       "y": node["bounds"]["y"] + node["bounds"]["height"] // 2}):
+            raise NativeUiUnavailable("native_pointer_probe_protocol_error")
+        return result
+
+    @staticmethod
+    def _visual_key(capture: Mapping[str, Any], probe: Mapping[str, Any] | None) -> str:
+        return hashlib.sha256(json.dumps([capture["key"], probe], sort_keys=True).encode()).hexdigest() if probe else capture["key"]
 
     def _request(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         if self._closed:
@@ -238,30 +289,51 @@ class NativeUiAdapter:
 
     def observe(self) -> dict[str, Any]:
         with _NATIVE_LOCK:
+            self._check_cancelled()
             state = self._semantic_observe()
             step = self._step
             if not step or step["verb"] not in {"invoke", "click", "double_click", "right_click"} or not self.pointing_url:
                 return state
             target = step["target"]
-            if target.get("node_id") or not target.get("name") or target.get("scope_id", state["scope"]["id"]) != state["scope"]["id"]:
+            if target.get("scope_id", state["scope"]["id"]) != state["scope"]["id"]:
                 return state
             matching = [node for node in state["nodes"] if all(
                 node.get("id" if key == "node_id" else key) == value for key, value in target.items())]
+            known, probe = None, None
             if matching:
-                # A disabled/hidden/protected semantic target cannot be bypassed by pixels.
-                self._visual = None
+                # Count every exact match before eligibility; pixels cannot erase
+                # ambiguity or a hidden/disabled/protected semantic identity.
+                if (state.get("truncated") is True or len(matching) != 1 or step["verb"] not in _VISUAL_POINTER_VERBS
+                        or not matching[0]["visible"] or not matching[0]["enabled"] or matching[0]["sensitive"]
+                        or step["verb"] not in matching[0]["operations"] or not matching[0].get("bounds")
+                        or not matching[0].get("name")):
+                    self._visual, self.point_receipt = None, None
+                    return state
+                known = matching[0]
+                probe = self._probe_pointer(state, known, step["verb"])
+                if probe["status"] == "target_proven":
+                    self._visual, self.point_receipt = None, None
+                    return state
+            elif target.get("node_id") or not target.get("name"):
                 return state
-            if len(target["name"]) > 240:
+            referent = known["name"] if known else target["name"]
+            if len(referent) > 240:
                 raise NativeUiUnavailable("native_visual_target_too_long")
             capture = self._visual_capture(state)
-            if self._visual and self._visual["key"] == capture["key"]:
+            if probe and (probe["identity"] != capture["identity"] or probe["process_start"] != capture["process_start"]
+                          or probe["geometry"] != capture["geometry"]):
+                raise NativeUiUnavailable("native_pointer_probe_capture_changed")
+            key = self._visual_key(capture, probe)
+            if self._visual and self._visual["key"] == key:
                 return copy.deepcopy(self._visual["state"])
             self._visual, self.point_receipt = None, None
             import httpx
 
+            self._check_cancelled()
             response = httpx.post(self.pointing_url + "/point", json={
-                "image": base64.b64encode(capture["image"]).decode(), "target": target["name"],
+                "image": base64.b64encode(capture["image"]).decode(), "target": referent,
             }, timeout=self.pointing_timeout_s)
+            self._check_cancelled()
             response.raise_for_status()
             if len(response.content) > 65536:
                 raise NativeUiUnavailable("native_point_reply_too_large")
@@ -270,6 +342,8 @@ class NativeUiAdapter:
                 raise NativeUiUnavailable("native_point_model_identity_changed")
             points = result.get("points")
             if not isinstance(points, list) or len(points) != 1 or not isinstance(points[0], dict):
+                if known:
+                    raise NativeUiUnavailable("native_point_target_unresolved")
                 return state
             point = points[0]
             if any(type(point.get(key)) not in (int, float) or not 0 <= point[key] < 1 for key in ("x", "y")):
@@ -277,18 +351,23 @@ class NativeUiAdapter:
             image_geometry = capture["image_geometry"]
             position = (image_geometry["x"] + int(point["x"] * image_geometry["width"]),
                         image_geometry["y"] + int(point["y"] * image_geometry["height"]))
+            if known and not (known["bounds"]["x"] <= position[0] < known["bounds"]["x"] + known["bounds"]["width"]
+                              and known["bounds"]["y"] <= position[1] < known["bounds"]["y"] + known["bounds"]["height"]):
+                raise NativeUiUnavailable("native_point_outside_bound_target")
             if any(node.get("sensitive") and node.get("bounds") and
                    node["bounds"]["x"] <= position[0] < node["bounds"]["x"] + node["bounds"]["width"] and
                    node["bounds"]["y"] <= position[1] < node["bounds"]["y"] + node["bounds"]["height"]
                    for node in state["nodes"]):
                 raise NativeUiUnavailable("native_visual_point_over_protected_control")
-            node_id = "visual:" + hashlib.sha256((capture["key"] + json.dumps(target, sort_keys=True)).encode()).hexdigest()
-            synthetic = {"id": node_id, "generation": capture["sha256"], "scope_id": state["scope"]["id"],
+            node_id = known["id"] if known else "visual:" + hashlib.sha256((key + json.dumps(target, sort_keys=True)).encode()).hexdigest()
+            synthetic = copy.deepcopy(known) if known else {"id": node_id, "generation": capture["sha256"], "scope_id": state["scope"]["id"],
                          "role": target.get("role", "button"), "name": target["name"],
                          "visible": True, "enabled": True, "sensitive": False, "operations": [step["verb"]]}
             grounded = copy.deepcopy(state)
-            grounded["nodes"].append(synthetic)
-            grounded["revision"] = hashlib.sha256((state["revision"] + node_id).encode()).hexdigest()
+            if not known:
+                grounded["nodes"].append(synthetic)
+            grounded["base_semantic_revision"] = state["revision"]
+            grounded["revision"] = hashlib.sha256(json.dumps([state["revision"], node_id, key, step], sort_keys=True).encode()).hexdigest()
             self.point_receipt = {"schema": "robit.omni.native-point.v1", "model": self.pointing_model,
                 "revision": self.pointing_revision, "frame_sha256": capture["sha256"],
                 "semantic_revision": state["revision"], "candidate_id": node_id,
@@ -296,8 +375,12 @@ class NativeUiAdapter:
                 "identity": dict(capture["identity"]), "process_start": capture["process_start"],
                 "capture_source": capture["capture_source"], "capture_root": copy.deepcopy(capture["capture_root"]),
                 "image_geometry": dict(image_geometry), "pixel_offset": dict(capture["pixel_offset"])}
-            self._visual = {"key": capture["key"], "state": grounded, "capture": capture,
-                            "node": synthetic, "point": position, "receipt": copy.deepcopy(self.point_receipt)}
+            if known:
+                self.point_receipt["native_probe"] = copy.deepcopy(probe)
+                self.point_receipt["semantic_target"] = {name: copy.deepcopy(known[name]) for name in
+                                                       ("id", "generation", "scope_id", "bounds")}
+            self._visual = {"key": key, "state": grounded, "capture": capture, "probe": probe, "step": copy.deepcopy(step),
+                            "verb": step["verb"], "node": synthetic, "point": position, "receipt": copy.deepcopy(self.point_receipt)}
             return grounded
 
     def prepare_step(self, step: Mapping[str, Any]) -> None:
@@ -312,27 +395,41 @@ class NativeUiAdapter:
 
     def perform(self, action: Mapping[str, Any]) -> dict[str, Any]:
         with _NATIVE_LOCK:
+            self._check_cancelled()
             if action.get("kind", "action") != "action" or action.get("verb") not in _OPERATIONS:
                 return {"status": "rejected", "reason": "native_operation_unsupported"}
             if not _valid_arguments(action.get("verb"), action.get("args", {})):
                 return {"status": "rejected", "reason": "invalid_native_arguments"}
-            if str(action.get("node_id", "")).startswith("visual:"):
-                visual = self._visual
+            visual = self._visual
+            if str(action.get("node_id", "")).startswith("visual:") or visual and action.get("node_id") == visual["node"]["id"]:
                 if (not visual or action.get("session_id") != self.session_id
                         or action.get("node_id") != visual["node"]["id"]
                         or action.get("generation") != visual["node"]["generation"]
                         or action.get("revision") != visual["state"]["revision"]
                         or action.get("scope_id") != visual["state"]["scope"]["id"]
-                        or action.get("verb") not in visual["node"]["operations"]):
+                        or action.get("verb") != visual["verb"] or action.get("args", {}) != visual["step"]["args"]):
                     return {"status": "rejected", "reason": "native_visual_candidate_stale"}
                 try:
-                    fresh = self._visual_capture(self._semantic_observe())
-                    if fresh["key"] != visual["key"]:
+                    state = self._semantic_observe()
+                    probe = None
+                    if visual["probe"]:
+                        matches = [node for node in state["nodes"] if all(
+                            node.get("id" if name == "node_id" else name) == value for name, value in visual["step"]["target"].items())]
+                        if len(matches) != 1:
+                            return {"status": "rejected", "reason": "native_visual_target_changed"}
+                        probe = self._probe_pointer(state, matches[0], visual["verb"])
+                    fresh = self._visual_capture(state)
+                    if self._visual_key(fresh, probe) != visual["key"]:
                         return {"status": "rejected", "reason": "native_visual_frame_changed"}
+                    self._check_cancelled()
                     result = _pointer_dispatch(fresh["identity"], fresh["geometry"], visual["point"],
                         "click" if action["verb"] == "invoke" else action["verb"], environment=fresh["environment"])
                     result["point_receipt"] = copy.deepcopy(self.point_receipt)
                     return result
+                except NativeUiUnavailable as exc:
+                    if exc.code == "native_observation_budget_exceeded":
+                        raise
+                    return {"status": "rejected", "reason": exc.code}
                 finally:
                     self._visual, self._step = None, None
             result = self._request({"op": "perform", "action": dict(action)})
@@ -891,46 +988,126 @@ class _AtspiBridge:
         return None
 
     def _hit(self, node: Any, point: tuple[int, int], window: Any) -> bool:
+        return self._hit_evidence(node, point, window)["status"] == "target_proven"
+
+    def _hit_evidence(self, node: Any, point: tuple[int, int], window: Any) -> dict[str, Any]:
+        """Native proof only: NULL is unknown, never permission or occlusion proof."""
+        def result(status: str, reason: str, complete: bool = True) -> dict[str, Any]:
+            return {"status": status, "reason": reason, "complete": complete}
+
         space = self.atspi.CoordType.SCREEN
         if self._coordinate_binding:
             origin = self._coordinate_binding["content"]
             point, space = (point[0] - origin["x"], point[1] - origin["y"]), self.atspi.CoordType.WINDOW
         component = self._read(window.get_component_iface)
         if not hasattr(component, "get_accessible_at_point"):
-            return False
+            return result("provider_unknown", "native_hit_interface_unavailable")
         hit = self._read(lambda: component.get_accessible_at_point(*point, space))
         wanted = self._read(lambda: (node.app.bus_name, node.path))
+        window_identity = self._read(lambda: (window.app.bus_name, window.path))
         visited = set()
         for _ in range(32):
             if hit is None:
-                return False
+                return result("provider_unknown", "native_hit_null")
             identity = self._read(lambda current=hit: (current.app.bus_name, current.path))
             if identity in visited:
-                return False
+                return result("provider_unknown", "native_hit_cycle", False)
             visited.add(identity)
+            self._clear_cache(hit)
+            hit_state = self._read(hit.get_state_set)
+            if hit_state.contains(self.atspi.StateType.DEFUNCT) or not all(hit_state.contains(value) for value in (
+                self.atspi.StateType.VISIBLE, self.atspi.StateType.SHOWING,
+            )):
+                return result("provider_unknown", "native_hit_unavailable", False)
             ancestor = hit
+            ancestry, roles = set(), set()
             for _ in range(32):
                 if ancestor is None:
                     break
-                if self._read(ancestor.get_role_name) == "password text":
-                    return False
-                if self._read(lambda current=ancestor: (current.app.bus_name, current.path)) == wanted:
-                    return True
+                role = self._read(ancestor.get_role_name)
+                current = self._read(lambda current=ancestor: (current.app.bus_name, current.path))
+                if role == "password text":
+                    return result("blocked", "native_hit_protected")
+                if current in ancestry:
+                    return result("provider_unknown", "native_hit_ancestry_cycle", False)
+                ancestry.add(current)
+                roles.add(role)
+                if current == window_identity:
+                    break
+                if role in {"frame", "dialog", "window", "alert", "file chooser"}:
+                    # A role alone does not prove a foreign XID/PID mapping.
+                    return result("provider_unknown", "native_hit_foreign_ancestry_unbound", False)
                 parent = self._read(ancestor.get_parent)
                 if parent is ancestor:
-                    break
+                    return result("provider_unknown", "native_hit_ancestry_cycle", False)
                 ancestor = parent
+            else:
+                return result("provider_unknown", "native_hit_ancestry_limit", False)
+            if window_identity not in ancestry:
+                return result("provider_unknown", "native_hit_ancestry_unbound", False)
+            if wanted in ancestry:
+                return result("target_proven", "native_hit_target")
             # AT-SPI returns an immediate hit child on GTK containers. Descend
             # each hit-tested Component rather than treating an ancestor as an
             # occluding sibling or accepting geometry without a native hit.
             if "Component" not in self._read(hit.get_interfaces):
-                return False
+                return result("provider_unknown", "native_hit_interface_unavailable")
             component = self._read(hit.get_component_iface)
             if not hasattr(component, "get_accessible_at_point"):
-                return False
+                return result("provider_unknown", "native_hit_interface_unavailable")
             child = self._read(lambda current=component: current.get_accessible_at_point(*point, space))
+            if child is None and roles.intersection({"push button", "toggle button", "check box", "radio button",
+                                                     "entry", "combo box", "menu item", "table cell", "list item"}):
+                return result("blocked", "native_hit_other_control")
             hit = child if child is not None else self._selected_page(hit, node)
-        return False
+        return result("provider_unknown", "native_hit_depth_limit", False)
+
+    def probe_pointer(self, binding: Mapping[str, Any]) -> dict[str, Any]:
+        """Closed read-only pre-selection proof; no coordinates come from a model."""
+        fields = {"session_id", "revision", "scope_id", "node_id", "generation", "verb", "bounds"}
+        if (not isinstance(binding, dict) or set(binding) != fields
+                or any(not isinstance(binding.get(key), str) or not 0 < len(binding[key]) <= 512 for key in fields - {"bounds"})
+                or binding["verb"] not in _VISUAL_POINTER_VERBS):
+            raise NativeUiUnavailable("native_pointer_probe_invalid")
+        bounds = binding["bounds"]
+        if (not isinstance(bounds, dict) or set(bounds) != {"x", "y", "width", "height"}
+                or any(type(value) is not int or abs(value) > 1_000_000 for value in bounds.values())
+                or min(bounds["width"], bounds["height"]) <= 0):
+            raise NativeUiUnavailable("native_pointer_probe_invalid")
+        before = self.observe()
+        record = self.handles.get(binding["node_id"])
+        if (binding["session_id"] != self.session_id or binding["revision"] != before["revision"]
+                or binding["scope_id"] != before["scope"]["id"] or record is None):
+            raise NativeUiUnavailable("native_pointer_probe_stale")
+        node, item, _index = record
+        if (item["generation"] != binding["generation"] or item["scope_id"] != binding["scope_id"]
+                or not item["visible"] or not item["enabled"] or item["sensitive"]
+                or binding["verb"] not in item["operations"] or item.get("bounds") != bounds):
+            raise NativeUiUnavailable("native_pointer_probe_ineligible")
+        window = self.windows[binding["scope_id"]]
+        role = self._read(node.get_role_name)
+        identity = dict(self.foreground_identity)
+        start = self._read(lambda: _process_start(identity["process_id"]))
+        geometry = self._read(lambda: _x11_geometry(identity))
+        mapping = copy.deepcopy(self._coordinate_binding)
+        point = (bounds["x"] + bounds["width"] // 2, bounds["y"] + bounds["height"] // 2)
+        evidence = self._hit_evidence(node, point, window)
+        self._clear_cache(node)
+        self._clear_cache(window)
+        state = self._read(node.get_state_set)
+        if (self.foreground() != identity or self._read(lambda: _process_start(identity["process_id"])) != start
+                or self._read(lambda: _x11_geometry(identity)) != geometry
+                or self._coordinate_for(window) != mapping or self._rect(node) != bounds
+                or not self._read(window.get_state_set).contains(self.atspi.StateType.ACTIVE)
+                or not all(state.contains(value) for value in (self.atspi.StateType.SENSITIVE,
+                                                              self.atspi.StateType.VISIBLE, self.atspi.StateType.SHOWING))
+                or state.contains(self.atspi.StateType.DEFUNCT) or self._read(node.get_role_name) != role
+                or role == "password text" or self._opaque(self._read(lambda: str(node.app.bus_name) + ":" + str(node.path))
+                                                           + ":" + binding["generation"]) != binding["node_id"]):
+            raise NativeUiUnavailable("native_pointer_probe_changed")
+        return {"schema": "robit.omni.native-pointer-probe.v1", **evidence, "input_attempted": False,
+                "binding": copy.deepcopy(binding), "identity": identity, "process_start": start,
+                "geometry": geometry, "coordinate_binding": mapping, "point": {"x": point[0], "y": point[1]}}
 
     def _pointer(self, action: Mapping[str, Any], node: Any, item: Mapping[str, Any], window: Any) -> dict[str, Any]:
         binding = self._coordinate_binding
@@ -1608,6 +1785,8 @@ def _bridge_main() -> None:
                                         window_target=request.get("window_target"))
             elif request.get("op") == "perform" and isinstance(request.get("action"), dict):
                 result = bridge.perform(request["action"])
+            elif request.get("op") == "probe_pointer" and isinstance(request.get("binding"), dict):
+                result = bridge.probe_pointer(request["binding"])
             else:
                 raise NativeUiUnavailable("native_operation_unsupported")
             response = {"schema": _PROTOCOL, "id": request_id, "ok": True, "result": result}

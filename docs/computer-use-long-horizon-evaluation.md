@@ -312,6 +312,22 @@ There were zero hit queries, inputs or model calls, and the owned window closed.
 This verifies capture geometry only. The Files native-hit fault and whole-task
 completion remain unresolved; the suite denominator is unchanged.
 
+One subsequent read-only Files diagnostic tested nine native-derived points
+inside the same eligible Input cell. Every native hit reached the same panel
+and then NULL. The target, mapping and ownership remained stable; the snapshot
+contained 252 nodes without truncation, and the unchanged read epoch ended at
+6,173 of 12,000 reads. No input or model call occurred, and the owned window
+closed. This establishes unresolved native targeting, rather than physical
+occlusion. Evidence is under
+`runtime-data/gpu1-acceptance/files-native-hit-points-20261016T030415Z/`.
+
+The resulting pre-selection handoff preserves the semantic handle and delegates
+only an eligible requested pointer capability to pinned Moondream. Incomplete,
+protected, stale or ambiguous evidence withholds that route. Grounding metadata
+is excluded from semantic mutation counts. Both defects reproduced before the
+patch; 355 focused checks and the full 2,568-check source gate passed afterward.
+Live model-driven acceptance remains pending a new, unchanged-task cohort.
+
 These are original task specifications, inspired by the cited challenge
 families. Input fixtures and application/oracle readiness must be recorded
 before execution; a specification is not a runnable or passed test. Do not give

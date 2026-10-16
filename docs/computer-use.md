@@ -75,10 +75,31 @@ the full surface geometry guard. This follows ImageMagick 6's
 [root capture](https://raw.githubusercontent.com/ImageMagick/ImageMagick6/6.9.12-98/magick/xwindow.c)
 and [crop implementation](https://raw.githubusercontent.com/ImageMagick/ImageMagick6/6.9.12-98/magick/transform.c).
 
+For a known native control, physical `click`, `double_click` and `right_click`
+can delegate to the pinned point worker before candidate selection when the
+native center hit is unavailable. This requires one exact semantic match in an
+untruncated observation, current eligibility and bounds, and a complete private
+read-only probe bound to the original ID/generation, revision, scope, owner,
+process start and coordinate mapping. A native target hit keeps the ordinary
+native path. A protected or different-control hit blocks the handoff; generic
+panel-to-NULL evidence is provider-unknown, not proof of physical occlusion.
+Unbound ancestry, foreign-looking roles without an ownership proof, cycles,
+depth limits, stale evidence and read failures cannot authorize vision.
+
+The point must fall inside the same semantic control and captured image, away
+from protected controls. Its candidate keeps the semantic ID, generation,
+values and other capabilities; only the requested pointer verb uses the exact
+frame/probe-bound route. There is no duplicate synthetic control or private
+step rewrite. Dispatch repeats the bindings without another model call and
+never retries an uncertain input through another backend. Effects compare the
+base semantic revisions, so frame/probe metadata alone cannot count as a
+mutation. Whole-frame hashes remain exact: changing clocks, animations or other
+pixels in the captured rectangle can reject the action before input.
+
 Linux native controls use a fixed AT-SPI bridge and native action/editable-text/
 selection interfaces. Pointer and keyboard input use guarded native XTEST;
 the executor verifies foreground PID/window identity, absolute client geometry,
-native hit testing, and actual pointer position. It never retries an uncertain
+native hit proof or the bound visual route, and actual pointer position. It never retries an uncertain
 action using a different input backend. Missing accessibility or ambiguous foreground ownership
 is a capability failure. Windows UIA and the architecture's full
 alternative-model comparison matrix are outside this tested port.
