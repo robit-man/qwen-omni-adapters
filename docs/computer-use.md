@@ -431,6 +431,26 @@ added. The planner must inspect the new state before deciding the next input.
 Unique controls use deterministic resolution; ambiguous controls retain the
 existing finite-choice policy. Public workflows still require effect predicates.
 
+`OMNI_NATIVE_COMPACT_PLANNER=1` enables an experimental private planner interface
+when intent selection is active. The default remains the canonical planner.
+The compact interface sends short references, relevant control state and typed
+families instead of the full primitive-workflow schema. It preserves the exact
+goal, historical ledger, latest result, working state and omission metadata.
+The model still supplies an outcome assessment and unmet constraints. References
+are bound to the exact source packet; stale epochs, altered packets and unknown
+references reject before expansion. Expanded proposals must pass the original
+phase validator and all fresh executor guards. The host derives no goal success
+from a control reference, model assessment or completed text replacement.
+
+The experimental vocabulary covers pointer/activation, full text replacement,
+inactive-window switching, keyboard shortcuts, scrolling, named visual targets,
+visual reading and permitted session memory. It excludes no-op switching to the
+active window. It does not yet expose every legacy workflow operation or text
+editing mode. Its first live Ornith run verified four physical URL replacements
+but failed the original long task: no navigation was submitted and no deliverable
+was produced. See the [repair evidence](computer-use-reliability-evidence.json)
+and [durable experiment manifest](research/computer-use-decision-experiments-2026-10-17.manifest.json).
+
 With an actively configured local Kev policy, positive native pointer/activation
 controls instead use private `ui_subgoal`: an `id`, family
 `pointer_or_activation`, compact planner `objective` and semantic `target`.

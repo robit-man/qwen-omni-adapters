@@ -63,6 +63,7 @@ from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_lo
 logger = logging.getLogger(__name__)
 
 try:
+    from portal import ui_decision
     from portal.background_tasks import BackgroundTaskStore
     from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
     from portal.documents import DocumentError, SessionDocumentStore
@@ -86,6 +87,7 @@ try:
     from portal.ui_task import NativePhaseCompilationError, run_native_goal
     from portal.virtual_context import SessionVirtualContext
 except ModuleNotFoundError:  # Direct script execution from portal/.
+    import ui_decision
     from background_tasks import BackgroundTaskStore
     from deliveries import FileDeliveryError, SessionFileDeliveryStore
     from documents import DocumentError, SessionDocumentStore
@@ -2333,6 +2335,7 @@ def create_app(
         def compile_phase(packet):
             if stopped.is_set():
                 raise PortalError("Native task cancelled")
+            compact_binding = None
             system = (
                 "You are the Omni task planner in a layered native computer-use system. "
                 "Return exactly one JSON phase matching the supplied schema, without tools or code. "
@@ -2389,6 +2392,10 @@ def create_app(
                 "require commitment.objective. The host records the phase objective as the commitment. "
                 "A repeated historical receipt is not a new input or a freshly "
                 "measured obstruction. Existing phase actions and all executor guards remain unchanged.")
+            compact = intent_choice and os.environ.get("OMNI_NATIVE_COMPACT_PLANNER", "0") == "1"
+            if compact:
+                compact_packet, compact_binding = ui_decision.project(packet)
+                system = ui_decision.SYSTEM
             caller_policy = "\n\n".join(str(message.get("content") or "")
                 for message in raw_messages if isinstance(message, Mapping) and message.get("role") == "system")
             if caller_policy:
@@ -2397,6 +2404,8 @@ def create_app(
             # the planner must also see the canonical phase contract in context.
             planning_state = {key: value for key, value in packet.items()
                               if key != "remaining_seconds"}
+            if compact:
+                planning_state = compact_packet
             request_payload = {
                 "model": runtime.model, "stream": False, "think": payload.get("think", False),
                 "messages": [{"role": "system", "content": system},
@@ -2404,7 +2413,8 @@ def create_app(
                 "omni": {"schema": ADAPTER_SCHEMA, "task": "chat", "tool_routing": "client"},
                 "response_modalities": ["text"], "speech_mode": "never",
                 "response_format": {"type": "json_schema", "json_schema": {
-                    "name": "native_ui_phase", "schema": packet["response_schema"], "strict": True}},
+                    "name": "native_ui_phase", "schema": compact_packet["decision_schema"] if compact
+                    else packet["response_schema"], "strict": True}},
             }
             if isinstance(payload.get("options"), Mapping):
                 request_payload["options"] = copy.deepcopy(payload["options"])
@@ -2419,8 +2429,9 @@ def create_app(
             if not isinstance(message, Mapping) or not isinstance(message.get("content"), str):
                 raise PortalError("native phase planner returned no JSON content")
             try:
-                return json.loads(message["content"])
-            except json.JSONDecodeError:
+                result = json.loads(message["content"])
+                return ui_decision.expand(result, packet, compact_binding) if compact else result
+            except (json.JSONDecodeError, ui_decision.DecisionError):
                 # Leave the decoder exception (and its raw .doc) behind.
                 pass
             raise NativePhaseCompilationError()

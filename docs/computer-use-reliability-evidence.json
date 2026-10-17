@@ -271,6 +271,37 @@
         "focused.log": "9fcce73e834531098154ea2022611027a5c3349e89417dad5925d5d12fc4979e",
         "validation.log": "e7d9a18324ea78b7af2baed547c0df5a274a96884fac17a710300b6b6f9f9148"
       }
+    },
+    {
+      "cycle": "6b",
+      "criterion": "Compact typed planner reaches and executes the verified text-entry family on the native desktop",
+      "status": "LIVE_TEXT_REPLACEMENT_PASS_WHOLE_TASK_FAILED",
+      "pre_tests": 4076,
+      "post_tests": 4101,
+      "live": {
+        "criterion": "Compact typed planner reaches and executes the verified text-entry family on the native desktop",
+        "criterion_status": "PASS_COMPONENT_ONLY",
+        "whole_task_pass": false,
+        "case_root": "/tmp/qwen-compact-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-compact-20261017",
+        "elapsed_s": 75.72987854899839,
+        "phases": 8,
+        "text_entry_phases": 4,
+        "exact_text_replacements": 4,
+        "kev_calls": 3,
+        "owned_windows_closed": true,
+        "outcome": "Firefox switched; four text-entry phases physically wrote and independently verified URLs. No navigation submitted. Planner claimed pages had been captured while document remained about:blank; it later recognized this. Three pointer-policy calls selected click but abstained below the unchanged .95 threshold (0.6718, 0.7997, 0.7997). All requested artifacts absent.",
+        "production_default": "Compact planner remains opt-in; GPU workers and default portal were not restarted.",
+        "next_criteria": [
+          "Bind text preparation and submission as one explicit guarded reusable sequence, while retaining unknown post-submit effects until observed.",
+          "Evaluate finite-choice calibration separately; do not lower the threshold to make this trajectory pass.",
+          "Repair Egg .31 Unicode transport from the observed zero-keyval mapping fault."
+        ],
+        "post_tests": 4101,
+        "new_regressions": 25,
+        "native_grammar_cases_per_model": 9
+      },
+      "evidence_path": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017",
+      "evidence_index_sha256": "c09e36dc984235324bf978f7684b8129e0d2e263ad1b5e89ede1b5437501caec"
     }
   ]
 }

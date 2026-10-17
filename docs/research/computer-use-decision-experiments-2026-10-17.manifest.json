@@ -1,0 +1,286 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments",
+  "scope": "Actual loaded-model decisions, native desktop trial and isolated Egg XTEST diagnosis; no full-task pass",
+  "file_count": 46,
+  "total_bytes": 2134756,
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/after-comparison-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/after-comparison-notes.json",
+      "bytes": 4575,
+      "sha256": "eb6479c09781141716c6ba6280d19b87e7543632812c983a5ba73ff8f42fd59d"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/compact-results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/compact-results.json",
+      "bytes": 3423,
+      "sha256": "037f0e670b259485bd527c2dd088586de5ddcf008bbb2d84dbbbe015649a1ef1"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/compact.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/compact.py",
+      "bytes": 5767,
+      "sha256": "d43dd31fc4ffc8664c7a639b7f1bd54853de326013e707c755bc5b61ede34202"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/evaluate.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/evaluate.py",
+      "bytes": 5272,
+      "sha256": "997a3d0e9d7a406847f2ceccea26355f227cdc7525e8a7016fe3f8db16cde0de"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-location-compact-map.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-location-compact-map.json",
+      "bytes": 14490,
+      "sha256": "a114ab8f251260493ca6a244f819270282ba2dc99073a2b868080154f93a9e34"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-location-compact-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-location-compact-request.json",
+      "bytes": 24804,
+      "sha256": "2e6555d62ae193b60adedebd9a379a14bd3ccf8455bc4e50c30a6ffbdc828e4a"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-location-compact-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-location-compact-response.json",
+      "bytes": 819,
+      "sha256": "dc624401f6024bb1377fbef81c96b2cc51b2d9833dc71c27400e4ba7322d3009"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-location-current-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-location-current-request.json",
+      "bytes": 252232,
+      "sha256": "711fd268dd8699612f4e4f532f579a30c84e0c804cde8a4a985f474925377572"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-location-current-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-location-current-response.json",
+      "bytes": 3440,
+      "sha256": "8e2eb12c834277006b0daff985246bd6ddb4c8b049879b9f8ea74569c0ed80a5"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-location-delegated-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-location-delegated-request.json",
+      "bytes": 87520,
+      "sha256": "ad09e7da0f15267677aaff82a80e162fc9a66bddedffbd9bc921399b31d71ec9"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-location-delegated-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-location-delegated-response.json",
+      "bytes": 2265,
+      "sha256": "c4e4362be2f9ea436cff5691856bf4fa938545aa7b2991c8df7f672bcc3dc03a"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-root-compact-map.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-root-compact-map.json",
+      "bytes": 14283,
+      "sha256": "a1f1ff90eb4298fd51058dbc28c90954e012c0f45859439a1b11d7bba7f4b199"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-root-compact-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-root-compact-request.json",
+      "bytes": 16222,
+      "sha256": "2e0d170abe24c381f1c00b4b9338e7c63340b705efd8f4ad5e58d757b8773075"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-root-compact-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-root-compact-response.json",
+      "bytes": 899,
+      "sha256": "788d40248132e253371d57856fd8013ffe8a38c8ec0b603f7704d50c584cc1d0"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-root-current-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-root-current-request.json",
+      "bytes": 225612,
+      "sha256": "b71553a1cd40c52365247511915871d7c3da6de11ae60c82f0387b221e31bd38"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-root-current-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-root-current-response.json",
+      "bytes": 2432,
+      "sha256": "e0b6c5237ee2fd2da7bfde2ed9dcde540a4f8138fd61dd8c9aeff3e3c0b60436"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-root-delegated-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-root-delegated-request.json",
+      "bytes": 76650,
+      "sha256": "6b63febd076928f5f188b2dd4eb0800059baa0df43003fa04b67449853eb7124"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/files-root-delegated-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/files-root-delegated-response.json",
+      "bytes": 2104,
+      "sha256": "1f0e64dd60d5123b9a63f65242809181df0e8307160123e0b98d471a4494fd31"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/firefox-address-compact-map.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/firefox-address-compact-map.json",
+      "bytes": 14541,
+      "sha256": "4a6a8cccb8b256df4a1850da8003072be1e8675eb03a28f899e2e501504c3bed"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/firefox-address-compact-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/firefox-address-compact-request.json",
+      "bytes": 29547,
+      "sha256": "c7e48701e9bee977868811f22f12ea815e706e3427a2f4ca98cf57f7bf9a0ebd"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/firefox-address-compact-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/firefox-address-compact-response.json",
+      "bytes": 929,
+      "sha256": "35bd82735712e8208491140d705e80ad5e27315ba7962d9216e694ca6c348db1"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/firefox-address-current-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/firefox-address-current-request.json",
+      "bytes": 268318,
+      "sha256": "02986e8f2277635d764f44149e9ab679f8b2e0ebe044f420929a0a8818a61203"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/firefox-address-current-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/firefox-address-current-response.json",
+      "bytes": 3420,
+      "sha256": "1fc72f1e5626d3f703d4f30c8cfccf3cf4149554b09d48d977c49896d7bafecf"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/firefox-address-delegated-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/firefox-address-delegated-request.json",
+      "bytes": 97786,
+      "sha256": "cb38ef3e96b3ca3e649e32b0b62543146d74d4980c1c4241a0c90917bd17613a"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/firefox-address-delegated-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/firefox-address-delegated-response.json",
+      "bytes": 2409,
+      "sha256": "d0dc37154518c855eeea4fba4598467afc92d8ec72be086b16200b4616a9e8e1"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/decision-interface-cycle-20261017/results.json",
+      "bytes": 18176,
+      "sha256": "6c0f175db3f109f866d2a62bf66002d6a66485bd334731862527acd1aab70474"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/actual-imports.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/actual-imports.json",
+      "bytes": 1669,
+      "sha256": "f2082d05025049ba1e7f99282ecdf1f7d5571669a1461d323fe03e67c4f0a344"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/adapter-phase-responses.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/adapter-phase-responses.jsonl",
+      "bytes": 24134,
+      "sha256": "2b0da72b7dbebb2cbd381c4ac2f3abe86c30d3f313711d2c036c6cce5f24d1f7"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/adapter-planner-packets.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/adapter-planner-packets.jsonl",
+      "bytes": 252239,
+      "sha256": "9f30292538f7590e4ff8e79bd840d406fc895562310e68d7ec651854bbb90778"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/after-test-notes.json",
+      "bytes": 1418,
+      "sha256": "49a717afdf34f999365b99df31c3bdc52efd2c4968b3cfc77df8a21182ed0149"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/decisions.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/decisions.py",
+      "bytes": 3110,
+      "sha256": "80c6892e1e805f1d29ccd6054304694d5cf9e3534fba273b9677b5d465999ad9"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/files-location-packet.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/files-location-packet.json",
+      "bytes": 180417,
+      "sha256": "16d5006e6642efb67c5d43f902b600e3ffcc5f618a6a419bce3fe4a34f624a3a"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/files-location-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/files-location-request.json",
+      "bytes": 36299,
+      "sha256": "63d1b24f2a73f9caa99f62f81b7bd40cb6a4556873b4db7bb6d69fab1ca675c4"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/files-location-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/files-location-response.json",
+      "bytes": 2268,
+      "sha256": "9e91639e0c130f010d3840b3662f280c34cae1d86df3242ff534a6e001d67b3b"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/files-root-packet.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/files-root-packet.json",
+      "bytes": 158008,
+      "sha256": "bb0475ecb046f78bcd9c6aec156043abcd9e83c4a3167476a02f5a23d8ddffb0"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/files-root-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/files-root-request.json",
+      "bytes": 27417,
+      "sha256": "03e51abfc123e67aae83ea2dd944bfc1ea661e80c638f28baeb9e1ad34a6113a"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/files-root-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/files-root-response.json",
+      "bytes": 2028,
+      "sha256": "8f06a7fa2af4559a8354399e355eb8ee9136928a459ff92778f5dc3ec3e4768e"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/firefox-address-packet.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/firefox-address-packet.json",
+      "bytes": 194192,
+      "sha256": "3786673cf5e3e481e0adb11cbe748127be38638095618525c37c4bd38da72474"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/firefox-address-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/firefox-address-request.json",
+      "bytes": 41254,
+      "sha256": "1c6d64633b03811c4fd946a07939dac55f77cb881abe34c4358b44f7750f8023"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/firefox-address-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/firefox-address-response.json",
+      "bytes": 2166,
+      "sha256": "5144677caf79d62745ad4fe096478170ec882e74df828ec77b12f3a96d9dee6a"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/proof-results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/proof-results.json",
+      "bytes": 4696,
+      "sha256": "a942385150259c3e70f498c4617f712588c617125c132200da14144baaa8df92"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/proof.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/proof.py",
+      "bytes": 2135,
+      "sha256": "de845328a97729b75057135542fb8e93f0f8e9d1550a504633be36d139d59d19"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/results.json",
+      "bytes": 14234,
+      "sha256": "7d70cf90f7d00b80a71d09f43c8a702d1e678ba68234fc21028f70117338001b"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017/staged-source.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/compact-planner-cycle-20261017/staged-source.json",
+      "bytes": 1801,
+      "sha256": "969bae20b399d47df4c261d75ab51d0b6f42129ab28833b8bc5aad9a8173ea10"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/diagnose.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/egg31-unicode-cycle-20261017/diagnose.log",
+      "bytes": 4671,
+      "sha256": "1b25480d8f845ce9be03b3c9fff0d3b4e050cf618d99f259df975024110a59f6"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/diagnose.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/decision-interface-experiments/egg31-unicode-cycle-20261017/diagnose.py",
+      "bytes": 2665,
+      "sha256": "dd7053f6ebae3d3bbb8119fefa4d0fc43ddb022be1b66eb7f30e2b52c48fe91a"
+    }
+  ]
+}
