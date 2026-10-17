@@ -64,6 +64,44 @@ def phase_response_schema(allowed_tools: Iterable[str]) -> dict[str, Any]:
 _MAX_GROUNDED_SCHEMA_BYTES = 56 * 1024
 
 
+def _compact_grounded_targets(schema: dict) -> dict:
+    """Share repeated target schemas without discarding any admitted choice.
+
+    Working-state wrapping can push a valid grounded schema past the wire
+    budget. Repeated selectors describe the same controls across verbs; local
+    references preserve both their constraints and their generation order.
+    """
+    compact = copy.deepcopy(schema)
+    groups: dict[str, list[dict]] = {}
+
+    def visit(value):
+        if isinstance(value, list):
+            for item in value:
+                visit(item)
+        elif isinstance(value, dict):
+            properties = value.get("properties")
+            if isinstance(properties, dict) and isinstance(properties.get("target"), dict):
+                target = properties["target"]
+                if "$ref" not in target:
+                    key = json.dumps(target, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+                    groups.setdefault(key, []).append(properties)
+            for item in value.values():
+                visit(item)
+
+    visit(compact)
+    definitions = compact.setdefault("$defs", {})
+    for properties in groups.values():
+        if len(properties) < 2:
+            continue
+        index = len(definitions)
+        while (name := f"shared_grounded_target_{index}") in definitions:
+            index += 1
+        definitions[name] = properties[0]["target"]
+        for owner in properties:
+            owner["target"] = {"$ref": f"#/$defs/{name}"}
+    return compact
+
+
 def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[str, Any], *,
                            intent_choice: bool = False) -> dict[str, Any]:
     """Ground only the first position in positive, model-visible capabilities.
@@ -250,7 +288,9 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
             branch["properties"]["subgoal"] = {"oneOf": [*subgoal.get("oneOf", [subgoal]), submit_family]}
             branch["description"] += " text_submit verifies replacement, presses Return once, then returns observed unknown consequences."
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
-        return non_ui()
+        schema = _compact_grounded_targets(schema)
+        if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
+            return non_ui()
     return schema
 
 
@@ -556,6 +596,8 @@ def _working_phase_schema(allowed, phase_schema, state):
                                                    else "#/$defs/native_commitment"}}})
         return {"$defs": definitions, "oneOf": options}
     schema = wrap(phase_schema)
+    if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
+        schema = _compact_grounded_targets(schema)
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
         fallback = phase_response_schema(allowed)
         fallback["oneOf"] = [branch for branch in fallback["oneOf"] if branch["properties"]["kind"]["const"] != "ui"]

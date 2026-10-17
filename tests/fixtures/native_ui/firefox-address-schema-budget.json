@@ -1,0 +1,804 @@
+{
+  "state": {
+    "document_evidence": {
+      "generation": "1",
+      "node_id": "atspi:8acfd6429d29997e45ee7c3a04adb897",
+      "provider": "atspi2",
+      "provider_identity_sha256": "fbd1f6bfa97dc442270a59bf25353f9d2c1bc58da7feaf0a76745d84e746f81f",
+      "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+      "source": "atspi.Document.DocURL",
+      "status": "observed",
+      "url": "https://docs.python.org/3.12/library/pathlib.html#pathlib.Path.mkdir",
+      "window_id": "79691799"
+    },
+    "revision": "0f79ccd661e0ed17cc9b56415a8379a5bfa98b4fdae64b5b4b6adb81ba60cb97",
+    "scope": {
+      "id": "atspi:158dce536d1f22a5c4970016a7da78de",
+      "kind": "desktop",
+      "provider": "atspi2",
+      "url": "https://docs.python.org/3.12/library/pathlib.html#pathlib.Path.mkdir",
+      "window_id": "79691799"
+    },
+    "session_id": "a1e35025042617781dbe7bcf7405c040f64986311ec6b749a01d14073dae67ca",
+    "truncated": true,
+    "window_query_sha256": null,
+    "window_scope_count": 3,
+    "window_scope_sha256": "dfc1e77c91f6ac1534c44a95be777c2bb2facec4aef6cd5a7fb5de34c0255780",
+    "window_visibility": [
+      {
+        "active": true,
+        "generation": "1",
+        "id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "owner_window_id": "79691799",
+        "showing": true,
+        "source": "retained_atspi_window",
+        "visible": true
+      }
+    ],
+    "nodes": [
+      {
+        "id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "window",
+        "name": "pathlib — Object-oriented filesystem paths — Python 3.12.15 documentation — Mozilla Firefox",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "focus",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "key_chord",
+          "switch_window",
+          "select_text"
+        ],
+        "value": "￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼",
+        "focused": false,
+        "bounds": {
+          "height": 1568,
+          "width": 856,
+          "x": 44,
+          "y": 32
+        }
+      },
+      {
+        "id": "atspi:10d5c1e9ab8b906e6261ae0803783d82",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "combobox",
+        "name": "Search with DuckDuckGo or enter address",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "set_value",
+          "focus",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "key_chord",
+          "select_text",
+          "type_text"
+        ],
+        "value": "https://docs.python.org/3.10/library/pathlib.html#pathlib.Path.mkdir",
+        "focused": true,
+        "bounds": {
+          "height": 32,
+          "width": 392,
+          "x": 288,
+          "y": 80
+        }
+      },
+      {
+        "id": "atspi:b638d86aa5ecb771db4989d2fed828cd",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Minimize",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 24,
+          "width": 37,
+          "x": 786,
+          "y": 20
+        }
+      },
+      {
+        "id": "atspi:884e605b2c199fd71d364c2b2ba9b6ef",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Restore Down",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 24,
+          "width": 37,
+          "x": 823,
+          "y": 20
+        }
+      },
+      {
+        "id": "atspi:96e2c471ed05a79c984ffd5725ff8bb7",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Close",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 24,
+          "width": 40,
+          "x": 860,
+          "y": 20
+        }
+      },
+      {
+        "id": "atspi:6725f533874ae4dd36024eb290082ff6",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "page_tab",
+        "name": "pathlib — Object-oriented filesystem paths — Python 3.12.15 documentation",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "focus",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "select_text"
+        ],
+        "value": "pathlib — Object-oriented filesystem paths — Python 3.12.15 documentation￼",
+        "focused": false,
+        "bounds": {
+          "height": 44,
+          "width": 225,
+          "x": 44,
+          "y": 32
+        }
+      },
+      {
+        "id": "atspi:40a13060a996739872c88a2c555d0933",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Open a new tab (Ctrl+T)",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 44,
+          "width": 34,
+          "x": 269,
+          "y": 32
+        }
+      },
+      {
+        "id": "atspi:d7a13624d62166c7e139bc72cbdd63d9",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "List all tabs",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 44,
+          "width": 34,
+          "x": 752,
+          "y": 32
+        }
+      },
+      {
+        "id": "atspi:41a488704c0a3cfa8bd3bd33a8155a0a",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Minimize",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 44,
+          "width": 37,
+          "x": 786,
+          "y": 32
+        }
+      },
+      {
+        "id": "atspi:fcef313d5405dee9a4d89c0bc8fc6ba9",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Restore Down",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 44,
+          "width": 37,
+          "x": 823,
+          "y": 32
+        }
+      },
+      {
+        "id": "atspi:f1b4a882319447c1e8e0fd921b27fddd",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Close",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 44,
+          "width": 40,
+          "x": 860,
+          "y": 32
+        }
+      },
+      {
+        "id": "atspi:10db7513898899d0ca627adf3a4c1e3b",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Sidebars",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "description": "Show sidebar (Alt+Ctrl+Z)",
+        "focused": false,
+        "bounds": {
+          "height": 40,
+          "width": 39,
+          "x": 44,
+          "y": 76
+        }
+      },
+      {
+        "id": "atspi:b973e96dd465eee692e4db406b4924c3",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Back",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 40,
+          "width": 34,
+          "x": 83,
+          "y": 76
+        }
+      },
+      {
+        "id": "atspi:32fd692307a45df58565c22d22c0e8e6",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Forward",
+        "visible": true,
+        "enabled": false,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 40,
+          "width": 34,
+          "x": 117,
+          "y": 76
+        }
+      },
+      {
+        "id": "atspi:89e9b32404073b235c099c5511df72e2",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Reload",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 40,
+          "width": 34,
+          "x": 151,
+          "y": 76
+        }
+      },
+      {
+        "id": "atspi:947de99989b4f35a10c28afd1d0c29ac",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "DuckDuckGo, pick a search engine",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "focus",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "select_text"
+        ],
+        "value": "￼",
+        "focused": false,
+        "bounds": {
+          "height": 24,
+          "width": 52,
+          "x": 229,
+          "y": 84
+        }
+      },
+      {
+        "id": "atspi:cd34f83c8a87749dc604149f5627bac5",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "listbox",
+        "name": "",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "select",
+          "focus",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "select_text"
+        ],
+        "value": "￼",
+        "focused": false,
+        "selected": [
+          "pathlib — Object-oriented filesystem paths — Python 3.10.22 documentation docs.python.org/3.10/libra"
+        ],
+        "bounds": {
+          "height": 62,
+          "width": 498,
+          "x": 221,
+          "y": 119
+        }
+      },
+      {
+        "id": "atspi:0f8fc5ce41de3f1bc179f1bb6cae05a5",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "list_item",
+        "name": "pathlib — Object-oriented filesystem paths — Python 3.10.22 documentation docs.python.org/3.10/library/pathlib.html#pathlib.Path.mkdir",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "select_text"
+        ],
+        "value": "￼￼￼",
+        "focused": false,
+        "bounds": {
+          "height": 55,
+          "width": 490,
+          "x": 225,
+          "y": 123
+        }
+      },
+      {
+        "id": "atspi:998ad6098e0a90c629f87c3a44105019",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Account",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 40,
+          "width": 34,
+          "x": 755,
+          "y": 76
+        }
+      },
+      {
+        "id": "atspi:c4348d8f5d1e18dc438a83df5004ed86",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Extensions",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 40,
+          "width": 34,
+          "x": 789,
+          "y": 76
+        }
+      },
+      {
+        "id": "atspi:45bbbf5ccedec628778e3884ac007689",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "uBlock Origin (2)",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 32,
+          "width": 34,
+          "x": 825,
+          "y": 80
+        }
+      },
+      {
+        "id": "atspi:8332ecfa386e9ba385eed8b323861ec6",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Firefox",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "description": "Open application menu",
+        "focused": false,
+        "bounds": {
+          "height": 40,
+          "width": 39,
+          "x": 861,
+          "y": 76
+        }
+      },
+      {
+        "id": "atspi:8d2e2d5dadaaa16181769c1f90041d88",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "link",
+        "name": "Python logo",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "focus",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "select_text"
+        ],
+        "value": "￼",
+        "focused": false,
+        "bounds": {
+          "height": 20,
+          "width": 20,
+          "x": 88,
+          "y": 127
+        }
+      },
+      {
+        "id": "atspi:e6ecfa9f336bdee177e254602fc91fbd",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "combobox",
+        "name": "Python version",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "focus",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "focused": false,
+        "bounds": {
+          "height": 32,
+          "width": 89,
+          "x": 124,
+          "y": 121
+        }
+      },
+      {
+        "id": "atspi:166dab1dd05423a75ed3f7db8cec8333",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "menuitem",
+        "name": "3.12.15",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "focus",
+          "select_text"
+        ],
+        "value": "",
+        "focused": false
+      },
+      {
+        "id": "atspi:3226c4287e9b0f082287782189c3b2ae",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "textbox",
+        "name": "Quick search",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "set_value",
+          "focus",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "select_text",
+          "type_text"
+        ],
+        "value": "",
+        "focused": false,
+        "bounds": {
+          "height": 30,
+          "width": 639,
+          "x": 230,
+          "y": 122
+        }
+      },
+      {
+        "id": "atspi:2b70073739206f4466a2e335cf9a4021",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "button",
+        "name": "Go",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "invoke",
+          "focus",
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "select_text"
+        ],
+        "value": "Go",
+        "focused": false,
+        "bounds": {
+          "height": 30,
+          "width": 26,
+          "x": 869,
+          "y": 122
+        }
+      },
+      {
+        "id": "atspi:0f42be5b9144a51f892418f09385988a",
+        "generation": "1",
+        "scope_id": "atspi:158dce536d1f22a5c4970016a7da78de",
+        "role": "text",
+        "name": "Pick a search engine",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "select_text"
+        ],
+        "value": "￼",
+        "focused": false,
+        "bounds": {
+          "height": 12,
+          "width": 12,
+          "x": 261,
+          "y": 90
+        }
+      },
+      {
+        "id": "atspi:b38a0c03c278090ff6ca22a2b1c78dcc",
+        "generation": "1",
+        "scope_id": "atspi:b38a0c03c278090ff6ca22a2b1c78dcc",
+        "role": "window",
+        "name": "Workbench",
+        "visible": true,
+        "enabled": true,
+        "sensitive": false,
+        "operations": [
+          "switch_window"
+        ]
+      }
+    ],
+    "text": "pathlib — Object-oriented filesystem paths — Python 3.12.15 documentation — Mozilla Firefox ￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼￼\nSearch with DuckDuckGo or enter address https://docs.python.org/3.10/library/pathlib.html#pathlib.Path.mkdir\nMinimize\nRestore Down\nClose\npathlib — Object-oriented filesystem paths — Python 3.12.15 documentation pathlib — Object-oriented filesystem paths — Python 3.12.15 documentation￼\nOpen a new tab (Ctrl+T)\nList all tabs\nMinimize\nRestore Down\nClose\nSidebars\nBack\nForward\nReload\nDuckDuckGo, pick a search engine ￼\n￼\npathlib — Object-oriented filesystem paths — Python 3.10.22 documentation docs.python.org/3.10/library/pathlib.html#pathlib.Path.mkdir ￼￼￼\nAccount\nExtensions\nuBlock Origin (2)\nFirefox\nPython logo ￼\nPython version\n3.12.15\nQuick search\nGo Go\nPick a search engine ￼\nWorkbench",
+    "model_projection": {
+      "schema": "robit.omni.ui-model-projection.v1",
+      "source_revision": "0f79ccd661e0ed17cc9b56415a8379a5bfa98b4fdae64b5b4b6adb81ba60cb97",
+      "source_truncated": true,
+      "source_node_count": 356,
+      "visible_node_count": 63,
+      "returned_node_count": 29,
+      "omitted_hidden_nodes": 293,
+      "omitted_visible_nodes": 34,
+      "referenced_visible_nodes": 0,
+      "omitted_referenced_visible_nodes": 0,
+      "text_truncated": false,
+      "text_authority": "untrusted_visible_ui",
+      "absence_claims_supported": false,
+      "verification": "Omitted nodes do not prove absence; use the executor's verify operation.",
+      "raw_source_sha256": "bd816e65db6dfae667b97505d7e4d2bb1203676d5d7b002cd6f303aaf14b37ea",
+      "text_observation_semantic_sha256": "ffe363ff227655b6d8394168b24bdd0472de07efe2db2aadeba62695d7cdcbf6"
+    }
+  },
+  "evidence_authority": "inspection",
+  "task_progress": false
+}

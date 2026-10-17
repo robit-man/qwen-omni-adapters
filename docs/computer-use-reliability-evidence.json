@@ -346,6 +346,38 @@
       "next_cycle": "Preserve applicable actions under schema compression before another task run. Separately investigate vision reader and ARM Unicode transport.",
       "production_default": "Compact planner remains opt-in; no whole-stack deployment success claimed.",
       "evidence_manifest": "research/computer-use-text-submit-2026-10-17.manifest.json"
+    },
+    {
+      "cycle": "6c",
+      "criterion": "The captured Firefox state retains applicable native actions after working-state wrapping within the unchanged grammar budget.",
+      "status": "SOURCE_NATIVE_GRAMMAR_AND_LOADED_DECISION_PASS",
+      "whole_task_pass": false,
+      "pre_tests": 4121,
+      "post_tests": 4130,
+      "new_regressions": 9,
+      "unfactored_wrapped_bytes": 58434,
+      "factored_wrapped_bytes": 53666,
+      "native_budget_bytes": 57344,
+      "native_grammar_cases_per_model": 6,
+      "actual_model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+      "decision_seconds": 7.275303033995442,
+      "decision": {
+        "family": "text_submit",
+        "target": "c1",
+        "text": "https://docs.python.org/3.10/library/pathlib.html#pathlib.Path.mkdir",
+        "objective": "Submit the 3.10 URL now that the bar holds it, to navigate and load the official Python 3.10 pathlib.Path.mkdir documentation for sourcing."
+      },
+      "controls_restored": 27,
+      "input_dispatches": 0,
+      "deployment_count": 0,
+      "previous_failure": "All desktop families vanished when the working-state envelope crossed the schema budget. Compact projection inherited that fallback.",
+      "change": "Share repeated target schema definitions before fallback; preserve exact alternatives, property order and executor validation. No increased budget or authority.",
+      "limits": [
+        "Decision replay earns no task credit; the full unchanged task has not been rerun after this fix.",
+        "Moondream reading fault remains independently reproduced; targeted prompts did not repair it.",
+        "Egg .31 Unicode transport repair remains pending."
+      ],
+      "evidence_directory": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/action-capability-cycle-20261017"
     }
   ]
 }
