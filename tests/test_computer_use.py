@@ -150,6 +150,56 @@ def test_successful_dispatch_without_expected_effect_is_unresolved_and_not_repla
     assert len(adapter.dispatched) == 1
 
 
+@pytest.mark.parametrize("mutate", [False, True])
+def test_set_value_requires_its_value_even_when_planner_only_checks_existing_focus(mutate):
+    adapter = Adapter()
+    adapter.state["nodes"][0]["focused"] = True
+    adapter.mutate = mutate
+    control = controller(adapter, max_observations=2)
+    control.enable_native_task_protocol()
+    request = {**step(), "expect": [{"kind": "focused", "node_id": "$target"}]}
+    outcome = control.run_step(request)
+    assert outcome["status"] == ("verified" if mutate else "unresolved")
+    assert {"kind": "value", "node_id": "field", "value": "Report"} in outcome["action"]["expect"]
+    assert control.execute(outcome["action"]["id"]) == outcome
+    if not mutate:
+        assert control.run_step(request) == outcome
+    assert len(adapter.dispatched) == 1
+
+
+@pytest.mark.parametrize("observed", ["", "Repo", "Report extra"])
+def test_set_value_cannot_verify_a_different_value_with_a_satisfied_extra_predicate(observed):
+    adapter = Adapter()
+    adapter.mutate = False
+    adapter.state["nodes"][0].update(value=observed, focused=True)
+    result = controller(adapter, max_observations=1).run_step(
+        {**step(), "expect": [{"kind": "focused", "node_id": "$target"}]})
+    assert result["status"] == "unresolved"
+
+
+def test_value_predicate_does_not_treat_a_truncated_matching_prefix_as_full_value():
+    state = snapshot()
+    state["nodes"][0].update(value="Report", text_observation={
+        "character_count": 12, "captured_range": {"start": 0, "end": 6}, "truncated": True})
+    assert not predicate_satisfied({"kind": "value", "node_id": "field", "value": "Report"}, state)
+
+
+def test_model_additional_value_constraint_cannot_override_requested_value():
+    adapter = Adapter()
+    result = controller(adapter, max_observations=1).run_step(
+        {**step(), "expect": [{"kind": "value", "node_id": "$target", "value": "Different"}]})
+    assert result["status"] == "unresolved"
+    assert adapter.state["nodes"][0]["value"] == "Report"
+
+
+def test_mandatory_value_effect_preserves_candidate_predicate_budget():
+    adapter = Adapter()
+    result = controller(adapter).run_step({**step(), "expect": [
+        {"kind": "focused", "node_id": "$target"} for _ in range(20)]})
+    assert result["status"] == "unresolved" and "20 predicates" in result["reason"]
+    assert not adapter.dispatched
+
+
 def test_exception_after_input_is_not_replayed_even_after_new_enumeration() -> None:
     adapter = Adapter()
     adapter.mutate = False

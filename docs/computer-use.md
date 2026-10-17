@@ -19,6 +19,13 @@ and a separate fresh observation verifies the plan's terminal predicates.
 Ambiguity, unavailable observation, stale state, cancellation, and missing
 effects remain explicit outcomes.
 
+The host adds an intrinsic exact-value predicate to every `set_value` candidate
+from its target and arguments. Planner predicates remain additional constraints:
+an already-focused field cannot verify a write. The derived predicate is bound
+into the action ID and retained in cached receipts. A matching truncated text
+prefix cannot satisfy an exact-value predicate; known full character counts must
+also match. An acknowledged write without its observed value remains unresolved.
+
 Workflow feedback retains a bounded selection receipt for each actual selector
 call, including the step, semantic revision, current scope, typed selection
 status, executable candidate count and selected kind. If no executable action

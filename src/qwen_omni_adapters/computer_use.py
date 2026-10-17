@@ -260,7 +260,11 @@ def predicate_satisfied(predicate: Mapping[str, Any], state: Mapping[str, Any], 
     nodes = state.get("nodes", [])
     node = next((item for item in nodes if item.get("id") == predicate.get("node_id") and not item.get("sensitive")), None)
     if kind == "value":
-        return node is not None and "value" in node and node["value"] == predicate.get("value")
+        if node is None or "value" not in node or node["value"] != predicate.get("value"):
+            return False
+        coverage = node.get("text_observation", {})
+        return (coverage.get("truncated") is not True
+                and coverage.get("character_count", len(node["value"])) == len(node["value"]))
     if kind == "checked":
         return node is not None and "checked" in node and node["checked"] is predicate.get("checked")
     if kind == "selected":
@@ -381,6 +385,16 @@ class RapidUiController:
                         continue
                 expect = [{**predicate, "node_id": node["id"]} if predicate.get("node_id") == "$target" else copy.deepcopy(predicate)
                           for predicate in step.get("expect", [])]
+                # The host owns the operation's effect. Planner predicates can
+                # add requirements, but focus or unrelated text cannot verify
+                # a value write. Bind the required effect into the offered ID
+                # so cached receipts retain the same verification contract.
+                if step["verb"] == "set_value":
+                    required = {"kind": "value", "node_id": node["id"], "value": step["args"]["value"]}
+                    if required not in expect:
+                        if len(expect) >= 20:
+                            raise ComputerUseError("Leave room for the mandatory set_value effect within 20 predicates")
+                        expect.append(required)
                 binding = {"session_id": current["session_id"], **common, "step_id": step["id"],
                            "node_id": node["id"], "generation": node["generation"],
                            "verb": step["verb"], "args": step["args"], "expect": expect}

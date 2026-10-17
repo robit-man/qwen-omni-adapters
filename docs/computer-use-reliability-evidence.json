@@ -1,0 +1,37 @@
+{
+  "schema": "robit.omni.computer-use-reliability-evidence.v1",
+  "cycles": [
+    {
+      "cycle": 1,
+      "criterion": "set_value cannot verify from already-satisfied focus; exact full value is mandatory",
+      "status": "LOCAL_GATE_AND_LIVE_PROVIDER_PASS",
+      "baseline_tests": 3997,
+      "post_tests": 4005,
+      "source_sha256": "cd761401961aac1ca51800e36bc564feed896826cbd3c436d346d3d2c4288bc6",
+      "live": {
+        "native_setter_status": "unresolved",
+        "native_receipt": {
+          "status": "dispatched",
+          "reason": "native_pattern_invoked"
+        },
+        "native_verification_reads": 20,
+        "authored_expectation": "focused($target)",
+        "derived_expectation": "value($target, requested URI)",
+        "native_observed_value": "",
+        "physical_type_text_status": "verified",
+        "physical_backend": "x11_guarded_xtest",
+        "physical_character_count": 60,
+        "elapsed_s": 17.540160617994843,
+        "owned_window_closed": true,
+        "model_calls": 0,
+        "full_task_credit": false,
+        "runtime_process_and_lease_pins_preserved": true,
+        "complete_Xtree_equal": false
+      },
+      "evidence_directory": "runtime-data/gpu1-acceptance/operator-audit/mandatory-value-cycle-20261017",
+      "evidence_index_sha256": "8363adf4b1a32e6d31be1c411d01304335d2bff49f72487545152f04aac151a9",
+      "remote_adoption": "pending",
+      "whole_task_pass": false
+    }
+  ]
+}
