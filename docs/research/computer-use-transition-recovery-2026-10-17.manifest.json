@@ -1,0 +1,82 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery",
+  "scope": "Actual-trajectory callback replay and loaded Ornith recovery decision; no new input or full-task success",
+  "file_count": 12,
+  "total_bytes": 2418821,
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/recovery-packet.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/recovery-packet.json",
+      "bytes": 188536,
+      "sha256": "8653e698f0ad5fa847f6cf1b22605006e2af4c9d7efda322cd2f6e837f73da94"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/replay.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/replay.py",
+      "bytes": 3215,
+      "sha256": "f393a3ecb3381432a9d2a0209131d6430b787be1163e67c6a6dea02855d4d5be"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/result.json",
+      "bytes": 4910,
+      "sha256": "22137a365bc83eff561213b726070b6082ae5f30023865bf34455b5317e908f1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/decision.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/decision.log",
+      "bytes": 4290,
+      "sha256": "5f710db982365aa5321258c7ead6d5bc652cc3b4a1ad992d7285a06df35d9490"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/replay.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/replay.log",
+      "bytes": 601,
+      "sha256": "5f5482f2d5e258584df2c9c451a506ec55bcbc014757956039e82ba398524014"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/after-test-notes.json",
+      "bytes": 1229,
+      "sha256": "e6093f21bc71c2c0794f44d7c69b9a6b3da375595fb00b7a0867885369aeff4a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/request.json",
+      "bytes": 47764,
+      "sha256": "22885b8a61216521e5639819963bb625e3071ce4e3ce0e458b50ffc1da864c2a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/replay.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/replay.json",
+      "bytes": 2158797,
+      "sha256": "712fd6edcac945a5cde80fdf3b8e33dabc24c974b33b48c129a78f01a921a595"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/decision.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/decision.py",
+      "bytes": 2210,
+      "sha256": "41f63ab46ee53544cf9755d79b3be67f13765426239ccaaf3a4f7d0866e45220"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/focused.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/focused.log",
+      "bytes": 160,
+      "sha256": "f2a2851fd07d932c49660c7f57aef37289927105e202692b6b4a7a987b70a9ff"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/response.json",
+      "bytes": 2314,
+      "sha256": "9ff6f3b6662f26b016a6f7b4634b9f80305ab10e6b6a237316d6b007f40ca3cb"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017/validation.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/transition-recovery/validation.log",
+      "bytes": 4795,
+      "sha256": "4954b6efd0cff3b3e57b0d84288d60ac77a71c2762dfd78321dba4008d07fea7"
+    }
+  ]
+}

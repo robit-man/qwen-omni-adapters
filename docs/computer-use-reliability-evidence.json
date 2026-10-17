@@ -433,6 +433,22 @@
       "deployment": "One CPU test frontend replacement; all eight GPU graph process identities retained. Compact planner opt-in.",
       "next_criterion": "A verified but previously observed native transition must enter recovery instead of resetting the no-progress counter. Test model recovery on the exact captured loop before another live task.",
       "evidence_path": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/visible-native-text-cycle-20261017"
+    },
+    {
+      "cycle": "4b",
+      "criterion": "A complete native workflow repeating a producer-verified semantic transition enters recovery instead of resetting the failure counter.",
+      "status": "CONTRACT_PASS_LOADED_MODEL_RECOVERY_FAILED",
+      "whole_task_pass": false,
+      "pre_tests": 4139,
+      "post_tests": 4142,
+      "new_regressions": 3,
+      "new_deployments": 0,
+      "live_task_attempts": 0,
+      "actual_loaded_model_calls": 1,
+      "replay": "First six captured actual outcomes replayed through controller; all seven resulting model control/observation projections exactly matched captured snapshots. Next request correctly carried recovery=true and one consecutive unverified phase. No input dispatched by replay.",
+      "actual_model_outcome": "Ornith acknowledged repetition, then chose the opposite window switch already performed earlier. No recovery improvement claimed.",
+      "next_criterion": "Retain captured native text across window switches with bounded historical references and task-owned expansion. Current planner loses prior document content while retaining only input/effect facts.",
+      "evidence_directory": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017"
     }
   ]
 }

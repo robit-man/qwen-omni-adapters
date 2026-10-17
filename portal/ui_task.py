@@ -887,6 +887,13 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                       "without a new applied effect. Replan from the retained evidence."}
                     else:
                         zero_effect_ui_phases.add(signature)
+            recoverable_prefix = kind == "ui" and _new_verified_ui_prefix(result, applied_ui_transitions)
+            if (kind == "ui" and result.get("status") == "complete" and not result.get("error")
+                    and not recoverable_prefix and _new_verified_ui_prefix(result, set())):
+                result = {**result, "error": "ui_phase_repeated_transition",
+                    "reason": "This input repeats a previously verified native state transition. "
+                              "Its effect is real, but it adds no new observed state. Recover with a "
+                              "different applicable action or stop with unmet criteria; prior receipts remain historical."}
             content = json.dumps(result, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
             replayed_only = (kind == "ui" and bool(result.get("outcomes"))
                              and all(item.get("effect_receipt", {}).get("effect_state") == "replayed"
@@ -909,7 +916,6 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                         and isinstance(key, str) and re.fullmatch(r"[0-9a-f]{64}", key)):
                     novel_boundary = key not in boundary_observations
                     boundary_observations.add(key)
-            recoverable_prefix = kind == "ui" and _new_verified_ui_prefix(result, applied_ui_transitions)
             tool.update(ok=ok, status="complete", result=content)
             traces.append(copy.deepcopy(tool))
             last_result = _compact_result(result)
