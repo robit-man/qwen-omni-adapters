@@ -576,6 +576,83 @@
       },
       "whole_task_pass": false,
       "archive_manifest": "docs/research/computer-use-sampling-transport-2026-10-17.manifest.json"
+    },
+    {
+      "cycle": "6f",
+      "status": "LIVE_PLANNER_TARGET_IMPROVED_POLICY_ABSTAINED_WHOLE_TASK_FAILED",
+      "post_tests": 4171,
+      "validation_seconds": 123.47,
+      "native_grammar": {
+        "qwen27b": 9,
+        "ornith9b": 9,
+        "passed": true
+      },
+      "task_signature_sha256": "94dcbb542d113d903bfb9a982c57c59e67372b6606ad74490db0afea037cd155",
+      "task_requirements_changed": false,
+      "actual_ornith_requests": 6,
+      "live_native_phases": 3,
+      "actual_Kev_calls": 3,
+      "actual_Moondream_calls": 0,
+      "dispatched_inputs": 0,
+      "elapsed_s": 38.69149112000014,
+      "all_owned_windows_closed": true,
+      "downstream_idle": true,
+      "input_sources_unchanged": true,
+      "GPU_workers_unchanged": true,
+      "loaded_candidate_modules": {
+        "pid": 2919328,
+        "actual_factory_module_instances": true,
+        "modules": {
+          "app": {
+            "path": "/tmp/qwen-subgoal-live-20261017/portal/app.py",
+            "sha256": "8e491cf4441fe5f2ff040066987ce37b5a2becdd6c5ac27bded9cbcd32229b81",
+            "code_filename": "/tmp/qwen-subgoal-live-20261017/portal/app.py"
+          },
+          "facade": {
+            "path": "/tmp/qwen-subgoal-live-20261017/portal/computer_use.py",
+            "sha256": "86b1efe77d25d48b795373fcebe3b00e11be88cee17e5eca79d9004690f62792",
+            "code_filename": "/tmp/qwen-subgoal-live-20261017/portal/computer_use.py"
+          },
+          "ui_decision": {
+            "path": "/tmp/qwen-subgoal-live-20261017/portal/ui_decision.py",
+            "sha256": "6ff16e97867c52c25e3a3b2ce803fcecfd413da4587d2f2079594ef2d3e1a1b9",
+            "code_filename": "/tmp/qwen-subgoal-live-20261017/portal/ui_decision.py"
+          },
+          "ui_task": {
+            "path": "/tmp/qwen-subgoal-live-20261017/portal/ui_task.py",
+            "sha256": "1d018e19db895992f4af1831036a7dda588e5b1b35984b620630c2296b2acac4",
+            "code_filename": "/tmp/qwen-subgoal-live-20261017/portal/ui_task.py"
+          },
+          "native_ui": {
+            "path": "/tmp/qwen-subgoal-live-20261017/portal/native_ui.py",
+            "sha256": "9520bbad682b03713a939aaf5cbed1f5861794a1fbf2e1df7ee4d6018d709730",
+            "code_filename": "/tmp/qwen-subgoal-live-20261017/portal/native_ui.py"
+          },
+          "core": {
+            "path": "/tmp/qwen-subgoal-live-20261017/src/qwen_omni_adapters/computer_use.py",
+            "sha256": "39a56ba27e3ef6fd80c14a087b33d2f0b3e58bf5fc897685cc2f335f4f3d5d9a",
+            "code_filename": "/tmp/qwen-subgoal-live-20261017/src/qwen_omni_adapters/computer_use.py"
+          },
+          "text_entry": {
+            "path": "/tmp/qwen-subgoal-live-20261017/src/qwen_omni_adapters/text_entry.py",
+            "sha256": "2a1041d0d8732715043a66ceeacdb1a9b0e2532aed5dd6f6a322de3331cbd898",
+            "code_filename": "/tmp/qwen-subgoal-live-20261017/src/qwen_omni_adapters/text_entry.py"
+          },
+          "ui_observations": {
+            "path": "/tmp/qwen-subgoal-live-20261017/portal/ui_observations.py",
+            "sha256": "2a5ac9fbca0dbe242797fe29b52987924e7eca0d13b942df2592ced4f3ebd1c4",
+            "code_filename": "/tmp/qwen-subgoal-live-20261017/portal/ui_observations.py"
+          }
+        }
+      },
+      "whole_task_pass": false,
+      "findings": [
+        "Direct action selection previously switched away from the input. Bound prerequisite-first planning selected the visible Input folder on all three live phases.",
+        "Kev returned observe or abstain, below unchanged 0.95 threshold. No action occurred.",
+        "Current active-policy path cannot escalate an uncertain primitive to the slow planner: even explicit pointer preferences are sent back through Kev. This is the next isolated contract fault."
+      ],
+      "integrity_correction": "audit/input-integrity-correction.json",
+      "archive_manifest": "docs/research/computer-use-subgoal-handoff-2026-10-17.manifest.json"
     }
   ]
 }

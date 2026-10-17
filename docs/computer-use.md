@@ -777,3 +777,15 @@ whole-task completion. Repeated expansion of the same record cannot reset the
 consecutive-failure counter. Records expire with the task; session memory remains
 a separate explicitly allowed tool. This preserves evidence, but live model use
 is not yet reliable; see the reliability plan.
+
+### Compact planner subgoal handoff
+
+With `OMNI_NATIVE_COMPACT_PLANNER=1`, each phase first identifies missing
+prerequisites from the exact goal, current controls and factual result. Its
+bounded model proposal becomes the fixed objective of the action-selection pass.
+Both calls preserve caller policy, native `think` and sampling options and share
+one deadline/cancellation boundary. The proposal remains a planner claim, not
+observed evidence or new authority. Invalid proposals dispatch nothing. The
+original canonical phase validator and independent executor guards still apply.
+Live target selection improved, but the whole-task test remains failed at fast
+primitive-policy abstention; this opt-in path is not a completion claim.

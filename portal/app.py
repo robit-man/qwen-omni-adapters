@@ -2360,6 +2360,7 @@ def create_app(
         def compile_phase(packet):
             if stopped.is_set():
                 raise PortalError("Native task cancelled")
+            phase_deadline = time.monotonic() + packet["remaining_seconds"]
             compact_binding = None
             system = (
                 "You are the Omni task planner in a layered native computer-use system. "
@@ -2446,18 +2447,37 @@ def create_app(
             }
             if isinstance(payload.get("options"), Mapping):
                 request_payload["options"] = copy.deepcopy(payload["options"])
-            if stopped.is_set():
-                raise PortalError("Native task cancelled")
-            upstream = session.post(runtime.adapter_url, json=request_payload,
-                                    timeout=max(0.1, min(runtime.timeout_s, packet["remaining_seconds"])))
-            data = _json_object(upstream, "native phase planner")
-            if upstream.status_code >= 400:
-                raise PortalError(str(data.get("error") or "native phase planner failed")[:500])
-            message = data.get("message")
-            if not isinstance(message, Mapping) or not isinstance(message.get("content"), str):
-                raise PortalError("native phase planner returned no JSON content")
+            def ask(request):
+                if stopped.is_set():
+                    raise PortalError("Native task cancelled")
+                remaining = phase_deadline - time.monotonic()
+                if remaining <= 0:
+                    raise PortalError("Native task deadline exceeded")
+                upstream = session.post(runtime.adapter_url, json=request,
+                                        timeout=max(0.1, min(runtime.timeout_s, remaining)))
+                data = _json_object(upstream, "native phase planner")
+                if upstream.status_code >= 400:
+                    raise PortalError(str(data.get("error") or "native phase planner failed")[:500])
+                message = data.get("message")
+                if not isinstance(message, Mapping) or not isinstance(message.get("content"), str):
+                    raise PortalError("native phase planner returned no JSON content")
+                return json.loads(message["content"])
+
             try:
-                result = json.loads(message["content"])
+                if compact:
+                    context, subgoal_schema = ui_decision.subgoal_context(compact_packet)
+                    subgoal_request = copy.deepcopy(request_payload)
+                    subgoal_request["messages"] = [
+                        {"role": "system", "content": ui_decision.SUBGOAL_SYSTEM + (
+                            "\n\nCaller task policy:\n" + caller_policy if caller_policy else "")},
+                        {"role": "user", "content": json.dumps(context, ensure_ascii=False)}]
+                    subgoal_request["response_format"]["json_schema"].update(name="native_ui_subgoal", schema=subgoal_schema)
+                    compact_packet, compact_binding = ui_decision.bind_subgoal(
+                        compact_packet, compact_binding, ask(subgoal_request))
+                    request_payload["messages"][0]["content"] += ui_decision.SUBGOAL_HANDOFF
+                    request_payload["messages"][1]["content"] = json.dumps(compact_packet, ensure_ascii=False)
+                    request_payload["response_format"]["json_schema"]["schema"] = compact_packet["decision_schema"]
+                result = ask(request_payload)
                 return ui_decision.expand(result, packet, compact_binding) if compact else result
             except (json.JSONDecodeError, ui_decision.DecisionError):
                 # Leave the decoder exception (and its raw .doc) behind.
