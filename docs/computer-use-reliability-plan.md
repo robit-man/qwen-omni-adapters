@@ -174,6 +174,7 @@ held-out live evidence.
 | 6k. Policy request deadline | Contract and live escalation passed; whole task failed | All 4,207 tests passed, including a real HTTP reply beyond the old deadline. The unchanged live task received three valid Kev replies and three narrow resolutions; two clicks opened Input and the editor Open popover. The Main menu move reached the recorded target coordinates but failed binding verification; a later window switch lost native active-window observation. No outputs; all owned windows closed and input hashes unchanged. [Durable record](research/computer-use-policy-deadline-2026-10-17.manifest.json). |
 | 6g. Sampling transport | Contract and loaded transport passed | All 4,161 tests passed. An actual call through the patched adapter implementation matched all ten requested sampler values in the GPU 1 worker’s native slot parameters. Caller defaults and `think` remain unchanged; no whole-task credit. [Durable record](research/computer-use-sampling-transport-2026-10-17.manifest.json). |
 | 6l. Popup switching prerequisite | Corrected native provider passed; whole task failed | All 4,221 tests passed. Fresh native popup relations and exact accessible child membership withhold window switching until a separately guarded dismissal. The real provider rejected the blocked switch without input, dispatched Escape, restored switching and passed three subsequent Files readbacks. The unchanged Ornith task made 19 model requests, one pointer click and four window switches, but opened no popup and produced no outputs. Its failure does not exercise the guard. [All failed candidates, provider proof and live record](research/computer-use-popup-prerequisite-2026-10-17.manifest.json). |
+| 6m. Subgoal continuity | Context repair and two captured-state choices passed; live criterion not reached | All 4,223 checks passed. Six actual model comparisons supported retaining the prior plan in two Files states, with no improvement in the Firefox state. The original live LHN-041 run failed earlier with one breadcrumb click, no brief read and no outputs. Separate LHN-041 and LHN-047 baselines also failed; Egg .41 completed a bounded LHN-047 attempt but lost foreground identity. [Requests, responses, failed tasks and host evidence](research/computer-use-planning-continuity-2026-10-17.manifest.json). |
 | Remaining 2, 4, 6–8 | Pending | Insertion and partial selection replacement, broader recovery/delegation, context expansion, reusable task sequences and whole-task acceptance remain incomplete. Separately bound primitive-choice boundaries retain their existing freshness behavior. |
 
 Observed deployment blocker: Egg .31 deployed 31fc3a3 after 4,060 checks passed, then reproduced the actual XTEST Unicode failure (`café\nnaïve` becomes `café\nnave`) during the a13f410 update, with 4,059 other tests passing. The isolated nine-case recheck had passed; no transport fix is claimed. Its updater stopped before replacing the active runtime. Egg .41 adopted a13f410 while preserving its paused core.
@@ -211,3 +212,27 @@ No application-name rules, unscoped input, implicit dialog cancellation, or
 relaxed ownership checks. Validate negative controls and real editor switching,
 then run one unchanged loaded-Ornith LHN-001 window. The earlier intermittent
 pointer-window rejection remains a separate, unproven cause.
+
+## 6m. Preserve the previous plan at subgoal selection
+
+Acceptance: after reading the brief and returning to Files, subgoal selection
+must retain the unmet authority-ledger acquisition instead of restarting the
+already observed brief. The original LHN-041 task, input bytes and evaluator
+remain unchanged; complete-task delivery remains a separate required outcome.
+
+Evidence: the 192.29-second LHN-041 run opened Input and the brief, then switched
+between Files and the editor until it stopped without outputs. Its phase 9 and
+11 subgoal requests omit the retained commitment and unmet constraints that the
+following action-selection request receives. Exact captured-request comparisons
+reproduced brief rereading in both states. Adding only the existing commitment
+changed both replies to authority-ledger acquisition. A third comparison in
+Firefox still reread the brief. All six requests and results are retained under
+`breadth-evaluation-20261017/continuity-comparison`; they dispatched no input and
+earn no whole-task credit. The separate editorial baseline also failed, with
+three physical inputs and no outputs.
+
+Bounded hypothesis: preserve the exact existing commitment in the subgoal
+projection as `retained_plan`, including its planner-claim authority and lack of
+input authority. Keep current observations, historical-source expansion, the
+original goal and all execution guards unchanged. Check first-turn/continued
+task isolation, run the full gate, then one original LHN-041 live window.

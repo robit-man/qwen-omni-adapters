@@ -839,3 +839,10 @@ available. The planner can complete the interaction or request Escape, observe
 its effect, and then select a fresh switch. The executor checks again before
 activation. It never sends an implicit Escape or treats X11 activation alone as
 proof that an input grab ended.
+
+Subgoal selection receives the executor-retained previous commitment as
+`retained_plan`, alongside current observations and historical source references.
+Its objective and unmet constraints remain planner claims with no input or
+verification authority. A new task has no retained plan. This preserves task
+continuity at the planning boundary without treating a previous intention as an
+accomplished action.

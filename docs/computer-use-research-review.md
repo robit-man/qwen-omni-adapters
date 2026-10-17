@@ -226,3 +226,34 @@ retains the rejected candidate, corrected provider check and unchanged Ornith
 task failure. The latter did not open a popup, so it supplies no end-to-end
 exercise of the new guard. All archive bytes were flushed and hashed after
 readback outside runtime cleanup.
+
+### Auxiliary-model accounting correction
+
+The separate native pointing HTTP recorder contradicts earlier zero-Moondream
+counts for cycles 6h, 6i, 6k and 6l. It records respectively 2, 2, 1 and 1
+successful Moondream3.1 responses, with exact request-image and response hashes.
+The [capture and correction archive](research/computer-use-pointing-accounting-2026-10-17.manifest.json)
+preserves those HTTP records and PNG bytes. The structured evidence index is
+corrected; original archived notes remain intact. This establishes actual layer
+calls and does not change any failed whole-task outcome.
+
+### Planning continuity and broader live evaluation
+
+The [continuity and breadth archive](research/computer-use-planning-continuity-2026-10-17.manifest.json)
+contains two separate local task families, a captured-state comparison, one
+candidate run and an Egg .41 run. The subgoal projection omitted the previous
+plan and unmet constraints that the action selector received. Adding that exact
+metadata changed two actual Ornith replies from rereading an already observed
+brief to acquiring the unread authority ledger; a third Firefox state did not
+improve. These are correlated diagnostic states, not a general performance
+estimate. The candidate's whole live task failed earlier and never exercised
+ledger selection. None of the four whole-task attempts passed.
+
+All exact model request bodies and hashes are retained. The candidate's auxiliary
+parsed-packet recorder omits the new `retained_plan` field and reports that
+omission; the authoritative wire bodies include it. Egg .41's run used actual
+GPU-resident Ornith with Moondream2 and no Kev endpoint. Its owned-foreground
+monitor became unable to map the active window, after three input dispatches.
+The run drained, closed its owned windows and restored the prior harness. Egg
+.31 kept its earlier deployment after the actual accented-text regression failed
+again; that known transport defect remains unrepaired by this continuity change.

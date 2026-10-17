@@ -24,5 +24,7 @@
       "sha256": "26a82e86899c3658f4f9e0b36b6157bb90494d521b8813d5b5e7e03e2de902a3",
       "bytes": 6135
     }
-  ]
+  ],
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/xdotool-unicode",
+  "readback_verified": true
 }

@@ -668,7 +668,7 @@
       "task_requirements_changed": false,
       "actual_ornith_requests": 10,
       "actual_Kev_calls": 3,
-      "actual_Moondream_calls": 0,
+      "actual_Moondream_calls": 2,
       "native_phases": 5,
       "actual_inputs": {
         "verified": false,
@@ -692,7 +692,28 @@
         "The fresh native editor observation delivered the actual brief content. No deliverables were created.",
         "The controller accumulated three abstentions across intervening novel dispatch/readbacks and halted at phase five before offering the next recovery. A deferred fast decision needs separate accounting from failed recovery."
       ],
-      "archive_manifest": "docs/research/computer-use-pointer-recovery-2026-10-17.manifest.json"
+      "archive_manifest": "docs/research/computer-use-pointer-recovery-2026-10-17.manifest.json",
+      "moondream_accounting_correction": {
+        "cycle": "6h",
+        "previously_reported": 0,
+        "actual_successful_Moondream_HTTP_responses": 2,
+        "events": [
+          {
+            "event": "point_http_response",
+            "at": "2026-10-17T05:32:23.875772+00:00",
+            "status_code": 200,
+            "request_png_sha256": "f45a72098b730d648fc9dd9d6d34748b6dde84db8921008603045724419a01f8"
+          },
+          {
+            "event": "point_http_response",
+            "at": "2026-10-17T05:32:59.461251+00:00",
+            "status_code": 200,
+            "request_png_sha256": "ad3ee616a7346895b3564b4ffcd6e5fb88dd7983ae371d81e1933ad1668dc728"
+          }
+        ],
+        "reason": "Earlier zero count contradicted by the separate native pointing HTTP capture stream; original archived notes retained.",
+        "archive_manifest": "docs/research/computer-use-pointing-accounting-2026-10-17.manifest.json"
+      }
     },
     {
       "cycle": "6i",
@@ -704,7 +725,7 @@
       "task_requirements_changed": false,
       "actual_ornith_requests": 26,
       "actual_Kev_calls": 7,
-      "actual_Moondream_calls": 0,
+      "actual_Moondream_calls": 2,
       "native_phases": 13,
       "actual_inputs": {
         "verified": false,
@@ -730,7 +751,28 @@
         "Captured controls mark every child active_window:false because the flag identifies the window root. Whether this ambiguous projection causes target-selection failure needs a bounded model comparison."
       ],
       "archive_manifest": "docs/research/computer-use-deferral-budget-2026-10-17.manifest.json",
-      "target_interpretation_correction": "audit/target-interpretation-correction.json"
+      "target_interpretation_correction": "audit/target-interpretation-correction.json",
+      "moondream_accounting_correction": {
+        "cycle": "6i",
+        "previously_reported": 0,
+        "actual_successful_Moondream_HTTP_responses": 2,
+        "events": [
+          {
+            "event": "point_http_response",
+            "at": "2026-10-17T05:40:57.810798+00:00",
+            "status_code": 200,
+            "request_png_sha256": "940a24be33a625be4c146d3cd5e47f9a0bc3a12ba0aa4be839277284d7057014"
+          },
+          {
+            "event": "point_http_response",
+            "at": "2026-10-17T05:41:31.985636+00:00",
+            "status_code": 200,
+            "request_png_sha256": "de06afd7c6bf8a5ef6422e9328a0d149318152035fa3d81b4e08c0e4c4c8d203"
+          }
+        ],
+        "reason": "Earlier zero count contradicted by the separate native pointing HTTP capture stream; original archived notes retained.",
+        "archive_manifest": "docs/research/computer-use-pointing-accounting-2026-10-17.manifest.json"
+      }
     },
     {
       "cycle": "6j",
@@ -783,7 +825,7 @@
       "actual_ornith_requests": 17,
       "actual_Kev_requests": 3,
       "valid_Kev_replies": 3,
-      "actual_Moondream_calls": 0,
+      "actual_Moondream_calls": 1,
       "completed_native_phases": 10,
       "narrow_pointer_resolutions": 3,
       "actual_pointer_click_dispatches": 2,
@@ -811,7 +853,22 @@
         "The rejected Main menu click had target center (757,55); the independent pointer observer recorded that exact location. Pointer-window or timing conditions, rather than coordinate placement alone, require isolation. No button dispatch was reported for that attempt.",
         "The later switch from the open editor popover failed native active-window observation. No causal explanation is established yet. Nine post-tool screenshot frames were captured read-only and never supplied as solver guidance."
       ],
-      "archive_manifest": "docs/research/computer-use-policy-deadline-2026-10-17.manifest.json"
+      "archive_manifest": "docs/research/computer-use-policy-deadline-2026-10-17.manifest.json",
+      "moondream_accounting_correction": {
+        "cycle": "6k",
+        "previously_reported": 0,
+        "actual_successful_Moondream_HTTP_responses": 1,
+        "events": [
+          {
+            "event": "point_http_response",
+            "at": "2026-10-17T06:05:50.811870+00:00",
+            "status_code": 200,
+            "request_png_sha256": "e18c636000541210f3038effeb748830dcbdbcb183e617336098a76820446e43"
+          }
+        ],
+        "reason": "Earlier zero count contradicted by the separate native pointing HTTP capture stream; original archived notes retained.",
+        "archive_manifest": "docs/research/computer-use-pointing-accounting-2026-10-17.manifest.json"
+      }
     },
     {
       "cycle": "6l",
@@ -824,7 +881,7 @@
       "actual_ornith_requests": 19,
       "actual_Kev_requests": 4,
       "valid_Kev_replies": 4,
-      "actual_Moondream_calls": 0,
+      "actual_Moondream_calls": 1,
       "completed_native_phases": 9,
       "narrow_pointer_resolutions": 3,
       "actual_pointer_click_dispatches": 1,
@@ -854,7 +911,73 @@
         "The unchanged loaded Ornith task issued 19 requests, one pointer click and four window switches. It did not open a popup, so the new guard was not exercised in the whole task. It failed without reading the brief or producing outputs.",
         "Both Eggs adopted the prior commit 0cb84bf and have actual GPU-resident Ornith workers. They still use on-demand Moondream2 and have no Kev endpoint; full-stack remote acceptance remains pending."
       ],
-      "archive_manifest": "docs/research/computer-use-popup-prerequisite-2026-10-17.manifest.json"
+      "archive_manifest": "docs/research/computer-use-popup-prerequisite-2026-10-17.manifest.json",
+      "moondream_accounting_correction": {
+        "cycle": "6l",
+        "previously_reported": 0,
+        "actual_successful_Moondream_HTTP_responses": 1,
+        "events": [
+          {
+            "event": "point_http_response",
+            "at": "2026-10-17T06:29:51.107582+00:00",
+            "status_code": 200,
+            "request_png_sha256": "e7612c3d3190f7a3f64b99d5d8e3d47cf17407d5adad1322364696f36ecbbecd"
+          }
+        ],
+        "reason": "Earlier zero count contradicted by the separate native pointing HTTP capture stream; original archived notes retained.",
+        "archive_manifest": "docs/research/computer-use-pointing-accounting-2026-10-17.manifest.json"
+      }
+    },
+    {
+      "cycle": "6m",
+      "status": "RETAINED_PLAN_CONTEXT_PRESERVED_LIVE_CRITERION_NOT_REACHED",
+      "post_tests": 4223,
+      "validation_seconds": 133.1,
+      "new_regressions": 2,
+      "task_signature_sha256": "d2fba3863d2b871135b82be2925729fe020f2105be0045fe9a8b681605830dcc",
+      "task_requirements_changed": false,
+      "actual_ornith_requests": 14,
+      "model_request_kinds": {
+        "native_ui_subgoal": 5,
+        "native_ui_phase": 5,
+        "native_pointer_resolution": 4
+      },
+      "Kev": {
+        "receipts": 5,
+        "model_confirmed": 5,
+        "statuses": {
+          "accepted": 5
+        }
+      },
+      "actual_Moondream_HTTP_responses": 0,
+      "elapsed_s": 81.44060017800075,
+      "native_phases": 6,
+      "method": {
+        "verified": false,
+        "unique_dispatched_inputs": 1,
+        "same_owned_scope": true,
+        "actual_keyboard": false,
+        "actual_pointer": true,
+        "actual_pointer_movement": true,
+        "tools_within_scope": true,
+        "gui_code_or_macro_audit": "pending_independent_review"
+      },
+      "whole_task_pass": false,
+      "owned_windows_closed": true,
+      "downstream_idle": true,
+      "input_sources_unchanged": true,
+      "GPU_workers_unchanged": true,
+      "final_message": "Three consecutive native phases were invalid or unverified.",
+      "findings": [
+        "The subgoal projection omitted the previous plan and unmet constraints that action selection received. The candidate preserves that exact planner-claim metadata without granting effect or input authority.",
+        "Six actual captured-request comparisons: both baseline Files states reread the brief; both retained-plan variants selected the unread authority ledger. The third Firefox state still reread the brief. These are correlated states, not whole-task or general reliability evidence.",
+        "The bounded live task failed earlier: four narrow pointer resolutions returned replan, and the only dispatched input clicked the tmp breadcrumb. It never read the brief or reached ledger selection, so the live criterion was not exercised. No outputs.",
+        "Separate local revision-reconciliation and editorial baselines failed with 9 and 3 actual inputs. All input hashes were preserved and owned windows closed.",
+        "Egg .41 adopted 2834d7f and ran the editorial task with GPU-resident Ornith. Its ownership monitor reported native_foreground_unmapped; no authoritative final arrived. Three inputs were dispatched, then the runner drained and closed owned windows and restored the harness. MD2/no-Kev is a separate condition.",
+        "Egg .31 retained 0cb84bf after validation failed on the known accented-text XTEST loss, with 4220 other tests passing. No remote task was launched on that mismatched source/runtime."
+      ],
+      "capture_limitation": "The auxiliary parsed-packet recorder omits retained_plan and reports that omission. Every exact wire body and SHA256 is preserved; those wire bodies include retained_plan and are authoritative for comparison.",
+      "archive_manifest": "docs/research/computer-use-planning-continuity-2026-10-17.manifest.json"
     }
   ]
 }

@@ -1,0 +1,2026 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth",
+  "scope": "Subgoal continuity comparison and candidate, three local live failures, one Egg41 live failure, Egg31 update blocker",
+  "file_count": 336,
+  "total_bytes": 28218492,
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/live.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/live.log",
+      "bytes": 36,
+      "sha256": "d9ecf5ee17c3b32c3e93ec5e2db6897334af13c44100258fcfa86019080175c3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/frontend-launch.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/frontend-launch.log",
+      "bytes": 428,
+      "sha256": "3c6aa5fefd6ed1d09a64e7623be4105ddcc9da288e40ee28db2f9deeb41033cd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/handoff.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/handoff.json",
+      "bytes": 1057,
+      "sha256": "34e54d81b04af655aa218fe1e4ff4c0795e9a4d7dc513e26b0046cb01f72740a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/passive-foreground-capture.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/passive-foreground-capture.json",
+      "bytes": 279316,
+      "sha256": "97dc65abc7ce038baa50b0cbaed6047ec922d4607dee3a8fb9df8e1066bc7ff7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/doctor.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/doctor.json",
+      "bytes": 3625,
+      "sha256": "66e14d4c25e41a3657f432c074fedb7ab11e1e611ac433bb2c9ba1caa8cdc8b0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/staged-source.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/staged-source.json",
+      "bytes": 1690,
+      "sha256": "ca6185785f4b61aed33e6f0a97e09e3dc838739062ec53657764d1f51c707a37"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/watch_owned_screen.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/watch_owned_screen.py",
+      "bytes": 1914,
+      "sha256": "8ceebb99f2b34bc2c4cc1e5f61e077965d1a237e2936a9ef2940dc9419def048"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/stage.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/stage.py",
+      "bytes": 3096,
+      "sha256": "a1f2b70856f3120f0d8978c26d97f1fd35c23859c908f49813b1a151371f179b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/archive.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/archive.py",
+      "bytes": 7995,
+      "sha256": "d3964327e417493a714b4b2a9c1c8f804754368840bd2bb3e5f8ae6d0b4dc9b6"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/passive_guard_capture.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/passive_guard_capture.py",
+      "bytes": 5666,
+      "sha256": "d0b982d056129693515743780781d6474c0adc89572d580b2dd4d0399307d889"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/after-test-notes.json",
+      "bytes": 2867,
+      "sha256": "843bd603f6281e3a487e4e5b53507c27b970f9463851630aa117d09bf5e02121"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/handoff.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/handoff.py",
+      "bytes": 3061,
+      "sha256": "fadf201925688728c83c6bfe9ccff4a42c9ccd0864f1b7e4849a2409264b69ed"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/status.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/status.py",
+      "bytes": 969,
+      "sha256": "cb972bcd9b0b936e6c7419efafd820eb2315cff1023565e207b1432def6d9238"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/broker-before-handoff.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/broker-before-handoff.json",
+      "bytes": 11546,
+      "sha256": "0655c78c8883ed04a1487868aef25e57faf9f8a8e244912ac7dc8a80569292c2"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/private_runner_bootstrap.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/private_runner_bootstrap.py",
+      "bytes": 590,
+      "sha256": "84cefd7170cbfc1e9c6f6d7f231d86ca7f1fb41c2711b0c1a41108f841f07a82"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/run_live.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/run_live.py",
+      "bytes": 1010,
+      "sha256": "a523ea44e69fa0b2554912b4f2b5ee6fda2107732db9a36a75acb04da7496f28"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/validation.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/validation.log",
+      "bytes": 4875,
+      "sha256": "5b3470473237e02aff1e9af306cc25caa465f8ec6a29fdee011a9d43f54e7260"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/input-integrity.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/input-integrity.json",
+      "bytes": 4383,
+      "sha256": "9826c2ededf03f1b089ebbf781399c6e7b55e0d4ea33b68aaee8c993d8e41e03"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/readiness/gnome-official-source-pack.zip",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/readiness/gnome-official-source-pack.zip",
+      "bytes": 22006,
+      "sha256": "a727493380a3e0aa114498e28b51e1ca9bf2922f1199d88941d237a53e34577a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/readiness/provenance.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/readiness/provenance.json",
+      "bytes": 532,
+      "sha256": "082523071d43077173f787c22bb4efc7f81c921e52346e356bdd7348797e4dc5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/readiness/readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/readiness/readiness.json",
+      "bytes": 478,
+      "sha256": "9c793d3683d8ae5ac8cc5b4abbf02e4cf088aaf69b97939c8373adee86928e68"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/readiness/original-gnome-prerequisite-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/readiness/original-gnome-prerequisite-proof.json",
+      "bytes": 3260,
+      "sha256": "76fc4c7906f1e005f38b21364a5e3f6f57a2454a5d0235578b09021de52c6a08"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/readiness/original-readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/readiness/original-readiness.json",
+      "bytes": 478,
+      "sha256": "c7af7812f29bc3de6e99ec97a22a575a266bb66cd5987df0ba2f8b6a07c8deae"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/readiness/gnome-prerequisite-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/readiness/gnome-prerequisite-proof.json",
+      "bytes": 3535,
+      "sha256": "5cc826a80377548c1e02399c4db93dcc7e2d8260ef2adb0cafa09a74939b322a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/owned-screen-observation/6d08c045de2921d41cb93fdd8e06f8883a0b383d82c90c816865fd772c934313.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/owned-screen-observation/6d08c045de2921d41cb93fdd8e06f8883a0b383d82c90c816865fd772c934313.png",
+      "bytes": 123363,
+      "sha256": "6d08c045de2921d41cb93fdd8e06f8883a0b383d82c90c816865fd772c934313"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/owned-screen-observation/observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/owned-screen-observation/observations.jsonl",
+      "bytes": 2196,
+      "sha256": "ec08ec6b8c5457508de14bcf3c5ba10be31553414e25f835be792abcda9ff2e8"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/owned-screen-observation/3d6b62c518b0cdd92cc28ac36a26113a82baed440baeb216338d43aed9177953.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/owned-screen-observation/3d6b62c518b0cdd92cc28ac36a26113a82baed440baeb216338d43aed9177953.png",
+      "bytes": 123470,
+      "sha256": "3d6b62c518b0cdd92cc28ac36a26113a82baed440baeb216338d43aed9177953"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/owned-screen-observation/85205d657701eb07247c1f5cbf3d01bd3eb37b991ef59a00e8b358ad5d1034fe.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/owned-screen-observation/85205d657701eb07247c1f5cbf3d01bd3eb37b991ef59a00e8b358ad5d1034fe.png",
+      "bytes": 20137,
+      "sha256": "85205d657701eb07247c1f5cbf3d01bd3eb37b991ef59a00e8b358ad5d1034fe"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/candidate-source/portal/ui_decision.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/candidate-source/portal/ui_decision.py",
+      "bytes": 23297,
+      "sha256": "e7482dae2f8e6e40525ac6e17488ae9b9222c91912ce8ac9607b1cceda825919"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/continuity-cycle-20261017/candidate-source/tests/test_native_subgoal_handoff.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-audit/candidate-source/tests/test_native_subgoal_handoff.py",
+      "bytes": 6552,
+      "sha256": "dfbf61a2772d7eb41ce45c951686fbb96d067ea0e21477ab4f5d181cfc8eb619"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg31-after-push.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg31-after-push.json",
+      "bytes": 6967,
+      "sha256": "06e76d444abeba8e6d6da458dc165fae75beac181d1d088726d89377a94cb845"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/run_case.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/run_case.py",
+      "bytes": 3267,
+      "sha256": "40e92b0c3807ea314b1b3faead8c3c5e84aa5e13f9990a5c50b05fc6185c1e7f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-after-push.stderr",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-after-push.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/passive-foreground-capture.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/passive-foreground-capture.json",
+      "bytes": 433641,
+      "sha256": "5a1df665f37fa98969ec4d0dbde8f8115f0c38eb6b465e4ce3fe782db27f5948"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg31-after-push.stderr",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg31-after-push.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-after-push.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-after-push.json",
+      "bytes": 6739,
+      "sha256": "16ebe9116f08c6d18c9274b9ccf8cac8e51627822fb0dfbddf04e49f84f23461"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/deployment.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/deployment.json",
+      "bytes": 2677,
+      "sha256": "5fb0edef14f761a25ab99813c52a386ccde7caaedbae37f38e07afca323be2c6"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg31-update-progress.stderr",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg31-update-progress.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/passive_guard_capture.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/passive_guard_capture.py",
+      "bytes": 5666,
+      "sha256": "d0b982d056129693515743780781d6474c0adc89572d580b2dd4d0399307d889"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/private_runner_bootstrap.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/private_runner_bootstrap.py",
+      "bytes": 590,
+      "sha256": "84cefd7170cbfc1e9c6f6d7f231d86ca7f1fb41c2711b0c1a41108f841f07a82"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-update-progress.stderr",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-update-progress.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-update-progress.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-update-progress.json",
+      "bytes": 6748,
+      "sha256": "71e1a8234524ee3ab3f5f437783b95f413cc7a175213bf146cca09a4c388f011"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg31-system-update-failure.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg31-system-update-failure.json",
+      "bytes": 470,
+      "sha256": "ac26d2b16166046437d7a1ccdb51852a9bfecc6ecc5a03fe9c518366bb28db99"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/prepare.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/prepare.py",
+      "bytes": 2999,
+      "sha256": "bcee3e1d03e323b4bab7ac5439dd3b94308ce0686b11455c7c218ad5cfb28fdc"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/compare_continuity.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/compare_continuity.py",
+      "bytes": 3389,
+      "sha256": "88d43f119ea87fb717420480cabbce41570820e87b926b236e69f315af6a1324"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg31-update-failure.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg31-update-failure.json",
+      "bytes": 29,
+      "sha256": "6629d717e380bd588382793ed4c50027a488dac5027b818780ead4efca68c715"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg31-update-progress.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg31-update-progress.json",
+      "bytes": 6976,
+      "sha256": "7705b6da4c46d428e55634639b4f59c316c95ac7da3ad8d394f4152595273ef9"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/broker.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/broker.json",
+      "bytes": 11549,
+      "sha256": "3750a9838373f3d32c569475653438517aeef445423b70e742845ebfa3545ecc"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/design.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/design.json",
+      "bytes": 744,
+      "sha256": "8ef724372b6a8b4d48409fd2d8345cc1184115bf56a01952f8e109d3feadf33a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000020.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000020.png",
+      "bytes": 16812,
+      "sha256": "34f55773ba488667b56768e90d726b8c24ebd2842963882f8a7193b1f4de2e44"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000058.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000058.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000027.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000027.png",
+      "bytes": 26921,
+      "sha256": "a446eaf41ae9c034f10c64e1419bdb70ff1d730c9aaec6393003ba949fd353be"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000045.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000045.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000029.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000029.png",
+      "bytes": 47497,
+      "sha256": "4b2a229c8eeec6dcd46ee25dba4b2b2254378c5f2938c3a7a92182ef276a641c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000007.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000007.png",
+      "bytes": 16858,
+      "sha256": "e7612c3d3190f7a3f64b99d5d8e3d47cf17407d5adad1322364696f36ecbbecd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000059.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000059.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000064.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000064.png",
+      "bytes": 37223,
+      "sha256": "aea19a3ecc903d3adca70769112cbfc214f8f32e96809979bb9deb8c1e58a32f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000054.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000054.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000035.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000035.png",
+      "bytes": 16477,
+      "sha256": "f082f3fb3aea920e0d70b94147a0ca153242a320a869d3f17a3324399248f4e7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000052.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000052.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000003.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000003.png",
+      "bytes": 16858,
+      "sha256": "e7612c3d3190f7a3f64b99d5d8e3d47cf17407d5adad1322364696f36ecbbecd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000009.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000009.png",
+      "bytes": 20590,
+      "sha256": "bf1d7cdff8931a00779451e8932fc00be84709d30228850bc7da2b63a0177ae4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000051.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000051.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000039.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000039.png",
+      "bytes": 16477,
+      "sha256": "f082f3fb3aea920e0d70b94147a0ca153242a320a869d3f17a3324399248f4e7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000022.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000022.png",
+      "bytes": 47497,
+      "sha256": "4b2a229c8eeec6dcd46ee25dba4b2b2254378c5f2938c3a7a92182ef276a641c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000038.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000038.png",
+      "bytes": 20048,
+      "sha256": "c669f8f40df3afe8df4d0e64fc36665513b743d4e58242ef99f9d13fe5674528"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000034.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000034.png",
+      "bytes": 20048,
+      "sha256": "c669f8f40df3afe8df4d0e64fc36665513b743d4e58242ef99f9d13fe5674528"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000012.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000012.png",
+      "bytes": 37644,
+      "sha256": "65061c3e350c433b4e0818f1a8f6d2d2240d17838ad13b0dbc6e057741a874b5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000013.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000013.png",
+      "bytes": 16812,
+      "sha256": "34f55773ba488667b56768e90d726b8c24ebd2842963882f8a7193b1f4de2e44"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000030.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000030.png",
+      "bytes": 26921,
+      "sha256": "a446eaf41ae9c034f10c64e1419bdb70ff1d730c9aaec6393003ba949fd353be"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000017.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000017.png",
+      "bytes": 16812,
+      "sha256": "34f55773ba488667b56768e90d726b8c24ebd2842963882f8a7193b1f4de2e44"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000065.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000065.png",
+      "bytes": 33124,
+      "sha256": "92bf55663b6bdd31c479be274c87648df3c73f50bb261662152f17f526732bdb"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000042.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000042.png",
+      "bytes": 16477,
+      "sha256": "f082f3fb3aea920e0d70b94147a0ca153242a320a869d3f17a3324399248f4e7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000026.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000026.png",
+      "bytes": 47497,
+      "sha256": "4b2a229c8eeec6dcd46ee25dba4b2b2254378c5f2938c3a7a92182ef276a641c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000002.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000002.png",
+      "bytes": 20590,
+      "sha256": "bf1d7cdff8931a00779451e8932fc00be84709d30228850bc7da2b63a0177ae4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000048.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000048.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000016.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000016.png",
+      "bytes": 37644,
+      "sha256": "65061c3e350c433b4e0818f1a8f6d2d2240d17838ad13b0dbc6e057741a874b5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000019.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000019.png",
+      "bytes": 37644,
+      "sha256": "65061c3e350c433b4e0818f1a8f6d2d2240d17838ad13b0dbc6e057741a874b5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000062.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000062.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000061.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000061.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000023.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000023.png",
+      "bytes": 26921,
+      "sha256": "a446eaf41ae9c034f10c64e1419bdb70ff1d730c9aaec6393003ba949fd353be"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000041.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000041.png",
+      "bytes": 20048,
+      "sha256": "c669f8f40df3afe8df4d0e64fc36665513b743d4e58242ef99f9d13fe5674528"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000044.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000044.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000010.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000010.png",
+      "bytes": 16858,
+      "sha256": "e7612c3d3190f7a3f64b99d5d8e3d47cf17407d5adad1322364696f36ecbbecd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000055.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000055.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000069.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000069.png",
+      "bytes": 32930,
+      "sha256": "fb1623a772b2fa1c4cc524e801c246681c30be42ebc61efd3b88ff68ddf43fd5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000049.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000049.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/captures.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/captures.jsonl",
+      "bytes": 94179,
+      "sha256": "79e09beb174e64bebb2dfc9d528647e8905573fb6bf896d8e22abfdc797e66c2"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000068.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000068.png",
+      "bytes": 37027,
+      "sha256": "620c57815fc0c16d4dd8def8fcdb94d095290753e4aaa8347547621807bc3f86"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/full-visual-captures/capture-000006.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/full-visual-captures/capture-000006.png",
+      "bytes": 20590,
+      "sha256": "bf1d7cdff8931a00779451e8932fc00be84709d30228850bc7da2b63a0177ae4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/live.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/live.log",
+      "bytes": 987,
+      "sha256": "fa6ec9f8a3cddd52b10636cda45963bdcf1c5a9b828d20340a02bfcb56cc231f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/govuk-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/govuk-proof.json",
+      "bytes": 975,
+      "sha256": "1bb17dbde751b02e605db412d0e8e63db632fe0b3326e83df9419d0e15bba9eb"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/run-case.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/run-case.py",
+      "bytes": 10026,
+      "sha256": "cbeb001ccbe860ebac67b0cd2d5775cec9256a53774ebd5be59e2ec8de472aa2"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/readiness.json",
+      "bytes": 680,
+      "sha256": "9b3b052b5418e7c60cbffc1deecb02fecbf20d4b205cbf7821ac2ab36057c16e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/after-test-notes.json",
+      "bytes": 1097,
+      "sha256": "71a4f033d862fde27028c0cd727f65bd2f527a147bcca866d277853f6cb4113f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/remote-evidence.tar.gz",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/remote-evidence.tar.gz",
+      "bytes": 287902,
+      "sha256": "383d0f387c6d0c67aaebb1c58899d80a1c0491e932af4afeac1bad24108895d7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/microsoft.html",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/microsoft.html",
+      "bytes": 47473,
+      "sha256": "74034ac0b0c66a425174bd5b9093ec86baaa40c8349bfc4de0a3f5f5723cbb0f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/govuk.html",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/govuk.html",
+      "bytes": 170303,
+      "sha256": "d99e0beec60eb63ebd4d5dff006b20c7d99dbdc31deaae4fe6a41d2ddc098682"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/microsoft-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/microsoft-proof.json",
+      "bytes": 972,
+      "sha256": "e86865e4671cba2bd06222c0235eac764e21e8b13506c43c98c1cea85a5bcf42"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/live.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/live.log",
+      "bytes": 36,
+      "sha256": "d9ecf5ee17c3b32c3e93ec5e2db6897334af13c44100258fcfa86019080175c3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/history-metrics.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/history-metrics.jsonl",
+      "bytes": 8360,
+      "sha256": "d23b1f501c71f1d6c3e47818d86cfb01b127726bf7576502009b37e086309f09"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/scope-read-observer.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/scope-read-observer.jsonl",
+      "bytes": 51985,
+      "sha256": "d383eeae5fefe075503409ce5788c756940df874c581b0e64761921c426cfc64"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/before.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/before.json",
+      "bytes": 473,
+      "sha256": "6f84fdb070461966c2f27cf59e1dce98970b642f3834c9e563d8c9b8f3660a28"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/passive-foreground-capture.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/passive-foreground-capture.json",
+      "bytes": 433641,
+      "sha256": "5a1df665f37fa98969ec4d0dbde8f8115f0c38eb6b465e4ce3fe782db27f5948"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/adapter-phase-responses.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/adapter-phase-responses.jsonl",
+      "bytes": 35202,
+      "sha256": "0097a741290f9d616f362079a6723e1267ef7169169def335879446ecf064897"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/watch_owned_screen.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/watch_owned_screen.py",
+      "bytes": 1910,
+      "sha256": "53c6fc953df3eb1b94b2af5d98313193cdd73fc0b114c48c8870a01260255a9e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/adapter-planner-packets.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/adapter-planner-packets.jsonl",
+      "bytes": 635470,
+      "sha256": "ae344390b926ec2c8fdd3d94207cd67898d9430023d6eb959d3d8e1f2ff82afb"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/controller-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/controller-observations.jsonl",
+      "bytes": 1864625,
+      "sha256": "8f246dd2b53e828dcda598c1555c6568c43d669eeecbb7ad8df27ca9d8794d51"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/after-test-notes.json",
+      "bytes": 1382,
+      "sha256": "5d3c3157ef0bf912969ebe5276afe513a971c3ee4e29aac7f73139770c9e0820"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/live.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/live.log",
+      "bytes": 36,
+      "sha256": "d9ecf5ee17c3b32c3e93ec5e2db6897334af13c44100258fcfa86019080175c3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/history-metrics.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/history-metrics.jsonl",
+      "bytes": 17454,
+      "sha256": "8065b629c7eb6f293e03dbf96ff9f5e30519624b875dded7bfa29adc3b1c657e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/scope-read-observer.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/scope-read-observer.jsonl",
+      "bytes": 248530,
+      "sha256": "cdc4a36a8cca24b02a4c5cb3fcb3bb91c15596ca871a075c724e3d94914dcfde"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/before.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/before.json",
+      "bytes": 470,
+      "sha256": "25f815cde35ca0f7606e289d6f7467401b6913fc23bdd41fed3615e829d8f505"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/passive-foreground-capture.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/passive-foreground-capture.json",
+      "bytes": 706846,
+      "sha256": "c32a5a4ddf37342af9ff6ef69beac1dfc994ca0485655bcf86d9d1e5485a494e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/adapter-phase-responses.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/adapter-phase-responses.jsonl",
+      "bytes": 62035,
+      "sha256": "05dde4519f51dc6c94059091ac8e86972e9674c9c0b159d9d5222521910fee82"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/watch_owned_screen.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/watch_owned_screen.py",
+      "bytes": 1910,
+      "sha256": "290cf75791050da05c1d56d7438da92a35463cc2a723307f9167b17a885cd4b4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/adapter-planner-packets.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/adapter-planner-packets.jsonl",
+      "bytes": 1388451,
+      "sha256": "9ff4021fb822cd388c0ee486201b6b7814b5fcb6d0d7e8a325e178763bd0aa0b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/pointer-request-causal-check.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/pointer-request-causal-check.json",
+      "bytes": 14260,
+      "sha256": "90eac2f404663c9165bdaba3b5bfbd168537e50795e7dd11c309a8639668c428"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/controller-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/controller-observations.jsonl",
+      "bytes": 2918380,
+      "sha256": "c5162df3964abf79b691493b6b7d75306612c519e44aa11bed448d4547c8b425"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/after-test-notes.json",
+      "bytes": 1382,
+      "sha256": "069de44eb65681d98031413d762a3d791b5a91d1eb907874b8e5b1cb2ec50e52"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-7-baseline/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-7-baseline/result.json",
+      "bytes": 949,
+      "sha256": "313c9c295d7df408238bc3f09db9d88d219392069af157050cfac7d26c4fbd55"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-7-baseline/response-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-7-baseline/response-body.json",
+      "bytes": 1320,
+      "sha256": "c96ab90fbeedb2276340a11b9c7ea2f7d13cee40afe5601f878e26ff8d0f1f6c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-7-baseline/request-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-7-baseline/request-body.json",
+      "bytes": 17520,
+      "sha256": "e3ebecd57516c97ed0f0c1bbccf665f8c18f3e429f40c0fd8d2c6b2e6443d138"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-11-baseline/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-11-baseline/result.json",
+      "bytes": 1153,
+      "sha256": "4d1f3e54800ced596eb3693b465331922ba1bed71c4f688c4462d004b9d49585"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-11-baseline/response-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-11-baseline/response-body.json",
+      "bytes": 1525,
+      "sha256": "f268b8b36b7cc2004d81142217ccebd2aa53cc5e5f548f39388654bfb4cc7301"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-11-baseline/request-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-11-baseline/request-body.json",
+      "bytes": 18194,
+      "sha256": "98f8bf6ef24ca468cb3f29884df0dae317166e15572c597e2b755d3404ebbef8"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-11-retained_plan/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-11-retained_plan/result.json",
+      "bytes": 1160,
+      "sha256": "78386194089cfbd6454d0ba80c6b95b5c301670117715cc9c939091160f8c1c7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-11-retained_plan/response-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-11-retained_plan/response-body.json",
+      "bytes": 1485,
+      "sha256": "172eb8de3bb05fe0e978f4a1616846f35f7bb1516616e938e9fd23347e0c55ef"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-11-retained_plan/request-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-11-retained_plan/request-body.json",
+      "bytes": 19335,
+      "sha256": "9b4a950e72d2a831f335833b51c59ec85b69f0fa7d6e49445bfb43513c208a01"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-7-retained_plan/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-7-retained_plan/result.json",
+      "bytes": 1099,
+      "sha256": "616bc449ff11da941d8170a306988f60d7798069594175129c3af0f13851fbd5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-7-retained_plan/response-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-7-retained_plan/response-body.json",
+      "bytes": 1430,
+      "sha256": "a9e3ebf06a7ac4e3d009de65622560e9bace9c51b78806eaf1a01cedfadb5373"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-7-retained_plan/request-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-7-retained_plan/request-body.json",
+      "bytes": 19133,
+      "sha256": "ffaa16640ea29ad32313135d123eef499fc794cd5e1699245d21eab208295a4f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-9-retained_plan/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-9-retained_plan/result.json",
+      "bytes": 1038,
+      "sha256": "32e6a43237cc5fa5ab122b18d77fbd313969f9ee95c2702c7d1e8f4af3c26944"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-9-retained_plan/response-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-9-retained_plan/response-body.json",
+      "bytes": 1368,
+      "sha256": "60bd79de19784017c53308f5235555d4f282682769fd750711751f9db0ea90f0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-9-retained_plan/request-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-9-retained_plan/request-body.json",
+      "bytes": 19005,
+      "sha256": "f57f56ad37a7f3cbd73512eabd3f51fabfd61f4e832ca4a237d5e973e922ad8f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-9-baseline/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-9-baseline/result.json",
+      "bytes": 1200,
+      "sha256": "edb4ccfeffe6a30257fd550bc9e527b2cf98ffb9485b7536a67530c5154ca60b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-9-baseline/response-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-9-baseline/response-body.json",
+      "bytes": 1573,
+      "sha256": "56a8228a2fa69b680a3c55fe3d8bb09520f3c74508214565ad7f9060e3567f88"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/continuity-comparison/phase-9-baseline/request-body.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/continuity-comparison/phase-9-baseline/request-body.json",
+      "bytes": 17901,
+      "sha256": "c687b512a83369cee29dcaa4fcfe3ec276048c479b58c89741f9b8e7ddafbfc4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/isolation-before.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/isolation-before.json",
+      "bytes": 11176,
+      "sha256": "3614eb210a6d43906f94864b988493dd47520dec0780b7b758078121852e413e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/external-Xtree-before.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/external-Xtree-before.json",
+      "bytes": 6355,
+      "sha256": "25b4824439b522b4cad92c94f722ad4b42a34a879e2cef52f85cae2ba0f349b6"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/captured-source-state.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/captured-source-state.json",
+      "bytes": 2058,
+      "sha256": "6ffd22dd8cd487634bd4ec5e05496beee9f1b2405992c2abcca120dda23d2db4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/govuk-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/govuk-proof.json",
+      "bytes": 975,
+      "sha256": "1bb17dbde751b02e605db412d0e8e63db632fe0b3326e83df9419d0e15bba9eb"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/run-case.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/run-case.py",
+      "bytes": 10026,
+      "sha256": "cbeb001ccbe860ebac67b0cd2d5775cec9256a53774ebd5be59e2ec8de472aa2"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/readiness.json",
+      "bytes": 680,
+      "sha256": "9b3b052b5418e7c60cbffc1deecb02fecbf20d4b205cbf7821ac2ab36057c16e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/external-Xtree-after.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/external-Xtree-after.json",
+      "bytes": 7721,
+      "sha256": "407ed8b80a02b7570cd22f11b44eb4b3f76584156b5ce05f68e4725ff45c12e9"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/microsoft.html",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/microsoft.html",
+      "bytes": 47473,
+      "sha256": "74034ac0b0c66a425174bd5b9093ec86baaa40c8349bfc4de0a3f5f5723cbb0f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/govuk.html",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/govuk.html",
+      "bytes": 170303,
+      "sha256": "d99e0beec60eb63ebd4d5dff006b20c7d99dbdc31deaae4fe6a41d2ddc098682"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/microsoft-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/microsoft-proof.json",
+      "bytes": 972,
+      "sha256": "e86865e4671cba2bd06222c0235eac764e21e8b13506c43c98c1cea85a5bcf42"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/isolation-after.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/operator/breadth-LHN047-2834-20261017/isolation-after.json",
+      "bytes": 23085,
+      "sha256": "f50dab5c21c3d334383dd0c5cd09fa8af445973fe80641177ffd8b680a379b4e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/window-ownership.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/window-ownership.json",
+      "bytes": 1102,
+      "sha256": "c8d75a294377f13353695d1a16f131ef5d2d54b93a476ea1590033d55a868adc"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/summary.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/summary.json",
+      "bytes": 12509,
+      "sha256": "86da51936ec4bf9126518c9edf5ea4f0f3a5b51970c0f812564158ae694c1cff"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/initial-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/initial-native.json",
+      "bytes": 154681,
+      "sha256": "f5e283334801be3a0a1a518e9d969e1b6ea573828a2761e0c6f88f1cb51e5759"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/files0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/files0.log",
+      "bytes": 279,
+      "sha256": "d9472af88a280e1ed7fff0088d62d9c12a96f1e95bf377a4e1b55a92d5eef76b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/native-outcomes-index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/native-outcomes-index.json",
+      "bytes": 13516,
+      "sha256": "21319ef1559209573ac0a47a029c8c088014ad2e0365818f8ff216481298df36"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/request-payload.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/request-payload.json",
+      "bytes": 2685,
+      "sha256": "2b0f28b6a37ed9010b2935e4e47e159254df675122fc539ca31f6c312d3c66e3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/metrics.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/metrics.json",
+      "bytes": 1943,
+      "sha256": "f25d3b7142b1aafe79b53ff8387d840bfca9d49ceff07dc7aa8646acbf8ae93c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/goal.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/goal.txt",
+      "bytes": 1581,
+      "sha256": "572fcfe151e2a468d0e980c30b2d8020c0de6300a5314b55632aaf44d81de9df"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/evidence-manifest.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/evidence-manifest.json",
+      "bytes": 5133,
+      "sha256": "7f0ae3a95b1462a267cf1d4f5f3ca8a411ca041ea0b03c2328aadb75f2bb9f26"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/ui-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/ui-observations.jsonl",
+      "bytes": 367075,
+      "sha256": "9247ffb05e7a3f9dd4d5af1a16ddb14a42899c3e2dd3e23281bfd1944c3aa82c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/gedit0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/gedit0.log",
+      "bytes": 134,
+      "sha256": "76050053c4b02071888d4c96a42008c20783652c7d6b1762457f640578a0d413"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/final-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/final-native.json",
+      "bytes": 1153,
+      "sha256": "cc0320f83fcbaa7229eb5956021b5c7d71a4ded70c802b6eb392c504a5aa3a61"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/readiness-requirements.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/readiness-requirements.json",
+      "bytes": 516,
+      "sha256": "f4d9b79a83e403833c85e6a6865b7eb4a037c811849ae7333ac0f4c3fd5cb20d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/events.ndjson",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/events.ndjson",
+      "bytes": 689507,
+      "sha256": "feca24908643e3f077ca2a52587044d0bc4bf502fbb198de877c0b85865d7dfa"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/setup-native-observations.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/setup-native-observations.json",
+      "bytes": 225809,
+      "sha256": "b98885d0aebfcfd31fcef16f8c334be9ed52ac51636ed0e9c60b84ffc9610532"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/milestones.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/milestones.jsonl",
+      "bytes": 272857,
+      "sha256": "ea300e6076a8c52f8de44fbcc85125cd2858d76b65fbf86d8266cc18112034b7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/after-test-note.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/after-test-note.json",
+      "bytes": 1646,
+      "sha256": "eeaa3d86a70af02ed084aaaa634129098904e6f1a2e23ce44c5494bb1cccd50c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/pointer-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/pointer-observations.jsonl",
+      "bytes": 104274,
+      "sha256": "f420c4a2f056e954a6c16dbcd55953d9179a92e87ce8e4ee3f7f71a377906e7d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/browser0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/browser0.log",
+      "bytes": 1280,
+      "sha256": "a30817482dc1632a8e1c130958926e55ed8d965d7b8dcb816beac8654265f449"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/receive-timing.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/receive-timing.jsonl",
+      "bytes": 2550,
+      "sha256": "7b692f94b75fb5bb276adf1f19c5538e7d2e1995e8a0c6234add8ef41c1219e5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/index.json",
+      "bytes": 1289,
+      "sha256": "01f75b5d8f8aced7fff7331169dff868bcbc042ffdf9107dd72af43960fb8a72"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/proof-01.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/proof-01.json",
+      "bytes": 972,
+      "sha256": "e86865e4671cba2bd06222c0235eac764e21e8b13506c43c98c1cea85a5bcf42"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/readiness-pack.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/readiness-pack.json",
+      "bytes": 680,
+      "sha256": "9b3b052b5418e7c60cbffc1deecb02fecbf20d4b205cbf7821ac2ab36057c16e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/proof-00.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/proof-00.json",
+      "bytes": 975,
+      "sha256": "1bb17dbde751b02e605db412d0e8e63db632fe0b3326e83df9419d0e15bba9eb"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/source-01.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/source-01.bin",
+      "bytes": 47473,
+      "sha256": "74034ac0b0c66a425174bd5b9093ec86baaa40c8349bfc4de0a3f5f5723cbb0f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/source-00.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/host-source-evidence/source-00.bin",
+      "bytes": 170303,
+      "sha256": "d99e0beec60eb63ebd4d5dff006b20c7d99dbdc31deaae4fe6a41d2ddc098682"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/Workbench/Input/corrections.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/Workbench/Input/corrections.json",
+      "bytes": 1635,
+      "sha256": "2abbfb8c34b37131964b3a4960acb5caf0f3646d82b87b522e9b778873737f27"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/Workbench/Input/draft-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/Workbench/Input/draft-3.txt",
+      "bytes": 416,
+      "sha256": "8346728579859a8ca12fe2af4d8ab2692918a1668c51ff41024b308623498908"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/Workbench/Input/draft-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/Workbench/Input/draft-2.txt",
+      "bytes": 414,
+      "sha256": "7373131d59be110473d96490676030f80c57d2b6c3d35038a3589e8f0dfc26b0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/Workbench/Input/task-brief.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/Workbench/Input/task-brief.txt",
+      "bytes": 1813,
+      "sha256": "fef12873697dda96e1eaafcedddfb334354839b7abc6c0bc3dd0cd45204c4e61"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/Workbench/Input/draft-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/egg41-LHN047/retained/runtime-data/long-horizon/ornith-LHN047-2834-breadth-20261017/Workbench/Input/draft-1.txt",
+      "bytes": 510,
+      "sha256": "a81e29e264ad9a46d87093479b51e9d73b738cfc120ce7a1f911f65b28dcdcc3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/readiness/govuk-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/readiness/govuk-proof.json",
+      "bytes": 1135,
+      "sha256": "351b8a41c79a3c14d9254ba4845f6fb09f1d3212b154d059fec2167e89ac8413"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/readiness/provenance.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/readiness/provenance.json",
+      "bytes": 607,
+      "sha256": "4274f7bcdf34d0b5c2eab58adcf70466e768635935203a63bb49cdb8f9f07111"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/readiness/readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/readiness/readiness.json",
+      "bytes": 680,
+      "sha256": "a7621b44ffebc3230fcd18415829a0da9ddc19c65e1a9aca48a4d3dfcf0e87f7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/readiness/original-govuk-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/readiness/original-govuk-proof.json",
+      "bytes": 694,
+      "sha256": "1b15f7aae1a5b59e4356c08fb99cce362b997f1b0a08b9d1b0e1f52ca16e40d4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/readiness/original-readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/readiness/original-readiness.json",
+      "bytes": 680,
+      "sha256": "5f2abe43fb4866b9ee05aade61db5cab6f1e124d6eb3f62bf34643b5e45b3b89"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/readiness/microsoft.html",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/readiness/microsoft.html",
+      "bytes": 47473,
+      "sha256": "74034ac0b0c66a425174bd5b9093ec86baaa40c8349bfc4de0a3f5f5723cbb0f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/readiness/govuk.html",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/readiness/govuk.html",
+      "bytes": 170303,
+      "sha256": "d99e0beec60eb63ebd4d5dff006b20c7d99dbdc31deaae4fe6a41d2ddc098682"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/readiness/original-microsoft-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/readiness/original-microsoft-proof.json",
+      "bytes": 691,
+      "sha256": "3c5802e1451300a34ded83d2382c67147ba74c7ffed72aca60296706d6e473bd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/readiness/microsoft-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/readiness/microsoft-proof.json",
+      "bytes": 1132,
+      "sha256": "998901dd633f523a12f79b282dd2bf651b067f0f8c83472811063d973efb2c2a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/owned-screen-observation/620c57815fc0c16d4dd8def8fcdb94d095290753e4aaa8347547621807bc3f86.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/owned-screen-observation/620c57815fc0c16d4dd8def8fcdb94d095290753e4aaa8347547621807bc3f86.png",
+      "bytes": 37027,
+      "sha256": "620c57815fc0c16d4dd8def8fcdb94d095290753e4aaa8347547621807bc3f86"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/owned-screen-observation/128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/owned-screen-observation/128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/owned-screen-observation/aea19a3ecc903d3adca70769112cbfc214f8f32e96809979bb9deb8c1e58a32f.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/owned-screen-observation/aea19a3ecc903d3adca70769112cbfc214f8f32e96809979bb9deb8c1e58a32f.png",
+      "bytes": 37223,
+      "sha256": "aea19a3ecc903d3adca70769112cbfc214f8f32e96809979bb9deb8c1e58a32f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/owned-screen-observation/c669f8f40df3afe8df4d0e64fc36665513b743d4e58242ef99f9d13fe5674528.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/owned-screen-observation/c669f8f40df3afe8df4d0e64fc36665513b743d4e58242ef99f9d13fe5674528.png",
+      "bytes": 20048,
+      "sha256": "c669f8f40df3afe8df4d0e64fc36665513b743d4e58242ef99f9d13fe5674528"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-047/owned-screen-observation/observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-047/owned-screen-observation/observations.jsonl",
+      "bytes": 3078,
+      "sha256": "b7fb92dfed4df68699dfc5d3b2746d7df6207b60515855daf62ac5c0923cac0a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/readiness/gnome-official-source-pack.zip",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/readiness/gnome-official-source-pack.zip",
+      "bytes": 22006,
+      "sha256": "a727493380a3e0aa114498e28b51e1ca9bf2922f1199d88941d237a53e34577a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/readiness/provenance.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/readiness/provenance.json",
+      "bytes": 532,
+      "sha256": "082523071d43077173f787c22bb4efc7f81c921e52346e356bdd7348797e4dc5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/readiness/readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/readiness/readiness.json",
+      "bytes": 478,
+      "sha256": "bbd69c8f9be82555ea59798c55e05d4cb45e4a1e2be6a0905060fd64530e73e3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/readiness/original-gnome-prerequisite-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/readiness/original-gnome-prerequisite-proof.json",
+      "bytes": 3260,
+      "sha256": "76fc4c7906f1e005f38b21364a5e3f6f57a2454a5d0235578b09021de52c6a08"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/readiness/original-readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/readiness/original-readiness.json",
+      "bytes": 478,
+      "sha256": "c7af7812f29bc3de6e99ec97a22a575a266bb66cd5987df0ba2f8b6a07c8deae"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/readiness/gnome-prerequisite-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/readiness/gnome-prerequisite-proof.json",
+      "bytes": 3709,
+      "sha256": "0dddadce2b8af14268600fa3817a6e7da492ef536f3451a48d7f029aa7665250"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/owned-screen-observation/9442ecf92a7da0fa3382e0f41e49728c3618f09f82113dcdd0925d788053261a.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/owned-screen-observation/9442ecf92a7da0fa3382e0f41e49728c3618f09f82113dcdd0925d788053261a.png",
+      "bytes": 148372,
+      "sha256": "9442ecf92a7da0fa3382e0f41e49728c3618f09f82113dcdd0925d788053261a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/owned-screen-observation/10fb83a5c55a4decdc64199b91a084027eb40823391c29021fceb3269ec63d5a.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/owned-screen-observation/10fb83a5c55a4decdc64199b91a084027eb40823391c29021fceb3269ec63d5a.png",
+      "bytes": 65793,
+      "sha256": "10fb83a5c55a4decdc64199b91a084027eb40823391c29021fceb3269ec63d5a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/owned-screen-observation/9031eafc7bde55862546e259877150f51de8cf57beacc73df51b52ddc2c1ec87.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/owned-screen-observation/9031eafc7bde55862546e259877150f51de8cf57beacc73df51b52ddc2c1ec87.png",
+      "bytes": 148309,
+      "sha256": "9031eafc7bde55862546e259877150f51de8cf57beacc73df51b52ddc2c1ec87"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/owned-screen-observation/449c777cf47e7198a52609c4b9317738e27367a50665be0e59ce05899fc21977.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/owned-screen-observation/449c777cf47e7198a52609c4b9317738e27367a50665be0e59ce05899fc21977.png",
+      "bytes": 149278,
+      "sha256": "449c777cf47e7198a52609c4b9317738e27367a50665be0e59ce05899fc21977"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/owned-screen-observation/4b2a229c8eeec6dcd46ee25dba4b2b2254378c5f2938c3a7a92182ef276a641c.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/owned-screen-observation/4b2a229c8eeec6dcd46ee25dba4b2b2254378c5f2938c3a7a92182ef276a641c.png",
+      "bytes": 47497,
+      "sha256": "4b2a229c8eeec6dcd46ee25dba4b2b2254378c5f2938c3a7a92182ef276a641c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/owned-screen-observation/65061c3e350c433b4e0818f1a8f6d2d2240d17838ad13b0dbc6e057741a874b5.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/owned-screen-observation/65061c3e350c433b4e0818f1a8f6d2d2240d17838ad13b0dbc6e057741a874b5.png",
+      "bytes": 37644,
+      "sha256": "65061c3e350c433b4e0818f1a8f6d2d2240d17838ad13b0dbc6e057741a874b5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/owned-screen-observation/b0003db19e67e1e0a132a85c3e0e113232b0b4bcc7f77c499c5c7e874cb2bc7a.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/owned-screen-observation/b0003db19e67e1e0a132a85c3e0e113232b0b4bcc7f77c499c5c7e874cb2bc7a.png",
+      "bytes": 20544,
+      "sha256": "b0003db19e67e1e0a132a85c3e0e113232b0b4bcc7f77c499c5c7e874cb2bc7a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/owned-screen-observation/e63db830aa701429f604dce7acd93d8bc7e5398ccf91b6cf429306e5b98e6fe7.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/owned-screen-observation/e63db830aa701429f604dce7acd93d8bc7e5398ccf91b6cf429306e5b98e6fe7.png",
+      "bytes": 148004,
+      "sha256": "e63db830aa701429f604dce7acd93d8bc7e5398ccf91b6cf429306e5b98e6fe7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/owned-screen-observation/c6e41d62f6cefc37fdf726579c127ddd4efe890ae9dcce1bf005a6dbe7eb9917.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/owned-screen-observation/c6e41d62f6cefc37fdf726579c127ddd4efe890ae9dcce1bf005a6dbe7eb9917.png",
+      "bytes": 148127,
+      "sha256": "c6e41d62f6cefc37fdf726579c127ddd4efe890ae9dcce1bf005a6dbe7eb9917"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/breadth-evaluation-20261017/LHN-041/owned-screen-observation/observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-audit/LHN-041/owned-screen-observation/observations.jsonl",
+      "bytes": 3611,
+      "sha256": "2d9c75a97297c208ac66d8bdd5295f56534de4c01cd1bd8ac77de28a63d9e3d7"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/window-ownership.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/window-ownership.json",
+      "bytes": 1209,
+      "sha256": "c2222e65748dbb0e8e9f24e8c6db2a58e75d3809870b61d109eda6dcc21ccbd5"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/summary.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/summary.json",
+      "bytes": 73552,
+      "sha256": "0a5fe84f53c99509b7483fd7854e3d3071971c3bd86a1b3124a58c2cc86fa9b4"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/initial-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/initial-native.json",
+      "bytes": 129459,
+      "sha256": "1e53dbcffebf02402f7df33a554336adba0f064035038dbed36112e1e305f71b"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/files0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/files0.log",
+      "bytes": 77,
+      "sha256": "4f7d2cc8263a0c362427b91637e4d102028187803e6782283173ea076d1c5eb7"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/native-outcomes-index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/native-outcomes-index.json",
+      "bytes": 1858,
+      "sha256": "3963eaca71d86d0f1728b2eb62adece342644ab5bce61f688896a47902be1b27"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/request-payload.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/request-payload.json",
+      "bytes": 2719,
+      "sha256": "9aae3ea53f31660314223d694fc9df723be19c9ad583c01954e25f8849c35c70"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/metrics.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/metrics.json",
+      "bytes": 3591,
+      "sha256": "b89039501e6d06cf2f36ae4667e858c35c009e26262b24f96991ae92e9e1fcb7"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/goal.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/goal.txt",
+      "bytes": 1611,
+      "sha256": "fc181516db5ae0deabb16e3f4ba0eb568c9a43106ad9b92753d501f198279f7d"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/evidence-manifest.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/evidence-manifest.json",
+      "bytes": 7497,
+      "sha256": "372b42b90b8bc557277be790e0217953f2a9fc62604a7c7574c683c7229f0628"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/ui-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/ui-observations.jsonl",
+      "bytes": 303538,
+      "sha256": "4ffceb8ab597896e67119645a8fd73e8ebdce3099a001f7f851533e487e0edde"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/gedit0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/gedit0.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/final-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/final-native.json",
+      "bytes": 231651,
+      "sha256": "8bb8162f1af3559a70011ab9143e7ea572febc01c6e5be7c8b870dd3c4785717"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/readiness-requirements.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/readiness-requirements.json",
+      "bytes": 492,
+      "sha256": "69dbdc1fe260a4970b03c59b417ace62897830aacae38b21bc1c147c188adffe"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/events.ndjson",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/events.ndjson",
+      "bytes": 423728,
+      "sha256": "cbef9e30ca9700d40c81d9da8ee7383528598694cd97d40bb51a6e5abaced4b0"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/setup-native-observations.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/setup-native-observations.json",
+      "bytes": 234689,
+      "sha256": "e1ec909d02ad3cdd9a9dade5ad89a4c9569b749c039f82643ccb28db349f02c1"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/milestones.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/milestones.jsonl",
+      "bytes": 725982,
+      "sha256": "be6b574e96cc0864613a6ab698cc72b2faac8558be3494e13a78e1ec0ed24772"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/after-test-note.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/after-test-note.json",
+      "bytes": 1649,
+      "sha256": "44241e814206c71426456d0105fffd1eff377172e2406b5142c44bc86c49d0db"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/pointer-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/pointer-observations.jsonl",
+      "bytes": 28480,
+      "sha256": "a90a699f038dfa7c487034b6b964ffd03c23de0f4776588d32676676422c70bc"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/browser0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/browser0.log",
+      "bytes": 640,
+      "sha256": "590b91b6f96fbf0a2a59e92582f097ac0d7c0ed3047a6463674b6cde95030afb"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/receive-timing.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/receive-timing.jsonl",
+      "bytes": 5326,
+      "sha256": "5665c4098e3d080862d91b1604a5145caa70c6867fe018ef8f9e9e95d5c78af3"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/host-source-evidence/index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/host-source-evidence/index.json",
+      "bytes": 1215,
+      "sha256": "22cf986d2dd47e73313f696eb6ca100d5a8df0e4e832f3707655b0ba1e6c04e8"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/host-source-evidence/readiness-pack.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/host-source-evidence/readiness-pack.json",
+      "bytes": 478,
+      "sha256": "9c793d3683d8ae5ac8cc5b4abbf02e4cf088aaf69b97939c8373adee86928e68"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/host-source-evidence/proof-00.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/host-source-evidence/proof-00.json",
+      "bytes": 3535,
+      "sha256": "5cc826a80377548c1e02399c4db93dcc7e2d8260ef2adb0cafa09a74939b322a"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/host-source-evidence/source-00.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/host-source-evidence/source-00.bin",
+      "bytes": 22006,
+      "sha256": "a727493380a3e0aa114498e28b51e1ca9bf2922f1199d88941d237a53e34577a"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/authority-ledger.csv",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/authority-ledger.csv",
+      "bytes": 109,
+      "sha256": "1ba6cd1069983100986f0309371f068e8e1be8ecdb7cd17df50eed94c7cf2fb4"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/task-brief.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/task-brief.txt",
+      "bytes": 2284,
+      "sha256": "aea604ceaa7e54bb19138b61f6f18600b1cc409bcce24f5ffc0b5270d740dd8e"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-5-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-5-label-1.txt",
+      "bytes": 154,
+      "sha256": "fcaba02ce168a97428aa31fa7224c185b84d70518d5e2dcf5097599f423bbc91"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-4-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-4-label-3.txt",
+      "bytes": 154,
+      "sha256": "640e19cecd0794b3e6f155ea681d336a04fbf979ac69f4b07bf05f62d4895ea3"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-4-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-4-label-1.txt",
+      "bytes": 154,
+      "sha256": "4c51a2f5adcf76317b579733282a8bfabdbc5149857b0c7306dbbdaa991e5e0f"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-3-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-3-label-2.txt",
+      "bytes": 154,
+      "sha256": "94b6fce28b83baf5ff21f4c740d9927498ef3bf1ed0afda577a6ea45c3ded58c"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-3-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-3-label-3.txt",
+      "bytes": 154,
+      "sha256": "256d7ec40b24649920bbd41462e96772fb94f91510a0bed5e8d2684591677c5d"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-4-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-4-label-2.txt",
+      "bytes": 154,
+      "sha256": "910bbcfdea77635cf795c6ada9043cecbded72e3e07e2b732c5d35cdb98a6a70"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-6-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-6-label-3.txt",
+      "bytes": 154,
+      "sha256": "b3f07354c385992a5c3c8d0593481b83bb1772e8a109551fd268ab51ee72ea01"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-6-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-6-label-1.txt",
+      "bytes": 154,
+      "sha256": "01b0f369b56c9e739a950b60165e8b14f67ed4eb07e677748892ea15304f3620"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-3-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-3-label-1.txt",
+      "bytes": 154,
+      "sha256": "1094aca457b63e07e9b5e35f885fd646e40be24e223504b5075a6cf254d8c507"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-6-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-6-label-2.txt",
+      "bytes": 154,
+      "sha256": "fd5e241eb92bd83a00d2dc08e8198f74725cc307791c68e6279f359885bb63fb"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-5-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-5-label-3.txt",
+      "bytes": 154,
+      "sha256": "a0561914929c69488601e73ab3cc8f071a761b9c5d3c4323b6e25f275c130b6b"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-1-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-1-label-1.txt",
+      "bytes": 154,
+      "sha256": "7e1af00222f5226fb43cb2a6f951b9ae63ee84201f4d8e48e1f44e760a55cdfd"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-2-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-2-label-3.txt",
+      "bytes": 154,
+      "sha256": "9436349239baca58c2253adb888e53d1269c4ec84e9567ca221c7c88601c7a39"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-2-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-2-label-2.txt",
+      "bytes": 154,
+      "sha256": "c82ddb6e4e6655652fd737555885a685bf874c4959e3a04149bf0fc3b3a26e6a"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-2-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-2-label-1.txt",
+      "bytes": 154,
+      "sha256": "9c5da11ce35ea1814c26dd73567893f6b3531fbe2fac4fb89b4cce9f5e4b1095"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-1-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-1-label-3.txt",
+      "bytes": 154,
+      "sha256": "a36233375ac319cdbdcc0071ffcf8ebc47baff2c56aded74a0d1471c67c9bf71"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-5-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-5-label-2.txt",
+      "bytes": 154,
+      "sha256": "310b5c775611e1bfe9d13aa316db9863904345265cf1a14511773391706fc440"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-planning-continuity-20261017/Workbench/Input/Documents/DOC-1-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-case/Workbench/Input/Documents/DOC-1-label-2.txt",
+      "bytes": 154,
+      "sha256": "062d4cba9c0ac8680f76ebfbd36b4720074908c5a37001a857036eb0865eb49d"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T064835793076Z/actual-imports.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-frontend/actual-imports.json",
+      "bytes": 2250,
+      "sha256": "459988e8ec3508d2dacb4cedf9ae65f23b71ba6160fdb590f4e47c0acfcbdd5f"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T064835793076Z/adapter-planner-packets.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-frontend/adapter-planner-packets.jsonl",
+      "bytes": 602068,
+      "sha256": "a9c6cdaf24e4dbcde7b0dc85df2a0b2aed8d5e7d2f253eb71fb5e193c8f09707"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T064835793076Z/adapter-phase-responses.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-frontend/adapter-phase-responses.jsonl",
+      "bytes": 33926,
+      "sha256": "f2acbf7db5e70a41c0c973f71914921551632caf7e08ad246b0c8ff52563d53f"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T064835793076Z/controller-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-frontend/controller-observations.jsonl",
+      "bytes": 1239013,
+      "sha256": "33944b2a4e165fb3b3f7f54808a05211c34382cc96a7f713edbfc315723d1361"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T064835793076Z/history-metrics.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-frontend/history-metrics.jsonl",
+      "bytes": 7795,
+      "sha256": "bdcaa91dcf24bfd79ccd25e1349baedd4453027c874bee5410ea00267ecf7c1a"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T064835793076Z/scope-read-observer.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-frontend/scope-read-observer.jsonl",
+      "bytes": 32742,
+      "sha256": "f65db5191575b7d5d2756117ed3be8cd3e2badde19dabf6beb13ddb4540ee010"
+    },
+    {
+      "source": "/tmp/qwen-continuity-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T064835793076Z/visual-captures/captures.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/continuity-live-frontend/visual-captures/captures.jsonl",
+      "bytes": 2212,
+      "sha256": "16b9cd0138384166074895c56ef4ee16b9e68527aab496e7fff2b875c1512475"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/window-ownership.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/window-ownership.json",
+      "bytes": 1209,
+      "sha256": "764ef1bc3608d09ede223c8da90027345bb80df343fca8c36e0d5c221f1e0e63"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/summary.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/summary.json",
+      "bytes": 120974,
+      "sha256": "dd81aab496fb2ea6037a682208b6d4cd9f392944079029204a336efce4dedfab"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/initial-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/initial-native.json",
+      "bytes": 126776,
+      "sha256": "3a667d85f5f69d89c965adf390d01a380cbcacc5c928d10673f902606db35719"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/files0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/files0.log",
+      "bytes": 77,
+      "sha256": "be82c4002ad356a0d9c82eab297d393e841ed4d1f4df02364f81e57e041773f3"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/native-outcomes-index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/native-outcomes-index.json",
+      "bytes": 25859,
+      "sha256": "3c334dd60d4fe3fc394cf17d8a2483dcf3d9b514236dd24c49e237a5c64512bd"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/request-payload.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/request-payload.json",
+      "bytes": 2711,
+      "sha256": "ccbb7f5c4c01741b40923b24a7357eb2cdd568adf4860de044fc3097b3cc3312"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/metrics.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/metrics.json",
+      "bytes": 4519,
+      "sha256": "fd4e9a3b31cfab857c4b2496c5fdebe9dd64d1ea7546cbe0ee6edd91f90e51a0"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/goal.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/goal.txt",
+      "bytes": 1603,
+      "sha256": "36ca9ac0115a127ee4665ddbdd14ec1296c4cbc30ed7d647968b7b930a74bd58"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/evidence-manifest.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/evidence-manifest.json",
+      "bytes": 7500,
+      "sha256": "3865efcb81e740c003e654d046be9f44a76ce6884bbbb553c7bc29747000bc26"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/ui-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/ui-observations.jsonl",
+      "bytes": 772509,
+      "sha256": "243401a4f2be7f84a771b45dc52a5b6259c6b4705660f7547ebf8a7c6890d826"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/gedit0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/gedit0.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/final-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/final-native.json",
+      "bytes": 44677,
+      "sha256": "919115e6bbdae06ec4a02c529fc8de0e222ac77dd9dec1e46bb6b5b2ae370838"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/readiness-requirements.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/readiness-requirements.json",
+      "bytes": 492,
+      "sha256": "b314636d4d2b243cec1dab7433270a2ac4566324073e1c8e3831e191b64d860c"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/events.ndjson",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/events.ndjson",
+      "bytes": 3178030,
+      "sha256": "73d196d701d091d6478e27004f7186b0638f8eef7dbe501c7ca5019c08bdd3d0"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/setup-native-observations.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/setup-native-observations.json",
+      "bytes": 231500,
+      "sha256": "b9d5dc2fd29ac46237c0758ac4c4018e8e7eaa744e08452a285c635e432145b0"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/milestones.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/milestones.jsonl",
+      "bytes": 824783,
+      "sha256": "6575642a314aa9734050d47443afd95403123333ddabf988b8b8a5481262ee38"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/after-test-note.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/after-test-note.json",
+      "bytes": 1650,
+      "sha256": "256e2890bf94a08eeb8ae339396a7c44121c0c415e51155aea605d38d51336d6"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/pointer-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/pointer-observations.jsonl",
+      "bytes": 71539,
+      "sha256": "62e91926e073f4756e5f698a8e62915e4c63bee4a833520caa255ae65eb0b091"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/browser0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/browser0.log",
+      "bytes": 640,
+      "sha256": "20eeb2f761a4e17e29c4eff40fd9037b8781875d96313462781423b42cc0fc82"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/receive-timing.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/receive-timing.jsonl",
+      "bytes": 11326,
+      "sha256": "dd1fd8ef5d42b833dcc90a1a7d3348b8037b8e731048c3a96f7d3b7eb652d879"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/host-source-evidence/index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/host-source-evidence/index.json",
+      "bytes": 1215,
+      "sha256": "47cdc239bd93895d2538b0bc2cf6845488301e1c2a0116d9ba4857e047718b51"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/host-source-evidence/readiness-pack.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/host-source-evidence/readiness-pack.json",
+      "bytes": 478,
+      "sha256": "bbd69c8f9be82555ea59798c55e05d4cb45e4a1e2be6a0905060fd64530e73e3"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/host-source-evidence/proof-00.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/host-source-evidence/proof-00.json",
+      "bytes": 3709,
+      "sha256": "0dddadce2b8af14268600fa3817a6e7da492ef536f3451a48d7f029aa7665250"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/host-source-evidence/source-00.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/host-source-evidence/source-00.bin",
+      "bytes": 22006,
+      "sha256": "a727493380a3e0aa114498e28b51e1ca9bf2922f1199d88941d237a53e34577a"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/authority-ledger.csv",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/authority-ledger.csv",
+      "bytes": 109,
+      "sha256": "1ba6cd1069983100986f0309371f068e8e1be8ecdb7cd17df50eed94c7cf2fb4"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/task-brief.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/task-brief.txt",
+      "bytes": 2284,
+      "sha256": "aea604ceaa7e54bb19138b61f6f18600b1cc409bcce24f5ffc0b5270d740dd8e"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-5-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-5-label-1.txt",
+      "bytes": 154,
+      "sha256": "fcaba02ce168a97428aa31fa7224c185b84d70518d5e2dcf5097599f423bbc91"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-4-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-4-label-3.txt",
+      "bytes": 154,
+      "sha256": "640e19cecd0794b3e6f155ea681d336a04fbf979ac69f4b07bf05f62d4895ea3"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-4-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-4-label-1.txt",
+      "bytes": 154,
+      "sha256": "4c51a2f5adcf76317b579733282a8bfabdbc5149857b0c7306dbbdaa991e5e0f"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-3-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-3-label-2.txt",
+      "bytes": 154,
+      "sha256": "94b6fce28b83baf5ff21f4c740d9927498ef3bf1ed0afda577a6ea45c3ded58c"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-3-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-3-label-3.txt",
+      "bytes": 154,
+      "sha256": "256d7ec40b24649920bbd41462e96772fb94f91510a0bed5e8d2684591677c5d"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-4-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-4-label-2.txt",
+      "bytes": 154,
+      "sha256": "910bbcfdea77635cf795c6ada9043cecbded72e3e07e2b732c5d35cdb98a6a70"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-6-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-6-label-3.txt",
+      "bytes": 154,
+      "sha256": "b3f07354c385992a5c3c8d0593481b83bb1772e8a109551fd268ab51ee72ea01"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-6-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-6-label-1.txt",
+      "bytes": 154,
+      "sha256": "01b0f369b56c9e739a950b60165e8b14f67ed4eb07e677748892ea15304f3620"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-3-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-3-label-1.txt",
+      "bytes": 154,
+      "sha256": "1094aca457b63e07e9b5e35f885fd646e40be24e223504b5075a6cf254d8c507"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-6-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-6-label-2.txt",
+      "bytes": 154,
+      "sha256": "fd5e241eb92bd83a00d2dc08e8198f74725cc307791c68e6279f359885bb63fb"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-5-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-5-label-3.txt",
+      "bytes": 154,
+      "sha256": "a0561914929c69488601e73ab3cc8f071a761b9c5d3c4323b6e25f275c130b6b"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-1-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-1-label-1.txt",
+      "bytes": 154,
+      "sha256": "7e1af00222f5226fb43cb2a6f951b9ae63ee84201f4d8e48e1f44e760a55cdfd"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-2-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-2-label-3.txt",
+      "bytes": 154,
+      "sha256": "9436349239baca58c2253adb888e53d1269c4ec84e9567ca221c7c88601c7a39"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-2-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-2-label-2.txt",
+      "bytes": 154,
+      "sha256": "c82ddb6e4e6655652fd737555885a685bf874c4959e3a04149bf0fc3b3a26e6a"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-2-label-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-2-label-1.txt",
+      "bytes": 154,
+      "sha256": "9c5da11ce35ea1814c26dd73567893f6b3531fbe2fac4fb89b4cce9f5e4b1095"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-1-label-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-1-label-3.txt",
+      "bytes": 154,
+      "sha256": "a36233375ac319cdbdcc0071ffcf8ebc47baff2c56aded74a0d1471c67c9bf71"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-5-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-5-label-2.txt",
+      "bytes": 154,
+      "sha256": "310b5c775611e1bfe9d13aa316db9863904345265cf1a14511773391706fc440"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-041-breadth-20261017/Workbench/Input/Documents/DOC-1-label-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-041/Workbench/Input/Documents/DOC-1-label-2.txt",
+      "bytes": 154,
+      "sha256": "062d4cba9c0ac8680f76ebfbd36b4720074908c5a37001a857036eb0865eb49d"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/window-ownership.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/window-ownership.json",
+      "bytes": 1209,
+      "sha256": "a943b7c5e13ae8c054fe6dfd7f1cb8126e11a395bda849f0470b84d981acc455"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/summary.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/summary.json",
+      "bytes": 92115,
+      "sha256": "f5a152d17c5b5a29f58000b6f1f4bb98f40f3ba610ee8272bf4a9a702f3a2ae0"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/initial-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/initial-native.json",
+      "bytes": 129439,
+      "sha256": "8b4cd718ea82a04dd42c321c774008bea42f6bcb9cfcdf290715c1d0a65cd0c3"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/files0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/files0.log",
+      "bytes": 77,
+      "sha256": "0cb82f01493ab69866e3dd24a1e839749957c6db4444ab28f32a0fc67ccc016d"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/native-outcomes-index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/native-outcomes-index.json",
+      "bytes": 19089,
+      "sha256": "ae94b151f4fc3c817a57929642122f238292adc2e0d362e10573553c3bae45d8"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/request-payload.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/request-payload.json",
+      "bytes": 2711,
+      "sha256": "10700076c79d8c100cee6d07fb65dce05d649dc12985d0bab1f601a0d265ab6e"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/metrics.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/metrics.json",
+      "bytes": 5563,
+      "sha256": "7eca780cbbebea96598c267c6378698d44608e38abf08433a0ae0a52ed9e99e7"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/goal.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/goal.txt",
+      "bytes": 1603,
+      "sha256": "4e6f9f60a5ecd8d519df08aa64f0d070a71a46c8894ba77421ab1d695152daed"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/evidence-manifest.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/evidence-manifest.json",
+      "bytes": 5133,
+      "sha256": "3362748b18d0b40a0eb1a3f2ff0709c6de738cc2b260072bee5daa271cfe6615"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/ui-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/ui-observations.jsonl",
+      "bytes": 287228,
+      "sha256": "18861c0cfcb3ba48dee88695255198f0247d75af973b31eeda767ecf139fae0e"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/gedit0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/gedit0.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/final-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/final-native.json",
+      "bytes": 173800,
+      "sha256": "f4dacd873f6ae4395eca13f249409e298de82363e4d34572887b2c21197a45ca"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/readiness-requirements.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/readiness-requirements.json",
+      "bytes": 516,
+      "sha256": "41e612e829d1f4f53702be69d2e1d97cbc4af5900c35eece7d607fb6b9503707"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/events.ndjson",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/events.ndjson",
+      "bytes": 1557921,
+      "sha256": "5124be7b513f021442de6c52059b8442c6be2ab8ed2ea417347113ebebd5a015"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/setup-native-observations.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/setup-native-observations.json",
+      "bytes": 234669,
+      "sha256": "ac21faac89cce69c418c647d8aee419e337d72aed1659c422514c9ae64d7702b"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/milestones.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/milestones.jsonl",
+      "bytes": 875640,
+      "sha256": "e843575d4493c5cca8d14a46b5b895e109a55e60b705f46a7f7939b9d9744951"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/after-test-note.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/after-test-note.json",
+      "bytes": 1650,
+      "sha256": "3ecd62328c7e3e1e1139a716614e3f8ecece08f07ce9f07edea5435567d712f2"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/pointer-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/pointer-observations.jsonl",
+      "bytes": 44195,
+      "sha256": "882032af730860a03337f1db135c36ef6adf0081a1139c809e12064da403a264"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/browser0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/browser0.log",
+      "bytes": 640,
+      "sha256": "50732c82782d574017293765fa66fd91f9af1e4019b329a8db197c53f6a3432f"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/receive-timing.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/receive-timing.jsonl",
+      "bytes": 7882,
+      "sha256": "6e11e66a17f8f28071711ee992494459db7b4eb55c35698bf4634e28dff561d7"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/host-source-evidence/index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/host-source-evidence/index.json",
+      "bytes": 1289,
+      "sha256": "d4b223c2b406d23e9cef3390086414023270eadab17a0014d3daee6bd6665198"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/host-source-evidence/proof-01.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/host-source-evidence/proof-01.json",
+      "bytes": 1132,
+      "sha256": "998901dd633f523a12f79b282dd2bf651b067f0f8c83472811063d973efb2c2a"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/host-source-evidence/readiness-pack.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/host-source-evidence/readiness-pack.json",
+      "bytes": 680,
+      "sha256": "a7621b44ffebc3230fcd18415829a0da9ddc19c65e1a9aca48a4d3dfcf0e87f7"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/host-source-evidence/proof-00.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/host-source-evidence/proof-00.json",
+      "bytes": 1135,
+      "sha256": "351b8a41c79a3c14d9254ba4845f6fb09f1d3212b154d059fec2167e89ac8413"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/host-source-evidence/source-01.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/host-source-evidence/source-01.bin",
+      "bytes": 47473,
+      "sha256": "74034ac0b0c66a425174bd5b9093ec86baaa40c8349bfc4de0a3f5f5723cbb0f"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/host-source-evidence/source-00.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/host-source-evidence/source-00.bin",
+      "bytes": 170303,
+      "sha256": "d99e0beec60eb63ebd4d5dff006b20c7d99dbdc31deaae4fe6a41d2ddc098682"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/Workbench/Input/corrections.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/Workbench/Input/corrections.json",
+      "bytes": 1635,
+      "sha256": "2abbfb8c34b37131964b3a4960acb5caf0f3646d82b87b522e9b778873737f27"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/Workbench/Input/draft-3.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/Workbench/Input/draft-3.txt",
+      "bytes": 416,
+      "sha256": "8346728579859a8ca12fe2af4d8ab2692918a1668c51ff41024b308623498908"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/Workbench/Input/draft-2.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/Workbench/Input/draft-2.txt",
+      "bytes": 414,
+      "sha256": "7373131d59be110473d96490676030f80c57d2b6c3d35038a3589e8f0dfc26b0"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/Workbench/Input/task-brief.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/Workbench/Input/task-brief.txt",
+      "bytes": 1813,
+      "sha256": "fef12873697dda96e1eaafcedddfb334354839b7abc6c0bc3dd0cd45204c4e61"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-breadth-20261017/Workbench/Input/draft-1.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/planning-continuity-and-breadth/breadth-live-cases/LHN-047/Workbench/Input/draft-1.txt",
+      "bytes": 510,
+      "sha256": "a81e29e264ad9a46d87093479b51e9d73b738cfc120ce7a1f911f65b28dcdcc3"
+    }
+  ]
+}

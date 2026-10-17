@@ -1,0 +1,460 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting",
+  "scope": "Correct prior auxiliary-model accounting from actual HTTP captures, retaining original records and PNG bytes",
+  "files": [
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000020.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000020.png",
+      "bytes": 41929,
+      "sha256": "ad3ee616a7346895b3564b4ffcd6e5fb88dd7983ae371d81e1933ad1668dc728"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000007.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000007.png",
+      "bytes": 32142,
+      "sha256": "f45a72098b730d648fc9dd9d6d34748b6dde84db8921008603045724419a01f8"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000003.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000003.png",
+      "bytes": 32142,
+      "sha256": "f45a72098b730d648fc9dd9d6d34748b6dde84db8921008603045724419a01f8"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000009.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000009.png",
+      "bytes": 93311,
+      "sha256": "7a6ac7343ce7e0794c3b555387da0e456d83ee2924b2882381447d001a6333fb"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000012.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000012.png",
+      "bytes": 103808,
+      "sha256": "6541be764adebaa8ef50fa6dff188defe2caabbc55b9e0f4e99e753bc48c31af"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000013.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000013.png",
+      "bytes": 41929,
+      "sha256": "ad3ee616a7346895b3564b4ffcd6e5fb88dd7983ae371d81e1933ad1668dc728"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000017.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000017.png",
+      "bytes": 41929,
+      "sha256": "ad3ee616a7346895b3564b4ffcd6e5fb88dd7983ae371d81e1933ad1668dc728"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000002.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000002.png",
+      "bytes": 93536,
+      "sha256": "9d5ad094df9226b87d8e9e62dd443a845123c31f41a634e9d61cc8a6f52acc8b"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000016.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000016.png",
+      "bytes": 103730,
+      "sha256": "20504e6401be90edffe56ad3e4f5bc563baf1fd8a37600f9d9a77dcccb1f4c9a"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000019.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000019.png",
+      "bytes": 103754,
+      "sha256": "c4a963b1069ccb543835f4525faf073f521b8302f72074f1d73110ffe355929f"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000010.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000010.png",
+      "bytes": 32142,
+      "sha256": "f45a72098b730d648fc9dd9d6d34748b6dde84db8921008603045724419a01f8"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/captures.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/captures.jsonl",
+      "bytes": 27441,
+      "sha256": "5f518bd0dd5b68a5074aee40b3f22f11000475f09c3ff25800f302ad61e2f4de"
+    },
+    {
+      "source": "/tmp/qwen-pointer-recovery-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T053142920296Z/visual-captures/capture-000006.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6h/capture-000006.png",
+      "bytes": 93496,
+      "sha256": "54f2f154978571b43700773e1661770d7669ade00e4bd23d6187dcef9ba2245c"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000020.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000020.png",
+      "bytes": 42096,
+      "sha256": "de06afd7c6bf8a5ef6422e9328a0d149318152035fa3d81b4e08c0e4c4c8d203"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000007.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000007.png",
+      "bytes": 32308,
+      "sha256": "940a24be33a625be4c146d3cd5e47f9a0bc3a12ba0aa4be839277284d7057014"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000003.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000003.png",
+      "bytes": 32308,
+      "sha256": "940a24be33a625be4c146d3cd5e47f9a0bc3a12ba0aa4be839277284d7057014"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000009.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000009.png",
+      "bytes": 93627,
+      "sha256": "13ee1ec64bb7b47cce4bae8d4e791ad5cf28fca23eb9f77e4b4311d61de97b49"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000012.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000012.png",
+      "bytes": 104009,
+      "sha256": "960787dd375e1027575cf8c82fd8216724e48b85ca63840e4ea3a5b5f20820a6"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000013.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000013.png",
+      "bytes": 42096,
+      "sha256": "de06afd7c6bf8a5ef6422e9328a0d149318152035fa3d81b4e08c0e4c4c8d203"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000017.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000017.png",
+      "bytes": 42096,
+      "sha256": "de06afd7c6bf8a5ef6422e9328a0d149318152035fa3d81b4e08c0e4c4c8d203"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000002.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000002.png",
+      "bytes": 93829,
+      "sha256": "a03a258a3d62df75a98edbdd8138f8cc734483a42bc19037796094fe9ee58e61"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000016.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000016.png",
+      "bytes": 103951,
+      "sha256": "19d232ce3be6efbea691e291f7a2f2dc6413c1693ced17a77633759fa8d25fb7"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000019.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000019.png",
+      "bytes": 104112,
+      "sha256": "a65f5c9e75849c4bb77e6e408ae2e7669180197010d7758e051f1f62403ffa48"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000010.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000010.png",
+      "bytes": 32308,
+      "sha256": "940a24be33a625be4c146d3cd5e47f9a0bc3a12ba0aa4be839277284d7057014"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/captures.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/captures.jsonl",
+      "bytes": 36315,
+      "sha256": "429a84ed23a22af8af8fdefb868dcf6ca4cf5fb12c46746cee7c6f830b09d8b6"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/visual-captures/capture-000006.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6i/capture-000006.png",
+      "bytes": 94075,
+      "sha256": "d6b6c2d75adbac5cd93c3dab1cbad446f83ee378b7447151ffc00387dec65c06"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/visual-captures/capture-000008.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6k/capture-000008.png",
+      "bytes": 95618,
+      "sha256": "eac4309304c0f01af778b4713f1ac20e8c3065889259768976fb2c11e12838e8"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/visual-captures/capture-000009.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6k/capture-000009.png",
+      "bytes": 34066,
+      "sha256": "e18c636000541210f3038effeb748830dcbdbcb183e617336098a76820446e43"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/visual-captures/capture-000004.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6k/capture-000004.png",
+      "bytes": 95704,
+      "sha256": "c549da20a564d59564a4f3f7a24556b70447c44ea41a59b3058159276ac759e2"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/visual-captures/capture-000012.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6k/capture-000012.png",
+      "bytes": 34066,
+      "sha256": "e18c636000541210f3038effeb748830dcbdbcb183e617336098a76820446e43"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/visual-captures/capture-000005.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6k/capture-000005.png",
+      "bytes": 34066,
+      "sha256": "e18c636000541210f3038effeb748830dcbdbcb183e617336098a76820446e43"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/visual-captures/capture-000011.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6k/capture-000011.png",
+      "bytes": 97128,
+      "sha256": "e2565cb059c10852e0506b1c02207e25f86b05821eac42fcb5d6a566cb289b06"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/visual-captures/captures.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6k/captures.jsonl",
+      "bytes": 18663,
+      "sha256": "950576fc9600e4938f303a7e64a8cbdd15e29cd9c2c39b565aa24ba58a00bda7"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000020.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000020.png",
+      "bytes": 16812,
+      "sha256": "34f55773ba488667b56768e90d726b8c24ebd2842963882f8a7193b1f4de2e44"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000058.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000058.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000027.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000027.png",
+      "bytes": 26921,
+      "sha256": "a446eaf41ae9c034f10c64e1419bdb70ff1d730c9aaec6393003ba949fd353be"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000045.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000045.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000029.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000029.png",
+      "bytes": 47497,
+      "sha256": "4b2a229c8eeec6dcd46ee25dba4b2b2254378c5f2938c3a7a92182ef276a641c"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000007.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000007.png",
+      "bytes": 16858,
+      "sha256": "e7612c3d3190f7a3f64b99d5d8e3d47cf17407d5adad1322364696f36ecbbecd"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000059.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000059.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000064.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000064.png",
+      "bytes": 37223,
+      "sha256": "aea19a3ecc903d3adca70769112cbfc214f8f32e96809979bb9deb8c1e58a32f"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000054.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000054.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000035.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000035.png",
+      "bytes": 16477,
+      "sha256": "f082f3fb3aea920e0d70b94147a0ca153242a320a869d3f17a3324399248f4e7"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000052.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000052.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000003.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000003.png",
+      "bytes": 16858,
+      "sha256": "e7612c3d3190f7a3f64b99d5d8e3d47cf17407d5adad1322364696f36ecbbecd"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000009.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000009.png",
+      "bytes": 20590,
+      "sha256": "bf1d7cdff8931a00779451e8932fc00be84709d30228850bc7da2b63a0177ae4"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000051.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000051.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000039.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000039.png",
+      "bytes": 16477,
+      "sha256": "f082f3fb3aea920e0d70b94147a0ca153242a320a869d3f17a3324399248f4e7"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000022.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000022.png",
+      "bytes": 47497,
+      "sha256": "4b2a229c8eeec6dcd46ee25dba4b2b2254378c5f2938c3a7a92182ef276a641c"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000038.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000038.png",
+      "bytes": 20048,
+      "sha256": "c669f8f40df3afe8df4d0e64fc36665513b743d4e58242ef99f9d13fe5674528"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000034.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000034.png",
+      "bytes": 20048,
+      "sha256": "c669f8f40df3afe8df4d0e64fc36665513b743d4e58242ef99f9d13fe5674528"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000012.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000012.png",
+      "bytes": 37644,
+      "sha256": "65061c3e350c433b4e0818f1a8f6d2d2240d17838ad13b0dbc6e057741a874b5"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000013.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000013.png",
+      "bytes": 16812,
+      "sha256": "34f55773ba488667b56768e90d726b8c24ebd2842963882f8a7193b1f4de2e44"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000030.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000030.png",
+      "bytes": 26921,
+      "sha256": "a446eaf41ae9c034f10c64e1419bdb70ff1d730c9aaec6393003ba949fd353be"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000017.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000017.png",
+      "bytes": 16812,
+      "sha256": "34f55773ba488667b56768e90d726b8c24ebd2842963882f8a7193b1f4de2e44"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000065.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000065.png",
+      "bytes": 33124,
+      "sha256": "92bf55663b6bdd31c479be274c87648df3c73f50bb261662152f17f526732bdb"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000042.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000042.png",
+      "bytes": 16477,
+      "sha256": "f082f3fb3aea920e0d70b94147a0ca153242a320a869d3f17a3324399248f4e7"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000026.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000026.png",
+      "bytes": 47497,
+      "sha256": "4b2a229c8eeec6dcd46ee25dba4b2b2254378c5f2938c3a7a92182ef276a641c"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000002.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000002.png",
+      "bytes": 20590,
+      "sha256": "bf1d7cdff8931a00779451e8932fc00be84709d30228850bc7da2b63a0177ae4"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000048.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000048.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000016.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000016.png",
+      "bytes": 37644,
+      "sha256": "65061c3e350c433b4e0818f1a8f6d2d2240d17838ad13b0dbc6e057741a874b5"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000019.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000019.png",
+      "bytes": 37644,
+      "sha256": "65061c3e350c433b4e0818f1a8f6d2d2240d17838ad13b0dbc6e057741a874b5"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000062.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000062.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000061.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000061.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000023.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000023.png",
+      "bytes": 26921,
+      "sha256": "a446eaf41ae9c034f10c64e1419bdb70ff1d730c9aaec6393003ba949fd353be"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000041.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000041.png",
+      "bytes": 20048,
+      "sha256": "c669f8f40df3afe8df4d0e64fc36665513b743d4e58242ef99f9d13fe5674528"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000044.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000044.png",
+      "bytes": 23625,
+      "sha256": "128f9b535badd04746a42e1e8913a3a7726c7fbc84cc879751df5de129f43d7d"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000010.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000010.png",
+      "bytes": 16858,
+      "sha256": "e7612c3d3190f7a3f64b99d5d8e3d47cf17407d5adad1322364696f36ecbbecd"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000055.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000055.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000069.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000069.png",
+      "bytes": 32930,
+      "sha256": "fb1623a772b2fa1c4cc524e801c246681c30be42ebc61efd3b88ff68ddf43fd5"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000049.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000049.png",
+      "bytes": 19941,
+      "sha256": "aede25cb8a492bb625370db71fdd26724d2e30d394f6b3a99e52af088c7dd5ba"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/captures.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/captures.jsonl",
+      "bytes": 94179,
+      "sha256": "79e09beb174e64bebb2dfc9d528647e8905573fb6bf896d8e22abfdc797e66c2"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000068.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000068.png",
+      "bytes": 37027,
+      "sha256": "620c57815fc0c16d4dd8def8fcdb94d095290753e4aaa8347547621807bc3f86"
+    },
+    {
+      "source": "/tmp/qwen-popup-prerequisite-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T062910377280Z/visual-captures/capture-000006.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/6l/capture-000006.png",
+      "bytes": 20590,
+      "sha256": "bf1d7cdff8931a00779451e8932fc00be84709d30228850bc7da2b63a0177ae4"
+    },
+    {
+      "source": "native-pointing-capture-audit",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/pointing-accounting/corrections.json",
+      "bytes": 2467,
+      "sha256": "907b3be9199a41657ce0d25433a4d38c8dc6453a1fc910caa6380e579604b825"
+    }
+  ],
+  "file_count": 75,
+  "total_bytes": 3210617,
+  "readback_verified": true
+}

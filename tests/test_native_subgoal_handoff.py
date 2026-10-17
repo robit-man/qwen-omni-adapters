@@ -42,6 +42,32 @@ def test_prerequisites_precede_one_objective_and_binding_preserves_original_auth
         ui_decision.expand(value, p, b)
 
 
+def test_subgoal_retains_unmet_work_without_turning_plans_into_effects():
+    p = packet()
+    commitment = {'authority': 'planner_claim', 'input_authority': False,
+        'objective': 'Read the second source after opening Files.',
+        'intended_resource': 'second-source.txt',
+        'unmet_constraints': ['Acquire the second source', 'Save and reopen the report']}
+    p['working_state']['commitment'] = copy.deepcopy(commitment)
+    compact, _ = ui_decision.project(p)
+    context, _ = ui_decision.subgoal_context(compact)
+    assert context['retained_plan'] == commitment
+    assert context['last_result']['effect_receipt']['effect_state'] == 'unknown'
+    assert context['goal'] == p['goal']
+    context['retained_plan']['unmet_constraints'].clear()
+    assert compact['working_state']['commitment'] == commitment
+    assert p['working_state']['commitment'] == commitment
+
+
+def test_fresh_task_cannot_inherit_another_tasks_retained_plan():
+    previous = packet()
+    previous['working_state']['commitment'] = {'objective': 'Other task private source'}
+    ui_decision.subgoal_context(ui_decision.project(previous)[0])
+    fresh, _ = ui_decision.subgoal_context(ui_decision.project(packet())[0])
+    assert fresh['retained_plan'] is None
+    assert 'Other task private source' not in json.dumps(fresh)
+
+
 @pytest.mark.parametrize('fault', ['blank', 'extra', 'missing', 'too_long', 'source_changed', 'none'])
 def test_invalid_subgoal_cannot_bind_an_action(fault):
     compact, binding = ui_decision.project(packet())

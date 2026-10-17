@@ -184,6 +184,10 @@ def subgoal_context(compact):
     view['active_window'] = next((copy.deepcopy(c) for c in compact['controls'] if c['active_window']), None)
     view['historical_sources'] = copy.deepcopy(compact['working_state'].get('observations', {}))
     view['response_schema'] = schema
+    # Selecting a new subgoal still needs the previous unmet work. The action
+    # selector receives this commitment too; dropping it here can restart the
+    # original task after every window change. It remains a planner claim.
+    view['retained_plan'] = copy.deepcopy(compact['working_state'].get('commitment'))
     return view, schema
 
 
