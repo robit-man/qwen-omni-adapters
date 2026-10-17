@@ -1,0 +1,44 @@
+{
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/native-input-methods",
+  "captured_at": "2026-10-17T07:11:24.361367+00:00",
+  "readback_verified": true,
+  "files": [
+    {
+      "path": "ibus-gtk-context.c",
+      "bytes": 88221,
+      "sha256": "421dec0149829c84d7ce292e9134a31d39f3b5170e168b66ebf42da3546cd6fa"
+    },
+    {
+      "path": "ibus-inputcontext.html",
+      "bytes": 97087,
+      "sha256": "736f3b580dd96a43d2887b2c6365e143eee5a622837c69d97b4d4c0b6c79dca2"
+    },
+    {
+      "path": "induction.md",
+      "bytes": 1363,
+      "sha256": "ec47e7e1230a26d79af719bc5d214fbbe9267c6c060cab4300fb01a42e3a74d3"
+    },
+    {
+      "path": "mozilla-async-commit.json",
+      "bytes": 48714,
+      "sha256": "4ae3541510f21ee7967fc85496f0433a02e4063b816912c20c5d0c203d1054e3"
+    },
+    {
+      "path": "mozilla-atk-astral-offsets.json",
+      "bytes": 221295,
+      "sha256": "5eafafbbd21d00a7597adc622d71e1686e24ddaaae896595a9415e840a8793d2"
+    },
+    {
+      "path": "mozilla-atk-conversion.patch",
+      "bytes": 15141,
+      "sha256": "eaad104536155f18a39f5718438731c249efc099e955a0c317a2f1b7ab890fe6"
+    },
+    {
+      "path": "sources.json",
+      "bytes": 1686,
+      "sha256": "17e6bc7e0f503bdebc13e831fd125146cececb925ca0993fa234684ed0e65116"
+    }
+  ],
+  "bytes": 473507,
+  "scope": "Upstream input-method and ATK references with measured local findings; no whole-task completion claim"
+}

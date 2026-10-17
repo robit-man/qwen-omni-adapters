@@ -175,6 +175,7 @@ held-out live evidence.
 | 6g. Sampling transport | Contract and loaded transport passed | All 4,161 tests passed. An actual call through the patched adapter implementation matched all ten requested sampler values in the GPU 1 worker’s native slot parameters. Caller defaults and `think` remain unchanged; no whole-task credit. [Durable record](research/computer-use-sampling-transport-2026-10-17.manifest.json). |
 | 6l. Popup switching prerequisite | Corrected native provider passed; whole task failed | All 4,221 tests passed. Fresh native popup relations and exact accessible child membership withhold window switching until a separately guarded dismissal. The real provider rejected the blocked switch without input, dispatched Escape, restored switching and passed three subsequent Files readbacks. The unchanged Ornith task made 19 model requests, one pointer click and four window switches, but opened no popup and produced no outputs. Its failure does not exercise the guard. [All failed candidates, provider proof and live record](research/computer-use-popup-prerequisite-2026-10-17.manifest.json). |
 | 6m. Subgoal continuity | Context repair and two captured-state choices passed; live criterion not reached | All 4,223 checks passed. Six actual model comparisons supported retaining the prior plan in two Files states, with no improvement in the Firefox state. The original live LHN-041 run failed earlier with one breadcrumb click, no brief read and no outputs. Separate LHN-041 and LHN-047 baselines also failed; Egg .41 completed a bounded LHN-047 attempt but lost foreground identity. [Requests, responses, failed tasks and host evidence](research/computer-use-planning-continuity-2026-10-17.manifest.json). |
+| 2d. Unicode delivery | Local and ARM gates passed; repeated Firefox readback incomplete | All 4,242 checks passed locally and on Egg .31, including delayed real keyboard delivery and restoration. Ordinary Firefox verified one exact accented/CJK replacement; a second acknowledged replacement lost independent observation. A→B→A and full tasks remain incomplete. [Rejected candidates, source and final evidence](research/computer-use-unicode-delivery-2026-10-17.manifest.json). |
 | Remaining 2, 4, 6–8 | Pending | Insertion and partial selection replacement, broader recovery/delegation, context expansion, reusable task sequences and whole-task acceptance remain incomplete. Separately bound primitive-choice boundaries retain their existing freshness behavior. |
 
 Observed deployment blocker: Egg .31 deployed 31fc3a3 after 4,060 checks passed, then reproduced the actual XTEST Unicode failure (`café\nnaïve` becomes `café\nnave`) during the a13f410 update, with 4,059 other tests passing. The isolated nine-case recheck had passed; no transport fix is claimed. Its updater stopped before replacing the active runtime. Egg .41 adopted a13f410 while preserving its paused core.
@@ -236,3 +237,39 @@ projection as `retained_plan`, including its planner-claim authority and lack of
 input authority. Keep current observations, historical-source expansion, the
 original goal and all execution guards unchanged. Check first-turn/continued
 task isolation, run the full gate, then one original LHN-041 live window.
+
+## 2d. Unicode mapping lifetime on X11
+
+Acceptance: real keyboard delivery on Egg .31 preserves `café\nnaïve`, including
+a recipient deliberately delayed by 250 ms, and restores the original keymap.
+The updater's 2834d7f gate reproduced `café\nnave` with 4,220 other checks passing.
+Earlier controlled trials preserved all characters when distinct unused mappings
+remained bound through recipient readback. Their source and event evidence are
+already in the Unicode mapping archive.
+
+Bounded hypothesis: reserve distinct unused keycodes for the requested Unicode
+characters, address those codes explicitly, and hold their mappings through a
+bounded recipient readback. Keep ASCII and newline typing, foreground/ownership
+guards and independent effect verification. Allocation or capacity failure must
+send no input; partial input must remain unresolved and must never be replayed.
+Restore only mappings still owned by this attempt, including normal cancellation.
+Test delayed delivery, cleanup and exhausted capacity before one local provider
+window and the affected Egg's actual gate. This is a transport repair, not proof
+of model planning or whole-task completion.
+
+The first ordinary Firefox probe invalidated a single unacknowledged command
+chain: mixed ASCII/Unicode arrived out of order despite passing private GTK
+checks. A controlled segmented probe preserved every prefix through accented
+and CJK text. The revised hypothesis therefore also requires recipient prefix
+acknowledgement between segments, with fresh dispatch guards and a five-second
+total budget. The recorded IME sources explain possible asynchronous processing;
+the exact Firefox reordering mechanism is not proven.
+
+Separate follow-on criteria, not silently folded into this transport change:
+
+- Define a proven provider-specific mapping between Firefox ATK's supplementary
+  character/U+FEFF representation and user text, including selection offsets and
+  legitimate U+FEFF. Do not strip invisible characters globally.
+- Capture the exact accessibility read predicate that failed after a second
+  Unicode replacement. The transport acknowledged that prefix, but independent
+  full observation failed; A→B→A is incomplete and must not be marked passed.

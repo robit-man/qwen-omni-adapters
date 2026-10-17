@@ -846,3 +846,24 @@ Its objective and unmet constraints remain planner claims with no input or
 verification authority. A new task has no retained plan. This preserves task
 continuity at the planning boundary without treating a previous intention as an
 accomplished action.
+
+On X11, Unicode typing reserves distinct unused, unpressed, non-modifier
+keycodes and addresses them explicitly through XTEST. Temporary mappings remain
+bound while a bounded native readback observes each inserted prefix, resulting
+character count, caret and collapsed selection. The controller waits between
+ASCII runs and individual mapped characters so asynchronous input-method commits
+cannot overtake the next segment. The complete attempt has a five-second budget;
+each prefix readback has at most one second within that budget. Changed ownership,
+focus or geometry stops the remaining input. This acknowledgement controls
+mapping lifetime; independent effect verification still determines whether the
+requested write succeeded. Mappings are restored on completion, failure or normal
+bridge termination. A mapping changed by another client is preserved and the
+attempt remains unresolved. Insufficient unused keycodes rejects that typing
+operation before dispatch. ASCII/newline transport and literal argument handling
+remain unchanged, and no partial input is automatically replayed.
+
+Firefox's ATK representation of supplementary characters adds U+FEFF for native
+offset alignment. The current generic text contract does not convert that
+representation; emoji delivery can therefore remain unverified in Firefox even
+when GTK readback succeeds. No invisible characters are stripped to manufacture
+a pass. See the [native input sources and findings](research/native-input-methods-2026-10-17.manifest.json).

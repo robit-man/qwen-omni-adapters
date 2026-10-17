@@ -36,7 +36,7 @@ def typing_fixture(monkeypatch, role="entry"):
 @pytest.mark.parametrize("role", ["entry", "text", "combo box"])
 def test_type_text_uses_one_literal_xtest_argv_on_observed_editable_text_roles(monkeypatch, role):
     fixture, commands, _geometry = typing_fixture(monkeypatch, role)
-    text = r'--option $(literal) `literal` "quoted" é\nnext line'
+    text = r'--option $(literal) `literal` "quoted" \nnext line'
     action = fixture.action("Title", "type_text", {"text": text})
     assert fixture.adapter.perform(action) == {"status": "dispatched", "backend": "x11_guarded_xtest",
                                              "reason": "native_text_input_invoked"}

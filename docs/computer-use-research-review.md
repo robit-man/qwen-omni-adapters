@@ -105,6 +105,24 @@ isolated nine-case input check passed on .31; one passing recheck does not
 establish that the earlier intermittent loss is fixed. No delay change or test
 skip was introduced.
 
+The subsequent bounded repair reserves distinct unused keycodes through actual
+recipient readback. Private GTK checks passed, but one ordinary Firefox attempt
+reordered mixed Unicode/ASCII input. A segmented diagnostic preserved each prefix
+through accented and CJK text. The candidate now acknowledges each prefix before
+the next segment; it stops, restores its mappings and reports uncertainty instead
+of replaying partial input. This establishes a useful delivery intervention, not
+the precise internal reason for reordering. The installed IBus 1.5.29 source and
+[Mozilla's asynchronous composition report](https://bugzilla.mozilla.org/show_bug.cgi?id=1810406)
+support investigating asynchronous input-method processing.
+
+An emoji probe exposed a separate representation issue: Firefox reported an
+extra U+FEFF and two native positions. Mozilla's
+[ATK conversion change](https://bugzilla.mozilla.org/show_bug.cgi?id=1346535)
+explicitly uses this convention to align offsets. Generic stripping would corrupt
+legitimate content and selection positions; conversion remains a separate open
+criterion. Seven source/induction artifacts (473,507 bytes) were saved, fsynced and
+hash-verified in the [native input-method archive](research/native-input-methods-2026-10-17.manifest.json).
+
 ## Mapping to observed failures and bounded next work
 
 | Local evidence | Current status | Next acceptance criterion |

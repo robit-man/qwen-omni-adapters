@@ -37,10 +37,33 @@ _OPERATIONS = {"invoke", "focus", "set_value", "set_checked", "select", "key_cho
                "select_text", "switch_window", "type_text", *_POINTER_VERBS}
 _MAX_REPLY_BYTES = 2 * 1024 * 1024
 _IDENTITY_HELPER: Any = None
+_KEYMAP_HELPER: Any = None
 
 
-def _x11_text_command(text: str) -> list[str]:
+def _x11_text_command(text: str, keycodes: Mapping[str, int] | None = None) -> list[str]:
     """One preselected XTEST sequence; every caller string stays a literal argv."""
+    if keycodes:
+        command, literal = ['xdotool'], ''
+        for char in text:
+            if char not in keycodes:
+                literal += char
+                continue
+            if literal:
+                # Chained type commands must consume exactly one literal arg.
+                for index, line in enumerate(literal.split('\n')):
+                    if index:
+                        command.extend(['key', '--clearmodifiers', '--delay', '1', 'Return'])
+                    command.extend(['type', '--clearmodifiers', '--delay', '1', '--args', '1', '--', line])
+                literal = ''
+            # Bare "8" is a digit keysym; "008" reaches xdotool's numeric
+            # keycode parser instead of its symbol-name lookup.
+            command.extend(['key', '--clearmodifiers', '--delay', '1', f'{keycodes[char]:03d}'])
+        if literal:
+            for index, line in enumerate(literal.split('\n')):
+                if index:
+                    command.extend(['key', '--clearmodifiers', '--delay', '1', 'Return'])
+                command.extend(['type', '--clearmodifiers', '--delay', '1', '--args', '1', '--', line])
+        return command
     if "\n" not in text:
         return ["xdotool", "type", "--clearmodifiers", "--delay", "1", "--", text]
     command = ["xdotool"]
@@ -51,6 +74,35 @@ def _x11_text_command(text: str) -> list[str]:
         # xdotool type consumes the remainder of a chained command as text.
         command.extend(["type", "--clearmodifiers", "--delay", "1", "--args", "1", "--", line])
     return command
+
+
+def _x11_text_segments(text: str) -> list[str]:
+    """Pause at mapped characters so asynchronous IM commits cannot overtake text."""
+    segments, literal = [], ''
+    for char in text:
+        if ord(char) < 128:
+            literal += char
+        else:
+            if literal:
+                segments.append(literal)
+                literal = ''
+            segments.append(char)
+    if literal:
+        segments.append(literal)
+    return segments
+
+
+def _keymap_helper() -> Any:
+    global _KEYMAP_HELPER
+    if _KEYMAP_HELPER is None:
+        source = Path(__file__).with_name('native_keymap.py')
+        spec = importlib.util.spec_from_file_location('_omni_native_keymap', source)
+        if spec is None or spec.loader is None:
+            raise NativeUiUnavailable('native_unicode_keymap_unavailable')
+        helper = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        _KEYMAP_HELPER = helper
+    return _KEYMAP_HELPER
 
 
 def _identity_helper() -> Any:
@@ -1923,6 +1975,34 @@ class _AtspiBridge:
                     matches.append(window_id)
         return matches[0] if len(matches) == 1 else None
 
+    def _unicode_delivery_probe(self, node: Any, text: str) -> Callable[..., bool]:
+        """A recipient acknowledgement for keymap lifetime, not task progress."""
+        interface = self._read(node.get_text_iface)
+        count = self._read(lambda: self.atspi.Text.get_character_count(interface))
+        selections = self._read(lambda: self.atspi.Text.get_n_selections(interface))
+        if selections == 0:
+            first = last = self._read(lambda: self.atspi.Text.get_caret_offset(interface))
+        elif selections == 1:
+            selected = self._read(lambda: self.atspi.Text.get_selection(interface, 0))
+            first, last = selected.start_offset, selected.end_offset
+        else:
+            raise NativeUiUnavailable('native_unicode_selection_unavailable')
+        if (any(type(n) is not int for n in (first, last, count))
+                or not 0 <= first <= last <= count <= 1_000_000):
+            raise NativeUiUnavailable('native_unicode_selection_unavailable')
+        def acknowledged(prefix=text):
+            if not isinstance(prefix, str) or not prefix or not text.startswith(prefix):
+                raise NativeUiUnavailable('native_unicode_delivery_prefix_invalid')
+            expected_count, caret = count-(last-first)+len(prefix), first+len(prefix)
+            if self.foreground() != self.foreground_identity:
+                return False
+            self._clear_cache(node)
+            return (self._read(lambda: self.atspi.Text.get_character_count(interface)) == expected_count
+                    and self._read(lambda: self.atspi.Text.get_n_selections(interface)) == 0
+                    and self._read(lambda: self.atspi.Text.get_caret_offset(interface)) == caret
+                    and self._read(lambda: self.atspi.Text.get_text(interface, first, caret)) == prefix)
+        return acknowledged
+
     def _open_popups(self, nodes: list[dict], handles: dict, window: Any) -> list[dict]:
         """Positive native popup evidence, never inferred from a label or toggle."""
         flag = getattr(self.atspi.StateType, "HAS_POPUP", None)
@@ -2578,13 +2658,49 @@ class _AtspiBridge:
                 if (self.foreground() != self.foreground_identity or _x11_geometry(self.foreground_identity) != geometry
                         or self.foreground() != self.foreground_identity):
                     return reject("native_text_binding_changed_before_dispatch")
+                attempted = False
                 try:
-                    result = subprocess.run(  # noqa: S603 - bounded text is one literal argv value, never shell code.
-                        _x11_text_command(args["text"]),
-                        capture_output=True, timeout=5, check=False,
-                    )
-                    ok = result.returncode == 0
-                except (OSError, subprocess.TimeoutExpired):
+                    helper = _keymap_helper()
+                    with helper.UnicodeKeymap(args['text'], os.environ) as mapping:
+                        acknowledge = self._unicode_delivery_probe(node, args['text']) if mapping.codes else None
+                        segments = _x11_text_segments(args['text']) if mapping.codes else [args['text']]
+                        deadline, prefix, ok = time.monotonic()+5, '', False
+                        for segment in segments:
+                            self._clear_cache(node)
+                            current = self._read(node.get_state_set)
+                            if (not self._provider_guard() or self.foreground() != self.foreground_identity
+                                    or _x11_geometry(self.foreground_identity) != geometry
+                                    or not all(current.contains(flag) for flag in (
+                                        self.atspi.StateType.FOCUSED, self.atspi.StateType.EDITABLE,
+                                        self.atspi.StateType.VISIBLE, self.atspi.StateType.SHOWING,
+                                        self.atspi.StateType.SENSITIVE))
+                                    or current.contains(self.atspi.StateType.READ_ONLY)
+                                    or current.contains(self.atspi.StateType.DEFUNCT)):
+                                if not attempted:
+                                    return reject('native_text_binding_changed_before_dispatch')
+                                raise NativeUiUnavailable('native_text_binding_changed_during_delivery')
+                            remaining = deadline-time.monotonic()
+                            if remaining <= 0:
+                                raise NativeUiUnavailable('native_text_delivery_timeout')
+                            attempted = True
+                            result = subprocess.run(  # noqa: S603 - literal text and owned numeric keycodes, never shell code.
+                                _x11_text_command(segment, mapping.codes),
+                                capture_output=True, timeout=remaining if mapping.codes else 5, check=False,
+                            )
+                            ok = result.returncode == 0
+                            prefix += segment
+                            if acknowledge is not None:
+                                end = min(deadline, time.monotonic()+1)
+                                delivered = acknowledge(prefix)
+                                while not delivered and time.monotonic() < end:
+                                    time.sleep(.01)
+                                    delivered = acknowledge(prefix)
+                                ok = ok and delivered
+                            if not ok:
+                                break  # Never replay or send the unacknowledged remainder.
+                except Exception:
+                    if not attempted:
+                        return {**reject('native_unicode_keymap_or_readback_unavailable'), 'input_attempted': False}
                     ok = False
                 return {"status": "dispatched", "backend": "x11_guarded_xtest",
                         "reason": "native_text_input_invoked" if ok else "native_text_input_effect_unresolved"}
@@ -2811,6 +2927,13 @@ class _AtspiBridge:
 
 
 def _bridge_main() -> None:
+    import signal
+
+    def terminate(_signum, _frame):
+        # Unwind an active keymap context before normal bridge termination.
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, terminate)
     bridge = None
     for line in iter(lambda: sys.stdin.buffer.readline(65537), b""):
         if len(line) > 65536:

@@ -32,7 +32,7 @@
       "evidence_index_sha256": "8363adf4b1a32e6d31be1c411d01304335d2bff49f72487545152f04aac151a9",
       "remote_adoption": {
         "egg41": "deployed44c5643; paused core preserved",
-        "egg31": "1 failed,4004 passed; real XTEST Unicode caf\u00e9/newline/na\u00efve lost \u00ef; previous core remains active; untracked files preserved"
+        "egg31": "1 failed,4004 passed; real XTEST Unicode café/newline/naïve lost ï; previous core remains active; untracked files preserved"
       },
       "whole_task_pass": false
     },
@@ -978,6 +978,40 @@
       ],
       "capture_limitation": "The auxiliary parsed-packet recorder omits retained_plan and reports that omission. Every exact wire body and SHA256 is preserved; those wire bodies include retained_plan and are authoritative for comparison.",
       "archive_manifest": "docs/research/computer-use-planning-continuity-2026-10-17.manifest.json"
+    },
+    {
+      "cycle": "2d",
+      "status": "UNICODE_DELIVERY_GATES_PASS_FIREFOX_REPEAT_READBACK_INCOMPLETE",
+      "criterion": "Actual Egg31 accented/multiline XTEST delivery survives a delayed recipient and restores the original keyboard mapping",
+      "baseline_tests": 4223,
+      "post_tests": 4242,
+      "new_regressions": 19,
+      "local_validation_seconds": 137.68,
+      "egg31_validation_seconds": 215.91,
+      "egg31_candidate_source_hashes_match": true,
+      "model_calls": 0,
+      "whole_task_pass": false,
+      "ordinary_Firefox": {
+        "first_replacement_exact": true,
+        "first_value": "café naïve 中",
+        "second_transport_acknowledged": true,
+        "second_independent_effect": "unknown: native_observation_unavailable",
+        "third_replacement": "not_attempted",
+        "A_B_A_complete": false,
+        "keymap_restored": true,
+        "owned_window_closed": true,
+        "original_GPU_worker_identities_preserved": true,
+        "downstream_idle": true
+      },
+      "findings": [
+        "Keep each mapped character alive through actual recipient acknowledgement.",
+        "Unacknowledged mixed ASCII/Unicode chains reordered on the ordinary Firefox/IBus desktop despite isolated GTK success; prefix acknowledgement preserved tested accented/CJK ordering. Exact internal ordering cause remains unproven.",
+        "Retain pre-input and per-segment ownership/focus/geometry checks; stop on partial or unknown input without replay.",
+        "Firefox supplementary-character/U+FEFF offset representation is an independently documented follow-on criterion; no generic stripping.",
+        "The second replacement encountered an independent full-observation failure after transport acknowledgement. This has not been repaired or counted as complete."
+      ],
+      "archive_manifest": "docs/research/computer-use-unicode-delivery-2026-10-17.manifest.json",
+      "upstream_manifest": "docs/research/native-input-methods-2026-10-17.manifest.json"
     }
   ]
 }
