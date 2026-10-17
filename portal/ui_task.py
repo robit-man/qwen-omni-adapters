@@ -774,6 +774,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
     zero_effect_ui_phases: set[str] = set()
     applied_ui_transitions: set[str] = set()
     boundary_observations: set[str] = set()
+    pointer_resolution_pending = False
     working = _NativeWorkingState(goal) if working_state else None
 
     def boundary():
@@ -951,6 +952,12 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 ok = ok and result.get("observation_recall_receipt", {}).get("first_expansion_in_task") is True
             novel_boundary = False
             is_boundary = kind in {"ui_boundary", "ui_pointer_recovery"} or kind == "ui_subgoal" and plan["subgoal"]["family"] != "text_entry"
+            offer = result.get("pointer_recovery", {})
+            deferred_pointer = (working is not None and is_boundary and result.get("status") == "abstained"
+                and isinstance(offer, dict) and offer.get("schema") == "robit.omni.pointer-recovery-proposal.v1"
+                and offer.get("input_authority") is False and bool(offer.get("choices"))
+                and result.get("ui_boundary_receipt", {}).get("input_attempted") is False
+                and result.get("effect_receipt", {}).get("effect_state") == "absent")
             if is_boundary:
                 receipt = result.get("ui_boundary_receipt", {})
                 ok = (result.get("status") == "observed_unverified" and receipt.get("observed") is True
@@ -966,6 +973,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             traces.append(copy.deepcopy(tool))
             last_result = _compact_result(result)
             ledger.append({"phase": phases, "kind": kind, "ok": ok,
+                           "deferred_to_planner": deferred_pointer and not pointer_resolution_pending,
                            "remaining_criteria": copy.deepcopy(plan.get("remaining_criteria", [])),
                            "criteria_authority": "planner_claim", "result": {
                                key: copy.deepcopy(last_result[key]) for key in
@@ -980,9 +988,13 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             ledger = ledger[-12:]
             if is_boundary:
                 # Observation protocol success is not verified task progress.
-                failed += not novel_boundary
+                # One fast-policy deferral hands the attempt to the slow planner.
+                # Repeating fast decisions without resolving it still spends the
+                # failure budget, even if each mints a different proposal token.
+                failed += not novel_boundary and not (deferred_pointer and not pointer_resolution_pending)
             else:
                 failed = 0 if ok or recoverable_prefix else failed + 1
+            pointer_resolution_pending = deferred_pointer
             if working is not None:
                 working.record(phases, kind, result, recover=not ok or is_boundary
                     or result.get("status") in {"needs_replan", "unresolved", "rejected", "abstained", "cancelled"})

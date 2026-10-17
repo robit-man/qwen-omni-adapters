@@ -788,7 +788,7 @@ one deadline/cancellation boundary. The proposal remains a planner claim, not
 observed evidence or new authority. Invalid proposals dispatch nothing. The
 original canonical phase validator and independent executor guards still apply.
 Live target selection and pointer escalation improved. The whole-task test
-remains failed at deferred-choice accounting; this opt-in path is not a
+remains failed at control and primitive interpretation; this opt-in path is not a
 completion claim.
 
 ### Resolving fast pointer-policy abstention
@@ -805,3 +805,9 @@ generation, geometry and eligibility, then uses the existing guarded native
 input boundary. Stale or replayed references dispatch nothing. The operation is
 private to the task controller and is not accepted by the public native UI tool.
 Its resulting observation retains unknown effect and cannot verify the goal.
+
+A working-state fast-policy deferral grants one pending slow-resolution attempt.
+Repeating fast decisions while that attempt is pending still consumes the
+failure budget; failed recovery and cached/unchanged boundaries retain their
+existing limits. The execution ledger records `deferred_to_planner` separately
+from success and never treats the deferral as task progress.

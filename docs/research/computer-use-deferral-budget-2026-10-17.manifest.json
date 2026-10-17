@@ -1,0 +1,388 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget",
+  "scope": "Loaded Ornith deferred-choice accounting and unchanged LHN-001 task failure at target/primitive selection",
+  "file_count": 63,
+  "total_bytes": 7078343,
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/live.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/live.log",
+      "bytes": 36,
+      "sha256": "d9ecf5ee17c3b32c3e93ec5e2db6897334af13c44100258fcfa86019080175c3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/remote_readiness.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/remote_readiness.py",
+      "bytes": 1007,
+      "sha256": "5108626329a337e7edbb64faa7970f3cdf9098cc6f610d411b5f6eb16f911813"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/frontend-launch.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/frontend-launch.log",
+      "bytes": 426,
+      "sha256": "59c4773009ad8f1c52414da9dc5a6a1e266ecf2337a768b09c04d44b6a287f5b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/handoff.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/handoff.json",
+      "bytes": 1055,
+      "sha256": "c79dd1d24cb186eb09698fa456ed6c6b298a4775421a67438004bd35ee8b4aae"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/passive-foreground-capture.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/passive-foreground-capture.json",
+      "bytes": 674115,
+      "sha256": "356bc9db438f7d5fa4e7ed47dde2037f2ad6cf25cf97686561bdd5bdb3c04327"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/acceptance.md",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/acceptance.md",
+      "bytes": 1327,
+      "sha256": "20f18a7e9bce4d734097ec6ce642290845db9103b578aa7e34d8c148943da328"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/doctor.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/doctor.json",
+      "bytes": 3625,
+      "sha256": "66e14d4c25e41a3657f432c074fedb7ab11e1e611ac433bb2c9ba1caa8cdc8b0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/staged-source.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/staged-source.json",
+      "bytes": 1593,
+      "sha256": "2cb6d255b5022ce7e6f395d2534214e7b48c1347916d225b1ebddbe9c4fde6e0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/handoff.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/handoff.log",
+      "bytes": 831,
+      "sha256": "a6371e97d6c7af09f08f04878b7c0504f4e8804a0e5d77073c311615b1079113"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/stage.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/stage.py",
+      "bytes": 3004,
+      "sha256": "7631c65b9b8f6939edc472462ff1a49dc3a4f079add0c3ee1f1c7bbf3b6f0483"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/broker-discovery.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/broker-discovery.json",
+      "bytes": 11547,
+      "sha256": "5b5a0416d14eaa22965c639cb4ea58078a5be202f67bb3082e22c8572a529748"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/egg31-readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/egg31-readiness.json",
+      "bytes": 8556,
+      "sha256": "52bf8cffb61159d4dc0d65b3ffddb05bfec3ed135e171630d434f147b8a69b90"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/archive.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/archive.py",
+      "bytes": 4776,
+      "sha256": "6396b2a4953551df2522b7c293bcbe2626ec67ee294d2217b030fa1acf68a047"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/first-validation.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/first-validation.log",
+      "bytes": 9478,
+      "sha256": "86a862b35b9cc8fe1fd8071da1e6afcca8df274a8d1ebde5b3c196329b9e4cff"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/passive_guard_capture.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/passive_guard_capture.py",
+      "bytes": 5666,
+      "sha256": "d0b982d056129693515743780781d6474c0adc89572d580b2dd4d0399307d889"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/after-test-notes.json",
+      "bytes": 1696,
+      "sha256": "ce8b5d93b987b041575f7e96d65d5dd6a3cfb849d3d471d129797f1d18417733"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/handoff.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/handoff.py",
+      "bytes": 3057,
+      "sha256": "ac0eea3c2b91d18a8b75d94e3dacd62ed3ce1153c6b3cb5210e7786ffa32fbab"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/status.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/status.py",
+      "bytes": 931,
+      "sha256": "ad7e8a5855955dbc652830978d462cf8c37f72da7a168df4800141656bd573f9"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/private_runner_bootstrap.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/private_runner_bootstrap.py",
+      "bytes": 590,
+      "sha256": "84cefd7170cbfc1e9c6f6d7f231d86ca7f1fb41c2711b0c1a41108f841f07a82"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/research-integrity.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/research-integrity.json",
+      "bytes": 1813,
+      "sha256": "57813ba620246a42287b5cb0f3f0ee2eaacbd29dc49f0209b18b1018e558b218"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/run_live.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/run_live.py",
+      "bytes": 1004,
+      "sha256": "8ae695d3ff1dcb0db53f246e045d0d023d549f3d4ecbc79b05624541749314b5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/validation.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/validation.log",
+      "bytes": 4875,
+      "sha256": "a96f1b34a16f24d4593b79d30cc2b4f17d353f394ae18269ff9390deac215ce1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/input-integrity.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/input-integrity.json",
+      "bytes": 649,
+      "sha256": "a5aa44619c1cd53af2c0a9f5aa76792019e5cf2f6959b913bcdb83728908be18"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/egg41-readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/egg41-readiness.json",
+      "bytes": 8294,
+      "sha256": "499c5817a523bcad1d9dbd3693fea50d80fa12cc15fd617ed19df042d423b4fe"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/remote-update-observation.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/remote-update-observation.json",
+      "bytes": 395,
+      "sha256": "ad6046588d0ca865b6c05cabe7098ddbabe0ebfe6edb3c8a1fb642b961298d31"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/readiness/DERIVED-PROVENANCE.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/readiness/DERIVED-PROVENANCE.json",
+      "bytes": 270,
+      "sha256": "d47bc3f0731584792a3819540f97ac27ea698077b52b05ce8c84cb0904a08713"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/readiness/readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/readiness/readiness.json",
+      "bytes": 480,
+      "sha256": "4e26ed406ab8feb9568a3621a73df5b1411d25767ec847021eed1a095833c91c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/readiness/python-prerequisite-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/readiness/python-prerequisite-proof.json",
+      "bytes": 2689,
+      "sha256": "a04797bc9f5ae7d2490f48f5ea28b95064926bbae9ad9bc00dc66f4c537a2463"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/readiness/python-versioned-source-pack.zip",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/readiness/python-versioned-source-pack.zip",
+      "bytes": 192066,
+      "sha256": "0a5167baa1b01cf5ec43d8b57ee355463cca87ce09ebc3a63820dfe53137811b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/candidate-source/portal/ui_task.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/candidate-source/portal/ui_task.py",
+      "bytes": 65029,
+      "sha256": "372d0cf451ec21b859fb1eb9ad0cc087bcd30e2e7ff8f9aa62e24a793af4f4dd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/deferral-budget-cycle-20261017/candidate-source/tests/test_native_deferral_budget.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/candidate-source/tests/test_native_deferral_budget.py",
+      "bytes": 3648,
+      "sha256": "ca40a39770d040fb942f3756550966ede7090c994d67aaa87e7bd6b2068318b7"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/window-ownership.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/window-ownership.json",
+      "bytes": 1209,
+      "sha256": "ff4c7164aabd237c02e99bfce57ab97a5cfa2d3c2bce51ab31ddd7945ef24147"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/summary.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/summary.json",
+      "bytes": 116139,
+      "sha256": "ee24f1b2743db8a5b73998b1a96de67373580c2c01de35f88c3cf940932d5832"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/initial-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/initial-native.json",
+      "bytes": 150152,
+      "sha256": "ac169baf39068d46bb566ab2468f891e525d1a52a8a452fee631950ba88ee91f"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/files0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/files0.log",
+      "bytes": 77,
+      "sha256": "ba3130fa82adff4e7fc4e733be14f49302d1690b08c0fc7c6eb440d6b2818609"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/native-outcomes-index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/native-outcomes-index.json",
+      "bytes": 17468,
+      "sha256": "6166303bc50a71ad7dbae640fd2d7cc13238d5117771a70649fa6efb7fa6901d"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/request-payload.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/request-payload.json",
+      "bytes": 2685,
+      "sha256": "ad92f23e3127fd30f3ba80942d5a27f7f326b79ec8e79c618ee0fed94c4393a0"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/metrics.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/metrics.json",
+      "bytes": 5893,
+      "sha256": "773aa9f91465f427ef6e056ef2609c2a85acc4b041578535a0ccf5f9efd8f087"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/goal.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/goal.txt",
+      "bytes": 1577,
+      "sha256": "1f1aa8563716ab3636a81b31eee72e162b60dbfe4a08c1ba5f9fda300ecb15f5"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/evidence-manifest.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/evidence-manifest.json",
+      "bytes": 4477,
+      "sha256": "a046e8e75227d4191328772de4c05834b1708a18d860c40358a5752f79a7d19a"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/ui-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/ui-observations.jsonl",
+      "bytes": 406498,
+      "sha256": "a1392352fcf9e79a0d646a8a91c66fb408b7ebb9e3ed2edfb5737547abb6b53d"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/gedit0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/gedit0.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/final-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/final-native.json",
+      "bytes": 43572,
+      "sha256": "4c5f0f2629ad0104e553f3edc3989951fb02b75f90928841d672128864394c0e"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/readiness-requirements.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/readiness-requirements.json",
+      "bytes": 493,
+      "sha256": "8098a7a69a9442b4ab75a1053c7ccabc86ecbd649b11ff3bdf815e143910263b"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/events.ndjson",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/events.ndjson",
+      "bytes": 1608879,
+      "sha256": "3b59dfaa5a3a6637a8544d71b518ae1e69d7708e2965ca892bb4da4722681e97"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/setup-native-observations.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/setup-native-observations.json",
+      "bytes": 259452,
+      "sha256": "bdd402684a07139c11635c5ddcc07f34fee3c22c68384e9fa6f5f281757a10dd"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/milestones.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/milestones.jsonl",
+      "bytes": 690723,
+      "sha256": "66c3bc25ee48237e2c594298462729906dcb31bcedca38a187663bfd10026467"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/after-test-note.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/after-test-note.json",
+      "bytes": 1650,
+      "sha256": "003c176628d6368a0fb036e3d2cc3fa4ae7d2956a9432ca0129d33b1e6f86458"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/pointer-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/pointer-observations.jsonl",
+      "bytes": 68156,
+      "sha256": "bdc333a22fc33b36c5c9a73836480ebfe0b4becbeefd7d52ab8833fdedebe6a4"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/browser0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/browser0.log",
+      "bytes": 640,
+      "sha256": "6f27cdad2f690d02852c407e1a5ddbce76823b740b1be9fb2ea7b7763f433afe"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/receive-timing.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/receive-timing.jsonl",
+      "bytes": 11322,
+      "sha256": "0427a5a04ce9a09bb1e9b18cd5e5bade4c5267520653c35514e77b8702fb69fc"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/host-source-evidence/index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/host-source-evidence/index.json",
+      "bytes": 864,
+      "sha256": "a60c1f5f7bd6013dd20ff4364e2cc9b0cf990319867346095f4469b62928a01c"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/host-source-evidence/readiness-pack.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/host-source-evidence/readiness-pack.json",
+      "bytes": 480,
+      "sha256": "4e26ed406ab8feb9568a3621a73df5b1411d25767ec847021eed1a095833c91c"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/host-source-evidence/proof-00.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/host-source-evidence/proof-00.json",
+      "bytes": 2689,
+      "sha256": "a04797bc9f5ae7d2490f48f5ea28b95064926bbae9ad9bc00dc66f4c537a2463"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/host-source-evidence/source-00.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/host-source-evidence/source-00.bin",
+      "bytes": 192066,
+      "sha256": "0a5167baa1b01cf5ec43d8b57ee355463cca87ce09ebc3a63820dfe53137811b"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/Workbench/Input/examples.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/Workbench/Input/examples.json",
+      "bytes": 626,
+      "sha256": "a554c9fbe1ab6a4bb6f55e3cead75131ad1381a1c3703a9895e63ca9d7de8888"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/Workbench/Input/task-brief.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/Workbench/Input/task-brief.txt",
+      "bytes": 1474,
+      "sha256": "c0a2d993d6774a86d11a0e571c3ff4ce9c8b3cae575ff7c0dde9c5797e36a80c"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-deferral-budget-20261017/Workbench/Input/migration-brief.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-case/Workbench/Input/migration-brief.json",
+      "bytes": 288,
+      "sha256": "d1ffe71ccfaa091d7bb58f4c9cb659f0a3f730ae6742986c49a3383ca2dba6e8"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/actual-imports.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-frontend/actual-imports.json",
+      "bytes": 2218,
+      "sha256": "192684fa82bbd1c2c260cbb9daa35848837d03a1d5e13deabed6f1c8216ef164"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/adapter-planner-packets.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-frontend/adapter-planner-packets.jsonl",
+      "bytes": 732542,
+      "sha256": "916d9925367420af1e4bab0a8ef2f95293a6fe77c7e11b762e449b5cde1032eb"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/adapter-phase-responses.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-frontend/adapter-phase-responses.jsonl",
+      "bytes": 70551,
+      "sha256": "3c8d6c6ded83e14d8bceefa61ab413b8ec191730256180ccf0a4a95e3163d8c2"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/controller-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-frontend/controller-observations.jsonl",
+      "bytes": 1654456,
+      "sha256": "ed35e20d22dda2de07cb109676c053c65867f43daa07be32956687460eb4428e"
+    },
+    {
+      "source": "/tmp/qwen-deferral-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T054002050865Z/history-metrics.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-frontend/history-metrics.jsonl",
+      "bytes": 14499,
+      "sha256": "cbe2f74c4bbfc92428dfb73597eebda623e0fd8f5fbc5b4ba6131febb8a5af79"
+    }
+  ]
+}
