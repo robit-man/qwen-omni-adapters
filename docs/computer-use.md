@@ -670,6 +670,15 @@ Only an accepted nonempty reading with its typed snapshot receipt makes that
 knowledge phase successful; it grants no input, mutation or task-progress credit.
 Whole-task completion remains independently scored.
 
+Native accessibility traversal spends its bounded budget on showing subtrees.
+Off-screen descendants remain unknown; they retain historical identity but no
+old input handles. Document-root identity checks still inspect hidden ancestors.
+The planner receives a separate bounded `native_content_excerpt` from visible,
+nonprotected text nodes in the active scope, so toolbar controls cannot consume
+the reading budget. It carries the source revision, partial coverage and
+truncation flags. Accessible names can summarize descendants: this is native
+text evidence, without a claim that every character is visible in pixels.
+
 ## Validation
 
 With active intent choice, the private native planner also supports `ui_subgoal` with `family: text_entry`,

@@ -130,7 +130,7 @@ def project(packet: Mapping) -> tuple[dict, dict]:
     schema = {'type': 'object', 'additionalProperties': False, 'properties': properties, 'required': list(properties)}
     compact = {'planner_contract': CONTRACT, 'goal': packet['goal'], 'controls': controls,
         'observation': {k: copy.deepcopy(state[k]) for k in
-            ('text', 'truncated', 'document_evidence', 'model_projection', 'window_visibility') if k in state},
+            ('text', 'truncated', 'document_evidence', 'model_projection', 'window_visibility', 'native_content_excerpt') if k in state},
         'historical_ledger': copy.deepcopy(packet['ledger']), 'last_result': copy.deepcopy(packet['last_result']),
         'working_state': copy.deepcopy(working), 'decision_schema': schema}
     binding = {'nodes': mapping, 'packet_sha256': _digest(packet), 'schema': schema}

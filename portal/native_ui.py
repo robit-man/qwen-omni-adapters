@@ -2257,6 +2257,13 @@ class _AtspiBridge:
             if window:
                 nodes.append(item)
                 handles[node_id] = (node, item, action_index)
+            if window and not visible:
+                # Spend the bounded traversal on the current viewport. Omitted
+                # descendants retain historical identity, never input handles
+                # or proof of absence. Document-root identity is independently
+                # checked by _document_evidence, including hidden ancestors.
+                truncated = True
+                return False
             count = self._count(node)
             truncated |= count > self.MAX_CHILDREN
             child_list_complete = count <= self.MAX_CHILDREN

@@ -1371,6 +1371,21 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
         return {key: _model_ui_observation(item, bound) for key, item in value.items()}
 
     visible = [node for node in nodes if isinstance(node, Mapping) and node.get("visible") is True]
+    # Reading and action discovery have separate bounded projections. A dense
+    # toolbar must not spend the entire text budget before the visible document.
+    # Accessible names can summarize descendants; they are native text evidence,
+    # never proof that every character is visible in pixels or a complete page.
+    content_roles = {"paragraph", "heading", "description_term", "description_value",
+                     "static", "label", "text", "section", "document_text"}
+    content_rows = []
+    for node in visible:
+        if (node.get("sensitive") is True or node.get("scope_id") != scope.get("id")
+                or node.get("role") not in content_roles):
+            continue
+        text = node.get("name") or node.get("value")
+        if isinstance(text, str) and text.replace("\ufffc", "").strip():
+            content_rows.append(f"[{node['role']}] {text}")
+    content_text = "\n".join(content_rows)
     priority = {node_id: index for index, node_id in enumerate(references)}
     controls = {"button", "push_button", "textbox", "entry", "checkbox", "check_box", "radio",
                 "combobox", "listbox", "list_item", "tree_item", "table_cell", "icon", "option",
@@ -1436,6 +1451,16 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
         "text_authority": "untrusted_visible_ui", "absence_claims_supported": False,
         "verification": "Omitted nodes do not prove absence; use the executor's verify operation.",
     })
+    if content_rows:
+        projected["native_content_excerpt"] = {
+            "schema": "robit.omni.native-content-excerpt.v1", "text": content_text[:4000],
+            "source_revision": value["revision"], "source_type": "visible_node_accessible_text",
+            "authority": "untrusted_native_accessibility", "coverage": "partial",
+            "source_truncated": value.get("truncated", False), "text_truncated": len(content_text) > 4000,
+            "input_authority": False, "pixel_visibility_verified": False,
+        }
+    else:
+        projected.pop("native_content_excerpt", None)
     if any(isinstance(node, Mapping) and "text_observation" in node for node in nodes):
         semantic = {**value, "nodes": [{key: item for key, item in node.items() if key != "text_observation"}
                                       if isinstance(node, Mapping) else node for node in nodes]}

@@ -378,6 +378,61 @@
         "Egg .31 Unicode transport repair remains pending."
       ],
       "evidence_directory": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/action-capability-cycle-20261017"
+    },
+    {
+      "cycle": "6d",
+      "criterion": "Visible native documentation text reaches the planner without changing traversal/input limits or claiming full-page or pixel coverage.",
+      "status": "LIVE_NATIVE_SOURCE_DELIVERY_PASS_WHOLE_TASK_FAILED",
+      "pre_tests": 4130,
+      "post_tests": 4139,
+      "new_regressions": 9,
+      "whole_task_pass": false,
+      "provider_comparison": {
+        "baseline_nodes": 373,
+        "baseline_visible": 54,
+        "baseline_contains_required_text": false,
+        "candidate_nodes": 213,
+        "candidate_visible": 125,
+        "candidate_contains_required_text": true,
+        "same_owned_document": true
+      },
+      "reader_diagnosis": {
+        "actual_moondream_calls": 7,
+        "model": "moondream/moondream3.1-9B-A2B",
+        "revision": "1da27e6c2d2f9118de14560df456881dc62d91f3",
+        "generic_and_specific_fullframe_readings": "failed",
+        "region_language": "correct Python",
+        "region_error_condition": "incorrect FileExistsError instead of FileNotFoundError",
+        "no_vision_repair_claim": true
+      },
+      "actual_ornith_excerpt_comprehension": "Correct exception conditions, added version, observed URL and absence of second-version evidence. Strict formatting/verbatim-quote gate failed; reconstructed text is not a contiguous excerpt quote.",
+      "live": {
+        "case": "/tmp/qwen-visible-native-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-visible-native-20261017-attempt2",
+        "task_signature_sha256": "94dcbb542d113d903bfb9a982c57c59e67372b6606ad74490db0afea037cd155",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "think": false,
+        "elapsed_s": 125.22333655800321,
+        "planner_replies": 11,
+        "native_reading_received_phase": 4,
+        "document_url": "https://docs.python.org/3.12/library/pathlib.html#pathlib.Path.mkdir",
+        "subsequent_failure": "Repeated Firefox/editor switches with unchanged before/after semantic revisions. Existing transition novelty helper reports false for phases 6, 7, 8, but successful workflow status resets the failure counter. Phase 9 changed to Files; no declared input was read and no deliverables were produced.",
+        "stopped_by_operator": true,
+        "owned_windows_closed": true,
+        "downstream_idle": true,
+        "required_outputs_present": {
+          "Research/migration-dossier.txt": false,
+          "Research/decision-matrix.csv": false,
+          "Archive/migration-pack.zip": false
+        },
+        "inputs_unchanged": true
+      },
+      "setup_failures": [
+        "First provider probe called a nonexistent scope-binding helper; owned browser cleaned up.",
+        "First full-task attempt copied diagnostic wrapper without executable mode; zero model calls/input; permission repaired and separate attempt retained."
+      ],
+      "deployment": "One CPU test frontend replacement; all eight GPU graph process identities retained. Compact planner opt-in.",
+      "next_criterion": "A verified but previously observed native transition must enter recovery instead of resetting the no-progress counter. Test model recovery on the exact captured loop before another live task.",
+      "evidence_path": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/visible-native-text-cycle-20261017"
     }
   ]
 }
