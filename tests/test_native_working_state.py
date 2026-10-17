@@ -259,6 +259,11 @@ def test_phase_objective_has_one_source_and_host_preserves_its_exact_provenance(
     state = _NativeWorkingState(GOAL)
     current = observation(node(role="button", name="Input", operations=("click", "double_click")))
     schema = _working_phase_schema(ALLOWED, _grounded_phase_schema(ALLOWED, current, intent_choice=True), state.view(1, 0))
+    # The native decoder follows property order, unlike a JSON Schema validator.
+    # Choosing a generic commitment first would rule out these phase families.
+    for branch in schema["oneOf"]:
+        assert list(branch["properties"]) == ["assessment", "phase", "commitment"]
+        assert branch["required"] == ["assessment", "phase", "commitment"]
     objective = "Open and read the input document to learn its source and delivery requirements."
     plan = ({"kind": kind, "objective": objective, "step": {
         "id": "open-input", "verb": "click", "target": {"name": "Input"}, "args": {}}}

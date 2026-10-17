@@ -531,15 +531,18 @@ def _working_phase_schema(allowed, phase_schema, state):
             for branch in branches if branch["properties"]["kind"]["const"] == "blocked" or (
                 branch["properties"]["kind"]["const"] == "complete" and not state["recovery_mode"])]]:
             options.append({"type": "object", "additionalProperties": False,
-                "required": ["assessment", "commitment", "phase"], "properties": {
+                # llama.cpp emits properties in schema order. Select the phase
+                # before its branch-specific commitment; otherwise generating
+                # commitment.objective prematurely excludes all subgoals.
+                "required": ["assessment", "phase", "commitment"], "properties": {
                     "assessment": {"type": "object", "additionalProperties": False,
                         "required": ["source_epoch", "source_phase", "decision", "summary"], "properties": {
                             "source_epoch": {"const": state["source_epoch"]},
                             "source_phase": {"const": state["source_phase"]},
                             "decision": {"enum": decision},
                             "summary": {"type": "string", "minLength": 1, "maxLength": 500}}},
-                    "commitment": {"$ref": "#/$defs/native_phase_commitment" if owns_objective
-                                   else "#/$defs/native_commitment"}, "phase": phase}})
+                    "phase": phase, "commitment": {"$ref": "#/$defs/native_phase_commitment" if owns_objective
+                                                   else "#/$defs/native_commitment"}}})
         return {"$defs": definitions, "oneOf": options}
     schema = wrap(phase_schema)
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:

@@ -207,6 +207,36 @@
       },
       "evidence_path": "runtime-data/gpu1-acceptance/operator-audit/text-family-discovery-cycle-20261017",
       "evidence_index_sha256": "aeb12c05a9d6a7d20b4960c188d55ae12453260322e57471d0399986a958b366"
+    },
+    {
+      "cycle": "5b",
+      "criterion": "Phase selection precedes branch-specific commitment generation",
+      "status": "NATIVE_GRAMMAR_AND_LIVE_FORMAT_PASS_TASK_FAILED",
+      "pre_tests": 4060,
+      "post_tests": 4060,
+      "live": {
+        "criterion": "Phase selection precedes branch-specific commitment generation",
+        "status": "NATIVE_GRAMMAR_AND_LIVE_FORMAT_PASS_TASK_FAILED",
+        "whole_task_pass": false,
+        "case_root": "/tmp/qwen-phase-order-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-phase-order-20261017",
+        "elapsed_s": 82.58561951300362,
+        "owned_windows_closed": true,
+        "downstream_idle": true,
+        "source_unchanged": true,
+        "actual_reply_order": [
+          "assessment",
+          "phase",
+          "commitment"
+        ],
+        "planner_phases": 3,
+        "delegated_subgoals_selected": 0,
+        "observed_failure": "Ctrl+L opened the location field but the planner checked focus on the window. Later primitive plans switched the already active window and abstained on scrolling. All requested artifacts remain absent.",
+        "next_work": "Evaluate live-model phase selection on captured native states using a compact delegated action contract before another full desktop rerun.",
+        "post_tests": 4060,
+        "native_grammar_cases_per_model": 4
+      },
+      "evidence_path": "runtime-data/gpu1-acceptance/operator-audit/phase-order-cycle-20261017",
+      "evidence_index_sha256": "32db4d39f9c6b94008a36fbe61875ff78b13f4a033715193f5c452c3e7e138b9"
     }
   ]
 }

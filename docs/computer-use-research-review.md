@@ -85,8 +85,13 @@ entire text-entry family. Capability-based discovery repaired that omission;
 fresh executor coverage remains required. The family was then offered in three
 real Ornith planner phases, but none selected it. All replies generated a
 generic commitment objective before phase selection, which excludes phase-owned
-objectives in the current grammar. Phase ordering is the next bounded hypothesis;
-these runs did not complete the task.
+objectives in that grammar. Native decoder checks confirmed the exclusion.
+Reordering generation to assessment → phase → commitment removed it, but the
+next live task still chose primitive workflows in all three phases and failed.
+In particular, Ctrl+L opened a location field while the planner checked window
+focus. The next experiment evaluates compact delegated action interfaces with
+the loaded model on these captured states before another full desktop rerun.
+No task-completion improvement is attributed to ordering alone.
 
 ### Input transport reference
 

@@ -2372,7 +2372,8 @@ def create_app(
                     "chooses the primitive using that objective and the last factual feedback. A genuinely "
                     "missing named visual target retains the requested verb. If a native target first appears "
                     "during visual preparation, the host abstains and replans. Legal input is not task alignment or progress.")
-            system += (" Return the closed assessment/commitment/phase envelope. Give a concise outcome assessment, "
+            system += (" Return the closed assessment/phase/commitment envelope. Select the phase before its "
+                "corresponding commitment fields. Give a concise outcome assessment, "
                 "not private reasoning. Echo the host source_epoch and source_phase. The commitment is your "
                 "planner claim about the active objective, intended resource and unmet constraints; keep it "
                 "separate from actual observed referents and host outcome facts. Assess the latest host outcome "
