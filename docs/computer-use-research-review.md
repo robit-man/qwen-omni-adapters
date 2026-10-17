@@ -180,3 +180,15 @@ Actual GPU 1 comparisons preserved the same captured state and original goal. Ge
 The [author’s Kev model card](https://huggingface.co/jaredpalmer/kev-4b) describes a typed decision model with confidence-based deferral and workload-specific threshold evaluation. That supports separating fast classification from slower recovery; it does not prove a particular desktop threshold or primitive policy works. The fetched checkpoint differs from the loaded pin, so its calibration is not silently transferred. Pinned source files, revisions, checksums and the actual loaded-policy comparisons are [saved durably](research/computer-use-kev-escalation-2026-10-17.manifest.json).
 
 In the unchanged local task, the prerequisite-first planner selected the Input folder, but Kev abstained three times. Reconstructing the exact request reproduced the result; adding visible context changed probabilities without clearing the existing threshold. The controller also routed explicit planner pointer preferences back through Kev. The next repair therefore supplies a private one-use escalation after a valid abstention: the slow planner chooses among the same eligible operations, while native target freshness, scope and input guards remain authoritative. Dispatch returns an unknown effect and earns no task-completion credit. This is an engineering inference from the measured dead end, subsequently supported by two actual native double-click recoveries. The unchanged whole task still failed when the controller counted deferred decisions as consecutive failures; see the [live archive](research/computer-use-pointer-recovery-2026-10-17.manifest.json).
+
+
+### Local primitive resolution comparison, 2026-10-17
+
+Twenty-six actual GPU 1 Ornith requests compared captured failure states. Explicit
+window-membership flags and extra primitive descriptions in the full planner did
+not establish improvement. A narrow finite choice with named operation labels
+retained a folder double-click and chose single clicks for Open controls. An
+unnecessary window click and overstated predicted effects remained; predictions
+therefore grant no verification credit. This supports a bounded context-reduction
+experiment, not general desktop competence. Captured JSON ordering limits and
+all failed variants are [preserved in the durable record](research/computer-use-control-interpretation-2026-10-17.manifest.json).

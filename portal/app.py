@@ -2465,6 +2465,20 @@ def create_app(
 
             try:
                 if compact:
+                    resolution = ui_decision.pointer_resolution_context(compact_packet)
+                    if resolution is not None:
+                        context, resolution_schema, _ = resolution
+                        resolution_request = copy.deepcopy(request_payload)
+                        resolution_request['messages'] = [
+                            {'role': 'system', 'content': ui_decision.POINTER_RESOLUTION_SYSTEM + (
+                                '\n\nCaller task policy:\n' + caller_policy if caller_policy else '')},
+                            {'role': 'user', 'content': json.dumps({**context, 'response_schema': resolution_schema}, ensure_ascii=False)}]
+                        resolution_request['response_format']['json_schema'].update(
+                            name='native_pointer_resolution', schema=resolution_schema)
+                        resolved, compact_packet, compact_binding = ui_decision.resolve_pointer_proposal(
+                            compact_packet, compact_binding, packet, ask(resolution_request))
+                        if resolved is not None:
+                            return resolved
                     context, subgoal_schema = ui_decision.subgoal_context(compact_packet)
                     subgoal_request = copy.deepcopy(request_payload)
                     subgoal_request["messages"] = [

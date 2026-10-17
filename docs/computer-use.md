@@ -811,3 +811,14 @@ Repeating fast decisions while that attempt is pending still consumes the
 failure budget; failed recovery and cached/unchanged boundaries retain their
 existing limits. The execution ledger records `deferred_to_planner` separately
 from success and never treats the deferral as task progress.
+
+
+With compact planning enabled, a pending pointer recovery uses one narrow model
+request containing the exact goal, retained local objective, current UI excerpt,
+observed target/operation pairs and factual last result. It does not regenerate
+the task history or objective. The returned expected observation is explicitly
+an unverified prediction. A valid operation expands through the same canonical
+validator and native guards. A `replan` choice supplies bounded model feedback
+to ordinary planning and removes that declined recovery bank from the current
+decision schema. Caller policy, native `think`, options, deadline and cancellation
+remain in effect for every request.

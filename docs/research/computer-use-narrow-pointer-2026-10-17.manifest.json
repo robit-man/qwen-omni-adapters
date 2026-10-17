@@ -1,0 +1,1132 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer",
+  "scope": "Narrow pointer resolver implementation and unchanged LHN-001 live failure before resolution due to policy transport errors",
+  "file_count": 187,
+  "total_bytes": 4463301,
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/live.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/live.log",
+      "bytes": 36,
+      "sha256": "d9ecf5ee17c3b32c3e93ec5e2db6897334af13c44100258fcfa86019080175c3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/proof-results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/proof-results.json",
+      "bytes": 4692,
+      "sha256": "35af0937eddc0032572c442dec34dd206f3c8ee000c988e2727355a4a57c8cad"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/compare_primitives.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/compare_primitives.py",
+      "bytes": 4653,
+      "sha256": "4faf8d62c021f6e78ced5ef897eec97f6642655aeacea641fad12e2962f096dd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/egg31-authenticated-update-observation.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/egg31-authenticated-update-observation.json",
+      "bytes": 197,
+      "sha256": "3641fa19a5769ea410c42e1fe7272942b2456e8d28f6d5b3fad73602ffccbb08"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-comparison-design.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-comparison-design.json",
+      "bytes": 446,
+      "sha256": "9b5fb909da33ead4f61ac2c342861a17afffcb68cf24589fb67feebb483e965b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-comparison.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-comparison.log",
+      "bytes": 2449,
+      "sha256": "6304c8cbee4e37ed5b53122933f335495284a61b0662d08c293d9ea37288358b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/frontend-launch.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/frontend-launch.log",
+      "bytes": 432,
+      "sha256": "0268445839f7b3f0303f5f19f0a3c67664ab7d7d1fd126d187bcffb141b795f1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/handoff.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/handoff.json",
+      "bytes": 1061,
+      "sha256": "b9d649281372276e392ab441c0a6bde8ffbb059e20d4a048847b3f8ec7579570"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/passive-foreground-capture.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/passive-foreground-capture.json",
+      "bytes": 183347,
+      "sha256": "4c7dff9c6cee485e1ab1cbc727df5dfbe210919bf5f390beb773dfeff5488647"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/broker-after-kev-error.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/broker-after-kev-error.json",
+      "bytes": 11553,
+      "sha256": "1b3514be3332426a95b9f1565e31b700f9fda22b10e307226f8b218b924be78c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/doctor.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/doctor.json",
+      "bytes": 3625,
+      "sha256": "66e14d4c25e41a3657f432c074fedb7ab11e1e611ac433bb2c9ba1caa8cdc8b0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/compare_named_choice.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/compare_named_choice.py",
+      "bytes": 5712,
+      "sha256": "7b12216dbfd96825710fdce57770522977bae1b03257dea1b18fa681cbcf7349"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/staged-source.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/staged-source.json",
+      "bytes": 1602,
+      "sha256": "3e9765b878927898898dbcbafa25bd197a028301d612f6e941644dab869e5624"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/compare_narrow_context.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/compare_narrow_context.py",
+      "bytes": 5725,
+      "sha256": "a7bb3a60d0fa92b73bc9794ef27bca3d60d30fb1081878420cf958819ace26a2"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/handoff.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/handoff.log",
+      "bytes": 837,
+      "sha256": "9ba87bb162bf5b11f700c860bfa13d33d66c7394bc38fe57f87e92bbfc57bf76"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/stage.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/stage.py",
+      "bytes": 3004,
+      "sha256": "3e93b7592054a9e3a551103f1bac7861fc6dfa1bf4f62c5040c12b00e4a06b4f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/broker-discovery.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/broker-discovery.json",
+      "bytes": 11546,
+      "sha256": "9c122be2510b71babcffe66064d51ad3d8df2dc49db2a075867a8220d1d9d0db"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/archive.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/archive.py",
+      "bytes": 4833,
+      "sha256": "9d0ef53ecccb8177d1d5803b9719c12c03e15c9fd795b85060e8dd80ca620aa9"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/native-cases.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/native-cases.json",
+      "bytes": 114876,
+      "sha256": "15d52c6478c4cb10a64e80c72852a79601d64e6f97ce65e26447e9219cc1e080"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/proof.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/proof.log",
+      "bytes": 138,
+      "sha256": "fdc301dd5f4ed8a51c792b8d6052f8d32b91cc871d154d486f60cfa046d1027d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/passive_guard_capture.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/passive_guard_capture.py",
+      "bytes": 5666,
+      "sha256": "d0b982d056129693515743780781d6474c0adc89572d580b2dd4d0399307d889"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/after-test-notes.json",
+      "bytes": 1734,
+      "sha256": "a2ad905e0ed99c5ab3e1adfdf23de6705ca4097a5dc6ac8e155cfc432654f6f1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/handoff.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/handoff.py",
+      "bytes": 3055,
+      "sha256": "59b912903999ad3408102644f76a6680e45e3e91f5c170eff149d96318fcea76"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-comparison.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-comparison.log",
+      "bytes": 2485,
+      "sha256": "1d16c60247091f70b90b71081ebc61dcf3e5ae88772b688f3b1672efc6003a25"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/status.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/status.py",
+      "bytes": 968,
+      "sha256": "647c79020da8c434fad88a7e134ebe4a09f8652dda4b03dc58a08338c124f7fc"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/private_runner_bootstrap.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/private_runner_bootstrap.py",
+      "bytes": 590,
+      "sha256": "84cefd7170cbfc1e9c6f6d7f231d86ca7f1fb41c2711b0c1a41108f841f07a82"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/archive_experiments.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/archive_experiments.py",
+      "bytes": 2877,
+      "sha256": "f0a6161e44ce76115d79019fe8f9f7a502aa6b2dbbb25c78b2639be1f18aa096"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/proof.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/proof.py",
+      "bytes": 2470,
+      "sha256": "ff7bde685f65a1d79fa43197b7b0766d9344063fc0011cf56d794e3591119aee"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-comparison.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-comparison.log",
+      "bytes": 3890,
+      "sha256": "1ff4f591d386200cdc32b3db37ec02172f26887b4641cda546d4511ad509516b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/compare_window_context.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/compare_window_context.py",
+      "bytes": 3043,
+      "sha256": "d96c7dda044d83115527a9198f0d88a0fd32ab7cec16b101140671287fccaa49"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-comparison.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-comparison.log",
+      "bytes": 2191,
+      "sha256": "81ae30297df8165471b41ce739bf588adb669149d9c664d1e11bceedb1a1b6e1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/run_live.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/run_live.py",
+      "bytes": 1009,
+      "sha256": "799d1c52f3234b3a63206d45a64ba8a444c27242026895fb8a24b31aeb78d9de"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/compare_narrow_choice.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/compare_narrow_choice.py",
+      "bytes": 5381,
+      "sha256": "ef45b97dfa0b84fd0906a658184331a36c2d434c47508d3d4b52c6a79219d59a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/validation.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/validation.log",
+      "bytes": 4875,
+      "sha256": "db59773082f998202f2e10c1bb4bccd3b7cd30a3e2c0b22127596840e802d15d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/input-integrity.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/input-integrity.json",
+      "bytes": 649,
+      "sha256": "a5aa44619c1cd53af2c0a9f5aa76792019e5cf2f6959b913bcdb83728908be18"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/window-comparison.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/window-comparison.log",
+      "bytes": 7975,
+      "sha256": "567da92472a346df0fbf89edad66679080c0c9455227acc011e202f7b81cf6a7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/experiment-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/experiment-notes.json",
+      "bytes": 1246,
+      "sha256": "69d8b8e3e1c245f980f5f67e1f4dd1129ab34fbf2a26de48fd3c83d5fe8ed40c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/remote-update-observation.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/remote-update-observation.json",
+      "bytes": 350,
+      "sha256": "cc8e9e052938f1dc527c94f39aa30c7ea31162554c77a878e999c5e9d9f8d63b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/readiness/DERIVED-PROVENANCE.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/readiness/DERIVED-PROVENANCE.json",
+      "bytes": 270,
+      "sha256": "beda3d0996998cb508b5be8ee0c5b1484aa6faafc832b928ce7ade0956d6579e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/readiness/readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/readiness/readiness.json",
+      "bytes": 480,
+      "sha256": "5e907b207e971952428bad6a49687b7eb69e9fe228b0f1dd26d967216c5806e6"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/readiness/python-prerequisite-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/readiness/python-prerequisite-proof.json",
+      "bytes": 2689,
+      "sha256": "00958fb1784421d4924795d52c25dce4d7a3bf98e517b7332abfc4807e17f8dd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/readiness/python-versioned-source-pack.zip",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/readiness/python-versioned-source-pack.zip",
+      "bytes": 192066,
+      "sha256": "0a5167baa1b01cf5ec43d8b57ee355463cca87ce09ebc3a63820dfe53137811b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-9/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-9/result.json",
+      "bytes": 397,
+      "sha256": "0ce1f155c39c1d11ab466c8657577f53882f7dc4c2c40e9e9d66c0a1aab4b170"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-9/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-9/request.json",
+      "bytes": 5687,
+      "sha256": "34339843c6f17757809e717221cbc038d3503e9dcde3e8a3db4a78f937e6fbf7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-9/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-9/response.json",
+      "bytes": 934,
+      "sha256": "9118a7686b6a119eff4216e1782e86229a2989e99ef83951a5c689f6ae38fb1a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-7-primitive_semantics/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-7-primitive_semantics/result.json",
+      "bytes": 1857,
+      "sha256": "4fb0e80fe31f073baf256dec95cf7f1105acd7ed705ab1b4f59547eec7d93d16"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-7-primitive_semantics/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-7-primitive_semantics/request.json",
+      "bytes": 61664,
+      "sha256": "97a4c2b7ec37c416139e9a835d70495f0cce83dafc6013859eca7f12d22ac6df"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-7-primitive_semantics/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-7-primitive_semantics/response.json",
+      "bytes": 2431,
+      "sha256": "d0993895e7f65cf9536e468719e912468ea01ac49c0ca4aa17d3c02c97a253cd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-3-original/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-3-original/result.json",
+      "bytes": 1688,
+      "sha256": "492494695e2ca07b7dcfcdcd2c06345a2cb8cb729d83581305557d0e4bca27d3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-3-original/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-3-original/request.json",
+      "bytes": 52576,
+      "sha256": "d9025ed02752fbb7062e564c44127054c74cc4f6f104f4690640997a558d17f5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-3-original/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-3-original/response.json",
+      "bytes": 2162,
+      "sha256": "1663b1e85584a0a2c4a72aed3217fae80ceb3edcef9626fba093e4a772bd20b4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-11-original/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-11-original/result.json",
+      "bytes": 1783,
+      "sha256": "548c35173d1b4eb410e47bb1a7e400ee671a2ae889b2b2e56f2bccb12820bbeb"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-11-original/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-11-original/request.json",
+      "bytes": 62343,
+      "sha256": "981ace7ece1a2cf137b23231f24d9f75294827e982e2e3bf6959f4b8deed7129"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-11-original/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-11-original/response.json",
+      "bytes": 2358,
+      "sha256": "d76cbb3f085b92b003207d8c2beaa4fcbb80d2edc92eb5d30ca125f827ae9c85"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-3/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-3/result.json",
+      "bytes": 332,
+      "sha256": "6a9a867ee2f32bf6cf7c0c3805cc56db5f0abade87f96dbe7461c134401b973b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-3/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-3/request.json",
+      "bytes": 6438,
+      "sha256": "bd9c078a4aa6b9a3fddc64bf60dee2a827c1e339a2af7612dc53ed3ae739b9f1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-3/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-3/response.json",
+      "bytes": 869,
+      "sha256": "7c6bf97acb2d2393c5107a655e46610549e09579cda75c14728b744cceb92a8a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-11/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-11/result.json",
+      "bytes": 448,
+      "sha256": "852b56e0865920ccc9cdd9fa119337cb6e22266dec9875a14b0298ee5ca8dfc1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-11/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-11/request.json",
+      "bytes": 6164,
+      "sha256": "008c05ab2a1f7d2e15914ca36cd43379da2e0dd06cd4c3f95cc65acf62c3484e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-11/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-11/response.json",
+      "bytes": 994,
+      "sha256": "c96d3c4a96f72de55049b62a49a068b04d48804fb4b4511403406f4c75a2e277"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-7-original/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-7-original/result.json",
+      "bytes": 1803,
+      "sha256": "b6a57c2cb3a396f064761ae002819db9e76ff2f6c4a47405f5e163011d2cedfe"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-7-original/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-7-original/request.json",
+      "bytes": 60716,
+      "sha256": "a50097bf526147da6fbb57e0f04e466ba1187624d69766e9467bdff35c5e6960"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-7-original/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-7-original/response.json",
+      "bytes": 2277,
+      "sha256": "0953fbd518d1aa6c80b272b26acb7d9bda83fe56523afe14d76a3b2b9a412008"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-3/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-3/result.json",
+      "bytes": 363,
+      "sha256": "3089ea3923526dc68f4d101093a4e7d4fc6c2a49b7e100ade82ca8886b3562ff"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-3/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-3/request.json",
+      "bytes": 6399,
+      "sha256": "c42e5f45f9553d6c562da94d61a90df92baa753ce0cbaa420b0423440ce567ca"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-3/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-3/response.json",
+      "bytes": 900,
+      "sha256": "8f75b8b78471e1486cbc3b2c8f04e196e6311f5b8a170bfffa125ba9e8cb1003"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-7/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-7/result.json",
+      "bytes": 379,
+      "sha256": "578bb2d22630c0e8a06ba1e550fd161da4bf292032ad893a8022fe34af1c289b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-7/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-7/request.json",
+      "bytes": 6196,
+      "sha256": "064c78f0c817c9aa692aad879d5fd7755b9667b432d1a85e713c78497fb8d185"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-7/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-7/response.json",
+      "bytes": 925,
+      "sha256": "5a8e848ba3ce2581783bde8fa29323b73a42164200979941c5eeb7be394248b4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/command.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/command.json",
+      "bytes": 994,
+      "sha256": "59327efcc9930b6ab4fb5d5307c73f34de62d5ef7ae0e7b200c0062e8bdf578c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/canonical-prompt.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/canonical-prompt.private.txt",
+      "bytes": 111,
+      "sha256": "c87690529e49a68c5c3752ae2249bb036b82dcc42719456053258e9b116d2a6c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/execution-ended.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/execution-ended.json",
+      "bytes": 1085,
+      "sha256": "19f4cbbfe2acbc43714b3dda1fafdab02b290781fa98b72147179cbb7dd784ec"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/receipt.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/receipt.json",
+      "bytes": 2091,
+      "sha256": "8fb5a870fbefb31ef192b2f2bb232c2c37046bf21ef6452178d0ece1fd3be6d6"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/native-results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/native-results.json",
+      "bytes": 4223,
+      "sha256": "9f0ba0c125b04f33600f064db5a38ad3612f113391c1506e2dc6919dd744c6ed"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/token-headroom.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/token-headroom.json",
+      "bytes": 427,
+      "sha256": "e95a66ba04b0fa7a6220b2a10e553da1569c4297e7f593f98efd519b241988db"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/native-mismatches.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/native-mismatches.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/native-cases.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/native-cases.json",
+      "bytes": 114876,
+      "sha256": "15d52c6478c4cb10a64e80c72852a79601d64e6f97ce65e26447e9219cc1e080"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/legacy-direct-working-False-gbnf-equality.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/legacy-direct-working-False-gbnf-equality.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/compact.gbnf",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/compact.gbnf",
+      "bytes": 2265,
+      "sha256": "5a6d672f088c86153d3fabc5635fe9852bc48efe1f474a84713900e873affcd7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/started.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/started.json",
+      "bytes": 260,
+      "sha256": "897282fb6bb9ddd52ca2b10180b6fecf0997999fb9d2784d191e9c605406b930"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/compact-prompt.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/compact-prompt.private.txt",
+      "bytes": 111,
+      "sha256": "c87690529e49a68c5c3752ae2249bb036b82dcc42719456053258e9b116d2a6c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/stdout.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/stdout.json",
+      "bytes": 2581,
+      "sha256": "e534e02e328bfe4be44caf24bb0423bd57624511325a7f8108a4871c6d7e78a2"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/model-template.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/model-template.private.txt",
+      "bytes": 8952,
+      "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/canonical.gbnf",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/canonical.gbnf",
+      "bytes": 147400,
+      "sha256": "c7ab26b14d5119c52bd2687d6b359713b184789b87cd1cce7ba48a06f64cf0e7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/qwen27b/stderr.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/qwen27b/stderr.log",
+      "bytes": 8436,
+      "sha256": "334c6960ff98f1aa8337015fd4978d0aa43c0264386eed6fd683192318ae2d35"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-7/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-7/result.json",
+      "bytes": 473,
+      "sha256": "06ebbb8466dd2f3deadc56c3dceff09303ad306173f226deeb9a2798a097a9a7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-7/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-7/request.json",
+      "bytes": 8683,
+      "sha256": "9848b2482c0c6a0707070f80d10e6d2426d6f59f94a0ea9f651caa776d1a4448"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-7/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-7/response.json",
+      "bytes": 1011,
+      "sha256": "32ab6ec4c7d4f8501407f181fe4865d194a7f8dc0af821e7ca52dbc60fc3bb14"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-9-primitive_semantics/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-9-primitive_semantics/result.json",
+      "bytes": 1766,
+      "sha256": "d3f67fb4d14804cef8884379d68d05dcaeb2f063d7b1b6306d5598daf1d8ff99"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-9-primitive_semantics/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-9-primitive_semantics/request.json",
+      "bytes": 61688,
+      "sha256": "9ae3acbfba587d56dc0c602de9c84aa85decec6aaaf379cbf126c97b1b30dac0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-9-primitive_semantics/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-9-primitive_semantics/response.json",
+      "bytes": 2340,
+      "sha256": "384d2d5aa92eea470d8f324eb56bd352cdcf86531e98c725a28326724b47d21a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-9/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-9/result.json",
+      "bytes": 296,
+      "sha256": "1b37b66162cb55ce0f58e97cd29c0d2e3b643ab84e70f2fe24d971789ffd038c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-9/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-9/request.json",
+      "bytes": 8213,
+      "sha256": "3bfaca6562d41907098b588bf616f1ea9606c3ccc579882ac489ccceaa42af4f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-9/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-9/response.json",
+      "bytes": 833,
+      "sha256": "1d2d1c20a3dadda3e1940c865dc1585e6a490e8e217030f6d7e171cdf5e73553"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-10-explicit_window_membership/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-10-explicit_window_membership/result.json",
+      "bytes": 1668,
+      "sha256": "b6586a563716268483c0eebb683965c6dcc29f83876f0da8112bae98630c2dc1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-10-explicit_window_membership/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-10-explicit_window_membership/request.json",
+      "bytes": 56996,
+      "sha256": "ce36fcc546c12dfab30a2d550eb56421ccf9db067a78c312e51988f8c24030b0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-10-explicit_window_membership/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-10-explicit_window_membership/response.json",
+      "bytes": 2237,
+      "sha256": "9837cbcd64cc1b308ae9572229c23b9ad536fa1ecad0d685bac8e69ac5d78cf8"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-11/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-11/result.json",
+      "bytes": 334,
+      "sha256": "69d8096f5de4a8484a1d8e435c0220a7c394abf4a6ccaf01131c6b365d0407a0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-11/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-11/request.json",
+      "bytes": 8651,
+      "sha256": "f0f0b9f9ef80e2479aa0bf8f423018de69399df44bc7269b7f78110576c56dfe"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-11/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-11/response.json",
+      "bytes": 871,
+      "sha256": "0212ec87872d8f7790a9298346e91791d00d68743add696c78779dc1a0a2af8d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-6-original/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-6-original/result.json",
+      "bytes": 1759,
+      "sha256": "0a5095463efac244bf5d5db0701e5252ea00a0e1876883a569f82f9635f6caf9"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-6-original/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-6-original/request.json",
+      "bytes": 58892,
+      "sha256": "9521d1a798c519e8497615d3545ffd7b0bd26df1b1eaa4d353684f76b00a96a2"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-6-original/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-6-original/response.json",
+      "bytes": 2243,
+      "sha256": "f20c9f817635717f8afbf9a64f37aa50bed194e27ad3bbbd37bbb5364a301261"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-6-explicit_window_membership/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-6-explicit_window_membership/result.json",
+      "bytes": 1705,
+      "sha256": "f4a94f389c2aed7d352906e79c431e198541040b99cc2ce05d798f43efdc3e0d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-6-explicit_window_membership/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-6-explicit_window_membership/request.json",
+      "bytes": 60529,
+      "sha256": "b1bba5e7091d1d01e7eb0729f8d3766788189f1425c18a5f90d29cc8ace733a0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-6-explicit_window_membership/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-6-explicit_window_membership/response.json",
+      "bytes": 2189,
+      "sha256": "b9d21b333ce519dde22e197542bf58377e0c79fee503649d13ff19e721b1c26c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-9/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-9/result.json",
+      "bytes": 383,
+      "sha256": "d37f672356a1f40c65ade2ba6565568eaecee183dcdaf82e7335400bc0c38439"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-9/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-9/request.json",
+      "bytes": 8174,
+      "sha256": "156d8538719e0de9c60adfb02a1e09dc9735774f7ed5dda31e74f7ced2208f0a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-context-phase-9/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-context-phase-9/response.json",
+      "bytes": 920,
+      "sha256": "8d2b221ac117ce4afdbd7580f9d1c16b32d1993e92331ecbff9bc0c07e4051f1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-7/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-7/result.json",
+      "bytes": 380,
+      "sha256": "d0b65e9b8130c51b1ca70e488801d6282cec902ab9bb9aec08c8d9ded2d9c049"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-7/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-7/request.json",
+      "bytes": 8722,
+      "sha256": "d067e50971be406094709bf8411f5ce4fdd71d0952e38df7f4fe7be360e6eb3a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-7/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-7/response.json",
+      "bytes": 917,
+      "sha256": "a271df962632f532bd1690d960cb9cfd2fa106b83318a84c8ad973b70ea467a3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-3-primitive_semantics/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-3-primitive_semantics/result.json",
+      "bytes": 1607,
+      "sha256": "346412768534b63d32fab8e77777dc7cde285151ea8909d320186437c65d4e19"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-3-primitive_semantics/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-3-primitive_semantics/request.json",
+      "bytes": 53524,
+      "sha256": "661b08cb4c9826a97aa6e20f7ce51e2c876a27aeab28ad51a2a05e9f74cec47e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-3-primitive_semantics/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-3-primitive_semantics/response.json",
+      "bytes": 2080,
+      "sha256": "f9ea0e7ec6725ba3536d7a53ef9c78ad780fa1434291b8ceafc055e255f41b0a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-8-explicit_window_membership/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-8-explicit_window_membership/result.json",
+      "bytes": 1806,
+      "sha256": "e2406fbf33d75e0aca36188b009e240e3fe20dd367392fe903de6e262fba2567"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-8-explicit_window_membership/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-8-explicit_window_membership/request.json",
+      "bytes": 56336,
+      "sha256": "cbfd3ea535db6fba7576c8601864bf90fe18e13488214833605de9470c4c5895"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-8-explicit_window_membership/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-8-explicit_window_membership/response.json",
+      "bytes": 2378,
+      "sha256": "c897b5debd4534a8f9f4359d41644071b0bc638df3bb9b66b326703707bc4192"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/command.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/command.json",
+      "bytes": 997,
+      "sha256": "15ab534b2a7d45ca504fe0c0feb2ff14a540951db9816bd4861022d6793a8315"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/canonical-prompt.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/canonical-prompt.private.txt",
+      "bytes": 111,
+      "sha256": "c87690529e49a68c5c3752ae2249bb036b82dcc42719456053258e9b116d2a6c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/execution-ended.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/execution-ended.json",
+      "bytes": 1084,
+      "sha256": "bfc9df66dba54c37a417d85671cb139015fc9d1cff503797cb47f5bbd2874d42"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/receipt.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/receipt.json",
+      "bytes": 2090,
+      "sha256": "a55235b01f6d8a90297a2cae263dbdf2f564160eae1db8cadb4473e09b8c6be1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/native-results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/native-results.json",
+      "bytes": 4223,
+      "sha256": "d274d81d32100e2e848a8bb35aa60e8d481209f3ae9efb60ff44fdb056575b7b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/token-headroom.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/token-headroom.json",
+      "bytes": 427,
+      "sha256": "e95a66ba04b0fa7a6220b2a10e553da1569c4297e7f593f98efd519b241988db"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/native-mismatches.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/native-mismatches.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/native-cases.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/native-cases.json",
+      "bytes": 114876,
+      "sha256": "15d52c6478c4cb10a64e80c72852a79601d64e6f97ce65e26447e9219cc1e080"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/legacy-direct-working-False-gbnf-equality.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/legacy-direct-working-False-gbnf-equality.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/compact.gbnf",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/compact.gbnf",
+      "bytes": 2265,
+      "sha256": "5a6d672f088c86153d3fabc5635fe9852bc48efe1f474a84713900e873affcd7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/started.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/started.json",
+      "bytes": 261,
+      "sha256": "74f0831efce4a92461d68292e3b9ba5c1bcfec9815adc8448d30c5edfb71a7fb"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/compact-prompt.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/compact-prompt.private.txt",
+      "bytes": 111,
+      "sha256": "c87690529e49a68c5c3752ae2249bb036b82dcc42719456053258e9b116d2a6c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/stdout.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/stdout.json",
+      "bytes": 2581,
+      "sha256": "ed866b42a1a1b22e2ed8abde3f1afc923a7b5c8fc8ed6ee5671ccbcc9dd83c07"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/model-template.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/model-template.private.txt",
+      "bytes": 7828,
+      "sha256": "f55f52930aa8bf44ab5cb85f99370fcc3c56e9a85640b812086d5330bce5d86b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/canonical.gbnf",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/canonical.gbnf",
+      "bytes": 147400,
+      "sha256": "c7ab26b14d5119c52bd2687d6b359713b184789b87cd1cce7ba48a06f64cf0e7"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/ornith9b/stderr.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/ornith9b/stderr.log",
+      "bytes": 7903,
+      "sha256": "d39fefe8a12ff61ade812fece11ccd0da0783a07554d45eb8e812858ba34a1ca"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-11/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-11/result.json",
+      "bytes": 433,
+      "sha256": "daac294ac4d41107b23a5feda0029f3fba6b59c52194f1d0bd3201bd533a87f8"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-11/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-11/request.json",
+      "bytes": 8693,
+      "sha256": "f72f40b774a38bf0bf5ddbf5e8c0eb8f1c673e3bee17bc0466c512840d79064f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/named-choice-phase-11/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/named-choice-phase-11/response.json",
+      "bytes": 970,
+      "sha256": "62f3cef0442a2972c630c417a88e72ec0c5acfe738d6e8fe0804dff29294c36b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-9-original/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-9-original/result.json",
+      "bytes": 1686,
+      "sha256": "c89e5c6f9b3f548fbbea453aca56160c807336c1054e33584b50dd701a725af1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-9-original/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-9-original/request.json",
+      "bytes": 60740,
+      "sha256": "2fa6e0a54f5902ea126e3eaf8c9a0e8e811a4db44ace07e1066f0e5356b44d79"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-9-original/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-9-original/response.json",
+      "bytes": 2261,
+      "sha256": "ef61cc790581c7b734bc74793f5409c8a21b72ee89842210991676c38314c711"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-11-primitive_semantics/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-11-primitive_semantics/result.json",
+      "bytes": 1653,
+      "sha256": "47c28a8f7257d2ddf5e770f12b5f123838bd3ec5d9cf81660f60e8529b443e07"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-11-primitive_semantics/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-11-primitive_semantics/request.json",
+      "bytes": 63291,
+      "sha256": "2d0ce19a20a63c0c00f164c8c2fa7488d3081e53aa5dae0b9988c708bb52e883"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/primitive-phase-11-primitive_semantics/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/primitive-phase-11-primitive_semantics/response.json",
+      "bytes": 2126,
+      "sha256": "5b052bb9ee498bc7bd9c24d188a794283f0ab0c3555cff81ae0a9c2b6eb38cf0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-3/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-3/result.json",
+      "bytes": 473,
+      "sha256": "4ad2a06c309b0f908c991dc2d8ecd38cbe6c4b1e7dda39b42f0b9c4d9c1e0929"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-3/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-3/request.json",
+      "bytes": 5530,
+      "sha256": "d894d0d892c791d6f8821f20f549036619f8a27f326f40dd4f9e4290306397e2"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/narrow-phase-3/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/narrow-phase-3/response.json",
+      "bytes": 1011,
+      "sha256": "0332060bd10389bef647a696fe31d5b3bf0f653995c40241634aa09e80b57dff"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-8-original/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-8-original/result.json",
+      "bytes": 1585,
+      "sha256": "4981fd4809905849e2277236f49bc94078e262b719652e1aa0a1d1e475db2385"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-8-original/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-8-original/request.json",
+      "bytes": 54699,
+      "sha256": "bba3e148acbe4bf3127e0d963adf4e1bb662eaff7e365f764171d4094a422d09"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-8-original/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-8-original/response.json",
+      "bytes": 2154,
+      "sha256": "cc2b3d33cb0e0903c43cd4813f55a0ce2def3738e65a632bd3581ea5e8442992"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-10-original/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-10-original/result.json",
+      "bytes": 1702,
+      "sha256": "b0a9e83c5c4e8fcc5931a94ae276e436ac32bd238690943005dc652e53c95ec6"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-10-original/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-10-original/request.json",
+      "bytes": 55359,
+      "sha256": "94f7b7129dd8bf41a2be877ad2871d7419c1efe8a55d2711cdf05cba8c03a9f8"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/phase-10-original/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/phase-10-original/response.json",
+      "bytes": 2270,
+      "sha256": "d3cfb04c73a6bb7edb71607b1f15e83d2aab1c3bb2efc11913259c583ada2e56"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/candidate-source/portal/app.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/candidate-source/portal/app.py",
+      "bytes": 191358,
+      "sha256": "96e915736028fa3b50b5ae03fe96ae9c49a3fc1fa60eeb50de75bb736a4c83b3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/candidate-source/portal/ui_decision.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/candidate-source/portal/ui_decision.py",
+      "bytes": 22751,
+      "sha256": "51ec21ab559f172f7e55611f2a673490aa1bdcae0339f2dfb33c4b4f8286885f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/control-interpretation-cycle-20261017/candidate-source/tests/test_native_pointer_resolution.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/audit/candidate-source/tests/test_native_pointer_resolution.py",
+      "bytes": 6626,
+      "sha256": "65027648b02cc3235de31a96b50e090025d817e06a1997e456b3901162d22190"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/window-ownership.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/window-ownership.json",
+      "bytes": 1209,
+      "sha256": "70f7d7c31140c3888b26e552b3342fbef33fb5742d5db816eb6c107d9a459253"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/summary.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/summary.json",
+      "bytes": 33820,
+      "sha256": "5b41c4a80293b766dc4b20ddd8f52bb9cf0c2711b1229bdeb8691016622ddfcd"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/initial-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/initial-native.json",
+      "bytes": 147853,
+      "sha256": "3fbb128a0aa375162d12a7dddec4f05d95d4c40eed1f250c9f0b1412183b395a"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/files0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/files0.log",
+      "bytes": 77,
+      "sha256": "123e5454da1246efd118e6828d4811b155ab93e9d59b23b98a03feb45f0c5c50"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/native-outcomes-index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/native-outcomes-index.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/request-payload.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/request-payload.json",
+      "bytes": 2695,
+      "sha256": "5665e7033c67b1efe26ac7c14ee5d748d70c6c8781ed5786bd67e3baf3d11388"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/metrics.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/metrics.json",
+      "bytes": 2074,
+      "sha256": "bba5bceb22cbdfc472ccbfa6f8167d76f7933beff39429497808bd29049de117"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/goal.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/goal.txt",
+      "bytes": 1587,
+      "sha256": "e8de0d45c7e2460cfa59aba86ac0079288b46b01ae20287ef926a5955178cf8e"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/evidence-manifest.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/evidence-manifest.json",
+      "bytes": 4469,
+      "sha256": "13a7a4826bf46b134686fff609c29d0e6d6c567d005d37450490904fc117a475"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/ui-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/ui-observations.jsonl",
+      "bytes": 95065,
+      "sha256": "e17b166200e55693f998cedd4c01c3cd5ac1fe1690be6bf4c3ce5a754ea04a8b"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/gedit0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/gedit0.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/final-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/final-native.json",
+      "bytes": 147858,
+      "sha256": "dbc691e9c2d58c2e8feea5e8b84c14c487760cb72bddaa0cd087fcbf898b18ad"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/readiness-requirements.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/readiness-requirements.json",
+      "bytes": 493,
+      "sha256": "79a5812adaf49e3fd23f02ff81efa7e62f6adf66f8abfd3ead661249765652cd"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/events.ndjson",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/events.ndjson",
+      "bytes": 38804,
+      "sha256": "efc4d76ec9b82db2d41ea3a9fe600fe51f3103b9d0d83f13754fb0e6dedfca97"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/setup-native-observations.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/setup-native-observations.json",
+      "bytes": 256693,
+      "sha256": "decb8a279d03491da61b19d4468e7213cc30f679afa6704122e7b49ef0d28437"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/milestones.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/milestones.jsonl",
+      "bytes": 287685,
+      "sha256": "d8282e5e5ceedb306c7fdf9aaa3aec2e9d11fe0751d214969187dbb49a9386bc"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/after-test-note.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/after-test-note.json",
+      "bytes": 1652,
+      "sha256": "f369ef4b2e624f130738fb4db23df099703289a8cd699f5339400b2c12a7a15f"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/pointer-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/pointer-observations.jsonl",
+      "bytes": 18166,
+      "sha256": "b67f47aca1c1ad1fa82fae5fc28db29947274274dc23f34bda90a70fbd471ebb"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/browser0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/browser0.log",
+      "bytes": 402,
+      "sha256": "a31355f7002a71325f8edd3e7761362ac0fe5493e10d9720c9c8a13bcefadd26"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/receive-timing.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/receive-timing.jsonl",
+      "bytes": 2767,
+      "sha256": "67d21ce9fcdc6178cbcfe21f12d13dacda46fdacbf64afd2b984acda8ec0c14b"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/host-source-evidence/index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/host-source-evidence/index.json",
+      "bytes": 864,
+      "sha256": "a235fe24d30d76e375716d2e9b32593d82062fc0e35b437e65b7b6e77556f0b6"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/host-source-evidence/readiness-pack.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/host-source-evidence/readiness-pack.json",
+      "bytes": 480,
+      "sha256": "5e907b207e971952428bad6a49687b7eb69e9fe228b0f1dd26d967216c5806e6"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/host-source-evidence/proof-00.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/host-source-evidence/proof-00.json",
+      "bytes": 2689,
+      "sha256": "00958fb1784421d4924795d52c25dce4d7a3bf98e517b7332abfc4807e17f8dd"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/host-source-evidence/source-00.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/host-source-evidence/source-00.bin",
+      "bytes": 192066,
+      "sha256": "0a5167baa1b01cf5ec43d8b57ee355463cca87ce09ebc3a63820dfe53137811b"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/Workbench/Input/examples.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/Workbench/Input/examples.json",
+      "bytes": 626,
+      "sha256": "a554c9fbe1ab6a4bb6f55e3cead75131ad1381a1c3703a9895e63ca9d7de8888"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/Workbench/Input/task-brief.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/Workbench/Input/task-brief.txt",
+      "bytes": 1474,
+      "sha256": "c0a2d993d6774a86d11a0e571c3ff4ce9c8b3cae575ff7c0dde9c5797e36a80c"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-narrow-pointer-20261017/Workbench/Input/migration-brief.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-case/Workbench/Input/migration-brief.json",
+      "bytes": 288,
+      "sha256": "d1ffe71ccfaa091d7bb58f4c9cb659f0a3f730ae6742986c49a3383ca2dba6e8"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T055621405187Z/actual-imports.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-frontend/actual-imports.json",
+      "bytes": 2314,
+      "sha256": "f72b6e224de9e2afd6818c2d8dfeba5c20ab4bff37697dc313b10dd8a430f999"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T055621405187Z/adapter-planner-packets.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-frontend/adapter-planner-packets.jsonl",
+      "bytes": 290192,
+      "sha256": "4e494b14b33f6eb9bec3ad9715917c171383fff66463a252eb857e0dc0820ede"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T055621405187Z/adapter-phase-responses.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-frontend/adapter-phase-responses.jsonl",
+      "bytes": 14745,
+      "sha256": "cd4c897a199c9af3a359bd7a5f4df9c1691d30f6e0fffd22b0db48c361c8b2a3"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T055621405187Z/controller-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-frontend/controller-observations.jsonl",
+      "bytes": 519087,
+      "sha256": "5ca6ba9920b111f38c75585dad0eb8a71773140dd846e1c6b78ff3a3b25da69a"
+    },
+    {
+      "source": "/tmp/qwen-narrow-pointer-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T055621405187Z/history-metrics.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/narrow-pointer/live-frontend/history-metrics.jsonl",
+      "bytes": 3342,
+      "sha256": "ad2ef9c771927005c0784f159a74c2598f84c2cb5efd1e7b85ca30a8bb747565"
+    }
+  ]
+}

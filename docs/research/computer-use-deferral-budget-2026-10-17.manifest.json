@@ -2,8 +2,8 @@
   "schema": "robit.omni.research-archive-manifest.v1",
   "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget",
   "scope": "Loaded Ornith deferred-choice accounting and unchanged LHN-001 task failure at target/primitive selection",
-  "file_count": 63,
-  "total_bytes": 7078343,
+  "file_count": 64,
+  "total_bytes": 7078818,
   "readback_verified": true,
   "files": [
     {
@@ -383,6 +383,12 @@
       "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/live-frontend/history-metrics.jsonl",
       "bytes": 14499,
       "sha256": "cbe2f74c4bbfc92428dfb73597eebda623e0fd8f5fbc5b4ba6131febb8a5af79"
+    },
+    {
+      "source": "operator correction against archived per-phase control maps",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/deferral-budget/audit/target-interpretation-correction.json",
+      "bytes": 475,
+      "sha256": "0033a8462249ede58e34f7a24e7abff85cf88e2dcd88dec379eeced8158fac5e"
     }
   ]
 }
