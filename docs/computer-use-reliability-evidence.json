@@ -449,6 +449,60 @@
       "actual_model_outcome": "Ornith acknowledged repetition, then chose the opposite window switch already performed earlier. No recovery improvement claimed.",
       "next_criterion": "Retain captured native text across window switches with bounded historical references and task-owned expansion. Current planner loses prior document content while retaining only input/effect facts.",
       "evidence_directory": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/transition-recovery-cycle-20261017"
+    },
+    {
+      "cycle": "6e",
+      "status": "CONTRACT_AND_GRAMMAR_PASS_MODEL_RECOVERY_NOT_RELIABLE",
+      "criterion": "Source-bound native text remains expandable after switching applications; loaded planner uses it to advance unchanged task",
+      "contract_status": "PASS",
+      "model_recovery_status": "NOT_RELIABLE",
+      "full_task_pass": false,
+      "new_desktop_inputs": 0,
+      "validation": {
+        "passed": 4155,
+        "seconds": 126.28,
+        "log": "validation.log"
+      },
+      "native_grammar": {
+        "qwen27b": 6,
+        "ornith9b": 6,
+        "passed": true,
+        "model_generation_credit": false
+      },
+      "experiments": {
+        "original_compact_with_recall": "Repeated Firefox switch; misidentified active application",
+        "assessment_first_think_false": "Repeated Firefox switch",
+        "assessment_first_think_true": "Inspects blank editor assuming input may be open",
+        "action_first_think_true": "Same unhelpful inspection",
+        "unconstrained_decoder": "Same switch, fenced JSON; parse failure retained",
+        "compact_context": "Correct active window but another Firefox switch",
+        "independent_assessment": "Repeated prose until output limit",
+        "goal_decomposition": "Identified task brief prerequisite and selected Files as next operation",
+        "author_sampling_false_seed42": "Repeated Firefox switch",
+        "author_sampling_false_seed104729": "Recalls document; still overstates source authority in narration",
+        "author_sampling_true_seed42": "Reasoning exhausted 4096 effective output budget; empty final",
+        "author_sampling_true_seed104729": "Inspects blank editor assuming input may be open"
+      },
+      "upstream_source": {
+        "model": "ornith-ai/Ornith-1.5-9B",
+        "revision": "489cb97981b8654bcfcf30ce1f94ed1b62e07b53",
+        "finding": "Authors recommend non-greedy sampling. Existing runner forces zero temperature; OpenAI translation drops top_k, min_p and penalties when inside options.",
+        "limits": "Recommended numbers alone did not establish useful task recovery. No universal sampling change or task success claimed. generation_config.json unavailable (404)."
+      },
+      "remote_snapshot": {
+        "egg31": {
+          "head": "1daaac5",
+          "core": "active",
+          "restarts": 0
+        },
+        "egg41": {
+          "head": "e7c0ed8",
+          "core": "active",
+          "restarts": 0
+        }
+      },
+      "next_hypothesis": "Independent explicit subgoal planning may prevent low-level selection from rationalizing a repeated window switch; test model-generated handoff on the same state before live deployment.",
+      "archive_manifest": "docs/research/computer-use-observation-recall-2026-10-17.manifest.json"
     }
   ]
 }

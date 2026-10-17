@@ -1,0 +1,646 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning",
+  "scope": "Historical observation repair, loaded Ornith planning comparisons and pinned upstream sampling research; no new desktop inputs or full-task credit",
+  "file_count": 106,
+  "total_bytes": 4592716,
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/action-first-think-true/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/action-first-think-true/request.json",
+      "bytes": 50579,
+      "sha256": "fbd6d18bc779c789d74f10cc291bcd3f39e86f66b95d494d9df97ca984632237"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/action-first-think-true/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/action-first-think-true/response.json",
+      "bytes": 13553,
+      "sha256": "e7837e412c56def881cf3d325249e4d877630de013447463e721117056eb10ec"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/action-first-think-true/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/action-first-think-true/result.json",
+      "bytes": 4096,
+      "sha256": "3caff058c9708b643f4eae364db7cb7d184607f5d222922c90094bf09c622295"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/after-test-notes.json",
+      "bytes": 2397,
+      "sha256": "8fe24b1e5a759651fb709d710b33397ffe4857d76fb8075c9882255fc9019c16"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/archive_checkpoint.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/archive_checkpoint.py",
+      "bytes": 4128,
+      "sha256": "07bbc21c5bbc2fd4fc026c519961f9feab60f5496dcfd1ee29d93721e7017b23"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/assessment-first-think-false/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/assessment-first-think-false/request.json",
+      "bytes": 50580,
+      "sha256": "8373edbba799517ea35b2ee035235ca73e554449530a6095d312aeeecffffbfd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/assessment-first-think-false/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/assessment-first-think-false/response.json",
+      "bytes": 2260,
+      "sha256": "a5cc10f11858f4520b88a61c44749d6fc1b5396ef213c4cd7750fae0172a7f62"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/assessment-first-think-false/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/assessment-first-think-false/result.json",
+      "bytes": 4703,
+      "sha256": "b6144300165340c69c8fa49228c44d12d5262ac3dce7d0d1944ef5d1619f8d95"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/assessment-first-think-true/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/assessment-first-think-true/request.json",
+      "bytes": 50579,
+      "sha256": "acc1aafdc2ed53f16b43a4f05fc073096a832a7b7dcc97874eb1ca27b911d465"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/assessment-first-think-true/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/assessment-first-think-true/response.json",
+      "bytes": 9894,
+      "sha256": "2d1b0f10d3d70a5baba9ec8216bf4edff08747ce4ab9ca46888087ffd2b6722d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/assessment-first-think-true/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/assessment-first-think-true/result.json",
+      "bytes": 3830,
+      "sha256": "7cc9352104fed6ef003f5d5d15f2ea3a9616feef3322db5f8f4e2da9c5624e77"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-false-seed-104729/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-false-seed-104729/request.json",
+      "bytes": 50704,
+      "sha256": "4b7144af208d0516d9c84c9b1fbbafcae80dffaaa8e861f64db5aae35284b41c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-false-seed-104729/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-false-seed-104729/response.json",
+      "bytes": 2575,
+      "sha256": "4ee1836a3d2dbf9f4f3fc3cfeacbea27f4478f35cf27c16ddebe163a30caefcc"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-false-seed-104729/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-false-seed-104729/result.json",
+      "bytes": 153,
+      "sha256": "9e4d23a85bffe1f60fd40427e77030dff5a280a68b9c2bfbb477109f7dbaacc6"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-false-seed-42/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-false-seed-42/request.json",
+      "bytes": 50700,
+      "sha256": "6363ba4eb51ce30bd2ba7a37b1c32a2bde9851004dadc59802feedf416f590ab"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-false-seed-42/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-false-seed-42/response.json",
+      "bytes": 2322,
+      "sha256": "cb98450f57c9d85b3550d59fdf9a4b74e18661d11a820e05d31723b730b508d2"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-false-seed-42/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-false-seed-42/result.json",
+      "bytes": 154,
+      "sha256": "aee7cf7c6f600cb59d6d5125a525d14d384ef71b28b11e85d8b039b5dd953230"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-true-seed-104729/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-true-seed-104729/request.json",
+      "bytes": 50703,
+      "sha256": "75aeffa458d67949d3a2caac89dd2133be11843acbd368e31d457b74e9faae85"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-true-seed-104729/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-true-seed-104729/response.json",
+      "bytes": 17339,
+      "sha256": "eee31d3906561ea1a6d07f08d9e4583780088b82a75740a70f301e77e2fb46bf"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-true-seed-104729/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-true-seed-104729/result.json",
+      "bytes": 153,
+      "sha256": "5269926133636404eb22223abccf6632e5bacd2781bac1c61c61c95aa41cfe3d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-true-seed-42/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-true-seed-42/request.json",
+      "bytes": 50699,
+      "sha256": "5f58e5ad4902c3fb519141e51392d380ba71135bf74d62ded8925fdf5e920f0d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-true-seed-42/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-true-seed-42/response.json",
+      "bytes": 16881,
+      "sha256": "569456cc565d0ea074ab25e44ed34096249d1e8d32b9e77cf494566df2e1d64e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/author-sampling-think-true-seed-42/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/author-sampling-think-true-seed-42/result.json",
+      "bytes": 153,
+      "sha256": "3819160984604f4a98631c71de29e688d3c0ff58588cffc867f99cb9baef3d3a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/candidate-source/portal/ui_decision.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/candidate-source/portal/ui_decision.py",
+      "bytes": 11761,
+      "sha256": "d1b2b20fc3dd9e0934fabdc0b1657d6da14f1c869b9a5ab24b9ee3a6484af32c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/candidate-source/portal/ui_observations.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/candidate-source/portal/ui_observations.py",
+      "bytes": 6432,
+      "sha256": "2a5ac9fbca0dbe242797fe29b52987924e7eca0d13b942df2592ced4f3ebd1c4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/candidate-source/portal/ui_task.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/candidate-source/portal/ui_task.py",
+      "bytes": 61442,
+      "sha256": "1d018e19db895992f4af1831036a7dda588e5b1b35984b620630c2296b2acac4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/candidate-source/tests/test_native_observation_recall.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/candidate-source/tests/test_native_observation_recall.py",
+      "bytes": 9176,
+      "sha256": "2d557716f79f31cd18c89f4063c4970a7c79b68e7bde6b06fb5de03a6808cf84"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/compact-context/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/compact-context/request.json",
+      "bytes": 33746,
+      "sha256": "e85772408ddfff99a8e5db42e72f6fcbb8a4a5015f897236e91f89b6788bc7f8"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/compact-context/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/compact-context/response.json",
+      "bytes": 1792,
+      "sha256": "1721d1b4f6fd6493d3a6e3863622af3dbb5a390d1a9e99e43345597912198314"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/compact-context/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/compact-context/result.json",
+      "bytes": 3495,
+      "sha256": "8653cc095ad5acc67ebb990ac0a80b3209ef453cf19e23b9c181b879c360e71b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/decision-information.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/decision-information.log",
+      "bytes": 3026,
+      "sha256": "a73a286f959079bb6cb1aec06cddbb314ee576d3f12b2ce03c4e5c4f9ce5ea3c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/decision-order.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/decision-order.log",
+      "bytes": 11358,
+      "sha256": "448701f45f28f6f92d3a074df76030729a3e5c1bc9564a5102ac84f3bcc366e8"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/decision.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/decision.log",
+      "bytes": 4084,
+      "sha256": "b60675da5edd817ca615d15e56954cd4337ddf7eaae7e932d53a195102564f08"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/decision.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/decision.py",
+      "bytes": 2210,
+      "sha256": "41f63ab46ee53544cf9755d79b3be67f13765426239ccaaf3a4f7d0866e45220"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/decision_information.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/decision_information.py",
+      "bytes": 2657,
+      "sha256": "e3c7e498b57041f42501bc09650718adfd011c572fb1f87e5a1f7cba876ddbc5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/decision_order.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/decision_order.py",
+      "bytes": 2250,
+      "sha256": "951735863e5d2284d4f7c9f4ff3de885ea28c0caea678bf12f5a93125b316f02"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/goal-decomposition/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/goal-decomposition/request.json",
+      "bytes": 9080,
+      "sha256": "e3a676dd4c04bebc36129893acc2835ad053bd088612f4d13cb8a24a8975c300"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/goal-decomposition/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/goal-decomposition/response.json",
+      "bytes": 872,
+      "sha256": "8f8614a07f93b4608719e24874f0cbdadb18bc63f318c447bc957ac62286ac85"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/goal-decomposition/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/goal-decomposition/result.json",
+      "bytes": 153,
+      "sha256": "c03d26616302ffa8f8cf9230b6ce89a0e47a65b470f08094ff964a68334f0b73"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/independent-assessment/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/independent-assessment/request.json",
+      "bytes": 9071,
+      "sha256": "cf2433a00c62209534530d71a9d377f19a864fcec581e5d0343ba93b32d4ef72"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/independent-assessment/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/independent-assessment/response.json",
+      "bytes": 15878,
+      "sha256": "2af2716e9e2fa0e1c5ab8eab62a4f769f9e335b75203a3f7946664baffcf6414"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/independent-assessment/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/independent-assessment/result.json",
+      "bytes": 153,
+      "sha256": "794a6c9d9936088aeb790cd1eaf6b2af66d3320d4b5d039a3fa97db0b7278639"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/live-chat_template.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/live-chat_template.txt",
+      "bytes": 7828,
+      "sha256": "f55f52930aa8bf44ab5cb85f99370fcc3c56e9a85640b812086d5330bce5d86b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/live-chat_template_caps.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/live-chat_template_caps.txt",
+      "bytes": 295,
+      "sha256": "3e4f3cfc5b35345675543446235883df2c65e34bbdd5a888eb273130d156ff36"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/native-cases.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/native-cases.json",
+      "bytes": 240784,
+      "sha256": "3693db629e34ffc915ad6036064be981af94c67fec22e9865bb739218e296e5e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/canonical-recall-prompt.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/canonical-recall-prompt.private.txt",
+      "bytes": 34354,
+      "sha256": "d155ec215a493e90fc7a5f85f97bd87e2d90b85f7b39c5eaf6fa908f21efa811"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/canonical-recall.gbnf",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/canonical-recall.gbnf",
+      "bytes": 199880,
+      "sha256": "b96ed49b5c94eea7cea30517b22e80e60aa909247def444b34b90013172e3c90"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/command.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/command.json",
+      "bytes": 985,
+      "sha256": "1e48b9883347eb3a306a573b64bd7d63f2abc834f21e6fdcc5af288922406762"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/compact-recall-prompt.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/compact-recall-prompt.private.txt",
+      "bytes": 34354,
+      "sha256": "d155ec215a493e90fc7a5f85f97bd87e2d90b85f7b39c5eaf6fa908f21efa811"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/compact-recall.gbnf",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/compact-recall.gbnf",
+      "bytes": 18414,
+      "sha256": "b30891c276ba0e46b60f43916052b3b238067b8e37bc67f8d81d7df6087cf358"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/execution-ended.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/execution-ended.json",
+      "bytes": 1084,
+      "sha256": "1a15a08165f524a04b2a2ca74d1b82dbc7510cf75e7918c5ab9ea5225b15f2c0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/legacy-direct-working-False-gbnf-equality.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/legacy-direct-working-False-gbnf-equality.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/model-template.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/model-template.private.txt",
+      "bytes": 7828,
+      "sha256": "f55f52930aa8bf44ab5cb85f99370fcc3c56e9a85640b812086d5330bce5d86b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/native-cases.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/native-cases.json",
+      "bytes": 240784,
+      "sha256": "3693db629e34ffc915ad6036064be981af94c67fec22e9865bb739218e296e5e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/native-mismatches.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/native-mismatches.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/native-results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/native-results.json",
+      "bytes": 3415,
+      "sha256": "c292e4c8daf4a4581463cec2768258df8b462b3d94f257f5cdac6d9bb761fa29"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/receipt.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/receipt.json",
+      "bytes": 2093,
+      "sha256": "be9ba0a0abeb0ebe1f1ea0e77d5fcfd4d8304f2170fe300787253caf5cdddb77"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/started.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/started.json",
+      "bytes": 261,
+      "sha256": "721e3f5e81551005083a3c70734230c63c53b20fd7c64766d6d1d721f14d68fe"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/stderr.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/stderr.log",
+      "bytes": 8049,
+      "sha256": "f8ece7edd62d8a4e958b3f7ea86f86d4a0599fb0b6ddac3db991c5559c14c353"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/stdout.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/stdout.json",
+      "bytes": 2127,
+      "sha256": "72496e265469345ce49b99c5f3cad87f335458bce778d2869b55a52c309a695c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/ornith9b/token-headroom.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/ornith9b/token-headroom.json",
+      "bytes": 452,
+      "sha256": "7bd2d96be766a3f24c4546a8139be7d9203485a159dbd6566281f0c92507f855"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/planning-diagnostic.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/planning-diagnostic.log",
+      "bytes": 15128,
+      "sha256": "9ea96a96bb4b71ad0562407209cf1f066356b34a23319cdcac45aca9faecec05"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/planning_diagnostic.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/planning_diagnostic.py",
+      "bytes": 2182,
+      "sha256": "a253b6e8bd457fd5f491f1f9fbef941ac2df8d787ea49629c8f0719ae487029e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/proof-results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/proof-results.json",
+      "bytes": 4699,
+      "sha256": "9a89b1e43822d270c60b47bfc6c3c34358cced5cce189b9fd0393ec6ce3a8fd1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/proof.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/proof.log",
+      "bytes": 164,
+      "sha256": "3c7462812af97fb8817180fcdc62f2dc70ca065f1e0e9f70bc7cc95d25835ecf"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/proof.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/proof.py",
+      "bytes": 2737,
+      "sha256": "0cf3605951c4d74aa294430f1c139ae382edb36e6ae9521d0954037487e89ca4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/canonical-recall-prompt.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/canonical-recall-prompt.private.txt",
+      "bytes": 34354,
+      "sha256": "d155ec215a493e90fc7a5f85f97bd87e2d90b85f7b39c5eaf6fa908f21efa811"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/canonical-recall.gbnf",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/canonical-recall.gbnf",
+      "bytes": 199880,
+      "sha256": "b96ed49b5c94eea7cea30517b22e80e60aa909247def444b34b90013172e3c90"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/command.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/command.json",
+      "bytes": 982,
+      "sha256": "74b00a385963405d2706ab81034f23442e3e7a6aa637682298ec8d45a4fc3fca"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/compact-recall-prompt.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/compact-recall-prompt.private.txt",
+      "bytes": 34354,
+      "sha256": "d155ec215a493e90fc7a5f85f97bd87e2d90b85f7b39c5eaf6fa908f21efa811"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/compact-recall.gbnf",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/compact-recall.gbnf",
+      "bytes": 18414,
+      "sha256": "b30891c276ba0e46b60f43916052b3b238067b8e37bc67f8d81d7df6087cf358"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/execution-ended.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/execution-ended.json",
+      "bytes": 1085,
+      "sha256": "ddb954172f57e813b3003b2e992fb2068d7594b95dbb854bf744a4649e190170"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/legacy-direct-working-False-gbnf-equality.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/legacy-direct-working-False-gbnf-equality.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/model-template.private.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/model-template.private.txt",
+      "bytes": 8952,
+      "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/native-cases.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/native-cases.json",
+      "bytes": 240784,
+      "sha256": "3693db629e34ffc915ad6036064be981af94c67fec22e9865bb739218e296e5e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/native-mismatches.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/native-mismatches.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/native-results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/native-results.json",
+      "bytes": 3415,
+      "sha256": "2b726ce4de217419ad8896891ce4aacdb475c3247e2d22b17937dc2832f56d12"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/receipt.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/receipt.json",
+      "bytes": 2095,
+      "sha256": "fd90f92f230c10b3e3d8a984bafd737460e79d3407867dfb8972ee7bffc8455a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/started.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/started.json",
+      "bytes": 260,
+      "sha256": "142c5a902098bbae96eb0828a4cbc79f5ccc5bfe97ef1ff90fa892860f79034a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/stderr.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/stderr.log",
+      "bytes": 8582,
+      "sha256": "fe376018df07b94a7f0711d6ea0d8feca446c999efe019144a368e2413a17764"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/stdout.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/stdout.json",
+      "bytes": 2127,
+      "sha256": "5b788c64e7bb96f2eb634073dfb6d0a4de2d210761ff9730bc8614049e782bf1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/qwen27b/token-headroom.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/qwen27b/token-headroom.json",
+      "bytes": 452,
+      "sha256": "7bd2d96be766a3f24c4546a8139be7d9203485a159dbd6566281f0c92507f855"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/recovery-packet.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/recovery-packet.json",
+      "bytes": 191068,
+      "sha256": "0bb0d78857530cbff2f649f93467f6e7366db079d57139d42ce2f8e47e8faae4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/replay.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/replay.json",
+      "bytes": 2160760,
+      "sha256": "da92f70f0d5c896c63fbb9c20f3e20141fb214626194061d75673933b501eacf"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/replay.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/replay.log",
+      "bytes": 601,
+      "sha256": "5f5482f2d5e258584df2c9c451a506ec55bcbc014757956039e82ba398524014"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/replay.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/replay.py",
+      "bytes": 3215,
+      "sha256": "f393a3ecb3381432a9d2a0209131d6430b787be1163e67c6a6dea02855d4d5be"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/request.json",
+      "bytes": 50580,
+      "sha256": "04bf740062a3939bb9b811834dc20274ba083e0b7368553d2b36d913c666f83f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/response.json",
+      "bytes": 2211,
+      "sha256": "42e6b0c6de452e8ffe17e779562c5b2992114e60bf49d0d07e4caad74e6fa0c6"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/result.json",
+      "bytes": 4704,
+      "sha256": "9392d4d6c01e7478b7804a445c7365daa241c30c8216bddb48ca71d840ca03a8"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/sampled-native-slot-settings.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/sampled-native-slot-settings.json",
+      "bytes": 1824,
+      "sha256": "f6e511ab63c0d601b9e4f49572366a496e24a1acbdb6c49720db328e2c7d7c28"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/sampling-diagnostic-attempt2.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/sampling-diagnostic-attempt2.log",
+      "bytes": 5141,
+      "sha256": "1c812737362f60317c7b0e374681f5db01e2d0a25e098fa1386e180bec2a2e61"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/sampling-diagnostic.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/sampling-diagnostic.log",
+      "bytes": 827,
+      "sha256": "aa1bfd784be36bd1bbf68d54d7a65152dca0e1d63654b59d3a3d0d1f696b57d3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/sampling_diagnostic.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/sampling_diagnostic.py",
+      "bytes": 2462,
+      "sha256": "4d426db8bc11aabc14e9d9eccd9b764a7dee17eb3e9ba488285f3caf5b424092"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/sampling_diagnostic_attempt2.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/sampling_diagnostic_attempt2.py",
+      "bytes": 2594,
+      "sha256": "c41b4376148f05b722c9ef319be30f757e9c78c1c6158c989101992be5e12106"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/unconstrained/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/unconstrained/request.json",
+      "bytes": 37587,
+      "sha256": "133fc0dbffc0782c44731e223b6e4e13e44f7b3125d593e851c9c0d7b2f21045"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/unconstrained/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/unconstrained/response.json",
+      "bytes": 2224,
+      "sha256": "16abaa6d6f3e6da90a13a94e00160c96f1096f5fe891a5895b9500a2231b6c0d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/unconstrained/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/unconstrained/result.json",
+      "bytes": 99,
+      "sha256": "8778bd9f52a3309f45cb4dc5c3eea4c04446c76f3d9fc7db371860bec16cf2a1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/upstream-ornith/README.md",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/upstream-ornith/README.md",
+      "bytes": 26794,
+      "sha256": "7a03f9b2b2d7e12e740df3bb5af43c82837aad9dd9b945de7c0a67ac4ee5998f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/upstream-ornith/chat_template.jinja",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/upstream-ornith/chat_template.jinja",
+      "bytes": 7593,
+      "sha256": "9dd2fbd270feaa1fbef2d4f634d7887c9c506e3bde140f8e7351c8944e8fd235"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/upstream-ornith/model-metadata.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/upstream-ornith/model-metadata.json",
+      "bytes": 18811,
+      "sha256": "2e8bc5bbde056363c3e15b2e4189900c7a893ce0df27cdc88ce961bb4e3f14c5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/upstream-ornith-attempt2/README.md",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/upstream-ornith-attempt2/README.md",
+      "bytes": 26794,
+      "sha256": "7a03f9b2b2d7e12e740df3bb5af43c82837aad9dd9b945de7c0a67ac4ee5998f"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/upstream-ornith-attempt2/chat_template.jinja",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/upstream-ornith-attempt2/chat_template.jinja",
+      "bytes": 7593,
+      "sha256": "9dd2fbd270feaa1fbef2d4f634d7887c9c506e3bde140f8e7351c8944e8fd235"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/upstream-ornith-attempt2/config.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/upstream-ornith-attempt2/config.json",
+      "bytes": 2910,
+      "sha256": "1f1b3751c38f16a63340df90a55e870bef0f0b2968d833825a605b7cf930a313"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/upstream-ornith-attempt2/model-metadata.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/upstream-ornith-attempt2/model-metadata.json",
+      "bytes": 18811,
+      "sha256": "2e8bc5bbde056363c3e15b2e4189900c7a893ce0df27cdc88ce961bb4e3f14c5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/upstream-ornith-attempt2/provenance.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/upstream-ornith-attempt2/provenance.json",
+      "bytes": 1302,
+      "sha256": "e50d9eb50f0c1184f4f8de70634886c54244438ff0909aca027ca07d674fa861"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/observation-recall-cycle-20261017/validation.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-recall-and-planning/validation.log",
+      "bytes": 4795,
+      "sha256": "b295ba0a75d01f7bde4b998864c2dd92b3dda2d1a1eff8f3d2f4e2adf7143347"
+    }
+  ]
+}

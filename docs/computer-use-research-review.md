@@ -167,3 +167,9 @@ the model's precise reading failure remains unproven. The controller also resets
 its failure counter on each accepted inspection, regardless of repeated evidence.
 These are separate repair criteria; neither navigation nor protocol success is
 whole-task completion.
+
+### Ornith sampling and planning comparison, 2026-10-17
+
+The [upstream Ornith 1.5 9B model card](https://huggingface.co/ornith-ai/Ornith-1.5-9B/blob/489cb97981b8654bcfcf30ce1f94ed1b62e07b53/README.md) recommends sampled decoding; the live native runner had forced greedy decoding. The installed adapter also drops top-k, min-p and penalty values placed inside Ollama `options` when translating to its OpenAI backend. These are concrete configuration/transport differences, not proof of the task failure’s sole cause.
+
+Actual GPU 1 comparisons preserved the same captured state and original goal. Generation order alone did not fix selection. Reasoning sometimes exhausted the effective 4,096-token output cap. With upstream general-task sampler values confirmed in native slot parameters, one of four samples selected historical recall; the others repeated a switch, inspected an empty editor, or produced no final decision. An independent subgoal-planning probe identified reading the supplied brief as the prerequisite and Files as the next operation. This supports a bounded handoff experiment, not a broad performance claim. All requests, responses, failed attempts and pinned upstream sources are in the [106-file durable archive](research/computer-use-observation-recall-2026-10-17.manifest.json).

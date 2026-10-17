@@ -765,3 +765,15 @@ uses its requested positive finite deadline, including a watchdog that closes
 the current request socket if reads stall. A deadline remains a failed case;
 the harness does not retry or substitute a typed transcript. Check aggregate
 request idleness before starting another live case after a transport failure.
+
+### Task-local historical native reading
+
+The working-state controller retains up to 16 projected native observations within
+512 KiB. Its bounded source index offers `recall_observation` for read-only
+expansion after switching applications. Recalled text retains its original
+revision, window scope, observed document URL and truncation flags. It is untrusted
+historical evidence, grants no input authority and cannot verify current UI or
+whole-task completion. Repeated expansion of the same record cannot reset the
+consecutive-failure counter. Records expire with the task; session memory remains
+a separate explicitly allowed tool. This preserves evidence, but live model use
+is not yet reliable; see the reliability plan.

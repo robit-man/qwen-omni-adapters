@@ -20,6 +20,7 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from portal.computer_use import parse_subgoal
 from portal.tools import tool_schemas
+from portal.ui_observations import NativeObservationArchive
 from qwen_omni_adapters.computer_use import (
     ComputerUseError,
     parse_intent,
@@ -326,7 +327,8 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
               "verification_receipt", "ui_state_receipt", "effect_receipt", "action_receipt",
               "policy_receipts", "point_receipts", "selection_receipts", "intent_selection_receipt", "evidence_authority", "resource", "stored",
               "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results",
-              "reading", "visual_inspection_receipt", "ui_boundary_receipt", "observed_changes", "text_entry_receipt", "text_submit_receipt")
+              "reading", "visual_inspection_receipt", "ui_boundary_receipt", "observed_changes", "text_entry_receipt", "text_submit_receipt",
+              "recalled_observation", "observation_recall_receipt")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
     if not _accepted_visual_reading(result):
         compact.pop("reading", None)
@@ -552,6 +554,14 @@ def _new_verified_ui_prefix(result: Mapping[str, Any], seen: set[str]) -> bool:
 def _working_phase_schema(allowed, phase_schema, state):
     """Wrap, without changing, canonical phase contracts and root-relative refs."""
     def wrap(inner):
+        inner = copy.deepcopy(inner)
+        references = [item["reference"] for item in state.get("observations", {}).get("entries", [])]
+        if references:
+            inner["oneOf"].append({"type": "object", "additionalProperties": False,
+                "properties": {"kind": {"const": "recall_observation"},
+                    "reference": {"enum": references}, "remaining_criteria": {
+                        "type": "array", "maxItems": 25, "items": {"type": "string", "minLength": 1, "maxLength": 240}}},
+                "required": ["kind", "reference"]})
         definitions = copy.deepcopy(inner["$defs"])
         branches = inner["oneOf"]
         definitions["native_working_phase"] = {"oneOf": [copy.deepcopy(branch) for branch in branches
@@ -615,6 +625,7 @@ class _NativeWorkingState:
         self.phase_refs, self.facts, self.latest, self.last_unverified = [], [], None, None
         self.receipts: set[str] = set()
         self.recovery = False
+        self.observations = NativeObservationArchive(self.epoch)
 
     @staticmethod
     def digest(value):
@@ -633,7 +644,8 @@ class _NativeWorkingState:
             "latest_host_outcome": copy.deepcopy(self.latest),
             "last_unverified_host_outcome": copy.deepcopy(self.last_unverified), "recovery_mode": self.recovery,
             "consecutive_unverified_count": failed, "fact_authority": "historical_executor_receipts_not_goal_progress",
-            "references": "Audit pointers; no current input authority or model-reachable expansion tool"}
+            "observations": self.observations.view(),
+            "references": "Phase/outcome hashes are audit pointers. Observation references can be expanded with recall_observation; historical only, no input authority."}
         while len(json.dumps(value, ensure_ascii=False, allow_nan=False).encode()) > 12288 and facts:
             facts.pop(0)
             value["omitted_executed_facts"] += 1
@@ -771,6 +783,8 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             if reason := boundary():
                 yield finish(reason, "Native task stopped: " + reason)
                 return
+            if working is not None:
+                working.observations.remember(phases, current)
             schema = _grounded_phase_schema(allowed, current, intent_choice=intent_choice)
             working_view = working.view(phases, failed) if working is not None else None
             if working is not None:
@@ -849,14 +863,16 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 normal = kind == "complete"
                 yield finish("planner_claim" if normal else "blocked", plan.get("message", plan.get("reason", "")))
                 return
-            name = "native_ui" if kind in {"ui", "ui_boundary", "ui_subgoal", "visual_inspection"} else kind
+            name = "native_ui" if kind in {"ui", "ui_boundary", "ui_subgoal", "visual_inspection", "recall_observation"} else kind
             arguments = ({"operation": "workflow", "steps": plan["steps"], "final_predicates": plan["final_predicates"]}
                          if kind == "ui" else {"operation": "observation_boundary", "intent": plan["step"]}
                          if kind == "ui_boundary" else {"operation": "intent_boundary", "subgoal": plan["subgoal"],
                              "feedback": {key: copy.deepcopy(last_result[key]) for key in
                                  ("status", "error", "reason", "effect_receipt", "ui_boundary_receipt")
                                  if key in last_result} if last_result is not None else None}
-                         if kind == "ui_subgoal" else {"operation": "inspect_visual"} if kind == "visual_inspection" else {key: value for key, value in plan.items()
+                         if kind == "ui_subgoal" else {"operation": "inspect_visual"} if kind == "visual_inspection"
+                         else {"operation": "recall_observation", "reference": plan["reference"]} if kind == "recall_observation"
+                         else {key: value for key, value in plan.items()
                                                 if key not in {"kind", "remaining_criteria"}})
             if kind == "ui_boundary" and intent_choice:
                 arguments.update(objective=plan["objective"], feedback={key: copy.deepcopy(last_result[key]) for key in
@@ -873,7 +889,9 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             if reason := boundary():
                 yield finish(reason, "Native task stopped: " + reason)
                 return
-            result = execute(name, copy.deepcopy(arguments))
+            # Private task-owned expansion never calls a desktop input adapter.
+            result = (working.observations.recall(plan["reference"]) if kind == "recall_observation" and working is not None
+                      else execute(name, copy.deepcopy(arguments)))
             if not isinstance(result, dict):
                 raise ValueError("Native executor returned no typed receipt")
             if kind == "ui":
@@ -903,6 +921,8 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 ok = ok and result.get("status") == "complete" and result.get("text_entry_receipt", {}).get("exact_value_verified") is True
             if kind == "visual_inspection":
                 ok = ok and _accepted_visual_reading(result)
+            if kind == "recall_observation":
+                ok = ok and result.get("observation_recall_receipt", {}).get("first_expansion_in_task") is True
             novel_boundary = False
             is_boundary = kind == "ui_boundary" or kind == "ui_subgoal" and plan["subgoal"]["family"] != "text_entry"
             if is_boundary:
@@ -925,7 +945,8 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                key: copy.deepcopy(last_result[key]) for key in
                                ("status", "error", "reason", "phase_handoff", "ui_state_receipt",
                                 "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt",
-                                "ui_boundary_receipt", "observed_changes", "intent_selection_receipt", "text_entry_receipt")
+                                "ui_boundary_receipt", "observed_changes", "intent_selection_receipt", "text_entry_receipt",
+                                "observation_recall_receipt")
                                if key in last_result}})
             if working is not None:
                 ledger[-1].update(planner_assessment=copy.deepcopy(working.assessment),

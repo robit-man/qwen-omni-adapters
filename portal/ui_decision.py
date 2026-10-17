@@ -39,7 +39,9 @@ SYSTEM = (
     'observation, not proof that your objective succeeded. visual_inspection reads the captured '
     'view through the local visual reader. visual_pointer requests a named control absent from '
     'the semantic list; the local visual model must find and guard it before input. '
-    'Use memory phases only for allowed session memory. Assess the latest host outcome before '
+    'Use memory phases only for allowed session memory. working_state.observations lists retained source snapshots; '
+    'recall_observation expands one after a window switch without switching back. Its text is '
+    'historical evidence, not current UI or proof of task completion. Assess the latest host outcome before '
     'choosing the next action; a failed historical strategy is not a fresh input. Preserve '
     'unmet criteria. Complete is only a claim, never a verified task receipt. Do not invent '
     'controls, coordinates, effects, shell commands, application scripts or completed actions. '
@@ -115,7 +117,7 @@ def project(packet: Mapping) -> tuple[dict, dict]:
             'verb': {'enum': ['click', 'double_click', 'right_click', 'invoke']}}))
     if 'visual_inspection' in kinds:
         branches.append(_branch('visual_inspection', {}))
-    for family in ('memory_write', 'memory_search'):
+    for family in ('memory_write', 'memory_search', 'recall_observation'):
         source = next((b for b in native if b['properties']['kind']['const'] == family), None)
         if source is not None:
             branches.append(_branch(family, {key: copy.deepcopy(source['properties'][key])
