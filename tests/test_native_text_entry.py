@@ -7,6 +7,7 @@ import httpx
 import pytest
 from jsonschema import Draft202012Validator
 
+from portal.app import _model_ui_observation
 from portal.computer_use import ComputerUseStore, SystemOneUiProvider
 from portal.ui_task import _compact_result, _grounded_phase_schema
 from qwen_omni_adapters.computer_use import ComputerUseError, RapidUiController
@@ -245,3 +246,37 @@ def test_planner_schema_and_active_policy_share_the_effect_oriented_family():
     assert _compact_result(result)["text_entry_receipt"]["exact_value_verified"]
     with pytest.raises(ComputerUseError, match="binding"):
         store.text_entry("session", intent(), goal="Replace my draft")
+
+
+def test_text_family_survives_actual_budgeted_projection_without_relaxing_executor_coverage():
+    editor = Editor()
+    state = editor.observe()
+    node = state["nodes"][0]
+    node["description"] = ""
+    compact = {key: value for key, value in node.items() if key != "text_observation"}
+    node["description"] = "d" * (12000 - len(json.dumps(compact, ensure_ascii=False)))
+    projected = _model_ui_observation(state)
+    assert "text_observation" not in projected["nodes"][0]
+    assert sum(len(json.dumps(row, ensure_ascii=False)) for row in projected["nodes"]) == 12000
+    schema = _grounded_phase_schema(["native_ui"], {"state": projected}, intent_choice=True)
+    Draft202012Validator(schema).validate({"kind": "ui_subgoal", "subgoal": intent()})
+    editor.truncated = True
+    result = run_text_entry(controller(editor), intent(), pick("physical_replace"))
+    assert result["status"] == "abstained" and not editor.calls
+
+
+@pytest.mark.parametrize("change", ["hidden", "disabled", "sensitive", "no_write_capability"])
+def test_projection_discovery_does_not_invent_editability(change):
+    state = Editor().observe()
+    node = state["nodes"][0]
+    del node["text_observation"]
+    if change == "hidden":
+        node["visible"] = False
+    elif change == "disabled":
+        node["enabled"] = False
+    elif change == "sensitive":
+        node["sensitive"] = True
+    else:
+        node["operations"] = ["focus"]
+    schema = _grounded_phase_schema(["native_ui"], {"state": state}, intent_choice=True)
+    assert not Draft202012Validator(schema).is_valid({"kind": "ui_subgoal", "subgoal": intent()})

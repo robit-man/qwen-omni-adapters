@@ -1,0 +1,28 @@
+{
+  "repository": "https://github.com/jordansissel/xdotool",
+  "tag": "v3.20160805.1",
+  "commit": "f11c44edd4d426d69bcff479b0d643a4da8bc99b",
+  "captured_at": "2026-10-17T03:32:36.467778+00:00",
+  "installed_egg31_package": "1:3.20160805.1-4",
+  "scope": "Upstream release source only; distro patches and the cause of the intermittent failure are not established.",
+  "files": [
+    {
+      "path": "xdo.c",
+      "url": "https://raw.githubusercontent.com/jordansissel/xdotool/f11c44edd4d426d69bcff479b0d643a4da8bc99b/xdo.c",
+      "sha256": "b38933760b25734aceb54a2a2cef66d29a46c68dd31b5e5bb269b60c66fdf9de",
+      "bytes": 62303
+    },
+    {
+      "path": "xdo.h",
+      "url": "https://raw.githubusercontent.com/jordansissel/xdotool/f11c44edd4d426d69bcff479b0d643a4da8bc99b/xdo.h",
+      "sha256": "1e448dac01678601dde5294a802dc202af175fdc13416fab0ea69f62219f2e87",
+      "bytes": 27837
+    },
+    {
+      "path": "cmd_type.c",
+      "url": "https://raw.githubusercontent.com/jordansissel/xdotool/f11c44edd4d426d69bcff479b0d643a4da8bc99b/cmd_type.c",
+      "sha256": "26a82e86899c3658f4f9e0b36b6157bb90494d521b8813d5b5e7e03e2de902a3",
+      "bytes": 6135
+    }
+  ]
+}

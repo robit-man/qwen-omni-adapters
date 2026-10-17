@@ -79,6 +79,27 @@ replacement and navigation. It is provider evidence, not a backbone-model
 or whole-task pass. Detailed failures and receipts are retained in
 `runtime-data/gpu1-acceptance/operator-audit/text-entry-cycle-20261017/`.
 
+The next live task exposed an information-boundary defect: optional native text
+coverage was dropped by the bounded planner projection, incorrectly hiding the
+entire text-entry family. Capability-based discovery repaired that omission;
+fresh executor coverage remains required. The family was then offered in three
+real Ornith planner phases, but none selected it. All replies generated a
+generic commitment objective before phase selection, which excludes phase-owned
+objectives in the current grammar. Phase ordering is the next bounded hypothesis;
+these runs did not complete the task.
+
+### Input transport reference
+
+The [pinned xdotool release](https://github.com/jordansissel/xdotool/tree/f11c44edd4d426d69bcff479b0d643a4da8bc99b)
+temporarily maps unavailable key symbols and removes the scratch mapping after
+key dispatch. That motivates investigating keymap/event timing for the Egg .31
+Unicode loss; it does not prove the cause of the deployed failure. The upstream
+source is archived separately with a [three-file manifest](research/xdotool-unicode-2026-10-17.manifest.json).
+Distro patches and application event delivery remain unverified. A fresh
+isolated nine-case input check passed on .31; one passing recheck does not
+establish that the earlier intermittent loss is fixed. No delay change or test
+skip was introduced.
+
 ## Mapping to observed failures and bounded next work
 
 | Local evidence | Current status | Next acceptance criterion |

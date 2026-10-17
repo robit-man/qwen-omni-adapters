@@ -640,7 +640,7 @@ Whole-task completion remains independently scored.
 
 ## Validation
 
-The private native planner also supports `ui_subgoal` with `family: text_entry`,
+With active intent choice, the private native planner also supports `ui_subgoal` with `family: text_entry`,
 `mode: replace`, an objective, an observed target and literal `text` (1–2,048
 characters). This family requests an exact full-value effect. The executor
 prefers physical replacement when focus, complete text coverage and selection
@@ -660,6 +660,9 @@ size after input while retaining control identity and full-value checks;
 pre-input geometry guards remain in force. This family currently implements
 full, nonempty replacement. Insertion, partial selection replacement and
 large-document chunking remain separate work.
+The family is offered from positive write capabilities even when model-context
+compression omits optional text-coverage metadata. Omitted coverage grants no
+input authority: the executor still reads and checks the full native state.
 
 Run `./scripts/validate.sh` for controller, adapter, session, policy, deployment,
 and existing media/tool regressions. Live fixture runners record actual

@@ -26,7 +26,6 @@ from qwen_omni_adapters.computer_use import (
     parse_predicates,
     parse_step,
 )
-from qwen_omni_adapters.text_entry import complete_text
 
 
 def phase_response_schema(allowed_tools: Iterable[str]) -> dict[str, Any]:
@@ -214,9 +213,12 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
             "description": "State a planner objective within the exact user goal and a current semantic selector. "
                 "The active policy chooses a finite native primitive; the host resolves it freshly. "
                 "No input authority or expected effect is supplied. Prefer this family for positive targets."})
+    # This is a non-authorizing proposal. Optional text coverage can be omitted
+    # by the bounded model projection; its absence must not hide an advertised
+    # capability. The executor obtains full fresh coverage before any write.
     text_controls = [node for node in nodes if node["visible"] and node["enabled"] and not node["sensitive"]
-                     and complete_text(node) and {"set_value", "type_text"}.intersection(node["operations"])]
-    if text_controls:
+                     and {"set_value", "type_text"}.intersection(node["operations"])]
+    if intent_choice and text_controls:
         text_family = {"type": "object", "additionalProperties": False,
             "required": ["id", "family", "objective", "target", "mode", "text"], "properties": {
                 "id": {"type": "string", "minLength": 1, "maxLength": 200},

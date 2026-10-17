@@ -178,6 +178,35 @@
         "real ambiguous target Kev evaluation",
         "full-task and remote acceptance"
       ]
+    },
+    {
+      "cycle": "2b",
+      "criterion": "Text-family discovery from positive capability despite compressed optional coverage",
+      "status": "LIVE_DISCOVERY_PASS_WHOLE_TASK_FAILED",
+      "pre_tests": 4055,
+      "post_tests": 4060,
+      "live": {
+        "criterion": "Text-family discovery from positive capability despite compressed optional coverage",
+        "status": "LIVE_DISCOVERY_PASS_WHOLE_TASK_FAILED",
+        "original_task_root": "/tmp/qwen-text-discovery-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-text-discovery-20261017",
+        "original_task_status": "failed_independent_checks",
+        "whole_task_pass": false,
+        "elapsed_s": 123.88975276899873,
+        "owned_windows_closed": true,
+        "downstream_idle": true,
+        "source_unchanged": true,
+        "new_family_offered_phases": [
+          3,
+          4,
+          5
+        ],
+        "new_family_selected_phases": [],
+        "new_follow_on_hypothesis": "Every emitted reply generated commitment.objective before phase. That commitment branch excludes ui_subgoal. Choose phase before commitment so effect-family selection precedes branch-specific fields. This is a schema constraint, not proof that ordering alone repairs task success.",
+        "post_tests": 4060,
+        "native_grammar_cases_per_model": 3
+      },
+      "evidence_path": "runtime-data/gpu1-acceptance/operator-audit/text-family-discovery-cycle-20261017",
+      "evidence_index_sha256": "aeb12c05a9d6a7d20b4960c188d55ae12453260322e57471d0399986a958b366"
     }
   ]
 }
