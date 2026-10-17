@@ -32,7 +32,7 @@
       "evidence_index_sha256": "8363adf4b1a32e6d31be1c411d01304335d2bff49f72487545152f04aac151a9",
       "remote_adoption": {
         "egg41": "deployed44c5643; paused core preserved",
-        "egg31": "1 failed,4004 passed; real XTEST Unicode café/newline/naïve lost ï; previous core remains active; untracked files preserved"
+        "egg31": "1 failed,4004 passed; real XTEST Unicode caf\u00e9/newline/na\u00efve lost \u00ef; previous core remains active; untracked files preserved"
       },
       "whole_task_pass": false
     },
@@ -653,6 +653,46 @@
       ],
       "integrity_correction": "audit/input-integrity-correction.json",
       "archive_manifest": "docs/research/computer-use-subgoal-handoff-2026-10-17.manifest.json"
+    },
+    {
+      "cycle": "6h",
+      "status": "LIVE_POINTER_ESCALATION_PASSED_WHOLE_TASK_FAILED",
+      "post_tests": 4192,
+      "validation_seconds": 128.39,
+      "native_grammar": {
+        "qwen27b": 8,
+        "ornith9b": 8,
+        "passed": true
+      },
+      "task_signature_sha256": "94dcbb542d113d903bfb9a982c57c59e67372b6606ad74490db0afea037cd155",
+      "task_requirements_changed": false,
+      "actual_ornith_requests": 10,
+      "actual_Kev_calls": 3,
+      "actual_Moondream_calls": 0,
+      "native_phases": 5,
+      "actual_inputs": {
+        "verified": false,
+        "unique_dispatched_inputs": 2,
+        "same_owned_scope": true,
+        "actual_keyboard": false,
+        "actual_pointer": true,
+        "actual_pointer_movement": true,
+        "tools_within_scope": true,
+        "gui_code_or_macro_audit": "pending_independent_review"
+      },
+      "elapsed_s": 85.11946586798877,
+      "whole_task_pass": false,
+      "owned_windows_closed": true,
+      "downstream_idle": true,
+      "input_sources_unchanged": true,
+      "GPU_workers_unchanged": true,
+      "final_message": "Three consecutive native phases were invalid or unverified.",
+      "findings": [
+        "The loaded Ornith planner chose slow pointer recovery after actual Kev abstention twice. Native mouse movement and double-clicks opened Input and task-brief.txt.",
+        "The fresh native editor observation delivered the actual brief content. No deliverables were created.",
+        "The controller accumulated three abstentions across intervening novel dispatch/readbacks and halted at phase five before offering the next recovery. A deferred fast decision needs separate accounting from failed recovery."
+      ],
+      "archive_manifest": "docs/research/computer-use-pointer-recovery-2026-10-17.manifest.json"
     }
   ]
 }

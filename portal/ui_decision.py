@@ -29,6 +29,11 @@ SYSTEM = (
     'and a listed control reference that serves the next unmet part of the goal. '
     'pointer_or_activation states what to achieve with a control; the local policy chooses the '
     'appropriate click or activation. text_entry replaces the entire field with your exact text; '
+    'After the fast policy abstains, pointer_recovery lets you resolve that specific uncertainty '
+    'by choosing a listed primitive for the same control. Choose the operation that advances the '
+    'subgoal, or block if uncertain; repeating the unchanged pointer_or_activation request does '
+    'not resolve the abstention. Recovery still requires fresh host guards and returns an '
+    'unverified observation, never task completion. '
     'the executor focuses, selects, types and independently reads back. text_entry only edits the '
     'field; it does not submit it or acquire a document. text_submit verifies the exact replacement '
     'and presses Return once, then returns the observed consequences. Use it to submit text to '
@@ -123,6 +128,9 @@ def project(packet: Mapping) -> tuple[dict, dict]:
     if not isinstance(state.get('nodes'), list) or len(state['nodes']) > 80:
         raise ComputerUseError('Compact planner requires a bounded native observation')
     banks = {family: [] for family in ('pointer_or_activation', 'text_entry', 'text_submit', 'switch_window', 'key_chord', 'scroll')}
+    recovery = next((b for b in native if b['properties']['kind']['const'] == 'ui_pointer_recovery'), None)
+    recovery_choices = ([(s['properties']['target']['properties']['node_id']['const'], s['properties']['verb']['const'])
+        for s in recovery['properties']['step']['oneOf']] if recovery else [])
     controls, mapping = [], {}
     for index, node in enumerate(state['nodes']):
         if not (node.get('visible') is True and node.get('enabled') is True and node.get('sensitive') is False):
@@ -142,6 +150,8 @@ def project(packet: Mapping) -> tuple[dict, dict]:
             families.append('key_chord')
         if 'ui_boundary' in kinds and 'scroll' in operations:
             families.append('scroll')
+        if any(identity == node['id'] and verb in operations for identity, verb in recovery_choices):
+            families.append('pointer_recovery')
         if not families:
             continue
         ref = f'c{index}'
@@ -150,7 +160,8 @@ def project(packet: Mapping) -> tuple[dict, dict]:
             ('role', 'name', 'value', 'focused', 'checked', 'selected', 'text_observation', 'text_selection') if k in node},
             'families': families, 'active_window': node['id'] == state['scope']['id']})
         for family in families:
-            banks[family].append(ref)
+            if family in banks:
+                banks[family].append(ref)
     branches = []
     for family, targets in banks.items():
         if not targets:
@@ -163,6 +174,13 @@ def project(packet: Mapping) -> tuple[dict, dict]:
         elif family == 'scroll':
             extra = {'direction': {'enum': ['up', 'down', 'left', 'right']}}
         branches.append(_branch(family, {'target': {'enum': targets}, **extra}))
+    if recovery:
+        for verb in sorted({v for _, v in recovery_choices}):
+            targets = [ref for ref, node in mapping.items() if (node['id'], verb) in recovery_choices
+                       and verb in node.get('operations', [])]
+            if targets:
+                branches.append(_branch('pointer_recovery', {'reference': copy.deepcopy(recovery['properties']['reference']),
+                    'verb': {'const': verb}, 'target': {'enum': targets}}))
     # Only offer phases admitted by the canonical schema, including memory scope.
     if 'ui_boundary' in kinds:
         branches.append(_branch('visual_pointer', {'target_name': _text(300),
@@ -220,6 +238,9 @@ def _expand(reply: dict, packet: Mapping, binding: dict) -> dict:
         if family in {'text_entry', 'text_submit'}:
             subgoal.update(mode='replace', text=action['text'])
         phase = {'kind': 'ui_subgoal', 'subgoal': subgoal}
+    elif family == 'pointer_recovery':
+        phase = {'kind': 'ui_pointer_recovery', 'reference': action['reference'], 'objective': objective,
+                 'step': {'id': identity, 'verb': action['verb'], 'target': target, 'args': {}}}
     elif family in {'key_chord', 'scroll', 'visual_pointer'}:
         verb = action['verb'] if family == 'visual_pointer' else family
         args = ({'keys': action['keys']} if family == 'key_chord' else
@@ -239,7 +260,7 @@ def _expand(reply: dict, packet: Mapping, binding: dict) -> dict:
     decision = ('verify' if family == 'complete' else 'blocked' if family == 'blocked' else
                 'start' if working['source_phase'] == 1 else 'recover' if working['recovery_mode'] else 'continue')
     commitment = {'intended_resource': reply['intended_resource'], 'unmet_constraints': copy.deepcopy(reply['remaining_criteria'])}
-    if phase['kind'] not in {'ui_subgoal', 'ui_boundary'}:
+    if phase['kind'] not in {'ui_subgoal', 'ui_boundary', 'ui_pointer_recovery'}:
         commitment['objective'] = objective
     envelope = {'assessment': {'source_epoch': reply['source_epoch'], 'source_phase': reply['source_phase'],
         'decision': decision, 'summary': reply['assessment']}, 'phase': phase, 'commitment': commitment}

@@ -787,5 +787,21 @@ Both calls preserve caller policy, native `think` and sampling options and share
 one deadline/cancellation boundary. The proposal remains a planner claim, not
 observed evidence or new authority. Invalid proposals dispatch nothing. The
 original canonical phase validator and independent executor guards still apply.
-Live target selection improved, but the whole-task test remains failed at fast
-primitive-policy abstention; this opt-in path is not a completion claim.
+Live target selection and pointer escalation improved. The whole-task test
+remains failed at deferred-choice accounting; this opt-in path is not a
+completion claim.
+
+### Resolving fast pointer-policy abstention
+
+After a valid model-confirmed Kev abstention, the private working-state planner
+can receive a one-use `ui_pointer_recovery` proposal. It selects only from the
+same eligible control/primitive pairs. Compact planning exposes these as
+`pointer_recovery`. This is a slow model decision, not a lower Kev threshold.
+
+The proposal is bound to the current task, exact goal, native window scope and
+provider configuration. Input operations invalidate any pending proposal. The
+executor consumes the reference, reobserves the target, checks its identity,
+generation, geometry and eligibility, then uses the existing guarded native
+input boundary. Stale or replayed references dispatch nothing. The operation is
+private to the task controller and is not accepted by the public native UI tool.
+Its resulting observation retains unknown effect and cannot verify the goal.

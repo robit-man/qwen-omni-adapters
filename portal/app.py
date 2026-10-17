@@ -2496,6 +2496,9 @@ def create_app(
                 if name == "native_ui" and arguments.get("operation") == "intent_boundary":
                     return tool_harness.computer_use.intent_boundary(session_id, arguments["subgoal"],
                                                                    goal=goal, feedback=arguments["feedback"])
+                if name == "native_ui" and arguments.get("operation") == "resolve_pointer":
+                    return tool_harness.computer_use.resolve_pointer(session_id, arguments["reference"],
+                        arguments["intent"], goal=goal, objective=arguments["objective"])
                 return tool_harness.execute(session_id, name, arguments)
 
         budget = min(runtime.timeout_s, 1800)

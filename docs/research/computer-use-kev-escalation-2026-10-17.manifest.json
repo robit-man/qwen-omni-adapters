@@ -1,0 +1,100 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation",
+  "scope": "Pinned Kev primary research and actual loaded-policy abstention comparisons; no desktop completion credit",
+  "file_count": 15,
+  "total_bytes": 248702,
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-recovery-cycle-20261017/research/kev-repo-commit.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/sources/kev-repo-commit.json",
+      "bytes": 12368,
+      "sha256": "e0aa6ff328dd3c9710807f255f07cfaca81b3dab9288da7a00dac6ca548bd324"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-recovery-cycle-20261017/research/kev-model-api.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/sources/kev-model-api.json",
+      "bytes": 6330,
+      "sha256": "3529196695490cfc09a584e42e9c597fce906f8c41ca3bcf40c43708fe888ecd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-recovery-cycle-20261017/research/kev-model-card.md",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/sources/kev-model-card.md",
+      "bytes": 24981,
+      "sha256": "e423ce0e3caf0a1e6ff996a58522946a97711e0439c5fea332a8861b02498435"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-recovery-cycle-20261017/research/kev-repository-readme.md",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/sources/kev-repository-readme.md",
+      "bytes": 46445,
+      "sha256": "0b68530a29d58de5792574ba8cb4afd735d6c98c96de99f30d2de53cf84fbfd4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-recovery-cycle-20261017/research/sources.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/sources/sources.json",
+      "bytes": 1299,
+      "sha256": "cea6f7eaae9e86e3c501386d6862c16200322e5771493bd11553f144810642e4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-recovery-cycle-20261017/research/findings.md",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/sources/findings.md",
+      "bytes": 1707,
+      "sha256": "a0c287e906c311bd92d7cccfe8c502335bc81355b89cd856f4fc6577d1402cf4"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/intent-context-cycle-20261017/reconstruct.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/experiments/reconstruct.py",
+      "bytes": 4013,
+      "sha256": "c56171cdff5c6d3c27f17aa39312282b7abfe9aaef05a945c4713211d7700784"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/intent-context-cycle-20261017/visible-context-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/experiments/visible-context-response.json",
+      "bytes": 412,
+      "sha256": "dc1d247607fc5823908ba590d7db7f008981860618bf649e95deed5031534fca"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/intent-context-cycle-20261017/exact-policy-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/experiments/exact-policy-request.json",
+      "bytes": 4730,
+      "sha256": "8788db3ecc64d448c2375f33826064aa1f48d09d326ff9d750d161fd10580ac3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/intent-context-cycle-20261017/reconstruction.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/experiments/reconstruction.json",
+      "bytes": 280,
+      "sha256": "de9a796af41624d8580c27763a4719a0d183e8dee3713750342261d1ff830ef2"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/intent-context-cycle-20261017/baseline-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/experiments/baseline-response.json",
+      "bytes": 418,
+      "sha256": "ac88217569a4e48f3b448ffea67276d72c3533245955250a8c05149f3d9c884d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/intent-context-cycle-20261017/baseline-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/experiments/baseline-request.json",
+      "bytes": 4730,
+      "sha256": "8788db3ecc64d448c2375f33826064aa1f48d09d326ff9d750d161fd10580ac3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/intent-context-cycle-20261017/reconstruct.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/experiments/reconstruct.log",
+      "bytes": 716,
+      "sha256": "4111c2e426dc36da1ba5415766a316c1b96444e7e490dc9d2d0170927ff3b749"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/intent-context-cycle-20261017/exact-policy-state.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/experiments/exact-policy-state.json",
+      "bytes": 134762,
+      "sha256": "42f1527ca5c85695eeed122b2deca1d4374b9155ed2f0c71cb604c4f509c4397"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/intent-context-cycle-20261017/visible-context-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev-uncertainty-escalation/experiments/visible-context-request.json",
+      "bytes": 5511,
+      "sha256": "306b0fadd777a4769586be3402c201cb5c90bdbc5dc07038321d11db57fe49f7"
+    }
+  ]
+}

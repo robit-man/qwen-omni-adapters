@@ -328,7 +328,7 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
               "policy_receipts", "point_receipts", "selection_receipts", "intent_selection_receipt", "evidence_authority", "resource", "stored",
               "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results",
               "reading", "visual_inspection_receipt", "ui_boundary_receipt", "observed_changes", "text_entry_receipt", "text_submit_receipt",
-              "recalled_observation", "observation_recall_receipt")
+              "recalled_observation", "observation_recall_receipt", "pointer_recovery", "pointer_recovery_receipt")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
     if not _accepted_visual_reading(result):
         compact.pop("reading", None)
@@ -551,10 +551,33 @@ def _new_verified_ui_prefix(result: Mapping[str, Any], seen: set[str]) -> bool:
     return novel
 
 
-def _working_phase_schema(allowed, phase_schema, state):
+def _working_phase_schema(allowed, phase_schema, state, *, pointer_recovery=None):
     """Wrap, without changing, canonical phase contracts and root-relative refs."""
     def wrap(inner):
         inner = copy.deepcopy(inner)
+        if pointer_recovery is not None and "native_ui" in allowed:
+            offer = pointer_recovery
+            if (offer.get("schema") != "robit.omni.pointer-recovery-proposal.v1"
+                    or offer.get("input_authority") is not False or not re.fullmatch(r"[0-9a-f]{32}", offer.get("reference", ""))
+                    or not isinstance(offer.get("choices"), list) or not 1 <= len(offer["choices"]) <= 12):
+                raise ComputerUseError("Invalid host pointer recovery proposal")
+            steps = []
+            for choice in offer["choices"]:
+                if (set(choice) != {"node_id", "verb"} or choice["verb"] not in {"click", "double_click", "right_click", "invoke"}
+                        or not isinstance(choice["node_id"], str) or not 1 <= len(choice["node_id"]) <= 512):
+                    raise ComputerUseError("Invalid host pointer recovery choice")
+                steps.append({"type": "object", "additionalProperties": False,
+                    "properties": {"id": {"type": "string", "minLength": 1, "maxLength": 128},
+                        "verb": {"const": choice["verb"]}, "target": {"type": "object", "additionalProperties": False,
+                            "properties": {"node_id": {"const": choice["node_id"]}}, "required": ["node_id"]},
+                        "args": {"type": "object", "additionalProperties": False, "properties": {}}},
+                    "required": ["id", "verb", "target", "args"]})
+            inner["oneOf"].append({"type": "object", "additionalProperties": False,
+                "properties": {"kind": {"const": "ui_pointer_recovery"},
+                    "reference": {"const": offer["reference"]}, "objective": {"type": "string", "minLength": 1, "maxLength": 500},
+                    "step": {"oneOf": steps}, "remaining_criteria": {
+                        "type": "array", "maxItems": 25, "items": {"type": "string", "minLength": 1, "maxLength": 240}}},
+                "required": ["kind", "reference", "objective", "step"]})
         references = [item["reference"] for item in state.get("observations", {}).get("entries", [])]
         if references:
             inner["oneOf"].append({"type": "object", "additionalProperties": False,
@@ -583,7 +606,7 @@ def _working_phase_schema(allowed, phase_schema, state):
         for index, branch in enumerate(working):
             kind = branch["properties"]["kind"]["const"]
             owns_objective = (kind == "ui_subgoal" or
-                              kind == "ui_boundary" and "objective" in branch.get("required", []))
+                              kind in {"ui_boundary", "ui_pointer_recovery"} and "objective" in branch.get("required", []))
             groups[owns_objective].append({"$ref": f"#/$defs/native_working_phase/oneOf/{index}"})
         choices = [(decisions, {"oneOf": refs}, owns_objective)
                    for owns_objective, refs in groups.items() if refs]
@@ -666,7 +689,7 @@ class _NativeWorkingState:
 
     def accept(self, reply):
         commitment, assessment, phase = reply["commitment"], reply["assessment"], reply["phase"]
-        objective_path = ("/objective" if phase["kind"] == "ui_boundary" and "objective" in phase else
+        objective_path = ("/objective" if phase["kind"] in {"ui_boundary", "ui_pointer_recovery"} and "objective" in phase else
                           "/subgoal/objective" if phase["kind"] == "ui_subgoal" else None)
         if objective_path is not None:
             if "objective" in commitment:
@@ -683,7 +706,7 @@ class _NativeWorkingState:
     def record(self, phase, kind, result, *, recover):
         digest = self.digest(result)
         actual = result.get("outcomes", []) if kind == "ui" or "text_entry_receipt" in result else (
-            [result["dispatch_record"]] if kind in {"ui_boundary", "ui_subgoal"} and isinstance(result.get("dispatch_record"), dict) else [])
+            [result["dispatch_record"]] if kind in {"ui_boundary", "ui_subgoal", "ui_pointer_recovery"} and isinstance(result.get("dispatch_record"), dict) else [])
         self.phase_refs.append([phase, digest, len(actual)])
         self.recovery = recover
         fields = {key: copy.deepcopy(result[key]) for key in
@@ -788,7 +811,8 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             schema = _grounded_phase_schema(allowed, current, intent_choice=intent_choice)
             working_view = working.view(phases, failed) if working is not None else None
             if working is not None:
-                schema = _working_phase_schema(allowed, schema, working_view)
+                schema = _working_phase_schema(allowed, schema, working_view,
+                    pointer_recovery=(last_result or {}).get("pointer_recovery"))
             validator = Draft202012Validator(schema)
             packet = {"goal": goal, "current_state": copy.deepcopy(current),
                       "ledger": _planner_ledger(ledger[-12:]), "last_result": copy.deepcopy(last_result),
@@ -863,9 +887,11 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 normal = kind == "complete"
                 yield finish("planner_claim" if normal else "blocked", plan.get("message", plan.get("reason", "")))
                 return
-            name = "native_ui" if kind in {"ui", "ui_boundary", "ui_subgoal", "visual_inspection", "recall_observation"} else kind
+            name = "native_ui" if kind in {"ui", "ui_boundary", "ui_subgoal", "ui_pointer_recovery", "visual_inspection", "recall_observation"} else kind
             arguments = ({"operation": "workflow", "steps": plan["steps"], "final_predicates": plan["final_predicates"]}
-                         if kind == "ui" else {"operation": "observation_boundary", "intent": plan["step"]}
+                         if kind == "ui" else {"operation": "resolve_pointer", "reference": plan["reference"],
+                             "intent": plan["step"], "objective": plan["objective"]}
+                         if kind == "ui_pointer_recovery" else {"operation": "observation_boundary", "intent": plan["step"]}
                          if kind == "ui_boundary" else {"operation": "intent_boundary", "subgoal": plan["subgoal"],
                              "feedback": {key: copy.deepcopy(last_result[key]) for key in
                                  ("status", "error", "reason", "effect_receipt", "ui_boundary_receipt")
@@ -924,7 +950,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             if kind == "recall_observation":
                 ok = ok and result.get("observation_recall_receipt", {}).get("first_expansion_in_task") is True
             novel_boundary = False
-            is_boundary = kind == "ui_boundary" or kind == "ui_subgoal" and plan["subgoal"]["family"] != "text_entry"
+            is_boundary = kind in {"ui_boundary", "ui_pointer_recovery"} or kind == "ui_subgoal" and plan["subgoal"]["family"] != "text_entry"
             if is_boundary:
                 receipt = result.get("ui_boundary_receipt", {})
                 ok = (result.get("status") == "observed_unverified" and receipt.get("observed") is True
@@ -946,7 +972,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                ("status", "error", "reason", "phase_handoff", "ui_state_receipt",
                                 "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt",
                                 "ui_boundary_receipt", "observed_changes", "intent_selection_receipt", "text_entry_receipt",
-                                "observation_recall_receipt")
+                                "observation_recall_receipt", "pointer_recovery_receipt")
                                if key in last_result}})
             if working is not None:
                 ledger[-1].update(planner_assessment=copy.deepcopy(working.assessment),

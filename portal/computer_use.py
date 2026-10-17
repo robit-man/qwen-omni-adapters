@@ -395,6 +395,7 @@ class _OwnedController:
     selection_receipts: dict[str, dict[str, Any]] = field(default_factory=dict)
     settled_effects: set[str] = field(default_factory=set)
     window_scope: dict[str, Any] | None = None
+    pointer_recovery: dict[str, Any] | None = None
 
 
 class ComputerUseStore:
@@ -562,6 +563,7 @@ class ComputerUseStore:
                 or not owned.controller._native_task_protocol):
             raise ComputerUseError("Text entry requires the current trusted native task binding")
         with owned.lock:
+            owned.pointer_recovery = None
             def choose(state, candidates, history):
                 if self._task_cancelled(session_id, "desktop", owned) or owned.cancel.is_set():
                     return {"choice": "text-abstain", "status": "cancelled"}
@@ -612,6 +614,7 @@ class ComputerUseStore:
                 or not owned.controller._native_task_protocol):
             raise ComputerUseError("Text submission requires the current trusted native task binding")
         with owned.lock:
+            owned.pointer_recovery = None
             current = owned.controller.observe()
             target = next((n for n in current["nodes"] if n["id"] == parsed["target"]["node_id"]), None)
             if target is None or "key_chord" not in target["operations"]:
@@ -676,6 +679,7 @@ class ComputerUseStore:
         if not owned.controller._native_task_protocol:
             raise ComputerUseError("Intent choice requires the trusted native task protocol")
         with owned.lock:
+            owned.pointer_recovery = None
             receipt = {"schema": "robit.omni.ui-intent-selection.v1", "input_authority": False,
                 "objective": parsed["objective"], "objective_authority": "planner_intent",
                 "goal_sha256": _digest(goal), "effect": "unknown"}
@@ -746,7 +750,20 @@ class ComputerUseStore:
                 return abstain("cancelled_or_policy_changed")
             selected = next((item for item in candidates if item["id"] == answer.get("choice")), None)
             if selected is None or selected["kind"] != "intent":
-                return abstain("intent_policy_observe" if selected and selected["kind"] == "observe" else "intent_policy_abstained")
+                result = abstain("intent_policy_observe" if selected and selected["kind"] == "observe" else "intent_policy_abstained")
+                offered = [item for item in candidates if item["kind"] == "intent"]
+                if (answer["receipt"].get("status") == "accepted"
+                        and answer["receipt"].get("model_confirmed") is True and len(offered) <= 12):
+                    reference = uuid.uuid4().hex
+                    owned.pointer_recovery = {"reference": reference, "state": copy.deepcopy(state),
+                        "candidates": copy.deepcopy(offered), "goal_sha256": _digest(goal),
+                        "scope": task_scope, "provider": provider, "provider_binding": provider_binding,
+                        "policy_receipt_id": answer["receipt"]["id"]}
+                    result["pointer_recovery"] = {"schema": "robit.omni.pointer-recovery-proposal.v1",
+                        "reference": reference, "source_revision": state["revision"], "input_authority": False,
+                        "policy_receipt_id": answer["receipt"]["id"], "choices": [
+                            {"node_id": item["node"]["id"], "verb": item["verb"]} for item in offered]}
+                return result
             node = selected["node"]
             intent = {"id": parsed["id"], "verb": selected["verb"], "args": {}, "target": {"node_id": node["id"]}}
             receipt.update(selected_intent_id=selected["id"], verb=selected["verb"], node_id=node["id"],
@@ -781,6 +798,51 @@ class ComputerUseStore:
             result["intent_selection_receipt"] = receipt
             return result
 
+    def resolve_pointer(self, session_id: str, reference: str, intent: dict[str, Any], *, goal: str, objective: str) -> dict:
+        """Private slow-planner resolution of one recorded fast-policy abstention."""
+        parsed = parse_intent(intent)
+        if (parsed["verb"] not in _INTENT_VERBS or set(parsed["target"]) != {"node_id"}
+                or parsed["args"] or not isinstance(objective, str) or not objective.strip() or len(objective) > 500):
+            raise ComputerUseError("Invalid pointer recovery proposal")
+        owned = self._owned(session_id, "desktop")
+        if (self._task_binding.get() != (session_id, "desktop", owned.cancel)
+                or not owned.controller._native_task_protocol):
+            raise ComputerUseError("Pointer recovery requires the current native task binding")
+        with owned.lock:
+            pending = owned.pointer_recovery
+            owned.pointer_recovery = None  # One resolution attempt, including stale/uncertain results.
+            if (not pending or reference != pending["reference"] or _digest(goal) != pending["goal_sha256"]
+                    or owned.window_scope != pending["scope"] or self.provider is not pending["provider"]
+                    or (self.provider.model, self.provider.mode, self.provider.threshold) != pending["provider_binding"]):
+                raise ComputerUseError("Pointer recovery reference is unavailable in this task")
+            matches = [item for item in pending["candidates"] if item["verb"] == parsed["verb"]
+                       and item["node"]["id"] == parsed["target"]["node_id"]]
+            if len(matches) != 1:
+                raise ComputerUseError("Pointer recovery selected an unoffered operation")
+            target, source = matches[0]["node"], pending["state"]
+
+            def choose(fresh, actions):
+                node = next((n for n in fresh["nodes"] if n["id"] == target["id"]), {})
+                same = (all(fresh.get(k) == source.get(k) for k in
+                            ("session_id", "scope", "window_scope_sha256", "window_scope_count"))
+                        and owned.window_scope == pending["scope"] and self.provider is pending["provider"]
+                        and (self.provider.model, self.provider.mode, self.provider.threshold) == pending["provider_binding"]
+                        and all(node.get(k) == target.get(k) for k in
+                                ("generation", "scope_id", "role", "name", "bounds"))
+                        and node.get("visible") is True and node.get("enabled") is True
+                    and node.get("sensitive") is False and not owned.cancel.is_set())
+                offered = [a for a in actions if a["kind"] == "action" and a["node_id"] == target["id"]
+                           and a["verb"] == parsed["verb"] and a["args"] == {}]
+                valid = same and len(offered) == 1
+                return {"selected_action_id": offered[0]["id"] if valid else next(a["id"] for a in actions if a["kind"] == "abstain"),
+                        "selection_status": "planner_pointer_resolution" if valid else "pointer_recovery_target_changed"}
+
+            result = self.observation_boundary(session_id, intent, goal=goal, objective=objective, _selection=choose)
+            result["pointer_recovery_receipt"] = {"schema": "robit.omni.pointer-recovery.v1",
+                "reference": reference, "policy_receipt_id": pending["policy_receipt_id"],
+                "selected_by": "omni_phase_planner", "input_authority": False, "effect": "unknown"}
+            return result
+
     def observation_boundary(self, session_id: str, intent: dict[str, Any], *, goal: str = "",
                              objective: Any = _OBJECTIVE_UNSET, feedback: dict[str, Any] | None = None,
                              _selection=None) -> dict[str, Any]:
@@ -802,6 +864,8 @@ class ComputerUseStore:
         if binding != (session_id, "desktop", owned.cancel):
             raise ComputerUseError("Boundary requires the current native task binding")
         with owned.lock:
+            if _selection is None:
+                owned.pointer_recovery = None
             if self._task_cancelled(session_id, "desktop", owned) or owned.cancel.is_set():
                 return {"status": "cancelled", "task_progress": False}
             if policy_required:
@@ -894,6 +958,8 @@ class ComputerUseStore:
             owned.cancel.set()
             return {"status": "cancelled"}
         with owned.lock:
+            if op in {"execute", "workflow"}:
+                owned.pointer_recovery = None
             if self._task_cancelled(session_id, surface, owned):
                 return {"status": "cancelled"}
             if owned.cancel.is_set():
