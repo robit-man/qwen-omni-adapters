@@ -473,12 +473,151 @@ def _new_verified_ui_prefix(result: Mapping[str, Any], seen: set[str]) -> bool:
     return novel
 
 
+def _working_phase_schema(allowed, phase_schema, state):
+    """Wrap, without changing, canonical phase contracts and root-relative refs."""
+    def wrap(inner):
+        definitions = copy.deepcopy(inner["$defs"])
+        branches = inner["oneOf"]
+        definitions["native_working_phase"] = {"oneOf": [copy.deepcopy(branch) for branch in branches
+            if branch["properties"]["kind"]["const"] not in {"complete", "blocked"}]}
+        definitions["native_commitment"] = {"type": "object", "additionalProperties": False,
+            "required": ["objective", "intended_resource", "unmet_constraints"], "properties": {
+                "objective": {"type": "string", "minLength": 1, "maxLength": 500},
+                "intended_resource": {"type": "string", "maxLength": 512},
+                "unmet_constraints": {"type": "array", "maxItems": 10,
+                    "items": {"type": "string", "minLength": 1, "maxLength": 240}}}}
+        options = []
+        decisions = ["start"] if state["source_phase"] == 1 else ["recover"] if state["recovery_mode"] else ["continue", "advance"]
+        for decision, phase in [(decisions, {"$ref": "#/$defs/native_working_phase"}), *[
+            (["verify" if branch["properties"]["kind"]["const"] == "complete" else "blocked"], copy.deepcopy(branch))
+            for branch in branches if branch["properties"]["kind"]["const"] == "blocked" or (
+                branch["properties"]["kind"]["const"] == "complete" and not state["recovery_mode"])]]:
+            options.append({"type": "object", "additionalProperties": False,
+                "required": ["assessment", "commitment", "phase"], "properties": {
+                    "assessment": {"type": "object", "additionalProperties": False,
+                        "required": ["source_epoch", "source_phase", "decision", "summary"], "properties": {
+                            "source_epoch": {"const": state["source_epoch"]},
+                            "source_phase": {"const": state["source_phase"]},
+                            "decision": {"enum": decision},
+                            "summary": {"type": "string", "minLength": 1, "maxLength": 500}}},
+                    "commitment": {"$ref": "#/$defs/native_commitment"}, "phase": phase}})
+        return {"$defs": definitions, "oneOf": options}
+    schema = wrap(phase_schema)
+    if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
+        fallback = phase_response_schema(allowed)
+        fallback["oneOf"] = [branch for branch in fallback["oneOf"] if branch["properties"]["kind"]["const"] != "ui"]
+        schema = wrap(fallback)
+    if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
+        raise ComputerUseError("Native working schema exceeds the unchanged grammar budget")
+    return schema
+
+
+class _NativeWorkingState:
+    """Bounded historical host facts, separate from renewable planner claims."""
+    def __init__(self, goal):
+        self.goal_sha256 = hashlib.sha256(goal.encode()).hexdigest()
+        self.epoch, self.commitment, self.assessment = uuid.uuid4().hex, None, None
+        self.phase_refs, self.facts, self.latest, self.last_unverified = [], [], None, None
+        self.receipts: set[str] = set()
+        self.recovery = False
+
+    @staticmethod
+    def digest(value):
+        return hashlib.sha256(json.dumps(value, sort_keys=True, allow_nan=False,
+                                        separators=(",", ":")).encode()).hexdigest()
+
+    def view(self, phase, failed):
+        facts = copy.deepcopy(self.facts[-8:])
+        value = {"schema": "robit.omni.native-working-state.v1", "input_authority": False,
+            "goal_sha256": self.goal_sha256, "source_epoch": self.epoch, "source_phase": phase,
+            "commitment": copy.deepcopy(self.commitment), "previous_assessment": copy.deepcopy(self.assessment),
+            "phase_ref_format": ["source_phase", "host_result_sha256", "actual_outcome_count"],
+            "phase_refs": copy.deepcopy(self.phase_refs), "executed_facts": facts,
+            "omitted_executed_facts": len(self.facts) - len(facts),
+            "all_executed_facts_sha256": self.digest(self.facts),
+            "latest_host_outcome": copy.deepcopy(self.latest),
+            "last_unverified_host_outcome": copy.deepcopy(self.last_unverified), "recovery_mode": self.recovery,
+            "consecutive_unverified_count": failed, "fact_authority": "historical_executor_receipts_not_goal_progress",
+            "references": "Audit pointers; no current input authority or model-reachable expansion tool"}
+        while len(json.dumps(value, ensure_ascii=False, allow_nan=False).encode()) > 12288 and facts:
+            facts.pop(0)
+            value["omitted_executed_facts"] += 1
+        # Keep full claims internally. A legal Unicode claim may consume more
+        # bytes than its character bound; omissions are explicit, never absence.
+        for group, key in (("commitment", "unmet_constraints"), ("previous_assessment", "summary"),
+                           ("commitment", "intended_resource"), ("commitment", "objective")):
+            if len(json.dumps(value, ensure_ascii=False, allow_nan=False).encode()) <= 12288:
+                break
+            claim = value[group]
+            if claim is not None and key in claim:
+                removed = claim.pop(key)
+                claim.setdefault("omitted_fields", {})[key] = {"sha256": self.digest(removed),
+                    "status": "unavailable_in_bounded_view_not_absent", "items_or_characters": len(removed)}
+        if len(json.dumps(value, ensure_ascii=False, allow_nan=False).encode()) > 12288:
+            raise ComputerUseError("Native working state exceeds its bounded evidence representation")
+        return value
+
+    def accept(self, reply):
+        commitment, assessment, phase = reply["commitment"], reply["assessment"], reply["phase"]
+        if not commitment["objective"].strip() or not assessment["summary"].strip():
+            raise ComputerUseError("Working commitment and assessment must be nonblank")
+        objective = phase.get("objective") if phase["kind"] == "ui_boundary" else phase.get("subgoal", {}).get("objective")
+        if objective is not None and objective != commitment["objective"]:
+            raise ComputerUseError("Boundary objective must equal the explicit active commitment")
+        self.commitment = {**copy.deepcopy(commitment), "authority": "planner_claim", "input_authority": False}
+        self.assessment = {**copy.deepcopy(assessment), "authority": "planner_claim", "input_authority": False}
+
+    def record(self, phase, kind, result, *, recover):
+        digest = self.digest(result)
+        actual = result.get("outcomes", []) if kind == "ui" else (
+            [result["dispatch_record"]] if kind in {"ui_boundary", "ui_subgoal"} and isinstance(result.get("dispatch_record"), dict) else [])
+        self.phase_refs.append([phase, digest, len(actual)])
+        self.recovery = recover
+        fields = {key: copy.deepcopy(result[key]) for key in
+                  ("status", "error", "reason", "dispatch_status", "input_attempted") if key in result}
+        effect = result.get("effect_receipt", {})
+        if "effect_state" in effect:
+            fields["effect_state"] = copy.deepcopy(effect["effect_state"])
+        if isinstance(result.get("ui_boundary_receipt"), dict):
+            fields["ui_boundary_receipt"] = {key: copy.deepcopy(result["ui_boundary_receipt"][key]) for key in
+                ("input_attempted", "adapter_called", "cached", "observed", "verified", "environment_may_have_changed",
+                 "task_progress", "new_effect_count") if key in result["ui_boundary_receipt"]}
+        omitted = {}
+        for key in ("reason", "error", "status", "effect_state", "ui_boundary_receipt", "dispatch_status", "input_attempted"):
+            if len(json.dumps(fields, ensure_ascii=False, allow_nan=False).encode()) <= 1536:
+                break
+            if key in fields:
+                omitted[key] = self.digest(fields.pop(key))
+        self.latest = {"source_phase": phase, "result_sha256": digest, "facts": fields,
+                       "omitted_fields_sha256": omitted, "input_authority": False}
+        if recover:
+            self.last_unverified = copy.deepcopy(self.latest)
+        for index, item in enumerate(actual):
+            action, receipt, effect = item.get("action", {}), item.get("receipt", {}), item.get("effect_receipt", {})
+            outcome_hash = self.digest(item)
+            fact = {"source_phase": phase, "source_outcome_index": index, "outcome_sha256": outcome_hash,
+                "status": item.get("status"), "receipt_status": receipt.get("status"),
+                "input_attempted": receipt.get("input_attempted"), "effect_state": effect.get("effect_state"),
+                "receipt_seen_before": outcome_hash in self.receipts,
+                "action": {key: copy.deepcopy(action[key]) for key in ("node_id", "generation", "verb") if key in action},
+                "args_sha256": self.digest(action.get("args")), "input_authority": False}
+            fact["input_attempted_available"] = "input_attempted" in receipt
+            fact["effect_state_available"] = "effect_state" in effect
+            before = item.get("before", {})
+            targets = [node for node in before.get("nodes", []) if node.get("id") == action.get("node_id")]
+            if len(targets) == 1 and targets[0].get("sensitive") is False:
+                fact["observed_referent"] = {key: copy.deepcopy(targets[0][key]) for key in
+                    ("id", "generation", "scope_id", "role", "name") if key in targets[0]}
+            self.facts.append(fact)
+            self.receipts.add(outcome_hash)
+
+
 def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Callable[[dict], dict],
                     execute: Callable[[str, dict], dict], cancel: Callable[[], None],
                     allowed_tools: Iterable[str], max_phases: int = 40, max_seconds: float = 1200,
                     model: str = "", clock: Callable[[], float] = time.monotonic,
                     cancelled: Callable[[], bool] | None = None,
-                    intent_choice: bool = False) -> Iterator[dict[str, Any]]:
+                    intent_choice: bool = False, working_state: bool = False) -> Iterator[dict[str, Any]]:
     """Compile each phase once, execute internally, then return to the planner.
 
     The caller enforces callback I/O deadlines using remaining_seconds. Checks
@@ -499,6 +638,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
     zero_effect_ui_phases: set[str] = set()
     applied_ui_transitions: set[str] = set()
     boundary_observations: set[str] = set()
+    working = _NativeWorkingState(goal) if working_state else None
 
     def boundary():
         if cancelled is not None and cancelled():
@@ -506,13 +646,16 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
         return "deadline_exceeded" if clock() - started >= max_seconds else None
 
     def finish(status, message):
-        return {"type": "final", "response": {"model": model,
+        event = {"type": "final", "response": {"model": model,
             "message": {"role": "assistant", "content": message},
             "portal": {"safe_tools_executed": copy.deepcopy(traces), "native_task": {
                 "status": status, "task_verified": False, "phases": phases,
                 "elapsed_s": max(0, clock() - started), "remaining_criteria_authority": "planner_claim",
                 "remaining_criteria": copy.deepcopy(claims),
                 "ledger": copy.deepcopy(ledger)}}}}
+        if working is not None:
+            event["response"]["portal"]["native_task"]["working_state"] = working.view(phases, failed)
+        return event
 
     try:
         for phases in range(1, max_phases + 1):
@@ -528,11 +671,16 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 yield finish(reason, "Native task stopped: " + reason)
                 return
             schema = _grounded_phase_schema(allowed, current, intent_choice=intent_choice)
+            working_view = working.view(phases, failed) if working is not None else None
+            if working is not None:
+                schema = _working_phase_schema(allowed, schema, working_view)
             validator = Draft202012Validator(schema)
             packet = {"goal": goal, "current_state": copy.deepcopy(current),
                       "ledger": _planner_ledger(ledger[-12:]), "last_result": copy.deepcopy(last_result),
                       "response_schema": copy.deepcopy(schema),
                       "remaining_seconds": max_seconds - (clock() - started)}
+            if working is not None:
+                packet["working_state"] = working_view
             yield {"type": "progress", "stage": "native_task_plan", "phase": phases}
             if reason := boundary():
                 yield finish(reason, "Native task stopped: " + reason)
@@ -551,6 +699,8 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                               "matching the unchanged schema, without repairing or replaying the invalid reply."}
                 ledger.append({"phase": phases, "kind": "invalid", **last_result})
                 ledger = ledger[-12:]
+                if working is not None:
+                    working.record(phases, "invalid", last_result, recover=True)
                 failed += 1
                 if failed >= 3:
                     yield finish("blocked", "Three consecutive native phases were invalid or unverified.")
@@ -563,6 +713,9 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 if len(json.dumps(plan, allow_nan=False).encode()) > 131072:
                     raise ComputerUseError("Compiled phase exceeds bounded size")
                 validator.validate(plan)
+                if working is not None:
+                    reply = plan
+                    plan = plan["phase"]
                 kind = plan["kind"]
                 if kind == "ui":
                     for step in plan["steps"]:
@@ -575,10 +728,16 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                        "objective": plan["objective"], "target": plan["step"]["target"]})
                 if kind == "ui_subgoal":
                     parse_subgoal(plan["subgoal"])
+                if working is not None:
+                    working.accept(reply)
             except (ValidationError, ComputerUseError, ValueError, TypeError) as exc:
                 last_result = {"error": "invalid_native_phase", "dispatch_status": "not_dispatched",
                                "reason": str(exc.message if isinstance(exc, ValidationError) else exc)[:600]}
+                if working is not None:
+                    last_result["input_attempted"] = False
                 ledger.append({"phase": phases, "kind": "invalid", **last_result})
+                if working is not None:
+                    working.record(phases, "invalid", last_result, recover=True)
                 failed += 1
                 if failed >= 3:
                     yield finish("blocked", "Three consecutive native phases were invalid or unverified.")
@@ -658,12 +817,18 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                 "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt",
                                 "ui_boundary_receipt", "observed_changes", "intent_selection_receipt")
                                if key in last_result}})
+            if working is not None:
+                ledger[-1].update(planner_assessment=copy.deepcopy(working.assessment),
+                                  planner_commitment=copy.deepcopy(working.commitment))
             ledger = ledger[-12:]
             if kind in {"ui_boundary", "ui_subgoal"}:
                 # Observation protocol success is not verified task progress.
                 failed += not novel_boundary
             else:
                 failed = 0 if ok or recoverable_prefix else failed + 1
+            if working is not None:
+                working.record(phases, kind, result, recover=not ok or kind in {"ui_boundary", "ui_subgoal"}
+                    or result.get("status") in {"needs_replan", "unresolved", "rejected", "abstained", "cancelled"})
             yield {"type": "tool", "phase": "complete", "round": phases, "tools": [copy.deepcopy(tool)]}
             if failed >= 3:
                 yield finish("blocked", "Three consecutive native phases were invalid or unverified.")

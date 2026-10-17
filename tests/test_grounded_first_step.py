@@ -219,6 +219,7 @@ def test_sync_and_stream_send_derived_schema_and_host_rejects_decoder_bypass(tmp
         _phase,
         _post,
         _request,
+        _working_reply,
         create_app,
     )
 
@@ -234,18 +235,19 @@ def test_sync_and_stream_send_derived_schema_and_host_rejects_decoder_bypass(tmp
         assert packet["goal"] == GOAL
         assert packet["response_schema"] == payload["response_format"]["json_schema"]["schema"]
         validator = Draft202012Validator(packet["response_schema"])
-        assert not validator.is_valid(invalid)
+        assert not validator.is_valid(_working_reply(packet, invalid))
         future = _phase()
         future["steps"].append(step("focus", {"node_id": "future-dialog"}))
-        assert validator.is_valid(future)
+        assert validator.is_valid(_working_reply(packet, future))
         if len(packets) == 2:
             assert packet["last_result"]["error"] == "invalid_native_phase"
+            assert packet["working_state"]["recovery_mode"] is True
         return httpx.Response(200, json={"model": DEFAULT_MODEL, "message": {"role": "assistant",
-            "content": json.dumps(invalid if len(packets) == 1 else {"kind": "complete", "message": "Claim"})}})
+            "content": json.dumps(_working_reply(packet, invalid if len(packets) == 1 else {"kind": "blocked", "reason": "Invalid target requires recovery, not completion"}))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()
     client.set_cookie(SESSION_COOKIE_NAME, "grounded-phase-owned-session-12345")
     result, _ = _post(client, _request(stream), stream)
     assert len(packets) == 2 and adapters[0].calls == []
-    assert result["portal"]["native_task"]["status"] == "planner_claim"
+    assert result["portal"]["native_task"]["status"] == "blocked"

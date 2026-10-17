@@ -11,7 +11,14 @@ import httpx
 import pytest
 from jsonschema import Draft202012Validator
 from test_native_ui import namespace_fixture
-from test_portal_native_task_routes import Adapter, _config, _install_store, _post, _request
+from test_portal_native_task_routes import (
+    Adapter,
+    _config,
+    _install_store,
+    _post,
+    _request,
+    _working_reply,
+)
 from test_ui_task import Fixture
 
 from portal.app import _model_tool_result, create_app
@@ -349,7 +356,7 @@ def test_real_portal_profile_hands_reader_tool_evidence_to_next_compiler_only(tm
         assert "tools" not in payload and "tool_choice" not in payload
         assert all(not any(key in message for key in ("images", "audios", "videos")) for message in payload["messages"])
         packet = json.loads(payload["messages"][1]["content"])
-        assert any(branch["properties"]["kind"]["const"] == "visual_inspection" for branch in packet["response_schema"]["oneOf"])
+        assert any(branch["properties"]["kind"]["const"] == "visual_inspection" for branch in packet["response_schema"]["$defs"]["native_working_phase"]["oneOf"])
         if len(requests) == 1:
             plan = {"kind": "visual_inspection"}
         else:
@@ -357,7 +364,7 @@ def test_real_portal_profile_hands_reader_tool_evidence_to_next_compiler_only(tm
             assert packet["last_result"]["visual_inspection_receipt"]["authority"] == "untrusted_tool_observation"
             assert "current_visual_input" not in packet["last_result"] and "input_transcript" not in packet["last_result"]
             plan = {"kind": "complete", "message": "Unverified task claim"}
-        return httpx.Response(200, json={"message": {"content": json.dumps(plan)}})
+        return httpx.Response(200, json={"message": {"content": json.dumps(_working_reply(packet, plan))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     result, _events = _post(app.test_client(), _request(stream), stream)

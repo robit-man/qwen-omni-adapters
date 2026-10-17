@@ -2372,6 +2372,15 @@ def create_app(
                     "chooses the primitive using that objective and the last factual feedback. A genuinely "
                     "missing named visual target retains the requested verb. If a native target first appears "
                     "during visual preparation, the host abstains and replans. Legal input is not task alignment or progress.")
+            system += (" Return the closed assessment/commitment/phase envelope. Give a concise outcome assessment, "
+                "not private reasoning. Echo the host source_epoch and source_phase. The commitment is your "
+                "planner claim about the active objective, intended resource and unmet constraints; keep it "
+                "separate from actual observed referents and host outcome facts. Assess the latest host outcome "
+                "against that commitment. After a failure, unknown effect or abstention, recover or block "
+                "rather than treating the previous plan as accomplished. A changed commitment cannot erase "
+                "host failures or reset no-progress. For boundary/subgoal phases use the same objective in "
+                "the commitment and phase. A repeated historical receipt is not a new input or a freshly "
+                "measured obstruction. Existing phase actions and all executor guards remain unchanged.")
             caller_policy = "\n\n".join(str(message.get("content") or "")
                 for message in raw_messages if isinstance(message, Mapping) and message.get("role") == "system")
             if caller_policy:
@@ -2429,7 +2438,7 @@ def create_app(
         try:
             events = run_native_goal(goal, observe=observe, compile_phase=compile_phase,
                 execute=execute, cancel=cancel, cancelled=stopped.is_set, allowed_tools=scope,
-                max_phases=40, max_seconds=budget, model=runtime.model, intent_choice=intent_choice)
+                max_phases=40, max_seconds=budget, model=runtime.model, intent_choice=intent_choice, working_state=True)
             for event in events:
                 if window_scope is not None and event.get("type") == "final":
                     event["response"]["portal"]["native_task"].update(

@@ -16,6 +16,7 @@ from test_portal_native_task_routes import (
     _phase,
     _post,
     _request,
+    _working_reply,
 )
 
 import portal.tools as tools_module
@@ -78,7 +79,7 @@ def test_scope_reaches_owned_epoch_and_model_gets_only_digest_count(tmp_path, mo
         assert current["window_scope_count"] == 1
         events.append(store._owned(session, "desktop").cancel)
         plan = _phase() if len(packets) == 1 else {"kind": "complete", "message": "Unverified task claim"}
-        return httpx.Response(200, json={"message": {"content": json.dumps(plan)}})
+        return httpx.Response(200, json={"message": {"content": json.dumps(_working_reply(request, plan))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()

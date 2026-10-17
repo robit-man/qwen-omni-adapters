@@ -346,6 +346,40 @@ clients currently use the generic automatic loop; they do not select this
 profile. Retained Qwen and Ornith attempts establish phase generation, controller
 handoff and actual desktop input. Whole-task completion remains unverified.
 
+Production native-task compilation wraps that same phase in a private
+`assessment` / `commitment` / `phase` envelope, in every policy mode. The concise
+assessment echoes the host task epoch and requested phase; an initial action
+starts, an unverified/failed/abstained outcome requires recovery or blocking,
+and a completion claim requires verification. An initial completion claim can
+use the current observation without fabricating an input. The commitment's
+objective, intended resource and unmet constraints are planner claims with no
+input authority; boundary/subgoal objectives must agree with the commitment.
+Changing a claim cannot erase a host failure or reset an execution counter.
+The host validates the whole envelope before accepting its claims or executing
+the unchanged canonical phase. Its full decoder schema retains the 56 KiB cap;
+if wrapping exceeds it, UI choices are withheld instead of shortening the
+canonical 25-step workflow. Direct `run_native_goal` callers retain the previous
+plain-phase contract unless they explicitly enable working state.
+
+A host-owned native working state survives the twelve-row planner ledger. It
+binds the exact Goal hash, task epoch and requested phase, retains source-phase
+and result hashes for up to forty phases, the latest typed host outcome and
+last unverified outcome, and bounded facts from actually returned executor
+outcomes. It never credits an unexecuted planned suffix or treats a verified UI
+change as whole-task progress. Missing input/effect fields remain unavailable;
+returned identical cached receipts are historical evidence, not new input or a
+freshly measured obstruction. Actual observed referents stay separate from
+intended-resource claims. The 12,288-byte model view explicitly counts omitted
+outcome details and hashes omitted claim fields without changing their full
+audit sources; its references are not a model-reachable expansion tool. Existing
+phase/deadline/failure budgets, cancellation, caches, scope and input guards
+remain authoritative. This mechanism draws on persistent active commitments and
+executed-prefix feedback in [LocalLSTC](https://arxiv.org/html/2608.25777v2) and
+working-history/outcome separation in
+[UI-TARS-2](https://arxiv.org/html/2509.02544v2). Their reported performance has
+not been replicated here; schema and CPU replay checks do not establish improved
+computer-use performance or whole-task completion.
+
 The first UI step is constrained to target/verb pairs advertised by positive,
 visible, enabled, nonsensitive nodes in the current model observation. Exact-ID
 selectors and grouped semantic selectors preserve the controller's finite

@@ -49,6 +49,19 @@ def _phase():
         "final_predicates": [{"kind": "value", "node_id": "receipt", "value": "Reference note"}]}
 
 
+def _working_reply(request, plan):
+    """Format test-authored replies against the actual private request envelope."""
+    packet = request if isinstance(request, dict) else json.loads(json.loads(request.content)["messages"][1]["content"])
+    state = packet["working_state"]
+    decision = ("blocked" if plan["kind"] == "blocked" else "verify" if plan["kind"] == "complete" else
+                "start" if state["source_phase"] == 1 else "recover" if state["recovery_mode"] else "continue")
+    objective = plan.get("objective", plan.get("subgoal", {}).get("objective", "Write and commit the reference note"))
+    return {"assessment": {"source_epoch": state["source_epoch"], "source_phase": state["source_phase"],
+                            "decision": decision, "summary": "Assess the latest host result; this is a fixture claim."},
+            "commitment": {"objective": objective, "intended_resource": "owned fixture resource", "unmet_constraints": []},
+            "phase": copy.deepcopy(plan)}
+
+
 class Adapter:
     def __init__(self, session):
         self.session, self.value, self.saved = session, "", ""
@@ -143,7 +156,7 @@ def test_native_text_knowledge_reaches_real_compiler_and_phase_feedback(tmp_path
             assert effect["text_observation"]["selection_count"] == 0
             plan = {"kind": "complete", "message": "Fixture claim only"}
         return httpx.Response(200, json={"model": DEFAULT_MODEL,
-            "message": {"role": "assistant", "content": json.dumps(plan)}})
+            "message": {"role": "assistant", "content": json.dumps(_working_reply(request, plan))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     result, _ = _post(app.test_client(), _request(stream), stream)
@@ -182,7 +195,7 @@ def test_metadata_only_changes_do_not_renew_zero_effect_budget_through_actual_ro
         draft = next(node for node in current["state"]["nodes"] if node["id"] == "draft")
         assert draft["text_observation"]["character_count"] == 17 + len(packets)
         plan = no_effect_phase() if len(packets) <= 4 else {"kind": "complete", "message": "Unverified claim"}
-        return httpx.Response(200, json={"message": {"content": json.dumps(plan)}})
+        return httpx.Response(200, json={"message": {"content": json.dumps(_working_reply(request, plan))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     result, _ = _post(app.test_client(), _request(stream), stream)
@@ -235,7 +248,7 @@ def test_native_profile_compiles_strict_phase_and_executes_two_inputs_internally
             assert packet["last_result"]["phase_handoff"]["new_effect_count"] == 2
             assert not any("before" in outcome or "after" in outcome for outcome in packet["last_result"]["outcomes"])
             plan = {"kind": "complete", "message": "Planner completion claim."}
-        return httpx.Response(200, json={"model": DEFAULT_MODEL, "message": {"role": "assistant", "content": json.dumps(plan)}})
+        return httpx.Response(200, json={"model": DEFAULT_MODEL, "message": {"role": "assistant", "content": json.dumps(_working_reply(request, plan))}})
 
     class NoDiscovery:
         shadow_mode = False
@@ -278,7 +291,7 @@ def test_native_profile_session_memory_uses_only_explicit_scope(tmp_path, monkey
         if len(requests) == 3:
             packet = json.loads(payload["messages"][1]["content"])
             assert packet["last_result"]["results"][0]["value"] == "Source-bound note"
-        return httpx.Response(200, json={"message": {"role": "assistant", "content": json.dumps(next(plans))}})
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": json.dumps(_working_reply(request, next(plans)))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()
@@ -421,10 +434,10 @@ def test_malformed_compiler_content_recovers_with_fresh_observation_and_real_wor
             assert next(node for node in packet["current_state"]["state"]["nodes"] if node["id"] == "draft")["value"] == "Fresh independently observed marker"
             assert packet["last_result"]["error"] == "invalid_native_phase_json"
             assert "private-partial-canary" not in json.dumps(packet)
-            content = json.dumps(_phase())
+            content = json.dumps(_working_reply(request, _phase()))
         else:
             assert len(requests) == 3 and len(adapters[0].calls) == 2
-            content = json.dumps({"kind": "complete", "message": "Planner claim after recovery."})
+            content = json.dumps(_working_reply(request, {"kind": "complete", "message": "Planner claim after recovery."}))
         return httpx.Response(200, json={"message": {"role": "assistant", "content": content}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
@@ -501,8 +514,8 @@ def test_crowded_native_planning_projection_keeps_mapped_inactive_windows(tmp_pa
         observation = json.loads(payload["messages"][1]["content"])["current_state"]
         assert any(node["id"] == "other-window" for node in observation["state"]["nodes"])
         assert observation["state"]["model_projection"]["omitted_visible_nodes"] > 0
-        return httpx.Response(200, json={"message": {"role": "assistant", "content": json.dumps({
-            "kind": "complete", "message": "Read-only planning claim."})}})
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": json.dumps(_working_reply(request, {
+            "kind": "complete", "message": "Read-only planning claim."}))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     result, _ = _post(app.test_client(), _request(False), False)
@@ -531,7 +544,7 @@ def test_external_native_cancel_latches_goal_before_late_memory_dispatch(tmp_pat
             plan = {"kind": "memory_write", "topic": "test", "key": "two", "value": "Forbidden after cancellation"}
         else:
             pytest.fail("Cancelled native task cannot start another compiler call")
-        return httpx.Response(200, json={"message": {"role": "assistant", "content": json.dumps(plan)}})
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": json.dumps(_working_reply(request, plan))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client, cancel_client = app.test_client(), app.test_client()
@@ -556,7 +569,7 @@ def test_external_cancel_at_stream_tool_start_prevents_callback_and_next_compile
     def upstream(request):
         calls.append(request)
         assert len(calls) == 1
-        return httpx.Response(200, json={"message": {"content": json.dumps(_phase())}})
+        return httpx.Response(200, json={"message": {"content": json.dumps(_working_reply(request, _phase()))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client, canceller = app.test_client(), app.test_client()
@@ -604,7 +617,7 @@ def test_cancel_and_external_renew_before_store_lookup_cannot_dispatch_into_new_
     def upstream(request):
         compiler_calls.append(request)
         assert len(compiler_calls) == 1
-        return httpx.Response(200, json={"message": {"content": json.dumps(_phase())}})
+        return httpx.Response(200, json={"message": {"content": json.dumps(_working_reply(request, _phase()))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()
@@ -642,7 +655,7 @@ def test_late_timer_from_completed_goal_cannot_cancel_next_goal_or_replay_old_re
         if len(task_events) == 2:
             timers[0].callback()  # Simulate a timer already admitted before cancel().
             assert task_events[1].is_set() is False
-        return httpx.Response(200, json={"message": {"content": json.dumps({"kind": "complete", "message": "Claim only"})}})
+        return httpx.Response(200, json={"message": {"content": json.dumps(_working_reply(_request, {"kind": "complete", "message": "Claim only"}))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()
@@ -664,7 +677,7 @@ def test_new_native_goal_keeps_existing_session_memory(tmp_path, monkeypatch):
     ])
 
     def upstream(_request):
-        return httpx.Response(200, json={"message": {"content": json.dumps(next(plans))}})
+        return httpx.Response(200, json={"message": {"content": json.dumps(_working_reply(_request, next(plans)))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()
@@ -700,8 +713,8 @@ def test_cancel_renew_at_scope_entry_cannot_admit_memory_executor(tmp_path, monk
 
     def upstream(request):
         calls.append(request)
-        return httpx.Response(200, json={'message': {'content': json.dumps({
-            'kind': 'memory_write', 'topic': 'test', 'key': 'forbidden', 'value': 'Must never be stored'})}})
+        return httpx.Response(200, json={'message': {'content': json.dumps(_working_reply(request, {
+            'kind': 'memory_write', 'topic': 'test', 'key': 'forbidden', 'value': 'Must never be stored'}))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()

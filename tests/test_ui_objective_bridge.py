@@ -344,7 +344,7 @@ def test_runner_omits_new_arguments_when_no_active_choice_was_compiled(intent_ch
 def test_authenticated_route_forwards_actual_objective_and_raw_preference(tmp_path, monkeypatch, stream):
     import httpx
     from test_portal_native_task_routes import GOAL as task_goal
-    from test_portal_native_task_routes import _config, _post, _request
+    from test_portal_native_task_routes import _config, _post, _request, _working_reply
 
     import portal.tools as tools_module
     from portal.app import DEFAULT_MODEL, create_app
@@ -375,7 +375,7 @@ def test_authenticated_route_forwards_actual_objective_and_raw_preference(tmp_pa
             assert packet["last_result"]["intent_selection_receipt"]["planner_preference"]["intent"] == step
             assert packet["last_result"]["policy_receipts"][0]["decision_purpose"] == "primitive_intent"
             plan = {"kind": "blocked", "reason": "CPU fixture ends without task completion"}
-        return httpx.Response(200, json={"model": DEFAULT_MODEL, "message": {"role": "assistant", "content": json.dumps(plan)}})
+        return httpx.Response(200, json={"model": DEFAULT_MODEL, "message": {"role": "assistant", "content": json.dumps(_working_reply(request, plan))}})
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     result, _ = _post(app.test_client(), _request(stream), stream)
     assert len(packets) == 2 and len(choices) == len(adapters[0].calls) == 1

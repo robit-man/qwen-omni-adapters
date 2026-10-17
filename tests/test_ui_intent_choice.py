@@ -641,7 +641,7 @@ def test_active_schema_keeps_missing_discovery_future_steps_and_other_phase_fami
 
 @pytest.mark.parametrize("stream", [False, True])
 def test_authenticated_native_task_route_wires_host_active_policy_and_private_feedback(tmp_path, monkeypatch, stream):
-    from test_portal_native_task_routes import GOAL, _config, _post, _request
+    from test_portal_native_task_routes import GOAL, _config, _post, _request, _working_reply
 
     import portal.tools as tools_module
     from portal.app import DEFAULT_MODEL, create_app
@@ -674,7 +674,7 @@ def test_authenticated_native_task_route_wires_host_active_policy_and_private_fe
             assert packet["last_result"]["policy_receipts"][0]["decision_purpose"] == "primitive_intent"
             plan = {"kind": "blocked", "reason": "CPU fixture ends without claiming task completion"}
         return httpx.Response(200, json={"model": DEFAULT_MODEL,
-            "message": {"role": "assistant", "content": json.dumps(plan)}})
+            "message": {"role": "assistant", "content": json.dumps(_working_reply(request, plan))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     result, _ = _post(app.test_client(), _request(stream), stream)
