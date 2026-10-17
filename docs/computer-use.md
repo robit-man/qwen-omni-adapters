@@ -75,6 +75,17 @@ redispatch the cached action, change its stored receipt or grant new progress
 credit. Freshly dispatched steps retain their existing effect verification;
 a final cached step still requires the independent terminal observation.
 
+Trusted native workflow steps permit one fresh decision after a controller
+`ui_revision_changed` rejection that positively records no dispatch. The
+session, complete scope, task scope and relevant operand nodes must be unchanged.
+The controller reads again, re-enumerates new offers, selects for the same step,
+and runs all normal execution checks. It retains the rejected offer and returns
+a `pre_input_refresh` receipt. Changing the target, focus, geometry, referenced
+control, cancellation or authority still stops execution. Continuous churn
+exhausts the one-refresh budget. Adapter rejections and uncertain dispatched
+input never trigger this retry. Public offer execution and separately bound
+primitive-choice boundaries retain their existing behavior.
+
 A foreground native task can further restrict that authority with the
 portal-only `portal_native_task_scope` described in the
 [protocol](protocol.md). The caller registers exact XID/PID/process-start tuples;

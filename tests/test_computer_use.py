@@ -138,6 +138,185 @@ def test_stale_or_ineligible_target_is_rejected_before_input(change: str) -> Non
     assert adapter.dispatched == []
 
 
+def test_native_step_redecides_once_on_unrelated_pre_input_revision_change():
+    adapter = Adapter()
+    control = controller(adapter)
+    control.enable_native_task_protocol()
+    decisions = []
+
+    def choose(state, actions):
+        selected = next(a for a in actions if a["kind"] == "action")
+        decisions.append((state["revision"], selected["id"]))
+        if len(decisions) == 1:
+            adapter.state.update(revision="background-update", text="Unrelated content updated")
+        return selected["id"]
+
+    outcome = control.run_step(step(), choose)
+    assert outcome["status"] == "verified"
+    assert [r for r, _ in decisions] == ["r1", "background-update"]
+    assert len(adapter.dispatched) == 1
+    assert adapter.dispatched[0]["id"] == decisions[1][1]
+    assert outcome["pre_input_refresh"]["rejected_action_id"] == decisions[0][1]
+    rejected = control.execute(decisions[0][1])
+    assert rejected["status"] == "rejected"
+    assert rejected["dispatch_attempted"] is False
+    assert len(adapter.dispatched) == 1
+
+
+@pytest.mark.parametrize("change", ["generation", "value", "focused", "bounds", "scope", "missing"])
+def test_native_refresh_does_not_renew_changed_operands(change):
+    adapter = Adapter()
+    control = controller(adapter)
+    control.enable_native_task_protocol()
+    calls = []
+
+    def choose(state, actions):
+        calls.append(state)
+        adapter.state["revision"] = "changed"
+        node = adapter.state["nodes"][0]
+        if change == "scope":
+            adapter.state["scope"]["url"] = "https://another.test/"
+        elif change == "missing":
+            adapter.state["nodes"] = []
+        elif change == "bounds":
+            node["bounds"] = {"x": 10, "y": 10, "width": 20, "height": 20}
+        else:
+            node[change] = True if change == "focused" else "changed"
+        return next(a["id"] for a in actions if a["kind"] == "action")
+
+    result = control.run_step(step(), choose)
+    assert result["status"] == "rejected"
+    assert "pre_input_refresh" not in result
+    assert len(calls) == 1
+    assert adapter.dispatched == []
+
+
+def test_native_refresh_stops_after_second_pre_input_rejection():
+    adapter = Adapter()
+    control = controller(adapter)
+    control.enable_native_task_protocol()
+    calls = []
+
+    def choose(state, actions):
+        calls.append(state)
+        adapter.state["revision"] = "churn-" + str(len(calls))
+        return next(a["id"] for a in actions if a["kind"] == "action")
+
+    result = control.run_step(step(), choose)
+    assert result["status"] == "rejected"
+    assert len(calls) == 2
+    assert result["dispatch_attempted"] is False
+    assert adapter.dispatched == []
+
+
+@pytest.mark.parametrize("mode", ["public", "boundary"])
+def test_public_steps_and_policy_bound_boundaries_do_not_automatically_refresh(mode):
+    adapter = Adapter()
+    adapter.prepare_intent = lambda _step: None
+    control = controller(adapter)
+    if mode == "boundary":
+        control.enable_native_task_protocol()
+    calls = []
+
+    def choose(state, actions):
+        calls.append(state)
+        adapter.state["revision"] = "changed"
+        return next(a["id"] for a in actions if a["kind"] == "action")
+
+    request = step()
+    if mode == "boundary":
+        request.pop("expect")
+        request.update(verb="click", args={})
+        adapter.state["nodes"][0]["operations"].append("click")
+        outcome = control.run_boundary(request, choose)
+    else:
+        outcome = control.run_step(request, choose)
+    assert outcome["status"] == "rejected"
+    assert len(calls) == 1
+    assert adapter.dispatched == []
+
+
+@pytest.mark.parametrize("failure", ["uncertain", "no_effect", "adapter_rejection"])
+def test_native_refresh_never_retries_after_entering_dispatch(failure):
+    adapter = Adapter()
+    control = controller(adapter, max_observations=1)
+    control.enable_native_task_protocol()
+    if failure == "uncertain":
+        adapter.fail_after_input = True
+    elif failure == "no_effect":
+        adapter.mutate = False
+    else:
+        def reject(action):
+            adapter.dispatched.append(action)
+            return {"status": "rejected", "reason": "ui_revision_changed"}
+        adapter.perform = reject
+    calls = []
+
+    def choose(state, actions):
+        calls.append(state)
+        return next(a["id"] for a in actions if a["kind"] == "action")
+
+    result = control.run_step(step(), choose)
+    assert result["status"] in {"unresolved", "rejected"}
+    assert "pre_input_refresh" not in result
+    assert len(calls) == len(adapter.dispatched) == 1
+
+
+def test_workflow_refresh_keeps_policy_bound_to_current_step():
+    adapter = Adapter()
+    control = controller(adapter)
+    control.enable_native_task_protocol()
+    factories, decisions = [], []
+
+    def bind(index, request):
+        factories.append(index)
+        def choose(state, actions):
+            decisions.append((index, request["id"]))
+            if len(decisions) == 1:
+                adapter.state["revision"] = "background"
+            return next(a["id"] for a in actions if a["kind"] == "action")
+        return choose
+
+    result = control.run_workflow([step("First", "first"), step("Second", "second")],
+        final_predicates=[{"kind": "value", "node_id": "field", "value": "Second"}], provider_for_step=bind)
+    assert result["status"] == "complete"
+    assert factories == [0, 1]
+    assert decisions == [(0, "first"), (0, "first"), (1, "second")]
+    assert [a["args"]["value"] for a in adapter.dispatched] == ["First", "Second"]
+
+
+@pytest.mark.parametrize("change", ["cancel", "authority", "focus_during_refresh", "old_offer"])
+def test_fresh_native_decision_preserves_cancellation_authority_and_offer_guards(change):
+    adapter = Adapter()
+    control = controller(adapter)
+    control.enable_native_task_protocol()
+    cancel = threading.Event()
+    calls = []
+
+    def observe(current):
+        if change == "focus_during_refresh" and current.reads == 3:
+            current.state["nodes"][0]["focused"] = True
+    adapter.observation_hook = observe
+
+    def choose(state, actions):
+        choice = next(a["id"] for a in actions if a["kind"] == "action")
+        calls.append(choice)
+        if len(calls) == 1:
+            adapter.state["revision"] = "background"
+        elif change == "cancel":
+            cancel.set()
+        elif change == "authority":
+            control.authorize = lambda *_: False
+        elif change == "old_offer":
+            return calls[0]
+        return choice
+
+    outcome = control.run_step(step(), choose, cancel)
+    assert outcome["status"] in {"cancelled", "rejected", "unresolved"}
+    assert len(calls) == (1 if change == "focus_during_refresh" else 2)
+    assert adapter.dispatched == []
+
+
 def test_successful_dispatch_without_expected_effect_is_unresolved_and_not_replayed() -> None:
     adapter = Adapter()
     adapter.mutate = False

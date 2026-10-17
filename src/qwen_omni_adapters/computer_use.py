@@ -478,8 +478,11 @@ class RapidUiController:
             if action["kind"] == "observe":
                 return record({**outcome, "after": before, "reason": "Observed; no input requested"})
             node = next((item for item in before["nodes"] if item["id"] == action["node_id"]), None)
-            if before["session_id"] != action["session_id"] or before["scope"]["id"] != action["scope_id"] or before["revision"] != action["revision"] or node is None or node["generation"] != action["generation"] or not node["enabled"] or not node["visible"] or node["sensitive"] or action["verb"] not in node["operations"]:
+            if before["session_id"] != action["session_id"] or before["scope"]["id"] != action["scope_id"] or node is None or node["generation"] != action["generation"] or not node["enabled"] or not node["visible"] or node["sensitive"] or action["verb"] not in node["operations"]:
                 return record({**outcome, "status": "rejected", "reason": "UI identity or revision changed; observe again"})
+            if before["revision"] != action["revision"]:
+                return record({**outcome, "status": "rejected", "reason": "UI revision changed; observe again",
+                               "rejection_code": "ui_revision_changed", "dispatch_attempted": False})
             if self.authorize is None or self.authorize(copy.deepcopy(action), copy.deepcopy(before)) is not True:
                 return record({**outcome, "status": "rejected", "reason": "Host authority did not admit this exact action"})
             _check_cancel(cancel)
@@ -590,6 +593,13 @@ class RapidUiController:
 
     def _run_intent(self, step: dict[str, Any], provider: Any,
                     cancel: threading.Event | None, *, boundary: bool = False) -> dict[str, Any]:
+        refresh = None
+
+        def result(value):
+            if refresh is not None:
+                value = {**value, "pre_input_refresh": copy.deepcopy(refresh)}
+            return value
+
         try:
             _check_cancel(cancel)
             prepare = getattr(self.adapter, "prepare_intent" if boundary else "prepare_step", None)
@@ -598,40 +608,88 @@ class RapidUiController:
             if prepare is not None:
                 prepare(copy.deepcopy(step))
             _check_cancel(cancel)
-            state = self.observe()
-            actions = self._enumerate(step, state, boundary=True) if boundary else self.enumerate(step, state)
-            if provider is None:
-                executable = [action for action in actions if action["kind"] == "action"]
-                choice = executable[0]["id"] if len(executable) == 1 else next(action["id"] for action in actions if action["kind"] == "abstain")
-            else:
-                decide = getattr(provider, "decide", provider)
-                answer = decide(copy.deepcopy(state), copy.deepcopy(actions))
-                choice = answer.get("choice") if isinstance(answer, Mapping) else answer
-                if not isinstance(choice, str) or not any(action["id"] == choice for action in actions):
-                    raise ComputerUseError("Provider selected an unknown finite candidate")
-            _check_cancel(cancel)
-            return self.execute(choice, cancel)
+            previous_state = previous_action = None
+            # Only native workflow steps get one fresh decision. Boundaries
+            # have a separate policy binding; public offer execution never
+            # renews authority. The failed offer remains rejected and cached.
+            for attempt in range(2):
+                _check_cancel(cancel)
+                state = self.observe()
+                if refresh is not None and not _same_refresh_context(previous_state, state, previous_action):
+                    return result({"status": "rejected", "rejection_code": "ui_refresh_context_changed",
+                                   "dispatch_attempted": False, "reason": "Target or scope changed before fresh decision"})
+                actions = self._enumerate(step, state, boundary=True) if boundary else self.enumerate(step, state)
+                if provider is None:
+                    executable = [action for action in actions if action["kind"] == "action"]
+                    choice = executable[0]["id"] if len(executable) == 1 else next(action["id"] for action in actions if action["kind"] == "abstain")
+                else:
+                    decide = getattr(provider, "decide", provider)
+                    answer = decide(copy.deepcopy(state), copy.deepcopy(actions))
+                    choice = answer.get("choice") if isinstance(answer, Mapping) else answer
+                    if not isinstance(choice, str) or not any(action["id"] == choice for action in actions):
+                        raise ComputerUseError("Provider selected an unknown finite candidate")
+                selected = next(action for action in actions if action["id"] == choice)
+                if refresh is not None:
+                    refresh.update(fresh_revision=state["revision"], fresh_choice_id=choice)
+                    if selected["kind"] == "action" and selected["node_id"] != previous_action["node_id"]:
+                        return result({"status": "rejected", "rejection_code": "ui_refresh_target_changed",
+                                       "dispatch_attempted": False, "reason": "Fresh decision selected another target; replan"})
+                _check_cancel(cancel)
+                outcome = self.execute(choice, cancel)
+                if (attempt == 0 and self._native_task_protocol and not boundary
+                        and outcome.get("status") == "rejected"
+                        and outcome.get("rejection_code") == "ui_revision_changed"
+                        and outcome.get("dispatch_attempted") is False and "receipt" not in outcome
+                        and outcome.get("action", {}).get("id") == choice
+                        and _same_refresh_context(state, outcome["before"], selected)):
+                    previous_state, previous_action = state, selected
+                    refresh = {"schema": "robit.omni.ui-pre-input-refresh.v1",
+                               "rejected_action_id": choice, "rejection_code": "ui_revision_changed",
+                               "old_revision": state["revision"], "observed_revision": outcome["before"]["revision"],
+                               "rejected_input_attempted": False, "max_fresh_decisions": 1}
+                    continue
+                return result(outcome)
         except _Cancelled as exc:
-            return {"status": "cancelled", "reason": str(exc)}
+            return result({"status": "cancelled", "reason": str(exc)})
         except Exception as exc:
-            return {"status": "unresolved", "reason": str(exc)[:1000]}
+            return result({"status": "unresolved", "reason": str(exc)[:1000]})
 
     def run_workflow(self, steps: Sequence[dict[str, Any]], *, final_predicates: list[dict[str, Any]],
-                     provider: Any = None, cancel: threading.Event | None = None) -> dict[str, Any]:
-        return run_workflow(self, steps, final_predicates=final_predicates, provider=provider, cancel=cancel)
+                     provider: Any = None, cancel: threading.Event | None = None,
+                     provider_for_step: Any = None) -> dict[str, Any]:
+        return run_workflow(self, steps, final_predicates=final_predicates, provider=provider, cancel=cancel,
+                            provider_for_step=provider_for_step)
+
+
+def _same_refresh_context(before: dict, after: dict, action: dict) -> bool:
+    """A fresh decision may tolerate unrelated changes, never changed operands."""
+    if before["session_id"] != after["session_id"] or before["scope"] != after["scope"]:
+        return False
+    if any(before.get(key) != after.get(key) for key in ("window_scope_sha256", "window_scope_count", "truncated")):
+        return False
+    old = {node["id"]: node for node in before["nodes"]}
+    new = {node["id"]: node for node in after["nodes"]}
+    operands = {action["node_id"]}
+    if action["verb"] == "drag_drop":
+        operands.add(action["args"]["to_node_id"])
+    operands.update(item["node_id"] for item in action["expect"] if "node_id" in item)
+    return all(node_id in old and node_id in new and old[node_id] == new[node_id] for node_id in operands)
 
 
 def run_workflow(controller: RapidUiController, steps: Sequence[dict[str, Any]], *,
                  final_predicates: list[dict[str, Any]], provider: Any = None,
-                 cancel: threading.Event | None = None) -> dict[str, Any]:
+                 cancel: threading.Event | None = None, provider_for_step: Any = None) -> dict[str, Any]:
     """Run a bounded host plan, then independently observe host terminal criteria."""
     if not isinstance(steps, (list, tuple)) or not 1 <= len(steps) <= 25:
         raise ComputerUseError("Expected 1–25 workflow steps")
     parsed = [parse_step(step) for step in steps]
     final = _predicates(final_predicates, terminal=True)
+    if provider_for_step is not None and (provider is not None or not callable(provider_for_step)):
+        raise ComputerUseError("Use either a provider or a callable per-step provider factory")
     outcomes: list[dict[str, Any]] = []
     for index, step in enumerate(parsed):
-        outcome = controller.run_step(step, provider, cancel)
+        bound_provider = provider_for_step(index, copy.deepcopy(step)) if provider_for_step is not None else provider
+        outcome = controller.run_step(step, bound_provider, cancel)
         outcomes.append(outcome)
         if outcome["status"] != "verified":
             return {"status": "cancelled" if outcome["status"] == "cancelled" else "needs_replan",

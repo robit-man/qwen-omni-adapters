@@ -2,6 +2,13 @@
 
 Status: implementation started; no full-task success claimed.
 
+Research basis: [broader primary-source and implementation review](computer-use-research-review.md).
+The original guide is a hypothesis, not a required architecture. The review
+adds decision-interface evaluation, explicit failed-strategy suppression,
+pre-input refresh versus uncertain-input reconciliation, retrievable context,
+and independently verified workflow outcomes. Keep these as separate measured
+cycles; published results do not transfer to our pinned models or hardware.
+
 ## Objective and execution rules
 
 Enable Qwen and Ornith to perform real, long-horizon desktop work through
@@ -148,6 +155,7 @@ held-out live evidence.
 | Baseline validation | Passed | 3,997 tests; `/tmp/qwen-reliability-baseline-20261017.log` |
 | 1. Mandatory verification | Local gate and live provider passed | 4,005 tests; real Firefox setter unresolved, physical typing verified; [evidence](computer-use-reliability-evidence.json) |
 | 5. Single objective source | Source and grammar gates passed; live branch unexercised | 4,008 tests; 9 native cases per model; original live task failed at native scope observation before open-file dispatch |
-| 2–4, 6–8 | Pending | No implementation or live pass claimed |
+| 3. Native workflow freshness | Source gate and real Firefox provider passed | 4,027 tests; real page mutation rejected the old Return offer, one fresh decision dispatched once and verified the destination; three setup failures retained |
+| 2, 4, 6–8 | Pending | No implementation or live pass claimed; separately bound primitive-choice boundaries also retain their existing freshness behavior |
 
 Observed deployment blocker: Egg .31 retains an actual XTEST Unicode failure (`café\nnaïve` becomes `café\nnave`), with 4,004 other tests passing. Its updater stops before replacing the active runtime. Egg .41 adopted cycle1 successfully while preserving its paused core.

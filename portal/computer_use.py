@@ -824,22 +824,22 @@ class ComputerUseStore:
             if op == "workflow":
                 steps = arguments.get("steps")
                 parsed = [parse_step(item) for item in steps] if isinstance(steps, (list, tuple)) else []
-                cursor = iter(enumerate(parsed))
                 policy_receipts: list[dict[str, Any]] = []
                 point_receipts: list[dict[str, Any]] = []
                 selection_receipts: list[dict[str, Any]] = []
-                def choose(state, actions):
-                    index, step = next(cursor)
-                    selection = self._select(owned, state, actions, step, goal)
-                    selection_receipts.append(_selection_receipt(index, step, state, actions, selection))
-                    if "policy_receipt" in selection:
-                        policy_receipts.append(selection["policy_receipt"])
-                    if receipt := _point_receipt(owned.adapter):
-                        point_receipts.append(receipt)
-                    return {"choice": selection["selected_action_id"]}
+                def provider_for_step(index, step):
+                    def choose(state, actions):
+                        selection = self._select(owned, state, actions, step, goal)
+                        selection_receipts.append(_selection_receipt(index, step, state, actions, selection))
+                        if "policy_receipt" in selection:
+                            policy_receipts.append(selection["policy_receipt"])
+                        if receipt := _point_receipt(owned.adapter):
+                            point_receipts.append(receipt)
+                        return {"choice": selection["selected_action_id"]}
+                    return choose
                 result = owned.controller.run_workflow(steps,
                     final_predicates=arguments.get("final_predicates"),
-                    provider=choose, cancel=owned.cancel)
+                    provider_for_step=provider_for_step, cancel=owned.cancel)
                 outcomes = [_effect_result(item, owned.settled_effects) for item in result.get("outcomes", [])]
                 result["outcomes"] = outcomes
                 verified_count = 0

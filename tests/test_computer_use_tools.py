@@ -86,6 +86,32 @@ def test_tool_workflow_has_independent_terminal_receipt_and_no_reasoner_loop():
     assert store._owned("session", "browser").adapter.calls == 1
 
 
+def test_native_workflow_refresh_records_same_step_before_selecting_following_step():
+    class ChangingAdapter(Adapter):
+        def __init__(self, session_id):
+            super().__init__(session_id)
+            self.reads = 0
+
+        def observe(self):
+            self.reads += 1
+            state = super().observe()
+            if self.reads >= 2:
+                state["revision"] += "-background-change"
+            return state
+
+    store = ComputerUseStore(None, adapter_factory=lambda session, surface: ChangingAdapter(session))
+    owned = store._owned("session", "desktop")
+    owned.controller.enable_native_task_protocol()
+    second = {**_step(), "id": "second", "args": {"value": "Second"},
+              "expect": [{"kind": "value", "node_id": "$target", "value": "Second"}]}
+    result = store.act("session", {"surface": "desktop", "operation": "workflow", "steps": [_step(), second],
+        "final_predicates": [{"kind": "value", "node_id": "title", "value": "Second"}]})
+    assert result["status"] == "complete"
+    assert owned.adapter.calls == 2
+    assert [item["step_index"] for item in result["selection_receipts"]] == [0, 0, 1]
+    assert "pre_input_refresh" in result["outcomes"][0]
+
+
 def test_cancel_requires_fresh_observation_and_disallows_argument_overrides():
     store = ComputerUseStore(None, adapter_factory=lambda session, surface: Adapter(session))
     observed = store.act("session", {"operation": "observe", "step": _step()})

@@ -100,6 +100,36 @@
       "evidence_index_sha256": "b043719d60e04fbbf3080d105cb9d76f86d66e27c72767e5671e19e23d8caeda",
       "remote_adoption": "pending",
       "whole_task_pass": false
+    },
+    {
+      "cycle": 3,
+      "plan_step": 3,
+      "status": "SOURCE_AND_LIVE_PROVIDER_PASS",
+      "evidence_directory": "runtime-data/gpu1-acceptance/operator-audit/fresh-redecision-cycle-20261017",
+      "evidence_index_sha256": "3c8f79bbc2055750c345783892e924b11093419217a8a41932a0739d4cb13cca",
+      "criterion": "Confirmed pre-input revision change can obtain one fresh decision without duplicate input",
+      "pass": true,
+      "pre_tests": 4008,
+      "post_tests": 4027,
+      "actual_model_calls": 0,
+      "whole_task_credit": false,
+      "setup_attempts": 4,
+      "prior_setup_attempts": {
+        "1": "no field selected; zero input",
+        "2": "key capability required before focus; zero input",
+        "3": "startup operand changed; controller rejected before input"
+      },
+      "actual_selection_calls": 2,
+      "actual_navigation_dispatches": 1,
+      "destination_http_requests": 1,
+      "target_node_exactly_equal": true,
+      "scope_exactly_equal": true,
+      "native_revision_changed": true,
+      "backend": "x11_guarded_xtest",
+      "owned_window_closed": true,
+      "worker_pins_preserved": true,
+      "elapsed_s": 12.936490799998865,
+      "remote_adoption": "pending push"
     }
   ]
 }
