@@ -149,4 +149,21 @@ The immediate contract repair separates keyboard/scroll dispatch from claims
 about its effect. Real prior Ctrl+L input created a location field, while the
 planner checked focus on the old window and reported failure. The private
 input-and-observe path retains unknown consequences until observed and grants no
-completion credit. A compact planner remains a separate implementation cycle.
+completion credit. The compact planner was subsequently implemented as an opt-in
+projection with exact snapshot-bound expansion. Its actual desktop trial
+verified physical URL replacement but failed the full task. The subsequent
+`text_submit` sequence proved real navigation with independent Document.DocURL
+readback. Its failed continuation exposed a compression defect: a 55,454-byte
+grounded schema exceeded the 56 KiB limit after adding working-state fields,
+silently replacing all desktop actions with non-UI choices. Compact projection
+then inherited that loss despite its much smaller actual decoder schema.
+
+The same run captured seven repeated Moondream inspections of readable Python
+documentation, returning truncated invented text. The exact reader PNG and all
+requests, responses and controller snapshots are [archived durably](research/computer-use-text-submit-2026-10-17.manifest.json).
+The planner's reading objective never reached the visual reader; its current
+endpoint uses a fixed generic prompt. That is a proven information loss, while
+the model's precise reading failure remains unproven. The controller also resets
+its failure counter on each accepted inspection, regardless of repeated evidence.
+These are separate repair criteria; neither navigation nor protocol success is
+whole-task completion.

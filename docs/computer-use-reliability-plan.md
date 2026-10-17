@@ -162,7 +162,15 @@ held-out live evidence.
 | 6a. Decision-interface evaluation | Nine actual Ornith calls completed; no task credit | Removing raw workflows did not help. A compact typed-family projection selected the correct Firefox text entry; file-navigation decisions remained weak. All requests/responses and failures retained. |
 | 2c. Keyboard/scroll input boundary | Contract and native grammar passed; live pending | 4,076 tests; 16 new regressions and 7 native grammar cases per model. Private guarded input returns an unknown-effect observation without fabricated success predicates. |
 | 6b. Compact planner | Live text replacement passed; whole task failed | 4,101 tests and 9 native grammar cases/model passed. Opt-in interface generated eight live phases, including four physical URL replacements with exact readback. It did not submit navigation, falsely claimed page acquisition, then repeated three low-confidence pointer attempts. Full task failed in 75.73 s with no deliverables. |
-| 7a. Text preparation and submission | Next bounded sequence | Give the planner an explicit typed text-and-submit contract. Require exact text readback before a single guarded Return; preserve unknown post-submit effects and fresh observation. No inferred page acquisition. |
+| 7a. Text preparation and submission | Live navigation passed; whole task failed | 4,121 tests and 9 native grammar cases/model passed. Ornith selected the sequence, which verified the URL and pressed Return once. Fresh AT-SPI Document.DocURL proved Python 3.12 navigation. The unchanged task then stalled: schema-budget fallback removed all desktop actions, and seven inspections repeated unusable Moondream readings. Cancelled with all owned windows closed; no deliverables. [Durable experiment](research/computer-use-text-submit-2026-10-17.manifest.json). |
+| 6c. Capability-preserving compression | Next bounded repair | Reproduce the phase-10 schema fallback from the exact captured state. Preserve grounded desktop actions within the native grammar budget without weakening executor guards. Only then repeat a bounded loaded-model decision and live window. |
 | Remaining 2, 4, 6–8 | Pending | Insertion and partial selection replacement, broader recovery/delegation, context expansion, reusable task sequences and whole-task acceptance remain incomplete. Separately bound primitive-choice boundaries retain their existing freshness behavior. |
 
 Observed deployment blocker: Egg .31 deployed 31fc3a3 after 4,060 checks passed, then reproduced the actual XTEST Unicode failure (`café\nnaïve` becomes `café\nnave`) during the a13f410 update, with 4,059 other tests passing. The isolated nine-case recheck had passed; no transport fix is claimed. Its updater stopped before replacing the active runtime. Egg .41 adopted a13f410 while preserving its paused core.
+
+Subsequent .31 diagnosis captured real GTK key events in an isolated X server:
+three of four ordinary xdotool trials lost accents and delivered keyval zero.
+Holding distinct unused mappings for é and ï through recipient readback passed
+all four matched trials, including two deliberately delayed recipients. The exact
+original keymap was restored. This isolates mapping lifetime/reuse as the repair
+target; production transport remains unchanged. [Durable evidence](research/egg31-unicode-mapping-2026-10-17.manifest.json).

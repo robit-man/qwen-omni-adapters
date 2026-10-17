@@ -32,7 +32,7 @@
       "evidence_index_sha256": "8363adf4b1a32e6d31be1c411d01304335d2bff49f72487545152f04aac151a9",
       "remote_adoption": {
         "egg41": "deployed44c5643; paused core preserved",
-        "egg31": "1 failed,4004 passed; real XTEST Unicode caf\u00e9/newline/na\u00efve lost \u00ef; previous core remains active; untracked files preserved"
+        "egg31": "1 failed,4004 passed; real XTEST Unicode café/newline/naïve lost ï; previous core remains active; untracked files preserved"
       },
       "whole_task_pass": false
     },
@@ -302,6 +302,50 @@
       },
       "evidence_path": "runtime-data/gpu1-acceptance/operator-audit/compact-planner-cycle-20261017",
       "evidence_index_sha256": "c09e36dc984235324bf978f7684b8129e0d2e263ad1b5e89ede1b5437501caec"
+    },
+    {
+      "cycle": "7a",
+      "criterion": "Verified text preparation followed by exactly one guarded Return is available to the native planner",
+      "status": "LIVE_NAVIGATION_PASS_WHOLE_TASK_FAILED",
+      "post_tests": 4121,
+      "new_regressions": 20,
+      "native_grammar_cases_per_model": 9,
+      "whole_task_pass": false,
+      "task_signature_sha256": "94dcbb542d113d903bfb9a982c57c59e67372b6606ad74490db0afea037cd155",
+      "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+      "think": false,
+      "source": "text_goal",
+      "elapsed_s": 212.79632115700224,
+      "planner_replies": 16,
+      "text_submit_phases": [
+        5
+      ],
+      "visual_inspection_phases": [
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "verified_navigation": "https://docs.python.org/3.12/library/pathlib.html#pathlib.Path.mkdir",
+      "source_authority": "fresh atspi.Document.DocURL after phase 5; destination not inferred from address-bar text",
+      "failures": [
+        "Second (3.10) URL was typed but not submitted; loaded Document.DocURL remained 3.12.",
+        "Phase 10 onward canonical schema fell back to non-UI phases, stripping all controls from compact planner. Reproduction: grounded schema 55454 bytes; working wrapper exceeds unchanged 56 KiB budget.",
+        "Moondream produced repeated truncated invented text on the exact readable page screenshot; reader receives static generic prompt, not planner objective. Exact internal cause unproven.",
+        "Repeated same-frame inspections reset the task failure counter.",
+        "No dossier, matrix, archive or task completion."
+      ],
+      "operator_stop": "Owned runner interrupted after seven repeated inspections; cancellation HTTP 200; downstream idle and owned-window cleanup confirmed.",
+      "inputs_unchanged": true,
+      "owned_windows_closed": true,
+      "unrelated_windows_preserved": true,
+      "gpu_workers": "No GPU service restarted; existing Ornith/Kev/Moondream/TTS GPU 1 lease used. CPU candidate frontend only.",
+      "next_cycle": "Preserve applicable actions under schema compression before another task run. Separately investigate vision reader and ARM Unicode transport.",
+      "production_default": "Compact planner remains opt-in; no whole-stack deployment success claimed.",
+      "evidence_manifest": "research/computer-use-text-submit-2026-10-17.manifest.json"
     }
   ]
 }

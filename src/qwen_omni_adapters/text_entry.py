@@ -85,6 +85,8 @@ def run_text_entry(controller, intent: dict, choose, cancel=None) -> dict:
                 "terminal": terminal, "text_entry_receipt": {
                     "schema": "robit.omni.native-text-entry.v1", "mode": "replace",
                     "strategy": selected.get("strategy") if selected else None,
+                    "target": {key: selected[key] for key in ("node_id", "generation")} if selected
+                              and selected.get("kind") == "text_strategy" else None,
                     "selection": policy, "history": history, "goal_verified": False,
                     "exact_value_verified": status == "complete"}}
 

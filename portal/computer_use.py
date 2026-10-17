@@ -23,7 +23,7 @@ from qwen_omni_adapters.computer_use import (
     parse_step,
     predicate_satisfied,
 )
-from qwen_omni_adapters.text_entry import parse_text_entry, run_text_entry
+from qwen_omni_adapters.text_entry import complete_text, parse_text_entry, run_text_entry
 
 try:
     from portal.browser_ui import BrowserUiAdapter
@@ -160,6 +160,11 @@ def parse_subgoal(value: Any) -> dict[str, Any]:
     """Private planner intent, separate from both user authority and input offers."""
     if isinstance(value, dict) and value.get("family") == "text_entry":
         return parse_text_entry(value)
+    if isinstance(value, dict) and value.get("family") == "text_submit":
+        parsed = parse_text_entry({**value, "family": "text_entry"})
+        if set(parsed["target"]) != {"node_id"}:
+            raise ComputerUseError("Text submission requires one observed control identity")
+        return {**parsed, "family": "text_submit"}
     if (not isinstance(value, dict) or set(value) != {"id", "family", "objective", "target"}
             or value["family"] != "pointer_or_activation" or not isinstance(value["objective"], str)
             or not value["objective"].strip() or len(value["objective"]) > 500):
@@ -597,11 +602,61 @@ class ComputerUseStore:
                 result["error"] = "ui_text_entry_unresolved"
             return result
 
+    def text_submit(self, session_id: str, subgoal: dict, *, goal: str) -> dict:
+        """Verify text preparation, then submit once under a fresh target guard."""
+        parsed = parse_subgoal(subgoal)
+        if parsed["family"] != "text_submit":
+            raise ComputerUseError("Expected text submission")
+        owned = self._owned(session_id, "desktop")
+        if (self._task_binding.get() != (session_id, "desktop", owned.cancel)
+                or not owned.controller._native_task_protocol):
+            raise ComputerUseError("Text submission requires the current trusted native task binding")
+        with owned.lock:
+            current = owned.controller.observe()
+            target = next((n for n in current["nodes"] if n["id"] == parsed["target"]["node_id"]), None)
+            if target is None or "key_chord" not in target["operations"]:
+                return {"status": "abstained", "reason": "Text target does not advertise submission input",
+                        "task_progress": False, "outcomes": []}
+        prepared = self.text_entry(session_id, {**parsed, "family": "text_entry"}, goal=goal)
+        if prepared["status"] != "complete":
+            return {**prepared, "text_submit_receipt": {"text_verified": False, "submit_attempted": False,
+                                                       "goal_verified": False}}
+        original = prepared["terminal"]
+        binding = prepared["text_entry_receipt"]["target"]
+        target = next(n for n in original["nodes"] if n["id"] == binding["node_id"])
+
+        def choose(state, actions):
+            node = next((n for n in state["nodes"] if n["id"] == binding["node_id"]), None)
+            same = (all(state.get(k) == original.get(k) for k in
+                        ("session_id", "scope", "window_scope_sha256", "window_scope_count"))
+                    and node is not None and complete_text(node) and node.get("value") == parsed["text"]
+                    and node.get("focused") is True and node["visible"] and node["enabled"] and not node["sensitive"]
+                    and all(node.get(k) == target.get(k) for k in ("generation", "scope_id", "role", "name", "bounds")))
+            legal = [a for a in actions if a["kind"] == "action" and a["node_id"] == binding["node_id"]]
+            valid = same and len(legal) == 1 and not owned.cancel.is_set()
+            return {"selected_action_id": legal[0]["id"] if valid else next(a["id"] for a in actions if a["kind"] == "abstain"),
+                    "selection_status": "verified_text_submission" if valid else "text_submission_target_changed"}
+
+        result = self.observation_boundary(session_id, {"id": _digest(parsed["id"]) + ":submit", "verb": "key_chord",
+            "target": {"node_id": binding["node_id"]}, "args": {"keys": ["Return"]}},
+            goal=goal, objective=parsed["objective"], _selection=choose)
+        result["outcomes"] = prepared["outcomes"] + ([result["dispatch_record"]] if "dispatch_record" in result else [])
+        result["policy_receipts"] = prepared.get("policy_receipts", []) + result.get("policy_receipts", [])
+        result["text_entry_receipt"] = prepared["text_entry_receipt"]
+        result["text_submit_receipt"] = {"schema": "robit.omni.native-text-submit.v1", "text_verified": True,
+            "submit_attempted": result.get("ui_boundary_receipt", {}).get("input_attempted"),
+            "post_submit_effect": "unknown", "goal_verified": False}
+        return result
+
     def intent_boundary(self, session_id: str, subgoal: dict[str, Any], *, goal: str = "",
                         feedback: dict[str, Any] | None = None,
                         preference: dict[str, Any] | None = None) -> dict[str, Any]:
         """Policy picks a proposal, then a fresh callback picks a current offer."""
         parsed = parse_subgoal(subgoal)
+        if parsed["family"] == "text_submit":
+            if preference is not None:
+                raise ComputerUseError("Text submission has no primitive preference")
+            return self.text_submit(session_id, parsed, goal=goal)
         if parsed["family"] == "text_entry":
             if preference is not None:
                 raise ComputerUseError("Text entry has no primitive preference")

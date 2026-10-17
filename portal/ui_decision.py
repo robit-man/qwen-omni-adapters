@@ -29,7 +29,11 @@ SYSTEM = (
     'and a listed control reference that serves the next unmet part of the goal. '
     'pointer_or_activation states what to achieve with a control; the local policy chooses the '
     'appropriate click or activation. text_entry replaces the entire field with your exact text; '
-    'the executor focuses, selects, types and independently reads back. switch_window activates '
+    'the executor focuses, selects, types and independently reads back. text_entry only edits the '
+    'field; it does not submit it or acquire a document. text_submit verifies the exact replacement '
+    'and presses Return once, then returns the observed consequences. Use it to submit text to '
+    'a location field or other field accepting Return. Inspect the resulting document URL and '
+    'content before claiming navigation or source acquisition. switch_window activates '
     'an already open inactive window. key_chord sends named key tokens (for example Control_L '
     'and l); scroll moves the target in the specified direction. These inputs return a new '
     'observation, not proof that your objective succeeded. visual_inspection reads the captured '
@@ -64,7 +68,7 @@ def project(packet: Mapping) -> tuple[dict, dict]:
     kinds = {b['properties']['kind']['const'] for b in native}
     if not isinstance(state.get('nodes'), list) or len(state['nodes']) > 80:
         raise ComputerUseError('Compact planner requires a bounded native observation')
-    banks = {family: [] for family in ('pointer_or_activation', 'text_entry', 'switch_window', 'key_chord', 'scroll')}
+    banks = {family: [] for family in ('pointer_or_activation', 'text_entry', 'text_submit', 'switch_window', 'key_chord', 'scroll')}
     controls, mapping = [], {}
     for index, node in enumerate(state['nodes']):
         if not (node.get('visible') is True and node.get('enabled') is True and node.get('sensitive') is False):
@@ -75,6 +79,8 @@ def project(packet: Mapping) -> tuple[dict, dict]:
             families.append('pointer_or_activation')
         if 'ui_subgoal' in kinds and operations & {'set_value', 'type_text'}:
             families.append('text_entry')
+            if 'key_chord' in operations:
+                families.append('text_submit')
         if 'ui' in kinds and 'switch_window' in operations and node['id'] != state['scope']['id']:
             families.append('switch_window')
         if ('ui_boundary' in kinds and 'key_chord' in operations
@@ -96,7 +102,7 @@ def project(packet: Mapping) -> tuple[dict, dict]:
         if not targets:
             continue
         extra = {}
-        if family == 'text_entry':
+        if family in {'text_entry', 'text_submit'}:
             extra = {'text': _text(2048)}
         elif family == 'key_chord':
             extra = {'keys': {'type': 'array', 'minItems': 1, 'maxItems': 5, 'items': _text(30)}}
@@ -155,9 +161,9 @@ def _expand(reply: dict, packet: Mapping, binding: dict) -> dict:
     identity = f"phase-{reply['source_phase']}-{family}"
     target = {'node_id': binding['nodes'][action['target']]['id']} if 'target' in action else None
     objective = action['objective']
-    if family in {'pointer_or_activation', 'text_entry'}:
+    if family in {'pointer_or_activation', 'text_entry', 'text_submit'}:
         subgoal = {'id': identity, 'family': family, 'objective': objective, 'target': target}
-        if family == 'text_entry':
+        if family in {'text_entry', 'text_submit'}:
             subgoal.update(mode='replace', text=action['text'])
         phase = {'kind': 'ui_subgoal', 'subgoal': subgoal}
     elif family in {'key_chord', 'scroll', 'visual_pointer'}:

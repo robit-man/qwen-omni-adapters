@@ -1,0 +1,62 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/egg31-unicode-mapping",
+  "scope": "CONTROLLED_CAUSE_EVIDENCE_REPAIR_PENDING",
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/current-results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/egg31-unicode-mapping/current-results.json",
+      "bytes": 7046,
+      "sha256": "6b8903dc37b8e68800dfb6ff41ebd5ac893602184e254018897939129e8131f9"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/diagnose-stable.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/egg31-unicode-mapping/diagnose-stable.log",
+      "bytes": 4753,
+      "sha256": "34d03e096916903427b1b218df0e7592a21a4bb3e3eb52e5ea54ac1a6ece1066"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/diagnose-stable.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/egg31-unicode-mapping/diagnose-stable.py",
+      "bytes": 3691,
+      "sha256": "ae34ef9c5a4c59be3d7cf34a3a08ed02bf30311f1873e2de91c7aa6f2a8d57a9"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/diagnose.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/egg31-unicode-mapping/diagnose.log",
+      "bytes": 4671,
+      "sha256": "1b25480d8f845ce9be03b3c9fff0d3b4e050cf618d99f259df975024110a59f6"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/diagnose.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/egg31-unicode-mapping/diagnose.py",
+      "bytes": 2665,
+      "sha256": "dd7053f6ebae3d3bbb8119fefa4d0fc43ddb022be1b66eb7f30e2b52c48fe91a"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/mapping-restored.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/egg31-unicode-mapping/mapping-restored.json",
+      "bytes": 29,
+      "sha256": "7a37e7db628a6264b77f3034995d13a5cb8d7907d4deb547c058fc25c1a64b17"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/root-cause.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/egg31-unicode-mapping/root-cause.json",
+      "bytes": 1392,
+      "sha256": "66a951259afdf3e32aa2e541d5be36d2a1ba26d2ec5e7c6c291d4001e6d17572"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/source-and-packages.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/egg31-unicode-mapping/source-and-packages.txt",
+      "bytes": 310,
+      "sha256": "2b5e9bd847bd2ee33f0b5dadebb1a21556079acd96c248ee8c7a555953ac633e"
+    },
+    {
+      "source": "runtime-data/gpu1-acceptance/operator-audit/egg31-unicode-cycle-20261017/stable-results.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/egg31-unicode-mapping/stable-results.json",
+      "bytes": 7128,
+      "sha256": "bd08f851f677c7ffcf8ee980a5fcc0d05d64cc8c2d021f2ac50d4fba1b21d0c2"
+    }
+  ]
+}

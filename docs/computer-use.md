@@ -696,6 +696,15 @@ The family is offered from positive write capabilities even when model-context
 compression omits optional text-coverage metadata. Omitted coverage grants no
 input authority: the executor still reads and checks the full native state.
 
+`family: text_submit` adds explicit Return submission to full replacement. It
+requires one observed node identity with keyboard capability, verifies the
+requested text, then rechecks identity, scope, geometry, full value and focus
+before one guarded Return. Failed preparation never submits. The receipt
+retains an unknown post-submit effect: navigation, saving and document
+acquisition require their own fresh evidence. The live Ornith trial opened the
+official Python documentation, but its later trajectory failed; see the
+[reliability plan](computer-use-reliability-plan.md).
+
 Run `./scripts/validate.sh` for controller, adapter, session, policy, deployment,
 and existing media/tool regressions. Live fixture runners record actual
 completion evidence under ignored `runtime-data` directories. Live results

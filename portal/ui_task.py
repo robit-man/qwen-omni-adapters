@@ -239,6 +239,16 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
                 "required": ["kind", "subgoal"], "properties": {"kind": {"const": "ui_subgoal"}, "subgoal": text_family,
                     "remaining_criteria": copy.deepcopy(fallback["oneOf"][0]["properties"]["remaining_criteria"])},
                 "description": "For text replacement supply content and intent once; the controller chooses a strategy and verifies exact readback."})
+        submit_controls = [node for node in text_controls if "key_chord" in node["operations"]]
+        if submit_controls:
+            submit_family = copy.deepcopy(text_family)
+            submit_family["properties"]["family"] = {"const": "text_submit"}
+            submit_family["properties"]["target"] = target(
+                {"node_id": {"enum": [node["id"] for node in submit_controls]}}, ["node_id"])
+            branch = next(b for b in schema["oneOf"] if b["properties"]["kind"]["const"] == "ui_subgoal")
+            subgoal = branch["properties"]["subgoal"]
+            branch["properties"]["subgoal"] = {"oneOf": [*subgoal.get("oneOf", [subgoal]), submit_family]}
+            branch["description"] += " text_submit verifies replacement, presses Return once, then returns observed unknown consequences."
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
         return non_ui()
     return schema
@@ -276,7 +286,7 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
               "verification_receipt", "ui_state_receipt", "effect_receipt", "action_receipt",
               "policy_receipts", "point_receipts", "selection_receipts", "intent_selection_receipt", "evidence_authority", "resource", "stored",
               "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results",
-              "reading", "visual_inspection_receipt", "ui_boundary_receipt", "observed_changes", "text_entry_receipt")
+              "reading", "visual_inspection_receipt", "ui_boundary_receipt", "observed_changes", "text_entry_receipt", "text_submit_receipt")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
     if not _accepted_visual_reading(result):
         compact.pop("reading", None)
