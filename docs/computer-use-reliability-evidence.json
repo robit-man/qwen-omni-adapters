@@ -772,6 +772,46 @@
         "The next isolated repair concerns the 10-second policy HTTP deadline versus the backend 30-second compute watchdog. The exact failed request subsequently returned HTTP 200 in 1.24 seconds; the temporary latency cause remains unproven."
       ],
       "archive_manifest": "docs/research/computer-use-narrow-pointer-2026-10-17.manifest.json"
+    },
+    {
+      "cycle": "6k",
+      "status": "POLICY_DEADLINE_GATES_PASSED_LIVE_TASK_FAILED",
+      "post_tests": 4207,
+      "validation_seconds": 132.42,
+      "task_signature_sha256": "94dcbb542d113d903bfb9a982c57c59e67372b6606ad74490db0afea037cd155",
+      "task_requirements_changed": false,
+      "actual_ornith_requests": 17,
+      "actual_Kev_requests": 3,
+      "valid_Kev_replies": 3,
+      "actual_Moondream_calls": 0,
+      "completed_native_phases": 10,
+      "narrow_pointer_resolutions": 3,
+      "actual_pointer_click_dispatches": 2,
+      "pointer_move_rejected": 1,
+      "method_receipt": {
+        "verified": false,
+        "unique_dispatched_inputs": 6,
+        "same_owned_scope": false,
+        "actual_keyboard": false,
+        "actual_pointer": true,
+        "actual_pointer_movement": true,
+        "tools_within_scope": true,
+        "gui_code_or_macro_audit": "pending_independent_review"
+      },
+      "elapsed_s": 120.46692359499866,
+      "whole_task_pass": false,
+      "owned_windows_closed": true,
+      "downstream_idle": true,
+      "input_sources_unchanged": true,
+      "GPU_workers_unchanged": true,
+      "final_message": "Native task callback failed: NativeUiUnavailable (native_active_window_unavailable)",
+      "findings": [
+        "A real delayed HTTP regression crossed the old ten-second cutoff and consumed one valid response with no retry. The bounded production read deadline is now 35 seconds, above the backend 30-second compute watchdog.",
+        "The unchanged live task received three valid Kev abstentions and exercised three narrow Ornith resolutions; two real clicks opened Input and the editor Open popover. No required output files were produced.",
+        "The rejected Main menu click had target center (757,55); the independent pointer observer recorded that exact location. Pointer-window or timing conditions, rather than coordinate placement alone, require isolation. No button dispatch was reported for that attempt.",
+        "The later switch from the open editor popover failed native active-window observation. No causal explanation is established yet. Nine post-tool screenshot frames were captured read-only and never supplied as solver guidance."
+      ],
+      "archive_manifest": "docs/research/computer-use-policy-deadline-2026-10-17.manifest.json"
     }
   ]
 }

@@ -52,7 +52,11 @@ class SystemOneUiProvider:
             raise ComputerUseError("Invalid computer-use policy mode or threshold")
         self.url, self.mode, self.threshold = url.rstrip("/"), mode, threshold
         self.model = model
-        self.client = client or httpx.Client(timeout=10)
+        # The local decision worker permits a 30-second compute interval. A
+        # shorter read deadline discards its eventual answer and can provoke a
+        # second request while the first is still running. Keep connection/body
+        # waits short, but allow that bounded compute interval plus bookkeeping.
+        self.client = client or httpx.Client(timeout=httpx.Timeout(35, connect=3, write=10, pool=3))
         self.last_decision: dict[str, Any] = {}
 
     def decide(self, state: dict[str, Any], actions: list[dict[str, Any]], *,

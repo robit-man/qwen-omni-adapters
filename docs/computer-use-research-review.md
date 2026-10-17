@@ -192,3 +192,15 @@ unnecessary window click and overstated predicted effects remained; predictions
 therefore grant no verification credit. This supports a bounded context-reduction
 experiment, not general desktop competence. Captured JSON ordering limits and
 all failed variants are [preserved in the durable record](research/computer-use-control-interpretation-2026-10-17.manifest.json).
+
+## Policy timing and live pointer evidence
+
+The [deadline repair record](research/computer-use-policy-deadline-2026-10-17.manifest.json)
+preserves 77 more files, including the real HTTP regression, exact model
+requests/responses, native states and nine read-only post-tool screenshots. The
+client now waits beyond the backend compute watchdog. The full task still
+failed: three valid Kev deferrals reached slow-model resolution, two actual
+clicks occurred, and no deliverables were created. The failed Main menu move
+was independently observed at its intended coordinates; its pointer-window
+binding and the later active-window loss need separate diagnosis. This evidence
+does not establish the cause of the earlier transient policy slowdown.

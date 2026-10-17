@@ -822,3 +822,9 @@ validator and native guards. A `replan` choice supplies bounded model feedback
 to ordinary planning and removes that declined recovery bank from the current
 decision schema. Caller policy, native `think`, options, deadline and cancellation
 remain in effect for every request.
+
+The local fast-policy HTTP client allows 35 seconds for a response, exceeding
+the resident policy worker's 30-second compute watchdog. Connect, write and
+pool waits remain separately bounded. This avoids abandoning still-running
+policy work at the former ten-second read cutoff; it adds no retries and does
+not change probability thresholds, response validation or input guards.

@@ -1,0 +1,472 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline",
+  "scope": "Policy deadline repair and unchanged LHN-001 live task failure with read-only screenshots",
+  "file_count": 77,
+  "total_bytes": 8957023,
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/live.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/live.log",
+      "bytes": 36,
+      "sha256": "d9ecf5ee17c3b32c3e93ec5e2db6897334af13c44100258fcfa86019080175c3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/screen-observer.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/screen-observer.log",
+      "bytes": 73,
+      "sha256": "746f3e7dba6289370a6bd71404b1d225772eff63ff919561526e239ec5683b8a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/frontend-launch.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/frontend-launch.log",
+      "bytes": 433,
+      "sha256": "cb6f17ecba60d7937d0fed6cbaa394de27406674df7b3f891d934427f2b516aa"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/handoff.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/handoff.json",
+      "bytes": 1062,
+      "sha256": "2487d45f8c391697ff6b2628d86113710e73ec561b27e1bb9df1084b78cdbe53"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/reproduce.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/reproduce.log",
+      "bytes": 359,
+      "sha256": "8a6ac7b99bf8eb3ac47b85c0c59d17615200a7b9f50505bf37d9d3fdfa0c262a"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/passive-foreground-capture.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/passive-foreground-capture.json",
+      "bytes": 441596,
+      "sha256": "c9047953c1fcb9890ad7258cb1d16983b5d629dd212c0b3d0e06474542ba2dbf"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/doctor.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/doctor.json",
+      "bytes": 3625,
+      "sha256": "66e14d4c25e41a3657f432c074fedb7ab11e1e611ac433bb2c9ba1caa8cdc8b0"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/staged-source.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/staged-source.json",
+      "bytes": 1605,
+      "sha256": "583401972c40d5f356c13f8028fea685fa866056157309742bbd58bced0ab418"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/watch_owned_screen.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/watch_owned_screen.py",
+      "bytes": 1915,
+      "sha256": "22fd686688d1f4e1114e37bb904c9007486123ca1739d5bf95ccb1e143526443"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/handoff.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/handoff.log",
+      "bytes": 838,
+      "sha256": "2819764b14d6fca11eec00dd799534402b01aeb46dc5f7522a69c6b451bffa69"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/stage.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/stage.py",
+      "bytes": 3020,
+      "sha256": "6da0d5fd22611002f86318192486a7ad9db69d7cb2236d3be38b652701a206f9"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/broker-discovery.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/broker-discovery.json",
+      "bytes": 11551,
+      "sha256": "466d7694c45a5bd07cc46bd5546e87750d384f3ce79661a133660fb2119303d9"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/archive.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/archive.py",
+      "bytes": 4979,
+      "sha256": "9645859d72b06dd1f162b0ef3404bb80fa3220115760b0d0089d9ca9d875c1c6"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/exact-policy-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/exact-policy-request.json",
+      "bytes": 4707,
+      "sha256": "46e026b8f508577baf664748738ddfcbf336f7ee2bba812074347ac70ee0d468"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/passive_guard_capture.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/passive_guard_capture.py",
+      "bytes": 5666,
+      "sha256": "d0b982d056129693515743780781d6474c0adc89572d580b2dd4d0399307d889"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/reproduce.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/reproduce.py",
+      "bytes": 4177,
+      "sha256": "304ff3cfde689272c0e33eb36bc3d572e63594bf131115a7821aae7a3feb0594"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/after-test-notes.json",
+      "bytes": 2081,
+      "sha256": "4574619aadb815f5305c5fbbbd2a21a25c214ab565605f789b78b22c4ac1f1eb"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/handoff.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/handoff.py",
+      "bytes": 3062,
+      "sha256": "cf2e728cf1a80763b06e101326630016aa100b46c7bce864f62c8cd09af72950"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/reconstruction.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/reconstruction.json",
+      "bytes": 280,
+      "sha256": "262c0578ba2d1e1f776a62c76fcf2048e2a30f5402824f5a4f9060c6c40b2978"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/status.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/status.py",
+      "bytes": 970,
+      "sha256": "2aebab3cf96ffffd608dde089dafd9c8602a616b4b07d792a1526fc1451dde54"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/private_runner_bootstrap.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/private_runner_bootstrap.py",
+      "bytes": 590,
+      "sha256": "84cefd7170cbfc1e9c6f6d7f231d86ca7f1fb41c2711b0c1a41108f841f07a82"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/baseline-response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/baseline-response.json",
+      "bytes": 419,
+      "sha256": "05b3a4f55245e5f875a802c94b8543fa90b7a0fbdf7e7a35a75f48f029a3f5ac"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/baseline-request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/baseline-request.json",
+      "bytes": 4707,
+      "sha256": "46e026b8f508577baf664748738ddfcbf336f7ee2bba812074347ac70ee0d468"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/timing.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/timing.json",
+      "bytes": 155,
+      "sha256": "2245062a920e8a07c16f64ea14397d2a50ffa77bc70b1cb9acb7c755f9bc0799"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/run_live.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/run_live.py",
+      "bytes": 1011,
+      "sha256": "25f3e084617f57142104ae68585d438e7c43a828d7a7233a034aea32d4730f35"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/exact-policy-state.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/exact-policy-state.json",
+      "bytes": 135010,
+      "sha256": "195e47dd8c390a33115fda57d711b0a25d8e7c1ca2ce8b9c78b6b16fded4e29e"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/validation.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/validation.log",
+      "bytes": 4875,
+      "sha256": "66bc4e3b467c56c50fc351c5f2013361f45e5c184c68a3b516323f286a3ebb15"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/input-integrity.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/input-integrity.json",
+      "bytes": 649,
+      "sha256": "a5aa44619c1cd53af2c0a9f5aa76792019e5cf2f6959b913bcdb83728908be18"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/readiness/DERIVED-PROVENANCE.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/readiness/DERIVED-PROVENANCE.json",
+      "bytes": 270,
+      "sha256": "cf71756ea9299e597ecae4c9614d59c4bf55b5222f1a3445f444bd0dd91712b3"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/readiness/readiness.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/readiness/readiness.json",
+      "bytes": 480,
+      "sha256": "d2cd26bb443531477c7fff07265afbd24669988fb26c97302e5d2f465d260024"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/readiness/python-prerequisite-proof.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/readiness/python-prerequisite-proof.json",
+      "bytes": 2689,
+      "sha256": "7ca5fb41398732ad162ace02507faab23473a2024761b23b0bb779e8ced390ad"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/readiness/python-versioned-source-pack.zip",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/readiness/python-versioned-source-pack.zip",
+      "bytes": 192066,
+      "sha256": "0a5167baa1b01cf5ec43d8b57ee355463cca87ce09ebc3a63820dfe53137811b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/owned-screen-observation/74e161b9a98957f8f273a16fe51c48ff6a126be76940c06248156d5f4732c125.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/owned-screen-observation/74e161b9a98957f8f273a16fe51c48ff6a126be76940c06248156d5f4732c125.png",
+      "bytes": 57913,
+      "sha256": "74e161b9a98957f8f273a16fe51c48ff6a126be76940c06248156d5f4732c125"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/owned-screen-observation/1e82cfdfc56454bd051900015c4340596379a7058713bbb19b6021931ff829fd.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/owned-screen-observation/1e82cfdfc56454bd051900015c4340596379a7058713bbb19b6021931ff829fd.png",
+      "bytes": 97094,
+      "sha256": "1e82cfdfc56454bd051900015c4340596379a7058713bbb19b6021931ff829fd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/owned-screen-observation/8a9de87cc0de01e05e2bff41d864260825aa8291dd0bcee927b10fd95eafa199.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/owned-screen-observation/8a9de87cc0de01e05e2bff41d864260825aa8291dd0bcee927b10fd95eafa199.png",
+      "bytes": 64259,
+      "sha256": "8a9de87cc0de01e05e2bff41d864260825aa8291dd0bcee927b10fd95eafa199"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/owned-screen-observation/8cc5b29c32c3ef3f211867e5b41f197381592f1950bbea8c35492a2c23c5a271.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/owned-screen-observation/8cc5b29c32c3ef3f211867e5b41f197381592f1950bbea8c35492a2c23c5a271.png",
+      "bytes": 56015,
+      "sha256": "8cc5b29c32c3ef3f211867e5b41f197381592f1950bbea8c35492a2c23c5a271"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/owned-screen-observation/7f979649189148e31feef43bdd9597e4586eaa1bd7163d831c649ce536abb35b.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/owned-screen-observation/7f979649189148e31feef43bdd9597e4586eaa1bd7163d831c649ce536abb35b.png",
+      "bytes": 99561,
+      "sha256": "7f979649189148e31feef43bdd9597e4586eaa1bd7163d831c649ce536abb35b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/owned-screen-observation/9c4c6a14c9a48521536c8a0c293b19204428be988940c7a36b9fb2694ae77929.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/owned-screen-observation/9c4c6a14c9a48521536c8a0c293b19204428be988940c7a36b9fb2694ae77929.png",
+      "bytes": 109618,
+      "sha256": "9c4c6a14c9a48521536c8a0c293b19204428be988940c7a36b9fb2694ae77929"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/owned-screen-observation/0ab5060decb07528bfb73f900d8d8abc6ba615695426c3d824d702884f14ab66.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/owned-screen-observation/0ab5060decb07528bfb73f900d8d8abc6ba615695426c3d824d702884f14ab66.png",
+      "bytes": 97241,
+      "sha256": "0ab5060decb07528bfb73f900d8d8abc6ba615695426c3d824d702884f14ab66"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/owned-screen-observation/02eacdc05f198e039c7b08e52262cb1d445b1408f7ddcbc98d0d6f36510a9888.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/owned-screen-observation/02eacdc05f198e039c7b08e52262cb1d445b1408f7ddcbc98d0d6f36510a9888.png",
+      "bytes": 64244,
+      "sha256": "02eacdc05f198e039c7b08e52262cb1d445b1408f7ddcbc98d0d6f36510a9888"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/owned-screen-observation/ba798283c7a88ec3231e840066b1ad7f005978149ed9a0754e7603b58ded999b.png",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/owned-screen-observation/ba798283c7a88ec3231e840066b1ad7f005978149ed9a0754e7603b58ded999b.png",
+      "bytes": 54911,
+      "sha256": "ba798283c7a88ec3231e840066b1ad7f005978149ed9a0754e7603b58ded999b"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/owned-screen-observation/observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/owned-screen-observation/observations.jsonl",
+      "bytes": 3265,
+      "sha256": "9a91be73811e19f3cbf35df824515689f6b40dcd6c56a4b1a48593dfd415743d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/candidate-source/portal/computer_use.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/candidate-source/portal/computer_use.py",
+      "bytes": 72452,
+      "sha256": "f5a073107e1487b5033926ab7a357a69a17cc5a4b24ac6e287aa7330a52774b5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/policy-deadline-cycle-20261017/candidate-source/tests/test_ui_policy_response_deadline.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/audit/candidate-source/tests/test_ui_policy_response_deadline.py",
+      "bytes": 2438,
+      "sha256": "512030da1e9418ce7612f8805e35d64da047a7ded15eff8b411b88ba458e7443"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/window-ownership.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/window-ownership.json",
+      "bytes": 1209,
+      "sha256": "303a11ebed60a6c54ed611417a3610f9437de9344865a50c35bc60ac13528ef9"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/summary.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/summary.json",
+      "bytes": 94655,
+      "sha256": "2c803d768cb3a328c7e97af192c2efe52a0960d3f0aaeb6cd578fe125e3dc51f"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/initial-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/initial-native.json",
+      "bytes": 147863,
+      "sha256": "2b60dc89e436d11393bf8b353c989f054e26c8eb3acd2857f3ad0e442818c3ff"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/files0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/files0.log",
+      "bytes": 77,
+      "sha256": "9867cd557bea568f7a0f39dba245f3b65ae9210de6bac39db9daa18ff704b1e3"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/native-outcomes-index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/native-outcomes-index.json",
+      "bytes": 17266,
+      "sha256": "ad07b4387abf3ad044db8949fa8963383934cd0d563b5f00430d6084f78f8345"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/request-payload.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/request-payload.json",
+      "bytes": 2699,
+      "sha256": "1992a20a97d4650d0b218cbc9c953784ea031d31b93ab2ae424ad7eb5812c33a"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/metrics.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/metrics.json",
+      "bytes": 3407,
+      "sha256": "ddd897b17336dd470dfac827969d22cc392f94c2cc91fc3ac0d40859f60de217"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/goal.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/goal.txt",
+      "bytes": 1591,
+      "sha256": "e2fb49156854071ef12d32c7fee386897a2edc6b6f24791a9d4e988549138c22"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/evidence-manifest.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/evidence-manifest.json",
+      "bytes": 4474,
+      "sha256": "e7f27c883be181e8746f1bd7b59a4ea2bf3673e26f84b8889e1c7a72a91260b4"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/ui-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/ui-observations.jsonl",
+      "bytes": 750096,
+      "sha256": "6298c7f6c85ad7ee53ecd24be605421c87e3dc9e5b67e4249cc2464124010b3d"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/gedit0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/gedit0.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/final-native.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/final-native.json",
+      "bytes": 1247,
+      "sha256": "304b1fa9aa0c6cf0724f72567240347832e5745389505480f27902e4a1c1493a"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/readiness-requirements.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/readiness-requirements.json",
+      "bytes": 493,
+      "sha256": "b93df08e4f82160ea123e6caf575e66cfd56a45cbfbc30e8651bc80f9d670f23"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/events.ndjson",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/events.ndjson",
+      "bytes": 2106262,
+      "sha256": "d60e8a942c2cdd79e08e61510e4275d5d05b3be9ef7c8018d530bed66cfbe5bf"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/setup-native-observations.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/setup-native-observations.json",
+      "bytes": 256702,
+      "sha256": "00dc137dd60d808382ef463a1c098b8ab11e17caa62823c09806df441aae30a3"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/milestones.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/milestones.jsonl",
+      "bytes": 510809,
+      "sha256": "0d6e42c92133a0dad0e752aa1fb0cbe9d9fbd84edcf5fff223016f324f6adcf8"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/after-test-note.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/after-test-note.json",
+      "bytes": 1651,
+      "sha256": "622632be36323b90130d543324dfa4677ddabad45889377a47fbbd8a20df1242"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/pointer-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/pointer-observations.jsonl",
+      "bytes": 44347,
+      "sha256": "b1ca802af42134a431b5d57f5fed7a20cebfcb5e8594d58c4e1d316739f1e943"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/browser0.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/browser0.log",
+      "bytes": 640,
+      "sha256": "849c1c1eeb7d400b1f2fe156fa0f8f5c20a7c6bad182d20ae95ec68647d3047b"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/receive-timing.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/receive-timing.jsonl",
+      "bytes": 8956,
+      "sha256": "2ce67ad1bbcf61268da7de24c31191757e17698934ace20846f9b2bd7100bdf8"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/host-source-evidence/index.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/host-source-evidence/index.json",
+      "bytes": 864,
+      "sha256": "4591623c81ef8ff5826d91cd4a6e92be5c238c434566bf42934b0c690eca731f"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/host-source-evidence/readiness-pack.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/host-source-evidence/readiness-pack.json",
+      "bytes": 480,
+      "sha256": "d2cd26bb443531477c7fff07265afbd24669988fb26c97302e5d2f465d260024"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/host-source-evidence/proof-00.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/host-source-evidence/proof-00.json",
+      "bytes": 2689,
+      "sha256": "7ca5fb41398732ad162ace02507faab23473a2024761b23b0bb779e8ced390ad"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/host-source-evidence/source-00.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/host-source-evidence/source-00.bin",
+      "bytes": 192066,
+      "sha256": "0a5167baa1b01cf5ec43d8b57ee355463cca87ce09ebc3a63820dfe53137811b"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/Workbench/Input/examples.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/Workbench/Input/examples.json",
+      "bytes": 626,
+      "sha256": "a554c9fbe1ab6a4bb6f55e3cead75131ad1381a1c3703a9895e63ca9d7de8888"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/Workbench/Input/task-brief.txt",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/Workbench/Input/task-brief.txt",
+      "bytes": 1474,
+      "sha256": "c0a2d993d6774a86d11a0e571c3ff4ce9c8b3cae575ff7c0dde9c5797e36a80c"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-policy-deadline-20261017/Workbench/Input/migration-brief.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-case/Workbench/Input/migration-brief.json",
+      "bytes": 288,
+      "sha256": "d1ffe71ccfaa091d7bb58f4c9cb659f0a3f730ae6742986c49a3383ca2dba6e8"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/actual-imports.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-frontend/actual-imports.json",
+      "bytes": 2330,
+      "sha256": "cb9646c49f19a297886aff200424e567b14e88fba835ebaa9879b0c3d3cb7d07"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/adapter-planner-packets.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-frontend/adapter-planner-packets.jsonl",
+      "bytes": 909382,
+      "sha256": "4adf093dc5e7fa3019a274ca5d9038bce5d83053a26903cc2fe10a58803623a2"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/adapter-phase-responses.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-frontend/adapter-phase-responses.jsonl",
+      "bytes": 40212,
+      "sha256": "713c8013a7ac509fc33a033f5c37bb5ea0397eed6024eb23d0a80fca67aa218a"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/controller-observations.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-frontend/controller-observations.jsonl",
+      "bytes": 2050549,
+      "sha256": "8b5818b3032a2ed8af2a5aee7b87f2fb44def3c5e47d16e5c6d85349f0486ec1"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/history-metrics.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-frontend/history-metrics.jsonl",
+      "bytes": 12176,
+      "sha256": "b5afdcf30f40f4cf3cddd19d8b788044cee662a6cf2500e13c7c32d6a3c0bb73"
+    },
+    {
+      "source": "/tmp/qwen-policy-deadline-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T060432916346Z/scope-read-observer.jsonl",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/policy-deadline/live-frontend/scope-read-observer.jsonl",
+      "bytes": 175476,
+      "sha256": "2acc4e920b799f93d25e38fe75ec6187a031a55864f4007cd10e9f9dad0bda19"
+    }
+  ]
+}
