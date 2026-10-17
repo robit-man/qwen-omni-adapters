@@ -173,6 +173,7 @@ held-out live evidence.
 | 6j. Narrow primitive resolution | Contract/model comparisons passed; live path unexercised | All 4,206 tests and 8 grammar cases/model passed. Twenty-six captured-state model comparisons are preserved; a narrow named-operation choice selected folder double-click and single Open activation, while window selection remained imperfect. The unchanged live task failed before recovery because Kev requests timed out/rejected; zero inputs. [Comparisons](research/computer-use-control-interpretation-2026-10-17.manifest.json), [implementation/live record](research/computer-use-narrow-pointer-2026-10-17.manifest.json). |
 | 6k. Policy request deadline | Contract and live escalation passed; whole task failed | All 4,207 tests passed, including a real HTTP reply beyond the old deadline. The unchanged live task received three valid Kev replies and three narrow resolutions; two clicks opened Input and the editor Open popover. The Main menu move reached the recorded target coordinates but failed binding verification; a later window switch lost native active-window observation. No outputs; all owned windows closed and input hashes unchanged. [Durable record](research/computer-use-policy-deadline-2026-10-17.manifest.json). |
 | 6g. Sampling transport | Contract and loaded transport passed | All 4,161 tests passed. An actual call through the patched adapter implementation matched all ten requested sampler values in the GPU 1 worker’s native slot parameters. Caller defaults and `think` remain unchanged; no whole-task credit. [Durable record](research/computer-use-sampling-transport-2026-10-17.manifest.json). |
+| 6l. Popup switching prerequisite | Corrected native provider passed; whole task failed | All 4,221 tests passed. Fresh native popup relations and exact accessible child membership withhold window switching until a separately guarded dismissal. The real provider rejected the blocked switch without input, dispatched Escape, restored switching and passed three subsequent Files readbacks. The unchanged Ornith task made 19 model requests, one pointer click and four window switches, but opened no popup and produced no outputs. Its failure does not exercise the guard. [All failed candidates, provider proof and live record](research/computer-use-popup-prerequisite-2026-10-17.manifest.json). |
 | Remaining 2, 4, 6–8 | Pending | Insertion and partial selection replacement, broader recovery/delegation, context expansion, reusable task sequences and whole-task acceptance remain incomplete. Separately bound primitive-choice boundaries retain their existing freshness behavior. |
 
 Observed deployment blocker: Egg .31 deployed 31fc3a3 after 4,060 checks passed, then reproduced the actual XTEST Unicode failure (`café\nnaïve` becomes `café\nnave`) during the a13f410 update, with 4,059 other tests passing. The isolated nine-case recheck had passed; no transport fix is claimed. Its updater stopped before replacing the active runtime. Egg .41 adopted a13f410 while preserving its paused core.
@@ -183,3 +184,30 @@ Holding distinct unused mappings for é and ï through recipient readback passed
 all four matched trials, including two deliberately delayed recipients. The exact
 original keymap was restored. This isolates mapping lifetime/reuse as the repair
 target; production transport remains unchanged. [Durable evidence](research/egg31-unicode-mapping-2026-10-17.manifest.json).
+
+## 6l. Popup prerequisite for native window switching
+
+Acceptance: switching applications while a current owned popover is open must
+not leave X11 activation and the accessible input owner inconsistent. Keep the
+current observable state usable and allow a separately guarded dismissal before
+switching. Do not manufacture an active accessibility window or retry input.
+
+Evidence: `pointer-delivery-cycle-20261017/fixed-switch-diagnostic` reproduced
+ten failed reads with only 29 visited nodes after an editor popover remained
+visible over Files. `focus-binding` reproduced three failures, then three
+successful reads after reactivating the owned editor, sending one guarded
+Escape, and switching to the same Files window. Ordinary X11 keyboard-focus
+queries followed Files even during the failure; they do not detect this grab.
+GTK's Popover documentation describes input grabs and Escape dismissal. The
+acquired documentation and pinned GTK 4.14.5 source are retained with the audit.
+
+Bounded hypothesis: derive open popup evidence from native HAS_POPUP /
+CONTROLLER_FOR relations with visible ancestry in the current owned window.
+Require exact current parent-child membership as well: retained hidden GTK
+objects can report visible flags and parent pointers. Withhold switch
+capabilities while positive popup evidence exists and recheck
+before dispatch. Preserve popup controls and a separate guarded Escape choice.
+No application-name rules, unscoped input, implicit dialog cancellation, or
+relaxed ownership checks. Validate negative controls and real editor switching,
+then run one unchanged loaded-Ornith LHN-001 window. The earlier intermittent
+pointer-window rejection remains a separate, unproven cause.

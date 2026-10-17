@@ -828,3 +828,14 @@ the resident policy worker's 30-second compute watchdog. Connect, write and
 pool waits remain separately bounded. This avoids abandoning still-running
 policy work at the former ten-second read cutoff; it adds no retries and does
 not change probability thresholds, response validation or input guards.
+
+Native popup relations gate application switching. A control's AT-SPI
+`HAS_POPUP` state and `CONTROLLER_FOR` relation identify the popup; fresh visible
+ancestry and exact parent-child membership bind it to the current window.
+Retained hidden GTK objects, unrelated scrollbar relations and other windows do
+not establish an open popup. Positive evidence appears as `open_popups` and
+withholds `switch_window`; popup controls and guarded keyboard input remain
+available. The planner can complete the interaction or request Escape, observe
+its effect, and then select a fresh switch. The executor checks again before
+activation. It never sends an implicit Escape or treats X11 activation alone as
+proof that an input grab ended.

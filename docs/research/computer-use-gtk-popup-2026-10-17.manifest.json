@@ -1,0 +1,39 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/gtk-popup-research",
+  "file_count": 5,
+  "total_bytes": 154921,
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-delivery-cycle-20261017/research/source-1.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/gtk-popup-research/source-1.bin",
+      "bytes": 7446,
+      "sha256": "f9fd923556dfeb940fbb15aeebeb770a72263025e05bc360eead4b959313bcfd"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-delivery-cycle-20261017/research/source-0.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/gtk-popup-research/source-0.bin",
+      "bytes": 65467,
+      "sha256": "4f9d152566c136f8ef7a8663880ea7882b957750c5116067df82261f20b03af5"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-delivery-cycle-20261017/research/sources.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/gtk-popup-research/sources.json",
+      "bytes": 885,
+      "sha256": "5767f31b5ecaa517b0b1b14d7f2067b0ff07aaf8f1cb8cde0ded5bf7be0eed29"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-delivery-cycle-20261017/research/source-2.bin",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/gtk-popup-research/source-2.bin",
+      "bytes": 79801,
+      "sha256": "2beb4dee7878c7cea76d0141b8e8255a9173076c6b4a46c258c3faaf5f689040"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/pointer-delivery-cycle-20261017/research/findings.md",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/gtk-popup-research/findings.md",
+      "bytes": 1322,
+      "sha256": "89e559d76301d3c3d347946acd4b4500e79b920050dd39ff12c92eca7aab2527"
+    }
+  ]
+}

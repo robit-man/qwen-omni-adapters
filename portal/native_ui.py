@@ -1923,6 +1923,72 @@ class _AtspiBridge:
                     matches.append(window_id)
         return matches[0] if len(matches) == 1 else None
 
+    def _open_popups(self, nodes: list[dict], handles: dict, window: Any) -> list[dict]:
+        """Positive native popup evidence, never inferred from a label or toggle."""
+        flag = getattr(self.atspi.StateType, "HAS_POPUP", None)
+        relation_type = getattr(getattr(self.atspi, "RelationType", None), "CONTROLLER_FOR", None)
+        if flag is None or relation_type is None:
+            return []
+        def identity(node):
+            return self._read(lambda: (node.app.bus_name, node.path))
+        root = identity(window)
+        popups = []
+        for item in nodes:
+            if (item["role"] not in {"button", "combobox", "textbox"}
+                    or not item["visible"] or item["sensitive"] or item["id"] not in handles):
+                continue
+            control = handles[item["id"]][0]
+            self._clear_cache(control)
+            if not self._read(control.get_state_set).contains(flag):
+                continue
+            relations = self._read(control.get_relation_set)
+            if len(relations) > 16:
+                raise NativeUiUnavailable("native_popup_relations_unavailable")
+            for relation in relations:
+                if self._read(relation.get_relation_type) != relation_type:
+                    continue
+                count = self._read(relation.get_n_targets)
+                if not 0 <= count <= 16:
+                    raise NativeUiUnavailable("native_popup_relations_unavailable")
+                for index in range(count):
+                    target = self._read(lambda r=relation, i=index: r.get_target(i))
+                    ancestor, visited = target, set()
+                    # GTK may mark children SHOWING beneath a hidden popover;
+                    # every ancestor must be freshly visible up to this frame.
+                    for _ in range(32):
+                        if ancestor is None:
+                            break
+                        raw = identity(ancestor)
+                        if raw in visited or raw[0] != root[0]:
+                            break
+                        visited.add(raw)
+                        self._clear_cache(ancestor)
+                        state = self._read(ancestor.get_state_set)
+                        if state.contains(self.atspi.StateType.DEFUNCT) or not all(state.contains(s) for s in (
+                            self.atspi.StateType.VISIBLE, self.atspi.StateType.SHOWING,
+                        )):
+                            break
+                        if raw == root:
+                            popups.append({"controller_id": item["id"], "authority": "native_popup_relation"})
+                            break
+                        parent = self._read(ancestor.get_parent)
+                        if parent is None:
+                            break
+                        # Retained hidden GTK popups can report visible flags
+                        # and a parent while being absent from its child list.
+                        # Require the current accessible edge, not ancestry alone.
+                        self._clear_cache(parent)
+                        index = self._read(ancestor.get_index_in_parent)
+                        if type(index) is not int or not 0 <= index < min(self._count(parent), self.MAX_CHILDREN):
+                            break
+                        child = self._read(lambda p=parent, i=index: p.get_child_at_index(i))
+                        if child is None or identity(child) != raw:
+                            break
+                        ancestor = parent
+                    if len(popups) > 16:
+                        raise NativeUiUnavailable("native_popup_relations_unavailable")
+        return popups
+
     def _window_visibility(self, process_id: int, *, history: OrderedDict | None = None,
                            generations: dict[str, int] | None = None) -> list[dict[str, Any]]:
         """Fresh flags for known windows; retained handles never authorize input."""
@@ -2311,6 +2377,13 @@ class _AtspiBridge:
         visibility = self._window_visibility(process_id, history=history, generations=generations)
         if window_target is not None:
             visibility = [record for record in visibility if record["id"] in windows]
+        popups = self._open_popups(nodes, handles, windows[window_id])
+        if popups:
+            # A window-manager activation can leave a GTK popup's input grab
+            # alive, making the new application's native state unavailable.
+            # Keep dismissal as its own guarded input and fresh observation.
+            for item in nodes:
+                item["operations"] = [verb for verb in item["operations"] if verb != "switch_window"]
         payload = {
             "session_id": self.session_id,
             "scope": {"id": window_id, "kind": "desktop", "provider": "atspi2",
@@ -2324,6 +2397,8 @@ class _AtspiBridge:
                 str(node.get("value", node["name"])) for node in nodes if not node["sensitive"]
             )[:32768],
         }
+        if popups:
+            payload["open_popups"] = popups
         payload["document_evidence"] = self._document_evidence(windows[window_id], window_id, handles, generations)
         if payload["document_evidence"]["status"] == "observed":
             payload["scope"]["url"] = payload["document_evidence"]["url"]
@@ -2387,6 +2462,8 @@ class _AtspiBridge:
 
         if action.get("session_id") != self.session_id:
             return reject("native_session_mismatch")
+        if switching and before.get("open_popups"):
+            return {**reject("native_popup_requires_dismissal"), "input_attempted": False}
         if (
             action.get("revision") != before["revision"]
             or action.get("scope_id") != before["scope"]["id"]
@@ -2646,6 +2723,10 @@ class _AtspiBridge:
                             or (namespace_binding["identity"]["window_id"] if namespace_binding else self._mapped_window(node, owner)) != expected["window_id"]
                             or self.foreground() != self.foreground_identity):
                         return reject("native_switch_window_mapping_changed")
+                    if self._open_popups(before["nodes"], self.handles, window):
+                        return {**reject("native_popup_requires_dismissal"), "input_attempted": False}
+                    if self.foreground() != self.foreground_identity:
+                        return reject("native_foreground_changed_before_dispatch")
                     result = subprocess.run(["xdotool", "windowactivate", "--sync", xid],
                                             capture_output=True, timeout=2, check=False)  # noqa: S603
                     return result.returncode == 0

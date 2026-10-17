@@ -204,3 +204,25 @@ clicks occurred, and no deliverables were created. The failed Main menu move
 was independently observed at its intended coordinates; its pointer-window
 binding and the later active-window loss need separate diagnosis. This evidence
 does not establish the cause of the earlier transient policy slowdown.
+
+## Popup grabs and window switching
+
+The [GTK source archive](research/computer-use-gtk-popup-2026-10-17.manifest.json)
+contains official Popover documentation and the GTK 4.14.5 implementation,
+matching this host's installed library series. GTK describes default popover
+input grabs and Escape dismissal. In the native reproduction, activating Files
+while the editor Open popover remained visible left all ten reads without an
+active accessibility frame; only 29 nodes were visited. X11 active-window and
+keyboard-focus queries followed Files and did not diagnose the grab.
+
+Reactivating the owned editor, issuing a guarded Escape, and switching to Files
+changed three failed reads to three successful reads. A first guard using visible
+flags and parent pointers falsely classified retained hidden popups as open.
+Requiring current accessible parent-child membership corrected that false
+positive. This is a verified provider mechanism, not whole-task or model credit;
+the source and live experiments remain separate from long-horizon acceptance.
+The [262-file experiment archive](research/computer-use-popup-prerequisite-2026-10-17.manifest.json)
+retains the rejected candidate, corrected provider check and unchanged Ornith
+task failure. The latter did not open a popup, so it supplies no end-to-end
+exercise of the new guard. All archive bytes were flushed and hashed after
+readback outside runtime cleanup.
