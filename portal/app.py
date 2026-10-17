@@ -2378,8 +2378,10 @@ def create_app(
                 "separate from actual observed referents and host outcome facts. Assess the latest host outcome "
                 "against that commitment. After a failure, unknown effect or abstention, recover or block "
                 "rather than treating the previous plan as accomplished. A changed commitment cannot erase "
-                "host failures or reset no-progress. For boundary/subgoal phases use the same objective in "
-                "the commitment and phase. A repeated historical receipt is not a new input or a freshly "
+                "host failures or reset no-progress. When the phase contains an objective, supply it only "
+                "there; its commitment contains intended_resource and unmet_constraints. Other phases "
+                "require commitment.objective. The host records the phase objective as the commitment. "
+                "A repeated historical receipt is not a new input or a freshly "
                 "measured obstruction. Existing phase actions and all executor guards remain unchanged.")
             caller_policy = "\n\n".join(str(message.get("content") or "")
                 for message in raw_messages if isinstance(message, Mapping) and message.get("role") == "system")

@@ -58,7 +58,8 @@ def _working_reply(request, plan):
     objective = plan.get("objective", plan.get("subgoal", {}).get("objective", "Write and commit the reference note"))
     return {"assessment": {"source_epoch": state["source_epoch"], "source_phase": state["source_phase"],
                             "decision": decision, "summary": "Assess the latest host result; this is a fixture claim."},
-            "commitment": {"objective": objective, "intended_resource": "owned fixture resource", "unmet_constraints": []},
+            "commitment": {**({} if "objective" in plan or plan["kind"] == "ui_subgoal" else {"objective": objective}),
+                           "intended_resource": "owned fixture resource", "unmet_constraints": []},
             "phase": copy.deepcopy(plan)}
 
 

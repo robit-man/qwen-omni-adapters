@@ -20,7 +20,8 @@ def envelope(packet, plan, *, decision=None, objective="Write and commit the own
                     "start" if state["source_phase"] == 1 else "recover" if state["recovery_mode"] else "continue")
     return {"assessment": {"source_epoch": state["source_epoch"], "source_phase": state["source_phase"],
                             "decision": decision, "summary": "Assess the latest host receipt without claiming task completion."},
-            "commitment": {"objective": objective, "intended_resource": resource, "unmet_constraints": ["Verify actual delivery"]},
+            "commitment": {**({} if "objective" in plan or plan["kind"] == "ui_subgoal" else {"objective": objective}),
+                           "intended_resource": resource, "unmet_constraints": ["Verify actual delivery"]},
             "phase": copy.deepcopy(plan)}
 
 
@@ -238,14 +239,65 @@ def test_working_state_keeps_forty_phase_ceiling_and_does_not_credit_knowledge_a
 
 
 @pytest.mark.parametrize("kind", ["ui_boundary", "ui_subgoal"])
-def test_boundary_objective_claim_cannot_conflict_with_actual_phase_objective(kind):
+def test_phase_owned_objective_rejects_duplicate_generation(kind):
     state = _NativeWorkingState(GOAL)
     plan = ({"kind": kind, "objective": "Actually requested objective"} if kind == "ui_boundary" else
             {"kind": kind, "subgoal": {"objective": "Actually requested objective"}})
     reply = envelope({"working_state": state.view(1, 0)}, plan, objective="A conflicting claim")
+    reply["commitment"]["objective"] = "A conflicting claim"
     with pytest.raises(ValueError, match="objective"):
         state.accept(reply)
     assert state.commitment is None and state.assessment is None
+
+
+@pytest.mark.parametrize("kind", ["ui_boundary", "ui_subgoal"])
+def test_phase_objective_has_one_source_and_host_preserves_its_exact_provenance(kind):
+    from test_grounded_first_step import node, observation
+
+    from portal.ui_task import _grounded_phase_schema
+
+    state = _NativeWorkingState(GOAL)
+    current = observation(node(role="button", name="Input", operations=("click", "double_click")))
+    schema = _working_phase_schema(ALLOWED, _grounded_phase_schema(ALLOWED, current, intent_choice=True), state.view(1, 0))
+    objective = "Open and read the input document to learn its source and delivery requirements."
+    plan = ({"kind": kind, "objective": objective, "step": {
+        "id": "open-input", "verb": "click", "target": {"name": "Input"}, "args": {}}}
+        if kind == "ui_boundary" else {"kind": kind, "subgoal": {
+        "id": "open-input", "family": "pointer_or_activation", "objective": objective,
+        "target": {"node_id": "current"}}})
+    reply = envelope({"working_state": state.view(1, 0)}, plan)
+    validator = Draft202012Validator(schema)
+    assert validator.is_valid(reply), list(validator.iter_errors(reply))
+    original = copy.deepcopy(reply)
+    state.accept(reply)
+    assert reply == original
+    assert state.commitment["objective"] == objective
+    assert state.commitment["objective_source"] == {
+        "path": "/objective" if kind == "ui_boundary" else "/subgoal/objective",
+        "source_phase": 1, "phase_sha256": state.digest(plan)}
+    assert state.commitment["input_authority"] is False
+    for duplicate in (objective, "A differently worded objective"):
+        invalid = copy.deepcopy(reply)
+        invalid["commitment"]["objective"] = duplicate
+        assert not validator.is_valid(invalid)
+
+
+def test_shadow_boundary_retains_its_one_explicit_commitment_objective():
+    from test_grounded_first_step import node, observation
+
+    from portal.ui_task import _grounded_phase_schema
+
+    state = _NativeWorkingState(GOAL)
+    current = observation(node(role="button", name="Input", operations=("click",)))
+    schema = _working_phase_schema(ALLOWED, _grounded_phase_schema(ALLOWED, current), state.view(1, 0))
+    plan = {"kind": "ui_boundary", "step": {
+        "id": "open-input", "verb": "click", "target": {"name": "Input"}, "args": {}}}
+    reply = envelope({"working_state": state.view(1, 0)}, plan)
+    assert Draft202012Validator(schema).is_valid(reply)
+    state.accept(reply)
+    assert state.commitment["objective"] == reply["commitment"]["objective"]
+    del reply["commitment"]["objective"]
+    assert not Draft202012Validator(schema).is_valid(reply)
 
 
 @pytest.mark.parametrize("objective,resource", [

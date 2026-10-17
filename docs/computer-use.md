@@ -360,7 +360,11 @@ starts, an unverified/failed/abstained outcome requires recovery or blocking,
 and a completion claim requires verification. An initial completion claim can
 use the current observation without fabricating an input. The commitment's
 objective, intended resource and unmet constraints are planner claims with no
-input authority; boundary/subgoal objectives must agree with the commitment.
+input authority. An objective-bearing boundary/subgoal supplies its objective
+once in the phase; its commitment contains only resource and constraints. The
+host copies that exact objective into persistent state with the source path,
+phase number and phase hash. Duplicate objective fields are rejected. Phases
+without their own objective retain one explicit commitment objective.
 Changing a claim cannot erase a host failure or reset an execution counter.
 The host validates the whole envelope before accepting its claims or executing
 the unchanged canonical phase. Its full decoder schema retains the 56 KiB cap;

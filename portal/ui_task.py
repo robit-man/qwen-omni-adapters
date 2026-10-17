@@ -486,10 +486,23 @@ def _working_phase_schema(allowed, phase_schema, state):
                 "intended_resource": {"type": "string", "maxLength": 512},
                 "unmet_constraints": {"type": "array", "maxItems": 10,
                     "items": {"type": "string", "minLength": 1, "maxLength": 240}}}}
+        phase_commitment = copy.deepcopy(definitions["native_commitment"])
+        phase_commitment["required"].remove("objective")
+        del phase_commitment["properties"]["objective"]
+        definitions["native_phase_commitment"] = phase_commitment
         options = []
         decisions = ["start"] if state["source_phase"] == 1 else ["recover"] if state["recovery_mode"] else ["continue", "advance"]
-        for decision, phase in [(decisions, {"$ref": "#/$defs/native_working_phase"}), *[
-            (["verify" if branch["properties"]["kind"]["const"] == "complete" else "blocked"], copy.deepcopy(branch))
+        working = definitions["native_working_phase"]["oneOf"]
+        groups = {False: [], True: []}
+        for index, branch in enumerate(working):
+            kind = branch["properties"]["kind"]["const"]
+            owns_objective = (kind == "ui_subgoal" or
+                              kind == "ui_boundary" and "objective" in branch.get("required", []))
+            groups[owns_objective].append({"$ref": f"#/$defs/native_working_phase/oneOf/{index}"})
+        choices = [(decisions, {"oneOf": refs}, owns_objective)
+                   for owns_objective, refs in groups.items() if refs]
+        for decision, phase, owns_objective in [*choices, *[
+            (["verify" if branch["properties"]["kind"]["const"] == "complete" else "blocked"], copy.deepcopy(branch), False)
             for branch in branches if branch["properties"]["kind"]["const"] == "blocked" or (
                 branch["properties"]["kind"]["const"] == "complete" and not state["recovery_mode"])]]:
             options.append({"type": "object", "additionalProperties": False,
@@ -500,7 +513,8 @@ def _working_phase_schema(allowed, phase_schema, state):
                             "source_phase": {"const": state["source_phase"]},
                             "decision": {"enum": decision},
                             "summary": {"type": "string", "minLength": 1, "maxLength": 500}}},
-                    "commitment": {"$ref": "#/$defs/native_commitment"}, "phase": phase}})
+                    "commitment": {"$ref": "#/$defs/native_phase_commitment" if owns_objective
+                                   else "#/$defs/native_commitment"}, "phase": phase}})
         return {"$defs": definitions, "oneOf": options}
     schema = wrap(phase_schema)
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
@@ -559,11 +573,17 @@ class _NativeWorkingState:
 
     def accept(self, reply):
         commitment, assessment, phase = reply["commitment"], reply["assessment"], reply["phase"]
+        objective_path = ("/objective" if phase["kind"] == "ui_boundary" and "objective" in phase else
+                          "/subgoal/objective" if phase["kind"] == "ui_subgoal" else None)
+        if objective_path is not None:
+            if "objective" in commitment:
+                raise ComputerUseError("Phase-owned objective must be supplied once, in the phase")
+            objective = phase["objective"] if objective_path == "/objective" else phase["subgoal"]["objective"]
+            commitment = {**commitment, "objective": objective,
+                "objective_source": {"path": objective_path, "source_phase": assessment["source_phase"],
+                                     "phase_sha256": self.digest(phase)}}
         if not commitment["objective"].strip() or not assessment["summary"].strip():
             raise ComputerUseError("Working commitment and assessment must be nonblank")
-        objective = phase.get("objective") if phase["kind"] == "ui_boundary" else phase.get("subgoal", {}).get("objective")
-        if objective is not None and objective != commitment["objective"]:
-            raise ComputerUseError("Boundary objective must equal the explicit active commitment")
         self.commitment = {**copy.deepcopy(commitment), "authority": "planner_claim", "input_authority": False}
         self.assessment = {**copy.deepcopy(assessment), "authority": "planner_claim", "input_authority": False}
 

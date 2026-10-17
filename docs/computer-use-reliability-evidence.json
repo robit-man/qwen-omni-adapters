@@ -30,6 +30,74 @@
       },
       "evidence_directory": "runtime-data/gpu1-acceptance/operator-audit/mandatory-value-cycle-20261017",
       "evidence_index_sha256": "8363adf4b1a32e6d31be1c411d01304335d2bff49f72487545152f04aac151a9",
+      "remote_adoption": {
+        "egg41": "deployed44c5643; paused core preserved",
+        "egg31": "1 failed,4004 passed; real XTEST Unicode caf\u00e9/newline/na\u00efve lost \u00ef; previous core remains active; untracked files preserved"
+      },
+      "whole_task_pass": false
+    },
+    {
+      "cycle": 2,
+      "plan_step": 5,
+      "criterion": "Generate phase-owned objective once; admit it without cross-field string equality",
+      "status": "SOURCE_AND_NATIVE_GRAMMAR_PASS_LIVE_BRANCH_UNEXERCISED",
+      "post_tests": 4008,
+      "native_grammar": {
+        "qwen27b": {
+          "groups": 2,
+          "cases": 9,
+          "passed": true
+        },
+        "ornith9b": {
+          "groups": 2,
+          "cases": 9,
+          "passed": true
+        },
+        "generation_calls": 0
+      },
+      "live": {
+        "case": "LHN-001",
+        "task_signature": "94dcbb542d113d903bfb9a982c57c59e67372b6606ad74490db0afea037cd155",
+        "actual_model": "ornith9b",
+        "actual_portal_submissions": 1,
+        "phase_kinds": [
+          "visual_inspection",
+          "ui",
+          "ui",
+          "ui"
+        ],
+        "phase_owned_objective_live_branch_exercised": false,
+        "whole_task_pass": false,
+        "status": "failed_independent_checks",
+        "inputs_unchanged": true,
+        "required_outputs_present": {
+          "Research/migration-dossier.txt": false,
+          "Research/decision-matrix.csv": false,
+          "Archive/migration-pack.zip": false
+        },
+        "source_unchanged": true,
+        "owned_windows_closed": true,
+        "downstream_idle": true,
+        "method": {
+          "verified": false,
+          "unique_dispatched_inputs": 1,
+          "same_owned_scope": true,
+          "actual_keyboard": false,
+          "actual_pointer": false,
+          "actual_pointer_movement": true,
+          "tools_within_scope": true,
+          "gui_code_or_macro_audit": "pending_independent_review"
+        },
+        "terminal_error": "native_task_window_out_of_scope",
+        "last_action_receipt": null,
+        "last_action_dispatch_attempted": null,
+        "cause_limit": "Open-file key action has no dispatch receipt; no proof that it created a dialog. All406 runner guard samples allowed the owned editor. Native bridge rejection reason remains narrower investigation work.",
+        "evidence_directory": "/tmp/qwen-reliability-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-single-objective-20261017",
+        "summary_sha256": "9dbcd208fc7b53fdc0f05f88cb8aa1b66f276e256d1d1855ac9f47bfa76761eb",
+        "events_sha256": "c9f5b331259b2dce9242e4256f8804ab371b1a6568dfe4d09773a204ed32f352"
+      },
+      "evidence_directory": "runtime-data/gpu1-acceptance/operator-audit/single-objective-cycle-20261017",
+      "evidence_index_sha256": "b043719d60e04fbbf3080d105cb9d76f86d66e27c72767e5671e19e23d8caeda",
       "remote_adoption": "pending",
       "whole_task_pass": false
     }

@@ -147,4 +147,7 @@ held-out live evidence.
 | Plan persistence | Written | This tracked document |
 | Baseline validation | Passed | 3,997 tests; `/tmp/qwen-reliability-baseline-20261017.log` |
 | 1. Mandatory verification | Local gate and live provider passed | 4,005 tests; real Firefox setter unresolved, physical typing verified; [evidence](computer-use-reliability-evidence.json) |
-| 2–8 | Pending | No implementation or live pass claimed |
+| 5. Single objective source | Source and grammar gates passed; live branch unexercised | 4,008 tests; 9 native cases per model; original live task failed at native scope observation before open-file dispatch |
+| 2–4, 6–8 | Pending | No implementation or live pass claimed |
+
+Observed deployment blocker: Egg .31 retains an actual XTEST Unicode failure (`café\nnaïve` becomes `café\nnave`), with 4,004 other tests passing. Its updater stops before replacing the active runtime. Egg .41 adopted cycle1 successfully while preserving its paused core.
