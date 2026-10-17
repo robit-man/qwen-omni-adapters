@@ -377,12 +377,23 @@ The host clears prior visual/switch preparation, takes a validated active semant
 snapshot, and refreshes session/full scope/task scope/base revision/generation,
 eligibility and provider binding before selecting only a freshly offered action
 for the chosen verb. Existing native and core guards, points and uncertainty locks
-remain authoritative. A positive-match `ui_boundary` discovery selector receives
-`intent_choice_required`; its explicit verb is never silently changed. The current
-offer callback repeats this check if a native target appears during preparation.
+remain authoritative. In active mode, private `ui_boundary` also requires an
+explicit planner `objective` (1–500 characters, semantically nonblank). An early
+positive native match delegates that objective and the same bounded previous
+feedback to `ui_subgoal`'s existing finite Choice. The complete supplied step is
+retained as a nonauthorizing planner preference, with a semantic mapping hash;
+it does not force the primitive or promise an effect. Missing/invalid objectives
+fail before policy/input, and an explicitly supplied objective remains policy
+required if the provider becomes absent or shadow before execution. Ordinary
+no-policy/shadow calls omit these private fields and retain their previous schema
+and behavior. A native target first appearing during visual preparation still
+receives `intent_choice_required` once; there is no hidden mid-action reroute.
 Only a synthetic `visual:` node with current matching frame, semantic, selected-verb
 and private point provenance retains discovery; a namespace string alone does not.
 Genuine missing-target discovery and no-policy/shadow behavior remain available.
+Calling Choice, admitting a guarded input and satisfying the whole task remain
+separate outcomes. A wrong target with four legal primitives can still be wrong;
+this interface adds neither task relevance heuristics nor a faster autonomous loop.
 This first interface still returns to Omni after one boundary, with unknown effect
 and zero progress credit. Four legal primitives on the wrong target do not prove
 goal alignment. It provides neither a fast autonomous loop nor whole-task credit.

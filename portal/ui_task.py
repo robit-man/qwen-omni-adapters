@@ -193,6 +193,13 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
                 "remaining_criteria": copy.deepcopy(fallback["oneOf"][0]["properties"]["remaining_criteria"])},
             "description": "One guarded input followed by semantic observation and replanning. "
                            "No effect predicate, verified progress, or following step."})
+        if intent_choice:
+            boundary = schema["oneOf"][-1]
+            boundary["required"].append("objective")
+            boundary["properties"]["objective"] = {"type": "string", "minLength": 1, "maxLength": 500}
+            boundary["description"] += (" Supply an explicit planner objective within the exact user goal. "
+                "For a positive native control the verb is only an audited preference for primitive Choice; "
+                "a genuinely missing visual target retains the requested verb.")
     if intent_selectors:
         schema["oneOf"].append({"type": "object", "additionalProperties": False,
             "required": ["kind", "subgoal"], "properties": {
@@ -205,8 +212,7 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
                 "remaining_criteria": copy.deepcopy(fallback["oneOf"][0]["properties"]["remaining_criteria"])},
             "description": "State a planner objective within the exact user goal and a current semantic selector. "
                 "The active policy chooses a finite native primitive; the host resolves it freshly. "
-                "No input authority or expected effect is supplied. Positive targets must use this family, "
-                "not named ui_boundary discovery."})
+                "No input authority or expected effect is supplied. Prefer this family for positive targets."})
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
         return non_ui()
     return schema
@@ -564,6 +570,9 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                     parse_predicates(plan["final_predicates"], terminal=True)
                 if kind == "ui_boundary":
                     parse_intent(plan["step"])
+                    if intent_choice:
+                        parse_subgoal({"id": plan["step"]["id"], "family": "pointer_or_activation",
+                                       "objective": plan["objective"], "target": plan["step"]["target"]})
                 if kind == "ui_subgoal":
                     parse_subgoal(plan["subgoal"])
             except (ValidationError, ComputerUseError, ValueError, TypeError) as exc:
@@ -589,6 +598,10 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                  if key in last_result} if last_result is not None else None}
                          if kind == "ui_subgoal" else {"operation": "inspect_visual"} if kind == "visual_inspection" else {key: value for key, value in plan.items()
                                                 if key not in {"kind", "remaining_criteria"}})
+            if kind == "ui_boundary" and intent_choice:
+                arguments.update(objective=plan["objective"], feedback={key: copy.deepcopy(last_result[key]) for key in
+                    ("status", "error", "reason", "effect_receipt", "ui_boundary_receipt")
+                    if key in last_result} if last_result is not None else None)
             if name not in allowed:
                 raise ValueError("Compiled phase exceeds immutable tool scope")
             if reason := boundary():

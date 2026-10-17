@@ -138,6 +138,7 @@ def _digest(value: Any) -> str:
 
 
 _INTENT_VERBS = frozenset({"invoke", "click", "double_click", "right_click"})
+_OBJECTIVE_UNSET = object()
 
 
 def parse_subgoal(value: Any) -> dict[str, Any]:
@@ -531,9 +532,17 @@ class ComputerUseStore:
                                    "task_progress": False}, state)
 
     def intent_boundary(self, session_id: str, subgoal: dict[str, Any], *, goal: str = "",
-                        feedback: dict[str, Any] | None = None) -> dict[str, Any]:
+                        feedback: dict[str, Any] | None = None,
+                        preference: dict[str, Any] | None = None) -> dict[str, Any]:
         """Policy picks a proposal, then a fresh callback picks a current offer."""
         parsed = parse_subgoal(subgoal)
+        planner_preference = None
+        if preference is not None:
+            original = parse_intent(preference)
+            if original["id"] != parsed["id"] or original["target"] != parsed["target"]:
+                raise ComputerUseError("Boundary preference must match the supplied subgoal identity and selector")
+            planner_preference = {"authority": "planner_preference", "input_authority": False,
+                "effect": "unknown", "intent": copy.deepcopy(preference), "semantic_sha256": _digest(preference)}
         if not isinstance(goal, str) or not goal.strip() or len(goal) > 20000:
             raise ComputerUseError("Intent choice requires the exact bounded user goal")
         owned = self._owned(session_id, "desktop")
@@ -545,6 +554,8 @@ class ComputerUseStore:
             receipt = {"schema": "robit.omni.ui-intent-selection.v1", "input_authority": False,
                 "objective": parsed["objective"], "objective_authority": "planner_intent",
                 "goal_sha256": _digest(goal), "effect": "unknown"}
+            if planner_preference is not None:
+                receipt["planner_preference"] = copy.deepcopy(planner_preference)
             policy_receipts = []
 
             def abstain(reason):
@@ -600,6 +611,8 @@ class ComputerUseStore:
                        "eligible_node_count": len({item["node"]["id"] for item in candidates if item["kind"] == "intent"}),
                        "observation_truncated": state.get("truncated"), "omission_is_absence": False,
                        "previous_result": historical}
+            if planner_preference is not None:
+                context["planner_preference"] = copy.deepcopy(planner_preference)
             answer = provider.decide_intent(copy.deepcopy(state), copy.deepcopy(candidates), context=context)
             policy_receipts.append(copy.deepcopy(answer["receipt"]))
             receipt["policy_receipt_id"] = answer["receipt"]["id"]
@@ -644,9 +657,16 @@ class ComputerUseStore:
             return result
 
     def observation_boundary(self, session_id: str, intent: dict[str, Any], *, goal: str = "",
+                             objective: Any = _OBJECTIVE_UNSET, feedback: dict[str, Any] | None = None,
                              _selection=None) -> dict[str, Any]:
         """Private authenticated native-task callback; not a public tool operation."""
         parsed = parse_intent(intent)
+        # Explicit supplied objectives keep policy-required semantics even if
+        # the configured provider changed after this active phase was compiled.
+        policy_required = _selection is None and (self.intent_choice_enabled or objective is not _OBJECTIVE_UNSET)
+        subgoal = (parse_subgoal({"id": parsed["id"], "family": "pointer_or_activation",
+                   "objective": None if objective is _OBJECTIVE_UNSET else objective, "target": parsed["target"]})
+                   if policy_required else None)
         owned = self._owned(session_id, "desktop")
         binding = self._task_binding.get()
         if binding != (session_id, "desktop", owned.cancel):
@@ -654,30 +674,29 @@ class ComputerUseStore:
         with owned.lock:
             if self._task_cancelled(session_id, "desktop", owned) or owned.cancel.is_set():
                 return {"status": "cancelled", "task_progress": False}
-            if self.intent_choice_enabled and _selection is None:
+            if policy_required:
+                if not self.intent_choice_enabled:
+                    return self.intent_boundary(session_id, subgoal, goal=goal, feedback=feedback, preference=intent)
                 owned.adapter.finish_intent()
                 current = owned.controller.observe(planning=False)
                 if any(_intent_matches(node, parsed["target"]) and node.get("visible") is True
                        and node.get("enabled") is True and node.get("sensitive") is False
                        and _INTENT_VERBS.intersection(node.get("operations", [])) for node in current["nodes"]):
-                    return {"status": "abstained", "error": "intent_choice_required",
-                        "reason": "This selector positively matches a current native boundary control. "
-                                  "Use ui_subgoal with its active objective and selector; do not fix a primitive "
-                                  "through a named visual-discovery branch.",
-                        "dispatch_status": "not_dispatched", "input_attempted": False,
-                        "evidence_authority": "inspection", "task_progress": False, "new_effect_count": 0}
+                    return self.intent_boundary(session_id, subgoal, goal=goal, feedback=feedback, preference=intent)
             choices = []
             selections = []
             policy_receipts = []
             def choose(state, actions):
-                positive_native = (self.intent_choice_enabled and _selection is None and any(
+                policy_inactive = policy_required and not self.intent_choice_enabled
+                positive_native = (policy_required and any(
                     _intent_matches(node, parsed["target"]) and node.get("visible") is True
                     and node.get("enabled") is True and node.get("sensitive") is False
                     and _INTENT_VERBS.intersection(node.get("operations", []))
                     and not _current_visual_discovery(owned.adapter, state, node, parsed)
                     for node in state["nodes"]))
                 selected = ({"selected_action_id": next(item["id"] for item in actions if item["kind"] == "abstain"),
-                             "selection_status": "intent_choice_required"} if positive_native else
+                             "selection_status": "intent_policy_not_active" if policy_inactive else "intent_choice_required"}
+                            if policy_inactive or positive_native else
                             _selection(state, actions) if _selection is not None else
                             self._select(owned, state, actions, parsed, goal))
                 choices.append(selected["selected_action_id"])
@@ -723,6 +742,9 @@ class ComputerUseStore:
             if any(item["selection_status"] == "intent_choice_required" for item in selections):
                 result.update(error="intent_choice_required", reason="The target became a positive native control. "
                               "Use ui_subgoal for primitive Choice; the explicit discovery verb was not executed.")
+            if any(item["selection_status"] == "intent_policy_not_active" for item in selections):
+                result.update(error="intent_policy_not_active", reason="The objective requires active primitive Choice; "
+                              "the explicit discovery verb was not executed after policy mode changed.")
             return result
 
     def act(self, session_id: str, arguments: dict[str, Any], *, goal: str = "") -> dict[str, Any]:

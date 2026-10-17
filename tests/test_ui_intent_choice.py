@@ -341,12 +341,13 @@ def test_uncertain_intent_stays_locked_across_unrelated_verified_mutation_cycle(
     assert len(adapter.calls) == 3
 
 
-def test_active_positive_discovery_is_rejected_but_actual_missing_path_is_preserved():
+def test_active_positive_discovery_requires_objective_but_actual_missing_path_is_preserved():
     adapter, store, cancel, requests = configured()
     with store.task_scope("session", "desktop", cancel):
-        rejected = store.observation_boundary("session", {**intent(), "target": {"name": "Input"}})
-        missing = store.observation_boundary("session", {**intent(), "target": {"name": "Actually missing"}})
-    assert rejected["error"] == "intent_choice_required"
+        with pytest.raises(ComputerUseError):
+            store.observation_boundary("session", {**intent(), "target": {"name": "Input"}})
+        missing = store.observation_boundary("session", {**intent(), "target": {"name": "Actually missing"}},
+            goal="Original exact user task", objective="Locate the unavailable target")
     assert missing["selection_receipts"][0]["selection_status"] == "no_matching_control"
     assert not adapter.calls and not requests
     assert len(adapter.prepared) == 1 and adapter.prepared[0]["target"] == {"name": "Actually missing"}
@@ -364,7 +365,8 @@ def test_absent_becomes_native_during_preparation_requires_choice_before_fixed_v
 
     adapter.observe = appears
     with store.task_scope("session", "desktop", cancel):
-        result = store.observation_boundary("session", {**intent(), "target": {"name": "Input"}})
+        result = store.observation_boundary("session", {**intent(), "target": {"name": "Input"}},
+            goal="Original exact user task", objective="Inspect the input material")
     assert not adapter.calls
     assert result["error"] == "intent_choice_required"
     assert result["selection_receipts"][0]["selection_status"] == "intent_choice_required"
@@ -383,7 +385,8 @@ def test_real_native_adapter_fresh_synthetic_discovery_keeps_existing_guarded_po
                         dispatched.append((args, kwargs)) or {"status": "dispatched"})
     with store.task_scope("one", "desktop", cancel):
         result = store.observation_boundary("one", {"id": "missing", "verb": "click",
-            "target": {"role": "button", "name": "Canvas target"}, "args": {}})
+            "target": {"role": "button", "name": "Canvas target"}, "args": {}},
+            goal="Original exact user task", objective="Inspect the unavailable canvas target")
     assert result["status"] == "observed_unverified"
     assert result["dispatch_record"]["action"]["node_id"].startswith("visual:")
     assert result["point_receipts"][0]["frame_sha256"] == frame["sha256"]
@@ -443,7 +446,8 @@ def test_visual_namespace_or_stale_provenance_does_not_bypass_native_primitive_c
 
     adapter.observe = appears
     with store.task_scope("session", "desktop", cancel):
-        result = store.observation_boundary("session", {**intent(), "target": {"name": "Input"}})
+        result = store.observation_boundary("session", {**intent(), "target": {"name": "Input"}},
+            goal="Original exact user task", objective="Inspect the input material")
     assert result["error"] == "intent_choice_required" and not adapter.calls and not requests
     assert result["ui_boundary_receipt"]["input_attempted"] is False
 
@@ -620,8 +624,10 @@ def test_active_schema_keeps_missing_discovery_future_steps_and_other_phase_fami
                                     {"state": Adapter().observe()}, intent_choice=True)
     validate = Draft202012Validator(schema)
     for verb in ("invoke", "click", "double_click", "right_click"):
-        validate.validate({"kind": "ui_boundary", "step": {**intent(verb), "target": {"name": "Missing"}}})
-        assert not validate.is_valid({"kind": "ui_boundary", "step": intent(verb)})
+        validate.validate({"kind": "ui_boundary", "step": {**intent(verb), "target": {"name": "Missing"}},
+                           "objective": "Locate the unavailable target"})
+        assert not validate.is_valid({"kind": "ui_boundary", "step": intent(verb),
+                                      "objective": "Inspect the input material"})
     # First focus is known. The future target need not exist in the first view.
     plan = {"kind": "ui", "steps": [{"id": "focus", "verb": "focus", "target": {"node_id": "draft"},
             "args": {}, "expect": [{"kind": "focused", "node_id": "$target"}]},
@@ -679,22 +685,24 @@ def test_authenticated_native_task_route_wires_host_active_policy_and_private_fe
     assert result["portal"]["native_task"]["task_verified"] is False
 
 
-def test_positive_discovery_rejection_reaches_next_phase_without_a_special_repair_budget():
-    adapter, store, cancel, requests = configured()
+def test_positive_discovery_choice_abstention_reaches_next_phase_without_a_special_repair_budget():
+    adapter, store, cancel, requests = configured(probability=0.5)
     packets = []
 
     def compile_phase(packet):
         packets.append(copy.deepcopy(packet))
-        return {"kind": "ui_boundary", "step": {**intent(), "target": {"name": "Input"}}}
+        return {"kind": "ui_boundary", "step": {**intent(), "target": {"name": "Input"}},
+                "objective": "Inspect the input material"}
 
     def execute(name, arguments):
         with store.task_scope("session", "desktop", cancel):
-            return store.observation_boundary("session", arguments["intent"], goal="Exact user goal")
+            return store.observation_boundary("session", arguments["intent"], goal="Exact user goal",
+                objective=arguments["objective"], feedback=arguments["feedback"])
 
     events = list(run_native_goal("Exact user goal", observe=lambda: {"state": adapter.observe()},
         compile_phase=compile_phase, execute=execute, cancel=cancel.set, allowed_tools={"native_ui"}, intent_choice=True))
     final = events[-1]["response"]["portal"]["native_task"]
     assert final["status"] == "blocked" and final["phases"] == 3
-    assert packets[1]["last_result"]["error"] == "intent_choice_required"
-    assert not adapter.calls and not requests
+    assert packets[1]["last_result"]["intent_selection_receipt"]["status"] == "intent_policy_abstained"
+    assert not adapter.calls and len(requests) == 3
 

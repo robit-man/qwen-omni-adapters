@@ -2367,9 +2367,11 @@ def create_app(
                     "supply a compact active objective within the exact user goal and a semantic selector, "
                     "without choosing a primitive or promising its effect. The active local policy selects "
                     "among finite non-authorizing native intents; the executor resolves and guards a fresh "
-                    "offer before one input. ui_boundary's explicit verb is reserved for genuinely missing "
-                    "named visual targets; a positively matching discovery selector is rejected, never "
-                    "silently changed to another primitive. Legal input is not task alignment or progress.")
+                    "offer before one input. Every ui_boundary also requires your explicit objective. For a "
+                    "positive native control its verb is only an audited planner preference: the active policy "
+                    "chooses the primitive using that objective and the last factual feedback. A genuinely "
+                    "missing named visual target retains the requested verb. If a native target first appears "
+                    "during visual preparation, the host abstains and replans. Legal input is not task alignment or progress.")
             caller_policy = "\n\n".join(str(message.get("content") or "")
                 for message in raw_messages if isinstance(message, Mapping) and message.get("role") == "system")
             if caller_policy:
@@ -2413,7 +2415,8 @@ def create_app(
                 if stopped.is_set():
                     return {"status": "cancelled", "error": "native_task_cancelled"}
                 if name == "native_ui" and arguments.get("operation") == "observation_boundary":
-                    return tool_harness.computer_use.observation_boundary(session_id, arguments["intent"], goal=goal)
+                    policy = {key: arguments[key] for key in ("objective", "feedback") if key in arguments}
+                    return tool_harness.computer_use.observation_boundary(session_id, arguments["intent"], goal=goal, **policy)
                 if name == "native_ui" and arguments.get("operation") == "intent_boundary":
                     return tool_harness.computer_use.intent_boundary(session_id, arguments["subgoal"],
                                                                    goal=goal, feedback=arguments["feedback"])
