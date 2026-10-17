@@ -640,6 +640,27 @@ Whole-task completion remains independently scored.
 
 ## Validation
 
+The private native planner also supports `ui_subgoal` with `family: text_entry`,
+`mode: replace`, an objective, an observed target and literal `text` (1–2,048
+characters). This family requests an exact full-value effect. The executor
+prefers physical replacement when focus, complete text coverage and selection
+capabilities permit it; otherwise it can explicitly use the native setter.
+Known unsuccessful writes are excluded for the same control generation and
+requested value. Fresh readback is required before any subsequent strategy.
+Unique controls need no Choice call; ambiguous controls reach the configured
+policy with one applicable transport per control. Equivalent transports do
+not compete for decision probability.
+
+Physical replacement checks focus, selects the observed whole value when
+nonempty, types once and independently verifies exact full text. A partial
+write, lost acknowledgement, changed operand or unavailable readback stops
+the sequence and returns the executed prefix. There is no implicit fallback
+inside `set_value`. Final read-only verification tolerates a changed field
+size after input while retaining control identity and full-value checks;
+pre-input geometry guards remain in force. This family currently implements
+full, nonempty replacement. Insertion, partial selection replacement and
+large-document chunking remain separate work.
+
 Run `./scripts/validate.sh` for controller, adapter, session, policy, deployment,
 and existing media/tool regressions. Live fixture runners record actual
 completion evidence under ignored `runtime-data` directories. Live results

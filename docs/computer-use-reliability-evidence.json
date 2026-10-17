@@ -130,6 +130,54 @@
       "worker_pins_preserved": true,
       "elapsed_s": 12.936490799998865,
       "remote_adoption": "pending push"
+    },
+    {
+      "cycle": "2a",
+      "criterion": "Effect-oriented full text replacement executes an explicit verified strategy and suppresses previously unsuccessful writes",
+      "status": "PROVIDER_PASS_PLANNER_DISCOVERY_GAP",
+      "pre_tests": 4027,
+      "post_tests": 4055,
+      "new_contract_tests": 28,
+      "native_grammar_cases_per_model": 6,
+      "provider_attempts": 3,
+      "provider_pass_attempt": 3,
+      "live_kev_calls": 1,
+      "whole_task_pass": false,
+      "original_task_attempt": {
+        "case": "LHN-001",
+        "root": "/tmp/qwen-text-entry-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-001-text-entry-20261017",
+        "status": "failed_independent_checks",
+        "passed": false,
+        "elapsed_s": 124.18371479700727,
+        "owned_windows_closed": true,
+        "downstream_idle": true,
+        "source_unchanged": true,
+        "task_signature_sha256": "94dcbb542d113d903bfb9a982c57c59e67372b6606ad74490db0afea037cd155",
+        "planner_requests": 5,
+        "text_entry_family_offered": false,
+        "cause": "Model projection omitted optional text_observation. Grounded schema incorrectly required that optional field to offer the text_entry family. Executor observations retained exact coverage.",
+        "phases": [
+          "scroll rejected by occlusion guard",
+          "Firefox switch verified",
+          "setter unverified",
+          "historical setter still unverified",
+          "focus verified; malformed later scope_id left typing unavailable"
+        ],
+        "output_artifacts_present": {
+          "Research/migration-dossier.txt": false,
+          "Research/decision-matrix.csv": false,
+          "Archive/migration-pack.zip": false
+        },
+        "next_criterion": "Text-entry family must remain discoverable from positive capabilities after bounded observation compression; executor retains full coverage checks."
+      },
+      "evidence_path": "runtime-data/gpu1-acceptance/operator-audit/text-entry-cycle-20261017",
+      "evidence_index_sha256": "721137ef65f78a175d8f829ece33352bf5d6cbcd33bcb5d8290075f54ddb1ef9",
+      "remaining": [
+        "planner family discovery after compression",
+        "insertion and partial selection replacement",
+        "real ambiguous target Kev evaluation",
+        "full-task and remote acceptance"
+      ]
     }
   ]
 }

@@ -6,9 +6,16 @@ review. It does not establish arbitrary-task reliability or SOTA parity.
 
 ## Sources and implementation findings
 
-Sources were acquired before analysis. Repository commits, downloaded file
-hashes, the OSWorld paper PDF and extracted text are retained in
-`runtime-data/gpu1-acceptance/operator-audit/broader-decision-research-20261017/`.
+Sources were acquired before analysis. Both research corpora (108 files,
+58,162,922 bytes) are durably archived outside runtime cleanup at
+`/home/roko/Documents/qwen-omni-research/2026-10-17/`. Every archived file was
+read back and SHA-256 verified; all 30 broader-review acquisition hashes also
+matched their original capture records. The tracked
+[archive manifest](research/computer-use-2026-10-17.manifest.json) identifies
+every file, size and hash. Copies of the manifest exist in the archive and
+repository. The archive includes papers and extracted text, pinned source
+snapshots, repository metadata, acquisition URLs, earlier induction records
+and the earlier report. The original runtime-data copies remain available.
 The code review covers the named control-loop components, not every repository
 file. Paper inspection covers methodology, evaluation, failure analysis and
 limitations; this is a focused engineering review, not full paper induction.
@@ -57,6 +64,20 @@ unanimously prescribe our guide's hierarchy.
 
 These are engineering deductions to test, not guarantees supplied by papers.
 Do not add all capabilities at once or lower guards to improve a score.
+
+### Local decision-interface experiment
+
+The first live text-entry experiment offered two equivalent transports for the
+same Firefox address field. Pinned Kev assigned native setter 0.486, physical
+replacement 0.3425 and abstain 0.1715; the unchanged 0.95 threshold admitted no
+input. This is one measured example of a poorly factored decision, not a
+calibration study. The repaired interface assigns transport selection to the
+executor using capabilities and execution history, and leaves genuinely
+different control choices to Kev. A unique target therefore needs no model
+call. Subsequent real Firefox execution verified physical focus, selection,
+replacement and navigation. It is provider evidence, not a backbone-model
+or whole-task pass. Detailed failures and receipts are retained in
+`runtime-data/gpu1-acceptance/operator-audit/text-entry-cycle-20261017/`.
 
 ## Mapping to observed failures and bounded next work
 

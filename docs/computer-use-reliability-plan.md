@@ -151,11 +151,13 @@ held-out live evidence.
 
 | Cycle | State | Evidence |
 | --- | --- | --- |
-| Plan persistence | Written | This tracked document |
+| Plan and research persistence | Written and read-back verified | This document and [108-file archive manifest](research/computer-use-2026-10-17.manifest.json); raw corpus outside runtime cleanup |
 | Baseline validation | Passed | 3,997 tests; `/tmp/qwen-reliability-baseline-20261017.log` |
 | 1. Mandatory verification | Local gate and live provider passed | 4,005 tests; real Firefox setter unresolved, physical typing verified; [evidence](computer-use-reliability-evidence.json) |
 | 5. Single objective source | Source and grammar gates passed; live branch unexercised | 4,008 tests; 9 native cases per model; original live task failed at native scope observation before open-file dispatch |
 | 3. Native workflow freshness | Source gate and real Firefox provider passed | 4,027 tests; real page mutation rejected the old Return offer, one fresh decision dispatched once and verified the destination; three setup failures retained |
-| 2, 4, 6–8 | Pending | No implementation or live pass claimed; separately bound primitive-choice boundaries also retain their existing freshness behavior |
+| 2a. Full text replacement | Provider passed; planner discovery defect exposed | 4,055 tests, 28 new regressions; real Firefox physical replacement and navigation passed. One live Kev experiment exposed probability splitting between equivalent transports. Host now selects transport; Kev selects ambiguous targets. Original Ornith task failed: compressed observations omitted optional text coverage, incorrectly hiding the new family. |
+| 2b. Text-family discovery | Next bounded repair | Offer the family from positive editable capabilities; execution still requires fresh full text coverage. |
+| Remaining 2, 4, 6–8 | Pending | Insertion and partial selection replacement, broader recovery/delegation, context expansion, reusable task sequences and whole-task acceptance remain incomplete. Separately bound primitive-choice boundaries retain their existing freshness behavior. |
 
 Observed deployment blocker: Egg .31 retains an actual XTEST Unicode failure (`café\nnaïve` becomes `café\nnave`), with 4,004 other tests passing. Its updater stops before replacing the active runtime. Egg .41 adopted cycle1 successfully while preserving its paused core.

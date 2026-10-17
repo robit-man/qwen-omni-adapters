@@ -427,6 +427,33 @@ class RapidUiController:
         with self._metadata:
             return copy.deepcopy(self._actions.get(action_id)) if isinstance(action_id, str) else None
 
+    def text_write_history(self, state: dict, node: dict, value: str) -> list[dict]:
+        """Task-owned write attempts, including uncertain ones; never input authority.
+
+        Bind history to the actual control generation, not its display label or
+        the planner's step ID. A fresh plan cannot erase an ineffective strategy.
+        """
+        with self._metadata:
+            history = []
+            for outcome in self._outcomes.values():
+                action = outcome.get("action", {})
+                if (action.get("verb") not in {"set_value", "type_text"}
+                        or action.get("node_id") != node["id"] or action.get("generation") != node["generation"]
+                        or action.get("session_id") != state["session_id"]
+                        or action.get("scope_id") != state["scope"]["id"]
+                        or not (outcome.get("receipt", {}).get("status") == "dispatched"
+                                or outcome.get("dispatch_attempted") is True and "receipt" not in outcome)):
+                    continue
+                expected = {"kind": "value", "node_id": node["id"], "value": value}
+                if expected not in action.get("expect", []):
+                    continue
+                history.append({"action_id": action["id"], "strategy": "native_set" if action["verb"] == "set_value"
+                                else "physical_replace", "status": outcome["status"],
+                                "effect_verified": outcome["status"] == "verified",
+                                "observed_revision": outcome.get("after", {}).get("revision"),
+                                "authority": "historical_execution"})
+            return copy.deepcopy(history)
+
     def _record(self, outcome: dict[str, Any], legacy_binding: str | None = None) -> dict[str, Any]:
         with self._metadata:
             action = outcome["action"]

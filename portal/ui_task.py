@@ -26,6 +26,7 @@ from qwen_omni_adapters.computer_use import (
     parse_predicates,
     parse_step,
 )
+from qwen_omni_adapters.text_entry import complete_text
 
 
 def phase_response_schema(allowed_tools: Iterable[str]) -> dict[str, Any]:
@@ -213,6 +214,28 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
             "description": "State a planner objective within the exact user goal and a current semantic selector. "
                 "The active policy chooses a finite native primitive; the host resolves it freshly. "
                 "No input authority or expected effect is supplied. Prefer this family for positive targets."})
+    text_controls = [node for node in nodes if node["visible"] and node["enabled"] and not node["sensitive"]
+                     and complete_text(node) and {"set_value", "type_text"}.intersection(node["operations"])]
+    if text_controls:
+        text_family = {"type": "object", "additionalProperties": False,
+            "required": ["id", "family", "objective", "target", "mode", "text"], "properties": {
+                "id": {"type": "string", "minLength": 1, "maxLength": 200},
+                "family": {"const": "text_entry"}, "mode": {"const": "replace"},
+                "objective": {"type": "string", "minLength": 1, "maxLength": 500},
+                "text": {"type": "string", "minLength": 1, "maxLength": 2048},
+                "target": {"anyOf": [
+                    target({"node_id": {"enum": [node["id"] for node in text_controls]}}, ["node_id"]),
+                    target({"role": {"enum": sorted({node["role"] for node in text_controls})},
+                            "name": {"enum": sorted({node["name"] for node in text_controls})}}, ["role"])]}}}
+        existing = next((branch for branch in schema["oneOf"] if branch["properties"]["kind"]["const"] == "ui_subgoal"), None)
+        if existing is not None:
+            existing["properties"]["subgoal"] = {"oneOf": [existing["properties"]["subgoal"], text_family]}
+            existing["description"] += " For exact text replacement use text_entry; the controller selects and verifies the input strategy."
+        else:
+            schema["oneOf"].append({"type": "object", "additionalProperties": False,
+                "required": ["kind", "subgoal"], "properties": {"kind": {"const": "ui_subgoal"}, "subgoal": text_family,
+                    "remaining_criteria": copy.deepcopy(fallback["oneOf"][0]["properties"]["remaining_criteria"])},
+                "description": "For text replacement supply content and intent once; the controller chooses a strategy and verifies exact readback."})
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
         return non_ui()
     return schema
@@ -250,7 +273,7 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
               "verification_receipt", "ui_state_receipt", "effect_receipt", "action_receipt",
               "policy_receipts", "point_receipts", "selection_receipts", "intent_selection_receipt", "evidence_authority", "resource", "stored",
               "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results",
-              "reading", "visual_inspection_receipt", "ui_boundary_receipt", "observed_changes")
+              "reading", "visual_inspection_receipt", "ui_boundary_receipt", "observed_changes", "text_entry_receipt")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
     if not _accepted_visual_reading(result):
         compact.pop("reading", None)
@@ -589,7 +612,7 @@ class _NativeWorkingState:
 
     def record(self, phase, kind, result, *, recover):
         digest = self.digest(result)
-        actual = result.get("outcomes", []) if kind == "ui" else (
+        actual = result.get("outcomes", []) if kind == "ui" or "text_entry_receipt" in result else (
             [result["dispatch_record"]] if kind in {"ui_boundary", "ui_subgoal"} and isinstance(result.get("dispatch_record"), dict) else [])
         self.phase_refs.append([phase, digest, len(actual)])
         self.recovery = recover
@@ -811,10 +834,13 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                              and all(item.get("effect_receipt", {}).get("effect_state") == "replayed"
                                      for item in result["outcomes"]))
             ok = not result.get("error") and not replayed_only and (kind != "ui" or result.get("status") == "complete")
+            if kind == "ui_subgoal" and plan["subgoal"]["family"] == "text_entry":
+                ok = ok and result.get("status") == "complete" and result.get("text_entry_receipt", {}).get("exact_value_verified") is True
             if kind == "visual_inspection":
                 ok = ok and _accepted_visual_reading(result)
             novel_boundary = False
-            if kind in {"ui_boundary", "ui_subgoal"}:
+            is_boundary = kind == "ui_boundary" or kind == "ui_subgoal" and plan["subgoal"]["family"] != "text_entry"
+            if is_boundary:
                 receipt = result.get("ui_boundary_receipt", {})
                 ok = (result.get("status") == "observed_unverified" and receipt.get("observed") is True
                       and receipt.get("verified") is False and receipt.get("task_progress") is False
@@ -835,19 +861,19 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                key: copy.deepcopy(last_result[key]) for key in
                                ("status", "error", "reason", "phase_handoff", "ui_state_receipt",
                                 "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt",
-                                "ui_boundary_receipt", "observed_changes", "intent_selection_receipt")
+                                "ui_boundary_receipt", "observed_changes", "intent_selection_receipt", "text_entry_receipt")
                                if key in last_result}})
             if working is not None:
                 ledger[-1].update(planner_assessment=copy.deepcopy(working.assessment),
                                   planner_commitment=copy.deepcopy(working.commitment))
             ledger = ledger[-12:]
-            if kind in {"ui_boundary", "ui_subgoal"}:
+            if is_boundary:
                 # Observation protocol success is not verified task progress.
                 failed += not novel_boundary
             else:
                 failed = 0 if ok or recoverable_prefix else failed + 1
             if working is not None:
-                working.record(phases, kind, result, recover=not ok or kind in {"ui_boundary", "ui_subgoal"}
+                working.record(phases, kind, result, recover=not ok or is_boundary
                     or result.get("status") in {"needs_replan", "unresolved", "rejected", "abstained", "cancelled"})
             yield {"type": "tool", "phase": "complete", "round": phases, "tools": [copy.deepcopy(tool)]}
             if failed >= 3:
