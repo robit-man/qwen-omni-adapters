@@ -1787,11 +1787,20 @@ def build_language_payload(
             for source, target in (
                 ("temperature", "temperature"),
                 ("top_p", "top_p"),
+                ("presence_penalty", "presence_penalty"),
+                ("frequency_penalty", "frequency_penalty"),
                 ("seed", "seed"),
                 ("num_predict", "max_tokens"),
             ):
                 if options.get(source) is not None:
                     payload[target] = options[source]
+            # The explicitly configured repository-owned llama.cpp endpoint
+            # also supports these native sampler fields. Keep generic OpenAI
+            # providers free of extensions they may reject.
+            if _llama_context_probe_origin(config) is not None:
+                for key in ("top_k", "min_p", "typical_p", "repeat_penalty", "repeat_last_n"):
+                    if options.get(key) is not None:
+                        payload[key] = options[key]
         requested = payload.get("max_tokens")
         maximum = _language_output_maximum(parsed, config)
         payload["max_tokens"] = (

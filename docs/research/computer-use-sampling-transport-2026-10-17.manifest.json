@@ -1,0 +1,76 @@
+{
+  "schema": "robit.omni.research-archive-manifest.v1",
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport",
+  "scope": "Actual loaded-model adapter transport and native sampler parameter readback; no desktop or whole-task credit",
+  "file_count": 11,
+  "total_bytes": 139991,
+  "readback_verified": true,
+  "files": [
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/after-test-notes.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/after-test-notes.json",
+      "bytes": 1812,
+      "sha256": "7cc3240d84052eb4ca5d30acedbb56ac38f05e5202a695f48abefdac7251bbe1"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/candidate-source/runtime/adapter_server.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/candidate-source/runtime/adapter_server.py",
+      "bytes": 118984,
+      "sha256": "7267d56511e827091c8b833acb3fa2bf9285e6596f857b705b6045963d627f08"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/candidate-source/tests/test_language_sampling_transport.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/candidate-source/tests/test_language_sampling_transport.py",
+      "bytes": 2881,
+      "sha256": "0aab1438bcc17f1d7186d9093cdc348f15b6346c4455bdc465e83454aa9adb20"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/live.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/live.log",
+      "bytes": 1100,
+      "sha256": "160c0413a3bfe8878888978c1d915cbdffa017ce1043c23e66d121604c60c9ac"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/live.py",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/live.py",
+      "bytes": 3215,
+      "sha256": "60b33f5926e6ee3ab5872bf41e614c0cc69964d3ee37e1089e438684ca3ad4ed"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/native-slot-settings.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/native-slot-settings.json",
+      "bytes": 1823,
+      "sha256": "c3c2c89a80c5be66d3877885dd42ece2b42f21ea13cbdf76d99176ee2267c7ed"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/outbound-language-requests.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/outbound-language-requests.json",
+      "bytes": 2510,
+      "sha256": "06430c923c99ce52508ad7a7b9866b8116c16f8922cf707a47f4440c9d183c5c"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/request.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/request.json",
+      "bytes": 730,
+      "sha256": "64e3405dfdeabc37a63b7ea05a81911cd340ce671035a367aace7c837bf16bbe"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/response.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/response.json",
+      "bytes": 733,
+      "sha256": "94794cf385cfe8983aa8e48ebe6ca8269661d4877e81324f1acffeaf5c04013d"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/result.json",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/result.json",
+      "bytes": 1408,
+      "sha256": "5b9592653f8bfd8f9f4578b18bb2652d6452db318dab54533190fa6d5e9abccc"
+    },
+    {
+      "source": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/sampling-transport-cycle-20261017/validation.log",
+      "archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/sampling-transport/validation.log",
+      "bytes": 4795,
+      "sha256": "e768d6782b9e9922f009f86b7715582b8e3ba9d3492d835a517b78f8d62c15ec"
+    }
+  ]
+}

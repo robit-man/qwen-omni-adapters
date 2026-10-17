@@ -50,6 +50,13 @@ The adapter passes these fields to the language stage when `omni.task=chat`:
 | `keep_alive` | Passed unchanged |
 | `logprobs`, `top_logprobs` | Passed unchanged when supported by the runtime |
 
+On an OpenAI language backend, `options` is translated into supported top-level
+fields: temperature, top-p, seed, presence/frequency penalties and the bounded
+output-token limit. An explicitly configured local llama.cpp endpoint also
+receives top-k, min-p, typical-p, repetition penalty and repetition-window
+settings. Omitted sampler fields retain backend defaults; native `think` remains
+independent. Generic OpenAI providers do not receive those llama.cpp extensions.
+
 An implementation MUST NOT include base64 media in the language prompt. It
 passes media only to the comprehension graph and injects its semantic result as
 clearly delimited, untrusted observation text.
