@@ -275,3 +275,23 @@ monitor became unable to map the active window, after three input dispatches.
 The run drained, closed its owned windows and restored the prior harness. Egg
 .31 kept its earlier deployment after the actual accented-text regression failed
 again; that known transport defect remains unrepaired by this continuity change.
+
+
+### Application ownership and post-action observation
+
+The [GNOME AT-SPI 2.52 API](https://gnome.pages.gitlab.gnome.org/gtk/atspi2/method.Accessible.get_process_id.html)
+and upstream source associate an accessible with its application's D-Bus process
+identity; an error does not establish ownership. These references and the
+bounded engineering inference are [saved with hashes](research/native-application-scope-2026-10-17.manifest.json).
+
+The actual Firefox diagnostic found a DEFUNCT top-level GNOME Shell entry after
+an acknowledged write. Its already-read PID was different from the controlled
+Firefox. Independent subsequent readback contained the exact requested value.
+The repair moves the existing positive foreign-application exclusion ahead of
+that unnecessary state read for scoped observations. Unknown ownership,
+namespace discovery, broad window enumeration and controlled-app failures retain
+their checks. It preserves identity edges without retaining old input handles.
+The candidate's actual A→B→A passed all three independent exact readbacks. This
+is provider reliability evidence, with zero model calls; no whole-task pass is
+inferred. The initial hypothesis, interrupted probe, decisive failure and passing
+candidate are [retained together](research/computer-use-observation-scope-2026-10-17.manifest.json).

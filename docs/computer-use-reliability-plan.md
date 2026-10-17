@@ -273,3 +273,46 @@ Separate follow-on criteria, not silently folded into this transport change:
 - Capture the exact accessibility read predicate that failed after a second
   Unicode replacement. The transport acknowledged that prefix, but independent
   full observation failed; A→B→A is incomplete and must not be marked passed.
+
+## 2e. Identify the observation failure that interrupts chaining
+
+Acceptance: after acknowledged physical text replacement in an owned ordinary
+Firefox window, independent native observation returns fresh field evidence or a
+specific bounded failure reason. No stale observation or input replay may replace
+that evidence. The preceding provider window verified its first accented/CJK
+write, then failed full observation after acknowledging the second replacement.
+
+Diagnostic hypothesis: a transient suggestion-popup descendant changes between
+enumeration and its native read, aborting the complete snapshot. This is unproven;
+provider timeout and ownership failures remain alternatives. Before a production
+patch, instrument an isolated copy of the bridge to retain the exception's exact
+source frames, failing native function, exception class/domain/code and local
+node-state flags. Preserve guard behavior, process scope and worker identities.
+One bounded owned-window sequence will determine which read actually failed;
+do not infer the cause from the generic `native_observation_unavailable` code.
+
+
+Finding: isolated instrumentation disproved the suggestion-popup hypothesis for
+this occurrence. The failing node was a top-level DEFUNCT application owned by
+GNOME Shell (PID 6499), while the controlled Firefox was PID 413915. The second
+value was independently present exactly, despite the failed verification read.
+An intermediate probe was nonqualifying because the initial field had changed;
+it remains in the evidence, without assigning a cause to that change.
+
+Bounded repair: retain the first ownership scan and move the existing foreign
+application exclusion before its state read, only when a direct foreground
+provider exists and the observation excludes other applications. Preserve raw
+identity edges, discard old input handles, and leave unknown ownership,
+namespace resolution, controlled-app reads and broad window discovery unchanged.
+Acceptance now requires the actual A→B→A sequence to finish with independent
+exact-value verification and restored keyboard mappings; provider tests earn no
+model or whole-task credit. Full gates and one live window precede deployment.
+
+
+Result: the bounded actual Firefox A→B→A sequence completed all three physical
+replacements with independent exact-value readback. Keyboard mapping restoration,
+owned-window cleanup, idle state and the original GPU worker identities were
+preserved. The full local gate passed 4,259 tests (137.24 s), including 17 new
+scope/identity regressions. This closes criterion 2e; no model calls or whole-task
+credit apply. Long-task plan repetition, visual-reader task conditioning and
+Firefox supplementary-character representation remain separate open criteria.

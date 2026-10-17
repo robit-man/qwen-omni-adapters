@@ -1,0 +1,38 @@
+{
+  "archive_root": "/home/roko/Documents/qwen-omni-research/2026-10-17/atspi-application-scope",
+  "readback_verified": true,
+  "files": [
+    {
+      "path": "accessible-2.52.0.c",
+      "bytes": 62705,
+      "sha256": "a434a7b3b4e685983455a56f557fab91eeea344f99e670b700f280655e475bfc"
+    },
+    {
+      "path": "clear-cache-2.52.html",
+      "bytes": 10068,
+      "sha256": "d7d26ccfdefb5bc3ee96fa2652ae94d528581dc2b63a68d1a3a2f70d6dfe0a27"
+    },
+    {
+      "path": "clear-cache-single-2.52.html",
+      "bytes": 10095,
+      "sha256": "34f0fd9386dff75504c6586dc63bd5fb6657ec06deab8b1e3aaa3979d3e3d672"
+    },
+    {
+      "path": "induction.md",
+      "bytes": 1793,
+      "sha256": "e68ce5f20bc9a9be2f98cb1fc68c399f52fb14adb1830b54c27b10443897a0d0"
+    },
+    {
+      "path": "process-id-2.52.html",
+      "bytes": 11008,
+      "sha256": "e6e2e6edea2df97b86e3faa6d6c6e32c0bda99161ba0d1216dd2cec7c06b37ff"
+    },
+    {
+      "path": "sources.json",
+      "bytes": 1540,
+      "sha256": "4b34c57905c32b7ef1acad8f840eb236b2b7a5b5f2c0311cb172334e97a2b69a"
+    }
+  ],
+  "bytes": 97209,
+  "scope": "Official AT-SPI 2.52 API and pinned upstream source; application ownership and bounded exclusion inference"
+}

@@ -32,7 +32,7 @@
       "evidence_index_sha256": "8363adf4b1a32e6d31be1c411d01304335d2bff49f72487545152f04aac151a9",
       "remote_adoption": {
         "egg41": "deployed44c5643; paused core preserved",
-        "egg31": "1 failed,4004 passed; real XTEST Unicode café/newline/naïve lost ï; previous core remains active; untracked files preserved"
+        "egg31": "1 failed,4004 passed; real XTEST Unicode caf\u00e9/newline/na\u00efve lost \u00ef; previous core remains active; untracked files preserved"
       },
       "whole_task_pass": false
     },
@@ -993,7 +993,7 @@
       "whole_task_pass": false,
       "ordinary_Firefox": {
         "first_replacement_exact": true,
-        "first_value": "café naïve 中",
+        "first_value": "caf\u00e9 na\u00efve \u4e2d",
         "second_transport_acknowledged": true,
         "second_independent_effect": "unknown: native_observation_unavailable",
         "third_replacement": "not_attempted",
@@ -1012,6 +1012,55 @@
       ],
       "archive_manifest": "docs/research/computer-use-unicode-delivery-2026-10-17.manifest.json",
       "upstream_manifest": "docs/research/native-input-methods-2026-10-17.manifest.json"
+    },
+    {
+      "cycle": "2e",
+      "status": "SCOPED_POST_WRITE_OBSERVATION_PASSED",
+      "baseline_tests": 4242,
+      "post_tests": 4259,
+      "new_regressions": 17,
+      "validation_seconds": 137.24,
+      "model_calls": 0,
+      "whole_task_pass": false,
+      "criterion": "A\u2192B\u2192A physical Firefox replacements retain independent exact-value evidence",
+      "fault_owner": {
+        "process_id": 6499,
+        "process_name": "gnome-shell",
+        "controlled_Firefox_pid": 413915
+      },
+      "observed_failure": "Unrelated application root DEFUNCT aborted native read after delivered text",
+      "candidate_results": [
+        {
+          "expected": "caf\u00e9 na\u00efve \u4e2d",
+          "actual": "caf\u00e9 na\u00efve \u4e2d",
+          "status": "complete",
+          "exact_value_verified": true
+        },
+        {
+          "expected": "na\u00efve caf\u00e9 \u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac",
+          "actual": "na\u00efve caf\u00e9 \u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac",
+          "status": "complete",
+          "exact_value_verified": true
+        },
+        {
+          "expected": "caf\u00e9 na\u00efve \u4e2d",
+          "actual": "caf\u00e9 na\u00efve \u4e2d",
+          "status": "complete",
+          "exact_value_verified": true
+        }
+      ],
+      "keymap_restored": true,
+      "owned_window_closed": true,
+      "original_GPU_worker_identities_preserved": true,
+      "downstream_idle": true,
+      "limits": [
+        "No proof why the unrelated GNOME Shell entry became DEFUNCT.",
+        "Unknown/invalid ownership, namespace-candidate resolution, unscoped window discovery and controlled-app reads retain their checks.",
+        "The interrupted intermediate probe had an initially changed field; no cause is assigned and no repetition credit is granted.",
+        "No model selection, whole-task, SOTA or general reliability claim."
+      ],
+      "upstream_manifest": "docs/research/native-application-scope-2026-10-17.manifest.json",
+      "archive_manifest": "docs/research/computer-use-observation-scope-2026-10-17.manifest.json"
     }
   ]
 }

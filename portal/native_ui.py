@@ -2151,11 +2151,14 @@ class _AtspiBridge:
         applications = [self._read(lambda index=index: desktop.get_child_at_index(index))
                         for index in range(min(application_count, self.MAX_CHILDREN))]
         direct_provider = False
+        application_pids = {}
         for application in applications:
             if application is None:
                 raise NativeUiUnavailable("native_observation_unavailable")
             self._clear_cache(application)
-            direct_provider |= self._read(application.get_process_id) == process_id
+            reported_pid = self._read(application.get_process_id)
+            application_pids[id(application)] = reported_pid
+            direct_provider |= reported_pid == process_id
         namespace_candidate = not direct_provider
         if namespace_candidate and application_count > self.MAX_CHILDREN:
             raise NativeUiUnavailable("native_provider_scan_incomplete")
@@ -2211,6 +2214,14 @@ class _AtspiBridge:
                 truncated = True
                 return False
             seen.add(raw)
+            # The desktop's direct children are application roots. Exclude a
+            # positively identified foreign process before reading its state;
+            # unrelated registry entries can become DEFUNCT during our action.
+            # Keep its identity edge, not old handles or proof of disappearance.
+            known_pid = application_pids.get(id(node)) if parent == identity_root else None
+            if (direct_provider and type(known_pid) is int and 0 < known_pid < 2**31
+                    and known_pid != process_id and (not include_windows or self.process_id is not None)):
+                return True
             self._clear_cache(node)
             state = self._read(node.get_state_set)
             if state is None or state.contains(state_type.DEFUNCT):
