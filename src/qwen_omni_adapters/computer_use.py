@@ -20,7 +20,7 @@ from typing import Any, Protocol
 
 VERBS = frozenset({"invoke", "focus", "set_value", "set_checked", "select", "scroll", "key_chord",
                    "click", "double_click", "right_click", "drag_drop", "select_text", "switch_window", "type_text"})
-_BOUNDARY_VERBS = frozenset({"invoke", "click", "double_click", "right_click"})
+_BOUNDARY_VERBS = frozenset({"invoke", "click", "double_click", "right_click", "key_chord", "scroll"})
 _ARGUMENTS = {
     "invoke": set(), "focus": set(), "set_value": {"value"},
     "set_checked": {"checked"}, "select": {"option"},
@@ -160,7 +160,7 @@ def parse_step(value: Any) -> dict[str, Any]:
 
 
 def parse_intent(value: Any) -> dict[str, Any]:
-    """Private native-task boundary: one pointer/activation intent, no effects."""
+    """Private native-task boundary: one guarded input, no promised effects."""
     intent = _parse_intent(value, effects=False)
     if intent["verb"] not in _BOUNDARY_VERBS:
         raise ComputerUseError("Unsupported observation-boundary verb")

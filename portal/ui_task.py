@@ -170,7 +170,8 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
             if verb == "focus":
                 branch["properties"]["expect"] = copy.deepcopy(switch_effect)
                 branch["properties"]["expect"]["items"]["properties"]["kind"] = {"const": "focused"}
-            if verb in {"invoke", "click", "double_click", "right_click"}:
+            if (verb in {"invoke", "click", "double_click", "right_click"}
+                    or intent_choice and verb in {"key_chord", "scroll"}):
                 branch["properties"].pop("expect")
                 branch["required"].remove("expect")
                 boundaries.append(branch)
@@ -771,7 +772,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                     parse_predicates(plan["final_predicates"], terminal=True)
                 if kind == "ui_boundary":
                     parse_intent(plan["step"])
-                    if intent_choice:
+                    if intent_choice and plan["step"]["verb"] in {"invoke", "click", "double_click", "right_click"}:
                         parse_subgoal({"id": plan["step"]["id"], "family": "pointer_or_activation",
                                        "objective": plan["objective"], "target": plan["step"]["target"]})
                 if kind == "ui_subgoal":

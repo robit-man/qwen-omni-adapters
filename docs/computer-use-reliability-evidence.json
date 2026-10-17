@@ -237,6 +237,40 @@
       },
       "evidence_path": "runtime-data/gpu1-acceptance/operator-audit/phase-order-cycle-20261017",
       "evidence_index_sha256": "32db4d39f9c6b94008a36fbe61875ff78b13f4a033715193f5c452c3e7e138b9"
+    },
+    {
+      "cycle": "6a",
+      "criterion": "Compare broad and compact decision interfaces with loaded Ornith",
+      "status": "NINE_ACTUAL_MODEL_CALLS_NO_INPUT_NO_TASK_CREDIT",
+      "evidence_path": "runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017",
+      "notes_sha256": "eb6479c09781141716c6ba6280d19b87e7543632812c983a5ba73ff8f42fd59d"
+    },
+    {
+      "cycle": "2c",
+      "evidence_path": "runtime-data/gpu1-acceptance/operator-audit/input-boundary-cycle-20261017",
+      "criterion": "A keyboard or scroll intent can request guarded input and semantic readback without inventing its expected effect.",
+      "status": "CONTRACT_AND_NATIVE_GRAMMAR_PASS_LIVE_PENDING",
+      "pre_tests": 4060,
+      "post_tests": 4076,
+      "new_regressions": 16,
+      "native_grammar_cases_per_model": 7,
+      "models": [
+        "qwen27b",
+        "ornith9b"
+      ],
+      "model_generation_calls_in_grammar_proof": 0,
+      "whole_task_pass": false,
+      "notes": "Private task binding and existing input guards remain mandatory. Effect stays unknown; no task-completion credit. The compact planner is a separate next cycle.",
+      "sha256": {
+        "proof-results.json": "52ba8e4ce3085a4652a4a6281ebc1c85df2d8924f5e332ca658313f33a7541c1",
+        "captured-observation.json": "92df4660f40fcda27cb309b67ec5c06718609abab33510f79f1dac3e5efdf6f4",
+        "native-cases.json": "3a387d5926b4693b52c3d66371caa4c7abb7c1d84e0bf3c70c1397c246fc4864",
+        "proof.log": "58f3f9f63b160bde4f63ab4926a2c1ac32834813f4dc3c53910e6e6c378ef677",
+        "baseline.log": "075b088fdc410f1e2d53b6efc58453f97c3a5324e5858c06d425ba1c1762f393",
+        "proof.py": "e9cdfa263cf0792e7c43411776fd315cc4a0f52d76e64226d11ef83cbebad16b",
+        "focused.log": "9fcce73e834531098154ea2022611027a5c3349e89417dad5925d5d12fc4979e",
+        "validation.log": "e7d9a18324ea78b7af2baed547c0df5a274a96884fac17a710300b6b6f9f9148"
+      }
     }
   ]
 }

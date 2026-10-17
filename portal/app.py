@@ -2363,7 +2363,12 @@ def create_app(
                 "terminal, developer console, application macro or scripting as a GUI substitute."
             )
             if intent_choice:
-                system += (" For positively observed pointer or activation controls, use ui_subgoal: "
+                system += (" For keyboard shortcuts and scrolling, use ui_boundary with the observed "
+                    "eligible target and typed arguments. Do not invent an effect predicate: the host "
+                    "dispatches once and returns the observed state with unknown effect and no completion credit. "
+                    "For exact full text replacement, use ui_subgoal with family text_entry, mode replace, "
+                    "the target and exact text; the executor owns focus, selection, typing and full readback. "
+                    "For positively observed pointer or activation controls, use ui_subgoal: "
                     "supply a compact active objective within the exact user goal and a semantic selector, "
                     "without choosing a primitive or promising its effect. The active local policy selects "
                     "among finite non-authorizing native intents; the executor resolves and guards a fresh "

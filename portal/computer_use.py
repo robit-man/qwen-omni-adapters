@@ -731,9 +731,14 @@ class ComputerUseStore:
                              _selection=None) -> dict[str, Any]:
         """Private authenticated native-task callback; not a public tool operation."""
         parsed = parse_intent(intent)
+        if parsed["verb"] in {"key_chord", "scroll"} and (
+                not isinstance(objective, str) or not objective.strip() or len(objective) > 500
+                or not isinstance(goal, str) or not goal.strip() or len(goal) > 20000):
+            raise ComputerUseError("Input boundary requires the exact goal and a bounded objective")
         # Explicit supplied objectives keep policy-required semantics even if
         # the configured provider changed after this active phase was compiled.
-        policy_required = _selection is None and (self.intent_choice_enabled or objective is not _OBJECTIVE_UNSET)
+        policy_required = (parsed["verb"] in _INTENT_VERBS and _selection is None
+                           and (self.intent_choice_enabled or objective is not _OBJECTIVE_UNSET))
         subgoal = (parse_subgoal({"id": parsed["id"], "family": "pointer_or_activation",
                    "objective": None if objective is _OBJECTIVE_UNSET else objective, "target": parsed["target"]})
                    if policy_required else None)

@@ -122,3 +122,31 @@ Return offer; a fresh decision dispatched once and verified the destination.
 Three earlier probe setup failures remain recorded. This provider diagnostic
 used no model calls and earns no whole-task credit; it does not close delegation,
 native-scope or ARM faults. See the [implementation evidence](computer-use-reliability-evidence.json).
+
+### Loaded-model decision-interface comparison, 2026-10-17
+
+Nine actual Ornith requests used three captured native desktop states on the
+already leased GPU 1. They dispatched no input and earn no whole-task credit.
+Removing primitive workflows alone did not repair decisions: the three reduced
+replies still selected pointer boundaries, including an attempt to write a URL
+by activating its field without text. A compact control/family projection then
+selected the correct text-entry family and exact URL in Firefox; the other two
+replies switched windows, including one switch to the already active window.
+This is narrow evidence for simplifying the interface, not proof of general
+planning improvement. The compact calls took 1.787, 1.832 and 2.515 seconds;
+corresponding broad-interface calls took 12.865, 16.686 and 19.166 seconds.
+
+The broad Firefox schema occupied about 56,000 characters versus 2,400 in the
+compact comparison. Full goals and historical result/ledger evidence remained
+provided. A new comparison epoch replaced working-state data omitted by the
+original capture; this is declared in the saved notes. One comparison-helper
+error (empty definitions after pruning) occurred before inference; the remaining
+calls resumed without replaying the completed request. Every request, response,
+source digest and per-comparison note remains in
+`runtime-data/gpu1-acceptance/operator-audit/decision-interface-cycle-20261017/`.
+
+The immediate contract repair separates keyboard/scroll dispatch from claims
+about its effect. Real prior Ctrl+L input created a location field, while the
+planner checked focus on the old window and reported failure. The private
+input-and-observe path retains unknown consequences until observed and grants no
+completion credit. A compact planner remains a separate implementation cycle.

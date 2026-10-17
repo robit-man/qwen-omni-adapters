@@ -419,6 +419,18 @@ creation, deletion or global absence. Protected data stays redacted and omitted
 or clipped readback is explicit. Unknown click/open consequences are observed for
 replanning, never converted into a placeholder effect predicate.
 
+With active intent selection, keyboard shortcuts and scrolling also use this
+private input-and-observe boundary. They require a positive advertised target,
+typed arguments, the exact user goal and a nonblank objective. A shortcut such
+as Ctrl+L may create a location field; focus on its previous window cannot
+verify that consequence. The executor dispatches once and returns the actual
+semantic observation with an unknown effect and no completion credit. It keeps
+the native task binding, capability/focus/scope/revision checks, cancellation,
+and uncertainty/replay locks. No post-dispatch retry or fabricated predicate is
+added. The planner must inspect the new state before deciding the next input.
+Unique controls use deterministic resolution; ambiguous controls retain the
+existing finite-choice policy. Public workflows still require effect predicates.
+
 With an actively configured local Kev policy, positive native pointer/activation
 controls instead use private `ui_subgoal`: an `id`, family
 `pointer_or_activation`, compact planner `objective` and semantic `target`.
