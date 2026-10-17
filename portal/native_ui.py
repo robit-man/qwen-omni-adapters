@@ -1033,7 +1033,17 @@ def _native_foreground_binding() -> dict[str, Any]:
     return _x11_foreground(include_binding=True)
 
 
-def _x11_geometry(identity: Mapping[str, Any], environment: Mapping[str, str] | None = None) -> dict[str, int]:
+def _query_timeout(deadline: float | None, seconds: float = 2) -> float:
+    if deadline is None:
+        return seconds
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise NativeUiUnavailable("native_observation_budget_exceeded")
+    return min(seconds, remaining)
+
+
+def _x11_geometry(identity: Mapping[str, Any], environment: Mapping[str, str] | None = None,
+                  *, deadline: float | None = None) -> dict[str, int]:
     # xdotool getwindowgeometry adds the parent-relative offset a second time
     # for reparented clients on this desktop. xwininfo's absolute client origin
     # agrees with native SCREEN extents and the drawable captured below.
@@ -1041,8 +1051,10 @@ def _x11_geometry(identity: Mapping[str, Any], environment: Mapping[str, str] | 
     query_environment["LC_ALL"] = "C"
     result = subprocess.run(  # noqa: S603 - fixed read-only X11 query.
         ["xwininfo", "-id", identity["window_id"]],
-        capture_output=True, text=True, timeout=2, check=False, env=query_environment,
+        capture_output=True, text=True, timeout=_query_timeout(deadline), check=False, env=query_environment,
     )
+    if deadline is not None:
+        _query_timeout(deadline)
     fields, window_ids = {}, []
     names = {"Absolute upper-left X": "x", "Absolute upper-left Y": "y", "Width": "width", "Height": "height"}
     for line in result.stdout.splitlines():
@@ -1067,13 +1079,16 @@ def _x11_geometry(identity: Mapping[str, Any], environment: Mapping[str, str] | 
     return fields
 
 
-def _x11_frame_extents(identity: Mapping[str, Any], environment: Mapping[str, str] | None = None) -> dict[str, int]:
+def _x11_frame_extents(identity: Mapping[str, Any], environment: Mapping[str, str] | None = None,
+                      *, deadline: float | None = None) -> dict[str, int]:
     query_environment = dict(os.environ if environment is None else environment)
     query_environment["LC_ALL"] = "C"
     result = subprocess.run(  # noqa: S603 - declared margins for the exact foreground X11 client.
         ["xprop", "-id", identity["window_id"], "_GTK_FRAME_EXTENTS"],
-        capture_output=True, text=True, timeout=2, check=False, env=query_environment,
+        capture_output=True, text=True, timeout=_query_timeout(deadline), check=False, env=query_environment,
     )
+    if deadline is not None:
+        _query_timeout(deadline)
     lines = result.stdout.strip().splitlines()
     prefix = "_GTK_FRAME_EXTENTS(CARDINAL) = "
     if result.returncode or len(lines) != 1 or not lines[0].startswith(prefix):
@@ -1174,65 +1189,226 @@ def _capture_window(identity: Mapping[str, Any], environment: Mapping[str, str])
 def _pointer_dispatch(identity: Mapping[str, Any], geometry: Mapping[str, int], point: tuple[int, int],
                       verb: str, *, destination: tuple[int, int] | None = None,
                       direction: str | None = None, environment: Mapping[str, str] | None = None,
-                      foreground: Callable[[], dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Use XTEST only at code-owned points in one freshly bound foreground window."""
+                      foreground: Callable[[], dict[str, Any]] | None = None,
+                      activation: Callable[[], bool] | None = None,
+                      deadline: float | None = None,
+                      diagnostic_context: Callable[[], dict[str, int]] | None = None) -> dict[str, Any]:
+    """XTEST in a bound window; alternate activation guards each chosen input."""
     current = foreground or (lambda: _x11_foreground(environment))
-    rejected = {"status": "rejected", "reason": "native_pointer_binding_changed"}
+    moved, button_attempted, down_attempted = False, False, False
+    release_attempted, release_acknowledged, cleanup_failed = False, None, False
+    phase, failure = "bounds", None
+
+    def fail(cause: str) -> None:
+        nonlocal failure
+        if activation is not None and failure is None:
+            failure = (phase, cause)
+
+    def failed_exception(error: Exception) -> None:
+        if isinstance(error, NativeUiUnavailable) and error.code in {
+                "native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"}:
+            cause = "native_budget_exceeded"
+        elif isinstance(error, NativeUiUnavailable) and error.code == "native_activation_changed_before_pointer_input":
+            cause = "activation_rejected"
+        elif isinstance(error, subprocess.TimeoutExpired):
+            cause = "command_timeout"
+        elif isinstance(error, OSError):
+            cause = "command_error"
+        elif phase in {"move_activation", "button_activation", "drag_activation"}:
+            cause = "activation_error"
+        else:
+            cause = "binding_query_error"
+        fail(cause)
+
+    def diagnostic(result: dict[str, Any]) -> dict[str, Any]:
+        # No callback runs until the original chosen work and paired cleanup are
+        # over. This final context cannot establish the first failure's cause.
+        if activation is None or result.get("reason") == "native_pointer_invoked":
+            return result
+        reads = limit = remaining_ms = read_exceeded = time_exceeded = None
+        available = False
+        try:
+            context = diagnostic_context() if diagnostic_context is not None else None
+            if (type(context) is dict and set(context) == {"read_count", "read_limit"}
+                    and type(context["read_count"]) is int and 0 <= context["read_count"] <= 10_000_000
+                    and type(context["read_limit"]) is int and 1 <= context["read_limit"] <= 10_000_000):
+                reads, limit, available = context["read_count"], context["read_limit"], True
+                read_exceeded = reads > limit
+        except Exception:
+            pass  # Telemetry never replaces or retries a completed operation.
+        try:
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                remaining_ms = max(-600_000, min(600_000, round(remaining * 1000)))
+                time_exceeded = remaining <= 0
+        except Exception:
+            pass
+        failed_phase, cause = failure or (phase, "unknown")
+        return {**result, "pointer_diagnostic": {
+            "schema": "robit.omni.native-pointer-diagnostic.v1", "phase": failed_phase, "cause": cause,
+            "movement_attempted": moved, "button_attempted": button_attempted, "down_attempted": down_attempted,
+            "release_attempted": release_attempted, "release_acknowledged": release_acknowledged,
+            "cleanup_failed": cleanup_failed, "read_count": reads, "read_limit": limit,
+            "remaining_ms": remaining_ms, "read_limit_exceeded": read_exceeded,
+            "deadline_exceeded": time_exceeded, "context_available": available,
+            "sample_point": "after_work_and_cleanup", "input_authority": False,
+            "effect_verified": False, "task_progress": False}}
+
+    def rejected(reason: str = "native_pointer_binding_changed", cause: str | None = None) -> dict[str, Any]:
+        if cause is not None:
+            fail(cause)
+        if activation is not None and (moved or button_attempted):
+            return {"status": "dispatched", "reason": "native_pointer_setup_effect_unresolved",
+                    "backend": "x11_guarded_xtest", "input_attempted": True}
+        return {"status": "rejected", "reason": reason}
 
     def inside(position: tuple[int, int]) -> bool:
         x, y = position
         return geometry["x"] <= x < geometry["x"] + geometry["width"] and geometry["y"] <= y < geometry["y"] + geometry["height"]
 
-    if not inside(point) or destination is not None and not inside(destination):
-        return {"status": "rejected", "reason": "native_pointer_outside_bound_window"}
-    if current() != identity or _x11_geometry(identity, environment) != geometry:
-        return rejected
-    window_id = identity["window_id"]
+    def geometry_matches() -> bool:
+        value = (_x11_geometry(identity, environment) if deadline is None
+                 else _x11_geometry(identity, environment, deadline=deadline))
+        return value == geometry
 
-    def command(arguments: list[str]) -> bool:
-        completed = subprocess.run(["xdotool", *arguments], capture_output=True, timeout=2, check=False, env=environment)  # noqa: S603
-        return completed.returncode == 0
+    def command(arguments: list[str], *, cleanup: bool = False) -> bool:
+        nonlocal moved, button_attempted, down_attempted, phase
+        nonlocal release_attempted, release_acknowledged, cleanup_failed
+        family = ("release" if arguments[0] == "mouseup" else "drag" if arguments[0] == "mousemove" and down_attempted
+                  else "move" if arguments[0] == "mousemove" else "button")
+        try:
+            if activation is not None and not cleanup:
+                phase = family + "_activation"
+                if activation() is not True:
+                    raise NativeUiUnavailable("native_activation_changed_before_pointer_input")
+                _query_timeout(deadline)
+            timeout = 2 if cleanup else _query_timeout(deadline)
+            phase = family + "_command"
+            if arguments[0] == "mousemove":
+                moved = True
+            elif arguments[0] in {"click", "mousedown"}:
+                button_attempted = True
+                down_attempted |= arguments[0] == "mousedown"
+            elif cleanup:
+                release_attempted = True
+            completed = subprocess.run(["xdotool", *arguments], capture_output=True, timeout=timeout,
+                                       check=False, env=environment)  # noqa: S603 - fixed XTEST argv.
+            if deadline is not None and not cleanup:
+                phase = family + "_post_command"
+                _query_timeout(deadline)
+            phase = family + "_command"
+            ok = completed.returncode == 0
+            if cleanup:
+                release_acknowledged, cleanup_failed = ok, not ok
+            if not ok:
+                fail("command_nonzero")
+            return ok
+        except Exception as error:
+            if cleanup:
+                cleanup_failed = True
+            failed_exception(error)
+            raise
 
-    def at_target(position: tuple[int, int]) -> bool:
-        location = subprocess.run(["xdotool", "getmouselocation", "--shell"], capture_output=True, text=True, timeout=2, check=False, env=environment)  # noqa: S603
-        axes = dict(line.split("=", 1) for line in location.stdout.splitlines() if "=" in line)
-        return (not location.returncode and axes.get("X") == str(position[0]) and axes.get("Y") == str(position[1])
-                and axes.get("WINDOW") == window_id and current() == identity
-                and _x11_geometry(identity, environment) == geometry)
+    def at_target(position: tuple[int, int], *, required: bool = False) -> bool:
+        def mismatch(cause: str) -> bool:
+            if required:
+                fail(cause)
+            return False
+        try:
+            location = subprocess.run(["xdotool", "getmouselocation", "--shell"], capture_output=True,
+                                     text=True, timeout=_query_timeout(deadline), check=False, env=environment)  # noqa: S603
+            if deadline is not None:
+                _query_timeout(deadline)
+            axes = dict(line.split("=", 1) for line in location.stdout.splitlines() if "=" in line)
+            if location.returncode:
+                return mismatch("pointer_query_nonzero")
+            if axes.get("X") != str(position[0]) or axes.get("Y") != str(position[1]):
+                return mismatch("pointer_coordinates_mismatch")
+            if axes.get("WINDOW") != identity["window_id"]:
+                return mismatch("pointer_window_mismatch")
+            if current() != identity:
+                return mismatch("foreground_mismatch")
+            if not geometry_matches():
+                return mismatch("geometry_mismatch")
+            return True
+        except Exception as error:
+            failed_exception(error)
+            raise
 
-    x, y = point[0] - geometry["x"], point[1] - geometry["y"]
-    # --sync waits for a movement event that never arrives at an unchanged
-    # position. Skip only when position, pointer window and live binding all
-    # positively agree; retain the same final checks before any button input.
-    if not at_target(point) and not command(["mousemove", "--sync", "--window", window_id, str(x), str(y)]):
-        return rejected
-    if current() != identity or _x11_geometry(identity, environment) != geometry:
-        return rejected
-    if not at_target(point):
-        return {"status": "rejected", "reason": "native_pointer_did_not_reach_target"}
-    # XTEST is the chosen native backend, never a retry after XSendEvent. The
-    # actual pointer window, foreground owner and client geometry must agree.
-    # Partial input stays dispatched until independent effects establish success.
+    def run() -> dict[str, Any]:
+        nonlocal phase
+        if not inside(point) or destination is not None and not inside(destination):
+            return rejected("native_pointer_outside_bound_window", "point_outside")
+        phase = "foreground_before_move"
+        if current() != identity:
+            return rejected(cause="foreground_mismatch")
+        phase = "geometry_before_move"
+        if not geometry_matches():
+            return rejected(cause="geometry_mismatch")
+        window_id = identity["window_id"]
+        x, y = point[0] - geometry["x"], point[1] - geometry["y"]
+        # Skip unchanged-position movement only with the existing exact pointer
+        # window/coordinates. Each new-path chosen input then checks activation.
+        phase = "pointer_before_move"
+        if not at_target(point) and not command(["mousemove", "--sync", "--window", window_id, str(x), str(y)]):
+            return rejected()
+        phase = "foreground_after_move"
+        if current() != identity:
+            return rejected(cause="foreground_mismatch")
+        phase = "geometry_after_move"
+        if not geometry_matches():
+            return rejected(cause="geometry_mismatch")
+        phase = "pointer_after_move"
+        if not at_target(point, required=True):
+            return rejected("native_pointer_did_not_reach_target")
+        try:
+            if verb == "drag_drop" and destination is not None:
+                if activation is None:
+                    # Original ACTIVE path retains its established behavior.
+                    ok = command(["mousedown", "1"])
+                    try:
+                        ok = command(["mousemove", "--sync", "--window", window_id,
+                                      str(destination[0] - geometry["x"]), str(destination[1] - geometry["y"])]) and ok
+                        phase = "drag_arrival"
+                        ok = at_target(destination, required=True) and ok
+                    finally:
+                        ok = command(["mouseup", "1"]) and ok
+                else:
+                    ok = False
+                    try:
+                        ok = command(["mousedown", "1"])
+                        if ok:
+                            ok = command(["mousemove", "--sync", "--window", window_id,
+                                str(destination[0] - geometry["x"]), str(destination[1] - geometry["y"])])
+                            phase = "drag_arrival"
+                            ok = at_target(destination, required=True) and ok
+                    finally:
+                        # Once down submission starts, a bounded paired release
+                        # is cleanup even after focus/deadline/acknowledgement loss.
+                        if down_attempted:
+                            ok = command(["mouseup", "1"], cleanup=True) and ok
+            elif verb == "scroll":
+                button = {"up": "4", "down": "5", "left": "6", "right": "7"}[direction]
+                ok = command(["click", "--repeat", "3", "--delay", "30", button])
+            else:
+                button, count = ("3", "1") if verb == "right_click" else ("1", "2" if verb == "double_click" else "1")
+                ok = command(["click", "--repeat", count, "--delay", "70", button])
+        except Exception as error:
+            if activation is not None:
+                failed_exception(error)
+                return rejected()
+            ok = False
+        return {"status": "dispatched", "reason": "native_pointer_invoked" if ok else "native_pointer_effect_unresolved",
+                "backend": "x11_guarded_xtest"}
+
+    if activation is None:
+        return run()
     try:
-        if verb == "drag_drop" and destination is not None:
-            ok = command(["mousedown", "1"])
-            try:
-                ok = command(["mousemove", "--sync", "--window", window_id,
-                              str(destination[0] - geometry["x"]), str(destination[1] - geometry["y"])]) and ok
-                ok = at_target(destination) and ok
-            finally:
-                ok = command(["mouseup", "1"]) and ok
-        elif verb == "scroll":
-            button = {"up": "4", "down": "5", "left": "6", "right": "7"}[direction]
-            ok = command(["click", "--repeat", "3", "--delay", "30", button])
-        else:
-            button, count = ("3", "1") if verb == "right_click" else ("1", "2" if verb == "double_click" else "1")
-            ok = command(["click", "--repeat", count, "--delay", "70", button])
-    except Exception:
-        ok = False
-    return {"status": "dispatched", "reason": "native_pointer_invoked" if ok else "native_pointer_effect_unresolved",
-            "backend": "x11_guarded_xtest"}
-
+        result = run()
+    except Exception as error:
+        failed_exception(error)
+        result = rejected()
+    return diagnostic(result)
 
 def _process_start(process_id: int) -> str:
     if type(process_id) is not int or process_id <= 0:
@@ -1334,6 +1510,7 @@ class _AtspiBridge:
         self._inactive_namespace_bindings: dict[str, dict[str, Any]] = {}
         self._inactive_namespace_error: str | None = None
         self._inactive_namespace_buses: set[str] = set()
+        self._alternate_activation: dict[str, Any] | None = None
         self.atspi.init()
         self.atspi.set_timeout(250, 250)
 
@@ -1476,11 +1653,257 @@ class _AtspiBridge:
     def _provider_guard(self) -> bool:
         try:
             self._refresh_provider_binding()
+            # Alternate activation is checked at each operation's last input
+            # boundary, after its target/scope reads; this helper only guards
+            # the existing namespace provider binding.
             return True
         except NativeUiUnavailable as exc:
             if exc.code in {"native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"}:
                 raise
             return False
+
+    def _activation_read(self, function: Callable[[], Any]) -> Any:
+        value = self._read(function)
+        _query_timeout(self.deadline)
+        return value
+
+    def _activation_host(self) -> dict[str, Any]:
+        identity = self._activation_read(self.foreground)
+        if identity != self.foreground_identity:
+            raise NativeUiUnavailable("native_activation_foreground_changed")
+        host = self._activation_read(lambda: _host_process_identity(identity["process_id"]))
+        if (host.get("pid") != identity["process_id"] or type(host.get("uid")) is not int
+                or host["uid"] != os.getuid() or not isinstance(host.get("start"), str)
+                or re.fullmatch(r"[1-9][0-9]{0,19}", host["start"]) is None):
+            raise NativeUiUnavailable("native_activation_host_unproven")
+        scope = {"kind": "authenticated_current", "digest": None, "parent_window_id": None}
+        if self.window_scope is not None:
+            scope["digest"] = native_task_scope_sha256(self.window_scope)
+            exact = any(row["window_id"] == identity["window_id"] and row["process_id"] == identity["process_id"]
+                        and row["process_start"] == host["start"] for row in self.window_scope["windows"])
+            if exact:
+                scope["kind"] = "registered"
+            else:
+                result = self._activation_read(lambda: subprocess.run(  # noqa: S603 - fixed declared-parent read.
+                    ["xprop", "-id", identity["window_id"], "WM_TRANSIENT_FOR"], capture_output=True,
+                    text=True, timeout=_query_timeout(self.deadline), check=False))
+                parent = re.fullmatch(r"WM_TRANSIENT_FOR\(WINDOW\): window id # (0x[0-9a-fA-F]+)\s*", result.stdout)
+                parent_id = str(int(parent[1], 16)) if parent is not None else None
+                if result.returncode or not any(row["window_id"] == parent_id
+                        and row["process_id"] == identity["process_id"] and row["process_start"] == host["start"]
+                        for row in self.window_scope["windows"]):
+                    raise NativeUiUnavailable("native_activation_transient_unproven")
+                scope.update(kind="direct_transient", parent_window_id=parent_id)
+        geometry = self._activation_read(lambda: _x11_geometry(identity, deadline=self.deadline))
+        return {"identity": identity, "host": {key: host[key] for key in ("pid", "start", "uid")},
+                "scope": scope, "geometry": geometry}
+
+    def _activation_proof(self) -> dict[str, Any]:
+        """Current direct-provider focus evidence; never sets provider ACTIVE."""
+        if self._provider_binding is not None:
+            raise NativeUiUnavailable("native_activation_namespace_unsupported")
+        before = self._activation_host()
+        pid = before["identity"]["process_id"]
+
+        def identity(node: Any, expected_bus: str | None = None) -> str | None:
+            bus, path = self._activation_read(lambda: (node.app.bus_name, node.path))
+            if (not isinstance(bus, str) or not bus or not isinstance(path, str) or not path
+                    or len(bus) > 512 or len(path) > 4096):
+                raise NativeUiUnavailable("native_activation_identity_unavailable")
+            # Validate the provider from this same freshly returned identity;
+            # a second bus-only read is neither another identity nor a proof.
+            if expected_bus is not None and bus != expected_bus:
+                return None
+            return bus + ":" + path
+
+        def clear(node: Any) -> None:
+            self._clear_cache(node)
+            _query_timeout(self.deadline)
+
+        desktop = self._activation_read(lambda: self.atspi.get_desktop(0))
+        if desktop is None:
+            raise NativeUiUnavailable("native_activation_registry_unavailable")
+        clear(desktop)
+        count = self._count(desktop)
+        if count > self.MAX_CHILDREN:
+            raise NativeUiUnavailable("native_activation_root_scan_incomplete")
+        applications = []
+        for index in range(count):
+            app = self._activation_read(lambda index=index: desktop.get_child_at_index(index))
+            if app is None:
+                raise NativeUiUnavailable("native_activation_root_scan_incomplete")
+            clear(app)
+            reported = self._activation_read(app.get_process_id)
+            if type(reported) is int and reported == pid:
+                bus = self._activation_read(lambda app=app: app.app.bus_name)
+                credentials = self._activation_read(lambda bus=bus: self._credentials(bus))
+                if credentials != {"pid": pid, "uid": before["host"]["uid"]}:
+                    raise NativeUiUnavailable("native_activation_provider_unproven")
+                applications.append((app, identity(app), bus, credentials))
+        if len(applications) != 1:
+            raise NativeUiUnavailable("native_activation_provider_not_unique")
+        application, application_raw, bus, credentials = applications[0]
+        root_rows, candidates, root_seen = [], [], set()
+        flags = self.atspi.StateType
+
+        def roots(node: Any, parent: str, depth: int = 0) -> None:
+            if node is None or depth > self.MAX_DEPTH or len(root_seen) >= self.MAX_NODES:
+                raise NativeUiUnavailable("native_activation_root_scan_incomplete")
+            raw = identity(node, bus)
+            if raw is None or raw in root_seen:
+                raise NativeUiUnavailable("native_activation_parent_identity_unproven")
+            root_seen.add(raw)
+            clear(node)
+            if identity(self._activation_read(lambda: node.get_parent())) != parent:
+                raise NativeUiUnavailable("native_activation_parent_identity_unproven")
+            state = self._activation_read(node.get_state_set)
+            if state is None or state.contains(flags.DEFUNCT):
+                raise NativeUiUnavailable("native_activation_root_scan_incomplete")
+            role = self._activation_read(node.get_role_name)
+            if not isinstance(role, str) or not role:
+                raise NativeUiUnavailable("native_activation_role_unavailable")
+            if role in {"frame", "dialog", "window", "alert", "file chooser"}:
+                shown = all(state.contains(flag) for flag in (flags.VISIBLE, flags.SHOWING))
+                row = {"identity": raw, "role": role, "active": bool(state.contains(flags.ACTIVE)),
+                       "focused": bool(state.contains(flags.FOCUSED)), "showing": bool(shown), "window_id": None}
+                root_rows.append(row)
+                if row["active"]:
+                    raise NativeUiUnavailable("native_activation_competing_root")
+                if not shown:
+                    return
+                # Associate every visible window role before filtering supported
+                # dialogs. An inactive frame can contain a focused descendant;
+                # its role and root FOCUSED=false cannot exclude a competitor.
+                mapped = self._mapped_window(node, pid, deadline=self.deadline)
+                row["window_id"] = mapped
+                if mapped is None:
+                    raise NativeUiUnavailable("native_activation_competing_root_unproven")
+                if mapped != before["identity"]["window_id"]:
+                    return  # Positively mapped distinct client; no content read.
+                if role not in {"dialog", "file chooser"} or not state.contains(flags.SENSITIVE):
+                    raise NativeUiUnavailable("native_activation_competing_root")
+                screen = self._activation_read(lambda: self._native_rect(node))
+                mapping = self._coordinate_for(node, deadline=self.deadline)
+                _query_timeout(self.deadline)
+                if screen == before["geometry"] or mapping is not None and mapping["surface"] == before["geometry"]:
+                    candidates.append((node, raw, parent, role, mapping))
+                else:
+                    raise NativeUiUnavailable("native_activation_root_geometry_unproven")
+                return
+            children = self._count(node)
+            if children > self.MAX_CHILDREN:
+                raise NativeUiUnavailable("native_activation_root_scan_incomplete")
+            for index in range(children):
+                roots(self._activation_read(lambda index=index: node.get_child_at_index(index)), raw, depth+1)
+            clear(node)
+            if self._count(node) != children:
+                raise NativeUiUnavailable("native_activation_root_scan_changed")
+
+        children = self._count(application)
+        if children > self.MAX_CHILDREN:
+            raise NativeUiUnavailable("native_activation_root_scan_incomplete")
+        for index in range(children):
+            roots(self._activation_read(lambda index=index: application.get_child_at_index(index)), application_raw)
+        clear(application)
+        if self._count(application) != children or len(candidates) != 1:
+            raise NativeUiUnavailable("native_activation_root_not_unique")
+        window, raw, parent, role, mapping = candidates[0]
+        if any(row["focused"] and row["identity"] != raw for row in root_rows):
+            raise NativeUiUnavailable("native_activation_competing_root")
+        focused, seen, focus_nodes = [], set(), {}
+
+        def focus(node: Any, parent_raw: str, lineage: tuple = (), visible: bool = True) -> None:
+            if node is None or len(lineage) > self.MAX_DEPTH or len(seen) >= self.MAX_NODES:
+                raise NativeUiUnavailable("native_activation_focus_scan_incomplete")
+            current = identity(node, bus)
+            if current is None or current in seen:
+                raise NativeUiUnavailable("native_activation_focus_identity_unproven")
+            seen.add(current)
+            focus_nodes[current] = (node, parent_raw)
+            clear(node)
+            if identity(self._activation_read(lambda: node.get_parent())) != parent_raw:
+                raise NativeUiUnavailable("native_activation_focus_parent_changed")
+            state = self._activation_read(node.get_state_set)
+            if state is None or state.contains(flags.DEFUNCT):
+                raise NativeUiUnavailable("native_activation_focus_scan_incomplete")
+            node_role = self._activation_read(node.get_role_name)
+            if not isinstance(node_role, str) or not node_role:
+                raise NativeUiUnavailable("native_activation_role_unavailable")
+            shown = visible and all(state.contains(flag) for flag in (flags.VISIBLE, flags.SHOWING))
+            chain = (*lineage, {"identity": current, "role": node_role, "visible": bool(shown),
+                                "focused": bool(state.contains(flags.FOCUSED))})
+            if state.contains(flags.FOCUSED):
+                if not shown:
+                    raise NativeUiUnavailable("native_activation_focused_ancestry_hidden")
+                focused.append(chain)
+            count = self._count(node)
+            if count > self.MAX_CHILDREN:
+                raise NativeUiUnavailable("native_activation_focus_scan_incomplete")
+            for index in range(count):
+                focus(self._activation_read(lambda index=index: node.get_child_at_index(index)), current, chain, shown)
+            clear(node)
+            if self._count(node) != count:
+                raise NativeUiUnavailable("native_activation_focus_scan_changed")
+
+        focus(window, parent)
+        if not focused:
+            raise NativeUiUnavailable("native_activation_focused_ancestry_missing")
+        deepest = max(focused, key=len)
+        if any(tuple(path) != tuple(deepest[:len(path)]) for path in focused):
+            raise NativeUiUnavailable("native_activation_focused_ancestry_ambiguous")
+        # Complete coverage can outlive the early focused-node read. Recheck
+        # the collected ancestry after all sibling reads, deepest focus last;
+        # no second tree scan, remembered focus slot or budget reset is used.
+        shown = True
+        for expected in deepest:
+            node, parent_raw = focus_nodes[expected["identity"]]
+            clear(node)
+            current = identity(node, bus)
+            if (current != expected["identity"] or identity(self._activation_read(node.get_parent)) != parent_raw
+                    or self._activation_read(node.get_role_name) != expected["role"]):
+                raise NativeUiUnavailable("native_activation_focused_ancestry_changed")
+            state = self._activation_read(node.get_state_set)
+            if state is None or state.contains(flags.DEFUNCT):
+                raise NativeUiUnavailable("native_activation_focused_ancestry_changed")
+            shown = shown and all(state.contains(flag) for flag in (flags.VISIBLE, flags.SHOWING))
+            if (bool(shown) != expected["visible"] or bool(state.contains(flags.FOCUSED)) != expected["focused"]):
+                raise NativeUiUnavailable("native_activation_focused_ancestry_changed")
+        after = self._activation_host()
+        if after != before:
+            raise NativeUiUnavailable("native_activation_host_changed")
+        return {"host": before, "application": application_raw, "credentials": credentials,
+                "roots": sorted(root_rows, key=lambda row: row["identity"]), "root": raw,
+                "role": role, "coordinate_binding": mapping, "focused_ancestry": list(deepest),
+                "session_id": self.session_id}
+
+    def _activation_valid(self) -> bool:
+        prior = getattr(self, "_alternate_activation", None)
+        if prior is None:
+            return False
+        try:
+            return self._activation_proof() == prior
+        except NativeUiUnavailable as exc:
+            if exc.code in {"native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"}:
+                raise
+            return False
+
+    def _current_geometry(self) -> dict[str, int]:
+        if self._alternate_activation is None:
+            return _x11_geometry(self.foreground_identity)
+        return self._activation_read(lambda: _x11_geometry(self.foreground_identity, deadline=self.deadline))
+
+    def _current_coordinate(self, window: Any) -> dict[str, Any] | None:
+        if self._alternate_activation is None:
+            return self._coordinate_for(window)
+        return self._coordinate_for(window, deadline=self.deadline)
+
+    def _require_activation(self, window: Any, state: Any = None) -> bool:
+        prior = getattr(self, "_alternate_activation", None)
+        if prior is None:
+            current = self._read(window.get_state_set) if state is None else state
+            return bool(current.contains(self.atspi.StateType.ACTIVE))
+        raw = self._activation_read(lambda: str(window.app.bus_name) + ":" + str(window.path))
+        return raw == prior["root"] and self._activation_valid()
 
     def _inactive_namespace_providers(self) -> list[tuple]:
         helper = _identity_helper()
@@ -1610,6 +2033,12 @@ class _AtspiBridge:
         getter = getattr(getattr(self.atspi, "Document", None), "get_document_attribute_value", None)
         if not callable(getter):
             return {**unavailable, "reason": "document_interface_unavailable"}
+        if self._alternate_activation is not None and not any(
+                item["role"] == "document_web" and item["scope_id"] == window_id
+                for _node, item, _index in handles.values()):
+            # Missing observed capability is unknown, including omitted trees.
+            # No URI, document absence, acquisition or input authority is claimed.
+            return {**unavailable, "reason": "document_binding_unavailable"}
         state_type = self.atspi.StateType
         seen, documents = set(), []
 
@@ -1659,6 +2088,8 @@ class _AtspiBridge:
                     or not visible(node) or "Document" not in self._read(node.get_interfaces)):
                 return None
             interface = self._read(node.get_document_iface)
+            if self._alternate_activation is not None and not self._require_activation(window):
+                return None
             uri = self._read(lambda: getter(interface, "DocURL"))
             if (not isinstance(uri, str) or not uri or len(uri) > 20000
                     or any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in uri)):
@@ -1678,7 +2109,8 @@ class _AtspiBridge:
         try:
             window_raw = identity(window)
             window_state = self._read(window.get_state_set)
-            if not visible(window) or not window_state.contains(state_type.ACTIVE):
+            if not visible(window) or (self._alternate_activation is None
+                    and not self._require_activation(window, window_state)):
                 return {**unavailable, "reason": "document_window_not_active"}
             scan(window)
             if len(documents) != 1:
@@ -1697,7 +2129,7 @@ class _AtspiBridge:
                 return {**unavailable, "reason": "document_url_unavailable_or_changed"}
             self._clear_cache(window)
             state = self._read(window.get_state_set)
-            if (identity(window) != window_raw or not visible(window) or not state.contains(state_type.ACTIVE)
+            if (identity(window) != window_raw or not visible(window) or not self._require_activation(window, state)
                     or self.foreground() != self.foreground_identity):
                 return {**unavailable, "reason": "document_window_binding_changed"}
             return {"status": "observed", "source": "atspi.Document.DocURL", "url": uri,
@@ -1723,7 +2155,7 @@ class _AtspiBridge:
             return None
         return values
 
-    def _coordinate_for(self, window: Any) -> dict[str, Any] | None:
+    def _coordinate_for(self, window: Any, *, deadline: float | None = None) -> dict[str, Any] | None:
         screen = self._native_rect(window)
         if screen is None or screen["x"] != 0 or screen["y"] != 0:
             return None
@@ -1736,7 +2168,13 @@ class _AtspiBridge:
         identity = self.foreground_identity
         if self.foreground() != identity:
             raise NativeUiUnavailable("native_foreground_changed_during_observation")
-        geometry, margins = _x11_geometry(identity), _x11_frame_extents(identity)
+        if deadline is None:
+            geometry, margins = _x11_geometry(identity), _x11_frame_extents(identity)
+        else:
+            geometry = self._read(lambda: _x11_geometry(identity, deadline=deadline))
+            _query_timeout(deadline)
+            margins = self._read(lambda: _x11_frame_extents(identity, deadline=deadline))
+            _query_timeout(deadline)
         width = geometry["width"] - margins["left"] - margins["right"]
         height = geometry["height"] - margins["top"] - margins["bottom"]
         if (width <= 0 or height <= 0 or local["width"] != width or local["height"] != height
@@ -1896,7 +2334,7 @@ class _AtspiBridge:
         role = self._read(node.get_role_name)
         identity = dict(self.foreground_identity)
         start = self._read(lambda: _process_start(identity["process_id"]))
-        geometry = self._read(lambda: _x11_geometry(identity))
+        geometry = self._read(self._current_geometry)
         mapping = copy.deepcopy(self._coordinate_binding)
         point = (bounds["x"] + bounds["width"] // 2, bounds["y"] + bounds["height"] // 2)
         evidence = self._hit_evidence(node, point, window)
@@ -1904,9 +2342,9 @@ class _AtspiBridge:
         self._clear_cache(window)
         state = self._read(node.get_state_set)
         if (self.foreground() != identity or self._read(lambda: _process_start(identity["process_id"])) != start
-                or self._read(lambda: _x11_geometry(identity)) != geometry
-                or self._coordinate_for(window) != mapping or self._rect(node) != bounds
-                or not self._read(window.get_state_set).contains(self.atspi.StateType.ACTIVE)
+                or self._read(self._current_geometry) != geometry
+                or self._current_coordinate(window) != mapping or self._rect(node) != bounds
+                or not self._require_activation(window)
                 or not all(state.contains(value) for value in (self.atspi.StateType.SENSITIVE,
                                                               self.atspi.StateType.VISIBLE, self.atspi.StateType.SHOWING))
                 or state.contains(self.atspi.StateType.DEFUNCT) or self._read(node.get_role_name) != role
@@ -1922,7 +2360,7 @@ class _AtspiBridge:
 
         def binding_matches() -> bool:
             try:
-                return not binding or self._coordinate_for(window) == binding
+                return not binding or self._current_coordinate(window) == binding
             except NativeUiUnavailable as exc:
                 if exc.code == "native_observation_budget_exceeded":
                     raise
@@ -1948,29 +2386,41 @@ class _AtspiBridge:
             destination = (rect["x"] + rect["width"] // 2, rect["y"] + rect["height"] // 2)
             if not self._hit(target, destination, window):
                 return {"status": "rejected", "reason": "native_drop_target_occluded"}
-        geometry = _x11_geometry(self.foreground_identity)
+        geometry = self._current_geometry()
         if binding and (geometry != binding["surface"] or not binding_matches()):
             return {"status": "rejected", "reason": "native_pointer_coordinate_binding_changed"}
         if not self._provider_guard():
             return {"status": "rejected", "reason": "native_provider_changed_before_dispatch"}
+        if self._alternate_activation is not None:
+            return _pointer_dispatch(self.foreground_identity, geometry, point, action["verb"],
+                destination=destination, direction=action["args"].get("direction"), foreground=self.foreground,
+                activation=lambda: self._require_activation(window), deadline=self.deadline,
+                diagnostic_context=lambda: {"read_count": self.reads, "read_limit": self.MAX_READS})
         return _pointer_dispatch(self.foreground_identity, geometry, point, action["verb"],
                                  destination=destination, direction=action["args"].get("direction"), foreground=self.foreground)
 
-    def _mapped_window(self, node: Any, process_id: int) -> str | None:
+    def _mapped_window(self, node: Any, process_id: int, *, deadline: float | None = None) -> str | None:
         """Resolve only an exactly named, uniquely owned visible X11 window."""
-        result = subprocess.run(["xdotool", "search", "--onlyvisible", "--pid", str(process_id)],
-                                capture_output=True, text=True, timeout=2, check=False)  # noqa: S603
+        def query(arguments: list[str], timeout: float) -> Any:
+            def run() -> Any:
+                return subprocess.run(arguments, capture_output=True, text=True,
+                    timeout=_query_timeout(deadline, timeout), check=False)  # noqa: S603
+            if deadline is None:
+                return run()
+            result = self._read(run)
+            _query_timeout(deadline)
+            return result
+
+        result = query(["xdotool", "search", "--onlyvisible", "--pid", str(process_id)], 2)
         candidates = result.stdout.splitlines()
         if result.returncode or len(candidates) > 32 or any(not value.isdecimal() for value in candidates):
             return None
         name = self._read(node.get_name)
         matches = []
         for window_id in candidates:
-            result = subprocess.run(["xdotool", "getwindowname", window_id],
-                                    capture_output=True, text=True, timeout=1, check=False)  # noqa: S603
+            result = query(["xdotool", "getwindowname", window_id], 1)
             if result.returncode == 0 and result.stdout.strip() == name:
-                owner = subprocess.run(["xdotool", "getwindowpid", window_id],
-                                       capture_output=True, text=True, timeout=1, check=False)  # noqa: S603
+                owner = query(["xdotool", "getwindowpid", window_id], 1)
                 if owner.returncode == 0 and owner.stdout.strip() == str(process_id):
                     matches.append(window_id)
         return matches[0] if len(matches) == 1 else None
@@ -2112,6 +2562,7 @@ class _AtspiBridge:
         host_owner = (self._host_owner_binding, self._host_owner_bound)
         inactive = (self._inactive_namespace_bindings, self._inactive_namespace_buses, self._inactive_namespace_error)
         target = self._window_target
+        activation = self._alternate_activation
         identity = getattr(self, "foreground_identity", missing)
         try:
             return self._observe(include_windows, _window_query(window_target))
@@ -2121,14 +2572,18 @@ class _AtspiBridge:
             self._host_owner_binding, self._host_owner_bound = host_owner
             self._inactive_namespace_bindings, self._inactive_namespace_buses, self._inactive_namespace_error = inactive
             self._window_target = target
+            self._alternate_activation = activation
             if identity is missing:
                 self.__dict__.pop("foreground_identity", None)
             else:
                 self.foreground_identity = identity
             raise
 
-    def _observe(self, include_windows: bool, window_target: dict[str, str] | None) -> dict[str, Any]:
-        self.reads, self.deadline = 0, time.monotonic() + 5
+    def _observe(self, include_windows: bool, window_target: dict[str, str] | None,
+                 *, _activation_retry: bool = False) -> dict[str, Any]:
+        if not _activation_retry:
+            self.reads, self.deadline = 0, time.monotonic() + 5
+            self._alternate_activation = None
         self._window_target = copy.deepcopy(window_target)
         self._coordinate_binding = None
         self._provider_binding = None
@@ -2249,7 +2704,9 @@ class _AtspiBridge:
             if not window and role in {"frame", "dialog", "window", "alert", "file chooser"}:
                 window = node_id
                 windows[window] = node
-                if state.contains(state_type.ACTIVE) and application_pid == process_id:
+                alternate = self._alternate_activation
+                selected = alternate is not None and raw == alternate["root"]
+                if (state.contains(state_type.ACTIVE) or selected) and application_pid == process_id:
                     if self._provider_binding is not None:
                         if self._read(lambda: node.app.bus_name) != self._provider_binding["proof"]["bus_name"]:
                             raise NativeUiUnavailable("native_provider_identity_ambiguous")
@@ -2259,7 +2716,8 @@ class _AtspiBridge:
                     active_records[raw] = {"node": node, "id": node_id, "generation": generation,
                         "process_id": process_id, "owner_window_id": self.foreground_identity["window_id"]}
                     if "Component" in self._read(node.get_interfaces):
-                        self._coordinate_binding = self._coordinate_for(node)
+                        self._coordinate_binding = (self._coordinate_for(node, deadline=self.deadline)
+                            if alternate is not None else self._coordinate_for(node))
                 else:
                     namespace_binding = self._inactive_namespace_bindings.get(raw)
                     if (namespace_binding is None and (namespace_relay
@@ -2445,6 +2903,15 @@ class _AtspiBridge:
             desktop_complete &= visit(application)
         if desktop_complete:
             complete_children.add(identity_root)
+        if not active and not _activation_retry:
+            try:
+                self._alternate_activation = copy.deepcopy(self._activation_proof())
+            except NativeUiUnavailable as exc:
+                if exc.code in {"native_observation_budget_exceeded", "native_provider_identity_budget_exceeded"}:
+                    raise
+                raise NativeUiUnavailable("native_active_window_unavailable",
+                    "No unique active accessibility window is available") from None
+            return self._observe(include_windows, window_target, _activation_retry=True)
         if len(active) != 1:
             raise NativeUiUnavailable(
                 "native_active_window_unavailable",
@@ -2510,6 +2977,11 @@ class _AtspiBridge:
             revision_payload = {"snapshot": revision_payload, "namespace_owner_digest": self._host_owner_binding["digest"]}
         if self._inactive_namespace_bindings:
             revision_payload = {"snapshot": revision_payload, "inactive_namespace_bindings": self._inactive_namespace_bindings}
+        if self._alternate_activation is not None:
+            if not self._require_activation(windows[window_id]):
+                raise NativeUiUnavailable("native_activation_changed_before_publication")
+            revision_payload = {"snapshot": revision_payload, "activation_witness_digest": hashlib.sha256(
+                json.dumps(self._alternate_activation, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
         payload["revision"] = hashlib.sha256(
             json.dumps(revision_payload, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
@@ -2581,7 +3053,7 @@ class _AtspiBridge:
             return reject("invalid_native_arguments")
         window = self.windows[before["scope"]["id"]]
         self._clear_cache(window)
-        if not self._read(window.get_state_set).contains(self.atspi.StateType.ACTIVE):
+        if self._alternate_activation is None and not self._require_activation(window):
             return reject("native_focus_changed_before_dispatch")
         self._clear_cache(node)
         state = self._read(node.get_state_set)
@@ -2601,6 +3073,8 @@ class _AtspiBridge:
                     item["role"] == "toggle_button" and state.contains(self.atspi.StateType.PRESSED)
                 )
                 if checked == args["checked"]:
+                    if self._alternate_activation is not None and not self._require_activation(window):
+                        return reject("native_focus_changed_before_dispatch")
                     return {"status": "dispatched", "reason": "native_checked_already_satisfied"}
             interface = self._read(node.get_action_iface)
 
@@ -2621,16 +3095,18 @@ class _AtspiBridge:
             interface = self._read(node.get_component_iface)
             operation = interface.grab_focus
         elif verb == "key_chord":
-            geometry = _x11_geometry(self.foreground_identity)
+            geometry = self._current_geometry()
 
             def operation() -> dict[str, Any]:
                 if not self._provider_guard():
                     return reject("native_provider_changed_before_dispatch")
-                if self.foreground() != self.foreground_identity or _x11_geometry(self.foreground_identity) != geometry:
+                if self.foreground() != self.foreground_identity or self._current_geometry() != geometry:
                     return reject("native_key_binding_changed_before_dispatch")
                 self._clear_cache(node)
                 if item["id"] != before["scope"]["id"] and not self._read(node.get_state_set).contains(self.atspi.StateType.FOCUSED):
                     return reject("native_key_target_not_focused")
+                if self._alternate_activation is not None and not self._require_activation(window):
+                    return reject("native_focus_changed_before_dispatch")
                 try:
                     result = subprocess.run(  # noqa: S603 - fixed X11 input, never a shell.
                         ["xdotool", "key", "--clearmodifiers", "+".join(args["keys"])],
@@ -2642,12 +3118,12 @@ class _AtspiBridge:
                 return {"status": "dispatched", "backend": "x11_guarded_xtest",
                         "reason": "native_key_input_invoked" if ok else "native_key_input_effect_unresolved"}
         elif verb == "type_text":
-            geometry = _x11_geometry(self.foreground_identity)
+            geometry = self._current_geometry()
 
             def operation() -> dict[str, Any]:
                 if not self._provider_guard():
                     return reject("native_provider_changed_before_dispatch")
-                if (self.foreground() != self.foreground_identity or _x11_geometry(self.foreground_identity) != geometry
+                if (self.foreground() != self.foreground_identity or self._current_geometry() != geometry
                         or self.foreground() != self.foreground_identity):
                     return reject("native_text_binding_changed_before_dispatch")
                 self._clear_cache(node)
@@ -2666,9 +3142,11 @@ class _AtspiBridge:
                         return reject("native_multiline_text_target_not_multiline")
                 # Last host reads immediately precede the one chosen XTEST input.
                 # A failed/partial type remains dispatched; no setter/clipboard retry.
-                if (self.foreground() != self.foreground_identity or _x11_geometry(self.foreground_identity) != geometry
+                if (self.foreground() != self.foreground_identity or self._current_geometry() != geometry
                         or self.foreground() != self.foreground_identity):
                     return reject("native_text_binding_changed_before_dispatch")
+                if self._alternate_activation is not None and not self._require_activation(window):
+                    return reject("native_focus_changed_before_dispatch")
                 attempted = False
                 try:
                     helper = _keymap_helper()
@@ -2680,7 +3158,7 @@ class _AtspiBridge:
                             self._clear_cache(node)
                             current = self._read(node.get_state_set)
                             if (not self._provider_guard() or self.foreground() != self.foreground_identity
-                                    or _x11_geometry(self.foreground_identity) != geometry
+                                    or self._current_geometry() != geometry
                                     or not all(current.contains(flag) for flag in (
                                         self.atspi.StateType.FOCUSED, self.atspi.StateType.EDITABLE,
                                         self.atspi.StateType.VISIBLE, self.atspi.StateType.SHOWING,
@@ -2693,6 +3171,10 @@ class _AtspiBridge:
                             remaining = deadline-time.monotonic()
                             if remaining <= 0:
                                 raise NativeUiUnavailable('native_text_delivery_timeout')
+                            if self._alternate_activation is not None and not self._require_activation(window):
+                                if not attempted:
+                                    return reject('native_text_binding_changed_before_dispatch')
+                                raise NativeUiUnavailable('native_text_binding_changed_during_delivery')
                             attempted = True
                             result = subprocess.run(  # noqa: S603 - literal text and owned numeric keycodes, never shell code.
                                 _x11_text_command(segment, mapping.codes),
@@ -2736,7 +3218,7 @@ class _AtspiBridge:
                 and not state.contains(self.atspi.StateType.READ_ONLY)
             )
             if complete:
-                geometry = _x11_geometry(self.foreground_identity)
+                geometry = self._current_geometry()
                 raw = self._read(lambda: str(node.app.bus_name) + ":" + str(node.path))
 
                 def operation() -> dict[str, Any]:
@@ -2777,8 +3259,10 @@ class _AtspiBridge:
                                 or self._read(node.get_role_name) not in {"text", "entry", "combo box"}):
                             return reject("native_text_selection_target_changed")
                         if (self.foreground() != self.foreground_identity
-                                or _x11_geometry(self.foreground_identity) != geometry
+                                or self._current_geometry() != geometry
                                 or self.foreground() != self.foreground_identity):
+                            return reject("native_text_selection_binding_changed")
+                        if self._alternate_activation is not None and not self._require_activation(window):
                             return reject("native_text_selection_binding_changed")
                     except Exception:
                         # None of these reads attempted input. In particular a
@@ -2796,7 +3280,10 @@ class _AtspiBridge:
                             "reason": "native_key_input_invoked" if ok else "native_key_input_effect_unresolved"}
             else:
                 def operation() -> Any:
-                    if self.atspi.Text.get_n_selections(interface):
+                    count = self.atspi.Text.get_n_selections(interface)
+                    if self._alternate_activation is not None and not self._require_activation(window):
+                        return reject("native_text_selection_binding_changed")
+                    if count:
                         return self.atspi.Text.set_selection(interface, 0, args["start"], args["end"])
                     return self.atspi.Text.add_selection(interface, args["start"], args["end"])
 
@@ -2812,7 +3299,7 @@ class _AtspiBridge:
                     if (self.windows.get(item["id"]) is not node
                             or self.window_ids.get(item["id"]) != self.foreground_identity["window_id"]
                             or self.foreground() != self.foreground_identity
-                            or not self._read(node.get_state_set).contains(self.atspi.StateType.ACTIVE)
+                            or not self._require_activation(node)
                             or self.foreground() != self.foreground_identity):
                         return reject("native_active_window_binding_changed")
                     return {"status": "already_satisfied", "input_attempted": False,
@@ -2854,6 +3341,8 @@ class _AtspiBridge:
                         return {**reject("native_popup_requires_dismissal"), "input_attempted": False}
                     if self.foreground() != self.foreground_identity:
                         return reject("native_foreground_changed_before_dispatch")
+                    if self._alternate_activation is not None and not self._require_activation(window):
+                        return reject("native_focus_changed_before_dispatch")
                     result = subprocess.run(["xdotool", "windowactivate", "--sync", xid],
                                             capture_output=True, timeout=2, check=False)  # noqa: S603
                     return result.returncode == 0
@@ -2876,14 +3365,17 @@ class _AtspiBridge:
             interface = self._read(node.get_selection_iface)
 
             def operation() -> bool:
-                return bool(interface.clear_selection() and interface.select_child(matches[0]))
+                cleared = interface.clear_selection()
+                if self._alternate_activation is not None and not self._require_activation(window):
+                    return False  # Clearing was input; never claim no dispatch or replay it.
+                return bool(cleared and interface.select_child(matches[0]))
 
         # Resolving an interface/selection can make further D-Bus round trips.
         # Recheck foreground, target state and role at the final input boundary.
         if self.foreground() != self.foreground_identity:
             return reject("native_foreground_changed_before_dispatch")
         self._clear_cache(window)
-        if not self._read(window.get_state_set).contains(self.atspi.StateType.ACTIVE):
+        if self._alternate_activation is None and not self._require_activation(window):
             return reject("native_focus_changed_before_dispatch")
         self._clear_cache(node)
         live = self._read(node.get_state_set)
@@ -2914,6 +3406,8 @@ class _AtspiBridge:
                 item["role"] == "toggle_button" and live.contains(self.atspi.StateType.PRESSED)
             )
             if checked == args["checked"]:
+                if self._alternate_activation is not None and not self._require_activation(window):
+                    return reject("native_focus_changed_before_dispatch")
                 return {"status": "dispatched", "reason": "native_checked_already_satisfied"}
         # Once a native pattern is attempted, failure/exception does not prove
         # absence of partial effects. Only the controller's fresh predicates can.
@@ -2921,6 +3415,12 @@ class _AtspiBridge:
             return reject("native_provider_changed_before_dispatch")
         if self.window_scope is not None and self.foreground() != self.foreground_identity:
             return reject("native_foreground_changed_before_dispatch")
+        # These operations have later complete guards after their own native
+        # reads, immediately before each physical input or asserted no-op.
+        local_activation = verb in {*_POINTER_VERBS, "key_chord", "type_text", "select_text", "switch_window"}
+        if (self._alternate_activation is not None and not local_activation
+                and not self._require_activation(window)):
+            return reject("native_focus_changed_before_dispatch")
         try:
             ok = operation()
         except NativeUiUnavailable as exc:
