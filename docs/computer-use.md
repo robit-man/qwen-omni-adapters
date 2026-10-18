@@ -826,14 +826,24 @@ direct request, without the rejected recipe's objective or target constraints.
 The final native-task metadata records the rejection as an untrusted planner
 claim with its actual generation count and no input, progress or verification
 credit. Invalid expansion, changed private binding, upstream failure,
-cancellation or deadline cannot trigger this third request. There is no pointer
-resolution prepass or resampling. Normal phases use two generations, with at
+cancellation or deadline cannot trigger this third request. Normal phases use two generations, with at
 most three under the original shared deadline and unchanged task/failure limits.
 If the source observation cannot use the compact projection because its nodes
 are unknown or exceed 80, the original admitted non-UI direct path runs once.
 The flag conflicts with either compact or prerequisite planner flags; defaults
 and the legacy compact path remain unchanged. This interface does not establish
 classifier quality, live navigation or whole-task success.
+
+A valid pending pointer offer uses the existing narrow resolution question
+before family selection. An accepted choice returns its canonical recovery in
+one generation. An explicit valid `replan` goes straight to one full direct
+generation, retaining all original capabilities and bindings. Its bounded
+feedback is a separate untrusted planner message before the original source
+message; the rejection audit records the actual two-call count with no progress
+credit. Invalid resolution, changed binding, upstream failure, cancellation and
+deadline do not trigger this escape. The pending route has at most two calls;
+ordinary family routes and all task limits remain unchanged. Predictions remain
+unverified, and this routing grants no input or completion authority.
 
 ### Resolving fast pointer-policy abstention
 

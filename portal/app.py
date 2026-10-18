@@ -2547,6 +2547,34 @@ def create_app(
                     if not isinstance(source_nodes, list) or len(source_nodes) > 80:
                         return ui_decision.expand_direct(ask(request_payload), packet, direct_binding)
                     family_packet, family_binding = ui_decision.project(packet)
+                    resolution = ui_decision.pointer_resolution_context(family_packet, family_binding)
+                    if resolution is not None:
+                        context, resolution_schema, _ = resolution
+                        resolution_request = copy.deepcopy(request_payload)
+                        resolution_request["messages"] = [
+                            {"role": "system", "content": ui_decision.POINTER_RESOLUTION_SYSTEM + (
+                                "\n\nCaller task policy:\n" + caller_policy if caller_policy else "")},
+                            {"role": "user", "content": json.dumps(
+                                {**context, "response_schema": resolution_schema}, ensure_ascii=False)}]
+                        resolution_request["response_format"]["json_schema"].update(
+                            name="native_pointer_resolution", schema=resolution_schema)
+                        resolved, family_packet, family_binding = ui_decision.resolve_pointer_proposal(
+                            family_packet, family_binding, packet, ask(resolution_request))
+                        if resolved is not None:
+                            return resolved
+                        rejection_record = {"authority": "untrusted_planner_claim",
+                            "source_epoch": packet["working_state"]["source_epoch"],
+                            "source_phase": packet["working_state"]["source_phase"],
+                            "reason": "pending_pointer_resolution_replan", "input_attempted": False,
+                            "task_progress": False, "verified": False,
+                            "next_route": "full_direct", "generation_calls": generation_calls}
+                        planner_rejections.append(rejection_record)
+                        del planner_rejections[:-40]
+                        direct_request = copy.deepcopy(request_payload)
+                        direct_request["messages"].insert(1, {"role": "user", "content": json.dumps({
+                            "authority": "untrusted_planner_claim", "slow_pointer_resolution":
+                            family_packet["last_result"]["slow_pointer_resolution"]}, ensure_ascii=False)})
+                        return ui_decision.expand_direct(ask(direct_request), packet, direct_binding)
                     context, selector_schema = ui_decision.family_context(packet, family_packet)
                     selector_request = copy.deepcopy(request_payload)
                     selector_request["messages"] = [
