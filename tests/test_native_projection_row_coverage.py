@@ -126,7 +126,8 @@ def test_pending_bank_fact_uses_complete_raw_state_without_changing_projection_p
         raw['revision'] = 'New actual semantic snapshot'
     priority, receipt = pending.consume(goal=GOAL, state=raw)
     assert priority == (CELL,)
-    assert ('pending_delegation' in receipt) is (change is None)
+    # A whole-snapshot revision is not a change to the exact target/raw bank.
+    assert ('pending_delegation' in receipt) is (change != 'bank_metadata')
     projected = _model_ui_observation(raw, priority)
     assert CELL in {node['id'] for node in projected['nodes']}
     assert sum(len(json.dumps(node, ensure_ascii=False)) for node in projected['nodes']) <= 12000

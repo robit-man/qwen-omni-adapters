@@ -402,7 +402,6 @@ def _pending_direct_delegation(packet):
                 or not isinstance(marker['intent_bank_sha256'], str)
                 or re.fullmatch('[0-9a-f]{64}', marker['intent_bank_sha256']) is None
                 or marker['semantic_revision'] != intent['semantic_revision']
-                or marker['semantic_revision'] != state.get('base_semantic_revision', state['revision'])
                 or receipt['status'] != 'fresh_pending_control_observed'
                 or receipt.get('schema') != 'robit.omni.native-pending-recovery-projection.v1'
                 or receipt['full_binding_retained'] is not True
@@ -703,8 +702,10 @@ class _PendingPointerProjection:
                 policy_source_revision=offer['source_revision'], fresh_source=_observation_binding(state),
                 target_identity_sha256=_digest(checked['target']),
                 handoff_revalidation=revalidation)
-            if (intent.get('semantic_revision') == state.get('base_semantic_revision', state['revision'])
-                    and native_digest(_intent_candidates(state, {'node_id': matches[0]['id']}))
+            # This is historical negative routing evidence, not input freshness.
+            # The exact target/bank and fresh_source independently bind this read;
+            # planning-only window metadata may change the whole revision.
+            if (native_digest(_intent_candidates(state, {'node_id': matches[0]['id']}))
                     == intent['intent_bank_sha256']):
                 receipt['pending_delegation'] = {'schema': 'robit.omni.native-pending-delegation.v1',
                     'family': 'pointer_or_activation', 'intent_bank_sha256': intent['intent_bank_sha256'],
@@ -1202,6 +1203,7 @@ def project(packet: Mapping) -> tuple[dict, dict]:
                                      'switch_window', 'key_chord', 'scroll')}
     recovery = next((b for b in native if b['properties']['kind']['const'] == 'ui_pointer_recovery'), None)
     recovery_choices = _recovery_choices(recovery, canonical) if recovery else []
+    pending = _pending_direct_delegation(packet)
     controls, mapping = [], {}
     for index, node in enumerate(state['nodes']):
         if not (node.get('visible') is True and node.get('enabled') is True and node.get('sensitive') is False):
@@ -1212,7 +1214,8 @@ def project(packet: Mapping) -> tuple[dict, dict]:
         # A scope is not an implicit child target. Keep explicit visual pointer
         # requests available for named interactions on this current window.
         if ('ui_subgoal' in kinds and operations & {'invoke', 'click', 'double_click', 'right_click'}
-                and not (active_window and 'ui_boundary' in kinds)):
+                and not (active_window and 'ui_boundary' in kinds)
+                and not (pending is not None and node['id'] == pending['node_id'])):
             families.append('pointer_or_activation')
         if 'ui_subgoal' in kinds and operations & {'set_value', 'type_text'}:
             families.append('text_entry')
@@ -1413,8 +1416,17 @@ def _expand(reply: dict, packet: Mapping, binding: dict) -> dict:
         commitment['objective'] = objective
     envelope = {'assessment': {'source_epoch': reply['source_epoch'], 'source_phase': reply['source_phase'],
         'decision': decision, 'summary': reply['assessment']}, 'phase': phase, 'commitment': commitment}
+    _reject_pending_delegation(envelope, packet, _pending_direct_delegation(packet))
     if family in _NATIVE_ACTION_FAMILIES and 'planning_handoff' in binding and _admits_handoff(packet['response_schema']):
-        envelope['action_handoff'] = _make_action_handoff(reply, packet, binding)
+        private = binding
+        if family == 'pointer_recovery':
+            prior = _recovery_handoff(packet, binding, {'selected': action})
+            if prior is None:
+                raise ComputerUseError('Recovery lacks its unchanged retained predecessor')
+            private = {**binding, 'action_predecessor_claim': prior,
+                'action_predecessor': {'handoff_sha256': _digest(prior),
+                    'source_phase': prior['source_phase'], 'recovery_reference': action['reference']}}
+        envelope['action_handoff'] = _make_action_handoff(reply, packet, private)
     if 'transition_kind' in action:
         state = packet['current_state']['state']
         descriptor = {'kind': action['transition_kind'], 'source_ref': {

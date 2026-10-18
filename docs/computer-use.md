@@ -851,6 +851,16 @@ private to the task controller and is not accepted by the public native UI tool.
 Its resulting observation retains unknown effect and cannot verify the goal.
 
 A working-state fast-policy deferral grants one pending slow-resolution attempt.
+The immediately following planner phase retains that negative routing evidence
+when the exact target and finite primitive bank still match, even if planning
+adds inactive-window metadata and changes the whole observation revision. The
+historical policy revision remains historical; a separate fresh observation
+binding identifies the current read. Both full and family planning exclude
+another fast delegation for that target while leaving concrete recovery,
+inspection and other targets available. Concrete family recovery carries the
+same predecessor claim as full recovery; changed intent or predecessor fails
+validation. These checks grant no input authority and do not relax execution
+freshness, policy thresholds or failure budgets.
 Repeating fast decisions while that attempt is pending still consumes the
 failure budget; failed recovery and cached/unchanged boundaries retain their
 existing limits. The execution ledger records `deferred_to_planner` separately

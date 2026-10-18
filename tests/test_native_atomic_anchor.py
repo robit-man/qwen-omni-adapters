@@ -231,22 +231,33 @@ def test_refreshing_a_packet_hash_cannot_rebind_an_old_anchor_to_changed_native_
 
 
 def test_repeated_recovery_branches_do_not_make_the_anchor_schema_ambiguous():
-    source = _source()
-    offer = {'schema': 'robit.omni.pointer-recovery-proposal.v1', 'reference': 'a' * 32,
-             'input_authority': False, 'choices': [{'node_id': CELL, 'verb': verb}
-                for verb in ('click', 'double_click', 'right_click')]}
-    source['response_schema'] = _working_phase_schema({'native_ui'},
-        _grounded_phase_schema({'native_ui'}, source['current_state'], intent_choice=True),
-        source['working_state'], pointer_recovery=offer, action_handoffs=True)
+    from test_native_direct_handoff import pending_direct_packet
+
+    source, adapter, deferred = pending_direct_packet()
+    offer, prior = deferred['pointer_recovery'], deferred['action_handoff']
     compact, mapping = ui_decision.project(source)
     selection = {'family': 'pointer_recovery', 'target': ref(compact, CELL, mapping)}
+    value = {**proposal(), 'next_subgoal': prior['objective'],
+        'next_operation': prior['next_operation'], 'needed_evidence': prior['needed_evidence'],
+        'immediate_action': selection}
     _, schema = ui_decision.subgoal_context(compact, atomic_anchor=True)
-    Draft202012Validator(schema).validate({**proposal(), 'immediate_action': selection})
-    _, _, binding, value = _bound(selection, source=source)
-    for verb in ('click', 'double_click', 'right_click'):
+    Draft202012Validator(schema).validate(value)
+    _, binding = ui_decision.bind_subgoal(compact, mapping, value, atomic_anchor=True)
+    for choice in offer['choices']:
+        verb = choice['verb']
         result = ui_decision.expand(_decision(source, value, {**selection, 'reference': offer['reference'],
             'verb': verb}), source, binding)
         assert result['phase']['step']['verb'] == verb
+        ui_decision.validate_action_handoff(result['action_handoff'], goal=source['goal'],
+            predecessor=prior, recovery_reference=offer['reference'])
+    missing = copy.deepcopy(source)
+    missing['last_result'].pop('action_handoff')
+    compact, mapping = ui_decision.project(missing)
+    _, binding = ui_decision.bind_subgoal(compact, mapping, value, atomic_anchor=True)
+    with pytest.raises(ui_decision.DecisionError):
+        ui_decision.expand(_decision(missing, value, {**selection, 'reference': offer['reference'],
+            'verb': 'double_click'}), missing, binding)
+    assert not adapter.calls
 
 
 def test_legacy_subgoal_and_public_phase_contracts_remain_unchanged():
