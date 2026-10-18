@@ -2586,7 +2586,8 @@ def create_app(
                     return tool_harness.computer_use.immediate_transition(session_id, step,
                         goal=goal, objective=arguments["objective"],
                         transition=arguments.get("transition") if index == 0 else None,
-                        action_handoff=arguments.get("action_handoff") if index == 0 else None)
+                        action_handoff=arguments.get("action_handoff") if index == 0 else None,
+                        defer_unannotated_boundary=index > 0)
                 return run_verified_prefix(arguments["steps"], execute_step=execute_step,
                     cancelled=stopped.is_set, strategy_ledger=strategy_ledger,
                     source_phase=arguments["source_phase"])

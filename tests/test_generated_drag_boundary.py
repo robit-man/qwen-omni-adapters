@@ -220,6 +220,20 @@ def test_actual_portal_direct_route_dispatches_one_drag_then_replans_without_eff
                      'expect': [{'kind': 'focused', 'node_id': '$target'}]},
                     {**drag(), 'expect': [{'kind': 'text', 'text': LABEL}]}, suffix],
                     'final_predicates': [{'kind': 'text', 'text': LABEL}]}
+        elif prefix and len(packets) == 2:
+            assert not adapters[0].calls and not adapters[0].prepared
+            feedback = packet['last_result']
+            receipt = feedback['verified_prefix_receipt']
+            assert receipt['stop'] == 'unannotated_observation_boundary'
+            assert receipt['attempted_step_count'] == receipt['verified_prefix_count'] == 1
+            assert receipt['unattempted_step_count'] == 2
+            declined = replies[0]['phase']['steps'][1]
+            assert receipt['continuation']['step_index'] == 1 and receipt['continuation']['step'] == declined
+            assert receipt['continuation']['objective'] == replies[0]['commitment']['objective']
+            assert feedback['planner_workflow_claim']['remaining_steps'] == [declined, suffix]
+            assert not feedback['policy_receipts'] and not feedback['point_receipts']
+            assert receipt['task_progress'] is False and feedback['phase_handoff']['new_effect_count'] == 0
+            phase = boundary()
         else:
             phase = {'kind': 'blocked', 'reason': 'Independent task criteria are still unverified.'}
         reply = _working_reply(request, phase)
@@ -233,7 +247,7 @@ def test_actual_portal_direct_route_dispatches_one_drag_then_replans_without_eff
     body = _request(stream)
     body['messages'][-1]['content'] = GOAL
     result, _ = _post(client, body, stream)
-    assert len(packets) == 2
+    assert len(packets) == (3 if prefix else 2)
     adapter = adapters[0]
     assert len(adapter.calls) == 1 and adapter.calls[0]['verb'] == 'drag_drop'
     assert adapter.calls[0]['node_id'] == 'item'
@@ -254,12 +268,14 @@ def test_actual_portal_direct_route_dispatches_one_drag_then_replans_without_eff
     assert actual['before']['session_id'] == actual['after']['session_id'] == adapter.session
     assert actual['before']['revision'] == actual['action']['revision']
     assert actual['after']['revision'] != actual['before']['revision']
-    assert prefix is ('verified_prefix_receipt' in feedback)
+    assert 'verified_prefix_receipt' not in feedback
     if prefix:
-        assert feedback['verified_prefix_receipt']['stop'] == 'opaque_input_boundary'
-        assert feedback['verified_prefix_receipt']['unattempted_step_count'] == 1
-        assert feedback['verified_prefix_receipt']['model_terminal_predicates_verified'] is False
-        assert packets[1]['last_result']['planner_workflow_claim']['remaining_steps'] == [suffix]
+        receipt = traces[0]['verified_prefix_receipt']
+        assert receipt['stop'] == 'unannotated_observation_boundary'
+        assert receipt['unattempted_step_count'] == 2
+        assert receipt['model_terminal_predicates_verified'] is False
+        assert packets[1]['last_result']['planner_workflow_claim']['remaining_steps'] == [
+            replies[0]['phase']['steps'][1], suffix]
     assert result['portal']['native_task']['task_verified'] is False
     assert adapter.nodes[-1]['value'] == ''
 

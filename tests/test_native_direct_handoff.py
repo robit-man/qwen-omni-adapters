@@ -532,13 +532,23 @@ def test_actual_direct_portal_sends_semantic_schema_then_preserves_canonical_exe
         assert 'direct_native_intent' in packet['response_schema']['$defs']
         assert 'native_action_handoff' not in packet['response_schema']['$defs']
         assert body['think'] is False and body['options'] == _request(stream)['options']
-        phase = _phase() if len(packets) == 1 else {'kind': 'blocked', 'reason': 'Independent verification still owed'}
+        if len(packets) == 1:
+            phase = _phase()
+        elif len(packets) == 2:
+            assert packet['last_result']['verified_prefix_receipt']['stop'] == 'unannotated_observation_boundary'
+            assert packet['last_result']['planner_workflow_claim']['remaining_steps'] == _phase()['steps'][1:]
+            assert [action['verb'] for action in adapters[0].calls] == ['set_value']
+            phase = {'kind': 'ui_boundary', 'objective': 'Write and commit the reference note',
+                'step': {key: value for key, value in _phase()['steps'][1].items() if key != 'expect'}}
+        else:
+            assert len(packets) == 3
+            phase = {'kind': 'blocked', 'reason': 'Independent verification still owed'}
         return httpx.Response(200, json={'message': {'content': json.dumps(_working_reply(request, phase))}})
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()
     client.set_cookie(SESSION_COOKIE_NAME, 'direct-host-handoff-owned-session-12345')
     result, _ = _post(client, _request(stream), stream)
-    assert len(packets) == 2 and adapters[0].value == 'Reference note'
+    assert len(packets) == 3 and adapters[0].value == 'Reference note'
     assert [action['verb'] for action in adapters[0].calls] == ['set_value', 'invoke']
     assert result['portal']['native_task']['task_verified'] is False
     assert store._owned('direct-host-handoff-owned-session-12345', 'desktop').cancel.is_set()

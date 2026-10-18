@@ -36,6 +36,22 @@ def run_verified_prefix(steps, *, execute_step: Callable[[dict, int], dict],
                     "environment_may_have_changed": True}, "task_progress": False}
         if not isinstance(result, dict):
             raise ComputerUseError("Prefix callback returned no typed result")
+        continuation = result.get("prefix_continuation")
+        if (index > 0 and isinstance(continuation, dict)
+                and continuation.get("schema") == "robit.omni.native-prefix-continuation.v1"
+                and continuation.get("input_authority") is False
+                and result.get("status") == "needs_replan" and result.get("dispatch_status") == "not_dispatched"
+                and result.get("input_attempted") is False and result.get("task_progress") is False
+                and type(result.get("new_effect_count")) is int and result["new_effect_count"] == 0
+                and result.get("immediate_effect_contract", {}).get("mode") == "observation_boundary"
+                and result.get("effect_receipt", {}).get("effect_state") == "absent"
+                and result.get("effect_receipt", {}).get("environment_may_have_changed") is False
+                and not any(result.get(key) for key in
+                    ("outcomes", "dispatch_record", "receipt", "policy_receipts", "point_receipts", "pointer_recovery"))):
+            last = copy.deepcopy(result)
+            last["prefix_continuation"].update(step_index=index, step=copy.deepcopy(steps[index]))
+            stop = "unannotated_observation_boundary"
+            break
         attempted_count += 1
         # This must happen before another internal step; the outer task also
         # records the returned historical receipts, without new input authority.
@@ -86,6 +102,8 @@ def run_verified_prefix(steps, *, execute_step: Callable[[dict, int], dict],
         "planned_step_count": len(prepared), "attempted_step_count": attempted_count,
         "verified_prefix_count": verified_count, "unattempted_step_count": len(prepared) - attempted_count,
         "all_immediate_readbacks_verified": prefix_verified, "step_contexts": contexts}
+    if stop == "unannotated_observation_boundary":
+        result["verified_prefix_receipt"]["continuation"] = result.pop("prefix_continuation")
     result["phase_handoff"] = {"schema": "robit.omni.ui-phase-handoff.v1", "executor": "host_verified_prefix",
         "terminal_verified": False, "goal_verified": False, "immediate_prefix_verified": prefix_verified,
         "new_effect_count": sum(row.get("effect_receipt", {}).get("effect_state") == "applied" for row in outcomes),

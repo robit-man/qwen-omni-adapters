@@ -1262,7 +1262,7 @@ class ComputerUseStore:
             return _retain_handoff(result, handoff, revalidation)
 
     def immediate_transition(self, session_id: str, step: dict, *, goal: str, objective: str,
-                             transition=None, action_handoff=None) -> dict:
+                             transition=None, action_handoff=None, defer_unannotated_boundary=False) -> dict:
         """One private host-compiled operation, never a whole-task completion.
 
         Canonical client workflows retain their own explicit verification
@@ -1302,6 +1302,17 @@ class ComputerUseStore:
                 return _stale_handoff(exc)
             contract = compile_immediate_transition(step, before, transition=selected_transition)
             compiled = contract.as_dict()
+            if defer_unannotated_boundary and handoff is None and contract.mode == 'observation_boundary':
+                return {'status': 'needs_replan', 'dispatch_status': 'not_dispatched',
+                    'reason': 'The later opaque operation needs its own fresh first-operation intent.',
+                    'input_attempted': False, 'task_progress': False, 'new_effect_count': 0,
+                    'immediate_effect_contract': compiled,
+                    'effect_receipt': {'schema': 'robit.omni.ui-effect-receipt.v1',
+                        'effect_state': 'absent', 'environment_may_have_changed': False},
+                    'prefix_continuation': {'schema': 'robit.omni.native-prefix-continuation.v1',
+                        'input_authority': False, 'objective': objective,
+                        'goal_sha256': hashlib.sha256(goal.encode()).hexdigest(),
+                        'source_ref': compiled['source_ref']}}
             verification_only = self._verify_immediate_predicates(owned, before, step, contract)
             if verification_only is not None:
                 _attach_native_transition(verification_only, contract=contract, before=before, step=step, requested=transition)

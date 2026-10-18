@@ -74,28 +74,50 @@ def test_scope_reaches_owned_epoch_and_model_gets_only_digest_count(tmp_path, mo
         assert payload["think"] is True and payload["options"] == body["options"]
         assert "portal_native_task_scope" not in payload
         assert "process_id" not in request.content.decode() and "process_start" not in request.content.decode()
-        current = json.loads(payload["messages"][1]["content"])["current_state"]["state"]
+        packet = json.loads(payload["messages"][1]["content"])
+        current = packet["current_state"]["state"]
         assert current["window_scope_sha256"] == native_task_scope_sha256(SCOPE)
         assert current["window_scope_count"] == 1
         events.append(store._owned(session, "desktop").cancel)
-        plan = _phase() if len(packets) == 1 else {"kind": "blocked",
-            "reason": "Scoped commit observed; independent task verification is still needed."}
+        if len(packets) == 1:
+            plan = _phase()
+        elif len(packets) == 2:
+            assert [action["verb"] for action in adapters[0].calls] == ["set_value"]
+            feedback = packet["last_result"]
+            receipt = feedback["verified_prefix_receipt"]
+            assert receipt["stop"] == "unannotated_observation_boundary"
+            assert receipt["attempted_step_count"] == receipt["verified_prefix_count"] == 1
+            assert receipt["continuation"]["step_index"] == 1
+            assert receipt["continuation"]["step"] == _phase()["steps"][1]
+            assert feedback["planner_workflow_claim"]["remaining_steps"] == _phase()["steps"][1:]
+            assert not feedback["policy_receipts"] and not feedback["point_receipts"]
+            plan = {"kind": "ui_boundary", "objective": "Write and commit the reference note",
+                "step": {key: value for key, value in _phase()["steps"][1].items() if key != "expect"}}
+        else:
+            assert len(packets) == 3
+            plan = {"kind": "blocked",
+                "reason": "Scoped commit observed; independent task verification is still needed."}
         return httpx.Response(200, json={"message": {"content": json.dumps(_working_reply(request, plan))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()
     client.set_cookie(SESSION_COOKIE_NAME, session)
     result, _ = _post(client, body, stream)
-    assert len(packets) == 2 and len(adapters[0].calls) == 2
+    assert len(packets) == 3 and len(adapters[0].calls) == 2
     assert [action["verb"] for action in adapters[0].calls] == ["set_value", "invoke"]
     assert adapters[0].value == adapters[0].saved == "Reference note"
     trace = result["portal"]["safe_tools_executed"][0]
     assert trace["arguments"]["operation"] == "verified_prefix"
     receipt = json.loads(trace["result"])
-    assert receipt["status"] == "observed_unverified"
+    assert receipt["status"] == "needs_replan"
     assert receipt["phase_handoff"]["terminal_verified"] is False
     assert receipt["phase_handoff"]["goal_verified"] is False
     assert receipt["task_progress"] is False
+    fresh = json.loads(result["portal"]["safe_tools_executed"][1]["result"])
+    assert fresh["status"] == "observed_unverified"
+    assert fresh["ui_boundary_receipt"]["input_attempted"] is True
+    assert fresh["ui_boundary_receipt"]["verified"] is False
+    assert fresh["effect_receipt"]["effect_state"] == "unknown" and fresh["task_progress"] is False
     assert result["portal"]["native_task"]["status"] == "blocked"
     assert result["portal"]["native_task"]["window_scope_sha256"] == native_task_scope_sha256(SCOPE)
     assert result["portal"]["native_task"]["task_verified"] is False
