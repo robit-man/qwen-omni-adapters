@@ -44,6 +44,17 @@ excluded at the task boundary. Cancellation and deadlines retain precedence.
 This improves failure evidence without retrying input, accepting a failed
 observation as state or changing executor guards.
 
+At the worker's pre-input stale-revision gate, an explicitly window-scoped
+session can retain the exact bounded observation used by that comparison.
+`NativeUiAdapter.take_freshness_rejection()` exports this private evidence once
+to a host diagnostic capture; the public rejection and planner feedback remain
+unchanged. The artifact binds the action, session, scope and revisions and
+attests no attempted input or progress. A different current scope, unavailable
+host scope, invalid evidence or a snapshot that cannot fit the existing 2 MiB
+IPC bound yields explicit unavailable metadata. Native observation truncation
+remains visible in any retained snapshot. This capture does not refresh an
+action, retry input or establish that the refusal was incorrect.
+
 ## Host-owned execution
 
 An action ID binds the session, scope, document/control generation, semantic

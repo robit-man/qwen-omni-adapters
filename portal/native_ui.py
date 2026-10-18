@@ -231,6 +231,252 @@ def _attach_scope_diagnostic(error: Any, diagnostic: Any, boundary: str, scope: 
         pass
 
 
+_FRESHNESS_KEY = "_freshness_rejection"
+_FRESHNESS_SCHEMA = "robit.omni.native-freshness-rejection.v1"
+# Wire JSON uses ensure_ascii=True; reserve the outer IPC envelope and newline.
+_FRESHNESS_BYTES = _MAX_REPLY_BYTES - 1024
+_FRESHNESS_UNAVAILABLE = frozenset({
+    "invalid_binding", "host_window_scope_unavailable", "scope_changed",
+    "invalid_snapshot", "snapshot_too_large", "snapshot_unserializable",
+})
+
+
+def _freshness_json(value: Any) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+                      allow_nan=False).encode("utf-8")
+
+
+def _freshness_source(state: Any) -> dict[str, str] | None:
+    if not isinstance(state, Mapping) or not isinstance(state.get("scope"), Mapping):
+        return None
+    source = {"session_id": state.get("session_id"), "scope_id": state["scope"].get("id"),
+              "revision": state.get("revision")}
+    if any(not isinstance(value, str) or not value or len(value) > limit for value, limit in
+           zip(source.values(), (200, 512, 512), strict=True)):
+        return None
+    return source
+
+
+def _freshness_snapshot_valid(state: Any) -> bool:
+    """Closed native producer shapes; unsupported evidence is never exact."""
+    def fields(value, required, optional=()):
+        return type(value) is dict and set(required) <= set(value) <= set(required) | set(optional)
+
+    def text(value, limit=512, *, empty=False):
+        return isinstance(value, str) and len(value) <= limit and (empty or bool(value))
+
+    def integer(value, low=0, high=2**31 - 1):
+        return type(value) is int and low <= value <= high
+
+    def digest(value):
+        return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+    def rectangle(value, limit=1_000_000):
+        return (fields(value, {"x", "y", "width", "height"})
+                and all(integer(value[k], -1_000_000, 1_000_000) for k in ("x", "y"))
+                and all(integer(value[k], 1, limit) for k in ("width", "height")))
+
+    def window(value):
+        return (isinstance(value, str) and re.fullmatch(r"[1-9][0-9]{0,9}", value) is not None
+                and int(value) < 2**32)
+
+    def selection(value):
+        return (fields(value, {"start", "end"}) and integer(value["start"], 0, 1_000_000)
+                and integer(value["end"], 1, 1_000_000) and value["start"] < value["end"])
+
+    root_fields = {"session_id", "scope", "revision", "nodes", "window_visibility", "window_query_sha256",
+                   "truncated", "text", "document_evidence", "window_scope_sha256", "window_scope_count"}
+    if (not fields(state, root_fields, {"open_popups", "coordinate_binding", "_namespace_provider_digest"})
+            or _freshness_source(state) is None or type(state["nodes"]) is not list or len(state["nodes"]) > 400
+            or type(state["truncated"]) is not bool or not text(state["text"], 32768, empty=True)
+            or not digest(state["revision"]) or not digest(state["window_scope_sha256"])
+            or not integer(state["window_scope_count"], 1, 16)
+            or state["window_query_sha256"] is not None and not digest(state["window_query_sha256"])
+            or "_namespace_provider_digest" in state and not digest(state["_namespace_provider_digest"])):
+        return False
+    scope = state["scope"]
+    if (not fields(scope, {"id", "kind", "provider", "window_id"}, {"url"})
+            or scope["kind"] != "desktop" or scope["provider"] != "atspi2" or not window(scope["window_id"])
+            or "url" in scope and not text(scope["url"], 20000)):
+        return False
+    node_fields = {"id", "generation", "scope_id", "role", "name", "visible", "enabled", "sensitive", "operations"}
+    optional = {"focused", "structure", "bounds", "description", "checked", "value", "selected",
+                "text_selection", "text_observation", "window_binding"}
+    for node in state["nodes"]:
+        if (not fields(node, node_fields, optional)
+                or any(not text(node[k], empty=k == "name") for k in ("id", "generation", "scope_id", "role", "name"))
+                or any(type(node[k]) is not bool for k in ("visible", "enabled", "sensitive"))
+                or type(node["operations"]) is not list or len(node["operations"]) > len(_OPERATIONS)
+                or any(not isinstance(verb, str) or verb not in _OPERATIONS for verb in node["operations"])):
+            return False
+        if (node["sensitive"] and (node["name"] != "[protected]" or node["operations"]
+                or any(k in node for k in ("value", "selected", "checked", "text_selection", "text_observation", "description")))
+                or any(k in node and type(node[k]) is not bool for k in ("focused", "checked"))
+                or any(k in node and not text(node[k], limit, empty=True) for k, limit in (("value", 2048), ("description", 500)))
+                or "bounds" in node and not rectangle(node["bounds"])):
+            return False
+        if "selected" in node and (type(node["selected"]) is not list or len(node["selected"]) > 20
+                or any(not text(item, 100, empty=True) for item in node["selected"])):
+            return False
+        if "window_binding" in node:
+            binding = node["window_binding"]
+            if (not fields(binding, {"window_id", "process_id", "process_start"}) or not window(binding["window_id"])
+                    or not integer(binding["process_id"], 1) or not isinstance(binding["process_start"], str)
+                    or re.fullmatch(r"[1-9][0-9]{0,19}", binding["process_start"]) is None):
+                return False
+        if "structure" in node:
+            structure = node["structure"]
+            if (not fields(structure, {"ancestors"}, {"parent_id", "child_index"})
+                    or "parent_id" in structure and not text(structure["parent_id"])
+                    or "child_index" in structure and not integer(structure["child_index"])
+                    or type(structure["ancestors"]) is not list or len(structure["ancestors"]) > 3):
+                return False
+            for ancestor in structure["ancestors"]:
+                if (not fields(ancestor, {"id", "generation", "role", "name", "visible", "enabled"})
+                        or any(not text(ancestor[k], empty=k == "name") for k in ("id", "generation", "role", "name"))
+                        or any(type(ancestor[k]) is not bool for k in ("visible", "enabled"))):
+                    return False
+        if "text_selection" in node and not selection(node["text_selection"]):
+            return False
+        if "text_observation" in node:
+            observation = node["text_observation"]
+            if (not fields(observation, set(), {"character_count", "selection_count", "captured_range", "truncated"})
+                    or not observation or any(k in observation and not integer(observation[k])
+                                              for k in ("character_count", "selection_count"))):
+                return False
+            if "captured_range" in observation or "truncated" in observation:
+                captured = observation.get("captured_range")
+                if (not {"captured_range", "truncated", "character_count"} <= set(observation)
+                        or not fields(captured, {"start", "end"}) or type(captured["start"]) is not int or captured["start"] != 0
+                        or not integer(captured["end"], 0, observation["character_count"])
+                        or not isinstance(node.get("value"), str) or len(node["value"]) != captured["end"]
+                        or type(observation["truncated"]) is not bool
+                        or observation["truncated"] != (captured["end"] < observation["character_count"])):
+                    return False
+            if "text_selection" in node and (observation.get("selection_count") == 0 or
+                    "character_count" in observation and node["text_selection"]["end"] > observation["character_count"]):
+                return False
+    visibility = state["window_visibility"]
+    if type(visibility) is not list or len(visibility) > 16:
+        return False
+    for item in visibility:
+        if (not fields(item, {"id", "generation", "owner_window_id", "source", "active", "visible", "showing"})
+                or not text(item["id"]) or not text(item["generation"]) or not window(item["owner_window_id"])
+                or item["source"] != "retained_atspi_window"
+                or any(type(item[k]) is not bool for k in ("active", "visible", "showing"))):
+            return False
+    if "open_popups" in state and (type(state["open_popups"]) is not list or len(state["open_popups"]) > 16
+            or any(not fields(item, {"controller_id", "authority"}) or not text(item["controller_id"])
+                   or item["authority"] != "native_popup_relation" for item in state["open_popups"])):
+        return False
+    document = state["document_evidence"]
+    if type(document) is not dict or document.get("source") != "atspi.Document.DocURL":
+        return False
+    if document.get("status") == "unavailable":
+        if (not fields(document, {"status", "source", "reason"}) or not isinstance(document["reason"], str)
+                or re.fullmatch(r"[a-z][a-z0-9_]{0,127}", document["reason"]) is None or "url" in scope):
+            return False
+    elif document.get("status") == "observed":
+        if (not fields(document, {"status", "source", "url", "node_id", "generation", "scope_id", "window_id",
+                                  "provider", "provider_identity_sha256"})
+                or not text(document["url"], 20000) or any(not text(document[k]) for k in ("node_id", "generation", "scope_id"))
+                or document["scope_id"] != scope["id"] or document["window_id"] != scope["window_id"]
+                or document["provider"] != "atspi2" or not digest(document["provider_identity_sha256"])
+                or scope.get("url") != document["url"]):
+            return False
+    else:
+        return False
+    if "coordinate_binding" in state:
+        coordinate = state["coordinate_binding"]
+        if (not fields(coordinate, {"space", "window_id", "surface", "frame_extents", "content"})
+                or coordinate["space"] != "window" or coordinate["window_id"] != scope["window_id"]
+                or not rectangle(coordinate["surface"], 16384) or not rectangle(coordinate["content"])
+                or not fields(coordinate["frame_extents"], {"left", "right", "top", "bottom"})
+                or any(not integer(v, 0, 4096) for v in coordinate["frame_extents"].values())):
+            return False
+    return state["text"] == "\n".join(str(node.get("value", node["name"]))
+                                      for node in state["nodes"] if not node["sensitive"])[:32768]
+
+
+def _freshness_rejection(action: Mapping[str, Any], before: Any, window_scope: Any) -> dict[str, Any]:
+    """Best-effort private evidence from this exact pre-input stale branch only."""
+    value = {"schema": _FRESHNESS_SCHEMA, "stage": "worker_perform_entry_stale_guard",
+             "status": "unavailable", "unavailable_reason": "invalid_binding", "action_sha256": None,
+             "requested_source": None, "observed_source": None, "window_scope_sha256": None,
+             "input_attempted": False, "input_authority": False, "task_progress": False,
+             "snapshot_sha256": None, "snapshot": None}
+    try:
+        requested = _freshness_source({"session_id": action.get("session_id"),
+            "scope": {"id": action.get("scope_id")}, "revision": action.get("revision")})
+        observed = _freshness_source(before)
+        if requested is None or observed is None or requested["session_id"] != observed["session_id"]:
+            return value
+        encoded_action = _freshness_json(dict(action))
+        if len(encoded_action) > 65536:
+            return value
+        value.update(action_sha256=hashlib.sha256(encoded_action).hexdigest(),
+                     requested_source=requested, observed_source=observed)
+        if window_scope is None:
+            value["unavailable_reason"] = "host_window_scope_unavailable"
+            return value
+        value["window_scope_sha256"] = native_task_scope_sha256(window_scope)
+        if requested["scope_id"] != observed["scope_id"]:
+            value["unavailable_reason"] = "scope_changed"
+            return value
+        if (requested["revision"] == observed["revision"] or not _freshness_snapshot_valid(before)
+                or before.get("window_scope_sha256") != value["window_scope_sha256"]
+                or before.get("window_scope_count") != len(normalize_native_task_scope(window_scope)["windows"])):
+            value["unavailable_reason"] = "invalid_snapshot"
+            return value
+        snapshot = copy.deepcopy(before)
+        value.update(status="retained", unavailable_reason=None, snapshot=snapshot,
+                     snapshot_sha256=hashlib.sha256(_freshness_json(snapshot)).hexdigest())
+        # Include the public result too, matching the actual compact wire encoding.
+        if len(_freshness_json({"status": "rejected", "reason": "stale_native_revision_or_scope",
+                                _FRESHNESS_KEY: value})) > _FRESHNESS_BYTES:
+            value.update(status="unavailable", unavailable_reason="snapshot_too_large",
+                         snapshot=None, snapshot_sha256=None)
+        return value
+    except Exception:
+        value.update(status="unavailable", unavailable_reason="snapshot_unserializable",
+                     snapshot=None, snapshot_sha256=None)
+        return value
+
+
+def _validated_freshness_rejection(value: Any, action: Mapping[str, Any], session_id: str,
+                                  window_scope: Any) -> dict[str, Any] | None:
+    try:
+        fields = {"schema", "stage", "status", "unavailable_reason", "action_sha256", "requested_source",
+                  "observed_source", "window_scope_sha256", "input_attempted", "input_authority",
+                  "task_progress", "snapshot_sha256", "snapshot"}
+        if (type(value) is not dict or set(value) != fields or value["schema"] != _FRESHNESS_SCHEMA
+                or value["stage"] != "worker_perform_entry_stale_guard"
+                or any(value[key] is not False for key in ("input_attempted", "input_authority", "task_progress"))
+                or len(_freshness_json(value)) > _FRESHNESS_BYTES):
+            return None
+        requested = _freshness_source({"session_id": action.get("session_id"),
+            "scope": {"id": action.get("scope_id")}, "revision": action.get("revision")})
+        observed = value["observed_source"]
+        if (requested is None or requested["session_id"] != session_id or value["requested_source"] != requested
+                or value["action_sha256"] != hashlib.sha256(_freshness_json(dict(action))).hexdigest()
+                or type(observed) is not dict or set(observed) != {"session_id", "scope_id", "revision"}
+                or _freshness_source({"session_id": observed.get("session_id"),
+                    "scope": {"id": observed.get("scope_id")}, "revision": observed.get("revision")}) != observed
+                or observed["session_id"] != session_id
+                or value["window_scope_sha256"] != (native_task_scope_sha256(window_scope)
+                                                     if window_scope is not None else None)):
+            return None
+        if value["status"] == "retained":
+            return (copy.deepcopy(value) if window_scope is not None and value == _freshness_rejection(
+                action, value["snapshot"], window_scope) else None)
+        if (value["status"] == "unavailable" and value["unavailable_reason"] in _FRESHNESS_UNAVAILABLE
+                and value["snapshot"] is None and value["snapshot_sha256"] is None):
+            return copy.deepcopy(value)
+    except Exception:
+        pass
+    return None
+
+
 class _JsonBridge:
     def __init__(self, session_id: str, python_bin: str, timeout_s: float, process_id: int | None = None,
                  window_scope: dict[str, Any] | None = None) -> None:
@@ -373,6 +619,7 @@ class NativeUiAdapter:
         self._cancelled = cancelled
         self._window_scope: dict[str, Any] | None = None
         self._scope_locked = False
+        self._freshness_diagnostic: dict[str, Any] | None = None
 
     def set_window_scope(self, scope: dict[str, Any]) -> None:
         """Host-only setup of a fresh adapter; no tool argument can change it."""
@@ -906,8 +1153,17 @@ class NativeUiAdapter:
         with _NATIVE_LOCK:
             self._step, self._visual = None, None
 
+    def take_freshness_rejection(self) -> dict[str, Any] | None:
+        """Host-only one-use evidence; never update execution or planner state."""
+        with _NATIVE_LOCK:
+            value, self._freshness_diagnostic = self._freshness_diagnostic, None
+            if self._closed or self._cancelled is not None and self._cancelled():
+                return None
+            return copy.deepcopy(value)
+
     def perform(self, action: Mapping[str, Any]) -> dict[str, Any]:
         with _NATIVE_LOCK:
+            self._freshness_diagnostic = None
             self._check_cancelled()
             if action.get("kind", "action") != "action" or action.get("verb") not in _OPERATIONS:
                 return {"status": "rejected", "reason": "native_operation_unsupported"}
@@ -950,6 +1206,16 @@ class NativeUiAdapter:
                 finally:
                     self._visual, self._step = None, None
             result = self._request({"op": "perform", "action": dict(action)})
+            private = result.get(_FRESHNESS_KEY)
+            if _FRESHNESS_KEY in result:
+                result = {key: value for key, value in result.items() if key != _FRESHNESS_KEY}
+            if result.get("status") == "rejected" and result.get("reason") == "stale_native_revision_or_scope":
+                self._freshness_diagnostic = _validated_freshness_rejection(
+                    private, action, self.session_id, self._window_scope)
+                if self._freshness_diagnostic is None:
+                    self._freshness_diagnostic = {"schema": _FRESHNESS_SCHEMA, "stage": "adapter_validation",
+                        "status": "unavailable", "unavailable_reason": "invalid_worker_diagnostic",
+                        "input_attempted": None, "input_authority": False, "task_progress": False}
             if result.get("status") == "already_satisfied" and (
                 result.get("input_attempted") is not False or not _already_active_window_action(action)
             ):
@@ -961,6 +1227,7 @@ class NativeUiAdapter:
     def close(self) -> None:
         with _NATIVE_LOCK:
             self._closed = True
+            self._freshness_diagnostic = None
             self._visual, self._step, self.point_receipt = None, None, None
             if self._bridge is not None:
                 self._bridge.close()
@@ -3198,7 +3465,8 @@ class _AtspiBridge:
             action.get("revision") != before["revision"]
             or action.get("scope_id") != before["scope"]["id"]
         ):
-            return reject("stale_native_revision_or_scope")
+            return {**reject("stale_native_revision_or_scope"),
+                    _FRESHNESS_KEY: _freshness_rejection(action, before, self.window_scope)}
         record = self.handles.get(action.get("node_id"))
         if record is None:
             return reject("native_target_missing")
