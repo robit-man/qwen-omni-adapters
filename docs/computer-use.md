@@ -355,6 +355,17 @@ such a new transition still stop the task; cancellation, the deadline and the
 40-phase ceiling remain in force. Existing successful knowledge phases keep
 their separate behavior.
 
+A host prefix can also stop before a later opaque operation that needs its own
+fresh planner claim. When all preceding steps were independently verified
+without input, one strictly bound continuation may reach the next planner call
+without spending another failure. Earlier failures remain counted. The controller
+joins the continuation to the issued steps, current accepted handoff, native
+sources and exact verification predicates; it never executes the retained suffix
+automatically. This allowance stays consumed across observations, recalls,
+no-ops, changed identifiers and rewritten plans. Only a genuinely new verified
+applied prefix effect can renew it. Repeated, stale, foreign or uncertain-input
+continuations retain ordinary failure accounting and all execution guards.
+
 Foreground text API callers can explicitly select
 `portal_execution_profile:"native_task"` for mandatory phase compilation.
 The compiler receives the same observation-derived private phase schema in its
