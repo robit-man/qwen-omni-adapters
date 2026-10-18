@@ -156,6 +156,81 @@ class NativeUiUnavailable(RuntimeError):
         self.code = code
 
 
+_SCOPE_BRANCHES = frozenset({
+    "identity_invalid", "process_not_allowed", "process_start_mismatch", "owner_initial_mismatch",
+    "owner_base_changed", "process_start_base_changed", "transient_query_nonzero",
+    "transient_property_unproven", "transient_parent_not_allowed", "transient_parent_owner_mismatch",
+    "transient_owner_changed", "transient_process_start_changed", "read_failed", "deadline_exceeded",
+})
+_SCOPE_STAGES = frozenset({
+    "identity", "process_start_initial", "owner_initial", "owner_base_recheck", "process_start_base_recheck",
+    "transient_deadline", "transient_query", "transient_parent_match", "owner_transient_parent",
+    "owner_transient_recheck", "process_start_transient_recheck",
+})
+_SCOPE_ERRORS = frozenset({
+    "native_foreground_unmapped", "native_foreground_unavailable", "native_namespace_owner_changed",
+    "native_provider_identity_budget_exceeded", "native_window_process_identity_unavailable",
+    "native_observation_budget_exceeded", "missing_field", "os_error", "invalid_value", "timeout",
+    "other_native_error",
+})
+
+
+def _validated_scope_diagnostic(value: Any, scope: Any = None) -> dict[str, Any] | None:
+    """Private bounded metadata only; malformed diagnostics never replace a result."""
+    try:
+        fields = {"schema", "boundary", "allowed_scope_sha256", "allowed_scope_count", "observed_identity",
+                  "guard_branch", "read_stage", "failure_code", "last_owner_pid", "transient_parent_window_id",
+                  "query_returncode", "input_authority", "task_progress"}
+        if type(value) is not dict or set(value) != fields:
+            return None
+        if (value["schema"] != "robit.omni.native-scope-rejection.v1"
+                or value["boundary"] not in {"worker_foreground", "adapter_foreground"}
+                or value["guard_branch"] not in _SCOPE_BRANCHES or value["read_stage"] not in _SCOPE_STAGES
+                or value["failure_code"] is not None and value["failure_code"] not in _SCOPE_ERRORS
+                or value["input_authority"] is not False or value["task_progress"] is not False):
+            return None
+        def integer(item, low, high):
+            return item is None or type(item) is int and low <= item <= high
+        def decimal(item, digits):
+            return item is None or type(item) is str and re.fullmatch(r"[1-9][0-9]{0," + str(digits-1) + "}", item)
+        observed = value["observed_identity"]
+        if (type(observed) is not dict or set(observed) != {"window_id", "process_id", "process_start"}
+                or not decimal(observed["window_id"], 10) or not decimal(observed["process_start"], 20)
+                or not integer(observed["process_id"], 1, 2**31-1)
+                or not integer(value["last_owner_pid"], 1, 2**31-1)
+                or not integer(value["allowed_scope_count"], 1, 16)
+                or not integer(value["query_returncode"], -32768, 32767)
+                or not decimal(value["transient_parent_window_id"], 10)):
+            return None
+        digest = value["allowed_scope_sha256"]
+        if digest is not None and (type(digest) is not str or re.fullmatch(r"[0-9a-f]{64}", digest) is None):
+            return None
+        if scope is not None and (digest != native_task_scope_sha256(scope)
+                or value["allowed_scope_count"] != len(normalize_native_task_scope(scope)["windows"])):
+            return None
+        if len(json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()) > 2048:
+            return None
+        return copy.deepcopy(value)
+    except Exception:
+        return None
+
+
+def _scope_diagnostic_from_exception(error: Any, *, scope: Any = None) -> dict[str, Any] | None:
+    try:
+        return _validated_scope_diagnostic(getattr(error, "_scope_diagnostic", None), scope)
+    except Exception:
+        return None
+
+
+def _attach_scope_diagnostic(error: Any, diagnostic: Any, boundary: str, scope: Any) -> None:
+    try:
+        value = _validated_scope_diagnostic({**diagnostic, "boundary": boundary}, scope)
+        if value is not None:
+            error._scope_diagnostic = value
+    except Exception:
+        pass
+
+
 class _JsonBridge:
     def __init__(self, session_id: str, python_bin: str, timeout_s: float, process_id: int | None = None,
                  window_scope: dict[str, Any] | None = None) -> None:
@@ -218,9 +293,12 @@ class _JsonBridge:
                 raise NativeUiUnavailable("native_bridge_protocol_error")
             if response.get("ok") is not True:
                 remote_error = True  # A complete error reply preserves transport synchrony.
-                raise NativeUiUnavailable(
-                    str(response.get("error") or "native_observation_unavailable")
-                )
+                error = NativeUiUnavailable(str(response.get("error") or "native_observation_unavailable"))
+                diagnostic = _validated_scope_diagnostic(response.get("_scope_diagnostic"), self.window_scope)
+                if (diagnostic is not None and diagnostic["boundary"] == "worker_foreground"
+                        and error.code in {"native_task_window_out_of_scope", "native_observation_budget_exceeded"}):
+                    error._scope_diagnostic = diagnostic
+                raise error
             result = response.get("result")
             if not isinstance(result, dict):
                 raise NativeUiUnavailable("native_bridge_protocol_error")
@@ -305,8 +383,16 @@ class NativeUiAdapter:
 
     def _scoped_foreground(self, environment: Mapping[str, str] | None = None) -> dict[str, Any]:
         identity = _x11_foreground(environment)
-        if not _window_scope_allows(self._window_scope, identity, environment):
-            raise NativeUiUnavailable("native_task_window_out_of_scope")
+        diagnostic: dict[str, Any] = {}
+        try:
+            allowed = _window_scope_allows(self._window_scope, identity, environment, diagnostic=diagnostic)
+        except NativeUiUnavailable as error:
+            _attach_scope_diagnostic(error, diagnostic, "adapter_foreground", self._window_scope)
+            raise
+        if not allowed:
+            error = NativeUiUnavailable("native_task_window_out_of_scope")
+            _attach_scope_diagnostic(error, diagnostic, "adapter_foreground", self._window_scope)
+            raise error
         return identity
 
     def _check_cancelled(self) -> None:
@@ -1442,40 +1528,101 @@ def _window_query(target: Any) -> dict[str, str] | None:
 
 def _window_scope_allows(scope: Mapping[str, Any] | None, identity: Mapping[str, Any],
                          environment: Mapping[str, str] | None = None, *,
-                         deadline: float | None = None) -> bool:
+                         deadline: float | None = None, diagnostic: dict[str, Any] | None = None) -> bool:
     if scope is None:
         return True
     env = {**(environment or os.environ), "LC_ALL": "C"}
     deadline = deadline if deadline is not None else time.monotonic() + 3
+    stage, observed_start, last_owner, transient_parent, query_returncode = "identity", None, None, None, None
+
+    def failed(branch: str, code: str | None = None) -> bool:
+        try:
+            if diagnostic is not None:
+                if branch == "process_not_allowed" and any(row["process_id"] == identity["process_id"]
+                        for row in scope["windows"]):
+                    branch = "process_start_mismatch"
+                value = {"schema": "robit.omni.native-scope-rejection.v1", "boundary": "worker_foreground",
+                    "allowed_scope_sha256": native_task_scope_sha256(scope), "allowed_scope_count": len(scope["windows"]),
+                    "observed_identity": {"window_id": identity.get("window_id"), "process_id": identity.get("process_id"),
+                        "process_start": observed_start}, "guard_branch": branch, "read_stage": stage,
+                    "failure_code": code, "last_owner_pid": last_owner,
+                    "transient_parent_window_id": transient_parent, "query_returncode": query_returncode,
+                    "input_authority": False, "task_progress": False}
+                # Invalid observed values are unknown metadata, never new guard rules.
+                for key, item in list(value["observed_identity"].items()):
+                    if (key == "process_id" and not (type(item) is int and 0 < item < 2**31)
+                            or key != "process_id" and not (type(item) is str and
+                                re.fullmatch(r"[1-9][0-9]{0," + ("9" if key == "window_id" else "19") + "}", item))):
+                        value["observed_identity"][key] = None
+                validated = _validated_scope_diagnostic(value, scope)
+                if validated is not None:
+                    diagnostic.update(validated)
+        except Exception:
+            pass
+        return False
+
     def owner(xid: str) -> int:
-        return _x11_window_owner(xid, env, deadline=deadline)["process_id"]
+        nonlocal last_owner
+        last_owner = _x11_window_owner(xid, env, deadline=deadline)["process_id"]
+        return last_owner
+
+    def birth() -> str:
+        nonlocal observed_start
+        observed_start = _process_start(pid)
+        return observed_start
+
     try:
         xid, pid = identity["window_id"], identity["process_id"]
         if not isinstance(xid, str) or type(pid) is not int:
-            return False
-        start = _process_start(pid)
+            return failed("identity_invalid")
+        stage = "process_start_initial"
+        start = birth()
         bases = [row for row in scope["windows"] if row["process_id"] == pid and row["process_start"] == start]
-        if not bases or owner(xid) != pid:
-            return False
+        if not bases:
+            return failed("process_not_allowed")
+        stage = "owner_initial"
+        if owner(xid) != pid:
+            return failed("owner_initial_mismatch")
         if any(row["window_id"] == xid for row in bases):
-            return owner(xid) == pid and _process_start(pid) == start
+            stage = "owner_base_recheck"
+            if owner(xid) != pid:
+                return failed("owner_base_changed")
+            stage = "process_start_base_recheck"
+            return True if birth() == start else failed("process_start_base_changed")
+        stage = "transient_deadline"
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise NativeUiUnavailable("native_observation_budget_exceeded")
+        stage = "transient_query"
         result = subprocess.run(["xprop", "-id", xid, "WM_TRANSIENT_FOR"], capture_output=True,
                                 text=True, timeout=min(1, remaining), check=False, env=env)
+        query_returncode = result.returncode
         match = re.fullmatch(r"WM_TRANSIENT_FOR\(WINDOW\): window id # (0x[0-9a-fA-F]+)\s*", result.stdout)
         if result.returncode or match is None:
-            return False
+            return failed("transient_query_nonzero" if result.returncode else "transient_property_unproven")
+        stage = "transient_parent_match"
+        transient_parent = str(int(match[1], 16))
         selected = [row for row in bases if int(row["window_id"]) == int(match[1], 16)]
-        return (len(selected) == 1 and owner(selected[0]["window_id"]) == pid
-                and owner(xid) == pid and _process_start(pid) == start)
+        if len(selected) != 1:
+            return failed("transient_parent_not_allowed")
+        stage = "owner_transient_parent"
+        if owner(selected[0]["window_id"]) != pid:
+            return failed("transient_parent_owner_mismatch")
+        stage = "owner_transient_recheck"
+        if owner(xid) != pid:
+            return failed("transient_owner_changed")
+        stage = "process_start_transient_recheck"
+        return True if birth() == start else failed("transient_process_start_changed")
     except NativeUiUnavailable as exc:
+        code = exc.code if type(exc.code) is str and exc.code in _SCOPE_ERRORS else "other_native_error"
         if exc.code == "native_observation_budget_exceeded":
+            failed("deadline_exceeded", code)
             raise
-        return False
-    except (KeyError, OSError, ValueError, subprocess.TimeoutExpired):
-        return False
+        return failed("read_failed", code)
+    except (KeyError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        code = ("timeout" if isinstance(exc, subprocess.TimeoutExpired) else "missing_field" if isinstance(exc, KeyError)
+                else "os_error" if isinstance(exc, OSError) else "invalid_value")
+        return failed("read_failed", code)
 
 
 class _AtspiBridge:
@@ -1522,8 +1669,17 @@ class _AtspiBridge:
         if self._host_owner_bound and binding != self._host_owner_binding:
             raise NativeUiUnavailable("native_namespace_owner_changed")
         self._host_owner_binding, self._host_owner_bound = copy.deepcopy(binding), True
-        if not _window_scope_allows(self.window_scope, identity, deadline=getattr(self, "deadline", None)):
-            raise NativeUiUnavailable("native_task_window_out_of_scope")
+        diagnostic: dict[str, Any] = {}
+        try:
+            allowed = _window_scope_allows(self.window_scope, identity, deadline=getattr(self, "deadline", None),
+                                            diagnostic=diagnostic)
+        except NativeUiUnavailable as error:
+            _attach_scope_diagnostic(error, diagnostic, "worker_foreground", self.window_scope)
+            raise
+        if not allowed:
+            error = NativeUiUnavailable("native_task_window_out_of_scope")
+            _attach_scope_diagnostic(error, diagnostic, "worker_foreground", self.window_scope)
+            raise error
         return identity
 
     def _read(self, function: Callable[[], Any]) -> Any:
@@ -3500,6 +3656,11 @@ def _bridge_main() -> None:
                 if isinstance(exc, NativeUiUnavailable)
                 else "native_provider_unavailable",
             }
+            diagnostic = _scope_diagnostic_from_exception(exc, scope=bridge.window_scope if bridge is not None else None)
+            if (diagnostic is not None and diagnostic["boundary"] == "worker_foreground"
+                    and isinstance(exc, NativeUiUnavailable)
+                    and exc.code in {"native_task_window_out_of_scope", "native_observation_budget_exceeded"}):
+                response["_scope_diagnostic"] = diagnostic
         sys.stdout.write(json.dumps(response, separators=(",", ":")) + "\n")
         sys.stdout.flush()
 
