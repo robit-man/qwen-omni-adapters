@@ -24,35 +24,33 @@ while (($#)); do
   shift
 done
 
-# NVIDIA Tegra modules have an integrated GPU and no ollama-unify broker, so
-# the previous broker default could only ever fail there. Auto resolves to
-# whichever mode the host can actually honour; --broker/--direct still pin it.
+[[ -x "$REPO_ROOT/.venv/bin/python" && -x "$REPO_ROOT/.venv/bin/qwen-omni-daemon" ]] || {
+  printf 'Run ./scripts/bootstrap.sh before installing the service.\n' >&2
+  exit 1
+}
+# The shared probe runs docker gpu discover. An absent plugin permits direct
+# CUDA; a failed installed broker must never select an unscoped lifecycle.
+DETECTED_MODE=$("$REPO_ROOT/.venv/bin/python" -m qwen_omni_adapters.gpu_broker --mode) || exit 1
+case $DETECTED_MODE in
+  broker|direct) ;;
+  *) printf 'Invalid GPU lifecycle probe result; refusing service installation.\n' >&2; exit 1 ;;
+esac
 if [[ $MODE == auto ]]; then
-  if command -v docker >/dev/null 2>&1 && docker gpu discover >/dev/null 2>&1; then
-    MODE=broker
-  else
-    MODE=direct
-  fi
+  MODE=$DETECTED_MODE
   printf 'Auto-selected %s mode for this host.\n' "$MODE"
+elif [[ $MODE != "$DETECTED_MODE" ]]; then
+  printf 'Refusing --%s: this host requires %s mode.\n' "$MODE" "$DETECTED_MODE" >&2
+  exit 1
 fi
 
 SERVICE_USER=${SUDO_USER:-$USER}
 SERVICE_GROUP=$(id -gn "$SERVICE_USER")
-[[ -x "$REPO_ROOT/.venv/bin/qwen-omni-daemon" ]] || {
-  printf 'Run ./scripts/bootstrap.sh before installing the service.\n' >&2
-  exit 1
-}
 mkdir -p "$REPO_ROOT/runtime-data"
 chmod 700 "$REPO_ROOT/runtime-data"
 
 if [[ $MODE == broker ]]; then
-  docker gpu discover >/dev/null
   EXEC_START="$REPO_ROOT/portal/start.sh --foreground"
 else
-  if docker gpu discover >/dev/null 2>&1; then
-    printf 'Refusing --direct: ollama-unify is present; broker mode is mandatory on this host.\n' >&2
-    exit 1
-  fi
   EXEC_START="$REPO_ROOT/.venv/bin/qwen-omni-daemon serve --allow-direct-gpu"
 fi
 

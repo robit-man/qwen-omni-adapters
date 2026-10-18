@@ -95,8 +95,16 @@ For unmanaged NVIDIA Linux and every NVIDIA Tegra module:
 .venv/bin/qwen-omni-daemon status
 ```
 
-The installer now resolves the mode from the host: broker where `docker gpu
-discover` succeeds, direct otherwise. Direct mode verifies the comprehension
+Doctor, the guided deployer's handoff, the service installer, and the direct
+supervisor share one broker probe. A host without an installed broker selects
+direct mode, including a discrete NVIDIA laptop with Docker but no `docker gpu`
+plugin. Docker, jq, and ss are required only for broker mode; installing Docker
+alone does not make a host broker-managed. A failed, inaccessible, or malformed
+broker discovery blocks deployment instead of selecting direct mode. Existing
+broker installation markers also prevent direct mode when its plugin is broken
+or Docker is missing.
+
+Direct mode verifies the comprehension
 PID with `nvidia-smi` compute-app accounting on a discrete card, or with the
 integrated-GPU device handles on Tegra, where that accounting does not exist.
 It has no CPU fallback, and it is still refused when the broker is present.

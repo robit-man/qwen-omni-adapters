@@ -26,6 +26,7 @@ from qwen_omni_adapters.accelerator import (
     process_is_gpu_resident,
     residency_backend,
 )
+from qwen_omni_adapters.gpu_broker import probe_gpu_broker
 from qwen_omni_adapters.model_catalog import MODEL_BY_TAG
 from qwen_omni_adapters.ollama_sidecar import (
     prepare_ollama_sidecar,
@@ -373,16 +374,7 @@ class OmniDaemon:
             )
 
     def _broker_present(self) -> bool:
-        if platform.system() != "Linux" or not shutil.which("docker"):
-            return False
-        result = subprocess.run(
-            ["docker", "gpu", "discover"],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=20,
-        )
-        return result.returncode == 0
+        return probe_gpu_broker().managed
 
     def _preflight(self) -> None:
         if platform.system() == "Linux" and self._broker_present():

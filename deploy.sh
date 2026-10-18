@@ -751,14 +751,10 @@ wait_for_handoff_ports() {
 
 prepare_runtime_handoff() {
   local target_file kind value unit pid unit_state invalid_target=""
+  printf '\nInspecting the host CUDA lease policy before changing services...\n'
+  "$REPO_ROOT/.venv/bin/python" -m qwen_omni_adapters.gpu_broker \
+    || die 'cannot establish the host GPU broker policy; leaving the live runtime untouched'
   target_file=$(mktemp)
-  if command -v docker >/dev/null 2>&1; then
-    printf '\nInspecting the host CUDA lease policy before changing services...\n'
-    if ! docker gpu discover; then
-      is_tegra || die 'docker GPU discovery failed on a non-Tegra host; refusing an unscoped CUDA cutover'
-      printf 'No discrete-GPU broker is active; Tegra direct lifecycle applies.\n'
-    fi
-  fi
   printf '\nInspecting live Omni ports and accelerator state before cutover...\n'
   handoff_command inventory --ports "$DEPLOYMENT_PORTS"
   if ! handoff_command targets --ports "$DEPLOYMENT_PORTS" >"$target_file" 2>/dev/null; then
