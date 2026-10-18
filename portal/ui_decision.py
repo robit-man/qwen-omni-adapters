@@ -895,6 +895,138 @@ def resolve_pointer_proposal(compact, binding, packet, proposal):
         raise DecisionError('Pointer resolution did not satisfy its captured proposal contract') from None
 
 
+FAMILY_SYSTEM = (SUBGOAL_SYSTEM + ATOMIC_SUBGOAL_SYSTEM_SUFFIX +
+    ' Select route recipe only for an actually offered immediate_action. '
+    'full_direct keeps every existing phase, raw operation, optional argument, causal sequence '
+    'and verification predicate available through the original full planner. Select full_direct '
+    'when a recipe cannot express the required operation or arguments; select defer when uncertain. '
+    'Both bypass recipe binding. The capability catalogue is descriptive, not an input grant. '
+    'Return the closed source-bound route schema; full_direct/defer have no selected objective or target.')
+
+
+def family_capabilities(schema):
+    """Describe reachable full-direct phases without narrowing their schema.
+
+    References are read from the existing direct contract. An incomplete
+    catalogue remains explicit advisory information; it never filters a phase.
+    """
+    complete = True
+
+    def resolve(reference):
+        nonlocal complete
+        try:
+            if not reference.startswith('#/'):
+                raise KeyError(reference)
+            value = schema
+            for token in reference[2:].split('/'):
+                token = token.replace('~1', '/').replace('~0', '~')
+                value = value[int(token)] if isinstance(value, list) else value[token]
+            if not isinstance(value, dict):
+                raise KeyError(reference)
+            return value
+        except (KeyError, TypeError, ValueError, IndexError, AttributeError):
+            complete = False
+            return {}
+
+    def choices(value, ancestors=()):
+        nonlocal complete
+        if not isinstance(value, dict):
+            complete = False
+            return []
+        if '$ref' in value:
+            reference = value['$ref']
+            if reference in ancestors or len(ancestors) >= 64:
+                complete = False
+                return []
+            return choices(resolve(reference), (*ancestors, reference))
+        if isinstance(value.get('properties', {}).get('kind', {}).get('const'), str):
+            return [value]
+        branches = [branch for key in ('oneOf', 'anyOf', 'allOf') for branch in value.get(key, [])]
+        if not branches:
+            complete = False
+        return [phase for branch in branches for phase in choices(branch, ancestors)]
+
+    def operations(value, seen):
+        nonlocal complete
+        found = set()
+        if isinstance(value, list):
+            for item in value:
+                found.update(operations(item, seen))
+        elif isinstance(value, dict):
+            reference = value.get('$ref')
+            if reference is not None and reference not in seen:
+                seen.add(reference)
+                found.update(operations(resolve(reference), seen))
+            for key in ('verb', 'family'):
+                discriminator = value.get('properties', {}).get(key, {})
+                values = discriminator.get('enum', [discriminator.get('const')])
+                found.update(item for item in values if isinstance(item, str))
+            for key, item in value.items():
+                if key != '$ref':
+                    found.update(operations(item, seen))
+        return found
+
+    phases = {}
+    for option in schema.get('oneOf', []):
+        for phase in choices(option.get('properties', {}).get('phase')):
+            properties = phase['properties']
+            kind = properties['kind']['const']
+            forms = set()
+            for field in ('steps', 'step', 'subgoal'):
+                if field in properties:
+                    forms.update(operations(properties[field], set()))
+            previous = phases.setdefault(kind, {'fields': [], 'operation_forms': []})
+            previous['fields'] = sorted(set(previous['fields']).union(properties))
+            previous['operation_forms'] = sorted(set(previous['operation_forms']).union(forms))
+    if not phases:
+        complete = False
+    return {'schema': 'robit.omni.native-family-capabilities.v1',
+        'source_direct_schema_sha256': _digest(schema), 'complete': complete,
+        'authority': 'descriptive_contract_summary_not_input_authority',
+        'applicability': 'Forms may occur in different phase positions; all fresh guards still apply.',
+        'phases': phases}
+
+def family_context(packet, compact):
+    """Offer existing recipes and an unconditional escape before atomic binding."""
+    _, recipe = subgoal_context(compact, atomic_anchor=True)
+    state = packet['working_state']
+    common = {key: {'const': state[key]} for key in ('source_epoch', 'source_phase')}
+
+    def branch(route, fields):
+        props = {**copy.deepcopy(common), 'route': {'const': route}, **copy.deepcopy(fields)}
+        return {'type': 'object', 'additionalProperties': False,
+                'properties': props, 'required': list(props)}
+
+    schema = {'oneOf': [branch('recipe', recipe['properties']),
+        branch('full_direct', {}), branch('defer', {'reason': _text(300)})]}
+    context = {key: copy.deepcopy(value) for key, value in packet.items() if key != 'response_schema'}
+    context.update(controls=copy.deepcopy(compact['controls']),
+        full_direct_capabilities=family_capabilities(project_direct(packet)[0]['response_schema']),
+        response_schema=copy.deepcopy(schema))
+    return context, schema
+
+
+def bind_family(packet, compact, binding, reply):
+    """Invalid selector syntax falls back; changed private source never does."""
+    if project(packet) != (compact, binding):
+        raise DecisionError('Family selector source changed')
+    _, schema = family_context(packet, compact)
+    try:
+        Draft202012Validator(schema).validate(reply)
+        if reply['route'] == 'defer' and not reply['reason'].strip():
+            raise ValueError('Blank deferral')
+        if reply['route'] != 'recipe':
+            return None
+        proposal = {key: copy.deepcopy(value) for key, value in reply.items()
+                    if key not in {'source_epoch', 'source_phase', 'route'}}
+        strings = [proposal[key] for key in ('current_view', 'next_subgoal', 'next_operation')]
+        if any(not value.strip() for value in [*strings, *proposal['needed_evidence']]):
+            raise ValueError('Blank recipe proposal')
+    except (ValidationError, KeyError, TypeError, ValueError):
+        return None
+    return bind_subgoal(compact, binding, proposal, atomic_anchor=True)
+
+
 def _immediate_action_schema(compact):
     """Finite selector choices from the actual offered action branches only."""
     options = {}

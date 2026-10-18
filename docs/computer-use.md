@@ -597,6 +597,13 @@ are included in both canonical predicate schemas and the native-task planner's
 model-visible response schema; predicate evaluation and input authority are
 unchanged. An already-active verification gives no mutation or task-progress
 credit.
+Immediate `type_text` compilation also distinguishes missing complete text from
+an unknown insertion range. A field can expose its full existing value while
+its caret or selection remains unknown; that case returns
+`typing_insertion_range_not_observed` with `requires_replan`, no value predicate
+and no input binding. Missing or ineligible text evidence keeps its existing
+rejection behavior.
+
 A terminal predicate cannot use `$target`.
 File creation still requires the existing filesystem receipt/readback path;
 clicking Save alone does not prove a file exists. Session Trash/TTL removes
@@ -801,6 +808,32 @@ original canonical phase validator and independent executor guards still apply.
 Live target selection and pointer escalation improved. The whole-task test
 remains failed at control and primitive interpretation; this opt-in path is not a
 completion claim.
+
+### Family-first planner with complete direct escape
+
+`OMNI_NATIVE_FAMILY_PLANNER=1` offers the current source-bound recipe families
+and an always-available `full_direct` or `defer` choice before binding. The first
+selector receives the original goal, observation, ledger and complete working
+state. A recipe fixes only its proposed objective, family and observed reference;
+one argument pass expands it through the existing canonical validator and host
+executor. The capability catalogue is descriptive and grants no input authority.
+
+`full_direct`, `defer` and unusable selector syntax run the unchanged full direct
+planner in the same phase, retaining every original operation, optional field,
+limit, causal suffix and final predicate. If a valid anchored argument reply
+explicitly chooses `replan`, one charged third generation uses that same full
+direct request, without the rejected recipe's objective or target constraints.
+The final native-task metadata records the rejection as an untrusted planner
+claim with its actual generation count and no input, progress or verification
+credit. Invalid expansion, changed private binding, upstream failure,
+cancellation or deadline cannot trigger this third request. There is no pointer
+resolution prepass or resampling. Normal phases use two generations, with at
+most three under the original shared deadline and unchanged task/failure limits.
+If the source observation cannot use the compact projection because its nodes
+are unknown or exceed 80, the original admitted non-UI direct path runs once.
+The flag conflicts with either compact or prerequisite planner flags; defaults
+and the legacy compact path remain unchanged. This interface does not establish
+classifier quality, live navigation or whole-task success.
 
 ### Resolving fast pointer-policy abstention
 

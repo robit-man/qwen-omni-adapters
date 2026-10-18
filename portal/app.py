@@ -2375,6 +2375,7 @@ def create_app(
         catalogue = NativeControlCatalogue(secrets.token_hex(16))
         catalogue_lock = threading.RLock()
         pending_pointer = None
+        planner_rejections = []
 
         def cancel():
             nonlocal pending_pointer
@@ -2420,6 +2421,7 @@ def create_app(
                 raise PortalError("Native task cancelled")
             phase_deadline = time.monotonic() + packet["remaining_seconds"]
             compact_binding = None
+            generation_calls, rejection_record = 0, None
             system = (
                 "You are the Omni task planner in a layered native computer-use system. "
                 "Return exactly one JSON phase matching the supplied schema, without tools or code. "
@@ -2488,6 +2490,12 @@ def create_app(
                 "recall_plan returns bounded serialized fragments of those unverified claims, with "
                 "no current UI or input authority. Native executor guards remain authoritative.")
             compact = intent_choice and os.environ.get("OMNI_NATIVE_COMPACT_PLANNER", "0") == "1"
+            family = os.environ.get("OMNI_NATIVE_FAMILY_PLANNER", "0") == "1"
+            if family and any(os.environ.get(flag, "0") == "1" for flag in
+                    ("OMNI_NATIVE_COMPACT_PLANNER", "OMNI_NATIVE_PREREQUISITE_PLANNER")):
+                error = PortalError("native_planner_modes_conflict: select one native planner mode")
+                error.code = "native_planner_modes_conflict"
+                raise error
             if compact:
                 compact_packet, compact_binding = ui_decision.project(packet)
                 system = ui_decision.SYSTEM
@@ -2514,11 +2522,15 @@ def create_app(
             if isinstance(payload.get("options"), Mapping):
                 request_payload["options"] = copy.deepcopy(payload["options"])
             def ask(request):
+                nonlocal generation_calls
                 if stopped.is_set():
                     raise PortalError("Native task cancelled")
                 remaining = phase_deadline - time.monotonic()
                 if remaining <= 0:
                     raise PortalError("Native task deadline exceeded")
+                generation_calls += 1
+                if rejection_record is not None:
+                    rejection_record["generation_calls"] = generation_calls
                 upstream = session.post(runtime.adapter_url, json=request,
                                         timeout=max(0.1, min(runtime.timeout_s, remaining)))
                 data = _json_object(upstream, "native phase planner")
@@ -2530,6 +2542,48 @@ def create_app(
                 return json.loads(message["content"])
 
             try:
+                if family:
+                    source_nodes = packet["current_state"]["state"].get("nodes")
+                    if not isinstance(source_nodes, list) or len(source_nodes) > 80:
+                        return ui_decision.expand_direct(ask(request_payload), packet, direct_binding)
+                    family_packet, family_binding = ui_decision.project(packet)
+                    context, selector_schema = ui_decision.family_context(packet, family_packet)
+                    selector_request = copy.deepcopy(request_payload)
+                    selector_request["messages"] = [
+                        {"role": "system", "content": ui_decision.FAMILY_SYSTEM + (
+                            "\n\nCaller task policy:\n" + caller_policy if caller_policy else "")},
+                        {"role": "user", "content": json.dumps(context, ensure_ascii=False)}]
+                    selector_request["response_format"]["json_schema"].update(
+                        name="native_ui_family_select", schema=selector_schema)
+                    try:
+                        selection = ask(selector_request)
+                    except json.JSONDecodeError:
+                        selection = None
+                    bound = ui_decision.bind_family(packet, family_packet, family_binding, selection)
+                    if bound is not None:
+                        family_packet, family_binding = bound
+                        arguments_request = copy.deepcopy(request_payload)
+                        arguments_request["messages"] = [
+                            {"role": "system", "content": ui_decision.SYSTEM + ui_decision.ATOMIC_SUBGOAL_HANDOFF + (
+                                "\n\nCaller task policy:\n" + caller_policy if caller_policy else "")},
+                            {"role": "user", "content": json.dumps(family_packet, ensure_ascii=False)}]
+                        arguments_request["response_format"]["json_schema"].update(
+                            name="native_ui_family_arguments", schema=family_packet["decision_schema"])
+                        argument_reply = ask(arguments_request)
+                        try:
+                            return ui_decision.expand(argument_reply, packet, family_binding)
+                        except ui_decision.DecisionReplan as error:
+                            if argument_reply.get("action", {}).get("family") != "replan":
+                                raise
+                            rejection_record = {"authority": "untrusted_planner_claim",
+                                "source_epoch": packet["working_state"]["source_epoch"],
+                                "source_phase": packet["working_state"]["source_phase"],
+                                "reason": error.reason, "input_attempted": False,
+                                "task_progress": False, "verified": False,
+                                "next_route": "full_direct", "generation_calls": generation_calls}
+                            planner_rejections.append(rejection_record)
+                            del planner_rejections[:-40]
+                    return ui_decision.expand_direct(ask(request_payload), packet, direct_binding)
                 if compact:
                     resolution = ui_decision.pointer_resolution_context(compact_packet, compact_binding)
                     if resolution is not None:
@@ -2632,6 +2686,8 @@ def create_app(
                 max_phases=40, max_seconds=budget, model=runtime.model, intent_choice=intent_choice,
                 working_state=True, effect_contracts=True, strategy_ledger=strategy_ledger)
             for event in events:
+                if planner_rejections and event.get("type") == "final":
+                    event["response"]["portal"]["native_task"]["planner_rejections"] = copy.deepcopy(planner_rejections)
                 if window_scope is not None and event.get("type") == "final":
                     event["response"]["portal"]["native_task"].update(
                         window_scope_sha256=native_task_scope_sha256(window_scope),
