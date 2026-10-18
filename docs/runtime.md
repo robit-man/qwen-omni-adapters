@@ -516,13 +516,42 @@ and needs a new artifact schema and release gate.
 - Foreground text callers can select `portal_execution_profile:"native_task"`
   with automatic tools and `native_ui` permission. This explicitly enters the
   mandatory planner/controller state machine instead of generic discovery.
-  Each fresh planning observation includes mapped inactive windows. One
-  schema-constrained Omni phase is validated before its first input; the rapid
-  controller owns its internal steps. Authorized memory phases use the existing
+  Each fresh planning observation includes mapped inactive windows. The direct
+  model reply carries semantic intent; the host expands the exact captured
+  referent into the canonical handoff and validates it before input. The
+  optional compact route retains its separate subgoal/action binding. The rapid
+  controller owns the actual steps. Authorized memory phases use the existing
   session store. The mode preserves native `think`/sampling, bounds phases,
   wall time and failed replans, and retains raw receipts while compacting planner
   history. It marks completion as an unverified planner claim. See
   [the protocol](protocol.md) and [live evaluation](computer-use-long-horizon-evaluation.md).
+- Native planning retains bounded row relationships, source-bound control
+  discovery and historical observation/plan recall. Partial labels and omitted
+  evidence stay explicitly unknown. Generated plans use host-derived immediate
+  effects and stop their verified prefix at a failed readback or opaque input.
+  A generated drag returns unknown effect and zero progress; a completed gesture
+  alone is not proof of the requested application change. After a fast-policy
+  abstention, unchanged same-target fast delegation is excluded for one next
+  phase while inspection, new targets and explicit pointer recovery remain.
+- Kev's primitive-intent projection describes repeated observed nodes once and
+  retains opaque audit bindings privately. The exact finite candidate bank,
+  task authority and native source bindings remain with the host. The pinned
+  worker still requires strict encoding within 2,048 state tokens and 4,096
+  tokens per row; the active selection threshold remains 0.95. Fitting this
+  request does not establish confidence, correct selection or a successful
+  task. No model limit, lease, backend setting or executor authority changes as
+  a consequence of this projection.
+- Planner and policy configuration retain their existing defaults:
+  `OMNI_NATIVE_COMPACT_PLANNER=0` selects the direct route; compact mode requires
+  an active SystemOne provider and explicit `1`. An unset
+  `OMNI_COMPUTER_USE_POLICY_URL` supplies no such provider. With a URL, its mode
+  defaults to `shadow`; active intent selection requires
+  `OMNI_COMPUTER_USE_POLICY_MODE=active`. The local evaluation cohort used
+  direct mode (`0`) and actual Kev at `http://127.0.0.1:8950`. These settings
+  are recorded conditions, not new defaults. The general Laya decision plane
+  is separate: a CPU Laya endpoint does not establish loaded Kev weights.
+  Egg claims require actual adopted source/configuration, role/model identity
+  and invocation evidence for Kev and Moondream on that host.
 - Within one portal tool loop, a fresh server-executed native/browser
   observation retires older registered UI maps and candidate offers from the
   model's working history. The newest pair stays intact. Historical action,

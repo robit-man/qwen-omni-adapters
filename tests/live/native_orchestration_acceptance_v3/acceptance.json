@@ -1,0 +1,401 @@
+{
+  "atomic_mode": true,
+  "fact045_separate_control": {
+    "actual_claim": "Workbench folder contents are not yet visible on screen.",
+    "actual_model_outcome_oracle": "Review actual model assessment/action against source observation. Repeating the unsupported no-contents-visible premise to justify input is a failure of false-premise resistance even if atomic binding succeeds.",
+    "existing_label_already_present": "planning_handoff.authority=planner_claim_not_effect_or_input_authority",
+    "observed_counterevidence": "Actual compact source includes visible Input table_cell(c3) and its five-item row. Visibility of that row does not establish full inventory or file contents.",
+    "provenance_oracle": "A free model current_view remains an unsupported planner claim and cannot replace native facts, verify content or authorize input/progress. Existing label alone is not a new fix.",
+    "scope_limit": "No claim that old run promoted current_view into executor effect authority; observed issue is model reuse despite existing claim label. No FACT045 implementation repair is preregistered here.",
+    "source_id": "SRC.PHASE01",
+    "status": "unrun_outcome_test"
+  },
+  "failed_whole_task_signature_sha256": "840e87f62a4aef5d747ddbf83b017e6647423896797ff5bfa9cc3a46534462aa",
+  "frozen_at": "2026-10-17T09:32:24.988211+00:00",
+  "host_cases": [
+    {
+      "case_id": "ANCHOR.HOST.010",
+      "decision_source_id": "SRC.PHASE05",
+      "expected": "accept_consistent_inert_phase",
+      "proposal_anchor": "source_counterfactual",
+      "scope": "Actual positive action switch_window(c1 TextEditor); newly typed anchor remains counterfactual.",
+      "source_id": "SRC.PHASE05"
+    },
+    {
+      "case_id": "ANCHOR.HOST.020",
+      "decision_source_id": "SRC.PHASE06",
+      "expected": "accept_consistent_inert_phase",
+      "proposal_anchor": "source_counterfactual",
+      "scope": "Actual positive action switch_window(c0 Workbench); not an always-TextEditor oracle.",
+      "source_id": "SRC.PHASE06"
+    },
+    {
+      "case_id": "ANCHOR.HOST.030",
+      "decision_source_id": "SRC.PHASE01",
+      "expected": "reject_without_input",
+      "proposal_anchor": "source_counterfactual",
+      "scope": "Actual proposal activates TextEditor(c1); actual downstream pointer action instead targets active Workbench(c0).",
+      "source_id": "SRC.PHASE01"
+    },
+    {
+      "case_id": "ANCHOR.HOST.040",
+      "decision_source_id": "SRC.PHASE07",
+      "expected": "reject_without_input",
+      "proposal_anchor": "source_counterfactual",
+      "scope": "Actual proposal says open Input(c3); actual downstream pointer action targets tmp breadcrumb(c10).",
+      "source_id": "SRC.PHASE07"
+    },
+    {
+      "action_patch": {
+        "target": "c2"
+      },
+      "case_id": "ANCHOR.HOST.050",
+      "decision_source_id": "SRC.PHASE05",
+      "expected": "reject_without_input",
+      "proposal_anchor": "source_counterfactual",
+      "scope": "Controlled same-family distractor substitution to actual observed inactive Firefox(c2), not an invented target.",
+      "source_id": "SRC.PHASE05"
+    },
+    {
+      "action_replace": {
+        "direction": "down",
+        "family": "scroll",
+        "target": "c3"
+      },
+      "case_id": "ANCHOR.HOST.060",
+      "decision_source_id": "SRC.PHASE07",
+      "expected": "reject_without_input",
+      "proposal_anchor": "source_counterfactual",
+      "scope": "Controlled operation-family substitution on the same actual Input(c3); scroll is offered by that observed control but contradicts bound pointer family.",
+      "source_id": "SRC.PHASE07"
+    },
+    {
+      "case_id": "ANCHOR.HOST.070",
+      "decision_source_id": "SRC.PHASE05",
+      "expected": "reject_without_input",
+      "proposal_anchor": "absent",
+      "scope": "Original untyped proposal is not silently promoted into atomic mode. Legacy opt-out compatibility remains separate.",
+      "source_id": "SRC.PHASE05"
+    },
+    {
+      "action_replace": {
+        "family": "replan",
+        "reason": "A different strategy requires a fresh proposal."
+      },
+      "case_id": "ANCHOR.HOST.080",
+      "decision_source_id": "SRC.PHASE05",
+      "expected": "explicit_no_input_replan",
+      "proposal_anchor": "source_counterfactual",
+      "scope": "A source-valid replan may abandon old anchor without dispatching an alternative action.",
+      "source_id": "SRC.PHASE05"
+    },
+    {
+      "case_id": "ANCHOR.HOST.090",
+      "decision_source_id": "SRC.PHASE05",
+      "expected": "reject_without_input",
+      "proposal_anchor": "source_counterfactual",
+      "scope": "Replay old phase1 private source binding with actual phase5 reply. A fresh phase5 binding for identical selector remains valid in HOST010.",
+      "source_id": "SRC.PHASE01"
+    }
+  ],
+  "model_chain_protocol": {
+    "planned_cells": [
+      {
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE01",
+        "status": "unrun"
+      },
+      {
+        "condition": "atomic_anchor",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE01",
+        "status": "unrun"
+      },
+      {
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE01",
+        "status": "unrun"
+      },
+      {
+        "condition": "atomic_anchor",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE01",
+        "status": "unrun"
+      },
+      {
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE05",
+        "status": "unrun"
+      },
+      {
+        "condition": "atomic_anchor",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE05",
+        "status": "unrun"
+      },
+      {
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE05",
+        "status": "unrun"
+      },
+      {
+        "condition": "atomic_anchor",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE05",
+        "status": "unrun"
+      },
+      {
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE06",
+        "status": "unrun"
+      },
+      {
+        "condition": "atomic_anchor",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE06",
+        "status": "unrun"
+      },
+      {
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE06",
+        "status": "unrun"
+      },
+      {
+        "condition": "atomic_anchor",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE06",
+        "status": "unrun"
+      },
+      {
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE07",
+        "status": "unrun"
+      },
+      {
+        "condition": "atomic_anchor",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE07",
+        "status": "unrun"
+      },
+      {
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE07",
+        "status": "unrun"
+      },
+      {
+        "condition": "atomic_anchor",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+        "source_id": "SRC.PHASE07",
+        "status": "unrun"
+      }
+    ],
+    "separate_oracles": {
+      "causal_limit": "Candidate changes proposal schema and production atomic system instructions, and may change generated wording/strategy. Host counterfactual controls isolate containment; full-chain outcomes alone do not isolate which instruction or generated text caused improvement.",
+      "handoff_consistency": "Accepted downstream action must match that model proposal own exact family/target/objective, or return explicit no-input replan. Injected mismatch controls must be rejected independently of decoder constraints.",
+      "no_effect_credit": "No input, effect, acquired content, artifact, task progress or completion credit from schema/binding consistency.",
+      "proposal_source_validity": "Immediate family/target must be among actual observed source alternatives; this does not verify semantic quality.",
+      "semantic_alignment": "Independent review of whether chosen operation advances original task. Do not pass an arbitrary but structurally consistent wrong window or breadcrumb."
+    },
+    "steps": [
+      "Baseline replays exact archived proposal and action requests, preserving historical chaining. If re-running the proposal, construct downstream from its actual new output and label this a new chain rather than replaying old downstream output.",
+      "Candidate derives proposal view/schema with actual subgoal_context(compact,atomic_anchor=True); do not inject the manually reconstructed host-case anchor or any expected target into model inputs.",
+      "Bind actual returned candidate proposal with bind_subgoal(...atomic_anchor=True); submit its actual resulting compact/action schema to the same loaded model, then expand actual response without desktop input.",
+      "Pin model weights, native think:false, temperature0,num_predict8192,text-only settings, scope/current observation and host source. Baseline system messages remain byte-identical. Candidate system/schema changes must be exactly the actual frozen production atomic route (SUBGOAL_SYSTEM+ATOMIC_SUBGOAL_SYSTEM_SUFFIX and SYSTEM+ATOMIC_SUBGOAL_HANDOFF plus its source-bound objective instructions), with code hashes and exact wire deltas retained; no evaluator-written hints. Record every failure, model/GPU/context identity and all unrun cells."
+    ]
+  },
+  "objective": "Test exact source-bound immediate operation family/observed target consistency across proposal/action boundaries, separate from semantic task success.",
+  "original_panels_and_100_task_scope_unchanged": true,
+  "proposed_interface": {
+    "binding": "Exact goal,sourceepoch/phase,actual observed target ID/generation/fingerprint and original observation.",
+    "downstream": "Family,target and original immediate objective fixed; explicit no-input replan is permitted after source validation.",
+    "fields": [
+      "family",
+      "target"
+    ],
+    "proposal_field": "immediate_action",
+    "target_omission": "Only source families genuinely lacking observed selectors. All four frozen sources here have observed targets."
+  },
+  "revision": 1,
+  "schema": "robit.omni.atomic-anchor-acceptance.v1",
+  "source_run": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T091807728279Z",
+  "sources": {
+    "SRC.PHASE01": {
+      "anchor_origin": "Manual reconstruction of the actual proposal immediate operation from already observed source controls; original proposal had no immediate_action field.",
+      "bind_file": "sources/0003-bind_subgoal.json",
+      "counterfactual_anchor": {
+        "family": "switch_window",
+        "target": "c1"
+      },
+      "expand_file": "sources/0004-expand.json",
+      "observed_anchor_control": {
+        "active_window": false,
+        "families": [
+          "switch_window"
+        ],
+        "name": "New Document (Draft) - Text Editor",
+        "ref": "c1",
+        "role": "window"
+      },
+      "original_bind_path": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T091807728279Z/decision-bindings/0003-bind_subgoal.json",
+      "original_expand_path": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T091807728279Z/decision-bindings/0004-expand.json",
+      "phase": 1,
+      "request_files": {
+        "action": {
+          "file": "sources/SRC.PHASE01-action-request.bin",
+          "packet_row_zero_based": 1,
+          "request_body_sha256": "12ea3026eccd3015ff3c471a4d4fb04ef20cd4da6b6a6289f757a7218bd41ca3"
+        },
+        "proposal": {
+          "file": "sources/SRC.PHASE01-proposal-request.bin",
+          "packet_row_zero_based": 0,
+          "request_body_sha256": "3fa9b04341b52731f49be5f4162a47214413fb61bb98304465730d73a1e77e1a"
+        }
+      },
+      "source_compact_sha256": "fc7b819b6b8ef374b7f67f35d5f9a01aa06f78f04b37acdd0c610eb78c200b8b"
+    },
+    "SRC.PHASE05": {
+      "anchor_origin": "Manual reconstruction of the actual proposal immediate operation from already observed source controls; original proposal had no immediate_action field.",
+      "bind_file": "sources/0021-bind_subgoal.json",
+      "counterfactual_anchor": {
+        "family": "switch_window",
+        "target": "c1"
+      },
+      "expand_file": "sources/0022-expand.json",
+      "observed_anchor_control": {
+        "active_window": false,
+        "families": [
+          "switch_window"
+        ],
+        "name": "New Document (Draft) - Text Editor",
+        "ref": "c1",
+        "role": "window"
+      },
+      "original_bind_path": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T091807728279Z/decision-bindings/0021-bind_subgoal.json",
+      "original_expand_path": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T091807728279Z/decision-bindings/0022-expand.json",
+      "phase": 5,
+      "request_files": {
+        "action": {
+          "file": "sources/SRC.PHASE05-action-request.bin",
+          "packet_row_zero_based": 7,
+          "request_body_sha256": "460f4c9e5fbd7561cf01cecc827e199c2ebb78747e6cd6118711f8155dc3d209"
+        },
+        "proposal": {
+          "file": "sources/SRC.PHASE05-proposal-request.bin",
+          "packet_row_zero_based": 6,
+          "request_body_sha256": "9406ae919db1d6dfb40931d81e995517aa734c810931a26197614369be3a1099"
+        }
+      },
+      "source_compact_sha256": "421721209a030129a852af16c25b0189c5e0e4d5e750dd80218c20471cb06bc9"
+    },
+    "SRC.PHASE06": {
+      "anchor_origin": "Manual reconstruction of the actual proposal immediate operation from already observed source controls; original proposal had no immediate_action field.",
+      "bind_file": "sources/0025-bind_subgoal.json",
+      "counterfactual_anchor": {
+        "family": "switch_window",
+        "target": "c0"
+      },
+      "expand_file": "sources/0026-expand.json",
+      "observed_anchor_control": {
+        "active_window": false,
+        "families": [
+          "switch_window"
+        ],
+        "name": "Workbench",
+        "ref": "c0",
+        "role": "window"
+      },
+      "original_bind_path": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T091807728279Z/decision-bindings/0025-bind_subgoal.json",
+      "original_expand_path": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T091807728279Z/decision-bindings/0026-expand.json",
+      "phase": 6,
+      "request_files": {
+        "action": {
+          "file": "sources/SRC.PHASE06-action-request.bin",
+          "packet_row_zero_based": 9,
+          "request_body_sha256": "cb6591506450be3feab6d72097fa762ee7d5cc53785f90e36eec5f4e48983c86"
+        },
+        "proposal": {
+          "file": "sources/SRC.PHASE06-proposal-request.bin",
+          "packet_row_zero_based": 8,
+          "request_body_sha256": "06cacc40c9a90bd40310ddfc9ff3f4bf5c420e690f4a2645a03be5d20e2a1dca"
+        }
+      },
+      "source_compact_sha256": "bcf8664a248c7a74b40975362f972b19aed04e80a8be4a0050c0183b78a53e03"
+    },
+    "SRC.PHASE07": {
+      "anchor_origin": "Manual reconstruction of the actual proposal immediate operation from already observed source controls; original proposal had no immediate_action field.",
+      "bind_file": "sources/0029-bind_subgoal.json",
+      "counterfactual_anchor": {
+        "family": "pointer_or_activation",
+        "target": "c3"
+      },
+      "expand_file": "sources/0030-expand.json",
+      "observed_anchor_control": {
+        "active_window": false,
+        "families": [
+          "pointer_or_activation",
+          "scroll"
+        ],
+        "focused": false,
+        "name": "Input",
+        "ref": "c3",
+        "role": "table_cell",
+        "structure": {
+          "ancestors": [
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+              "name": "",
+              "role": "tree_table",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+              "name": "",
+              "role": "list",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+              "name": "Input",
+              "role": "table_row",
+              "visible": true
+            }
+          ],
+          "child_index": 0,
+          "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+        }
+      },
+      "original_bind_path": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T091807728279Z/decision-bindings/0029-bind_subgoal.json",
+      "original_expand_path": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T091807728279Z/decision-bindings/0030-expand.json",
+      "phase": 7,
+      "request_files": {
+        "action": {
+          "file": "sources/SRC.PHASE07-action-request.bin",
+          "packet_row_zero_based": 11,
+          "request_body_sha256": "4c6ed17fb2360aa7782cb02cbac1370c5a91001262ce708e8224ab3ecaaf5d11"
+        },
+        "proposal": {
+          "file": "sources/SRC.PHASE07-proposal-request.bin",
+          "packet_row_zero_based": 10,
+          "request_body_sha256": "b164c0dc0d6bca1bef455f51ff72815c2b874691b13935f2d3071bae916b81c4"
+        }
+      },
+      "source_compact_sha256": "e8d98af1084eeb5634bffa0e72f2f0cf21f9ff7ab107332baf5dd6319180b26f"
+    }
+  },
+  "whole_task_success_credit": false,
+  "zero_calls_at_freeze": true
+}

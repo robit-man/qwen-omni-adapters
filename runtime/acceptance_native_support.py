@@ -340,7 +340,8 @@ class NativeEvidenceObserver:
                 if adapter is None:
                     adapter = NativeUiAdapter("acceptance-oracle-"+secrets.token_hex(8), process_id=identity["process_id"])
                     self.adapters[identity["process_id"]] = adapter
-                record.update(window_id=identity["window_id"], state=adapter.observe())
+                record.update(window_id=identity["window_id"], state=adapter.observe(),
+                              outside_owned_foreground=False)
                 if self.extras:
                     record["properties"] = self.extras()
             except Exception as error:

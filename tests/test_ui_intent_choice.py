@@ -181,7 +181,7 @@ def test_positive_truncated_native_control_keeps_its_actual_capabilities():
 
 
 @pytest.mark.parametrize("overflow", ["candidates", "row", "goal"])
-def test_exact_context_overflow_abstains_without_truncation_or_http(overflow):
+def test_exact_context_and_shared_rows_obey_service_bounds(overflow):
     adapter, store, cancel, requests = configured()
     original = adapter.observe
 
@@ -197,6 +197,18 @@ def test_exact_context_overflow_abstains_without_truncation_or_http(overflow):
     with store.task_scope("session", "desktop", cancel):
         result = store.intent_boundary("session", subgoal(target={"name": "Input"}),
                                        goal="g" * 11000 if overflow == "goal" else "Exact goal")
+    if overflow == "row":
+        assert len(requests) == len(adapter.calls) == 1
+        assert result["status"] == "observed_unverified" and result["task_progress"] is False
+        validate_request(requests[0])
+        shared = json.loads(requests[0]["state"])["nodes"]["n0"]
+        assert shared["observed"]["value"] == "é" * 1100
+        assert not shared["projection"]["omitted_fields"]
+        assert requests[0]["state"].count("é" * 1100) == 1
+        assert max(map(len, requests[0]["questions"]["action"]["criteria"].values())) <= 1000
+        actual = next(node for node in result["dispatch_record"]["before"]["nodes"] if node["id"] == CELL)
+        assert actual["value"] == "é" * 1100
+        return
     assert result["status"] == "abstained"
     assert not requests and not adapter.calls
 

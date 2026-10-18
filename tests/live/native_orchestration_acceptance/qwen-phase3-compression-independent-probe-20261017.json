@@ -1,0 +1,288 @@
+{
+  "budget_units": {
+    "configured_node_budget_characters": 12000,
+    "configured_node_cap": 80,
+    "counterfactual_utf8_bytes_can_exceed12000": "35 selected nodes total11,992characters but12,004UTF8bytes; this is consistent with original character-based implementation.",
+    "implementation_units": "Python len(json.dumps(node,ensure_ascii=False)); Unicode characters, not UTF8 bytes or tokens.",
+    "observed_node_cap_binding": false
+  },
+  "causal_scope": [
+    "Actual projection is reproduced exactly from hash-bound original raw state. The raw state was captured twice identically; both records have the same hash.",
+    "Only node.structure removed in the diagnostic copy. All other raw node fields, source order, reference order, revision/scope/session, source text, goal and budget remain unchanged.",
+    "This intervention changes which original observed nodes fit; it neither invents a task-brief target nor requires a golden target hint.",
+    "Original16selected nodes spend6,518of11,902characters on structure fields;19additional nodes fit in the counterfactual and the existing task-brief table_cell becomes available.",
+    "The independent native content excerpt already contains task-brief.txt in the original projection; do not call this total loss of filename knowledge. The actual control identity/action referent is omitted.",
+    "No model was called with the counterfactual. No semantic accuracy, correct operation selection, long-horizon completion or causal model improvement is proven.",
+    "Do not deploy this raw field deletion. Full private target fingerprints bind structure; an eventual presentation-only repair must preserve original complete guarded source state, immutable target fingerprints and exact original ID/generation/scope binding.",
+    "This single saved-state probe measures the bounded hypothesis requested; no task fixture, solver goal, frozen oracle, live state or production source was modified."
+  ],
+  "counterfactual_is_diagnostic_only": true,
+  "counterfactual_structure_removed_only": {
+    "excerpt_mentions_task_brief": true,
+    "model_projection": {
+      "absence_claims_supported": false,
+      "omitted_hidden_nodes": 0,
+      "omitted_referenced_visible_nodes": 0,
+      "omitted_visible_nodes": 290,
+      "raw_source_sha256": "a09ec4510d1d1c0b39fdc3a7854f09a7eb912d4147bde3bc61beb68e4596cc3a",
+      "referenced_visible_nodes": 3,
+      "returned_node_count": 35,
+      "schema": "robit.omni.ui-model-projection.v1",
+      "source_node_count": 325,
+      "source_revision": "9063520433a184f7255d20bd97df801e75c86cf0ba9e9f8793cc3d22c0937cdf",
+      "source_truncated": false,
+      "text_authority": "untrusted_visible_ui",
+      "text_observation_semantic_sha256": "134b4dfe7b1f37efdb2d61145e81feea543a344e2631591a979a2f01516b0485",
+      "text_truncated": false,
+      "verification": "Omitted nodes do not prove absence; use the executor's verify operation.",
+      "visible_node_count": 325
+    },
+    "node_cost": {
+      "characters": 11992,
+      "utf8_bytes": 12004
+    },
+    "node_count": 35,
+    "task_brief_nodes": [
+      {
+        "generation": "1",
+        "id": "atspi:948b3a5aa9a7bde0593e53cddb25d3e9",
+        "name": "task-brief.txt",
+        "node_characters": 380,
+        "node_utf8_bytes": 380,
+        "role": "table_cell",
+        "structure_characters": 0
+      }
+    ],
+    "text_mentions_task_brief": true
+  },
+  "criterion": "Counterfactual per-node structure cost explains omitted task-brief actionable referent in this frozen phase3 projection",
+  "exact_projection_replayed": true,
+  "frozen_app_source_sha256": "df98313232d7e1ca51f49870198f93a55a94e0ea99b10fd6e72fda737fa4e73d",
+  "frozen_stage": "/tmp/qwen-atomic-anchor-live-20261017",
+  "full_bindings_or_guards_altered": false,
+  "no_model_GUI_GPU_service_calls": true,
+  "original_projection": {
+    "excerpt_mentions_task_brief": true,
+    "model_projection": {
+      "absence_claims_supported": false,
+      "omitted_hidden_nodes": 0,
+      "omitted_referenced_visible_nodes": 0,
+      "omitted_visible_nodes": 309,
+      "raw_source_sha256": "657c327ea04990bf480a32d0fc215437e7f6394e4f7b4a34755d4059ad8ab946",
+      "referenced_visible_nodes": 3,
+      "returned_node_count": 16,
+      "schema": "robit.omni.ui-model-projection.v1",
+      "source_node_count": 325,
+      "source_revision": "9063520433a184f7255d20bd97df801e75c86cf0ba9e9f8793cc3d22c0937cdf",
+      "source_truncated": false,
+      "text_authority": "untrusted_visible_ui",
+      "text_observation_semantic_sha256": "f144011c9ab466afed1257b7ca6a3f0353bfded498cb32c65b757bf06769d965",
+      "text_truncated": false,
+      "verification": "Omitted nodes do not prove absence; use the executor's verify operation.",
+      "visible_node_count": 325
+    },
+    "node_cost": {
+      "characters": 11902,
+      "utf8_bytes": 11909
+    },
+    "node_count": 16,
+    "task_brief_nodes": [],
+    "text_mentions_task_brief": false
+  },
+  "original_selected_node_structure_budget_cost": {
+    "characters_with_structure": 11902,
+    "fraction_of_selected_node_characters": 0.547639,
+    "net_structure_field_characters": 6518,
+    "remaining_original_node_budget_characters": 98,
+    "same_selected_nodes_without_structure_characters": 5384,
+    "selected_node_count": 16,
+    "selected_nodes_with_structure": 14
+  },
+  "original_selected_node_summaries": [
+    {
+      "character_cost": 446,
+      "id": "atspi:0fd11620b733b4e62b02dfecd329aed7",
+      "name": "Input",
+      "role": "window",
+      "structure_net_cost_characters": 50
+    },
+    {
+      "character_cost": 272,
+      "id": "atspi:31d6c05a8120e21366b5c8d706f36d7d",
+      "name": "New Document (Draft) - Text Editor",
+      "role": "window",
+      "structure_net_cost_characters": 0
+    },
+    {
+      "character_cost": 253,
+      "id": "atspi:90265c8e4073b7ccc3b7c6a73c47ddfc",
+      "name": "Mozilla Firefox",
+      "role": "window",
+      "structure_net_cost_characters": 0
+    },
+    {
+      "character_cost": 905,
+      "id": "atspi:8e1ff116a04ef7ac666377c18b212574",
+      "name": "corrections.json",
+      "role": "table_cell",
+      "structure_net_cost_characters": 523
+    },
+    {
+      "character_cost": 761,
+      "id": "atspi:26859573fcf88bd86634fb7b5370c3b3",
+      "name": "",
+      "role": "button",
+      "structure_net_cost_characters": 520
+    },
+    {
+      "character_cost": 894,
+      "id": "atspi:862aad59b982c2c79e1b723beec14265",
+      "name": "1.6 kB",
+      "role": "table_cell",
+      "structure_net_cost_characters": 523
+    },
+    {
+      "character_cost": 898,
+      "id": "atspi:160b108d4490c07dffcdc4661037eaaf",
+      "name": "Today 3∶08",
+      "role": "table_cell",
+      "structure_net_cost_characters": 523
+    },
+    {
+      "character_cost": 895,
+      "id": "atspi:f901b8c4050fb83cbf6d5f956d116e86",
+      "name": "draft-1.txt",
+      "role": "table_cell",
+      "structure_net_cost_characters": 518
+    },
+    {
+      "character_cost": 756,
+      "id": "atspi:fc84a0a8927722f2bf51ed035cb0c379",
+      "name": "",
+      "role": "button",
+      "structure_net_cost_characters": 515
+    },
+    {
+      "character_cost": 892,
+      "id": "atspi:cab1a26a67d467f3b16b052cd6fda0db",
+      "name": "510 bytes",
+      "role": "table_cell",
+      "structure_net_cost_characters": 518
+    },
+    {
+      "character_cost": 893,
+      "id": "atspi:32547ad36fe3b7f0d052c45c8361c5af",
+      "name": "Today 3∶08",
+      "role": "table_cell",
+      "structure_net_cost_characters": 518
+    },
+    {
+      "character_cost": 895,
+      "id": "atspi:64f4ff744130b63ef556daab1d450937",
+      "name": "draft-2.txt",
+      "role": "table_cell",
+      "structure_net_cost_characters": 518
+    },
+    {
+      "character_cost": 756,
+      "id": "atspi:739026647150db390309595be361dd89",
+      "name": "",
+      "role": "button",
+      "structure_net_cost_characters": 515
+    },
+    {
+      "character_cost": 892,
+      "id": "atspi:8a40923bad87e4c1cb3e4fabd359d7d2",
+      "name": "414 bytes",
+      "role": "table_cell",
+      "structure_net_cost_characters": 518
+    },
+    {
+      "character_cost": 893,
+      "id": "atspi:5ec25fe6b3f4daee9ea862ed2834da29",
+      "name": "Today 3∶08",
+      "role": "table_cell",
+      "structure_net_cost_characters": 518
+    },
+    {
+      "character_cost": 601,
+      "id": "atspi:6c39a211f0f3817652f37911f91b511d",
+      "name": "",
+      "role": "panel",
+      "structure_net_cost_characters": 241
+    }
+  ],
+  "raw_all_nodes_cost": {
+    "characters": 285368,
+    "utf8_bytes": 285428
+  },
+  "raw_controller_rows_identical_hash": [
+    7,
+    9
+  ],
+  "raw_node_count": 325,
+  "raw_source_sha256": "657c327ea04990bf480a32d0fc215437e7f6394e4f7b4a34755d4059ad8ab946",
+  "raw_structure_only_chars": 159308,
+  "raw_task_brief_nodes": [
+    {
+      "generation": "1",
+      "id": "atspi:7356b824df9f86f9f0d148c418268c88",
+      "name": "task-brief.txt",
+      "node_characters": 897,
+      "node_utf8_bytes": 897,
+      "role": "table_row",
+      "structure_characters": 494
+    },
+    {
+      "generation": "1",
+      "id": "atspi:948b3a5aa9a7bde0593e53cddb25d3e9",
+      "name": "task-brief.txt",
+      "node_characters": 901,
+      "node_utf8_bytes": 901,
+      "role": "table_cell",
+      "structure_characters": 506
+    },
+    {
+      "generation": "1",
+      "id": "atspi:9baec3e1a8db0f6efa9f01ff6e9a5a60",
+      "name": "task-brief.txt",
+      "node_characters": 1044,
+      "node_utf8_bytes": 1044,
+      "role": "text",
+      "structure_characters": 484
+    }
+  ],
+  "raw_visible_nodes": 325,
+  "reviewed_at": "2026-10-17T10:23:13.951110+00:00",
+  "reviewer": "acceptance_verifier",
+  "schema": "robit.omni.independent-presentation-compression-probe.v1",
+  "source_evidence": {
+    "actual_325_node_source_capture": "/tmp/qwen-atomic-anchor-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/qwen-20261017T100256041922Z/controller-observations.jsonl",
+    "actual_packet": "/tmp/qwen-atomic-anchor-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/qwen-20261017T100256041922Z/decision-bindings/0010-project.json:arguments[0].current_state.state",
+    "app_sha256": "df98313232d7e1ca51f49870198f93a55a94e0ea99b10fd6e72fda737fa4e73d",
+    "app_source": "/tmp/qwen-atomic-anchor-live-20261017/portal/app.py",
+    "capture_file_sha256": "8e7e404829baf56ca310c77dbd31f688adeb357685d0828e11b49d41d960c4b6",
+    "function_replayed": "AST-extracted exact frozen _model_ui_node_references and _model_ui_observation only; no full app import, mocks, changed rank, changed budget or model calls.",
+    "recorded_projection_capture": "/tmp/qwen-atomic-anchor-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/qwen-20261017T100256041922Z/decision-bindings/0010-project.json",
+    "recorded_projection_capture_sha256": "9c239db604edc4275a7c00ce5a0043f3d1a47711e68d118a55b950b6d8aaa145",
+    "references_source": "Exact native_task_events.observe window_ids rule: visible enabled nonsensitive window nodes offering switch_window, in actual raw source order."
+  },
+  "unchanged_actual_goal_and_oracle": true,
+  "verdict": "deterministic_structure_budget_displacement_confirmed_one_saved_state",
+  "verifier_actions": {
+    "GPU_calls": 0,
+    "GUI_calls": 0,
+    "counterfactual_compiled_for_input": false,
+    "counterfactual_presented_to_model": false,
+    "frozen_input_or_oracle_edits": 0,
+    "model_calls": 0,
+    "production_edits": 0,
+    "service_calls": 0
+  },
+  "whole_task_success_credit": false,
+  "window_references": [
+    "atspi:0fd11620b733b4e62b02dfecd329aed7",
+    "atspi:31d6c05a8120e21366b5c8d706f36d7d",
+    "atspi:90265c8e4073b7ccc3b7c6a73c47ddfc"
+  ]
+}

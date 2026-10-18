@@ -20,7 +20,7 @@ from typing import Any, Protocol
 
 VERBS = frozenset({"invoke", "focus", "set_value", "set_checked", "select", "scroll", "key_chord",
                    "click", "double_click", "right_click", "drag_drop", "select_text", "switch_window", "type_text"})
-_BOUNDARY_VERBS = frozenset({"invoke", "click", "double_click", "right_click", "key_chord", "scroll"})
+_BOUNDARY_VERBS = frozenset({"invoke", "click", "double_click", "right_click", "key_chord", "scroll", "drag_drop"})
 _ARGUMENTS = {
     "invoke": set(), "focus": set(), "set_value": {"value"},
     "set_checked": {"checked"}, "select": {"option"},
@@ -235,6 +235,30 @@ def _snapshot(value: Any) -> dict[str, Any]:
         if "text_selection" in node:
             selection = _object(node["text_selection"], {"start", "end"}, "observed text selection")
             _selection_range(selection)
+        if "structure" in node:
+            structure = _object(node["structure"], {"parent_id", "child_index", "ancestors"},
+                                "observed node structure")
+            if "parent_id" in structure:
+                _string(structure["parent_id"], "observed parent identity", 512)
+            if "child_index" in structure and (type(structure["child_index"]) is not int
+                    or not 0 <= structure["child_index"] < 2**31):
+                raise ComputerUseError("Invalid observed child index")
+            ancestors = structure.get("ancestors")
+            if not isinstance(ancestors, list) or len(ancestors) > 3:
+                raise ComputerUseError("Invalid observed ancestor budget")
+            ancestor_ids = set()
+            for ancestor in ancestors:
+                ancestor = _object(ancestor, {"id", "generation", "role", "name", "visible", "enabled"},
+                                   "observed ancestor")
+                for key in ("id", "generation", "role", "name"):
+                    _string(ancestor.get(key), "observed ancestor " + key, 512, empty=key == "name")
+                if any(type(ancestor.get(key)) is not bool for key in ("visible", "enabled")):
+                    raise ComputerUseError("Invalid observed ancestor state")
+                if ancestor["id"] == node["id"] or ancestor["id"] in ancestor_ids:
+                    raise ComputerUseError("Invalid observed ancestry cycle")
+                ancestor_ids.add(ancestor["id"])
+            if ancestors and structure.get("parent_id") != ancestors[-1]["id"]:
+                raise ComputerUseError("Observed parent does not match ancestry")
         if node["sensitive"]:
             node.pop("value", None)
             node.pop("selected", None)

@@ -1,0 +1,34 @@
+{
+  "files": {
+    "README.md": "5a84c75b138a896a56c61f49acdbb3f087964ac3606ba15ef85fb51247488e39",
+    "acceptance.json": "1df379888739db83d8a81568fa5dc36b14cb25f85ddb8a9dd74f29349411910b",
+    "fixture_api.py": "8efc7c17d08915a02ed58a48476a7ed40e35bdbdca07bcdea4817b44fa801045",
+    "sources/0003-bind_subgoal.json": "d21492d837998b82fd097d7109c0ad4fae9805c7e7e4730fd5dde2dc4b0d4ebb",
+    "sources/0004-expand.json": "834e50b689f31678b1ffca00626fa5c055828d433ef80acc59de102ba1746ddb",
+    "sources/0021-bind_subgoal.json": "5733a9b3bf3aee323d5f67847019afd4c00d3f378dd677bb9228f536b2eb1d9c",
+    "sources/0022-expand.json": "b4daebe34dbae47fd69eda019ff8ac6a1952f181251717d4893744eb62fd2902",
+    "sources/0025-bind_subgoal.json": "1d8395e7f1c41b3782d21b63fdc7b5a5642600d39bf0b1786aadd22287114b1c",
+    "sources/0026-expand.json": "0e7353f3ad7a475499ed7ab67013dbd75d69d32c3aa9d1702e4bc9b04e753888",
+    "sources/0029-bind_subgoal.json": "814bb83833a065a6564088777df37dfc3ea174895fd2556a25a47e2286cbe0f4",
+    "sources/0030-expand.json": "bb04123b29b75174971be53c7bc6a376d894867aee964dbe06a3f0d9ac9121b1",
+    "sources/SRC.PHASE01-action-request.bin": "12ea3026eccd3015ff3c471a4d4fb04ef20cd4da6b6a6289f757a7218bd41ca3",
+    "sources/SRC.PHASE01-proposal-request.bin": "3fa9b04341b52731f49be5f4162a47214413fb61bb98304465730d73a1e77e1a",
+    "sources/SRC.PHASE05-action-request.bin": "460f4c9e5fbd7561cf01cecc827e199c2ebb78747e6cd6118711f8155dc3d209",
+    "sources/SRC.PHASE05-proposal-request.bin": "9406ae919db1d6dfb40931d81e995517aa734c810931a26197614369be3a1099",
+    "sources/SRC.PHASE06-action-request.bin": "cb6591506450be3feab6d72097fa762ee7d5cc53785f90e36eec5f4e48983c86",
+    "sources/SRC.PHASE06-proposal-request.bin": "06cacc40c9a90bd40310ddfc9ff3f4bf5c420e690f4a2645a03be5d20e2a1dca",
+    "sources/SRC.PHASE07-action-request.bin": "4c6ed17fb2360aa7782cb02cbac1370c5a91001262ce708e8224ab3ecaaf5d11",
+    "sources/SRC.PHASE07-proposal-request.bin": "b164c0dc0d6bca1bef455f51ff72815c2b874691b13935f2d3071bae916b81c4",
+    "test_atomic_anchor_acceptance_v3.py": "640067c671a494216fee0c2824a470cb681363deea156155b91afc6fbbcc00e9"
+  },
+  "frozen_at": "2026-10-17T09:34:41.583076+00:00",
+  "frozen_before_new_atomic_model_calls": true,
+  "prior_panels_untouched": {
+    "v1_manifest_sha256": "98171822f007368171f011c67f328c0d4723cd310bd09fda56961e06ced09af4",
+    "v2_manifest_sha256": "eedb8175f63c07d2f26e1de290545b5555b826af9cf531280a4d3c2813a2f8a1",
+    "whole_task_manifest_sha256": "4877ce711d4cab49631259ea92d49cdd2db7118d24574136e9ec962d93bb1457"
+  },
+  "revision": 1,
+  "schema": "robit.omni.atomic-anchor-panel-manifest.v1",
+  "whole_task_success_credit": false
+}

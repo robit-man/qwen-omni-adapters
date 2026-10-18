@@ -150,7 +150,9 @@ def test_recall_runs_privately_without_input_and_repeating_it_exhausts_budget():
     fixture.compile = compile_phase
     events = list(fixture.run(working_state=True))
     assert not fixture.executions and not fixture.adapter.calls
-    assert [t['ok'] for t in completed_tools(events)] == [True, False, False, False]
+    # The planner already received these exact retained values. Recalling one
+    # again cannot manufacture novel acquisition or renew the failure budget.
+    assert [t['ok'] for t in completed_tools(events)] == [False, False, False]
     assert final(events)['portal']['native_task']['status'] == 'blocked'
     assert final(events)['portal']['native_task']['task_verified'] is False
     second = fixture.packets[1]

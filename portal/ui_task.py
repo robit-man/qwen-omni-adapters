@@ -18,15 +18,19 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, ValidationError
 
+from portal import ui_decision
 from portal.computer_use import parse_subgoal
 from portal.tools import tool_schemas
 from portal.ui_observations import NativeObservationArchive
+from portal.ui_plans import NativePlanArchive
+from portal.ui_recovery import NativeStrategyLedger
 from qwen_omni_adapters.computer_use import (
     ComputerUseError,
     parse_intent,
     parse_predicates,
     parse_step,
 )
+from qwen_omni_adapters.ui_effects import transition_descriptor_schema
 
 
 def phase_response_schema(allowed_tools: Iterable[str]) -> dict[str, Any]:
@@ -104,7 +108,7 @@ def _compact_grounded_targets(schema: dict) -> dict:
 
 
 def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[str, Any], *,
-                           intent_choice: bool = False) -> dict[str, Any]:
+                           intent_choice: bool = False, effect_contracts: bool = False) -> dict[str, Any]:
     """Ground only the first position in positive, model-visible capabilities.
 
     Semantic selectors may remain ambiguous. Named visual discovery is still
@@ -210,7 +214,8 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
                 branch["properties"]["expect"] = copy.deepcopy(switch_effect)
                 branch["properties"]["expect"]["items"]["properties"]["kind"] = {"const": "focused"}
             if (verb in {"invoke", "click", "double_click", "right_click"}
-                    or intent_choice and verb in {"key_chord", "scroll"}):
+                    or (intent_choice or effect_contracts) and verb in {"key_chord", "scroll"}
+                    or effect_contracts and verb == "drag_drop"):
                 branch["properties"].pop("expect")
                 branch["required"].remove("expect")
                 boundaries.append(branch)
@@ -233,13 +238,14 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
                 "remaining_criteria": copy.deepcopy(fallback["oneOf"][0]["properties"]["remaining_criteria"])},
             "description": "One guarded input followed by semantic observation and replanning. "
                            "No effect predicate, verified progress, or following step."})
-        if intent_choice:
+        if intent_choice or effect_contracts:
             boundary = schema["oneOf"][-1]
             boundary["required"].append("objective")
             boundary["properties"]["objective"] = {"type": "string", "minLength": 1, "maxLength": 500}
-            boundary["description"] += (" Supply an explicit planner objective within the exact user goal. "
-                "For a positive native control the verb is only an audited preference for primitive Choice; "
-                "a genuinely missing visual target retains the requested verb.")
+            boundary["description"] += " Supply an explicit planner objective within the exact user goal."
+            if intent_choice:
+                boundary["description"] += (" For a positive native control the verb is only an audited "
+                    "preference for primitive Choice; a genuinely missing visual target retains the requested verb.")
     if intent_selectors:
         schema["oneOf"].append({"type": "object", "additionalProperties": False,
             "required": ["kind", "subgoal"], "properties": {
@@ -328,7 +334,11 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
               "policy_receipts", "point_receipts", "selection_receipts", "intent_selection_receipt", "evidence_authority", "resource", "stored",
               "updated", "unchanged", "topic", "key", "characters", "scope", "query", "results",
               "reading", "visual_inspection_receipt", "ui_boundary_receipt", "observed_changes", "text_entry_receipt", "text_submit_receipt",
-              "recalled_observation", "observation_recall_receipt", "pointer_recovery", "pointer_recovery_receipt")
+              "recalled_observation", "observation_recall_receipt", "pointer_recovery", "pointer_recovery_receipt",
+              "action_handoff", "action_handoff_revalidation", "immediate_effect_contract",
+              "immediate_transition_receipt", "planner_workflow_claim", "strategy_filter_receipts", "transition",
+              "verified_prefix_receipt", "verification_only_receipt", "recalled_plan", "plan_recall_receipt")
+    fields = (*fields, "control_catalogue", "control_expansion_receipt")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
     if not _accepted_visual_reading(result):
         compact.pop("reading", None)
@@ -457,6 +467,26 @@ def _zero_effect_ui_phase_key(result: Mapping[str, Any], observed: Mapping[str, 
     Opaque action/step IDs do not make unchanged effective inputs new work.
     Incomplete or uncertain effect evidence cannot establish this equivalence.
     """
+    prefix = result.get("verified_prefix_receipt", {})
+    contexts = prefix.get("step_contexts", [])
+    if (result.get("status") == "complete" and not result.get("error")
+            and prefix.get("all_immediate_readbacks_verified") is True and contexts
+            and not result.get("outcomes")):
+        bindings = []
+        for context in contexts:
+            receipt = context.get("verification_only_receipt", {})
+            target = receipt.get("target", {})
+            if (receipt.get("schema") != "robit.omni.native-verification-only.v1"
+                    or receipt.get("status") != "verified" or receipt.get("input_attempted") is not False
+                    or any(key not in target for key in ("node_id", "generation", "scope_id"))
+                    or not isinstance(receipt.get("predicates"), list) or not receipt["predicates"]):
+                return None
+            # A repeated independently observed idempotent predicate is not a
+            # new effect, even if coverage metadata or unrelated UI changes.
+            bindings.append({"target": {key: target[key] for key in ("node_id", "generation", "scope_id")},
+                **{key: receipt.get(key) for key in ("operation", "predicates", "args_sha256")},
+                "session_id": receipt.get("fresh_source_ref", {}).get("session_id")})
+        return hashlib.sha256(json.dumps(bindings, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
     outcomes, terminal = result.get("outcomes"), result.get("terminal")
     if (result.get("status") != "complete" or result.get("error")
             or result.get("terminal_receipt", {}).get("status") != "verified"
@@ -494,6 +524,18 @@ class NativePhaseCompilationError(Exception):
     """Trusted compiler JSON-decode failure; never carries the model's reply."""
 
     code = "invalid_native_phase_json"
+
+
+class NativePhaseReplan(Exception):
+    """A validated private planner decision requests another phase without input."""
+
+    code = "native_planner_requested_replan"
+
+    def __init__(self, reason: str):
+        if not isinstance(reason, str) or not reason.strip() or len(reason) > 500:
+            raise ValueError("Expected a bounded nonblank planner replan reason")
+        self.reason = reason
+        super().__init__(self.code)
 
 
 def _new_verified_ui_prefix(result: Mapping[str, Any], seen: set[str]) -> bool:
@@ -551,10 +593,22 @@ def _new_verified_ui_prefix(result: Mapping[str, Any], seen: set[str]) -> bool:
     return novel
 
 
-def _working_phase_schema(allowed, phase_schema, state, *, pointer_recovery=None):
+def _working_phase_schema(allowed, phase_schema, state, *, pointer_recovery=None, observed_state=None,
+                          action_handoffs=False):
     """Wrap, without changing, canonical phase contracts and root-relative refs."""
     def wrap(inner):
         inner = copy.deepcopy(inner)
+        catalogue = (observed_state or {}).get("model_projection", {}).get("control_catalogue", {})
+        discovery_refs = [row["reference"] for row in catalogue.get("entries", [])
+                          if isinstance(row, dict) and isinstance(row.get("reference"), str)]
+        if ("native_ui" in allowed and catalogue.get("schema") == "robit.omni.native-control-catalogue.v1"
+                and catalogue.get("input_authority") is False and discovery_refs):
+            inner["oneOf"].append({"type": "object", "additionalProperties": False,
+                "properties": {"kind": {"const": "inspect_controls"},
+                    "reference": {"enum": discovery_refs}, "remaining_criteria": {
+                        "type": "array", "maxItems": 25,
+                        "items": {"type": "string", "minLength": 1, "maxLength": 240}}},
+                "required": ["kind", "reference"]})
         if pointer_recovery is not None and "native_ui" in allowed:
             offer = pointer_recovery
             if (offer.get("schema") != "robit.omni.pointer-recovery-proposal.v1"
@@ -585,7 +639,22 @@ def _working_phase_schema(allowed, phase_schema, state, *, pointer_recovery=None
                     "reference": {"enum": references}, "remaining_criteria": {
                         "type": "array", "maxItems": 25, "items": {"type": "string", "minLength": 1, "maxLength": 240}}},
                 "required": ["kind", "reference"]})
+        plans = state.get("plan_claims", {}).get("entries", [])
+        if plans:
+            width = state["plan_claims"]["fragment_characters"]
+            maximum = max(row["serialized_characters"] for row in plans)
+            inner["oneOf"].append({"type": "object", "additionalProperties": False,
+                "properties": {"kind": {"const": "recall_plan"},
+                    "reference": {"enum": [row["reference"] for row in plans]},
+                    "offset": {"enum": list(range(0, maximum, width))},
+                    "remaining_criteria": {"type": "array", "maxItems": 25,
+                        "items": {"type": "string", "minLength": 1, "maxLength": 240}}},
+                "required": ["kind", "reference", "offset"]})
         definitions = copy.deepcopy(inner["$defs"])
+        if action_handoffs:
+            definitions["native_action_handoff"] = ui_decision.action_handoff_schema()
+        if action_handoffs and observed_state is not None:
+            definitions["native_immediate_transition"] = transition_descriptor_schema(observed_state)
         branches = inner["oneOf"]
         definitions["native_working_phase"] = {"oneOf": [copy.deepcopy(branch) for branch in branches
             if branch["properties"]["kind"]["const"] not in {"complete", "blocked"}]}
@@ -626,7 +695,10 @@ def _working_phase_schema(allowed, phase_schema, state, *, pointer_recovery=None
                             "decision": {"enum": decision},
                             "summary": {"type": "string", "minLength": 1, "maxLength": 500}}},
                     "phase": phase, "commitment": {"$ref": "#/$defs/native_phase_commitment" if owns_objective
-                                                   else "#/$defs/native_commitment"}}})
+                                                   else "#/$defs/native_commitment"},
+                    **({"action_handoff": {"$ref": "#/$defs/native_action_handoff"}} if action_handoffs else {}),
+                    **({"transition": {"$ref": "#/$defs/native_immediate_transition"}}
+                       if action_handoffs and observed_state is not None else {})}})
         return {"$defs": definitions, "oneOf": options}
     schema = wrap(phase_schema)
     if len(json.dumps(schema, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()) > _MAX_GROUNDED_SCHEMA_BYTES:
@@ -642,13 +714,17 @@ def _working_phase_schema(allowed, phase_schema, state, *, pointer_recovery=None
 
 class _NativeWorkingState:
     """Bounded historical host facts, separate from renewable planner claims."""
-    def __init__(self, goal):
+    def __init__(self, goal, *, strategy_ledger=None):
+        self.goal = goal
         self.goal_sha256 = hashlib.sha256(goal.encode()).hexdigest()
         self.epoch, self.commitment, self.assessment = uuid.uuid4().hex, None, None
         self.phase_refs, self.facts, self.latest, self.last_unverified = [], [], None, None
         self.receipts: set[str] = set()
         self.recovery = False
         self.observations = NativeObservationArchive(self.epoch)
+        self.action_handoff = None
+        self.strategy_ledger = strategy_ledger
+        self.plans = NativePlanArchive(self.epoch, self.goal_sha256)
 
     @staticmethod
     def digest(value):
@@ -669,9 +745,17 @@ class _NativeWorkingState:
             "consecutive_unverified_count": failed, "fact_authority": "historical_executor_receipts_not_goal_progress",
             "observations": self.observations.view(),
             "references": "Phase/outcome hashes are audit pointers. Observation references can be expanded with recall_observation; historical only, no input authority."}
+        if self.strategy_ledger is not None:
+            value["strategy_recovery"] = self.strategy_ledger.view()
+        if self.plans.records:
+            value["plan_claims"] = self.plans.view()
         while len(json.dumps(value, ensure_ascii=False, allow_nan=False).encode()) > 12288 and facts:
             facts.pop(0)
             value["omitted_executed_facts"] += 1
+        recovery = value.get("strategy_recovery", {})
+        while len(json.dumps(value, ensure_ascii=False, allow_nan=False).encode()) > 12288 and recovery.get("facts"):
+            recovery["facts"].pop(0)
+            recovery["omitted_fact_count"] += 1
         # Keep full claims internally. A legal Unicode claim may consume more
         # bytes than its character bound; omissions are explicit, never absence.
         for group, key in (("commitment", "unmet_constraints"), ("previous_assessment", "summary"),
@@ -687,7 +771,12 @@ class _NativeWorkingState:
             raise ComputerUseError("Native working state exceeds its bounded evidence representation")
         return value
 
-    def accept(self, reply):
+    def planning_view(self, phase, failed):
+        value = self.view(phase, failed)
+        value["observations"] = self.observations.planning_view()
+        return value
+
+    def accept(self, reply, *, state=None, previous_result=None):
         commitment, assessment, phase = reply["commitment"], reply["assessment"], reply["phase"]
         objective_path = ("/objective" if phase["kind"] in {"ui_boundary", "ui_pointer_recovery"} and "objective" in phase else
                           "/subgoal/objective" if phase["kind"] == "ui_subgoal" else None)
@@ -700,13 +789,38 @@ class _NativeWorkingState:
                                      "phase_sha256": self.digest(phase)}}
         if not commitment["objective"].strip() or not assessment["summary"].strip():
             raise ComputerUseError("Working commitment and assessment must be nonblank")
+        handoff = None
+        if "action_handoff" in reply:
+            if state is None:
+                raise ComputerUseError("Action handoff requires its captured observation")
+            selector = (phase.get("subgoal", {}).get("target") if phase["kind"] == "ui_subgoal" else
+                        phase.get("step", {}).get("target") if phase["kind"] in {"ui_boundary", "ui_pointer_recovery"}
+                        else phase.get("steps", [{}])[0].get("target") if phase["kind"] == "ui" else None)
+            claimed = reply["action_handoff"].get("target", {})
+            target = next((node for node in state.get("nodes", []) if node.get("id") == claimed.get("node_id")), None)
+            if (not isinstance(selector, dict) or target is None or any(
+                    target.get("id" if key == "node_id" else key) != value for key, value in selector.items())):
+                raise ComputerUseError("Action handoff does not describe the proposed target")
+            previous = previous_result or {}
+            recovery = phase["kind"] == "ui_pointer_recovery"
+            if recovery and not isinstance(previous.get("action_handoff"), dict):
+                raise ComputerUseError("Recovery handoff has no retained source")
+            handoff = ui_decision.validate_action_handoff(reply["action_handoff"], goal=self.goal,
+                source_epoch=self.epoch, source_phase=assessment["source_phase"], state=state,
+                objective=commitment["objective"], target=target,
+                **({"predecessor": previous["action_handoff"], "recovery_reference": phase["reference"]}
+                   if recovery else {}))
         self.commitment = {**copy.deepcopy(commitment), "authority": "planner_claim", "input_authority": False}
         self.assessment = {**copy.deepcopy(assessment), "authority": "planner_claim", "input_authority": False}
+        self.action_handoff = handoff
 
     def record(self, phase, kind, result, *, recover):
+        if self.strategy_ledger is not None:
+            self.strategy_ledger.record(result, source_phase=phase)
         digest = self.digest(result)
-        actual = result.get("outcomes", []) if kind == "ui" or "text_entry_receipt" in result else (
-            [result["dispatch_record"]] if kind in {"ui_boundary", "ui_subgoal", "ui_pointer_recovery"} and isinstance(result.get("dispatch_record"), dict) else [])
+        actual = result.get("outcomes", [])
+        if not actual and isinstance(result.get("dispatch_record"), dict):
+            actual = [result["dispatch_record"]]
         self.phase_refs.append([phase, digest, len(actual)])
         self.recovery = recover
         fields = {key: copy.deepcopy(result[key]) for key in
@@ -753,7 +867,9 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                     allowed_tools: Iterable[str], max_phases: int = 40, max_seconds: float = 1200,
                     model: str = "", clock: Callable[[], float] = time.monotonic,
                     cancelled: Callable[[], bool] | None = None,
-                    intent_choice: bool = False, working_state: bool = False) -> Iterator[dict[str, Any]]:
+                    intent_choice: bool = False, working_state: bool = False,
+                    effect_contracts: bool = False,
+                    strategy_ledger: NativeStrategyLedger | None = None) -> Iterator[dict[str, Any]]:
     """Compile each phase once, execute internally, then return to the planner.
 
     The caller enforces callback I/O deadlines using remaining_seconds. Checks
@@ -766,6 +882,10 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
         raise ValueError("Expected 1–40 native phases")
     if isinstance(max_seconds, bool) or not isinstance(max_seconds, (int, float)) or not math.isfinite(max_seconds) or max_seconds <= 0:
         raise ValueError("Expected a positive finite native task deadline")
+    if type(effect_contracts) is not bool or effect_contracts and not working_state:
+        raise ValueError("Immediate effect contracts require native working state")
+    if strategy_ledger is not None and (not isinstance(strategy_ledger, NativeStrategyLedger) or not effect_contracts):
+        raise ValueError("Strategy history requires the private immediate-effect protocol")
     allowed = frozenset(allowed_tools)
     if "native_ui" not in allowed:
         raise ValueError("Native task requires explicit native_ui permission")
@@ -775,7 +895,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
     applied_ui_transitions: set[str] = set()
     boundary_observations: set[str] = set()
     pointer_resolution_pending = False
-    working = _NativeWorkingState(goal) if working_state else None
+    working = _NativeWorkingState(goal, strategy_ledger=strategy_ledger) if working_state else None
 
     def boundary():
         if cancelled is not None and cancelled():
@@ -809,11 +929,13 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 return
             if working is not None:
                 working.observations.remember(phases, current)
-            schema = _grounded_phase_schema(allowed, current, intent_choice=intent_choice)
-            working_view = working.view(phases, failed) if working is not None else None
+            schema = _grounded_phase_schema(allowed, current, intent_choice=intent_choice,
+                                            effect_contracts=effect_contracts)
+            working_view = working.planning_view(phases, failed) if working is not None else None
             if working is not None:
                 schema = _working_phase_schema(allowed, schema, working_view,
-                    pointer_recovery=(last_result or {}).get("pointer_recovery"))
+                    pointer_recovery=(last_result or {}).get("pointer_recovery"),
+                    observed_state=current.get("state"), action_handoffs=effect_contracts)
             validator = Draft202012Validator(schema)
             packet = {"goal": goal, "current_state": copy.deepcopy(current),
                       "ledger": _planner_ledger(ledger[-12:]), "last_result": copy.deepcopy(last_result),
@@ -828,19 +950,22 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             packet["remaining_seconds"] = max_seconds - (clock() - started)
             try:
                 plan = compile_phase(packet)
-            except NativePhaseCompilationError:
+            except (NativePhaseCompilationError, NativePhaseReplan) as error:
                 if reason := boundary():
                     yield finish(reason, "Native task stopped: " + reason)
                     return
-                last_result = {"error": NativePhaseCompilationError.code,
+                replanning = isinstance(error, NativePhaseReplan)
+                last_result = {"error": error.code,
                     "dispatch_status": "not_dispatched", "input_attempted": False,
                     "new_effect_count": 0,
-                    "reason": "The compiler reply was not complete valid JSON. Return a smaller complete phase "
-                              "matching the unchanged schema, without repairing or replaying the invalid reply."}
-                ledger.append({"phase": phases, "kind": "invalid", **last_result})
+                    "reason": ("Planner requested replanning; its reason is an unverified claim: " + error.reason
+                               if replanning else
+                               "The compiler reply was not complete valid JSON. Return a smaller complete phase "
+                               "matching the unchanged schema, without repairing or replaying the invalid reply.")}
+                ledger.append({"phase": phases, "kind": "replan" if replanning else "invalid", **last_result})
                 ledger = ledger[-12:]
                 if working is not None:
-                    working.record(phases, "invalid", last_result, recover=True)
+                    working.record(phases, "replan" if replanning else "invalid", last_result, recover=True)
                 failed += 1
                 if failed >= 3:
                     yield finish("blocked", "Three consecutive native phases were invalid or unverified.")
@@ -869,7 +994,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 if kind == "ui_subgoal":
                     parse_subgoal(plan["subgoal"])
                 if working is not None:
-                    working.accept(reply)
+                    working.accept(reply, state=current.get("state"), previous_result=last_result)
             except (ValidationError, ComputerUseError, ValueError, TypeError) as exc:
                 last_result = {"error": "invalid_native_phase", "dispatch_status": "not_dispatched",
                                "reason": str(exc.message if isinstance(exc, ValidationError) else exc)[:600]}
@@ -888,8 +1013,12 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 normal = kind == "complete"
                 yield finish("planner_claim" if normal else "blocked", plan.get("message", plan.get("reason", "")))
                 return
-            name = "native_ui" if kind in {"ui", "ui_boundary", "ui_subgoal", "ui_pointer_recovery", "visual_inspection", "recall_observation"} else kind
-            arguments = ({"operation": "workflow", "steps": plan["steps"], "final_predicates": plan["final_predicates"]}
+            retained_plan = working.plans.remember(phases, plan) if kind == "ui" and effect_contracts else None
+            name = "native_ui" if kind in {"ui", "ui_boundary", "ui_subgoal", "ui_pointer_recovery", "visual_inspection", "recall_observation", "recall_plan", "inspect_controls"} else kind
+            arguments = ({"operation": "verified_prefix", "steps": plan["steps"],
+                          "objective": working.commitment["objective"], "source_phase": phases}
+                         if kind == "ui" and effect_contracts else
+                         {"operation": "workflow", "steps": plan["steps"], "final_predicates": plan["final_predicates"]}
                          if kind == "ui" else {"operation": "resolve_pointer", "reference": plan["reference"],
                              "intent": plan["step"], "objective": plan["objective"]}
                          if kind == "ui_pointer_recovery" else {"operation": "observation_boundary", "intent": plan["step"]}
@@ -899,12 +1028,22 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                  if key in last_result} if last_result is not None else None}
                          if kind == "ui_subgoal" else {"operation": "inspect_visual"} if kind == "visual_inspection"
                          else {"operation": "recall_observation", "reference": plan["reference"]} if kind == "recall_observation"
+                         else {"operation": "recall_plan", "reference": plan["reference"], "offset": plan["offset"]} if kind == "recall_plan"
+                         else {"operation": "inspect_controls", "reference": plan["reference"]} if kind == "inspect_controls"
                          else {key: value for key, value in plan.items()
                                                 if key not in {"kind", "remaining_criteria"}})
-            if kind == "ui_boundary" and intent_choice:
+            if kind == "ui_boundary" and (intent_choice or effect_contracts):
                 arguments.update(objective=plan["objective"], feedback={key: copy.deepcopy(last_result[key]) for key in
                     ("status", "error", "reason", "effect_receipt", "ui_boundary_receipt")
                     if key in last_result} if last_result is not None else None)
+            if name == "native_ui" and working is not None and working.action_handoff is not None:
+                arguments["action_handoff"] = copy.deepcopy(working.action_handoff)
+            if name == "native_ui" and effect_contracts and kind in {"ui", "ui_boundary", "ui_subgoal", "ui_pointer_recovery"}:
+                if "transition" in reply:
+                    arguments["transition"] = copy.deepcopy(reply["transition"])
+                if kind == "ui_boundary":
+                    arguments.update(operation="immediate_transition", step=arguments.pop("intent"))
+                    arguments.pop("feedback", None)
             if name not in allowed:
                 raise ValueError("Compiled phase exceeds immutable tool scope")
             if reason := boundary():
@@ -918,9 +1057,21 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 return
             # Private task-owned expansion never calls a desktop input adapter.
             result = (working.observations.recall(plan["reference"]) if kind == "recall_observation" and working is not None
+                      else working.plans.safe_recall(plan["reference"], plan["offset"]) if kind == "recall_plan" and working is not None
                       else execute(name, copy.deepcopy(arguments)))
             if not isinstance(result, dict):
                 raise ValueError("Native executor returned no typed receipt")
+            if kind == "ui" and effect_contracts:
+                # The complete original instructions remain retrievable claims.
+                attempted = result.get("verified_prefix_receipt", {}).get("attempted_step_count", 0)
+                result["planner_workflow_claim"] = {"authority": "unverified_planner_plan",
+                    "input_authority": False, "terminal_verified": False,
+                    "retained_plan": retained_plan, "suffix_start_index": attempted,
+                    "original_step_count": len(plan["steps"]),
+                    "steps_sha256": _NativeWorkingState.digest(plan["steps"]),
+                    "remaining_steps": copy.deepcopy(plan["steps"][attempted:attempted + 5]),
+                    "omitted_remaining_steps": max(0, len(plan["steps"]) - attempted - 5),
+                    "terminal_predicates_sha256": _NativeWorkingState.digest(plan["final_predicates"])}
             if kind == "ui":
                 if any(item.get("effect_receipt", {}).get("effect_state") == "applied"
                        for item in result.get("outcomes", [])):
@@ -950,8 +1101,14 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 ok = ok and _accepted_visual_reading(result)
             if kind == "recall_observation":
                 ok = ok and result.get("observation_recall_receipt", {}).get("first_expansion_in_task") is True
+            if kind == "recall_plan":
+                ok = ok and result.get("plan_recall_receipt", {}).get("first_expansion_in_task") is True
+            if kind == "inspect_controls":
+                ok = ok and result.get("control_expansion_receipt", {}).get("first_expansion_in_task") is True
             novel_boundary = False
-            is_boundary = kind in {"ui_boundary", "ui_pointer_recovery"} or kind == "ui_subgoal" and plan["subgoal"]["family"] != "text_entry"
+            is_boundary = (kind in {"ui_boundary", "ui_pointer_recovery"}
+                or kind == "ui_subgoal" and plan["subgoal"]["family"] != "text_entry"
+                or kind == "ui" and result.get("immediate_effect_contract", {}).get("mode") == "observation_boundary")
             offer = result.get("pointer_recovery", {})
             deferred_pointer = (working is not None and is_boundary and result.get("status") == "abstained"
                 and isinstance(offer, dict) and offer.get("schema") == "robit.omni.pointer-recovery-proposal.v1"
@@ -980,7 +1137,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                                ("status", "error", "reason", "phase_handoff", "ui_state_receipt",
                                 "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt",
                                 "ui_boundary_receipt", "observed_changes", "intent_selection_receipt", "text_entry_receipt",
-                                "observation_recall_receipt", "pointer_recovery_receipt")
+                                "observation_recall_receipt", "pointer_recovery_receipt", "control_expansion_receipt")
                                if key in last_result}})
             if working is not None:
                 ledger[-1].update(planner_assessment=copy.deepcopy(working.assessment),
@@ -991,9 +1148,16 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 # One fast-policy deferral hands the attempt to the slow planner.
                 # Repeating fast decisions without resolving it still spends the
                 # failure budget, even if each mints a different proposal token.
+                if recoverable_prefix:
+                    failed = 0
                 failed += not novel_boundary and not (deferred_pointer and not pointer_resolution_pending)
+            elif kind == "inspect_controls":
+                # New knowledge permits reasoning, never erases action failures.
+                failed += not ok
             else:
-                failed = 0 if ok or recoverable_prefix else failed + 1
+                no_input_prefix = (result.get("verified_prefix_receipt", {}).get("all_immediate_readbacks_verified") is True
+                    and not result.get("outcomes"))
+                failed = (failed if ok else failed + 1) if no_input_prefix else 0 if ok or recoverable_prefix else failed + 1
             pointer_resolution_pending = deferred_pointer
             if working is not None:
                 working.record(phases, kind, result, recover=not ok or is_boundary

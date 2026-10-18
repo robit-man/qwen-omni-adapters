@@ -1,0 +1,63 @@
+• The deepest supported diagnosis is a broken decision-to-action contract. The layers can
+  individually plan, select, point and execute, but they do not consistently preserve what
+  immediate transition should happen, why it advances the task, and how to verify it.
+ 
+  There are several concrete mechanisms—not one proven explanation for every failure:
+ 
+  1. Verification conditions can be semantically wrong. On Egg .41, the model pressed Ctrl+L
+     and asked the executor to find the literal text “Workbench file manager surface text.”
+     That was an explanation, not an application readback. Verification failed immediately,
+     preventing the remaining workflow from running. The planner can currently produce
+     schema-valid instructions that make no operational sense.
+ 
+  2. The immediate-action explanation gets dropped. Locally, the planner correctly proposed
+     opening a chooser to reach corrections.json. Pointer recovery received the larger file-
+     reading objective without the prerequisite explanation, then rejected the action because
+     the file was not already open. The omission is confirmed in the handoff code (portal/
+     ui_decision.py:110); its contribution still needs a controlled comparison.
+ 
+  3. UI compression removes useful relationships. The model receives combined parent labels,
+     unnamed rows and repeated buttons without sufficient parent/row context. It confused a
+     recent-documents popup with a file chooser. We have observed the ambiguity; we have not
+     proved that adding hierarchy alone resolves it.
+ 
+  4. Recovery changes its explanation without changing its strategy. The planner repeatedly
+     selected the same Open control while calling it a fresh alternative. The three-failure
+     stop correctly terminated the loop. Raising that limit would prolong the failure.
+ 
+  The earlier input-delivery and unrelated GNOME Shell observation faults were real and have
+  been repaired. Egg .31 also has a separate X11 ownership failure before model submission.
+  These are distinct from the planning failures. We have not established that model size is
+  the primary limitation.
+ 
+  My plan is:
+ 
+  1. Fix the effect contract first. Separate the overall objective, immediate operation and
+     expected observable transition. Compile verification from supported operation contracts:
+     focusing a field verifies focus; writing text verifies its exact value; opening a
+     document verifies the corresponding resource and readable state. Keep explanatory
+     predictions separate from literal predicates.
+ 
+  2. Preserve that contract through every handoff. Carry the phase-bound target, immediate
+     operation, prerequisite relationship and expected transition through Omni → Kev →
+     recovery → executor. Each layer receives the context needed for its decision, with
+     references for expansion.
+ 
+  3. Repair control representation and recovery separately. Preserve bounded parent/row/popup
+     relationships. Extend existing working state to recognize the same failed target/
+     operation against unchanged relevant state, then require another strategy or additional
+     observation.
+ 
+  4. Establish causality before another rollout. Freeze captured successful, failed and
+     irrelevant-action cases. Compare each individual change using the loaded weights and
+     unchanged settings. Then run one unchanged whole task against the candidate.
+ 
+  5. Expand acceptance across devices and models. Test Ornith and Qwen on GPU 1, then Ornith
+     on both Eggs after their setup prerequisites pass. Completion requires correct saved
+     artifacts, reopening, archive contents, source navigation and memory recall—not
+     dispatched clicks or passing unit tests.
+ 
+  I saved the updated diagnosis (/home/roko/Documents/qwen-omni-research/2026-10-17/
+  orchestration-diagnosis-r02/diagnosis.json) and ordered plan (/home/roko/Documents/qwen-
+  omni-research/2026-10-17/orchestration-diagnosis-r02/task-ledger-r02.json). The next
+  implementation target is the effect contract.

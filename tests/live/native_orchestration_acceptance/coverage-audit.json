@@ -1,0 +1,71 @@
+{
+  "automatic_criteria_declared": 87,
+  "evaluator_scope": "Current frozen specification/source audit; does not infer live task counts from static README/manifest fields. Historical run evidence exists externally and is separate from packaged spec run_count.",
+  "family_count": 16,
+  "gaps": [
+    {
+      "id": "EVAL.MATERIALIZE.010",
+      "proof": "tests/live/native_long_horizon/README.md and conditional runner setup support",
+      "required_result": "Implement and prove declared materials/injectors without operator task assistance.",
+      "scope": "14 media/controlled-event cases",
+      "status": "open"
+    },
+    {
+      "id": "EVAL.ORACLES.020",
+      "required_result": "Bind criterion-specific verdicts to exact evidence bundle; successful informational probes, file existence and model claims cannot close these.",
+      "scope": "All mandatory criteria not covered by independent current evidence",
+      "status": "open"
+    },
+    {
+      "id": "EVAL.METHOD.030",
+      "required_result": "Current owned identity, actual keyboard/physical mouse, GUI source acquisition, saved readback and reopen, memory_search and cleanup receipts.",
+      "scope": "Native whole-task method and preservation",
+      "status": "open"
+    },
+    {
+      "id": "EVAL.MODELS.040",
+      "required_result": "Actual exact loaded weights/residency proof and separate task-level grades, same frozen goal and declared conditions.",
+      "scope": "Local Qwen and Ornith GPU1",
+      "status": "open"
+    },
+    {
+      "id": "EVAL.ROUTES.050",
+      "required_result": "Separate local compact/Kev/MD3.1 from Egg full-planner/MD2/noKev; Egg31 setup blocked before inference.",
+      "scope": "Cross-route inference claims",
+      "status": "open"
+    },
+    {
+      "id": "EVAL.CAUSAL.060",
+      "required_result": "One-factor comparisons; combined candidate improvement alone does not identify causal component.",
+      "scope": "Immediate handoff vs hierarchy",
+      "status": "open"
+    }
+  ],
+  "local_model_cells_required": 200,
+  "mandatory_criteria_count": 960,
+  "objective_complete": false,
+  "pending_independent_criteria_declared": 873,
+  "reviewer_role": "independent_acceptance_worker",
+  "schema": "robit.omni.native-orchestration-coverage-audit.v1",
+  "sop_review": {
+    "open_checks": [
+      "Separate handoff/hierarchy causal ablations required by SOP.",
+      "No candidate source adoption or whole-task completion established by this audit.",
+      "Per-stage attempt/evidence lists initially empty and must be updated after actual results."
+    ],
+    "path": "docs/computer-use-execution-sop.md",
+    "progress_path": "docs/computer-use-execution-progress.json",
+    "progress_sha256": "b131ab224c5bc2386ea501558410850beff5d5f6448e831c5273a97b93598916",
+    "sha256": "e08786159559d58dd6010ca017bf06686789954f48df0b230fc68a1bafb11c58",
+    "supports": [
+      "Both local models on GPU1 preserved.",
+      "Native application and browser full workflows preserved.",
+      "100-task breadth and missing fixtures/oracles preserved.",
+      "Remote Ornith conditions remain explicit and separate.",
+      "No proof/no closure and artifact/source adoption requirements preserved."
+    ],
+    "verdict": "scope_preserved_implementation_and_acceptance_unproven"
+  },
+  "source_spec_sha256": "f628bc978d223a13ac07c7ddaca87a5863efea021dce4bca252106af8b0e1a62",
+  "task_count": 100
+}

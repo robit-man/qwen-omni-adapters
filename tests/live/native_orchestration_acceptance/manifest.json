@@ -1,0 +1,63 @@
+{
+  "base_commit": "24f1691767e61c94350fe0610c20036d0eec560b",
+  "case_ids": [
+    "PTR.ARCHIVE.010",
+    "PTR.ARCHIVE.020",
+    "PTR.ARCHIVE.030",
+    "PTR.ARCHIVE.040",
+    "PTR.ARCHIVE.050",
+    "PTR.ARCHIVE.060",
+    "PTR.NEGATIVE.010",
+    "PTR.NEGATIVE.020",
+    "PTR.NEGATIVE.030",
+    "PTR.NEGATIVE.040",
+    "PTR.NEGATIVE.050"
+  ],
+  "comparison_unit": "case-by-model-by-source-condition; no desktop inputs",
+  "evaluator_files": {
+    "runtime/verify_orchestration_contracts.py": "1b844cb1c89bd64db81feada699294a63aec68b65720a2711b330f0d12be6941"
+  },
+  "files": {
+    "PTR.ARCHIVE.010.json": "fe90fa4fee51ef61cb2c67bb6afcee5967444f681ab4ce92636800c4e2806a3e",
+    "PTR.ARCHIVE.020.json": "906ebaf9aa080b60a0332a33bfff250e99b9d34b1f7c77afa3371dc2a60af448",
+    "PTR.ARCHIVE.030.json": "577cab8fb57d2503f13ebede662b17afc8cb297a44d93137333a0f715b4faad5",
+    "PTR.ARCHIVE.040.json": "4528a8144a93518b328c5bdc143d2d642e3787f8c62e704f84da1d67a087a442",
+    "PTR.ARCHIVE.050.json": "9c1127ab1619bc33b19a1601fe6c2d3bcd8b1499d932bc9aea6d1c2f54def577",
+    "PTR.ARCHIVE.060.json": "fd67dd3a2145ce28d1c0c82ebbddd8ef0419fae6d91599472021408d0aa5a1d6",
+    "PTR.NEGATIVE.010.json": "db69d69330dff4c33ca9b0166d679458c40efb202446c84c96994c981183e09f",
+    "PTR.NEGATIVE.020.json": "271063b261059adc45e1807e9b7163b3c41e1b058689d26bd3feb147e9f186c4",
+    "PTR.NEGATIVE.030.json": "0280a0d238d8d9e4173b594df1b0da9b8c88efd4e74ae70ffcd9c55101da9bdd",
+    "PTR.NEGATIVE.040.json": "c67f84bdb25b0570268d74eb7d35247cef7df82dd371ee5be32af530380b3510",
+    "PTR.NEGATIVE.050.json": "9aeeb873ea5d0f8f3dd00def1065e5ab88594d7991a486bbf1dedb848ed31119",
+    "README.md": "7388682c15a7f52e321d27b2d36ea56eea3faaf4b34671ab3e72d641b8270eae",
+    "coverage-audit.json": "54f52fc0fe25d036d629c892cabafaec8acaa83d5622909d13eda7d77516e2d1",
+    "egg41-bad-workflow.json": "7a5a737687e78304fe813f8f9bc3dae7805c183cb94557a8be02c0ed0e8af4a8",
+    "test_archived_effect.py": "74142900d0e02e1e49c6a62fdb5b8276f51c35238a61141c5e038d0792d16119",
+    "test_panel.py": "6eafa9010761363565dfe08194cff6613b9d51ea25789c69ffd5101d3d453d47"
+  },
+  "frozen_before_candidate_model_calls": true,
+  "implementation_target_revision": null,
+  "models": [
+    "robit/ornith-1.5-omni-audio-bridge:q4km",
+    "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+  ],
+  "review_only_case_ids": [
+    "PTR.ARCHIVE.050",
+    "PTR.ARCHIVE.060"
+  ],
+  "revision": 1,
+  "route_conditions": {
+    "egg31_archived": "setup ownership failed before model submission; cannot be model-failure denominator",
+    "egg41_archived": "full planner, Ornith, MD2 on demand, no Kev; not a matched local-route comparison",
+    "local_archived": "compact planner opt-in, Ornith, Kev4b active calibrated threshold .95, MD3.1-9B-A2B when invoked"
+  },
+  "schema": "robit.omni.orchestration-acceptance-panel.v1",
+  "score_separation": [
+    "finite choice correctness",
+    "prediction validity independently reviewed",
+    "contract guard behavior",
+    "whole-task outcome",
+    "method and preservation compliance"
+  ],
+  "whole_task_success_credit": false
+}
