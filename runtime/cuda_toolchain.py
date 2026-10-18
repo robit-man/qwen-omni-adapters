@@ -2,7 +2,8 @@
 
 CUDA libraries (including PyTorch's wheels) do not establish that nvcc exists.
 This build-time helper never imports CUDA, loads weights, or changes drivers.
-Only the selected compiler path is written to stdout, for the shell builder.
+By default stdout contains only the selected compiler path. Configure mode
+instead reports changed/unchanged for the shell builder's incremental build.
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -142,11 +144,123 @@ def ensure_compiler(env: Mapping[str, str], cache: Path | None = None) -> str:
     raise RuntimeError(f"Installed {package}, but no executable nvcc was found; CUDA build cannot continue.")
 
 
+def _compiler_info(build: Path, language: str, env: Mapping[str, str]) -> tuple[Path, str, str]:
+    # Let the running CMake interpret its own generated file, including escaped
+    # paths/arguments. HEX avoids treating those values as a line protocol.
+    script = '''set(info "$ENV{OMNI_CMAKE_BUILD}/CMakeFiles/${CMAKE_VERSION}/CMake$LANGCompiler.cmake")
+if(EXISTS "${info}")
+  include("${info}")
+endif()
+string(HEX "${info}" info_hex)
+string(HEX "${CMAKE_$LANG_COMPILER}" compiler_hex)
+string(HEX "${CMAKE_$LANG_COMPILER_ARG1}" arguments_hex)
+message("OMNI_INFO=${info_hex}")
+message("OMNI_COMPILER=${compiler_hex}")
+message("OMNI_ARGUMENTS=${arguments_hex}")
+'''.replace("$LANG", language)
+    with tempfile.TemporaryDirectory(prefix="omni-cmake-compiler-") as directory:
+        probe = Path(directory) / "compiler.cmake"
+        probe.write_text(script)
+        result = subprocess.run(
+            ["cmake", "-P", str(probe)], env={**env, "OMNI_CMAKE_BUILD": str(build)},
+            capture_output=True, text=True, check=True,
+        )
+    values = re.findall(r"^OMNI_(INFO|COMPILER|ARGUMENTS)=([0-9a-f]*)$", result.stderr, re.M)
+    if len(values) != 3 or {key for key, _ in values} != {"INFO", "COMPILER", "ARGUMENTS"}:
+        raise RuntimeError("CMake did not report its effective compiler configuration.")
+    decoded = {key: bytes.fromhex(value).decode() for key, value in values}
+    return Path(decoded["INFO"]), decoded["COMPILER"], decoded["ARGUMENTS"]
+
+
+def _configure_compiler(
+    source: Path, build: Path, compiler: str, options: list[str], env: Mapping[str, str],
+    *, language: str = "CUDA", compiler_environment: str = "CUDACXX",
+) -> bool:
+    """Configure normally, resetting only a changed/incomplete compiler record."""
+    source, build = source.resolve(), build.resolve()
+    compiler = os.path.abspath(compiler)
+    key = f"CMAKE_{language}_COMPILER"
+    cached = {}
+    cache = build / "CMakeCache.txt"
+    if cache.is_file():
+        for line in cache.read_text().splitlines():
+            name, separator, value = line.partition("=")
+            name = name.partition(":")[0]
+            if separator and name in {key, key + "_ARG1"}:
+                cached[name] = value
+    try:
+        if explicit := env.get(compiler_environment):
+            command = [explicit] if Path(explicit).is_file() else shlex.split(explicit)
+            selected = shutil.which(command[0], path=env.get("PATH", os.defpath)) if command else None
+            if not selected or os.path.abspath(selected) != compiler:
+                raise RuntimeError(f"{compiler_environment} does not match the selected compiler.")
+            arguments = command[1:]
+        else:
+            arguments = (shlex.split(cached.get(key + "_ARG1", ""))
+                         if cached.get(key) and os.path.abspath(cached[key]) == compiler else [])
+        info, effective, effective_arguments = _compiler_info(build, language, env)
+        previous = ((os.path.abspath(effective), shlex.split(effective_arguments))
+                    if effective else None)
+        cached_compiler = cached.get(key, "")
+        if previous is None and cached_compiler and not cached_compiler.endswith("-NOTFOUND"):
+            previous = (os.path.abspath(cached_compiler), shlex.split(cached.get(key + "_ARG1", "")))
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid {compiler_environment} compiler arguments: {exc}") from exc
+    desired = (compiler, arguments)
+    marker = build / ".omni-cuda-compiler-change"
+    changed = previous is not None and previous != desired
+    if changed and not marker.exists():
+        # A failed configure/build must not consume the required object clean.
+        marker.write_text("pending\n")
+    reset = not effective or (os.path.abspath(effective), shlex.split(effective_arguments)) != desired
+    configure_env = {**env, compiler_environment: shlex.join([compiler, *arguments])}
+    if reset:
+        info.unlink(missing_ok=True)
+    subprocess.run(
+        ["cmake", "-S", str(source), "-B", str(build), *options,
+         *(["-U", key, "-U", key + "_ARG1"] if reset else [])],
+        env=configure_env, stdout=sys.stderr, stderr=sys.stderr, check=True,
+    )
+    _, configured, configured_arguments = _compiler_info(build, language, env)
+    if not configured or (os.path.abspath(configured), shlex.split(configured_arguments)) != desired:
+        raise RuntimeError("CMake did not retain the requested compiler and required arguments.")
+    return marker.exists()
+
+
+def configure_cuda(
+    source: Path, build: Path, compiler: str, options: list[str], env: Mapping[str, str],
+) -> bool:
+    return _configure_compiler(source, build, compiler, options, env)
+
+
+def complete_build(build: Path) -> None:
+    """Acknowledge a successful native build, never a configure alone."""
+    (build / ".omni-cuda-compiler-change").unlink(missing_ok=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build-dir", type=Path)
+    parser.add_argument("--configure", type=Path, metavar="SOURCE")
+    parser.add_argument("--compiler")
+    parser.add_argument("--build-complete", action="store_true")
+    parser.add_argument("options", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     try:
+        if args.build_complete:
+            if not args.build_dir or args.configure or args.compiler or args.options:
+                parser.error("--build-complete requires only --build-dir")
+            complete_build(args.build_dir)
+            return 0
+        if args.configure:
+            if not args.build_dir or not args.compiler:
+                parser.error("--configure requires --build-dir and --compiler")
+            options = args.options[1:] if args.options[:1] == ["--"] else args.options
+            changed = configure_cuda(args.configure, args.build_dir, args.compiler, options, os.environ)
+            print("changed" if changed else "unchanged")
+            return 0
+        if args.compiler or args.options:
+            parser.error("--compiler and CMake options require --configure")
         compiler = ensure_compiler(
             os.environ, args.build_dir / "CMakeCache.txt" if args.build_dir else None,
         )

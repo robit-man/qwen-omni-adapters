@@ -194,6 +194,14 @@ repositories, matching the existing CUDA toolkit version. `CUDACXX` can select
 an explicit compiler command; an invalid override is reported instead of being
 silently replaced. Rerun `./deploy.sh` after a compiler setup failure to resume.
 
+Pulling updates and rerunning deployment reuses `vendor/llama.cpp/build`.
+CMake checks dependencies and rebuilds only affected native targets; changes
+to the Python runtime or portal do not require recompiling the CUDA kernels.
+The builder preserves an unchanged compiler configuration, including required
+`CUDACXX` arguments. Selecting a different compiler or changing its required
+arguments deliberately triggers a clean native build to avoid stale objects.
+Keep the same checkout and build directory to retain this incremental state.
+
 For a staged installation:
 
 ```bash

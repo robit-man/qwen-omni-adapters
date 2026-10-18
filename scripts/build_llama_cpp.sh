@@ -141,14 +141,6 @@ case $(uname -s) in
   Darwin) cmake_options+=(-DGGML_METAL=ON) ;;
   Linux)
     cmake_options+=(-DGGML_CUDA=ON)
-    if [[ -n ${CUDACXX:-} ]]; then
-      # A cached NOTFOUND (or an older compiler) otherwise overrides CUDACXX.
-      # Keep required compiler arguments in the caller's original command.
-      export CUDACXX
-      cmake_options+=(-U CMAKE_CUDA_COMPILER -U CMAKE_CUDA_COMPILER_ARG1)
-    else
-      cmake_options+=("-DCMAKE_CUDA_COMPILER:FILEPATH=$CUDA_COMPILER")
-    fi
     if [[ -n "$TEGRA_SOC" ]]; then
       # ggml's CUDA allocator reserves a 32 GiB virtual address pool
       # (CUDA_POOL_VMM_MAX_SIZE = 1<<35) per device. A discrete card has the
@@ -174,8 +166,27 @@ case $(uname -s) in
     exit 1
     ;;
 esac
-cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" "${cmake_options[@]}"
-cmake --build "$BUILD_DIR" --target llama-server llama-tts --parallel "$BUILD_JOBS"
+build_options=()
+if [[ $(uname -s) == Linux ]]; then
+  compiler_configuration=$("${PYTHON:-python3}" "$REPO_ROOT/runtime/cuda_toolchain.py" \
+    --build-dir "$BUILD_DIR" --configure "$SOURCE_DIR" --compiler "$CUDA_COMPILER" \
+    -- "${cmake_options[@]}")
+  if [[ "$compiler_configuration" == changed ]]; then
+    # Make may retain objects after required compiler arguments change. Only
+    # an actual toolchain change needs a clean build; ordinary redeploys do not.
+    build_options+=(--clean-first)
+  elif [[ "$compiler_configuration" != unchanged ]]; then
+    printf 'Unexpected CUDA compiler configuration result\n' >&2
+    exit 1
+  fi
+else
+  cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" "${cmake_options[@]}"
+fi
+printf 'Checking patched llama.cpp targets incrementally in %s\n' "$BUILD_DIR"
+cmake --build "$BUILD_DIR" "${build_options[@]}" --target llama-server llama-tts --parallel "$BUILD_JOBS"
+if [[ $(uname -s) == Linux ]]; then
+  "${PYTHON:-python3}" "$REPO_ROOT/runtime/cuda_toolchain.py" --build-dir "$BUILD_DIR" --build-complete
+fi
 
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-stream-frames'
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-persistent'

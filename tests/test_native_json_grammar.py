@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -68,7 +69,20 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
     # source composition is covered by the native proof, not this mock.
     git.write_text(f'#!/bin/sh\nif [ "$3" = rev-parse ]; then printf "%s\\n" "{pin}"; elif [ "$3" = apply ] && [ "$4" = --reverse ] && [ "$6" = "{repo / "patches" / other_patch}" ]; then exit 0; else exec {shutil.which("git")} "$@"; fi\n')
     cmake = commands / "cmake"
-    cmake.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$BUILD_CALLS"\n')
+    # This patch-control fixture models configuration, not compilation. Let
+    # real CMake read generated compiler metadata, as the builder now does.
+    cmake.write_text(
+        f"#!{sys.executable}\nimport os, shlex, subprocess, sys\nfrom pathlib import Path\n"
+        f"real_cmake = {shutil.which('cmake')!r}\n"
+        "if sys.argv[1] == '-P':\n    os.execv(real_cmake, [real_cmake, *sys.argv[1:]])\n"
+        "with open(os.environ['BUILD_CALLS'], 'a') as out:\n    out.write(' '.join(sys.argv[1:]) + '\\n')\n"
+        "if sys.argv[1] == '-S':\n"
+        "    version = subprocess.check_output([real_cmake, '--version'], text=True).split()[2]\n"
+        "    info = Path(sys.argv[4]) / 'CMakeFiles' / version / 'CMakeCUDACompiler.cmake'\n"
+        "    info.parent.mkdir(parents=True, exist_ok=True)\n"
+        "    compiler = shlex.split(os.environ['CUDACXX'])[0]\n"
+        "    info.write_text('set(CMAKE_CUDA_COMPILER [==[' + compiler + ']==])\\n')\n"
+    )
     git.chmod(0o755)
     cmake.chmod(0o755)
     nvcc = commands / "nvcc"
