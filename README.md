@@ -186,6 +186,14 @@ materializes its disposable TTS views, installs the managed service, runs local
 smoke gates, and records the authenticated portal URL in the protected daemon
 status.
 
+Linux builds check the native CUDA compiler separately from Torch and CUDA
+runtime libraries. The builder finds `nvcc` in configured CUDA roots or on PATH
+and passes its path to CMake, including when resuming a failed configuration.
+On APT hosts, a missing compiler is installed automatically from the configured
+repositories, matching the existing CUDA toolkit version. `CUDACXX` can select
+an explicit compiler command; an invalid override is reported instead of being
+silently replaced. Rerun `./deploy.sh` after a compiler setup failure to resume.
+
 For a staged installation:
 
 ```bash

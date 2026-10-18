@@ -61,6 +61,14 @@ if [[ -n "$TEGRA_SOC" ]] && command -v free >/dev/null 2>&1; then
 fi
 BUILD_JOBS=${LLAMA_CPP_BUILD_JOBS:-$default_jobs}
 
+# Check before cloning or patching: runtime libraries and Torch wheels can be
+# installed without the native compiler. The helper repairs APT installations
+# and verifies nvcc after installation; it never initializes a CUDA device.
+CUDA_COMPILER=""
+if [[ $(uname -s) == Linux ]]; then
+  CUDA_COMPILER=$("${PYTHON:-python3}" "$REPO_ROOT/runtime/cuda_toolchain.py" --build-dir "$BUILD_DIR")
+fi
+
 cloned=0
 if [[ ! -d "$SOURCE_DIR/.git" ]]; then
   git clone https://github.com/ggml-org/llama.cpp.git "$SOURCE_DIR"
@@ -133,6 +141,14 @@ case $(uname -s) in
   Darwin) cmake_options+=(-DGGML_METAL=ON) ;;
   Linux)
     cmake_options+=(-DGGML_CUDA=ON)
+    if [[ -n ${CUDACXX:-} ]]; then
+      # A cached NOTFOUND (or an older compiler) otherwise overrides CUDACXX.
+      # Keep required compiler arguments in the caller's original command.
+      export CUDACXX
+      cmake_options+=(-U CMAKE_CUDA_COMPILER -U CMAKE_CUDA_COMPILER_ARG1)
+    else
+      cmake_options+=("-DCMAKE_CUDA_COMPILER:FILEPATH=$CUDA_COMPILER")
+    fi
     if [[ -n "$TEGRA_SOC" ]]; then
       # ggml's CUDA allocator reserves a 32 GiB virtual address pool
       # (CUDA_POOL_VMM_MAX_SIZE = 1<<35) per device. A discrete card has the

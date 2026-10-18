@@ -46,10 +46,12 @@ def _patch_preimage(text: str, source: Path) -> None:
 def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -> tuple[Path, Path, dict[str, str]]:
     repo, source, commands = tmp_path / "repo", tmp_path / "source", tmp_path / "commands"
     (repo / "scripts").mkdir(parents=True)
+    (repo / "runtime").mkdir()
     (repo / "patches").mkdir()
     source.mkdir()
     commands.mkdir()
     shutil.copyfile(ROOT / "scripts/build_llama_cpp.sh", repo / "scripts/build_llama_cpp.sh")
+    shutil.copyfile(ROOT / "runtime/cuda_toolchain.py", repo / "runtime/cuda_toolchain.py")
     for name in (PATCH, BOUNDS_PATCH):
         shutil.copyfile(ROOT / "patches" / name, repo / "patches" / name)
     _patch_preimage((ROOT / "patches" / patch_name).read_text(), source)
@@ -69,12 +71,16 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
     cmake.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$BUILD_CALLS"\n')
     git.chmod(0o755)
     cmake.chmod(0o755)
+    nvcc = commands / "nvcc"
+    nvcc.write_text('#!/bin/sh\nprintf "%s\\n" "CUDA compiler fixture"\n')
+    nvcc.chmod(0o755)
     target = tmp_path / "build/bin/llama-tts"
     target.parent.mkdir(parents=True)
     target.write_text('#!/bin/sh\nprintf "%s\\n" "--tts-stream-frames --tts-persistent"\n')
     target.chmod(0o755)
     env = {**os.environ, "PATH": str(commands) + os.pathsep + os.environ["PATH"],
            "BUILD_CALLS": str(tmp_path / "cmake-calls"), "LLAMA_CPP_BUILD_DIR": str(target.parent.parent),
+           "CUDACXX": str(nvcc),
            "LLAMA_CPP_BUILD_JOBS": "1"}
     return repo, source, env
 
