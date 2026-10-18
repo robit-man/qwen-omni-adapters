@@ -605,6 +605,19 @@ def test_unobserved_or_mismatched_owned_app_blocks_before_next_launch(case, tmp_
 
 def mock_run(monkeypatch, tmp_path, case, *, settled=True, setup_failure=False, deployed_model="exact/model",
              observer_close_error=False, recall_settled=True, memory=False):
+    class FakeLedger:
+        @classmethod
+        def open(cls, *_args, **_kwargs):
+            return cls()
+        def reconcile(self, *_args, **_kwargs):
+            return {"status": "admitted", "test_double": True}
+        def begin(self, *_args):
+            return {"run_id": "explicit_cpu_test_double"}
+        def finish(self, *_args, **_kwargs):
+            return {"state": "cpu_test_double"}
+        def close(self):
+            pass
+    monkeypatch.setattr(runner, "NativeRunLedger", FakeLedger)
     monkeypatch.setattr(runner, "REPO", tmp_path)
     monkeypatch.setattr(runner, "load_case", lambda _id: case)
     monkeypatch.setattr(runner, "source_state", lambda: {"revision": "frozen"})

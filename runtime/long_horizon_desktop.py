@@ -1,6 +1,7 @@
 """Exact owned ordinary-app setup and polite cleanup for text task evaluation."""
 from __future__ import annotations
 
+import copy
 import os
 import re
 import shutil
@@ -119,13 +120,27 @@ def unrelated_preservation(before: dict, after: dict) -> dict:
 class TaskDesktop(OwnedDesktop):
     """Retain launch identity before failure; never kill a browser/shared app."""
 
-    def __init__(self, environment: dict[str, str], *, editor: str = "gedit") -> None:
+    def __init__(self, environment: dict[str, str], *, editor: str = "gedit", lifecycle=None) -> None:
         if editor not in {"gedit", "gnome-text-editor"}:
             raise ValueError("Unsupported explicit native editor")
         super().__init__(environment)
         self.editor = editor
         self.launches: list[dict[str, Any]] = []
         self._flatpak_owners: dict[int, Any] = {}
+        self._lifecycle = lifecycle
+
+    def _checkpoint(self, phase, *, registration=None):
+        """A live runner supplies a synchronous durable publisher, never input."""
+        lifecycle = getattr(self, "_lifecycle", None)
+        if lifecycle is not None:
+            launches = self.launches
+            if registration is not None:
+                launch, window = registration
+                launches = [copy.deepcopy(row) for row in self.launches]
+                index = next(number for number, row in enumerate(self.launches) if row is launch)
+                launches[index].update(registered=True, pid=window.pid, process_start=window.process_start,
+                                       window_id=window.window_id)
+            lifecycle.publish_launches(launches, self.windows, phase=phase)
 
     def open_application(self, binary, args, application, window_class, *, stdin=None,
                          standalone=False, log_path=None, child_environment=None, expected_executable=None):
@@ -141,19 +156,27 @@ class TaskDesktop(OwnedDesktop):
                 raise CapabilityBlocked("Native editor launcher differs from installed executable")
             launch["expected_executable"] = str(expected_executable)
         self.launches.append(launch)
+        self._checkpoint("launch_intent")
         log = log_path.open("ab") if log_path else subprocess.DEVNULL
         if log_path:
             self._logs.append(log)
-        process = subprocess.Popen([executable, *args], env=child_environment or self.environment,
-            stdout=subprocess.DEVNULL, stderr=log, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
-            start_new_session=True)  # noqa: S603
+        try:
+            process = subprocess.Popen([executable, *args], env=child_environment or self.environment,
+                stdout=subprocess.DEVNULL, stderr=log, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
+                start_new_session=True)  # noqa: S603
+        except OSError:
+            launch["spawn_failed_before_process"] = True
+            self._checkpoint("spawn_failed")
+            raise
         launch["launch_pid"] = process.pid
         try:
             launch["launch_start"] = process_start(str(process.pid))
         except OSError:
             launch["launch_start_unavailable"] = True
+            self._checkpoint("spawned")
             if standalone:
                 raise CapabilityBlocked("Standalone launch identity unavailable") from None
+        self._checkpoint("spawned")
         if stdin is not None:
             process.stdin.write(stdin)
             process.stdin.close()
@@ -162,12 +185,16 @@ class TaskDesktop(OwnedDesktop):
             if expected_executable is not None and process.poll() not in {None, 0}:
                 raise CapabilityBlocked("Native editor launch failed before ownership proof")
             new = class_windows(window_class, self.environment, visible=True) - before
+            previous = launch.get("new_visible_xids")
             launch["new_visible_xids"] = sorted(new)
+            if previous != launch["new_visible_xids"]:
+                self._checkpoint("candidate")
             if len(new) > 1:
                 raise CapabilityBlocked("Concurrent new windows prevent exact ownership")
             if len(new) == 1:
                 xid = next(iter(new))
                 launch["candidate_xid"] = xid
+                self._checkpoint("candidate")
                 pid = command(["xdotool", "getwindowpid", xid], self.environment)
                 if not pid.isdecimal() or standalone and pid != str(process.pid):
                     raise CapabilityBlocked("New window has no exact host process identity")
@@ -180,6 +207,7 @@ class TaskDesktop(OwnedDesktop):
                         raise CapabilityBlocked("Native editor launch failed before ownership proof")
                 window = OwnedWindow(application, xid, pid, start)
                 self.register(window)
+                self._checkpoint("registered", registration=(launch, window))
                 if expected_executable is not None:
                     try:
                         _verify_native_editor_process(pid, expected_executable, start)
@@ -210,6 +238,7 @@ class TaskDesktop(OwnedDesktop):
                           "registered": False}
                 self.launches.append(launch)
                 self._flatpak_owners[id(launch)] = owner
+                self._checkpoint("launch_intent")
                 try:
                     ledger = owner.open_blank()
                     identity = ledger["window"]
@@ -219,9 +248,11 @@ class TaskDesktop(OwnedDesktop):
                     self.windows.append(window)  # Only the private launch ledger grants this registration.
                     launch.update(registered=True, window_id=window.window_id, pid=window.pid,
                                   process_start=window.process_start, ownership_evidence=ledger)
+                    self._checkpoint("registered")
                     return window
                 finally:
                     launch["last_ownership_receipt"] = owner.last_receipt
+                    self._checkpoint("namespace_final")
             return self.open_application(browser, ["--new-window", "about:blank"], "browser",
                 "[Ff]irefox" if browser == "firefox" else "[Cc]hromium", log_path=log_path)
         if application == "gedit":
