@@ -104,7 +104,7 @@ def captured(tmp_path):
             reconstruction._OBSERVATIONS: [
                 {'at': '2026-10-16T23:59:59+00:00', 'planning': True, 'state': copy.deepcopy(raw)},
                 {'at': '2026-10-17T00:00:02+00:00', 'planning': False, 'state': copy.deepcopy(raw)},
-                {'at': '2026-10-17T00:00:02.5+00:00', 'planning': True, 'state': copy.deepcopy(raw)}],
+                {'at': '2026-10-17T00:00:02.500000+00:00', 'planning': True, 'state': copy.deepcopy(raw)}],
             reconstruction._EVENTS: [{'type': 'tool', 'phase': 'complete', 'round': 1, 'tools': [
                 {'name': 'native_ui', 'arguments': {'operation': 'intent_boundary', 'subgoal': envelope['phase']['subgoal']},
                  'result': json.dumps(deferral)}]}]}
