@@ -515,17 +515,18 @@ class _XDisplay:
     def events(self) -> list[dict]:
         with self._errors("events"):
             rows, selected = self._events()
-        self.selected.update(selected)
+        self.selected = selected
         return rows
 
     def _events(self):
         self.lib.XSync(self.display, False)
-        rows, selected = [], set()
+        rows, count = [], 0
         while self.lib.XPending(self.display):
-            if len(rows) >= MAX_WINDOWS:
+            if count >= MAX_WINDOWS:
                 raise OwnershipUnavailable("flatpak_window_events_incomplete")
             event = _Event()
             self.lib.XNextEvent(self.display, ctypes.byref(event))
+            count += 1
             row = event.window
             if row.type in {16, 17, 18, 19, 21}:
                 # StructureNotify and SubstructureNotify can report the same event.
@@ -537,10 +538,23 @@ class _XDisplay:
                 }
                 if item["synthetic"]:
                     raise OwnershipUnavailable("flatpak_synthetic_window_event")
-                if row.type == 16 and item["window_id"] not in self.selected:
-                    self.lib.XSelectInput(self.display, row.window, (1 << 19) | (1 << 17))
-                    selected.add(item["window_id"])
+                if not (0 < row.window < 2**32 and 0 < row.parent < 2**32):
+                    raise OwnershipUnavailable("flatpak_window_events_incomplete")
                 rows.append(item)
+        # Decide subscriptions only from a complete genuine batch. A Create
+        # followed by Destroy is an ended lifetime, not a selectable window.
+        # Removing that lifetime also permits a later Create reusing its XID.
+        selected, pending = set(self.selected), {}
+        for item in rows:
+            xid = item["window_id"]
+            if item["type"] == 17:
+                selected.discard(xid)
+                pending.pop(xid, None)
+            elif item["type"] == 16 and xid not in selected:
+                pending[xid] = None
+        for xid in pending:
+            self.lib.XSelectInput(self.display, int(xid), (1 << 19) | (1 << 17))
+            selected.add(xid)
         return rows, selected
 
 

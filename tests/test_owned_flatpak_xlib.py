@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from runtime import owned_flatpak_firefox as owned
+
 
 @pytest.fixture
 def private_display():
@@ -145,18 +147,117 @@ print(json.dumps({{'code': code, 'again': again, 'selected': str(window) in x.se
                      "again": "flatpak_x11_connection_unavailable", "selected": False, "armed": False}
 
 
-def test_destroyed_create_event_poison_prevents_later_complete_witness(private_display):
+def test_complete_ended_create_lifetime_retains_events_without_stale_subscription(private_display):
     value = success(run_child(private_display, """
 x.arm(x.snapshot(time.monotonic() + 1))
 window = create()
 lib.XDestroyWindow(x.display, window)
 lib.XSync(x.display, False)
-code = reject(x.events)
-again = reject(lambda: x.snapshot(time.monotonic() + 1))
-print(json.dumps({'code': code, 'again': again, 'selected': str(window) in x.selected}))
+events = x.events()
+after = x.snapshot(time.monotonic() + 1)
+print(json.dumps({'types': [e['type'] for e in events if e['window_id'] == str(window)],
+    'complete': after['complete'], 'absent': str(window) not in after['windows'],
+    'selected': str(window) in x.selected, 'poisoned': x._poisoned}))
 """))
-    assert value == {"code": "flatpak_x11_protocol_error",
-                     "again": "flatpak_x11_connection_unavailable", "selected": False}
+    assert value == {"types": [16, 17], "complete": True, "absent": True,
+                     "selected": False, "poisoned": False}
+
+
+def queued_display(batch, selected=("1",)):
+    """CPU event double for lifetime ordering; real protocol errors are tested above."""
+    import ctypes
+    from types import SimpleNamespace
+
+    stream, calls = list(batch), []
+
+    def pending(_display):
+        calls.append(("pending", len(stream)))
+        return len(stream)
+
+    def next_event(_display, pointer):
+        kind, xid, parent, synthetic = stream.pop(0)
+        event = ctypes.cast(pointer, ctypes.POINTER(owned._Event)).contents.window
+        event.type, event.window, event.parent, event.send_event = kind, xid, parent, synthetic
+        calls.append(("event", kind, xid))
+
+    def select_input(_display, xid, mask):
+        assert not stream, "Never subscribe using a partial event batch"
+        calls.append(("select", xid, mask))
+
+    display = owned._XDisplay.__new__(owned._XDisplay)
+    display.display, display.selected = object(), set(selected)
+    display.lib = SimpleNamespace(
+        XSync=lambda *_args: None, XPending=pending, XNextEvent=next_event,
+        XSelectInput=select_input,
+    )
+    return display, calls
+
+
+@pytest.mark.parametrize("events,initial,expected,subscribed", [
+    ([(16, 20), (17, 20)], {"1"}, {"1"}, []),
+    ([(16, 20)], {"1"}, {"1", "20"}, [20]),
+    ([(16, 20), (17, 20), (16, 20)], {"1"}, {"1", "20"}, [20]),
+    ([(17, 20), (16, 20)], {"1", "20"}, {"1", "20"}, [20]),
+    ([(16, 20)], {"1", "20"}, {"1", "20"}, []),
+    ([(17, 20)], {"1", "20"}, {"1"}, []),
+    ([(16, 20), (16, 20), (17, 20)], {"1"}, {"1"}, []),
+    ([(16, 20), (16, 21), (17, 20), (16, 20), (17, 21)], {"1"}, {"1", "20"}, [20]),
+])
+def test_complete_batch_lifetimes_preserve_rows_and_reused_ids(events, initial, expected, subscribed):
+    display, calls = queued_display([(kind, xid, 1, False) for kind, xid in events], initial)
+    rows, selected = display._events()
+    assert [(row["type"], int(row["window_id"])) for row in rows] == events
+    assert selected == expected
+    assert display.selected == initial  # Publication waits for the outer protocol sync.
+    assert [call for call in calls if call[0] == "select"] == [
+        ("select", xid, (1 << 19) | (1 << 17)) for xid in subscribed
+    ]
+
+
+@pytest.mark.parametrize("kind", [16, 17])
+def test_synthetic_lifetime_cannot_justify_any_subscription(kind):
+    display, calls = queued_display([(16, 20, 1, False), (kind, 20, 1, True)])
+    with pytest.raises(owned.OwnershipUnavailable, match="flatpak_synthetic_window_event"):
+        display._events()
+    assert not any(call[0] == "select" for call in calls)
+    assert display.selected == {"1"}
+
+
+@pytest.mark.parametrize("event", [(16, 0, 1, False), (17, 20, 0, False),
+                                   (16, 2**32, 1, False)])
+def test_malformed_lifetime_cannot_justify_skipping_or_subscribing(event):
+    display, calls = queued_display([(16, 20, 1, False), event])
+    with pytest.raises(owned.OwnershipUnavailable, match="flatpak_window_events_incomplete"):
+        display._events()
+    assert not any(call[0] == "select" for call in calls)
+
+
+@pytest.mark.parametrize("kind", [16, 12])
+def test_incomplete_oversized_batch_has_no_partial_subscriptions(kind):
+    display, calls = queued_display([(kind, 20, 1, False)] * (owned.MAX_WINDOWS + 1))
+    with pytest.raises(owned.OwnershipUnavailable, match="flatpak_window_events_incomplete"):
+        display._events()
+    assert sum(call[0] == "event" for call in calls) == owned.MAX_WINDOWS
+    assert not any(call[0] == "select" for call in calls)
+
+
+def test_event_drain_failure_cannot_publish_partial_lifetime(monkeypatch):
+    display, calls = queued_display([(16, 20, 1, False)])
+
+    def unavailable(_display):
+        raise RuntimeError("CPU pending-query failure")
+
+    original = display.lib.XNextEvent
+
+    def stop_after_create(*args):
+        original(*args)
+        monkeypatch.setattr(display.lib, "XPending", unavailable)
+
+    monkeypatch.setattr(display.lib, "XNextEvent", stop_after_create)
+    with pytest.raises(RuntimeError, match="CPU pending-query failure"):
+        display._events()
+    assert display.selected == {"1"}
+    assert not any(call[0] == "select" for call in calls)
 
 
 def test_foreign_connection_custom_handler_delegated_and_restored(private_display):

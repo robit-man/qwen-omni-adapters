@@ -25,8 +25,15 @@ class Backend:
   if mode=='events':self.x.arm(self.x.snapshot(time.monotonic()+1))
   self.window=lib.XCreateSimpleWindow(self.x.display,self.x.root,0,0,8,8,0,0,0)
   lib.XSync(self.x.display,False)
-  if mode in {'select','events'}:
+  if mode=='select':
    lib.XDestroyWindow(self.x.display,self.window);lib.XSync(self.x.display,False)
+  if mode=='events':
+   original_select=lib.XSelectInput
+   def vanished_after_batch(display,xid,mask):
+    if xid==self.window:
+     lib.XDestroyWindow(display,xid);lib.XSync(display,False)
+    return original_select(display,xid,mask)
+   lib.XSelectInput=vanished_after_batch
   if mode=='snapshot':
    original=lib.XGetWindowAttributes
    def raced(display,xid,attrs):
