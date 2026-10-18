@@ -39,7 +39,7 @@ def native_build(request, tmp_path):
         wrapper.chmod(0o755)
         wrappers.append(wrapper)
     (source / "CMakeLists.txt").write_text(
-        "cmake_minimum_required(VERSION 3.24)\nproject(reuse_control C)\n"
+        "cmake_minimum_required(VERSION 3.18)\nproject(reuse_control C)\n"
         'if(DEFINED ENV{OMNI_TEST_CONFIGURE_FAILURE})\nmessage(FATAL_ERROR "injected configure failure")\nendif()\n'
         'set(USER_SETTING "preserve" CACHE STRING "Unrelated user setting")\n'
         'set(VALUE "0" CACHE STRING "Target compile option")\n'
