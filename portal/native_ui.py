@@ -398,6 +398,48 @@ def _freshness_snapshot_valid(state: Any) -> bool:
                                       for node in state["nodes"] if not node["sensitive"])[:32768]
 
 
+_RECIPIENT_VERBS = frozenset({"type_text", "key_chord"})
+
+
+def _recipient_context(payload: Mapping[str, Any], foreground: Any, activation: Any) -> dict[str, Any]:
+    """Everything except the focused node that binds input to one recipient."""
+    return copy.deepcopy({
+        "session_id": payload["session_id"], "scope": payload["scope"], "foreground": foreground,
+        "coordinate_binding": payload.get("coordinate_binding"),
+        "window_scope_sha256": payload.get("window_scope_sha256"),
+        "window_query_sha256": payload.get("window_query_sha256"),
+        "provider_digest": payload.get("_namespace_provider_digest"),
+        "open_popups": payload.get("open_popups"), "activation": activation,
+    })
+
+
+def _recipient_freshness_exception(action: Mapping[str, Any], before: Mapping[str, Any],
+                                   issued: Any, current: Any) -> dict[str, Any] | None:
+    """Admit unrelated whole-window drift only for an unchanged focused text recipient.
+
+    The issued witness is private to the worker, produced by the observation
+    whose revision the action names, and consumed by one perform attempt. The
+    complete recipient node (value, coverage, selection, focus, generation,
+    geometry, structure) plus private caret and the scope/owner/provider
+    context must be exactly equal; anything else keeps the strict rejection.
+    """
+    node_id = action.get("node_id")
+    if (action.get("verb") not in _RECIPIENT_VERBS or type(issued) is not dict or type(current) is not dict
+            or issued.get("revision") != action.get("revision") or current.get("revision") != before.get("revision")
+            or issued.get("context") != current.get("context")
+            or action.get("scope_id") != before["scope"]["id"] or node_id == before["scope"]["id"]):
+        return None
+    witness, live = issued["nodes"].get(node_id), current["nodes"].get(node_id)
+    if (witness is None or live is None or witness != live
+            or witness["item"]["generation"] != action.get("generation")
+            or witness["item"]["focused"] is not True):
+        return None
+    recipient = json.dumps(witness, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+    return {"kind": "focused_recipient_context_unchanged", "issued_revision": issued["revision"],
+            "dispatch_revision": current["revision"],
+            "recipient_sha256": hashlib.sha256(recipient).hexdigest()}
+
+
 def _freshness_rejection(action: Mapping[str, Any], before: Any, window_scope: Any) -> dict[str, Any]:
     """Best-effort private evidence from this exact pre-input stale branch only."""
     value = {"schema": _FRESHNESS_SCHEMA, "stage": "worker_perform_entry_stale_guard",
@@ -1925,6 +1967,8 @@ class _AtspiBridge:
         self._inactive_namespace_error: str | None = None
         self._inactive_namespace_buses: set[str] = set()
         self._alternate_activation: dict[str, Any] | None = None
+        # Private, one-use focused-recipient witness of the last issued revision.
+        self._issued_recipients: dict[str, Any] | None = None
         self.atspi.init()
         self.atspi.set_timeout(250, 250)
 
@@ -2987,6 +3031,7 @@ class _AtspiBridge:
         target = self._window_target
         activation = self._alternate_activation
         identity = getattr(self, "foreground_identity", missing)
+        self._issued_recipients = None  # A failed read issues no recipient witness.
         try:
             return self._observe(include_windows, _window_query(window_target))
         except Exception:
@@ -3050,6 +3095,7 @@ class _AtspiBridge:
                     raise
                 self._inactive_namespace_error = exc.code  # Unknown windows grant no input handles.
         nodes, seen, active, handles, windows, window_ids = [], set(), set(), {}, {}, {}
+        recipients: dict[str, tuple[dict[str, Any], int]] = {}
         identity_root = "@desktop"
         observed_children: dict[str, set[str]] = {}
         complete_children: set[str] = set()
@@ -3293,6 +3339,13 @@ class _AtspiBridge:
             if (window and visible and enabled and not sensitive and item["role"] in {"textbox", "combobox"}
                     and "value" in item and state.contains(state_type.EDITABLE) and not state.contains(state_type.READ_ONLY)):
                 item["operations"].append("type_text")
+                coverage = item.get("text_observation", {})
+                if (state.contains(state_type.FOCUSED) and hasattr(self.atspi.Text, "get_caret_offset")
+                        and coverage.get("truncated") is False
+                        and coverage.get("character_count") == len(item["value"])):
+                    caret = self._read(lambda: self.atspi.Text.get_caret_offset(interface))
+                    if type(caret) is int and 0 <= caret <= len(item["value"]):
+                        recipients[node_id] = (item, caret)
             if not sensitive and "Selection" in interfaces:
                 selection = self._read(node.get_selection_iface)
                 count = min(max(0, self._read(selection.get_n_selected_children)), 20)
@@ -3447,12 +3500,22 @@ class _AtspiBridge:
             payload["_namespace_provider_digest"] = hashlib.sha256(json.dumps({
                 "provider": payload.get("_namespace_provider_digest"),
                 "owner": self._host_owner_binding["digest"]}, sort_keys=True).encode()).hexdigest()
+        self._issued_recipients = {"revision": payload["revision"], "context": _recipient_context(
+            payload, self.foreground_identity, self._alternate_activation), "nodes": {
+                node_id: {"item": copy.deepcopy(item), "caret": caret}
+                for node_id, (item, caret) in recipients.items()}}
         return payload
 
     def perform(self, action: Mapping[str, Any]) -> dict[str, Any]:
         switching = action.get("verb") == "switch_window"
-        before = self.observe(include_windows=switching,
-                              window_target=copy.deepcopy(self._window_target) if switching else None)
+        # The issued witness is consumed by exactly one perform attempt.
+        issued, self._issued_recipients = self._issued_recipients, None
+        try:
+            before = self.observe(include_windows=switching,
+                                  window_target=copy.deepcopy(self._window_target) if switching else None)
+            current = self._issued_recipients
+        finally:
+            self._issued_recipients = None
 
         def reject(reason: str) -> dict[str, Any]:
             return {"status": "rejected", "reason": reason}
@@ -3461,8 +3524,11 @@ class _AtspiBridge:
             return reject("native_session_mismatch")
         if switching and before.get("open_popups"):
             return {**reject("native_popup_requires_dismissal"), "input_attempted": False}
+        exception = None
+        if action.get("scope_id") == before["scope"]["id"] and action.get("revision") != before["revision"]:
+            exception = _recipient_freshness_exception(action, before, issued, current)
         if (
-            action.get("revision") != before["revision"]
+            action.get("revision") != before["revision"] and exception is None
             or action.get("scope_id") != before["scope"]["id"]
         ):
             return {**reject("stale_native_revision_or_scope"),
@@ -3865,6 +3931,8 @@ class _AtspiBridge:
         except Exception:
             ok = False
         if isinstance(ok, dict):
+            if exception is not None and ok.get("status") == "dispatched":
+                return {**ok, "freshness_exception": exception}
             return ok
         return {
             "status": "dispatched",
