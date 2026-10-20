@@ -301,7 +301,7 @@ def _freshness_snapshot_valid(state: Any) -> bool:
         return False
     node_fields = {"id", "generation", "scope_id", "role", "name", "visible", "enabled", "sensitive", "operations"}
     optional = {"focused", "structure", "bounds", "description", "checked", "value", "selected",
-                "text_selection", "text_observation", "window_binding"}
+                "text_selection", "text_observation", "text_insertion", "window_binding"}
     for node in state["nodes"]:
         if (not fields(node, node_fields, optional)
                 or any(not text(node[k], empty=k == "name") for k in ("id", "generation", "scope_id", "role", "name"))
@@ -310,7 +310,8 @@ def _freshness_snapshot_valid(state: Any) -> bool:
                 or any(not isinstance(verb, str) or verb not in _OPERATIONS for verb in node["operations"])):
             return False
         if (node["sensitive"] and (node["name"] != "[protected]" or node["operations"]
-                or any(k in node for k in ("value", "selected", "checked", "text_selection", "text_observation", "description")))
+                or any(k in node for k in ("value", "selected", "checked", "text_selection", "text_observation",
+                                           "text_insertion", "description")))
                 or any(k in node and type(node[k]) is not bool for k in ("focused", "checked"))
                 or any(k in node and not text(node[k], limit, empty=True) for k, limit in (("value", 2048), ("description", 500)))
                 or "bounds" in node and not rectangle(node["bounds"])):
@@ -338,6 +339,14 @@ def _freshness_snapshot_valid(state: Any) -> bool:
                     return False
         if "text_selection" in node and not selection(node["text_selection"]):
             return False
+        if "text_insertion" in node:
+            insertion, observation = node["text_insertion"], node.get("text_observation")
+            if (not fields(insertion, {"caret"}) or not isinstance(node.get("value"), str)
+                    or not integer(insertion["caret"], 0, len(node["value"])) or "text_selection" in node
+                    or type(observation) is not dict or observation.get("selection_count") != 0
+                    or observation.get("truncated") is not False
+                    or observation.get("character_count") != len(node["value"])):
+                return False
         if "text_observation" in node:
             observation = node["text_observation"]
             if (not fields(observation, set(), {"character_count", "selection_count", "captured_range", "truncated"})
@@ -772,7 +781,8 @@ class NativeUiAdapter:
                 if node.get("sensitive"):
                     node["name"] = "[protected]"
                     node["operations"] = []
-                    for key in ("value", "selected", "checked", "text_selection", "text_observation"):
+                    for key in ("value", "selected", "checked", "text_selection", "text_observation",
+                                "text_insertion"):
                         node.pop(key, None)
             return result
 
@@ -3345,6 +3355,10 @@ class _AtspiBridge:
                         and coverage.get("character_count") == len(item["value"])):
                     caret = self._read(lambda: self.atspi.Text.get_caret_offset(interface))
                     if type(caret) is int and 0 <= caret <= len(item["value"]):
+                        if coverage.get("selection_count") == 0 and "text_selection" not in item:
+                            # Semantic, revision-bound insertion point (Unicode
+                            # character offset) for an unselected complete value.
+                            item["text_insertion"] = {"caret": caret}
                         recipients[node_id] = (item, caret)
             if not sensitive and "Selection" in interfaces:
                 selection = self._read(node.get_selection_iface)

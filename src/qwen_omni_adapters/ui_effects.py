@@ -126,6 +126,14 @@ def _typed_text_result(operation: dict, before: Any) -> tuple[str | None, str | 
     count = node["text_observation"]["selection_count"]
     if count == 0 and not value and "text_selection" not in node:
         return operation["args"]["text"], None
+    insertion = node.get("text_insertion")
+    if count == 0 and "text_selection" not in node and insertion is not None:
+        # Executor-observed Unicode character offset of an unselected caret.
+        if (not isinstance(insertion, dict) or set(insertion) != {"caret"} or type(insertion["caret"]) is not int
+                or not 0 <= insertion["caret"] <= len(value)):
+            return None, "typing_insertion_range_not_observed"
+        caret = insertion["caret"]
+        return value[:caret] + operation["args"]["text"] + value[caret:], None
     selection = node.get("text_selection")
     if (count != 1 or not isinstance(selection, dict) or set(selection) != {"start", "end"}
             or any(type(selection.get(key)) is not int for key in ("start", "end"))

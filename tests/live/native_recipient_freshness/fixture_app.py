@@ -50,8 +50,13 @@ def poll():
             bar = progress_bar()
             box.pack_end(bar, False, False, 0)
             bar.show()
-        elif command == "caret0":
-            buffer.place_cursor(buffer.get_start_iter())
+        elif command.startswith("text:"):
+            buffer.set_text(command[5:])
+        elif command.startswith("caret"):
+            buffer.place_cursor(buffer.get_iter_at_offset(int(command[5:])))
+        elif command.startswith("select:"):
+            start, end = (int(part) for part in command[7:].split(":"))
+            buffer.select_range(buffer.get_iter_at_offset(start), buffer.get_iter_at_offset(end))
         text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
         caret = buffer.get_iter_at_mark(buffer.get_insert()).get_offset()
         acknowledgement = os.path.join(control, "ack-" + name[4:])

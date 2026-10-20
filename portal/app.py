@@ -1440,11 +1440,12 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
         compact = {key: copy.deepcopy(node[key]) for key in (
             "id", "generation", "scope_id", "role", "name", "visible", "enabled",
             "sensitive", "operations", "value", "description", "checked", "focused",
-            "selected", "text_selection", "bounds", "structure",
+            "selected", "text_selection", "text_insertion", "bounds", "structure",
         ) if key in node}
         if node.get("sensitive") is True:
             compact.update(name="[protected]", operations=[])
-            for key in ("value", "description", "selected", "text_selection", "text_observation", "structure"):
+            for key in ("value", "description", "selected", "text_selection", "text_insertion",
+                        "text_observation", "structure"):
                 compact.pop(key, None)
         size = len(json.dumps(compact, ensure_ascii=False))
         if len(projected_nodes) >= 80 or size > remaining:

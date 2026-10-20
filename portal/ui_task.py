@@ -353,7 +353,8 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
         after = item.get("after", {})
         wanted = {action.get("node_id")} | {predicate.get("node_id") for predicate in action.get("expect", [])}
         outcome["observed_effects"] = [{key: copy.deepcopy(node[key]) for key in
-            ("id", "generation", "scope_id", "role", "name", "value", "checked", "selected", "focused", "text_selection", "text_observation")
+            ("id", "generation", "scope_id", "role", "name", "value", "checked", "selected", "focused", "text_selection",
+             "text_observation", "text_insertion")
             if key in node} for node in after.get("nodes", []) if node.get("id") in wanted and not node.get("sensitive")][:21]
         outcomes.append(outcome)
     if outcomes:

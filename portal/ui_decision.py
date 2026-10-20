@@ -200,7 +200,7 @@ def _observation_binding(state):
 def _target_binding(node):
     # Match the relevant observed control, not unrelated changing window text.
     fields = ('id', 'generation', 'scope_id', 'role', 'name', 'visible', 'enabled', 'sensitive',
-              'operations', 'bounds', 'value', 'checked', 'selected', 'focused', 'structure')
+              'operations', 'bounds', 'value', 'checked', 'selected', 'focused', 'structure', 'text_insertion')
     observed = {key: copy.deepcopy(node[key]) for key in fields if key in node}
     return {'node_id': node['id'], 'generation': node['generation'], 'scope_id': node['scope_id'],
         'observed_target_sha256': _digest(observed)}
@@ -1239,7 +1239,7 @@ def project(packet: Mapping) -> tuple[dict, dict]:
         mapping[ref] = copy.deepcopy(node)
         controls.append({'ref': ref, **{k: copy.deepcopy(node[k]) for k in
             ('role', 'name', 'description', 'structure', 'value', 'focused', 'checked', 'selected',
-             'text_observation', 'text_selection') if k in node},
+             'text_observation', 'text_selection', 'text_insertion') if k in node},
             'families': families, 'active_window': node['id'] == state['scope']['id']})
         for family in families:
             if family in banks:

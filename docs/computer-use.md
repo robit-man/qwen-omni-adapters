@@ -260,6 +260,27 @@ counts. Protected text exposes none of this metadata. Bounded planner views
 preserve it with the node; an omitted node remains unknown. Historical views
 retain only permitted control evidence with their existing historical labels.
 
+A focused, completely captured, unselected editable text node may also carry
+`text_insertion: {caret: N}`: the provider's Unicode-character caret offset,
+read only when `selection_count` is an actually read zero and `truncated` is
+false. Unlike coverage metadata it is part of the node and therefore of the
+revision and of the handoff target fingerprint, so a caret-only move is a state
+change even when the predicted typed value is identical. The immediate-effect
+compiler derives `value[:N] + text + value[N:]` from it; an observed selection
+still means replacement, and an absent, malformed or contradictory caret yields
+`typing_insertion_range_not_observed` rather than an inferred position.
+
+Focused-text input is otherwise bound to the exact issued revision. The worker
+privately records a one-use witness of each focused, completely captured text
+recipient (full node plus caret, scope, foreground, coordinate, provider,
+popup and activation context) with every observation. A `type_text` or focused
+`key_chord` naming a superseded revision proceeds only when that witness and
+the fresh recipient are exactly equal, e.g. an editor overlay progress bar
+appeared elsewhere; its dispatch receipt carries `freshness_exception` with
+both revisions and a recipient digest. Any recipient or context change, an
+unknown caret, a newer issuance or a replay keeps
+`stale_native_revision_or_scope` before input.
+
 This object is observation knowledge, not a predicate or input capability.
 It is excluded from the existing native revision and idempotency payload, so
 clarification alone cannot create mutation credit, retry authority or failure

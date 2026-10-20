@@ -191,6 +191,11 @@ def _text_observation(node: dict[str, Any]) -> None:
     if selection is not None and (observation.get("selection_count") == 0
             or "character_count" in observation and selection["end"] > observation["character_count"]):
         raise ComputerUseError("Contradictory observed text selection")
+    if "text_insertion" in node and (selection is not None or observation.get("selection_count") != 0
+            or observation.get("truncated") is not False
+            or observation.get("character_count") != len(node.get("value", ""))
+            or node["text_insertion"]["caret"] > len(node["value"])):
+        raise ComputerUseError("Contradictory observed text insertion")
 
 
 def _snapshot(value: Any) -> dict[str, Any]:
@@ -235,6 +240,12 @@ def _snapshot(value: Any) -> dict[str, Any]:
         if "text_selection" in node:
             selection = _object(node["text_selection"], {"start", "end"}, "observed text selection")
             _selection_range(selection)
+        if "text_insertion" in node:
+            insertion = _object(node["text_insertion"], {"caret"}, "observed text insertion")
+            if (set(insertion) != {"caret"} or type(insertion["caret"]) is not int
+                    or not 0 <= insertion["caret"] <= 1_000_000 or not isinstance(node.get("value"), str)
+                    or "text_observation" not in node):
+                raise ComputerUseError("Invalid observed text insertion")
         if "structure" in node:
             structure = _object(node["structure"], {"parent_id", "child_index", "ancestors"},
                                 "observed node structure")
@@ -264,6 +275,7 @@ def _snapshot(value: Any) -> dict[str, Any]:
             node.pop("selected", None)
             node.pop("text_selection", None)
             node.pop("text_observation", None)
+            node.pop("text_insertion", None)
             node["operations"] = []
         elif "text_observation" in node:
             _text_observation(node)
