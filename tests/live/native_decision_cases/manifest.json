@@ -1,0 +1,79 @@
+{
+ "schema": "robit.omni.native-decision-cases-manifest.v1",
+ "source_trace_dir": "runtime-data/state/planner-trace-captured-20261019 (Egg, 2026-10-19)",
+ "cases": [
+  {
+   "file": "derived-run007-p1-input-last.json",
+   "sha256": "c6239588a3f191dcb9325de82bd9fd1a9899112a22af8bc7aa6c5302fd11dbed",
+   "label": {
+    "kind": "target",
+    "target_node": "atspi:fe161a2d79c0dfc7879f31d195a34b75",
+    "verbs": [
+     "double_click",
+     "invoke"
+    ]
+   },
+   "note": "Derived from run007-p1: identical packet with the Input node moved to the end of the node list (order sensitivity)."
+  },
+  {
+   "file": "derived-run007-p1-no-input-goal.json",
+   "sha256": "38b13f453c6581d67ccad827d9dfc16a43a3370bb1ca01a6e7edd3e18c964a5d",
+   "label": {
+    "kind": "no_input"
+   },
+   "note": "Derived negative control: run007-p1 state with a goal that requires no UI input."
+  },
+  {
+   "file": "run006-p1-input-not-projected.json",
+   "sha256": "cd6f80a8e33033790627a0802e927a9bfac81476d9586120906c46e1a1855496",
+   "label": {
+    "kind": "target",
+    "target_node": "atspi:77e374f6ddcbfa092e876232db97d575",
+    "verbs": [
+     "double_click",
+     "invoke"
+    ]
+   },
+   "note": "LHN-001 run 006 phase 1, before GTK row projection fix; Input omitted from projected state."
+  },
+  {
+   "file": "run006-p2-input-not-projected.json",
+   "sha256": "f96fcd62190b1354e6a4d58c9348a1056df0004451170a595ae847cee874d6eb",
+   "label": {
+    "kind": "target",
+    "target_node": "atspi:77e374f6ddcbfa092e876232db97d575",
+    "verbs": [
+     "double_click",
+     "invoke"
+    ]
+   },
+   "note": "Run 006 phase 2 after a needs_replan; Input omitted."
+  },
+  {
+   "file": "run007-p1-input-projected.json",
+   "sha256": "158255607606d3371f296377ad91a54a3e552203088382bedc8959378954d4d7",
+   "label": {
+    "kind": "target",
+    "target_node": "atspi:fe161a2d79c0dfc7879f31d195a34b75",
+    "verbs": [
+     "double_click",
+     "invoke"
+    ]
+   },
+   "note": "Run 007 phase 1 after the row fix; Input projected."
+  },
+  {
+   "file": "run007-p2-input-projected.json",
+   "sha256": "01462ace8aaa28a5ce127ea3e49c6efed1f759d5121cc333c7756c78782c099e",
+   "label": {
+    "kind": "target",
+    "target_node": "atspi:fe161a2d79c0dfc7879f31d195a34b75",
+    "verbs": [
+     "double_click",
+     "invoke"
+    ]
+   },
+   "note": "Run 007 phase 2 after an unresolved focus step."
+  }
+ ]
+}
