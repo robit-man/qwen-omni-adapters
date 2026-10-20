@@ -180,3 +180,61 @@ def test_actual_direct_callback_refuses_pending_alias_or_suffix_before_any_new_p
     assert len(policy_requests) == 1 and not adapter.calls
     assert result['portal']['native_task']['task_verified'] is False
     assert result['portal']['native_task']['status'] == 'blocked'
+
+
+def gtk_tree_table(names, chrome=12):
+    """Shape observed from GTK3 Files on the Egg: no table_row nodes; each row's first
+    column is a composite table_cell holding an unnamed icon cell and the named cell."""
+    scope = 'files-window'
+    state = {'session_id': 'observed-session', 'revision': 'observed-revision',
+        'scope': {'kind': 'desktop', 'id': scope}, 'truncated': True, 'nodes': [
+            {'id': scope, 'generation': '1', 'scope_id': scope, 'role': 'window', 'name': 'Workbench',
+             'visible': True, 'enabled': True, 'sensitive': False, 'operations': ['key_chord']}]}
+    def ancestor(identity, role, name=''):
+        return {'id': identity, 'generation': '1', 'role': role, 'name': name, 'visible': True, 'enabled': True}
+    ops = ['invoke', 'focus', 'click', 'double_click', 'right_click', 'scroll']
+    for index in range(chrome):  # Path-bar buttons precede the content in document order.
+        state['nodes'].append({'id': f'crumb-{index}-' + 'c' * 30, 'generation': '1', 'scope_id': scope,
+            'role': 'button', 'name': f'folder-{index}', 'visible': True, 'enabled': True, 'sensitive': False,
+            'operations': ops, 'bounds': {'x': 10 * index, 'y': 0, 'width': 60, 'height': 30},
+            'structure': {'ancestors': [ancestor('bar-' + 'b' * 32, 'panel'), ancestor('box-' + 'x' * 32, 'filler')],
+                          'parent_id': 'box-' + 'x' * 32, 'child_index': index}})
+    table = ancestor('table-' + 't' * 32, 'tree_table', 'List View')
+    for row, name in enumerate(names):
+        composite = f'row-{row}-composite-' + 'r' * 24
+        state['nodes'].append({'id': composite, 'generation': '1', 'scope_id': scope, 'role': 'table_cell',
+            'name': '', 'visible': True, 'enabled': True, 'sensitive': False, 'operations': ops,
+            'structure': {'ancestors': [ancestor('scroll-' + 's' * 32, 'scroll_pane'), table],
+                          'parent_id': table['id'], 'child_index': 4 + row * 4}})
+        for column, cell_name in enumerate(('', name)):
+            state['nodes'].append({'id': f'row-{row}-cell-{column}', 'generation': '1', 'scope_id': scope,
+                'role': 'table_cell', 'name': cell_name, 'visible': True, 'enabled': True, 'sensitive': False,
+                'operations': ops, 'bounds': {'x': 100, 'y': 100 + row * 30, 'width': 300, 'height': 30},
+                'structure': {'ancestors': [table, ancestor(composite, 'table_cell')],
+                              'parent_id': composite, 'child_index': column}})
+    return state
+
+
+@pytest.mark.parametrize('names', [['Input'], ['Input', 'Research', 'Archive'], ['café', '中']])
+def test_gtk_tree_rows_without_table_row_keep_their_named_cell_ahead_of_chrome(names):
+    state = gtk_tree_table(names)
+    projected = _model_ui_observation(state, ('files-window',))
+    ids = [node['id'] for node in projected['nodes']]
+    for row in range(len(names)):
+        assert f'row-{row}-cell-1' in ids  # The named cell, not the unnamed icon renderer.
+        assert ids.index(f'row-{row}-cell-1') < ids.index('crumb-0-' + 'c' * 30)
+    assert sum(len(json.dumps(node, ensure_ascii=False)) for node in projected['nodes']) <= 12000
+
+
+@pytest.mark.parametrize('fault', ['no_table_ancestor', 'unbound_parent'])
+def test_composite_cell_rows_still_require_an_observed_table_relationship(fault):
+    state = gtk_tree_table(['Input'])
+    for node in state['nodes']:
+        if node['id'].startswith('row-0-cell-'):
+            if fault == 'no_table_ancestor':
+                node['structure']['ancestors'][0]['role'] = 'panel'
+            else:
+                node['structure']['parent_id'] = 'unobserved-parent'
+    ids = [node['id'] for node in _model_ui_observation(state, ('files-window',))['nodes']]
+    if 'row-0-cell-1' in ids:
+        assert ids.index('row-0-cell-1') > ids.index('crumb-0-' + 'c' * 30)

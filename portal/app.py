@@ -18,6 +18,7 @@ import math
 import os
 import re
 import secrets
+import stat
 import sys
 import threading
 import time
@@ -1401,7 +1402,7 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
     # Give each observed table row an actionable representative before repeated
     # columns exhaust the control budget. Keep the complete retained node: its
     # structure participates in the executor's independent target binding.
-    row_representatives: dict[str, tuple[int, int, str]] = {}
+    row_representatives: dict[str, tuple[bool, int, int, str]] = {}
     for index, node in enumerate(visible):
         structure = node.get("structure")
         if (node.get("role") != "table_cell" or node.get("sensitive") is True
@@ -1410,15 +1411,20 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
             continue
         parent, column = structure.get("parent_id"), structure.get("child_index")
         ancestors = structure.get("ancestors")
-        if (not isinstance(parent, str) or type(column) is not int or column < 0
-                or not isinstance(ancestors, list) or not any(
-                    isinstance(ancestor, Mapping) and ancestor.get("id") == parent
-                    and ancestor.get("role") == "table_row" for ancestor in ancestors)):
+        if not isinstance(parent, str) or type(column) is not int or column < 0 or not isinstance(ancestors, list):
             continue
-        candidate = (column, index, node["id"])
+        roles = [ancestor.get("role") for ancestor in ancestors if isinstance(ancestor, Mapping)]
+        bound = [ancestor for ancestor in ancestors if isinstance(ancestor, Mapping) and ancestor.get("id") == parent]
+        # A row is an observed table_row, or (GTK tree views expose no rows) the
+        # composite first-column table_cell that contains a row's cell renderers.
+        if not bound or not (bound[0].get("role") == "table_row" or bound[0].get("role") == "table_cell"
+                             and any(role in {"table", "tree_table"} for role in roles)):
+            continue
+        named = isinstance(node.get("name"), str) and bool(node["name"].strip())
+        candidate = (not named, column, index, node["id"])
         if parent not in row_representatives or candidate < row_representatives[parent]:
             row_representatives[parent] = candidate
-    representative_ids = {candidate[2] for candidate in row_representatives.values()}
+    representative_ids = {candidate[-1] for candidate in row_representatives.values()}
     def presentation_rank(node: Mapping[str, Any]) -> tuple[int, int]:
         if node.get("id") in priority:
             return 0, priority[node["id"]]
@@ -2099,6 +2105,29 @@ def _retryable_stream_error(value: Any) -> bool:
     }
 
 
+def _planner_trace(state_root: Path, request: Mapping[str, Any], message: Any) -> None:
+    """Opt-in diagnostic: record the exact planner prompt and reply.
+
+    Enabled only while ``<state>/planner-trace`` exists as an owner-only
+    directory. Records stay on this host, are never read back by the planner
+    and never affect a decision; failures to record are ignored.
+    """
+    directory = Path(state_root) / "planner-trace"
+    try:
+        info = directory.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            return
+        record = {"time": time.time(), "request": request, "reply": message,
+                  "prompt_characters": sum(len(str(item.get("content") or "")) for item in request.get("messages", [])),
+                  "schema_characters": len(json.dumps(request.get("response_format"), ensure_ascii=False))}
+        path = directory / time.strftime("%Y%m%d.jsonl")
+        descriptor = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+    except (OSError, TypeError, ValueError):
+        return
+
+
 def create_app(
     config: PortalConfig | None = None,
     client: httpx.Client | None = None,
@@ -2538,6 +2567,7 @@ def create_app(
                 if upstream.status_code >= 400:
                     raise PortalError(str(data.get("error") or "native phase planner failed")[:500])
                 message = data.get("message")
+                _planner_trace(state_root, request, message)
                 if not isinstance(message, Mapping) or not isinstance(message.get("content"), str):
                     raise PortalError("native phase planner returned no JSON content")
                 return json.loads(message["content"])
