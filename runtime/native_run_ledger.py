@@ -33,6 +33,9 @@ _ID = re.compile(r"[0-9a-f]{32}")
 _HASH = re.compile(r"[0-9a-f]{64}")
 
 
+_FLATPAK_APPLICATIONS = {"flatpak_firefox": "org.mozilla.firefox", "flatpak_chromium": "org.chromium.Chromium"}
+
+
 class RunLedgerError(RuntimeError):
     def __init__(self, code):
         self.code = code
@@ -538,11 +541,12 @@ class NativeRunLedger:
             raise RunLedgerError("native_run_inventory_unavailable")
         return inventory["windows"]
 
-    def _absence(self, body, inventory):
-        for launch in body["launches"]:
+    def _absence(self, body, inventory, *, launches_absent=None):
+        for index, launch in enumerate(body["launches"]):
             if (
                 launch.get("registered") is not True
                 and launch.get("spawn_failed_before_process") is not True
+                and not self._launch_proven_absent(index, launch, launches_absent, inventory)
             ):
                 raise RunLedgerError("native_run_uncertain_prior_launch")
         for window in body["windows"]:
@@ -561,6 +565,68 @@ class NativeRunLedger:
             if live != owner:
                 raise RunLedgerError("native_run_prior_identity_changed_or_unknown")
             raise RunLedgerError("native_run_prior_owned_window_residual")
+
+    def _native_launch_proven_absent(self, index, launch, launches_absent, inventory):
+        """A native launch runs in its own session (start_new_session); its proof is
+        that the exact launch process is gone, no live process remains in that
+        session, and every window it produced is absent from the inventory."""
+        pid, start = launch.get("launch_pid"), launch.get("launch_start")
+        if type(pid) is not int or not _positive(str(pid)) or not _positive(start):
+            return False
+        produced = sorted(set(launch.get("new_visible_xids", [])) | (
+            {launch["candidate_xid"]} if "candidate_xid" in launch else set()))
+        proof = [row for row in launches_absent if isinstance(row, dict) and row.get("index") == index]
+        if (
+            len(proof) != 1
+            or proof[0] != {"index": index, "ownership_kind": "native_session",
+                            "launch": {"pid": str(pid), "start": start, "present": False},
+                            "session_processes": 0, "xids_absent": produced}
+            or any(xid in inventory for xid in produced)
+        ):
+            return False
+        live = self.identity_reader(str(pid))
+        return live is None or live.get("start") != start
+
+    def _launch_proven_absent(self, index, launch, launches_absent, inventory):
+        if launches_absent is not None and "ownership_kind" not in launch:
+            return self._native_launch_proven_absent(index, launch, launches_absent, inventory)
+        """Only a verified host settlement may clear an unregistered Flatpak launch.
+
+        A foreground ``flatpak run`` execs into the instance's bwrap process, so
+        the recorded launch identity is that sandbox. It must be absent now
+        (re-read here, not trusted) and the host verifier must have attributed
+        every live window-capable instance of the same application elsewhere.
+        """
+        if launches_absent is None or launch.get("ownership_kind") not in _FLATPAK_APPLICATIONS:
+            return False
+        receipt = launch.get("last_ownership_receipt")
+        started = receipt.get("launch") if isinstance(receipt, dict) else None
+        if not isinstance(started, dict) or type(started.get("pid")) is not int:
+            return False
+        pid, start = str(started["pid"]), started.get("start")
+        if not _positive(pid) or not _positive(start):
+            return False
+        proof = [row for row in launches_absent if isinstance(row, dict) and row.get("index") == index]
+        if (
+            len(proof) != 1
+            or set(proof[0]) != {"index", "ownership_kind", "application_id", "launch", "live_instances"}
+            or proof[0]["ownership_kind"] != launch["ownership_kind"]
+            or proof[0]["application_id"] != _FLATPAK_APPLICATIONS[launch["ownership_kind"]]
+            or proof[0]["launch"] != {"pid": pid, "start": start, "present": False}
+            or not isinstance(proof[0]["live_instances"], list)
+            or len(proof[0]["live_instances"]) > MAX_WINDOWS
+        ):
+            return False
+        for row in proof[0]["live_instances"]:
+            if (
+                not isinstance(row, dict)
+                or row.get("attribution") not in {"no_display_socket", "separate_main_instance"}
+                or row.get("attribution") == "separate_main_instance"
+                and (row.get("pid") == pid and row.get("start") == start or row.get("sandbox") is not False)
+            ):
+                return False
+        live = self.identity_reader(pid)
+        return live is None or live.get("start") != start
 
     def _archive(self, body, *, historical_evidence=None):
         body = copy.deepcopy(body)
@@ -776,7 +842,10 @@ class NativeRunLedger:
             raise RunLedgerError("native_run_prior_runner_active")
         if active is not None and not _identity(active, self.session["uid"]):
             raise RunLedgerError("native_run_prior_runner_unavailable")
-        self._absence(body, current)
+        cleanup_document = _decode(_verification_reference(receipt["cleanup_evidence"]))
+        observations = cleanup_document.get("observations") if isinstance(cleanup_document, dict) else None
+        self._absence(body, current, launches_absent=(
+            observations.get("unregistered_launches_absent", []) if isinstance(observations, dict) else []))
         evidence_fields = {
             "schema", "kind", "run_id", "session_sha256", "pending_record_sha256", "producer",
             "method", "observed_at_unix", "passed", "observations",
