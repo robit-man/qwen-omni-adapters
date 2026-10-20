@@ -175,6 +175,9 @@ def cancel_owned(client, base: str) -> dict:
         return {"attempted": True, "error_type": type(exc).__name__}
 
 
+MAX_CONSECUTIVE_GUARD_READ_TIMEOUTS = 3
+
+
 class Guard:
     def __init__(self, desktop, deadline, root):
         self.desktop, self.deadline, self.root = desktop, deadline, root
@@ -182,6 +185,7 @@ class Guard:
         self.failure = None
         self.shutdown = {"requested": False, "joined": None}
         self.focus_samples, self.focus_sample_count, self.focus_samples_omitted = [], 0, 0
+        self.read_timeouts, self.consecutive_read_timeouts = 0, 0
         self.thread = threading.Thread(target=self.run, daemon=True)
 
     def _remember_focus(self, receipt):
@@ -215,6 +219,7 @@ class Guard:
                     identity = self.inspect()
                     if self.stop.is_set():
                         return
+                    self.consecutive_read_timeouts = 0
                     if identity is None:
                         self.stop.wait(.25)
                         continue  # An owned transition grants no pointer sample.
@@ -231,6 +236,22 @@ class Guard:
                         journal.flush()
                 except FocusStopped:
                     return  # Normal shutdown is not a foreign-focus failure.
+                except FocusUnavailable as exc:
+                    # A read that timed out observed nothing (a saturated host can
+                    # exceed the 1 s query cap). It stays a recorded unavailable
+                    # sample with no credit; only a bounded run of them is
+                    # tolerated. Any observed owner change remains fatal.
+                    if (exc.code == "guard_focus_observation_unavailable"
+                            and exc.evidence.get("error_type") == "TimeoutExpired"
+                            and self.consecutive_read_timeouts < MAX_CONSECUTIVE_GUARD_READ_TIMEOUTS):
+                        self.read_timeouts += 1
+                        self.consecutive_read_timeouts += 1
+                        self.stop.wait(.25)
+                        continue
+                    self.failure = {**safe_error(exc, stage="owned_foreground_guard"),
+                                    "reason": "owned_foreground_read_or_identity_unavailable"}
+                    self.deadline._expire()
+                    return
                 except Exception as exc:
                     self.failure = {**safe_error(exc, stage="owned_foreground_guard"),
                                     "reason": "owned_foreground_read_or_identity_unavailable"}
@@ -254,6 +275,7 @@ def guard_evidence(guard):
         "focus_samples": getattr(guard, "focus_samples", []),
         "focus_sample_count": getattr(guard, "focus_sample_count", None),
         "focus_samples_omitted": getattr(guard, "focus_samples_omitted", None),
+        "focus_read_timeouts_tolerated": getattr(guard, "read_timeouts", None),
         "shutdown": getattr(guard, "shutdown", None)})
 
 
