@@ -3632,6 +3632,74 @@ class _AtspiBridge:
                     ok = False
                 return {"status": "dispatched", "backend": "x11_guarded_xtest",
                         "reason": "native_key_input_invoked" if ok else "native_key_input_effect_unresolved"}
+        elif verb == "type_text" and "\n" in args["text"]:
+            # A keyboard Return is not a literal newline: editors may autoindent,
+            # complete or submit. Multiline text is inserted literally through
+            # the provider's EditableText at the exact issued insertion point,
+            # or replaces the exact issued selection; otherwise nothing is sent.
+            geometry = self._current_geometry()
+            insertion, selected = item.get("text_insertion"), item.get("text_selection")
+            coverage = item.get("text_observation")
+            multiline = getattr(self.atspi.StateType, "MULTI_LINE", None)
+            if multiline is None or not state.contains(multiline):
+                return reject("native_multiline_text_target_not_multiline")
+            if (not isinstance(item.get("value"), str) or not isinstance(coverage, Mapping)
+                    or coverage.get("truncated") is not False
+                    or coverage.get("character_count") != len(item["value"])
+                    or not (isinstance(insertion, Mapping) and coverage.get("selection_count") == 0
+                            or isinstance(selected, Mapping) and coverage.get("selection_count") == 1)):
+                return reject("native_multiline_insertion_point_not_observed")
+            if "EditableText" not in self._read(node.get_interfaces):
+                return reject("native_multiline_literal_transport_unavailable")
+
+            def operation() -> dict[str, Any]:
+                if not self._provider_guard():
+                    return reject("native_provider_changed_before_dispatch")
+                if self.foreground() != self.foreground_identity or self._current_geometry() != geometry:
+                    return reject("native_text_binding_changed_before_dispatch")
+                self._clear_cache(node)
+                current = self._read(node.get_state_set)
+                multiline = getattr(self.atspi.StateType, "MULTI_LINE", None)
+                if not current.contains(self.atspi.StateType.FOCUSED):
+                    return reject("native_text_target_not_focused")
+                if (not all(current.contains(flag) for flag in (
+                    self.atspi.StateType.EDITABLE, self.atspi.StateType.VISIBLE,
+                    self.atspi.StateType.SHOWING, self.atspi.StateType.SENSITIVE,
+                )) or current.contains(self.atspi.StateType.READ_ONLY) or current.contains(self.atspi.StateType.DEFUNCT)
+                        or self._read(node.get_role_name) not in {"text", "entry", "combo box"}):
+                    return reject("native_text_target_not_editable")
+                if multiline is None or not current.contains(multiline):
+                    return reject("native_multiline_text_target_not_multiline")
+                text_iface = self._read(node.get_text_iface)
+                count = self._read(lambda: self.atspi.Text.get_character_count(text_iface))
+                value = self._read(lambda: self.atspi.Text.get_text(text_iface, 0, count)) if type(count) is int else None
+                selections = self._read(lambda: self.atspi.Text.get_n_selections(text_iface))
+                if value != item["value"] or count != len(item["value"]):
+                    return reject("native_text_value_changed_before_dispatch")
+                if isinstance(insertion, Mapping):
+                    caret = self._read(lambda: self.atspi.Text.get_caret_offset(text_iface))
+                    if selections != 0 or caret != insertion["caret"]:
+                        return reject("native_text_insertion_point_changed_before_dispatch")
+                    start = end = caret
+                else:
+                    live = self._read(lambda: self.atspi.Text.get_selection(text_iface, 0)) if selections == 1 else None
+                    if live is None or (live.start_offset, live.end_offset) != (selected["start"], selected["end"]):
+                        return reject("native_text_insertion_point_changed_before_dispatch")
+                    start, end = selected["start"], selected["end"]
+                editable = self._read(node.get_editable_text_iface)
+                if (self.foreground() != self.foreground_identity or self._current_geometry() != geometry
+                        or self._alternate_activation is not None and not self._require_activation(window)):
+                    return reject("native_text_binding_changed_before_dispatch")
+                # One literal attempt; an uncertain result is never retried or
+                # completed through keyboard, clipboard or a whole-value setter.
+                try:
+                    ok = end == start or self.atspi.EditableText.delete_text(editable, start, end) is True
+                    ok = ok and self.atspi.EditableText.insert_text(
+                        editable, start, args["text"], len(args["text"].encode("utf-8"))) is True
+                except Exception:
+                    ok = False
+                return {"status": "dispatched", "backend": "atspi_editable_text_literal",
+                        "reason": "native_text_input_invoked" if ok else "native_text_input_effect_unresolved"}
         elif verb == "type_text":
             geometry = self._current_geometry()
 

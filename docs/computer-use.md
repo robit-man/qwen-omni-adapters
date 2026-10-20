@@ -322,15 +322,24 @@ semantics. A failed setter never automatically triggers typing. Both operations
 need fresh observed effects and independent verification. The explicit Chromium
 adapter does not advertise this native keyboard verb.
 
-Literal line feeds use fixed Return events between literal text chunks, in the
-same bounded XTEST subprocess. This route requires a freshly read positive
-native `MULTI_LINE` state; single-line or unknown controls reject before input,
-so text cannot turn into a submit command. Each chunk is limited to one literal
-argument with `type --args 1 --`; command-looking text remains text. The five
-second timeout, focus/ownership/geometry checks and exact observed-effect
-verification still apply. This route is selected before any input and has no
-setter, clipboard or retry fallback. Actual private GTK/XTEST read-back tests
-cover line breaks, empty lines, leading/trailing breaks and literal arguments.
+`type_text` means literal insertion at the issued insertion point, or literal
+replacement of the issued selection. A keyboard Return is not a literal line
+feed: source editors autoindent (gedit/GtkSourceView turned a 69-character
+insertion into 153), complete brackets or submit. Text containing a line feed
+therefore never uses XTEST. It requires a freshly read positive native
+`MULTI_LINE` state, complete captured text with an observed `text_insertion`
+caret or exactly one observed `text_selection`, and a provider `EditableText`
+interface; otherwise it rejects before input
+(`native_multiline_text_target_not_multiline`,
+`native_multiline_insertion_point_not_observed`,
+`native_multiline_literal_transport_unavailable`). Immediately before input the
+worker re-reads focus, editability, value, caret/selection, foreground,
+geometry and provider identity, then makes one `EditableText` delete (selection
+only) and one `insert_text` at that offset. The receipt names
+`backend: atspi_editable_text_literal`. A failed or uncertain call stays an
+unresolved dispatch with no keyboard, clipboard, setter or retry fallback.
+Editor preferences are never changed. Single-line text keeps the guarded XTEST
+route. Exact observed-value verification is unchanged.
 
 ## Portal tool
 
