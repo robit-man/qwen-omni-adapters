@@ -537,7 +537,10 @@ class _XDisplay:
                     "synthetic": bool(row.send_event),
                 }
                 if item["synthetic"]:
-                    raise OwnershipUnavailable("flatpak_synthetic_window_event")
+                    # Any client may send these (ICCCM withdrawal sends a synthetic
+                    # UnmapNotify to the root), so they are never evidence: they
+                    # neither prove nor disturb a lifetime or a subscription.
+                    continue
                 if not (0 < row.window < 2**32 and 0 < row.parent < 2**32):
                     raise OwnershipUnavailable("flatpak_window_events_incomplete")
                 rows.append(item)
@@ -816,10 +819,14 @@ class _SystemBackend:
         if self.bridge._read(lambda: self.identity.xres_owner(xid, os.environ)) != owner:
             raise OwnershipUnavailable("flatpak_native_owner_changed")
         geometry = self.bridge._native_rect(frame)
-        if geometry is None or geometry != self.bridge._read(
-            lambda: self.native._x11_geometry(proof["identity"])
+        # Exact surface, or exact surface minus declared client-side-decoration margins.
+        if geometry is None or not self.bridge._read(
+            lambda: self.native._frame_matches_surface(geometry, proof["identity"])
         ):
             raise OwnershipUnavailable("flatpak_native_geometry_unproven")
+        # Revalidation is a separate bounded read pass, not a continuation of the
+        # observation's 5 s budget; it stays inside this setup transaction's deadline.
+        self.bridge.deadline = min(self.deadline, time.monotonic() + 5)
         blank_source = self.blank_document(frame) if blank else None
         self.bridge._refresh_provider_binding()
         self.bridge._refresh_inactive_namespace_bindings()
@@ -901,12 +908,21 @@ class _SystemBackend:
 
     def validate_events(self, events, xid, before, after, proof):
         owner = {"pid": proof["window"]["process_id"], "start": proof["window"]["process_start"]}
+        transient, client = set(), None
         for event in events:
             value = event["window_id"]
             if value in before["windows"]:
                 raise OwnershipUnavailable("flatpak_concurrent_preexisting_event")
             if value not in after["windows"]:
-                raise OwnershipUnavailable("flatpak_unknown_window_event")
+                # A short-lived window created and destroyed outside the snapshot is
+                # attributable only by X protocol: its XID lies in the resource range
+                # of the still-connected client that owns the proven window.
+                if client is None:
+                    client = self.identity.xres_client_range(xid, os.environ)
+                if int(value) & ~client["mask"] != client["base"]:
+                    raise OwnershipUnavailable("flatpak_unknown_window_event")
+                transient.add(value)
+                continue
             related, current = value == xid, value
             for _ in range(65):
                 current = after["windows"].get(current, {}).get("parent")
@@ -923,6 +939,11 @@ class _SystemBackend:
                     break
             if not related and self.identity.xres_owner(value, os.environ) != owner:
                 raise OwnershipUnavailable("flatpak_concurrent_unknown_window")
+        if transient:
+            current = _tree(self.snapshot())
+            if (any(value in current["windows"] for value in transient)
+                    or self.identity.xres_client_range(xid, os.environ) != client):
+                raise OwnershipUnavailable("flatpak_unknown_window_event")
 
     def polite_close(self, proof, deployment):
         if self.proof(proof["window"]["window_id"], deployment, blank=False) != proof:

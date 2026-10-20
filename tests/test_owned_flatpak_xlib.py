@@ -214,13 +214,15 @@ def test_complete_batch_lifetimes_preserve_rows_and_reused_ids(events, initial, 
     ]
 
 
-@pytest.mark.parametrize("kind", [16, 17])
-def test_synthetic_lifetime_cannot_justify_any_subscription(kind):
-    display, calls = queued_display([(16, 20, 1, False), (kind, 20, 1, True)])
-    with pytest.raises(owned.OwnershipUnavailable, match="flatpak_synthetic_window_event"):
-        display._events()
-    assert not any(call[0] == "select" for call in calls)
-    assert display.selected == {"1"}
+@pytest.mark.parametrize("kind", [16, 17, 18, 19])
+def test_synthetic_events_are_never_evidence_or_subscription_changes(kind):
+    # A synthetic UnmapNotify/Destroy cannot end, and a synthetic Create cannot
+    # start, a lifetime; only the genuine server Create below is evidence.
+    display, calls = queued_display([(16, 20, 1, False), (kind, 20, 1, True), (kind, 30, 1, True)])
+    rows, selected = display._events()
+    assert rows == [{"type": 16, "window_id": "20", "parent": "1", "synthetic": False}]
+    assert selected == {"1", "20"}
+    assert [call for call in calls if call[0] == "select"] == [("select", 20, (1 << 19) | (1 << 17))]
 
 
 @pytest.mark.parametrize("event", [(16, 0, 1, False), (17, 20, 0, False),

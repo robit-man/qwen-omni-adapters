@@ -1504,6 +1504,26 @@ def _x11_frame_extents(identity: Mapping[str, Any], environment: Mapping[str, st
     return dict(zip(("left", "right", "top", "bottom"), map(int, values), strict=True))
 
 
+def _surface_frames(identity: Mapping[str, Any]) -> list[dict[str, int]]:
+    """Exact rectangles a native frame of this X11 client may report: the
+    surface itself and, for a client-side decorated window, that surface minus
+    its declared _GTK_FRAME_EXTENTS shadow margins. No other offset or scale."""
+    geometry = _x11_geometry(identity)
+    try:
+        margins = _x11_frame_extents(identity)
+    except NativeUiUnavailable:
+        return [geometry]
+    content = {"x": geometry["x"] + margins["left"], "y": geometry["y"] + margins["top"],
+               "width": geometry["width"] - margins["left"] - margins["right"],
+               "height": geometry["height"] - margins["top"] - margins["bottom"]}
+    return [geometry] + ([content] if content != geometry and content["width"] > 0 and content["height"] > 0 else [])
+
+
+def _frame_matches_surface(rect: Any, identity: Mapping[str, Any]) -> bool:
+    # Read declared margins only when the frame is not the surface itself.
+    return rect == _x11_geometry(identity) or rect in _surface_frames(identity)
+
+
 def _x11_capture_root(identity: Mapping[str, Any], environment: Mapping[str, str]) -> dict[str, Any]:
     """Prove the client's root is the default screen root used by IM6 import."""
     query_environment = dict(environment)
@@ -2123,7 +2143,7 @@ class _AtspiBridge:
 
         scan(application)
         if (len(frames) != 1 or frames[0][0] != binding["frame"]
-                or frames[0][1] != _x11_geometry(self.foreground_identity)
+                or not _frame_matches_surface(frames[0][1], self.foreground_identity)
                 or self.foreground() != self.foreground_identity):
             raise NativeUiUnavailable("native_provider_frame_changed")
 
@@ -2478,8 +2498,16 @@ class _AtspiBridge:
             scan(app)
         bindings = {}
         for raw, frame in frames.items():
+            def covers(window: dict[str, Any], rect: Any = frame["geometry"]) -> bool:
+                if rect == window["geometry"]:
+                    return True
+                # Client-side decorated frames report the surface minus declared margins.
+                if "frames" not in window:
+                    window["frames"] = self._read(lambda identity=window["identity"]: _surface_frames(identity))
+                return rect in window["frames"]
+
             matches = [window for window in physical if window["application"] == frame["application"]
-                       and window["geometry"] == frame["geometry"]]
+                       and covers(window)]
             if (len(matches) != 1 or sum(
                     item["application"] == frame["application"] and item["geometry"] == frame["geometry"]
                     for item in frames.values()) != 1):
@@ -2493,7 +2521,9 @@ class _AtspiBridge:
             identity = window["identity"]
             owner = self._read(lambda identity=identity: helper.xres_owner(identity["window_id"], os.environ))
             if (owner != {"pid": identity["process_id"], "start": window["process_start"]}
-                    or self._read(lambda identity=identity: _x11_geometry(identity)) != window["geometry"]):
+                    or self._read(lambda identity=identity: _x11_geometry(identity)) != window["geometry"]
+                    or "frames" in window
+                    and self._read(lambda identity=identity: _surface_frames(identity)) != window["frames"]):
                 raise NativeUiUnavailable("native_inactive_window_changed")
         if self.foreground() != self.foreground_identity:
             raise NativeUiUnavailable("native_foreground_changed_during_observation")
