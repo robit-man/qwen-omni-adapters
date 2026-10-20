@@ -390,6 +390,56 @@ def file_evidence(work: Path, initial: dict[str, str], case: dict[str, Any]) -> 
             "semantic_source_layout_and_reopen_verdict": "pending_independent_evaluator"}
 
 
+def _observed_states(root: Path) -> list[dict[str, Any]]:
+    states = []
+    journal = root / "ui-observations.jsonl"
+    if journal.is_file():
+        for line in journal.read_text(encoding="utf-8", errors="replace").splitlines()[:600]:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(record, dict) and isinstance(record.get("state"), dict):
+                states.append(record["state"])
+    final = root / "final-native.json"
+    if final.is_file():
+        try:
+            record = json.loads(final.read_text(encoding="utf-8"))
+        except ValueError:
+            record = None
+        if isinstance(record, dict) and isinstance(record.get("state"), dict):
+            states.append(record["state"])
+    return states
+
+
+def progress_milestones(case: dict[str, Any], root: Path, evidence: dict[str, Any]) -> dict[str, Any]:
+    """Prefrozen partial-progress facts from recorded independent observations.
+
+    These never create completion credit and never enter independent_verdict.
+    An input counts as read back only when its complete declared text appears in
+    an observed control value; a source counts as loaded only when an observed
+    document URL's host is a declared source host.
+    """
+    states = _observed_states(root)
+    values = [node["value"] for state in states for node in state.get("nodes", [])
+              if isinstance(node, dict) and isinstance(node.get("value"), str) and not node.get("sensitive")]
+    inputs = {}
+    for item in case["fixture"]["input_files"]:
+        text = item["content_utf8"].strip()
+        inputs[item["path"]] = bool(text) and any(text in value for value in values)
+    hosts = {urlsplit(source["url"]).hostname for source in case.get("sources_to_acquire", [])
+             if isinstance(source.get("url"), str)}
+    urls = {state.get("document_evidence", {}).get("url") for state in states
+            if state.get("document_evidence", {}).get("status") == "observed"}
+    loaded = sorted(url for url in urls if isinstance(url, str) and urlsplit(url).hostname in hosts)
+    outputs = evidence.get("required_outputs_present", {})
+    return {"schema": "robit.omni.long-native-progress-milestones.v1",
+            "authority": "progress_only_no_completion_credit", "observed_states": len(states),
+            "inputs_read_back": inputs, "official_source_urls_loaded": loaded[:16],
+            "required_outputs_created": sum(value is True for value in outputs.values()),
+            "required_outputs_total": len(outputs)}
+
+
 def independent_verdict(case: dict[str, Any], evidence: dict[str, Any], *,
                         method_verified: bool, review: dict[str, Any] | None = None,
                         bundle_sha256: str = "") -> dict[str, Any]:

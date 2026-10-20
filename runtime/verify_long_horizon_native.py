@@ -45,6 +45,7 @@ from runtime.long_horizon_cases import (
     independent_verdict,
     load_case,
     materialize,
+    progress_milestones,
     read_json,
     readiness,
     readiness_requirements,
@@ -850,6 +851,7 @@ def run(args) -> int:
         save(root / "native-outcomes-index.json", native_outcome_index(result["events"]))
         save(root / "final-native.json", observer.fresh())
         report["final_file_evidence"] = file_evidence(work, initial, case)
+        report["progress_milestones"] = progress_milestones(case, root, report["final_file_evidence"])
         report["independent_result"] = independent_verdict(case, report["final_file_evidence"],
             method_verified=report["method"]["verified"] and verified_owned_close_event(case, root, report)
             and verified_amendment_event(case, root, report))
