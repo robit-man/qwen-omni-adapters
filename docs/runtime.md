@@ -542,8 +542,10 @@ and needs a new artifact schema and release gate.
   task. No model limit, lease, backend setting or executor authority changes as
   a consequence of this projection.
 - Planner and policy configuration retain their existing defaults:
-  `OMNI_NATIVE_COMPACT_PLANNER=0` selects the direct route; compact mode requires
-  an active SystemOne provider and explicit `1`. An unset
+  `OMNI_NATIVE_COMPACT_PLANNER=0` selects the direct route; explicit `1` selects
+  compact mode. With an active SystemOne provider compact mode delegates
+  ambiguous activation to it; without one it offers exact-control `activate`
+  choices that expand to one guarded `ui_boundary` input. An unset
   `OMNI_COMPUTER_USE_POLICY_URL` supplies no such provider. With a URL, its mode
   defaults to `shadow`; active intent selection requires
   `OMNI_COMPUTER_USE_POLICY_MODE=active`. The local evaluation cohort used

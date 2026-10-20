@@ -2105,7 +2105,8 @@ def _retryable_stream_error(value: Any) -> bool:
     }
 
 
-def _planner_trace(state_root: Path, request: Mapping[str, Any], message: Any) -> None:
+def _planner_trace(state_root: Path, request: Mapping[str, Any], message: Any,
+                   packet: Mapping[str, Any] | None = None) -> None:
     """Opt-in diagnostic: record the exact planner prompt and reply.
 
     Enabled only while ``<state>/planner-trace`` exists as an owner-only
@@ -2117,7 +2118,9 @@ def _planner_trace(state_root: Path, request: Mapping[str, Any], message: Any) -
         info = directory.lstat()
         if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
             return
-        record = {"time": time.time(), "request": request, "reply": message,
+        # The raw planner packet (pre-projection) allows exact offline replay of
+        # either planner interface; the request alone holds only one projection.
+        record = {"time": time.time(), "request": request, "reply": message, "packet": packet,
                   "prompt_characters": sum(len(str(item.get("content") or "")) for item in request.get("messages", [])),
                   "schema_characters": len(json.dumps(request.get("response_format"), ensure_ascii=False))}
         path = directory / time.strftime("%Y%m%d.jsonl")
@@ -2519,7 +2522,9 @@ def create_app(
                 "measured obstruction. working_state.plan_claims retains complete original plans; "
                 "recall_plan returns bounded serialized fragments of those unverified claims, with "
                 "no current UI or input authority. Native executor guards remain authoritative.")
-            compact = intent_choice and os.environ.get("OMNI_NATIVE_COMPACT_PLANNER", "0") == "1"
+            # The compact interface no longer requires a delegated selector: without
+            # one it offers exact-control activation; with one it keeps delegation.
+            compact = os.environ.get("OMNI_NATIVE_COMPACT_PLANNER", "0") == "1"
             family = os.environ.get("OMNI_NATIVE_FAMILY_PLANNER", "0") == "1"
             if family and any(os.environ.get(flag, "0") == "1" for flag in
                     ("OMNI_NATIVE_COMPACT_PLANNER", "OMNI_NATIVE_PREREQUISITE_PLANNER")):
@@ -2567,7 +2572,7 @@ def create_app(
                 if upstream.status_code >= 400:
                     raise PortalError(str(data.get("error") or "native phase planner failed")[:500])
                 message = data.get("message")
-                _planner_trace(state_root, request, message)
+                _planner_trace(state_root, request, message, packet)
                 if not isinstance(message, Mapping) or not isinstance(message.get("content"), str):
                     raise PortalError("native phase planner returned no JSON content")
                 return json.loads(message["content"])

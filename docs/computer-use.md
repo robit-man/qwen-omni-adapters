@@ -483,8 +483,18 @@ added. The planner must inspect the new state before deciding the next input.
 Unique controls use deterministic resolution; ambiguous controls retain the
 existing finite-choice policy. Public workflows still require effect predicates.
 
-`OMNI_NATIVE_COMPACT_PLANNER=1` enables an experimental private planner interface
-when intent selection is active. The default remains the canonical planner.
+`OMNI_NATIVE_COMPACT_PLANNER=1` enables an experimental private planner interface.
+The default remains the canonical planner. With active intent selection (Kev),
+pointer work is delegated through `pointer_or_activation`. Without a selector,
+compact mode offers `activate`: the planner names one listed control reference
+and one primitive the control actually supports (invoke, double_click, click,
+right_click), never the active window itself. It expands to a single guarded
+`ui_boundary` input on that exact observed node with unknown effect and no
+completion credit. On frozen Egg states (LHN-001 runs 006/007) the portal's
+two-pass compact flow opened the Input folder in 6/9 replays versus 0/9 for the
+direct planner, at roughly a third of the prompt size; see
+[the gap plan](native-planner-gap-plan.md). This is decision-interface evidence,
+not whole-task success.
 The compact interface sends short references, relevant control state and typed
 families instead of the full primitive-workflow schema. It preserves the exact
 goal, historical ledger, latest result, working state and omission metadata.
