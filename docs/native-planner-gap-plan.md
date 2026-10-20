@@ -118,15 +118,15 @@ applied to failures observed in live LHN-001 runs 001–007 on this Egg.
 
 ### Step 3 — Recovery changes execution (research change 3, #7)
 
-- [ ] 3.1 Failed-strategy fingerprint (family + `_target_binding` + reason) in
+- [x] 3.1 (exists: `NativeStrategyLedger.assess` fingerprints operation_id = node+verb+args with relevant-state digest) Failed-strategy fingerprint (family + `_target_binding` + reason) in
       `NativeStrategyLedger`.
-- [ ] 3.2 Exclude matching candidates in `computer_use._strategy_filter`.
-- [ ] 3.3 Surface excluded fingerprints and concrete cause in
+- [x] 3.2 (exists: `_strategy_filter` blocks `same_strategy_without_new_effect` and sticky uncertain input) Exclude matching candidates in `computer_use._strategy_filter`.
+- [x] 3.3 (exists: `NativeStrategyLedger.view` exposes blocked strategies and evidence needed) Surface excluded fingerprints and concrete cause in
       `_NativeWorkingState.planning_view`; keep `selection_receipts` cause in ledger.
-- [ ] 3.4 Failure counter: repeated excluded strategy counts as failure; 3-stop kept.
-- [ ] 3.5 Tests: reworded identical strategy excluded; genuine alternative allowed;
+- [~] 3.4 (deferred: run 006 repeated a plan rejected before any input, which research change 3 says to discard and re-resolve; bounded by the 3-failure stop; compact single-action phases remove that multi-step shape. Needs a failing compact-mode case.) Failure counter: repeated excluded strategy counts as failure; 3-stop kept.
+- [x] 3.5 (existing strategy tests cover repeat blocking and uncertain locks) Tests: reworded identical strategy excluded; genuine alternative allowed;
       uncertain-input locks sticky.
-- [ ] 3.6 Replay run 006 sequence; record.
+- [~] 3.6 (deferred with 3.4) Replay run 006 sequence; record.
 
 ### Step 5 — Grade outputs and milestones (research change 5)
 
@@ -153,3 +153,10 @@ applied to failures observed in live LHN-001 runs 001–007 on this Egg.
   settlement), d4e6aad (Flatpak Firefox ownership), 5a84cf3 (guard timeouts),
   d4647c8 (GTK row projection + planner trace + this plan; 0.5 and 0.7 share
   portal/app.py). Trace dir renamed to runtime-data/state/planner-trace-captured-20261019.
+
+- 2026-10-19 steps 1/2/5: commits 11762cb (replay harness + frozen cases),
+  09f669e (compact without Kev: `activate`), e17992e (progress milestones).
+  validate.sh 6148 passed / 1 skipped. Direct 0/9 vs two-pass compact 6/9 on
+  frozen states. Step 3 found already implemented except a deferred item.
+- Step 6 needs: user go-ahead (desktop free), and `OMNI_NATIVE_COMPACT_PLANNER=1`
+  in the deployed `.env` (read only at daemon start, so a daemon restart).
