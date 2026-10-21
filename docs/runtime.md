@@ -689,3 +689,14 @@ Pausing stops active voice requests and background execution; it is not micropho
 
 Never manually delete a referenced file under an Ollama `blobs` or `manifests`
 directory.
+
+For a public portal, supervise ingress separately from the CUDA restart so a
+GPU relocation keeps the same address. `OMNI_PORTAL_EXTERNAL_TUNNEL=1` uses an
+independent tunnel and touches `OMNI_PORTAL_EXTERNAL_TUNNEL_READY_FILE` only
+after the local smoke gates pass. Keep that readiness file in the outer
+supervisor's volatile runtime directory: it survives internal GPU moves, but
+is absent on a fresh boot. Keep the ingress unit bound to the outer service,
+not to its restartable child. `OMNI_PORTAL_PERSISTENT_TOKEN_FILE` retains the
+private access token across those child restarts; it must be an owner-only
+file under the private state directory. Default standalone startup keeps its
+existing owned-tunnel behavior.

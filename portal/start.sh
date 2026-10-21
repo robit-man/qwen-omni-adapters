@@ -431,6 +431,45 @@ choose_gpu() {
   printf '%s' "$selected"
 }
 
+initialize_portal_token() {
+  local portal_token=${OMNI_PORTAL_TOKEN:-}
+  local persistent=${OMNI_PORTAL_PERSISTENT_TOKEN_FILE:-}
+  if [[ -z "$portal_token" && -n "$persistent" && -f "$persistent" ]]; then
+    portal_token=$(<"$persistent")
+  fi
+  if [[ -z "$portal_token" ]]; then
+    portal_token=$(openssl rand -base64 36 | tr -d '=+/\n' | cut -c1-40)
+  fi
+  [[ ${#portal_token} -ge 24 ]] || die "portal token must contain at least 24 characters"
+  printf '%s\n' "$portal_token" >"$TOKEN_FILE"
+  chmod 600 "$TOKEN_FILE"
+  if [[ -n "$persistent" ]]; then
+    printf '%s\n' "$portal_token" >"$persistent"
+    chmod 600 "$persistent"
+  fi
+  printf '%s' "$portal_token"
+}
+
+start_public_tunnel() {
+  if [[ ${OMNI_PORTAL_EXTERNAL_TUNNEL:-0} == 1 ]]; then
+    local ready=${OMNI_PORTAL_EXTERNAL_TUNNEL_READY_FILE:?external ingress needs a readiness path}
+    if [[ ! -f "$ready" ]]; then
+      # A volatile outer-service marker gates first publication. Internal GPU
+      # restarts retain it and the independently supervised ingress process.
+      : >"$LOG_DIR/cloudflared.log"
+      touch "$ready"
+    fi
+    log "using independently supervised public ingress"
+    TUNNEL_PID=""
+  else
+    log "starting Cloudflare quick tunnel"
+    cloudflared tunnel --no-autoupdate --url "http://127.0.0.1:$PORTAL_PORT" \
+      --metrics "127.0.0.1:$METRICS_PORT" --loglevel info \
+      >"$LOG_DIR/cloudflared.log" 2>&1 &
+    TUNNEL_PID=$!
+  fi
+}
+
 run_foreground() {
   cd "$REPO_ROOT"
   mkdir -p "$RUNTIME_ROOT" "$STATE_DIR" "$LOG_DIR"
@@ -631,13 +670,8 @@ run_foreground() {
   ADAPTER_PID=$!
   wait_http "http://127.0.0.1:$ADAPTER_PORT/healthz" "Omni adapter" 60 "$ADAPTER_PID"
 
-  local portal_token=${OMNI_PORTAL_TOKEN:-}
-  if [[ -z "$portal_token" ]]; then
-    portal_token=$(openssl rand -base64 36 | tr -d '=+/\n' | cut -c1-40)
-  fi
-  [[ ${#portal_token} -ge 24 ]] || die "portal token must contain at least 24 characters"
-  printf '%s\n' "$portal_token" >"$TOKEN_FILE"
-  chmod 600 "$TOKEN_FILE"
+  local portal_token=""
+  portal_token=$(initialize_portal_token)
 
   log "starting authenticated phone portal"
   OMNI_MODEL="$MODEL" \
@@ -677,21 +711,16 @@ run_foreground() {
   wait "$SMOKE_PID"
   SMOKE_PID=""
 
-  log "starting Cloudflare quick tunnel"
-  cloudflared tunnel \
-    --no-autoupdate \
-    --url "http://127.0.0.1:$PORTAL_PORT" \
-    --metrics "127.0.0.1:$METRICS_PORT" \
-    --loglevel info \
-    >"$LOG_DIR/cloudflared.log" 2>&1 &
-  TUNNEL_PID=$!
+  start_public_tunnel
 
   local public_url=""
   local started=$SECONDS
   while (( SECONDS - started < 120 )); do
     public_url=$(grep -Eo 'https://[-a-z0-9]+\.trycloudflare\.com' "$LOG_DIR/cloudflared.log" | tail -1 || true)
     if [[ -n "$public_url" ]]; then break; fi
-    kill -0 "$TUNNEL_PID" 2>/dev/null || die "cloudflared exited before publishing a URL"
+    if [[ -n "$TUNNEL_PID" ]]; then
+      kill -0 "$TUNNEL_PID" 2>/dev/null || die "cloudflared exited before publishing a URL"
+    fi
     sleep 1
   done
   [[ -n "$public_url" ]] || die "cloudflared did not publish a quick-tunnel URL"
@@ -718,6 +747,7 @@ run_foreground() {
       die "pointing control plane exited; inspect $LOG_DIR/pointing.log"
     fi
     for pid in "$COMP_PID" "$TTS_PID" "$ADAPTER_PID" "$PORTAL_PID" "$TUNNEL_PID"; do
+      [[ -n "$pid" ]] || continue
       if ! kill -0 "$pid" 2>/dev/null; then
         label="deployment child"
         die "$label pid $pid exited; inspect $LOG_DIR"

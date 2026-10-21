@@ -164,3 +164,39 @@ terminate_child "$pid" fixture
                             env={**os.environ, "PYTHON": sys.executable, "WORKER": str(worker),
                                  "MARKER": str(marker), "OLLAMA_UNIFY_GPU_LEASE_SUPERVISED": "1"})
     assert result.returncode == 0  # A forced SIGKILL would produce exit 137.
+
+
+def test_restart_keeps_external_ingress_and_private_access_token(tmp_path):
+    import os
+    import subprocess
+
+    source = Path("portal/start.sh").read_text()
+    functions = ""
+    for name in ("initialize_portal_token", "start_public_tunnel"):
+        functions += name + "() {" + source.split(name + "() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+    persistent = tmp_path / "persistent-token"
+    persistent.write_text("private-fixture-token-at-least-24-characters\n")
+    script = functions + '''
+set -euo pipefail
+log() { :; }
+die() { exit 71; }
+cloudflared() { exit 72; }
+openssl() { exit 73; }
+first=$(initialize_portal_token)
+start_public_tunnel
+[[ -z "$TUNNEL_PID" && -f "$OMNI_PORTAL_EXTERNAL_TUNNEL_READY_FILE" ]]
+printf '%s\\n' 'https://same-address.trycloudflare.com' >"$LOG_DIR/cloudflared.log"
+rm "$TOKEN_FILE"
+second=$(initialize_portal_token)
+start_public_tunnel
+[[ "$first" == "$second" ]]
+[[ $(cat "$LOG_DIR/cloudflared.log") == 'https://same-address.trycloudflare.com' ]]
+'''
+    result = subprocess.run(["bash", "-c", script], timeout=3, check=False,
+                            env={**os.environ, "OMNI_PORTAL_TOKEN": "", "LOG_DIR": str(tmp_path),
+                                 "TOKEN_FILE": str(tmp_path / "access-token"),
+                                 "OMNI_PORTAL_PERSISTENT_TOKEN_FILE": str(persistent),
+                                 "OMNI_PORTAL_EXTERNAL_TUNNEL": "1",
+                                 "OMNI_PORTAL_EXTERNAL_TUNNEL_READY_FILE": str(tmp_path / "ready")})
+    assert result.returncode == 0
+    assert persistent.stat().st_mode & 0o777 == 0o600
