@@ -176,8 +176,13 @@ terminate_child() {
       sleep 1
     done
     if kill -0 "$pid" 2>/dev/null; then
-      log "$label did not stop gracefully; killing exact pid $pid"
-      kill -KILL "$pid" 2>/dev/null || true
+      if [[ ${OLLAMA_UNIFY_GPU_LEASE_SUPERVISED:-0} == 1 ]]; then
+        log "$label is still stopping; retaining the parent reservation without forced termination"
+        while kill -0 "$pid" 2>/dev/null; do sleep 1; done
+      else
+        log "$label did not stop gracefully; killing exact pid $pid"
+        kill -KILL "$pid" 2>/dev/null || true
+      fi
     fi
     wait "$pid" 2>/dev/null || true
   fi
@@ -267,7 +272,7 @@ cleanup() {
   terminate_pid_file "$TTS_ACTIVE_PID_FILE" "TTS CUDA worker"
   terminate_child "$COMP_PID" "broker-scoped comprehension worker"
   terminate_process_group "$HEARTBEAT_PID" "GPU lease heartbeat"
-  if [[ -n "$LEASE_TOKEN" ]]; then
+  if [[ -n "$LEASE_TOKEN" && ${OLLAMA_UNIFY_GPU_LEASE_SUPERVISED:-0} != 1 ]]; then
     log "releasing scoped GPU lease"
     docker gpu release "$LEASE_TOKEN" >/dev/null 2>&1 || true
     LEASE_TOKEN=""
@@ -496,20 +501,39 @@ run_foreground() {
   fi
 
   local gpu_uuid
-  gpu_uuid=$(choose_gpu)
-  log "acquiring ${COMP_VRAM_MIB} MiB scoped CUDA lease on $gpu_uuid"
-  LEASE_TOKEN=$(docker gpu acquire \
-    --owner robit-omni-phone-portal \
-    --justification "Qwen Omni comprehension and speech service ($MODEL)" \
-    --expected-duration "${OMNI_GPU_LEASE_EXPECTED_DURATION:-86400}" \
-    --vram-mib "$COMP_VRAM_MIB" \
-    --gpu "$gpu_uuid" \
-    --token-only)
+  if [[ ${OLLAMA_UNIFY_GPU_LEASE_SUPERVISED:-0} == 1 ]]; then
+    gpu_uuid=${CUDA_VISIBLE_DEVICES:-}
+    LEASE_TOKEN=${OLLAMA_UNIFY_GPU_LEASE:-}
+    [[ "$gpu_uuid" =~ ^GPU-[A-Za-z0-9-]+$ && -n "$LEASE_TOKEN" ]] \
+      || die "supervised startup requires one exact GPU UUID and its existing lease"
+    docker gpu status | jq -e --arg token "$LEASE_TOKEN" --arg uuid "$gpu_uuid" '
+      .leases[]? | select(.token == $token and .owner == "robit-omni-phone-portal"
+        and .state == "pending" and .gpu_uuids == [$uuid])
+    ' >/dev/null || die "inherited lease does not reserve the supervisor-selected GPU"
+    printf '%s\n' "$gpu_uuid" >"$GPU_FILE"
+    log "using parent-supervised CUDA reservation on $gpu_uuid"
+  else
+    gpu_uuid=$(choose_gpu)
+    log "acquiring ${COMP_VRAM_MIB} MiB scoped CUDA lease on $gpu_uuid"
+    LEASE_TOKEN=$(docker gpu acquire \
+      --owner robit-omni-phone-portal \
+      --justification "Qwen Omni comprehension and speech service ($MODEL)" \
+      --expected-duration "${OMNI_GPU_LEASE_EXPECTED_DURATION:-86400}" \
+      --vram-mib "$COMP_VRAM_MIB" \
+      --gpu "$gpu_uuid" \
+      --token-only)
+  fi
   [[ -n "$LEASE_TOKEN" ]] || die "GPU broker returned an empty lease token"
   printf '%s\n' "$LEASE_TOKEN" >"$GPU_LEASE_FILE"
-  setsid docker gpu heartbeat "$LEASE_TOKEN" --watch \
-    >"$LOG_DIR/gpu-heartbeat.log" 2>&1 &
-  HEARTBEAT_PID=$!
+  if [[ ${OLLAMA_UNIFY_GPU_LEASE_SUPERVISED:-0} == 1 && -n ${OMNI_GPU_DRAIN_FILE:-} ]]; then
+    "$PYTHON_BIN" "$SCRIPT_DIR/gpu_lease.py" starting \
+      || die "could not establish supervised startup admission gate"
+  fi
+  if [[ ${OLLAMA_UNIFY_GPU_LEASE_SUPERVISED:-0} != 1 ]]; then
+    setsid docker gpu heartbeat "$LEASE_TOKEN" --watch \
+      >"$LOG_DIR/gpu-heartbeat.log" 2>&1 &
+    HEARTBEAT_PID=$!
+  fi
 
   log "starting CUDA comprehension on exact reservation $gpu_uuid"
   CUDA_VISIBLE_DEVICES="$gpu_uuid" \
@@ -540,8 +564,10 @@ run_foreground() {
       || die "comprehension did not become resident on reserved GPU $gpu_uuid"
     sleep 1
   done
-  docker gpu ready "$LEASE_TOKEN" >/dev/null
-  log "CUDA comprehension is resident and broker-ready"
+  if [[ ${OLLAMA_UNIFY_GPU_LEASE_SUPERVISED:-0} != 1 ]]; then
+    docker gpu ready "$LEASE_TOKEN" >/dev/null
+  fi
+  log "CUDA comprehension is resident on its exact reservation"
 
   local pointing_url=""
   if [[ "$POINTING_ENABLED" == 1 ]]; then
@@ -631,6 +657,15 @@ run_foreground() {
     >"$LOG_DIR/portal.log" 2>&1 &
   PORTAL_PID=$!
   wait_http "http://127.0.0.1:$PORTAL_PORT/healthz" "phone portal" 60 "$PORTAL_PID"
+
+  if [[ ${OLLAMA_UNIFY_GPU_LEASE_SUPERVISED:-0} == 1 && -n ${OMNI_GPU_DRAIN_FILE:-} ]]; then
+    log "waiting for parent readiness before admitting local smoke requests"
+    local admission_started=$SECONDS
+    while [[ -e "$OMNI_GPU_DRAIN_FILE" ]]; do
+      (( SECONDS - admission_started < 60 )) || die "parent did not reopen supervised admission"
+      sleep 0.2
+    done
+  fi
 
   log "running local pre-tunnel smoke gate"
   "$PYTHON_BIN" "$REPO_ROOT/portal/smoke.py" \

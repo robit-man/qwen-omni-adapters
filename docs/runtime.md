@@ -130,6 +130,36 @@ an intentional blocking text/ASR/cloned-TTS/co-residency diagnostic.
 Explicit `OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` environment values remain
 supported for advanced and legacy profiles.
 
+## Cooperative GPU relocation on broker hosts
+
+Services that can restart on another accelerator can run under the broker's
+`docker gpu run --placement flexible` supervisor. Its repeated `--gpu` options
+are ordered candidates; only the assigned UUID is exposed to the workers.
+Prefer the standalone accelerator first and use a lower priority than jobs
+requiring a particular NVLink pair. Fixed placement remains the default.
+
+The portal supports an inherited, parent-owned lease through
+`OLLAMA_UNIFY_GPU_LEASE_SUPERVISED=1` and `OLLAMA_UNIFY_GPU_LEASE`. It verifies
+the exact pending reservation before starting CUDA and retains its actual
+resident-PID check. The parent owns heartbeat, readiness and final release, so
+the child does not acquire or release a duplicate reservation.
+
+Set `OMNI_GPU_DRAIN_FILE` to a private file under the portal state directory.
+Use `.venv/bin/python portal/gpu_lease.py drain` as `--drain-command`, `resume`
+as `--resume-command`, and `ready` as `--ready-command`. Draining pauses new
+writes with a retryable response while existing requests and streams finish.
+The hook reports success only when active and queued counters are zero. The
+supervisor then stops its own workers gracefully, the broker verifies source
+CUDA release, and the same lease moves to the pre-reserved destination.
+Readiness reopens admission only for the new matching supervisor and GPU.
+Cancelled handoffs reopen the existing instance; a busy owner or missing
+destination never authorizes overlapping GPU ownership.
+
+This policy can briefly pause the lower-priority service. It does not relocate
+a live CUDA context, start a trainer automatically, or override a fixed GPU
+requirement. Explicitly pinned services remain fixed unless their operator
+changes their deployment policy.
+
 ## Runtime prerequisites
 
 - the Omni Ollama tag has been pulled locally;

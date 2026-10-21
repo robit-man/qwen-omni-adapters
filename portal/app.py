@@ -69,6 +69,7 @@ try:
     from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import portal_behavior_system_message, runtime_environment_snapshot
+    from portal.gpu_lease import RequestDrainGate
     from portal.native_ui import native_task_scope_sha256, normalize_native_task_scope
     from portal.observatory import ObservatoryReader
     from portal.session_state import SessionContinuationStore
@@ -96,6 +97,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from deliveries import FileDeliveryError, SessionFileDeliveryStore
     from documents import DocumentError, SessionDocumentStore
     from environment import portal_behavior_system_message, runtime_environment_snapshot
+    from gpu_lease import RequestDrainGate
     from native_ui import native_task_scope_sha256, normalize_native_task_scope
     from observatory import ObservatoryReader
     from session_state import SessionContinuationStore
@@ -2852,6 +2854,11 @@ def create_app(
         supplied = value[7:].strip() if value.lower().startswith("bearer ") else ""
         return bool(supplied) and hmac.compare_digest(supplied, runtime.access_token)
 
+    relocation_gate = None
+    if marker := os.environ.get("OMNI_GPU_DRAIN_FILE", ""):
+        relocation_gate = RequestDrainGate(app.wsgi_app, Path(marker))
+        app.wsgi_app = relocation_gate
+
     def request_session_id() -> str:
         supplied = str(request.cookies.get(SESSION_COOKIE_NAME) or "").strip()
         if 16 <= len(supplied) <= 128 and all(
@@ -3430,7 +3437,10 @@ def create_app(
         if not authorized():
             return jsonify({"error": "unauthorized"}), 401
         diagnostics.touch(request_session_id())
-        return jsonify(inference_queue.snapshot())
+        snapshot = inference_queue.snapshot()
+        if relocation_gate is not None:
+            snapshot["mutating_requests"] = relocation_gate.snapshot()
+        return jsonify(snapshot)
 
     @app.get("/api/observatory")
     def observatory_snapshot():
