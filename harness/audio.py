@@ -15,6 +15,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import math
 import queue
 import shutil
 import signal
@@ -633,6 +634,50 @@ class SpeakerStream:
             process.kill()
         if writer is not None and writer is not threading.current_thread():
             writer.join(timeout=2)
+
+
+# A soft voice reaches the array near -34 dBFS, and the speech encoder misreads
+# it at that level: on recorded Egg utterances it returned nothing until the
+# same audio was raised to about -26 dBFS overall, and garbled or invented
+# words when pushed much past that. The target is applied to the louder half
+# of 20 ms frames -- the speech, not the gaps -- so a quieter voice gets more
+# gain. Gain is also limited by how far that speech stands above the clip's
+# own background (its quietest frames, including the pre-roll): soft speech
+# measured 14-16 dB above it, room-noise false triggers 3-5 dB, and noise
+# raised 15 dB made the encoder invent a whole dialogue. So a quiet room
+# allows a large boost and a clip with no clear voice gets none.
+SPEECH_TARGET_DBFS = -24.0
+SPEECH_MIN_MARGIN_DB = 6.0
+SPEECH_MAX_GAIN_DB = 20.0
+SPEECH_PEAK_CEILING = 0.89
+
+
+def normalize_speech(samples: np.ndarray, rate_hz: int = CAPTURE_RATE_HZ) -> np.ndarray:
+    """Raise a captured utterance to a fixed speech level; never attenuate."""
+
+    audio = np.asarray(samples, dtype=np.float32)
+    frame = max(1, rate_hz // 50)
+    count = audio.size // frame
+    if count == 0:
+        return audio
+    levels = np.sqrt(np.mean(np.square(audio[: count * frame].reshape(count, frame)), axis=1))
+    speech = levels[levels >= np.median(levels)]
+    level = float(np.sqrt(np.mean(np.square(speech))))
+    if not np.isfinite(level) or level <= 0.0:
+        return audio
+    # A single click must not cap the gain for a whole sentence; the clip
+    # below absorbs the few samples above this percentile.
+    peak = float(np.percentile(np.abs(audio), 99.9))
+    background = max(float(np.percentile(levels, 20)), 1e-6)
+    margin_db = 20.0 * math.log10(level / background)
+    gain = min(
+        10.0 ** (SPEECH_TARGET_DBFS / 20.0) / level,
+        10.0 ** (min(SPEECH_MAX_GAIN_DB, margin_db - SPEECH_MIN_MARGIN_DB) / 20.0),
+        SPEECH_PEAK_CEILING / peak if peak > 0.0 else math.inf,
+    )
+    if gain <= 1.0:
+        return audio
+    return np.clip(audio * gain, -SPEECH_PEAK_CEILING, SPEECH_PEAK_CEILING)
 
 
 def to_wav(samples: np.ndarray, rate_hz: int = CAPTURE_RATE_HZ) -> bytes:

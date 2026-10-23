@@ -36,7 +36,10 @@ class VadConfig:
     start_confirm_ms: float = 200.0
     silence_ms: float = 760.0
     min_active_ms: float = 400.0
-    pre_roll_frames: int = 10
+    # The browser keeps ten 4096-sample frames at 48 kHz (about 853 ms). The
+    # harness reads 20 ms frames, so the same count kept a quarter of that and
+    # soft onsets lost their first word. Pre-roll is a duration, not a count.
+    pre_roll_ms: float = 10 * 4096 / 48.0
     initial_noise_floor: float = 0.003
 
 
@@ -99,6 +102,11 @@ class Vad:
         self._active_ms = 0.0
         self._last_active_at = 0.0
 
+    def _trim_pre_roll(self, frame_ms: float) -> None:
+        keep = max(1, math.ceil(self.config.pre_roll_ms / max(frame_ms, 1e-3)))
+        if len(self._pre_roll) > keep:
+            del self._pre_roll[:-keep]
+
     def _update_noise_floor(self, level: float, weight: float = 0.035) -> None:
         self._noise_floor = max(
             0.0005, self._noise_floor * (1.0 - weight) + level * weight
@@ -148,8 +156,7 @@ class Vad:
 
         if not self._speaking:
             self._pre_roll.append(samples)
-            if len(self._pre_roll) > config.pre_roll_frames:
-                self._pre_roll.pop(0)
+            self._trim_pre_roll(frame_ms)
             if native_speech is False:
                 # Far-end playback can be much louder than room tone. Do not
                 # learn it as the new floor, and do not let it accumulate the
@@ -161,6 +168,11 @@ class Vad:
                 )
             if level < start_threshold:
                 self._update_noise_floor(level)
+                if self._candidate_frames:
+                    # A soft onset that dips before confirmation is still the
+                    # start of what may follow; keep it as pre-roll.
+                    self._pre_roll = [*self._candidate_frames, samples]
+                    self._trim_pre_roll(frame_ms)
                 self._candidate_frames = []
                 self._candidate_started_at = None
                 return VadResult("idle", False, level=level, threshold=start_threshold)
