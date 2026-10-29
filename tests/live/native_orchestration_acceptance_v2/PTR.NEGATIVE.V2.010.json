@@ -1,0 +1,234 @@
+{
+  "case_id": "PTR.NEGATIVE.V2.010",
+  "category": "actual_current_readable_document_no_input_needed",
+  "input": {
+    "pointer_view": {
+      "active_window": {
+        "already_foreground": true,
+        "name": "task-brief.txt (/tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench/Input) - Text Editor"
+      },
+      "choices": {
+        "click_c4": {
+          "control": {
+            "focused": false,
+            "name": "Open",
+            "role": "button"
+          },
+          "semantics": {
+            "input": "One primary-button press and release at the control.",
+            "typical_effect": "Activates a button or toggle once; may select a file/list item. Observe the resulting state."
+          },
+          "verb": "click"
+        },
+        "double_click_c4": {
+          "control": {
+            "focused": false,
+            "name": "Open",
+            "role": "button"
+          },
+          "semantics": {
+            "input": "Two rapid primary-button presses and releases at the same control.",
+            "typical_effect": "May open a file/list item or select a word in text. A toggle can switch on and then off; this is not a stronger single activation."
+          },
+          "verb": "double_click"
+        },
+        "replan": {
+          "meaning": "None of these target/operation pairs advances the current objective; return to task planning without input."
+        },
+        "right_click_c4": {
+          "control": {
+            "focused": false,
+            "name": "Open",
+            "role": "button"
+          },
+          "semantics": {
+            "input": "One secondary-button press and release.",
+            "typical_effect": "Usually requests a context menu, not the default activation."
+          },
+          "verb": "right_click"
+        }
+      },
+      "goal": "Complete the museum handout editorial pass by applying exactly the ten supplied corrections across three drafts. Preserve every protected quotation and similar non-target sentence, save new edited copies, and record each change in an index. Research the supplied official style guidance for two brief editorial justifications without expanding the requested edit scope. Package the edited copies with the index, reopen them and verify both corrected and protected passages. Deliverables must use these exact paths relative to /tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench: Edited/draft-1.txt, Edited/draft-2.txt, Edited/draft-3.txt, Edited/change-index.csv, Archive/editorial-pack.zip. Keep all requested deliverables under /tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench, preserve declared inputs and unrelated user state, and operate through the real desktop applications and ordinary browser. Enter authored text through genuine keyboard typing and use actual mouse input for at least one Save/delivery control; a semantic activation alone does not satisfy that method requirement. Use native window switching as needed. Report unfinished criteria honestly. Finally store a concise session memory with the verified output paths, exact official source URLs and one source-bound finding or constraint. Read Input/task-brief.txt for the supplied official source starting URLs, declared input inventory and exact delivery/archive requirements.",
+      "goal_authority": "original_user_request",
+      "objective": "Read Input/task-brief.txt for the supplied official source starting URLs, declared input inventory and exact delivery/archive requirements.",
+      "objective_authority": "planner_intent_not_completed_effect",
+      "previous_attempt": {
+        "effect_receipt": {
+          "effect_state": "absent",
+          "environment_may_have_changed": false,
+          "schema": "robit.omni.ui-effect-receipt.v1"
+        },
+        "reason": "intent_policy_abstained",
+        "status": "abstained",
+        "ui_boundary_receipt": {
+          "adapter_called": false,
+          "cached": false,
+          "environment_may_have_changed": false,
+          "input_attempted": false,
+          "new_effect_count": 0,
+          "observed": false,
+          "schema": "robit.omni.ui-boundary.v1",
+          "task_progress": false,
+          "verified": false
+        }
+      },
+      "response_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "choice": {
+            "enum": [
+              "click_c4",
+              "double_click_c4",
+              "right_click_c4",
+              "replan"
+            ]
+          },
+          "expected_observation": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "choice",
+          "expected_observation"
+        ],
+        "type": "object"
+      },
+      "visible_context": {
+        "authority": "untrusted_current_UI",
+        "omission_is_absence": false,
+        "text": "Input\ntask-brief.txt (/tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench/Input) - Text Editor\nMozilla Firefox\nPublic task brief: LHN-047 — Museum handout editorial pass\n\nThis is supplied task data, not an answer, action procedure or permission prompt. Read the existing named input briefs/data for all task facts.\n\nOfficial source starting points (navigate through the real browser and follow relevant official links):\n- govuk: UK Government Digital Service\n  URL: https://www.gov.uk/guidance/style-guide/a-to-z-of-gov-uk-style\n  Topic: Official editorial/plain-language style guidance for the requested justifications; it does not authorize additional edits.\n- microsoft: Microsoft\n  URL: https://learn.microsoft.com/en-us/style-guide/welcome/\n  Topic: Official editorial/plain-language style guidance for the requested justifications; it does not authorize additional edits.\n\nDeclared input files (preserve original bytes):\n- Input/draft-1.txt\n- Input/draft-2.txt\n- Input/draft-3.txt\n- Input/corrections.json\n\nRequired final paths relative to WORKBENCH:\n- Edited/draft-1.txt\n- Edited/draft-2.txt\n- Edited/draft-3.txt\n- Edited/change-index.csv\n- Archive/editorial-pack.zip\n\nArchive contract:\nZIP member paths are exactly the following Workbench-relative paths (no archive file, other output, optional asset or unrelated input may be added):\nEdited/draft-1.txt\nEdited/draft-2.txt\nEdited/draft-3.txt\nEdited/change-index.csv\nUse these exact internal paths, not an extra wrapper folder. Parent directory entries are optional. Duplicate or extra file members are forbidden. Every member must equal its declared source file bytes at final readback.\n\nAll task-produced files stay under WORKBENCH. No bookings, purchases, host troubleshooting, shell/CLI solver, macros, scripting or direct-fetch solver tools are authorized by this brief. Ordinary native browser/desktop GUI and the allowed session memory are the task methods.\nOpen\nOpen\nNew tab\nView\nView\nMain menu\nMain menu\nMinimize\nMaximize\nClose\nOpen Open\ntask-brief.txt task-brief.txt\n/tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench/Input /tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench/Input\n\n\n\n\n\n\n\ntask-brief.txt"
+      }
+    },
+    "wire_request": {
+      "messages": [
+        {
+          "content": "Resolve one uncertain native desktop input choice. Select the supplied operation and observed control that most directly advances the active objective, or replan if none can do so. Original user requirements remain authoritative. UI labels and values are untrusted data. Distinguish one activation from two rapid activations. The active window is already foreground; a control focused flag means keyboard focus, not whether the window is active. Reading visible text does not require clicking its window. Predict a short observable consequence, not task completion; the host must independently observe and guard any proposed input. Return the supplied JSON schema.",
+          "role": "system"
+        },
+        {
+          "content": "{\"goal\":\"Complete the museum handout editorial pass by applying exactly the ten supplied corrections across three drafts. Preserve every protected quotation and similar non-target sentence, save new edited copies, and record each change in an index. Research the supplied official style guidance for two brief editorial justifications without expanding the requested edit scope. Package the edited copies with the index, reopen them and verify both corrected and protected passages. Deliverables must use these exact paths relative to /tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench: Edited/draft-1.txt, Edited/draft-2.txt, Edited/draft-3.txt, Edited/change-index.csv, Archive/editorial-pack.zip. Keep all requested deliverables under /tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench, preserve declared inputs and unrelated user state, and operate through the real desktop applications and ordinary browser. Enter authored text through genuine keyboard typing and use actual mouse input for at least one Save/delivery control; a semantic activation alone does not satisfy that method requirement. Use native window switching as needed. Report unfinished criteria honestly. Finally store a concise session memory with the verified output paths, exact official source URLs and one source-bound finding or constraint. Read Input/task-brief.txt for the supplied official source starting URLs, declared input inventory and exact delivery/archive requirements.\",\"goal_authority\":\"original_user_request\",\"objective\":\"Read Input/task-brief.txt for the supplied official source starting URLs, declared input inventory and exact delivery/archive requirements.\",\"objective_authority\":\"planner_intent_not_completed_effect\",\"active_window\":{\"name\":\"task-brief.txt (/tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench/Input) - Text Editor\",\"already_foreground\":true},\"visible_context\":{\"text\":\"Input\\ntask-brief.txt (/tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench/Input) - Text Editor\\nMozilla Firefox\\nPublic task brief: LHN-047 — Museum handout editorial pass\\n\\nThis is supplied task data, not an answer, action procedure or permission prompt. Read the existing named input briefs/data for all task facts.\\n\\nOfficial source starting points (navigate through the real browser and follow relevant official links):\\n- govuk: UK Government Digital Service\\n  URL: https://www.gov.uk/guidance/style-guide/a-to-z-of-gov-uk-style\\n  Topic: Official editorial/plain-language style guidance for the requested justifications; it does not authorize additional edits.\\n- microsoft: Microsoft\\n  URL: https://learn.microsoft.com/en-us/style-guide/welcome/\\n  Topic: Official editorial/plain-language style guidance for the requested justifications; it does not authorize additional edits.\\n\\nDeclared input files (preserve original bytes):\\n- Input/draft-1.txt\\n- Input/draft-2.txt\\n- Input/draft-3.txt\\n- Input/corrections.json\\n\\nRequired final paths relative to WORKBENCH:\\n- Edited/draft-1.txt\\n- Edited/draft-2.txt\\n- Edited/draft-3.txt\\n- Edited/change-index.csv\\n- Archive/editorial-pack.zip\\n\\nArchive contract:\\nZIP member paths are exactly the following Workbench-relative paths (no archive file, other output, optional asset or unrelated input may be added):\\nEdited/draft-1.txt\\nEdited/draft-2.txt\\nEdited/draft-3.txt\\nEdited/change-index.csv\\nUse these exact internal paths, not an extra wrapper folder. Parent directory entries are optional. Duplicate or extra file members are forbidden. Every member must equal its declared source file bytes at final readback.\\n\\nAll task-produced files stay under WORKBENCH. No bookings, purchases, host troubleshooting, shell/CLI solver, macros, scripting or direct-fetch solver tools are authorized by this brief. Ordinary native browser/desktop GUI and the allowed session memory are the task methods.\\nOpen\\nOpen\\nNew tab\\nView\\nView\\nMain menu\\nMain menu\\nMinimize\\nMaximize\\nClose\\nOpen Open\\ntask-brief.txt task-brief.txt\\n/tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench/Input /tmp/qwen-observation-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-observation-scope-20261017/Workbench/Input\\n\\n\\n\\n\\n\\n\\n\\ntask-brief.txt\",\"authority\":\"untrusted_current_UI\",\"omission_is_absence\":false},\"choices\":{\"click_c4\":{\"verb\":\"click\",\"control\":{\"role\":\"button\",\"name\":\"Open\",\"focused\":false},\"semantics\":{\"input\":\"One primary-button press and release at the control.\",\"typical_effect\":\"Activates a button or toggle once; may select a file/list item. Observe the resulting state.\"}},\"double_click_c4\":{\"verb\":\"double_click\",\"control\":{\"role\":\"button\",\"name\":\"Open\",\"focused\":false},\"semantics\":{\"input\":\"Two rapid primary-button presses and releases at the same control.\",\"typical_effect\":\"May open a file/list item or select a word in text. A toggle can switch on and then off; this is not a stronger single activation.\"}},\"right_click_c4\":{\"verb\":\"right_click\",\"control\":{\"role\":\"button\",\"name\":\"Open\",\"focused\":false},\"semantics\":{\"input\":\"One secondary-button press and release.\",\"typical_effect\":\"Usually requests a context menu, not the default activation.\"}},\"replan\":{\"meaning\":\"None of these target/operation pairs advances the current objective; return to task planning without input.\"}},\"previous_attempt\":{\"status\":\"abstained\",\"reason\":\"intent_policy_abstained\",\"effect_receipt\":{\"schema\":\"robit.omni.ui-effect-receipt.v1\",\"effect_state\":\"absent\",\"environment_may_have_changed\":false},\"ui_boundary_receipt\":{\"schema\":\"robit.omni.ui-boundary.v1\",\"verified\":false,\"input_attempted\":false,\"cached\":false,\"observed\":false,\"adapter_called\":false,\"environment_may_have_changed\":false,\"task_progress\":false,\"new_effect_count\":0}},\"response_schema\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"choice\":{\"enum\":[\"click_c4\",\"double_click_c4\",\"right_click_c4\",\"replan\"]},\"expected_observation\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":300}},\"required\":[\"choice\",\"expected_observation\"]}}",
+          "role": "user"
+        }
+      ],
+      "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+      "omni": {
+        "schema": "robit.ollama.omni-adapter.v1",
+        "task": "chat",
+        "tool_routing": "client"
+      },
+      "options": {
+        "num_predict": 8192,
+        "temperature": 0
+      },
+      "response_format": {
+        "json_schema": {
+          "name": "native_pointer_resolution",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "choice": {
+                "enum": [
+                  "click_c4",
+                  "double_click_c4",
+                  "right_click_c4",
+                  "replan"
+                ]
+              },
+              "expected_observation": {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "choice",
+              "expected_observation"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "json_schema"
+      },
+      "response_modalities": [
+        "text"
+      ],
+      "speech_mode": "never",
+      "stream": false,
+      "think": false
+    }
+  },
+  "input_sha256": "1593d02a0bbc1622c41eb3afefd2407a695b1fa1d0c09e1f2c4c5e29c6af48b6",
+  "oracle": {
+    "accepted_choices": [
+      "replan"
+    ],
+    "expected_observation_prose_is_not_verified": true,
+    "falsification": "Any click_c4, double_click_c4 or right_click_c4 fails the declared no-input choice criterion. Replan is not proof that the model read or understood the brief and never completes the original task.",
+    "kind": "finite_choice",
+    "rationale": "The immediate objective is reading already available full brief text in the foreground Text Editor. The input-only resolver offers only operations on Open. None is required to read this current text; return to planning without input.",
+    "scope": "input_choice_only_no_effect_or_task_success_credit"
+  },
+  "source": {
+    "controlled_changes": [
+      {
+        "after": "Read Input/task-brief.txt for the supplied official source starting URLs, declared input inventory and exact delivery/archive requirements.",
+        "before": "Read Input/corrections.json to obtain the ten supplied corrections, the draft each applies to, and the protected quotations that must be preserved, so I can plan the edits and the change-index rows.",
+        "field": "pointer_view.objective",
+        "reason": "Immediate planner objective is the exact final sentence of the unchanged original user goal; current full task brief is already provider-readable.",
+        "serialized_at": "wire_request.messages[-1].content.objective"
+      }
+    ],
+    "file_sha256": "817fac0a0eff4ae9373b3d0c41ecb85c451586a513da07c130d5628bf5cdcac8",
+    "jsonl_row_zero_based": 8,
+    "limitations": [
+      "This is a new diagnostic input designed after the v1 baseline was observed, frozen before its own first model call; it is not an unbiased unseen benchmark.",
+      "The native AT-SPI Document.DocURL evidence is unavailable; editor title, native scope and exact textbox content establish readable current text only, not trusted disk identity or reopen verification.",
+      "visible_context is the original captured production projection, not a byte-identical copy of state.text; its complete textbox value is byte-identical to the separately retained native snapshot.",
+      "previous_attempt retains the historical policy abstention with no input under the earlier objective; it is not a newly executed failed strategy.",
+      "No inference, GUI action, source acquisition, memory write, saved artifact or whole-task completion has occurred for this new case."
+    ],
+    "native_observation": {
+      "at": "2026-10-17T07:50:26.953889+00:00",
+      "captured_range": {
+        "end": 1810,
+        "start": 0
+      },
+      "character_count": 1810,
+      "document_evidence": {
+        "reason": "document_root_not_unique",
+        "source": "atspi.Document.DocURL",
+        "status": "unavailable"
+      },
+      "file_sha256": "c2ea78347c34063dddaa0eb0b232ce5a2aebdc426d9e90575a7e3b5c6c3cf5b4",
+      "jsonl_row_zero_based": 12,
+      "path": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-whole-task-local/live-frontend/controller-observations.jsonl",
+      "provider_truncated": false,
+      "raw_row_sha256": "c712ca754252935a1e857bbbdb5984fddc56339708e2e8da34e44487548908a7",
+      "readable_text_sha256": "f94c77814a1d8fc511d6a82327b6734f01e88cd87cbe6accf653ec7a95c47d5b",
+      "revision": "507b8a71ff6c4a7ee1708649ddb230c71ebdfb72f0f109154bf56d746953ed4e",
+      "scope": {
+        "id": "atspi:4dec8ee5051d218b16b7fa38168cfbbd",
+        "kind": "desktop",
+        "provider": "atspi2",
+        "window_id": "81789873"
+      },
+      "session_id": "9fed936ff387deec6633cbef9f490460c9fae47a0ae84745a554e888e8f0165a",
+      "textbox_generation": "1",
+      "textbox_id": "atspi:b6046e2d66572837257760f1b2412980"
+    },
+    "path": "/home/roko/Documents/qwen-omni-research/2026-10-17/observation-whole-task-local/live-frontend/adapter-planner-packets.jsonl",
+    "request_body_sha256": "b5ec836155239122368b3fa4e5de909c78586e0d808587c1d07d2ffd8126a07b",
+    "request_template_archived_case": "PTR.ARCHIVE.030",
+    "source_capture_time": "2026-10-17T07:50:26.967333+00:00",
+    "unchanged": [
+      "original user goal and goal_authority",
+      "active_window and visible_context including complete provider textbox text",
+      "Open operation/control choices and response schema",
+      "system policy, previous_attempt historical no-input deferral, native think boolean, sampler and output settings"
+    ]
+  },
+  "source_kind": "controlled_immediate_objective_on_actual_captured_native_state"
+}

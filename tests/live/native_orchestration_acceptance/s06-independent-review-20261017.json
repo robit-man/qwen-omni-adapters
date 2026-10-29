@@ -1,0 +1,880 @@
+{
+  "attempt_capture_review": {
+    "input_and_output_bytes_saved": true,
+    "per_case_finally_records_timeout_or_parse_failure": true,
+    "per_case_started_receipt_before_http": true,
+    "scope": "Read current scripts and actual seven complete attempt receipts; did not execute inference scripts. Future unusable replies remain separate from usable evaluator records."
+  },
+  "independent_prediction_review": [
+    {
+      "case_id": "PTR.NEGATIVE.V2.010",
+      "choice_verdict": "correct_replan_only",
+      "finding": "Claims only task-brief header/menu chrome are visible although the exact complete1810-character brief is present. Shifts from current brief objective to other declared inputs. No comprehension credit.",
+      "prediction_verdict": "falsified_by_supplied_text"
+    },
+    {
+      "case_id": "PTR.ARCHIVE.010",
+      "choice_verdict": "correct_double_click",
+      "finding": "Predicts opening Input folder rather than prior wrong draft-1. No actual folder transition or item-count prediction verified.",
+      "prediction_verdict": "plausible_main_transition_unexecuted"
+    },
+    {
+      "case_id": "PTR.ARCHIVE.020",
+      "choice_verdict": "correct_double_click",
+      "finding": "Predicts task-brief opens but adds New Document - Draft title without support; no actual transition executed.",
+      "prediction_verdict": "unsupported_title_detail"
+    },
+    {
+      "case_id": "PTR.ARCHIVE.030",
+      "choice_verdict": "correct_permissible_Open_prerequisite",
+      "finding": "One Open click is predicted to load corrections.json and expose all corrections immediately; this skips chooser/recent-documents selection. No resource acquisition credit.",
+      "prediction_verdict": "unsupported_immediate_resource_load"
+    },
+    {
+      "case_id": "PTR.ARCHIVE.040",
+      "choice_verdict": "correct_permissible_Open_prerequisite",
+      "finding": "Predicts chooser plus later file selection/read, rather than only immediate guarded transition. The current call establishes neither effect.",
+      "prediction_verdict": "spans_future_unperformed_actions"
+    },
+    {
+      "case_id": "PTR.ARCHIVE.050",
+      "choice_verdict": "review_only_no_finite_pass",
+      "finding": "Calls observed Open composite a stray Remove button; source does not support that control identification.",
+      "prediction_verdict": "falsified_control_identification"
+    },
+    {
+      "case_id": "PTR.ARCHIVE.060",
+      "choice_verdict": "review_only_no_finite_pass",
+      "finding": "Rejects different-session recent task-brief item; source-label mismatch can explain caution, but no preregistered uniquely safe choice or actual effect exists.",
+      "prediction_verdict": "unverified_explanation"
+    }
+  ],
+  "limits": [
+    "Single Ornith call per cell; no repetitions/counterbalanced model campaign or general-reliability evidence.",
+    "No new Qwen or Egg inference in these artifacts; original breadth100-task goals and host/model acceptance remain unchanged.",
+    "Direct adapter language calls exercise neither actual candidate controller dispatch nor Kev/Moondream/TTS/ASR/input loops. GPU residency is not invocation evidence.",
+    "Model identity is supported by logical response tag, manifest/props association and unchanged worker IDs; no fresh tensor-byte rehash or raw props/driver-output capture.",
+    "Requested8192output/context65536recorded; effective output cap not independently captured.",
+    "Idle frontend source revision is context only, not loaded adapter/decoder adoption.",
+    "V1 NEGATIVE030 inconsistent fixture and NEGATIVE050 synthetic-history caveats remain; frozen original scores are unchanged.",
+    "Handoff-only addition changes one matched choice favorably; no hierarchy-only actual inference is supported because every archived hierarchy cell is unconstructible.",
+    "Newv2/handoff raw runs still reside in runtime-data at review time; root must archive them externally before evidence closure."
+  ],
+  "observer_review": {
+    "decision_capture_original_call_and_result_preserved_on_controlled_telemetry_error": true,
+    "no_solver_intervention_or_extra_model_frame_calls_found": true,
+    "projected_packet_omission": "history_metrics packet allowlist omits new handoff/strategy fields; request_body_utf8 remains authoritative within1MiB and omission flags disclose projection. Do not grade only projected packet.",
+    "reproduction_method": "Extract only class/function AST into in-memory namespace with fake frame/unserializable sentinel/unwritable output; never start native bridge, import observer entrypoint or contact models.",
+    "scope_trace_original_callback_preserved_on_controlled_output_error": true
+  },
+  "original_44_cell_paired_grades": {
+    "GPU_residency_verified_by_this_tool": false,
+    "finite_choice_denominator": 36,
+    "finite_choices_correct": 11,
+    "grades": [
+      {
+        "case_id": "PTR.ARCHIVE.010",
+        "choice": "double_click_c3",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "0d43ca1fdc3041139d909dd1f7048640233f5f441706f712e43aeffaaa73a744",
+        "response_file_sha256": "31f6efb1580a8dd497cd6438bb2dd0401f3537b7cb42e074cdd05bb3d5cb02d2",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.020",
+        "choice": "double_click_c19",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "3f7df77cfe73db19eea7314a4cc62cbb012e4b33aa783c8e00fff5bd62a137b7",
+        "response_file_sha256": "4127f659ba20b37df8ce628309fc23cd1674eae38d3817ce724c806834dda0c3",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.030",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": false,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "707b5e71e97389343ad7669c35ce6d3a0a1a200f774611ad87fe76388ac2ed41",
+        "response_file_sha256": "9ab62716c7f720d2667816df934dfffd54a227ebf52edb8948199bb975f8cd2f",
+        "status": "choice_incorrect",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.040",
+        "choice": "click_c4",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "caf02bd291744200df506217dafd430409c6042282430d6f1298ef06637a30aa",
+        "response_file_sha256": "9125393490208ee29a2669739fdb8d1ad4d00f1b13fc53f32ae3c4b61b4363a6",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.050",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": null,
+        "request_sha256": "129c3107c7398e84c7e9243af9abd2c78a107f29cc187afbb10c504bb3a5fac6",
+        "response_file_sha256": "c139b5ba8c058a995fc634193e38c877205a3b5a74e055713dbf3994400417f8",
+        "status": "pending_independent_review",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.060",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": null,
+        "request_sha256": "129c3107c7398e84c7e9243af9abd2c78a107f29cc187afbb10c504bb3a5fac6",
+        "response_file_sha256": "c139b5ba8c058a995fc634193e38c877205a3b5a74e055713dbf3994400417f8",
+        "status": "pending_independent_review",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.NEGATIVE.010",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "68327f7688ee2f8c8d3fd2d9fbd8756f9cde0961b49c2b9ff080443f74a6eab6",
+        "response_file_sha256": "c5c663c27408ed5d4824f1b403f908d1a6b131f63583e6e145223cb24e847ba8",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.NEGATIVE.020",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "352f97c6a7e8fa8b2c2a57f832d79d6ff9f705a11df86b2a405b25ef285acfb2",
+        "response_file_sha256": "8ad74072e7a8831b681408514715a474e969a7158a39d485bbcc688d863dda46",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.NEGATIVE.030",
+        "choice": "double_click_c19",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": false,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "5b1fd9d8ce2361ee6445e125260d2cf63dee388300628377084aaf072ecb88e2",
+        "response_file_sha256": "505c3aa398e97a467c80bb6c8206863554bb3b5c1130aea82f941be63140830b",
+        "status": "choice_incorrect",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.NEGATIVE.040",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "114615c26a96db4a50d6e4326acd511db4378bde867801f781e2891f579abfd3",
+        "response_file_sha256": "15695a8ea66415359336d3b3bee57dbbe4872ceafd48dc26104ecc3ae172d194",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.NEGATIVE.050",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "1584d1e261efcbee5d476512ae6d3153d18c57a6fc9f21bdb271e9947fc4fcf0",
+        "response_file_sha256": "209fc688edc9da43bc9f5e7ca94fcc5ee198c55ac67d5dd68b9cf766f17fe2d5",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.010",
+        "choice": "double_click_c3",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "e8e1dfc293a329afff6a8407bc9f9943bebfa9daa17a2ce362a12091b725b84c",
+        "response_file_sha256": "98a6c9c349aae14f322ff5b9806eba6922948a712210ac9826f17293d9ab4764",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.020",
+        "choice": "double_click_c19",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "7ab908fcd191392686fa2e4b61b6d381d15459f3cd314bbbf29ff958720ba5f9",
+        "response_file_sha256": "2567814e76953e809089b0171a0b8454d0f2b2604269dd5951c38a0db94b610d",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.030",
+        "choice": "click_c4",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "33047acc8de8911733c16ad5f9824539b57ab0b14ec76ab07edf8903c1a24edd",
+        "response_file_sha256": "556ef884168752fe3fcfa6f6579903a2a879d04e782b10176428da0d23d14438",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.040",
+        "choice": "click_c4",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "0d94d87d27331b972ba1fabc158e958bdd7e6841b315b908e7d46cbe7283e8c5",
+        "response_file_sha256": "377146058b40c9a27e1b13313c5fda07d04009cc02e0933c46fe4583f41b1b31",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.050",
+        "choice": "replan",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": null,
+        "request_sha256": "32271b1017efcf90417f02b35ea31dd2467dbca8a435c5183bbe793c3b63acc0",
+        "response_file_sha256": "93ec2b4ea2a3818de54d9ab7689974c81e73d710c74070b1d8042b1f25876f70",
+        "status": "pending_independent_review",
+        "whole_task_success_credit": false
+      },
+      {
+        "case_id": "PTR.ARCHIVE.060",
+        "choice": "replan",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": null,
+        "request_sha256": "57153a45df3c85e443657e951035dadd01fdf438896356f91b080f3622adf70b",
+        "response_file_sha256": "3e0df66c22c73580088ec36019990a9e7c6122bdcee8136a7c62ff1bc84aa07d",
+        "status": "pending_independent_review",
+        "whole_task_success_credit": false
+      }
+    ],
+    "pending_review": 4,
+    "planned_cells": 44,
+    "recorded_cells": 17,
+    "schema": "robit.omni.orchestration-panel-grades.v1",
+    "unrun_cells": [
+      {
+        "case_id": "PTR.ARCHIVE.010",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.010",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.020",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.020",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.030",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.030",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.040",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.040",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.050",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.050",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.060",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.ARCHIVE.060",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.010",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.010",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.010",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.020",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.020",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.020",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.030",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.030",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.030",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.040",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.040",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.040",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.050",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.050",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.050",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      }
+    ],
+    "whole_task_success_credit": false
+  },
+  "original_baseline_external_archive": {
+    "all_files_independently_readback_verified": true,
+    "file_count": 67,
+    "manifest_sha256": "d42531be60dd849c57661e257d513e1e6146b563bc71cee09255e0b17a13aacc",
+    "path": "/home/roko/Documents/qwen-omni-research/2026-10-17/actual-ornith-diagnostic-baseline-20261017T091555Z",
+    "total_file_bytes": 365899
+  },
+  "reconstruction": {
+    "constructed": 6,
+    "historical_pointer_answers_not_used": true,
+    "invariance": "Every constructed view equals frozen baseline after removing action_handoff/action_handoff_revalidation. Original goal/system/visible context/choices/response schema/sampling/think/output budget unchanged.",
+    "no_oracle_route_found": true,
+    "planned_cells": 22,
+    "private_binding_provenance": "counterfactual_reconstruction_not_retained_original_binding",
+    "saved_all22_cells_equal_independent_reconstruction": true,
+    "source_conditions": [
+      "handoff_only",
+      "hierarchy_only"
+    ],
+    "unconstructible": 16
+  },
+  "reviewed_at": "2026-10-17T09:20:00.183573+00:00",
+  "reviewed_source_sha256_not_runtime_adoption_proof": {
+    "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu_portal_decision_capture.py": "9b3ec0fb1a09264e693042e626d7797d5ab921e4f415e828a12c8d52dcfb4165",
+    "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/scope_read_observer.py": "eaefd59111f6d894e2d127949b1b393ab2eb9edf2e933eec80791ba6774e66c5",
+    "runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/run_frozen_baseline_v2.py": "63c5f0946801b1e2b00ef05ef49b429c5d09fab64cab0f9e5d3b10dba8e3734b",
+    "runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/run_frozen_handoff_candidate.py": "6c979fadf7c9f655bb254a1f15ecf635c3f0f7a662cac8cb9c2f091e4b2e6fa2",
+    "runtime/reconstruct_orchestration_candidates.py": "79b1d2db496c452bad4480b78c1b4ae396c31080d7be96d493b21fc497cd5039"
+  },
+  "reviewer": "acceptance_verifier",
+  "runs": [
+    {
+      "condition": "baseline",
+      "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+      "model_blob": {
+        "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+        "from": "ornith-1.5:9b",
+        "mediaType": "application/vnd.ollama.image.model",
+        "size": 5629109056
+      },
+      "panel_manifest_sha256": "eedb8175f63c07d2f26e1de290545b5555b826af9cf531280a4d3c2813a2f8a1",
+      "per_case": [
+        {
+          "all_raw_bindings_render_settings_and_receipts_verified": true,
+          "case_id": "PTR.NEGATIVE.V2.010",
+          "decision": {
+            "choice": "replan",
+            "expected_observation": "No input advances the objective: the active window shows only the task-brief header and menu chrome, not the declared Input files. The brief itself instructs reading Input/task-brief.txt for facts, but the actual declared inputs (draft-1.txt, draft-2.txt, draft-3.txt, corrections.json) and the real,"
+          },
+          "receipt": {
+            "attempt_status": "response_received",
+            "attempted": true,
+            "case_id": "PTR.NEGATIVE.V2.010",
+            "desktop_input_count": 0,
+            "elapsed_s": 1.451,
+            "finished_at": "2026-10-17T09:16:29.381065+00:00",
+            "request_bytes_sha256": "b4032571070e667bf70511647fbfbd8e78081565993be6543d8715828a84a81e",
+            "request_sha256": "b4032571070e667bf70511647fbfbd8e78081565993be6543d8715828a84a81e",
+            "response_bytes_sha256": "419158ac4c47f93f5ce61d8b51ef17635875c743f791dc6158f6cced113caadf",
+            "response_model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "started_at": "2026-10-17T09:16:27.930240+00:00",
+            "status_code": 200,
+            "whole_task_success_credit": false
+          },
+          "request_bytes_sha256": "b4032571070e667bf70511647fbfbd8e78081565993be6543d8715828a84a81e",
+          "response_bytes_sha256": "419158ac4c47f93f5ce61d8b51ef17635875c743f791dc6158f6cced113caadf"
+        }
+      ],
+      "recorded_context": 65536,
+      "run_json_sha256": "d630579e543e633384792d65fba47da48d339d2e13453aca6c9be059ad7a5a9b",
+      "run_path": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/actual-ornith-baseline-v2-20261017T091626Z",
+      "saved_gpu_evidence": [
+        {
+          "active_exact_gpu1_lease_verified": true,
+          "actual_processes": [
+            {
+              "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+              "other_selected_residency": [],
+              "pid": 264311,
+              "resident_on_gpu1": true
+            },
+            {
+              "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+              "other_selected_residency": [],
+              "pid": 267226,
+              "resident_on_gpu1": true
+            }
+          ],
+          "at": "2026-10-17T09:16:27.169660+00:00",
+          "snapshot": "broker_before"
+        },
+        {
+          "active_exact_gpu1_lease_verified": true,
+          "actual_processes": [
+            {
+              "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+              "other_selected_residency": [],
+              "pid": 264311,
+              "resident_on_gpu1": true
+            },
+            {
+              "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+              "other_selected_residency": [],
+              "pid": 267226,
+              "resident_on_gpu1": true
+            }
+          ],
+          "at": "2026-10-17T09:16:30.118029+00:00",
+          "snapshot": "broker_after"
+        }
+      ],
+      "whole_task_success_credit": false,
+      "worker_identities": {
+        "adapter": {
+          "pid": 265310,
+          "process_start": "9825403"
+        },
+        "controller": {
+          "pid": 259628,
+          "process_start": "9821988"
+        },
+        "kev": {
+          "pid": 267226,
+          "process_start": "9826723"
+        },
+        "point": {
+          "pid": 265086,
+          "process_start": "9825200"
+        },
+        "portal": {
+          "pid": 265465,
+          "process_start": "9825505"
+        },
+        "supervisor": {
+          "pid": 259729,
+          "process_start": "9822031"
+        },
+        "trunk": {
+          "pid": 264311,
+          "process_start": "9824864"
+        },
+        "tts": {
+          "pid": 265154,
+          "process_start": "9825302"
+        }
+      }
+    },
+    {
+      "condition": "candidate",
+      "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+      "model_blob": {
+        "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+        "from": "ornith-1.5:9b",
+        "mediaType": "application/vnd.ollama.image.model",
+        "size": 5629109056
+      },
+      "panel_manifest_sha256": "98171822f007368171f011c67f328c0d4723cd310bd09fda56961e06ced09af4",
+      "per_case": [
+        {
+          "all_raw_bindings_render_settings_and_receipts_verified": true,
+          "case_id": "PTR.ARCHIVE.010",
+          "decision": {
+            "choice": "double_click_c3",
+            "expected_observation": "The Input folder opens in the Workbench file manager, revealing its contents (including task-brief.txt and the five items) so I can open task-brief.txt next."
+          },
+          "receipt": {
+            "attempt_status": "response_received",
+            "attempted": true,
+            "case_id": "PTR.ARCHIVE.010",
+            "desktop_input_count": 0,
+            "elapsed_s": 1.121,
+            "finished_at": "2026-10-17T09:16:43.597476+00:00",
+            "request_bytes_sha256": "f848fe185c26b2453bdff6e0b85e576aa1a76cbd3f1d4baf5e89bd119d99c14e",
+            "request_sha256": "e8e1dfc293a329afff6a8407bc9f9943bebfa9daa17a2ce362a12091b725b84c",
+            "response_bytes_sha256": "ecf525ea8e34d306f85b66f5cd086aad68c5e345850de08249ae98008964efef",
+            "response_model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "started_at": "2026-10-17T09:16:42.476883+00:00",
+            "status_code": 200,
+            "whole_task_success_credit": false
+          },
+          "request_bytes_sha256": "f848fe185c26b2453bdff6e0b85e576aa1a76cbd3f1d4baf5e89bd119d99c14e",
+          "response_bytes_sha256": "ecf525ea8e34d306f85b66f5cd086aad68c5e345850de08249ae98008964efef"
+        },
+        {
+          "all_raw_bindings_render_settings_and_receipts_verified": true,
+          "case_id": "PTR.ARCHIVE.020",
+          "decision": {
+            "choice": "double_click_c19",
+            "expected_observation": "task-brief.txt opens in the Text Editor (New Document - Draft), showing its contents including the official source starting URLs, declared input inventory, and delivery/archive requirements."
+          },
+          "receipt": {
+            "attempt_status": "response_received",
+            "attempted": true,
+            "case_id": "PTR.ARCHIVE.020",
+            "desktop_input_count": 0,
+            "elapsed_s": 1.204,
+            "finished_at": "2026-10-17T09:16:45.780906+00:00",
+            "request_bytes_sha256": "b3fc3d7d4c928beca39e3299788ea254dcda500a9614f1d6e103d4bc9180f458",
+            "request_sha256": "7ab908fcd191392686fa2e4b61b6d381d15459f3cd314bbbf29ff958720ba5f9",
+            "response_bytes_sha256": "5d9f5f88616779ff1acda0ebaf38896e2aa7e4c49be88cab14ab478a4971256d",
+            "response_model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "started_at": "2026-10-17T09:16:44.576521+00:00",
+            "status_code": 200,
+            "whole_task_success_credit": false
+          },
+          "request_bytes_sha256": "b3fc3d7d4c928beca39e3299788ea254dcda500a9614f1d6e103d4bc9180f458",
+          "response_bytes_sha256": "5d9f5f88616779ff1acda0ebaf38896e2aa7e4c49be88cab14ab478a4971256d"
+        },
+        {
+          "all_raw_bindings_render_settings_and_receipts_verified": true,
+          "case_id": "PTR.ARCHIVE.030",
+          "decision": {
+            "choice": "click_c4",
+            "expected_observation": "Input/corrections.json opens in the Text Editor, showing the ten corrections, the draft each applies to, and the protected quotations to preserve."
+          },
+          "receipt": {
+            "attempt_status": "response_received",
+            "attempted": true,
+            "case_id": "PTR.ARCHIVE.030",
+            "desktop_input_count": 0,
+            "elapsed_s": 1.312,
+            "finished_at": "2026-10-17T09:16:47.987648+00:00",
+            "request_bytes_sha256": "1b0c05fc4fce96804f58969b14a31899de066717ce535d188771ac1c331be07c",
+            "request_sha256": "33047acc8de8911733c16ad5f9824539b57ab0b14ec76ab07edf8903c1a24edd",
+            "response_bytes_sha256": "18a84a4fe01162e3c0110e2441874300dfe348137d3c6addca6650fc8ad67a76",
+            "response_model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "started_at": "2026-10-17T09:16:46.675793+00:00",
+            "status_code": 200,
+            "whole_task_success_credit": false
+          },
+          "request_bytes_sha256": "1b0c05fc4fce96804f58969b14a31899de066717ce535d188771ac1c331be07c",
+          "response_bytes_sha256": "18a84a4fe01162e3c0110e2441874300dfe348137d3c6addca6650fc8ad67a76"
+        },
+        {
+          "all_raw_bindings_render_settings_and_receipts_verified": true,
+          "case_id": "PTR.ARCHIVE.040",
+          "decision": {
+            "choice": "click_c4",
+            "expected_observation": "A file chooser opens for selecting corrections.json; after choosing it, the Text Editor loads Input/corrections.json showing the ten corrections, their target drafts, and the protected quotations to preserve."
+          },
+          "receipt": {
+            "attempt_status": "response_received",
+            "attempted": true,
+            "case_id": "PTR.ARCHIVE.040",
+            "desktop_input_count": 0,
+            "elapsed_s": 1.282,
+            "finished_at": "2026-10-17T09:16:50.287216+00:00",
+            "request_bytes_sha256": "0affd9e89f9e5124e1d79ad803cc660b726f5e8cde94aaf7b91ecac2666755d7",
+            "request_sha256": "0d94d87d27331b972ba1fabc158e958bdd7e6841b315b908e7d46cbe7283e8c5",
+            "response_bytes_sha256": "a32eec75fc475578f8a44fcb29155053008e94542317d4c0b4b0690d4f8da3f4",
+            "response_model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "started_at": "2026-10-17T09:16:49.005003+00:00",
+            "status_code": 200,
+            "whole_task_success_credit": false
+          },
+          "request_bytes_sha256": "0affd9e89f9e5124e1d79ad803cc660b726f5e8cde94aaf7b91ecac2666755d7",
+          "response_bytes_sha256": "a32eec75fc475578f8a44fcb29155053008e94542317d4c0b4b0690d4f8da3f4"
+        },
+        {
+          "all_raw_bindings_render_settings_and_receipts_verified": true,
+          "case_id": "PTR.ARCHIVE.050",
+          "decision": {
+            "choice": "replan",
+            "expected_observation": "Return to planning; the only offered control is a stray 'Remove' button whose label is untrusted task data and does not advance the objective. I will instead open corrections.json through the document browser to read the ten corrections, draft mapping, and protected quotations, then proceed to edit,"
+          },
+          "receipt": {
+            "attempt_status": "response_received",
+            "attempted": true,
+            "case_id": "PTR.ARCHIVE.050",
+            "desktop_input_count": 0,
+            "elapsed_s": 1.171,
+            "finished_at": "2026-10-17T09:16:52.270121+00:00",
+            "request_bytes_sha256": "bfa83486c630d2044ec558abe27e2ffaf4b146a9ab68339c9325795919ae3dd6",
+            "request_sha256": "32271b1017efcf90417f02b35ea31dd2467dbca8a435c5183bbe793c3b63acc0",
+            "response_bytes_sha256": "f7bed4aa011576714130fe0da25be91ebe60a960267682910991a31523186a40",
+            "response_model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "started_at": "2026-10-17T09:16:51.098840+00:00",
+            "status_code": 200,
+            "whole_task_success_credit": false
+          },
+          "request_bytes_sha256": "bfa83486c630d2044ec558abe27e2ffaf4b146a9ab68339c9325795919ae3dd6",
+          "response_bytes_sha256": "f7bed4aa011576714130fe0da25be91ebe60a960267682910991a31523186a40"
+        },
+        {
+          "all_raw_bindings_render_settings_and_receipts_verified": true,
+          "case_id": "PTR.ARCHIVE.060",
+          "decision": {
+            "choice": "replan",
+            "expected_observation": "Reassessing: the visible control is a Documents popup menu item that opens a task-brief.txt from a different session's Workbench Input directory. That is not the corrections.json I need, and clicking it would load the wrong file. None of the offered pointer operations (click, double-click, right‑) a"
+          },
+          "receipt": {
+            "attempt_status": "response_received",
+            "attempted": true,
+            "case_id": "PTR.ARCHIVE.060",
+            "desktop_input_count": 0,
+            "elapsed_s": 1.593,
+            "finished_at": "2026-10-17T09:16:54.916008+00:00",
+            "request_bytes_sha256": "2f5439b47cf4cb69f83fad1e489117f9da53a323bd5a136a382b40cf50395c35",
+            "request_sha256": "57153a45df3c85e443657e951035dadd01fdf438896356f91b080f3622adf70b",
+            "response_bytes_sha256": "c2e6ae401f83459f95ac228ff235847c51284e5c4dfe0082da1f39ae5f8d0064",
+            "response_model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "started_at": "2026-10-17T09:16:53.323015+00:00",
+            "status_code": 200,
+            "whole_task_success_credit": false
+          },
+          "request_bytes_sha256": "2f5439b47cf4cb69f83fad1e489117f9da53a323bd5a136a382b40cf50395c35",
+          "response_bytes_sha256": "c2e6ae401f83459f95ac228ff235847c51284e5c4dfe0082da1f39ae5f8d0064"
+        }
+      ],
+      "recorded_context": 65536,
+      "run_json_sha256": "882df8cfea3cd9cb98ff98073ecbaa5a392dd7e88297b5d88ff5507d07a6c2a6",
+      "run_path": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/actual-ornith-handoff-only-20261017T091640Z",
+      "saved_gpu_evidence": [
+        {
+          "active_exact_gpu1_lease_verified": true,
+          "actual_processes": [
+            {
+              "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+              "other_selected_residency": [],
+              "pid": 264311,
+              "resident_on_gpu1": true
+            },
+            {
+              "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+              "other_selected_residency": [],
+              "pid": 267226,
+              "resident_on_gpu1": true
+            }
+          ],
+          "at": "2026-10-17T09:16:41.717041+00:00",
+          "snapshot": "broker_before"
+        },
+        {
+          "active_exact_gpu1_lease_verified": true,
+          "actual_processes": [
+            {
+              "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+              "other_selected_residency": [],
+              "pid": 264311,
+              "resident_on_gpu1": true
+            },
+            {
+              "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+              "other_selected_residency": [],
+              "pid": 267226,
+              "resident_on_gpu1": true
+            }
+          ],
+          "at": "2026-10-17T09:16:55.861072+00:00",
+          "snapshot": "broker_after"
+        }
+      ],
+      "whole_task_success_credit": false,
+      "worker_identities": {
+        "adapter": {
+          "pid": 265310,
+          "process_start": "9825403"
+        },
+        "controller": {
+          "pid": 259628,
+          "process_start": "9821988"
+        },
+        "kev": {
+          "pid": 267226,
+          "process_start": "9826723"
+        },
+        "point": {
+          "pid": 265086,
+          "process_start": "9825200"
+        },
+        "portal": {
+          "pid": 265465,
+          "process_start": "9825505"
+        },
+        "supervisor": {
+          "pid": 259729,
+          "process_start": "9822031"
+        },
+        "trunk": {
+          "pid": 264311,
+          "process_start": "9824864"
+        },
+        "tts": {
+          "pid": 265154,
+          "process_start": "9825302"
+        }
+      }
+    }
+  ],
+  "schema": "robit.omni.independent-s06-review.v1",
+  "separate_v2_grades": {
+    "GPU_residency_verified_by_this_tool": false,
+    "finite_choice_denominator": 4,
+    "finite_choices_correct": 1,
+    "grades": [
+      {
+        "case_id": "PTR.NEGATIVE.V2.010",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "b4032571070e667bf70511647fbfbd8e78081565993be6543d8715828a84a81e",
+        "response_file_sha256": "29dd6e7d828fca518fd386ae15f67d38dba8fba4fcdb0d4f8818dfda896064ee",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      }
+    ],
+    "pending_review": 0,
+    "planned_cells": 4,
+    "recorded_cells": 1,
+    "schema": "robit.omni.orchestration-panel-grades.v1",
+    "unrun_cells": [
+      {
+        "case_id": "PTR.NEGATIVE.V2.010",
+        "condition": "candidate",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.V2.010",
+        "condition": "baseline",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      },
+      {
+        "case_id": "PTR.NEGATIVE.V2.010",
+        "condition": "candidate",
+        "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+      }
+    ],
+    "whole_task_success_credit": false
+  },
+  "summary": {
+    "matched_ornith_archived_finite_baseline": {
+      "correct": 3,
+      "tested": 4
+    },
+    "matched_ornith_archived_finite_handoff_candidate": {
+      "correct": 4,
+      "tested": 4
+    },
+    "only_changed_matched_choice": "PTR.ARCHIVE.030: replan -> click_c4",
+    "v1_correct_finite_choices": 11,
+    "v1_planned_cells": 44,
+    "v1_recorded_cells": 17,
+    "v1_review_only_responses": 4,
+    "v1_tested_finite_choices": 13,
+    "v1_unrun_cells": 27,
+    "v2_correct_finite_choices": 1,
+    "v2_planned_cells": 4,
+    "v2_recorded_cells": 1,
+    "v2_unrun_cells": 3,
+    "whole_task_passes": 0
+  },
+  "verifier_actions": {
+    "desktop_inputs": 0,
+    "gpu_queries_or_lifecycle_calls": 0,
+    "inputs_or_oracles_edited": 0,
+    "model_calls": 0,
+    "service_calls": 0
+  },
+  "whole_task_success_credit": false
+}

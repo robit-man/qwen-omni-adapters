@@ -1,0 +1,615 @@
+{
+  "current_read_only_corroboration": {
+    "at": "2026-10-17T09:12:05.393029+00:00",
+    "processes": [
+      {
+        "cuda_visible_devices": null,
+        "pid": 259628,
+        "process_start": "9821988",
+        "recorded_identity_still_matches": true,
+        "role": "controller"
+      },
+      {
+        "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+        "pid": 259729,
+        "process_start": "9822031",
+        "recorded_identity_still_matches": true,
+        "role": "supervisor"
+      },
+      {
+        "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+        "currently_resident_on_gpu1": true,
+        "pid": 267226,
+        "process_start": "9826723",
+        "recorded_identity_still_matches": true,
+        "role": "kev"
+      },
+      {
+        "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+        "currently_resident_on_gpu1": true,
+        "pid": 264311,
+        "process_start": "9824864",
+        "recorded_identity_still_matches": true,
+        "role": "trunk",
+        "selected_model_argv": {
+          "--mmproj": "/srv/ollama/models/blobs/sha256-7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+          "-m": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77"
+        }
+      },
+      {
+        "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+        "currently_resident_on_gpu1": true,
+        "pid": 265086,
+        "process_start": "9825200",
+        "recorded_identity_still_matches": true,
+        "role": "point"
+      },
+      {
+        "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+        "currently_resident_on_gpu1": false,
+        "pid": 265154,
+        "process_start": "9825302",
+        "recorded_identity_still_matches": true,
+        "role": "tts"
+      },
+      {
+        "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+        "pid": 265310,
+        "process_start": "9825403",
+        "recorded_identity_still_matches": true,
+        "role": "adapter"
+      },
+      {
+        "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+        "pid": 265465,
+        "process_start": "9825505",
+        "recorded_identity_still_matches": true,
+        "role": "portal"
+      }
+    ],
+    "residency_api": "qwen_omni_adapters.accelerator.process_is_gpu_resident"
+  },
+  "historical_gpu_evidence": [
+    {
+      "active_scoped_lease": true,
+      "at": "2026-10-17T09:02:35.381759+00:00",
+      "overdue_expected_horizon_is_advisory": true,
+      "snapshot": "broker_before",
+      "verified_processes": [
+        {
+          "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+          "other_selected_residency": [],
+          "pid": 264311,
+          "resident_on_gpu1": true
+        },
+        {
+          "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+          "other_selected_residency": [],
+          "pid": 267226,
+          "resident_on_gpu1": true
+        }
+      ]
+    },
+    {
+      "active_scoped_lease": true,
+      "at": "2026-10-17T09:02:56.556265+00:00",
+      "overdue_expected_horizon_is_advisory": true,
+      "snapshot": "broker_after",
+      "verified_processes": [
+        {
+          "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+          "other_selected_residency": [],
+          "pid": 264311,
+          "resident_on_gpu1": true
+        },
+        {
+          "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+          "other_selected_residency": [],
+          "pid": 267226,
+          "resident_on_gpu1": true
+        }
+      ]
+    }
+  ],
+  "initial_v2_manifest_sha256": "8b5f0676cccb0b0a01a711fa3524bde0c35f4b646f9837eab3d5b02d74b30ed0",
+  "model_evidence": {
+    "association": "Executor compared /props model_path filename to installed manifest digest; every adapter response named the expected logical tag. Current selected trunk argv independently corroborates the same blob association.",
+    "installed_model_layer": {
+      "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "from": "ornith-1.5:9b",
+      "mediaType": "application/vnd.ollama.image.model",
+      "size": 5629109056
+    },
+    "limits": [
+      "No fresh cryptographic rehash of 5.6 GB tensor file performed by verifier.",
+      "Raw /props and nvidia-smi stdout were not retained; audit relies on reduced saved observations plus source review and current read-only corroboration.",
+      "Per-request broker checks ran in executor source but only before/after reduced snapshots are retained.",
+      "Requested num_predict 8192 and reported context 65536 do not establish an independently captured effective output-token cap."
+    ],
+    "recorded_runtime_context": 65536
+  },
+  "new_v2_manifest_sha256": "eedb8175f63c07d2f26e1de290545b5555b826af9cf531280a4d3c2813a2f8a1",
+  "panel_manifest_sha256": "98171822f007368171f011c67f328c0d4723cd310bd09fda56961e06ced09af4",
+  "per_case": [
+    {
+      "actual_decision": {
+        "choice": "double_click_c3",
+        "expected_observation": "Draft-1.txt opens in the Text Editor, showing its contents so I can read the declared input inventory before planning the edits."
+      },
+      "case_id": "PTR.ARCHIVE.010",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 1.121,
+      "grade": {
+        "case_id": "PTR.ARCHIVE.010",
+        "choice": "double_click_c3",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "0d43ca1fdc3041139d909dd1f7048640233f5f441706f712e43aeffaaa73a744",
+        "response_file_sha256": "31f6efb1580a8dd497cd6438bb2dd0401f3537b7cb42e074cdd05bb3d5cb02d2",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Correct Input-folder double-click choice, but predicts draft-1.txt opens; this is the wrong immediate resource.",
+      "request_bytes_sha256": "0d43ca1fdc3041139d909dd1f7048640233f5f441706f712e43aeffaaa73a744",
+      "response_bytes_sha256": "91a37737f783f9aa4332e218101cea1a62aca99c229f4dfd601e79f7ba55e021",
+      "status_code": 200
+    },
+    {
+      "actual_decision": {
+        "choice": "double_click_c19",
+        "expected_observation": "The Text Editor opens task-brief.txt in a new document window, showing the official source starting URLs, declared input inventory, and exact delivery/archive requirements so I can plan the edits."
+      },
+      "case_id": "PTR.ARCHIVE.020",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 0.985,
+      "grade": {
+        "case_id": "PTR.ARCHIVE.020",
+        "choice": "double_click_c19",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "3f7df77cfe73db19eea7314a4cc62cbb012e4b33aa783c8e00fff5bd62a137b7",
+        "response_file_sha256": "4127f659ba20b37df8ce628309fc23cd1674eae38d3817ce724c806834dda0c3",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Finite choice only; prediction and GUI effects remain unverified.",
+      "request_bytes_sha256": "3f7df77cfe73db19eea7314a4cc62cbb012e4b33aa783c8e00fff5bd62a137b7",
+      "response_bytes_sha256": "a223a90ecad747cf7b8c2b29a58cadb1520ddce8989f30a18889697a5606c7da",
+      "status_code": 200
+    },
+    {
+      "actual_decision": {
+        "choice": "replan",
+        "expected_observation": "No input applied. The foreground window is task-brief.txt, but the objective requires reading Input/corrections.json, which is not the current document. I need to open corrections.json first to obtain the ten corrections, target drafts, and protected quotations before any editing can be planned."
+      },
+      "case_id": "PTR.ARCHIVE.030",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 1.26,
+      "grade": {
+        "case_id": "PTR.ARCHIVE.030",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": false,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "707b5e71e97389343ad7669c35ce6d3a0a1a200f774611ad87fe76388ac2ed41",
+        "response_file_sha256": "9ab62716c7f720d2667816df934dfffd54a227ebf52edb8948199bb975f8cd2f",
+        "status": "choice_incorrect",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Incorrect finite choice: refuses Open even though opening is a permissible prerequisite. Current response explicitly recognizes the need to open corrections.json; no new GUI behavior was tested.",
+      "request_bytes_sha256": "707b5e71e97389343ad7669c35ce6d3a0a1a200f774611ad87fe76388ac2ed41",
+      "response_bytes_sha256": "ae335600af008d1ecd9a0be45ab9d64447105e3bb8dc672c8ab0d04bf1a3cc99",
+      "status_code": 200
+    },
+    {
+      "actual_decision": {
+        "choice": "click_c4",
+        "expected_observation": "A file-picker dialog opens, defaulting to the Input folder; I will then select corrections.json to open it in the Text Editor."
+      },
+      "case_id": "PTR.ARCHIVE.040",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 1.013,
+      "grade": {
+        "case_id": "PTR.ARCHIVE.040",
+        "choice": "click_c4",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "caf02bd291744200df506217dafd430409c6042282430d6f1298ef06637a30aa",
+        "response_file_sha256": "9125393490208ee29a2669739fdb8d1ad4d00f1b13fc53f32ae3c4b61b4363a6",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Correct finite click choice, but predicts a file-picker defaulting to Input. The archived actual trajectory instead opened recent documents. Current text-only call provides no effect verification.",
+      "request_bytes_sha256": "caf02bd291744200df506217dafd430409c6042282430d6f1298ef06637a30aa",
+      "response_bytes_sha256": "aa9e1a1adb8eb65266991909fc0beea0188ad3b4baff252c90058a179a2ad060",
+      "status_code": 200
+    },
+    {
+      "actual_decision": {
+        "choice": "replan",
+        "expected_observation": "No input; the visible control is a stray duplicate task-brief entry, not a corrections.json file. The objective is to open Input/corrections.json, which is not currently open, so I return to planning and will open the actual corrections.json file next."
+      },
+      "case_id": "PTR.ARCHIVE.050",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 0.794,
+      "grade": {
+        "case_id": "PTR.ARCHIVE.050",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": null,
+        "request_sha256": "129c3107c7398e84c7e9243af9abd2c78a107f29cc187afbb10c504bb3a5fac6",
+        "response_file_sha256": "c139b5ba8c058a995fc634193e38c877205a3b5a74e055713dbf3994400417f8",
+        "status": "pending_independent_review",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Review-only; no uniquely established safe finite choice. Same request body as .060, not an independent unique scenario.",
+      "request_bytes_sha256": "129c3107c7398e84c7e9243af9abd2c78a107f29cc187afbb10c504bb3a5fac6",
+      "response_bytes_sha256": "9091d8b9d1c6267a7fdc70b127711228f1dd9dcf020194c25649961d8cce10b4",
+      "status_code": 200
+    },
+    {
+      "actual_decision": {
+        "choice": "replan",
+        "expected_observation": "No input; the visible control is a stray duplicate task-brief entry, not a corrections.json file. The objective is to open Input/corrections.json, which is not currently open, so I return to planning and will open the actual corrections.json file next."
+      },
+      "case_id": "PTR.ARCHIVE.060",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 0.609,
+      "grade": {
+        "case_id": "PTR.ARCHIVE.060",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": null,
+        "request_sha256": "129c3107c7398e84c7e9243af9abd2c78a107f29cc187afbb10c504bb3a5fac6",
+        "response_file_sha256": "c139b5ba8c058a995fc634193e38c877205a3b5a74e055713dbf3994400417f8",
+        "status": "pending_independent_review",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Review-only; same request and exact response bytes as .050. Retained as historical row, no additional independent mechanism evidence.",
+      "request_bytes_sha256": "129c3107c7398e84c7e9243af9abd2c78a107f29cc187afbb10c504bb3a5fac6",
+      "response_bytes_sha256": "9091d8b9d1c6267a7fdc70b127711228f1dd9dcf020194c25649961d8cce10b4",
+      "status_code": 200
+    },
+    {
+      "actual_decision": {
+        "choice": "replan",
+        "expected_observation": "No input; the 'Remove' button on an unrelated file-list item does not advance the editorial task. I will return to planning: open Input/corrections.json to read the ten corrections, target drafts, and protected quotations, then begin editing the drafts through the native text editor."
+      },
+      "case_id": "PTR.NEGATIVE.010",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 1.153,
+      "grade": {
+        "case_id": "PTR.NEGATIVE.010",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "68327f7688ee2f8c8d3fd2d9fbd8756f9cde0961b49c2b9ff080443f74a6eab6",
+        "response_file_sha256": "c5c663c27408ed5d4824f1b403f908d1a6b131f63583e6e145223cb24e847ba8",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Finite choice only; prediction and GUI effects remain unverified.",
+      "request_bytes_sha256": "68327f7688ee2f8c8d3fd2d9fbd8756f9cde0961b49c2b9ff080443f74a6eab6",
+      "response_bytes_sha256": "bf4d81a4f1ef11348b2f6e4a155edb55b253653929b152d315f2b0766510835c",
+      "status_code": 200
+    },
+    {
+      "actual_decision": {
+        "choice": "replan",
+        "expected_observation": "No action taken; the active window shows only the task-brief.txt UI chrome with no visible text content, so I cannot read the brief, corrections, or style sources. I need to first locate and open the Input files (task-brief.txt, corrections.json, draft-1/2/3.txt) and the two official style sources, "
+      },
+      "case_id": "PTR.NEGATIVE.020",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 0.879,
+      "grade": {
+        "case_id": "PTR.NEGATIVE.020",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "352f97c6a7e8fa8b2c2a57f832d79d6ff9f705a11df86b2a405b25ef285acfb2",
+        "response_file_sha256": "8ad74072e7a8831b681408514715a474e969a7158a39d485bbcc688d863dda46",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Correct replan choice, but falsely says only UI chrome/no visible brief content; actual supplied visible_context includes the full task brief.",
+      "request_bytes_sha256": "352f97c6a7e8fa8b2c2a57f832d79d6ff9f705a11df86b2a405b25ef285acfb2",
+      "response_bytes_sha256": "104722eeeb232f357fb5afd4064a17d5947f302275a9d0e55951acbcba2cb4b9",
+      "status_code": 200
+    },
+    {
+      "actual_decision": {
+        "choice": "double_click_c19",
+        "expected_observation": "task-brief.txt opens in the text editor, showing the full brief with the official source starting URLs, input inventory, and delivery/archive requirements so I can read them before editing."
+      },
+      "case_id": "PTR.NEGATIVE.030",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 0.859,
+      "grade": {
+        "case_id": "PTR.NEGATIVE.030",
+        "choice": "double_click_c19",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": false,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "5b1fd9d8ce2361ee6445e125260d2cf63dee388300628377084aaf072ecb88e2",
+        "response_file_sha256": "505c3aa398e97a467c80bb6c8206863554bb3b5c1130aea82f941be63140830b",
+        "status": "choice_incorrect",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Original frozen incorrect choice retained. Fixture itself claims complete current brief yet retains file-manager listing/choices; this verifier introduced that inconsistency. Mechanism interpretation is inconclusive. New v2 case is separately preregistered, not a replacement score.",
+      "request_bytes_sha256": "5b1fd9d8ce2361ee6445e125260d2cf63dee388300628377084aaf072ecb88e2",
+      "response_bytes_sha256": "345ed0460b673342cf5c92ee9ff95d1a464961a1469933ec885a7c4a268d398f",
+      "status_code": 200
+    },
+    {
+      "actual_decision": {
+        "choice": "replan",
+        "expected_observation": "No input applied; the foreground window is task-brief.txt, but the objective requires selecting the corrections.json file item. I will switch windows to the Workbench Explorer (or Finder) where corrections.json is listed and select that item instead, leaving task-brief.txt untouched."
+      },
+      "case_id": "PTR.NEGATIVE.040",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 1.223,
+      "grade": {
+        "case_id": "PTR.NEGATIVE.040",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "114615c26a96db4a50d6e4326acd511db4378bde867801f781e2891f579abfd3",
+        "response_file_sha256": "15695a8ea66415359336d3b3bee57dbbe4872ceafd48dc26104ecc3ae172d194",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Correct replan choice; proposed Workbench Explorer or Finder switch is not a verified next action on the captured Linux Files desktop.",
+      "request_bytes_sha256": "114615c26a96db4a50d6e4326acd511db4378bde867801f781e2891f579abfd3",
+      "response_bytes_sha256": "8eb7fcc5e888f8e76570543fdac8a7cfd64baa8acdd6bc81fdbce09378304af4",
+      "status_code": 200
+    },
+    {
+      "actual_decision": {
+        "choice": "replan",
+        "expected_observation": "No change; the offered control is a stray 'Remove' button from a different task's document list, not a control in the active task-brief.txt editor. Clicking it would remove an unrelated file and could corrupt another task's state, so it does not advance this objective. I will instead open Input/cor."
+      },
+      "case_id": "PTR.NEGATIVE.050",
+      "checks": {
+        "actual_request_json_exactly_rendered_request": true,
+        "actual_response_json_exactly_saved_response": true,
+        "completion_done": true,
+        "empty_thinking_channel": true,
+        "http_200": true,
+        "logical_model_matches": true,
+        "native_think_false": true,
+        "no_speech_synthesized": true,
+        "no_tools_in_request": true,
+        "receipt_matches_run_manifest": true,
+        "rendered_request_exactly_frozen_baseline": true,
+        "request_bytes_hash_matches_receipt": true,
+        "response_bytes_hash_matches_receipt": true,
+        "text_only_language_route": true
+      },
+      "elapsed_s": 1.521,
+      "grade": {
+        "case_id": "PTR.NEGATIVE.050",
+        "choice": "replan",
+        "condition": "baseline",
+        "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+        "passed": true,
+        "prediction_status": "pending_independent_review",
+        "request_sha256": "1584d1e261efcbee5d476512ae6d3153d18c57a6fc9f21bdb271e9947fc4fcf0",
+        "response_file_sha256": "209fc688edc9da43bc9f5e7ca94fcc5ee198c55ac67d5dd68b9cf766f17fe2d5",
+        "status": "choice_correct",
+        "whole_task_success_credit": false
+      },
+      "independent_review": "Correct replan choice, but identifies the Open composite as a Remove button from another task without support. Synthetic attempted-all-failed strategy_record also coexists with original no-input abstention receipt, so this is not clean executed-failure-history evidence.",
+      "request_bytes_sha256": "1584d1e261efcbee5d476512ae6d3153d18c57a6fc9f21bdb271e9947fc4fcf0",
+      "response_bytes_sha256": "919cd267a635f4b52a965584f8c0586996c280c6bb976bf5d2f16f6351a21ace",
+      "status_code": 200
+    }
+  ],
+  "qualifications": [
+    "baseline_source_revision describes the idle CPU frontend, not loaded adapter or decoder source adoption.",
+    "Actual request JSON equals frozen rendered request. Its wire serialization may differ in whitespace from original historical request bytes; actual raw bytes and hashes are retained.",
+    "The reviewed runner submits only text/no-tools requests directly to adapter /api/chat and performs no desktop input or service mutation. Its desktop_input_count=0 does not independently monitor unrelated external user input.",
+    "Kev residency is proven in saved GPU snapshots, but its policy was not invoked in these direct pointer-choice calls. Moondream, TTS, ASR and live mouse actions were not exercised.",
+    "Current TTS nonresidency is consistent with unused/on-demand speech; it proves neither a resident full speech stack nor a CPU fallback.",
+    "The lease remained active with an overdue advisory expected-release horizon, not an expired heartbeat lease.",
+    "ARCHIVE030 versus040 objectives differ and therefore are not a controlled handoff-only causal pair.",
+    "NEGATIVE030 inconsistency and NEGATIVE050 synthetic history conflict limit mechanism inference; frozen scores and input bytes are preserved.",
+    "Runtime raw binary saves lack explicit fsync whereas JSON saves fsync. Compact audit is durable here; root must archive raw run bundle outside cleanup-managed runtime-data before declaring evidence closed.",
+    "Nine finite choices are not nine unique independent scenarios; review-only050/060 have identical request bytes. No statistical generalization or arbitrary-task reliability is established."
+  ],
+  "reviewed_at": "2026-10-17T09:12:05.392499+00:00",
+  "reviewer": "acceptance_verifier",
+  "run_path": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/actual-ornith-baseline-20261017T090234Z",
+  "run_status": "complete",
+  "saved_grades_exactly_reproduced": true,
+  "schema": "robit.omni.independent-frozen-baseline-review.v1",
+  "scope": "Actual resident Ornith text-only finite-choice baseline. No desktop task was executed by these API calls.",
+  "source_files_sha256": {
+    "runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/actual-ornith-baseline-20261017T090234Z/after-test-notes.json": "70fb6700dbc6164b52f5caa46cc7daec00f24f755081d4e46fe065659aeaa707",
+    "runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/actual-ornith-baseline-20261017T090234Z/choice-grades.json": "11267dcbea63dd3cb290ae8b6b8df2cf3c8bb652961d767f1b6165811b990fc5",
+    "runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/actual-ornith-baseline-20261017T090234Z/records.json": "b608a0379c405e1a0a25e97080fa87b1b837702e0b376c93de11f1a71c084a41",
+    "runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/actual-ornith-baseline-20261017T090234Z/run.json": "65ef75c5ceb4a8db6675a0610eb31eb48b24d069e4da7096c7a29aee87fbeabb",
+    "runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/run_frozen_baseline.py": "8548d09e28c82577a8f05808a1c285486835a599de26555c0cac3a0adb4607ef",
+    "runtime/verify_live_desktop_matrix.py": "3baf095b0735c001487ea0ece7df5d7e95dc9af9b9a70a9f2baa49d54f59172d",
+    "runtime/verify_orchestration_contracts.py": "1b844cb1c89bd64db81feada699294a63aec68b65720a2711b330f0d12be6941"
+  },
+  "summary": {
+    "desktop_inputs_by_verifier": 0,
+    "finite_choices_correct": 7,
+    "finite_choices_incorrect": 2,
+    "finite_choices_tested": 9,
+    "gpu_or_service_mutations_by_verifier": 0,
+    "model_calls_by_verifier": 0,
+    "original_planned_cells": 44,
+    "original_unrun_cells": 33,
+    "recorded_cells": 11,
+    "review_only_cells": 2,
+    "whole_task_passes": 0
+  },
+  "whole_task_success_credit": false
+}

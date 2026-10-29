@@ -1,0 +1,989 @@
+{
+  "artifact_integrity": {
+    "actual_proposal_bindings_checked": [
+      {
+        "actual_proposal_consumed_by_downstream": true,
+        "capture": "0003-bind_subgoal.json",
+        "proposal_response_row": 0
+      },
+      {
+        "actual_proposal_consumed_by_downstream": true,
+        "capture": "0012-bind_subgoal.json",
+        "proposal_response_row": 3
+      },
+      {
+        "actual_proposal_consumed_by_downstream": true,
+        "capture": "0021-bind_subgoal.json",
+        "proposal_response_row": 6
+      },
+      {
+        "actual_proposal_consumed_by_downstream": true,
+        "capture": "0025-bind_subgoal.json",
+        "proposal_response_row": 8
+      },
+      {
+        "actual_proposal_consumed_by_downstream": true,
+        "capture": "0029-bind_subgoal.json",
+        "proposal_response_row": 10
+      }
+    ],
+    "bundle_bytes_checked": 5827313,
+    "bundle_files_checked": 30,
+    "bundle_sha256": "07b2e2d62a79242d98960c63da9b23502110e4680633e7d6a905601ca37be334",
+    "decision_capture_files_checked": 29,
+    "model_response_schemas_checked": 12,
+    "planner_requests_checked": 12,
+    "raw_request_body_hashes_checked": 12,
+    "raw_response_body_hash_recomputed": false,
+    "response_content_canonical_digests_checked": 12,
+    "summary_sha256": "df079f178f3924eca97b36cc2f2079b1d4366b07f19b3c0907583985d7f10890"
+  },
+  "brief_readback_qualification": {
+    "diagnosis_limit": "Gnome Text Editor implicit final-newline handling is a possible explanation, not independently diagnosed here. Exact saved-input bytes remain unchanged.",
+    "downstream_model_input_rows_with_same_visible_brief_value": [
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "independent_exact_native_value_match": false,
+    "independent_readbacks": [
+      {
+        "document_evidence": {
+          "reason": "document_root_not_unique",
+          "source": "atspi.Document.DocURL",
+          "status": "unavailable"
+        },
+        "exact_bytes_equal": false,
+        "file": "ui-observations.jsonl",
+        "node_id": "atspi:9649e1217ec093afb5b11deffa0a2c64",
+        "node_role": "textbox",
+        "one_appended_LF_equals_source": true,
+        "row": 4,
+        "source_bytes": 1813,
+        "source_sha256": "fef12873697dda96e1eaafcedddfb334354839b7abc6c0bc3dd0cd45204c4e61",
+        "visible_value_bytes": 1812,
+        "visible_value_sha256": "f94c77814a1d8fc511d6a82327b6734f01e88cd87cbe6accf653ec7a95c47d5b"
+      },
+      {
+        "document_evidence": {
+          "reason": "document_root_not_unique",
+          "source": "atspi.Document.DocURL",
+          "status": "unavailable"
+        },
+        "exact_bytes_equal": false,
+        "file": "final-native.json",
+        "node_id": "atspi:9649e1217ec093afb5b11deffa0a2c64",
+        "node_role": "textbox",
+        "one_appended_LF_equals_source": true,
+        "row": 0,
+        "source_bytes": 1813,
+        "source_sha256": "fef12873697dda96e1eaafcedddfb334354839b7abc6c0bc3dd0cd45204c4e61",
+        "visible_value_bytes": 1812,
+        "visible_value_sha256": "f94c77814a1d8fc511d6a82327b6734f01e88cd87cbe6accf653ec7a95c47d5b"
+      }
+    ],
+    "initial_root_exact_match_count": 0,
+    "initial_root_exact_readback_report": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/qwen-atomic-whole-task-audit/task-brief-visible-readback.json",
+    "native_document_identity": "AT-SPI Document.DocURL unavailable: document_root_not_unique; window title identifies task-brief path and captured textbox text supports visible brief contents with byte qualification.",
+    "normalization_applied_to_frozen_oracle": false,
+    "one_trailing_LF_difference_only": true,
+    "semantic_claim_limit": "Visible source text and its presence in later actual planner requests are proven with the one-LF qualification. Correct first selection, exact file-byte acquisition receipt, comprehension of all contents, successful editing and task completion are not proven."
+  },
+  "case_id": "LHN-047",
+  "cleanup": {
+    "all_five_output_paths_independently_absent": {
+      "Archive/editorial-pack.zip": false,
+      "Edited/change-index.csv": false,
+      "Edited/draft-1.txt": false,
+      "Edited/draft-2.txt": false,
+      "Edited/draft-3.txt": false
+    },
+    "coverage": "preexisting managed-client-window XID/PID/start only; broader application/session configuration not measured",
+    "downstream_idle": true,
+    "five_input_hashes_recomputed_match": true,
+    "guard_stopped_before_terminal_flush": true,
+    "harness_state_restoration": "not fully proven by saved records",
+    "passive_foreground_guard_observations": 787,
+    "passive_guard_all_returned_owned": true,
+    "passive_guard_omissions": 0,
+    "positively_owned_polite_closures": [
+      {
+        "application": "files",
+        "candidate_xid": "65033112",
+        "closed": true,
+        "launch_pid": 2050199,
+        "launch_start": "15110748",
+        "pid": "4181345",
+        "polite_close_requested": true,
+        "process_start": "2637573",
+        "registered": true,
+        "window_class": "[Nn]autilus",
+        "window_id": "65033112"
+      },
+      {
+        "application": "gnome-text-editor",
+        "candidate_xid": "81789909",
+        "closed": true,
+        "expected_executable": "/usr/bin/gnome-text-editor",
+        "launch_pid": 2049639,
+        "launch_start": "15110680",
+        "pid": "3036686",
+        "polite_close_requested": true,
+        "process_start": "4365561",
+        "registered": true,
+        "window_class": "^gnome-text-editor$",
+        "window_id": "81789909"
+      },
+      {
+        "application": "browser",
+        "candidate_xid": "79691799",
+        "closed": true,
+        "launch_pid": 2048423,
+        "launch_start": "15110495",
+        "pid": "2048423",
+        "polite_close_requested": true,
+        "process_start": "15110495",
+        "registered": true,
+        "window_class": "[Ff]irefox",
+        "window_id": "79691799"
+      }
+    ],
+    "preexisting_managed_window_identities_preserved": 14
+  },
+  "confirmed_dispatches": [
+    {
+      "action": {
+        "args": {},
+        "description": "double_click table_cell Input",
+        "expect": [],
+        "generation": "1",
+        "id": "7d7cbe74c888420ba2a6fd5010b2dd8b",
+        "idempotency_key": "ddafd467e30530a8d79ee8c93877c0f851da425ba5be60ba869a0838c1cf668b",
+        "kind": "action",
+        "node_id": "atspi:1851083a5baa371b24ebd0d152ceb1c9",
+        "revision": "a5219ecf033f96c7b496120defb126db87f0f97c078d43a7f0af32478f48e25e",
+        "scope_id": "atspi:0fd11620b733b4e62b02dfecd329aed7",
+        "session_id": "5b6c5a3d39193d7c01531ef7cba0702477484c5fff30339993dfa0730f4d8bc7",
+        "verb": "double_click"
+      },
+      "after_has_brief_text": false,
+      "after_sha256": "4d358c320ad738d5ab27129138dbfff2def1060d3c463ac5efdd128214c227b4",
+      "before_sha256": "2cba7a340da375012e31e0bc427d3b76235deef0bd1dec6518aff6c7768d1e01",
+      "effect_receipt": {
+        "effect_state": "unknown",
+        "environment_may_have_changed": true,
+        "schema": "robit.omni.ui-effect-receipt.v1"
+      },
+      "phase": 2,
+      "receipt": {
+        "backend": "x11_guarded_xtest",
+        "point_receipt": {
+          "candidate_id": "atspi:1851083a5baa371b24ebd0d152ceb1c9",
+          "capture_root": {
+            "geometry": {
+              "height": 2500,
+              "width": 1440,
+              "x": 0,
+              "y": 0
+            },
+            "window_id": "492"
+          },
+          "capture_source": "x11_root_screen",
+          "content_region": {
+            "content": {
+              "height": 616,
+              "width": 850,
+              "x": 44,
+              "y": 32
+            },
+            "frame_extents": {
+              "bottom": 67,
+              "left": 61,
+              "right": 61,
+              "top": 55
+            },
+            "space": "window",
+            "surface": {
+              "height": 738,
+              "width": 972,
+              "x": -17,
+              "y": -23
+            },
+            "window_id": "65033112"
+          },
+          "frame_sha256": "2b842cd9b0c5b09c948242de6d0a7181e1bef331724c73dedf5ba5081c3dea8c",
+          "geometry": {
+            "height": 738,
+            "width": 972,
+            "x": -17,
+            "y": -23
+          },
+          "identity": {
+            "process_id": 4181345,
+            "window_id": "65033112"
+          },
+          "image_geometry": {
+            "height": 616,
+            "width": 850,
+            "x": 44,
+            "y": 32
+          },
+          "model": "moondream/moondream3.1-9B-A2B",
+          "native_probe": {
+            "binding": {
+              "bounds": {
+                "height": 44,
+                "width": 476,
+                "x": 248,
+                "y": 124
+              },
+              "generation": "1",
+              "node_id": "atspi:1851083a5baa371b24ebd0d152ceb1c9",
+              "revision": "a53871c7da4555d5ab8e35946c2151a44be506b6939e1417198d03c2ed5f4110",
+              "scope_id": "atspi:0fd11620b733b4e62b02dfecd329aed7",
+              "session_id": "5b6c5a3d39193d7c01531ef7cba0702477484c5fff30339993dfa0730f4d8bc7",
+              "verb": "double_click"
+            },
+            "complete": true,
+            "coordinate_binding": {
+              "content": {
+                "height": 616,
+                "width": 850,
+                "x": 44,
+                "y": 32
+              },
+              "frame_extents": {
+                "bottom": 67,
+                "left": 61,
+                "right": 61,
+                "top": 55
+              },
+              "space": "window",
+              "surface": {
+                "height": 738,
+                "width": 972,
+                "x": -17,
+                "y": -23
+              },
+              "window_id": "65033112"
+            },
+            "geometry": {
+              "height": 738,
+              "width": 972,
+              "x": -17,
+              "y": -23
+            },
+            "identity": {
+              "process_id": 4181345,
+              "window_id": "65033112"
+            },
+            "input_attempted": false,
+            "point": {
+              "x": 486,
+              "y": 146
+            },
+            "process_start": "2637573",
+            "reason": "native_hit_null",
+            "schema": "robit.omni.native-pointer-probe.v1",
+            "status": "provider_unknown"
+          },
+          "pixel_offset": {
+            "x": 61,
+            "y": 55
+          },
+          "point": {
+            "x": 0.3125,
+            "y": 0.1845703125
+          },
+          "process_start": "2637573",
+          "revision": "1da27e6c2d2f9118de14560df456881dc62d91f3",
+          "schema": "robit.omni.native-point.v1",
+          "semantic_revision": "a53871c7da4555d5ab8e35946c2151a44be506b6939e1417198d03c2ed5f4110",
+          "semantic_target": {
+            "bounds": {
+              "height": 44,
+              "width": 476,
+              "x": 248,
+              "y": 124
+            },
+            "generation": "1",
+            "id": "atspi:1851083a5baa371b24ebd0d152ceb1c9",
+            "scope_id": "atspi:0fd11620b733b4e62b02dfecd329aed7"
+          },
+          "source_frame_sha256": "8cbf1ea4ec864ec70e8864c8a96d5577b6ebad09e0f2b3a825b0c37a46fd46c0",
+          "source_image_geometry": {
+            "height": 715,
+            "width": 955,
+            "x": 0,
+            "y": 0
+          }
+        },
+        "reason": "native_pointer_invoked",
+        "status": "dispatched"
+      },
+      "status": "observed_unverified",
+      "target_before": {
+        "bounds": {
+          "height": 44,
+          "width": 476,
+          "x": 248,
+          "y": 124
+        },
+        "enabled": true,
+        "focused": false,
+        "generation": "1",
+        "id": "atspi:1851083a5baa371b24ebd0d152ceb1c9",
+        "name": "Input",
+        "operations": [
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll"
+        ],
+        "role": "table_cell",
+        "scope_id": "atspi:0fd11620b733b4e62b02dfecd329aed7",
+        "sensitive": false,
+        "structure": {
+          "ancestors": [
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:1f8816fa16167d3977839464046a2243",
+              "name": "",
+              "role": "tree_table",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:b8afcde4fab3cac89133b18621177daf",
+              "name": "",
+              "role": "list",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:1eefcae03ee2496f35f8c189db458aa5",
+              "name": "Input",
+              "role": "table_row",
+              "visible": true
+            }
+          ],
+          "child_index": 0,
+          "parent_id": "atspi:1eefcae03ee2496f35f8c189db458aa5"
+        },
+        "visible": true
+      }
+    },
+    {
+      "action": {
+        "args": {},
+        "description": "double_click window Input",
+        "expect": [],
+        "generation": "1",
+        "id": "382ed346cc454cfdb69eaa657ef0d11d",
+        "idempotency_key": "0e344436f22cecff06ec49e0bcdfaabe288ef6d5f374496778f0873bcd2b7393",
+        "kind": "action",
+        "node_id": "atspi:0fd11620b733b4e62b02dfecd329aed7",
+        "revision": "ffb964c1ffa7a7eec2819b4db8f3bcb08e4abb28a3d5782b03bc11f56a00dcdf",
+        "scope_id": "atspi:0fd11620b733b4e62b02dfecd329aed7",
+        "session_id": "5b6c5a3d39193d7c01531ef7cba0702477484c5fff30339993dfa0730f4d8bc7",
+        "verb": "double_click"
+      },
+      "after_has_brief_text": false,
+      "after_sha256": "dbc967d6e88cf2ff68e1c6058da4cc7a695413d1190821b47640d33fd8b7d218",
+      "before_sha256": "6e8e2ffebdb80b43f279e275c3aa70f638e09ba3deab715cb298dea6a60ae06f",
+      "effect_receipt": {
+        "effect_state": "unknown",
+        "environment_may_have_changed": true,
+        "schema": "robit.omni.ui-effect-receipt.v1"
+      },
+      "phase": 4,
+      "receipt": {
+        "backend": "x11_guarded_xtest",
+        "reason": "native_pointer_invoked",
+        "status": "dispatched"
+      },
+      "status": "observed_unverified",
+      "target_before": {
+        "bounds": {
+          "height": 616,
+          "width": 850,
+          "x": 44,
+          "y": 32
+        },
+        "enabled": true,
+        "focused": false,
+        "generation": "1",
+        "id": "atspi:0fd11620b733b4e62b02dfecd329aed7",
+        "name": "Input",
+        "operations": [
+          "click",
+          "double_click",
+          "drag_drop",
+          "right_click",
+          "scroll",
+          "key_chord",
+          "switch_window"
+        ],
+        "role": "window",
+        "scope_id": "atspi:0fd11620b733b4e62b02dfecd329aed7",
+        "sensitive": false,
+        "structure": {
+          "ancestors": [],
+          "child_index": 1
+        },
+        "visible": true
+      }
+    }
+  ],
+  "criterion_verdicts": [
+    {
+      "criterion_id": "LHN-047-C01",
+      "evidence_refs": [
+        "summary.json",
+        "events.ndjson",
+        "final_file_evidence",
+        "native-outcomes-index.json"
+      ],
+      "frozen_oracle": "Derive the full expected UTF-8 bytes for each of the three output drafts by applying each unique declared exact_before/exact_after correction once to its matching immutable input. Compare the entire final file bytes, not substring presence. Preserve the raw input bytes.",
+      "mandatory": true,
+      "original_assertion": "Exactly the ten specified source spans change; protected and similar passages remain byte-identical",
+      "reason": "All three Edited draft outputs are absent. No corrections were authored. The five immutable input byte digests are unchanged; unchanged inputs do not satisfy edited-output correctness.",
+      "verdict": "fail"
+    },
+    {
+      "criterion_id": "LHN-047-C02",
+      "evidence_refs": [
+        "summary.json",
+        "events.ndjson",
+        "final_file_evidence",
+        "native-outcomes-index.json"
+      ],
+      "frozen_oracle": "Parse the saved change-index as CSV, map its declared columns to draft identifier, exact old text and exact new text, and compare its ten unique data records as a multiset to the ten sealed correction triples. Header names/order are not predeclared; use an independently recorded column interpretation rather than inventing a new header requirement. Any explanatory columns may not contradict the matching triples.",
+      "mandatory": true,
+      "original_assertion": "Ten unique index entries identify the correct draft and exact old/new text",
+      "reason": "Edited/change-index.csv is absent; no ten-record source-bound change index exists.",
+      "verdict": "fail"
+    },
+    {
+      "criterion_id": "LHN-047-C03",
+      "evidence_refs": [
+        "summary.json",
+        "events.ndjson",
+        "final_file_evidence",
+        "native-outcomes-index.json"
+      ],
+      "frozen_oracle": "Review the two editorial justifications against the independently frozen, relevant official GOV.UK/Microsoft source sections acquired by the solver. Require two distinct supported explanations tied to the requested editorial scope and exact URL/section authority; do not require a hidden wording or unsupported extra edit. If the frozen brief does not prescribe where explanations are stored, accept an unambiguous retained final response or requested output that contains them, and record the location.",
+      "mandatory": true,
+      "original_assertion": "Two style explanations match captured official guidance without authorizing additional edits",
+      "reason": "No two delivered editorial justifications and no solver-acquired official guidance content. Host readiness/source-reference fetches remain evaluator evidence only.",
+      "verdict": "fail"
+    },
+    {
+      "criterion_id": "LHN-047-C04",
+      "evidence_refs": [
+        "summary.json",
+        "events.ndjson",
+        "final_file_evidence",
+        "native-outcomes-index.json"
+      ],
+      "frozen_oracle": "For each required source id, bind real GUI navigation input to a fresh owned browser document/resource identity and visible relevant content after navigation. Match the actual source URL/origin and section to the independently frozen primary reference. Typing a URL, browser focus, loading blank content, an address-field value alone or an observer network fetch cannot establish acquisition. Redirects within actual official authority must be recorded and reviewed.",
+      "mandatory": true,
+      "original_assertion": "Relevant official pages and visible sections were actually acquired through native GUI navigation",
+      "reason": "Neither physical input targeted the browser and no official-page navigation/content acquisition appears in the complete trace. A brief containing source URLs is not acquisition of the official pages.",
+      "verdict": "fail"
+    },
+    {
+      "criterion_id": "LHN-047-C05",
+      "evidence_refs": [
+        "summary.json",
+        "events.ndjson",
+        "final_file_evidence",
+        "native-outcomes-index.json"
+      ],
+      "frozen_oracle": "Independently inspect all five exact Workbench-relative output paths. Verify UTF-8 drafts and CSV parse and satisfy C01-C03; verify ZIP structure and C09. Confirm all requested deliverables remain under the owned Workbench with no path substitution, symlink escape or copied unrelated data. File existence is necessary but insufficient.",
+      "mandatory": true,
+      "original_assertion": "All declared final outputs exist in exact owned paths and have validated content, not merely filenames",
+      "reason": "All five exact required output paths are absent by independent Workbench inventory. No filename-only or semantic-completeness pass.",
+      "verdict": "fail"
+    },
+    {
+      "criterion_id": "LHN-047-C06",
+      "evidence_refs": [
+        "summary.json",
+        "events.ndjson",
+        "final_file_evidence",
+        "native-outcomes-index.json"
+      ],
+      "frozen_oracle": "Use current, post-save native observations to prove the solver reopened and inspected all edited drafts and the saved index/archive copy as required by the original goal. Bind reopened resource identity/path and relevant corrected/protected content to independently read disk bytes from the same final environment version. Opening a similarly named old document or trusting the unsaved buffer is insufficient. Preserve actual observed limitations as inconclusive.",
+      "mandatory": true,
+      "original_assertion": "Native apps reopened and inspected saved deliverables; current view agrees with actual disk",
+      "reason": "No outputs were saved, so no saved deliverable could be reopened and checked. Opening the input brief does not satisfy post-save output reopening.",
+      "verdict": "fail"
+    },
+    {
+      "criterion_id": "LHN-047-C07",
+      "evidence_refs": [
+        "summary.json",
+        "events.ndjson",
+        "final_file_evidence",
+        "native-outcomes-index.json"
+      ],
+      "frozen_oracle": "Audit the complete execution trace and allowed tool calls. Require actual guarded XTest type_text input for authored content and at least one actual physical mouse Save/delivery-control input, with pointer movement during the task, current XID/PID/start/focus/geometry guards and unique idempotency bindings. Also inspect typed content and URLs for prohibited terminal, developer-console, macro/script or direct solver paths. A generic pointer elsewhere does not prove the specifically requested Save/delivery mouse action.",
+      "mandatory": true,
+      "original_assertion": "Actual keyboard and physical mouse input occurred through the guarded native controller with no prohibited solver path",
+      "reason": "Two guarded physical double-clicks and pointer movement are recorded, but zero type_text/authored-text inputs and zero Save/delivery-control mouse inputs. Allowed tool trace is native_ui only and contains no shell, developer-console, macro or direct-file solver path; the required positive input method is still absent.",
+      "verdict": "fail"
+    },
+    {
+      "criterion_id": "LHN-047-C08",
+      "evidence_refs": [
+        "summary.json:initial_input_hashes/final_file_evidence/cleanup/unrelated_windows_before/unrelated_windows_after",
+        "window-ownership.json",
+        "passive-foreground-capture.json",
+        "read-only post-task worker identity supplement"
+      ],
+      "frozen_oracle": "Compare every declared input byte/hash before/final and the complete preexisting managed-window XID/PID/start inventory before/after. Check task scope and owned transients at dispatch, polite exact-owned cleanup with no unknown-ownership closure, original harness state restoration, GPU worker preservation during CPU-only candidate use and eventual verified inference idle. Record asynchronous cleanup at its actual deadline; later disappearance cannot retroactively pass an earlier failed cleanup.",
+      "mandatory": true,
+      "original_assertion": "Declared inputs/unrelated windows are preserved and only positively owned windows were closed",
+      "reason": "Declared input hashes,14 preexisting managed-window identities,3 positive-owned polite cleanup receipts,787 owned foreground guard returns and downstream idle pass narrow preservation checks. All 8recorded worker PID/start identities match a read-only post-task /proc check. Runner worker snapshots are unavailable; complete original harness configuration/state restoration and allocator/residency preservation are not proven, so expanded frozen C08 cannot be fully passed.",
+      "verdict": "inconclusive_full_contract_narrow_preservation_checks_pass"
+    },
+    {
+      "criterion_id": "LHN-047-C09",
+      "evidence_refs": [
+        "summary.json",
+        "events.ndjson",
+        "final_file_evidence",
+        "native-outcomes-index.json"
+      ],
+      "frozen_oracle": "Parse the saved ZIP. Its file members are exactly Edited/draft-1.txt, Edited/draft-2.txt, Edited/draft-3.txt and Edited/change-index.csv, without duplicates or extra wrapper. Each decoded member byte string equals its final corresponding file. Only optional parent directory entries are allowed; reject invalid ZIPs, symlinks and unsafe paths.",
+      "mandatory": true,
+      "original_assertion": "Archive contains exactly the case's declared deliverables and permitted input/source assets; no unrelated or missing member",
+      "reason": "Archive/editorial-pack.zip is absent; exact required member set and member bytes cannot pass.",
+      "verdict": "fail"
+    },
+    {
+      "criterion_id": "LHN-047-C10",
+      "evidence_refs": [
+        "summary.json",
+        "events.ndjson",
+        "final_file_evidence",
+        "native-outcomes-index.json"
+      ],
+      "frozen_oracle": "Find the actual successful source-bound memory_write near completion. After the task reaches natural idle, use the original frozen memory-followup goal in a fresh same-cookie text turn with only memory_search allowed. Require an actual search result and compare returned exact verified output paths, official source URLs and the source-bound finding/constraint to independently verified task/source artifacts. Preserve the current five-minute TTL; do not inject the answer or reuse the completed conversational turn.",
+      "mandatory": true,
+      "original_assertion": "Fresh same-cookie turn obtains exact paths, sources and finding via actual memory_search without GUI/file work",
+      "reason": "No successful memory_write and no fresh same-cookie memory_search follow-up; task blocked before completion. No answer was injected for evaluator convenience.",
+      "verdict": "fail"
+    }
+  ],
+  "delegation_evidence": {
+    "actual_point_HTTP_response": {
+      "at": "2026-10-17T10:09:32.931451+00:00",
+      "event": "point_http_response",
+      "request_png_sha256": "2b842cd9b0c5b09c948242de6d0a7181e1bef331724c73dedf5ba5081c3dea8c",
+      "request_wall_s": 14.148418027994921,
+      "response_body_sha256": "fc6026a1dd030774e2056a7c0bddf8839c7cb578a48e59dac7cbd6339a712b7a",
+      "response_json": {
+        "model": "moondream/moondream3.1-9B-A2B",
+        "points": [
+          {
+            "x": 0.3125,
+            "y": 0.1845703125
+          }
+        ],
+        "revision": "1da27e6c2d2f9118de14560df456881dc62d91f3"
+      },
+      "sequence": 4,
+      "status_code": 200,
+      "timing_scope": "HTTP point request including worker load/inference/shed; not isolated engine-load time"
+    },
+    "model_confirmed_policy_receipts": 2,
+    "point_claim_limit": "One actual pinned MD3.1 point request, HTTP200 and exact PNG hash match. This is pointing evidence only; no visual reading, generic accuracy or semantic completion claim.",
+    "point_png_files_verified": 6,
+    "point_receipts_unique": 1,
+    "policy_receipts": [
+      {
+        "candidate_ids": [
+          "intent-0",
+          "intent-1",
+          "intent-2",
+          "intent-observe",
+          "intent-abstain"
+        ],
+        "context_sha256": "ccda073b20caf4591dce1a5a07d6513b4001c6640d1fa2351ced4a1f188c4965",
+        "decision_purpose": "primitive_intent",
+        "id": "356bc80c71ef481e839a8d69246259ed",
+        "input_authority": false,
+        "intent_bank_sha256": "c851b3e8b2f0f1f16c19234c55ec6d190307514125339987db4606a27f9e34aa",
+        "latency_ms": 2137.098008999601,
+        "mode": "active",
+        "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+        "model_confirmed": true,
+        "policy_choice": "intent-1",
+        "probabilities": {
+          "intent-0": 0.2055,
+          "intent-1": 0.6103,
+          "intent-2": 0.019,
+          "intent-abstain": 0.0969,
+          "intent-observe": 0.0682
+        },
+        "probability_kind": "native",
+        "reply_sha256": "475fcc9c42298a4b7a07180fd96529f5ca78a3f3c3d9a22ef42d4166aeee55fb",
+        "request_sha256": "a9d8e37b510890fb1a1e4350fd0dced3e0b15f7f70df7f0d5e23038e07d8e07b",
+        "schema": "robit.omni.ui-policy-receipt.v1",
+        "selected_action_id": "intent-abstain",
+        "state_revision": "a53871c7da4555d5ab8e35946c2151a44be506b6939e1417198d03c2ed5f4110",
+        "status": "accepted"
+      },
+      {
+        "candidate_ids": [
+          "intent-0",
+          "intent-1",
+          "intent-2",
+          "intent-observe",
+          "intent-abstain"
+        ],
+        "context_sha256": "46c641fb924a9ef45a3e869ca3850ffb7662011037dfdcc9ad19d6e031fa1812",
+        "decision_purpose": "primitive_intent",
+        "id": "6fc2f39927fe4b0b91d28807215be76a",
+        "input_authority": false,
+        "intent_bank_sha256": "0750f89b3a2b2693bc705f3fa1d15c92552650ea87e404fdcfce570e9ecf112e",
+        "latency_ms": 1823.9313410012983,
+        "mode": "active",
+        "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+        "model_confirmed": true,
+        "policy_choice": "intent-1",
+        "probabilities": {
+          "intent-0": 0.1266,
+          "intent-1": 0.7367,
+          "intent-2": 0.0113,
+          "intent-abstain": 0.0769,
+          "intent-observe": 0.0485
+        },
+        "probability_kind": "native",
+        "reply_sha256": "412fc0193c6597749d8e2cc729ee956a9b9b85f18963c15843fd51538c2bf2d9",
+        "request_sha256": "0277239dacb7de53bbca1b2f603fe12dc5f488a15743de70b6464fca1869faf3",
+        "schema": "robit.omni.ui-policy-receipt.v1",
+        "selected_action_id": "intent-abstain",
+        "state_revision": "ffb964c1ffa7a7eec2819b4db8f3bcb08e4abb28a3d5782b03bc11f56a00dcdf",
+        "status": "accepted"
+      },
+      {
+        "candidate_ids": [
+          "intent-0",
+          "intent-1",
+          "intent-2",
+          "intent-observe",
+          "intent-abstain"
+        ],
+        "context_sha256": "fc80808ec79e1b32b51370c1ab4df6bc5fd0780200d88796c8fac473944a3a59",
+        "decision_purpose": "primitive_intent",
+        "id": "6b082e49a2bd43e29992bb6baadfad2a",
+        "input_authority": false,
+        "intent_bank_sha256": "553e1163b49ba1a4d5db789310ae38025993409d6c311bd45252ec8df4c81d23",
+        "latency_ms": 0.03938097506761551,
+        "mode": "active",
+        "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+        "reason": "ValueError",
+        "request_sha256": "2875a523126afe4916d76be6e06b6e96bc5a41eeaacd1df235d6c409d899ab94",
+        "schema": "robit.omni.ui-policy-receipt.v1",
+        "selected_action_id": "intent-abstain",
+        "state_revision": "69ada24a381a8d0591f70ad20931bfb960b0a8b50d600763250cb9394756d034",
+        "status": "rejected"
+      },
+      {
+        "candidate_ids": [
+          "intent-0",
+          "intent-1",
+          "intent-2",
+          "intent-observe",
+          "intent-abstain"
+        ],
+        "context_sha256": "ce9d3f2e891c048e6228e8214a0d1924d1b50fd6cd728c90abdb5d6c3c4c0ce2",
+        "decision_purpose": "primitive_intent",
+        "id": "093df360df424200be2babc6343d01e0",
+        "input_authority": false,
+        "intent_bank_sha256": "553e1163b49ba1a4d5db789310ae38025993409d6c311bd45252ec8df4c81d23",
+        "latency_ms": 0.03877200651913881,
+        "mode": "active",
+        "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+        "reason": "ValueError",
+        "request_sha256": "d4806235c4ac8f946f068a6c0f0f63329fde55aecfe6b84dd508308a986ffe83",
+        "schema": "robit.omni.ui-policy-receipt.v1",
+        "selected_action_id": "intent-abstain",
+        "state_revision": "69ada24a381a8d0591f70ad20931bfb960b0a8b50d600763250cb9394756d034",
+        "status": "rejected"
+      }
+    ],
+    "policy_receipts_unique": 4,
+    "rejected_policy_receipts_without_model_confirmation": 2,
+    "rejected_receipt_claim_limit": "Two rejected ValueError receipts at roughly0.039ms are not additional proven model calls. Exact provider exception cause is under separate diagnosis; no inference from latency alone.",
+    "tts_or_asr_used": false
+  },
+  "diagnosis_examples": [
+    {
+      "capture": "decision-bindings/0012-bind_subgoal.json",
+      "inference_limit": "Task-brief row may exist outside projection; no claim it is absent from desktop. A window-level anchor is not a file-level target.",
+      "model_behavior": "First proposal names task-brief row but selects c0; downstream keeps c0. Captured strict source binding succeeds on the wrong semantic referent.",
+      "observation": "Actual source controls expose Input window c0, corrections.json and draft1/draft2 rows; task-brief.txt row is absent from the offered controls. Projection omits309 of325visible nodes and explicitly cannot prove absence.",
+      "phase": 3
+    },
+    {
+      "action_id": "382ed346cc454cfdb69eaa657ef0d11d",
+      "inference_limit": "This does not establish precise targeting or reliable generalization. Host verified neither opaque input effect; retained effect_state=unknown remains honest.",
+      "model_behavior": "The predicted brief-opening outcome occurs, but typed target is broader than intended file referent.",
+      "observation": "Actual dispatch is double_click on role=window,name=Input, not a task-brief file control. Later Editor native state contains the brief text.",
+      "phase": 4
+    },
+    {
+      "capture": "decision-bindings/0021-bind_subgoal.json",
+      "inference_limit": "No claim a text field must never be clicked; observed task need here is source reading/new file navigation and no independent pointer need is supplied.",
+      "model_behavior": "Model says fullbrief visible and needs corrections.json, but retains read-brief objective and chooses pointer_or_activation(c3). The prose asks scroll although typed family is pointer.",
+      "observation": "c3 already focused and contains the brief text. Actual later request carries that value.",
+      "phase": 5
+    },
+    {
+      "capture": "decision-bindings/0025-bind_subgoal.json",
+      "inference_limit": "Receipt latency alone is not proof of model inference or precise exception origin.",
+      "model_behavior": "Repeats same pointer anchor and read-brief objective while acknowledging content visible; model policy receipt rejected ValueError and input not dispatched.",
+      "observation": "Same focused brief text remains current and prior pointer proposal abstained.",
+      "phase": 6
+    },
+    {
+      "capture": "adapter-phase-responses.jsonl:11",
+      "inference_limit": "A valid local replan does not satisfy original task; no hypothetical next-step success is credited.",
+      "model_behavior": "Controller preserves it as no-input replan, then terminates after three consecutive invalid/unverified phases.",
+      "observation": "Actual downstream reply explicitly requests replan because current brief visible and corrections.json is next need.",
+      "phase": 7
+    }
+  ],
+  "frontend_path": "/tmp/qwen-atomic-anchor-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/qwen-20261017T100256041922Z",
+  "limits": [
+    "Failure is established by missing mandatory outputs regardless of partial brief visibility.",
+    "This is one Qwen LHN047 attempt on a frozen atomic-contract stage; it is not paired identical-source whole-task evidence against Ornith, and its count/duration cannot rank models.",
+    "The first attempt stopped after7phases, well below40phasecap and1800s timeout; neither budget exhaustion nor A100 capacity is established as this failure cause.",
+    "The declared500inputceiling is unenforced; only2physical inputs occurred. This remains a method gap, not an exhausted limit.",
+    "Raw request UTF8 and canonical response-content digests are checked. Captured observer response_json plus body hash/bytecount are retained; raw HTTP response bytes are not independently available here, so raw-response-wire verification is not claimed.",
+    "No full end-to-end desktop, application, website, memory, microphone or speech-loop pass. Original100task/model/host acceptance scope remains outstanding."
+  ],
+  "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+  "phase_results": [
+    {
+      "error": null,
+      "input_attempted": false,
+      "kind": "ui_subgoal",
+      "ok": false,
+      "phase": 1,
+      "reason": "intent_policy_abstained",
+      "result_status": "abstained",
+      "task_progress": false,
+      "verified": false
+    },
+    {
+      "error": null,
+      "input_attempted": true,
+      "kind": "ui_pointer_recovery",
+      "ok": true,
+      "phase": 2,
+      "reason": "One input observed; no effect predicate or progress verified",
+      "result_status": "observed_unverified",
+      "task_progress": false,
+      "verified": false
+    },
+    {
+      "error": null,
+      "input_attempted": false,
+      "kind": "ui_subgoal",
+      "ok": false,
+      "phase": 3,
+      "reason": "intent_policy_abstained",
+      "result_status": "abstained",
+      "task_progress": false,
+      "verified": false
+    },
+    {
+      "error": null,
+      "input_attempted": true,
+      "kind": "ui_pointer_recovery",
+      "ok": true,
+      "phase": 4,
+      "reason": "One input observed; no effect predicate or progress verified",
+      "result_status": "observed_unverified",
+      "task_progress": false,
+      "verified": false
+    },
+    {
+      "error": null,
+      "input_attempted": false,
+      "kind": "ui_subgoal",
+      "ok": false,
+      "phase": 5,
+      "reason": "intent_policy_abstained",
+      "result_status": "abstained",
+      "task_progress": false,
+      "verified": false
+    },
+    {
+      "error": null,
+      "input_attempted": false,
+      "kind": "ui_subgoal",
+      "ok": false,
+      "phase": 6,
+      "reason": "intent_policy_abstained",
+      "result_status": "abstained",
+      "task_progress": false,
+      "verified": false
+    },
+    {
+      "error": "native_planner_requested_replan",
+      "input_attempted": false,
+      "kind": "replan",
+      "ok": null,
+      "phase": 7,
+      "reason": "Planner requested replanning; its reason is an unverified claim: The task-brief.txt content is already fully visible and confirmed in the current observation; the prior pointer_or_activation attempt was abstained by policy. The next unmet need is to read Input/corrections.json for the ten corrections, which requires opening that file rather than re-activating the brief text box.",
+      "result_status": null,
+      "task_progress": false,
+      "verified": false
+    }
+  ],
+  "reviewed_at": "2026-10-17T10:20:24.062640+00:00",
+  "reviewer": "acceptance_verifier",
+  "run_path": "/tmp/qwen-atomic-anchor-live-20261017/runtime-data/gpu1-acceptance/long-horizon/qwen-LHN-047-atomic-contract-20261017T100514Z",
+  "schema": "robit.omni.independent-qwen-whole-task-review.v1",
+  "source": {
+    "frozen_whole_task_acceptance_sha256": "50bb82e80e1b3790c66c56bc85746f9d81069c0482cdbf3273c733d293e786df",
+    "future_root_candidate_source_compared_to_deployed_stage": false,
+    "loaded_source_attestation": "runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/qwen-candidate-loaded-code-verification.json",
+    "loaded_stage_module_hashes_verified": 12,
+    "loaded_timeout_s": 1800,
+    "reviewed_frozen_stage": "/tmp/qwen-atomic-anchor-live-20261017",
+    "runner_source_before_after_equal": true,
+    "setup_and_oracle_notes": "Original case signature and goal unchanged. Explicit Gnome Text Editor host condition, fresh3window private scope, text-only goal. Host official-source reference bytes are evaluation-only and never substitute for GUI acquisition. Source and policy remain frozen during task.",
+    "source_revision_context_is_not_code_adoption": "24f1691767e61c94350fe0610c20036d0eec560b is checkout revision context. Source hashes and loaded-module report are the adoption evidence.",
+    "stage_source_hashes_verified": {
+      "portal/app.py": "df98313232d7e1ca51f49870198f93a55a94e0ea99b10fd6e72fda737fa4e73d",
+      "portal/computer_use.py": "265fe7b6509c1d6d01f33ee12210858911a7a4d0e0c872224eefff1c73b64b37",
+      "portal/native_ui.py": "9a62a21a60ccedaf68fd896c27e5a25c7c774202a3e43d6057ad93be26d0975f",
+      "portal/ui_task.py": "ea4b055872ad46d3fad5601109ea332f906a1e3cc271f11a2a48dfcdf4d12350",
+      "runtime/adapter_server.py": "7267d56511e827091c8b833acb3fa2bf9285e6596f857b705b6045963d627f08",
+      "runtime/long_horizon_cases.py": "505b703ff2c48b7c1202f8219173ee1870faa782f77a11f7225e9d81f823ce0e",
+      "runtime/long_horizon_desktop.py": "87f1572daa1cd6523b58a57855628a44ad6abd252bd86c4853030d3bb61a39c0",
+      "runtime/verify_long_horizon_native.py": "baee97a270683e879d2179f394bbaddc9b94d9fd7c3831df80f73424a16200fe",
+      "src/qwen_omni_adapters/computer_use.py": "c46bc78db2e500cba490de7713af3b30a77fd543976d444c4f3db8644344f329",
+      "tests/live/native_long_horizon/manifest.json": "28a961e56438af870cce7ca137961a1a22b7220d33e777b9c62aa1e38c88021c"
+    },
+    "stage_ui_decision_sha256": "a35ef963e0c0b31d65668ca0c02787fadd1e090a5201676ab6ca3b1c4050a7ab"
+  },
+  "summary": {
+    "actual_pointer_movement_recorded": true,
+    "authoritative_terminal_status": "blocked",
+    "completed_tool_phases": 6,
+    "downstream_idle_recorded": true,
+    "input_files_preserved": 5,
+    "keyboard_inputs": 0,
+    "mandatory_criteria_failed": 9,
+    "mandatory_criteria_inconclusive_full_contract": 1,
+    "mandatory_criteria_passed_full_contract": 0,
+    "memory_followup_searches": 0,
+    "memory_writes": 0,
+    "native_phases": 7,
+    "official_source_GUI_acquisitions": 0,
+    "owned_windows_closed_recorded": true,
+    "pointer_inputs": 2,
+    "required_outputs_present": 0,
+    "required_outputs_total": 5,
+    "runner_status": "failed_independent_checks",
+    "task_elapsed_s": 205.58956963199307,
+    "terminal_reason": "Three consecutive native phases were invalid or unverified.",
+    "unique_guarded_physical_inputs": 2,
+    "whole_runner_elapsed_s": 210.71486511299736
+  },
+  "task_signature_sha256": "840e87f62a4aef5d747ddbf83b017e6647423896797ff5bfa9cc3a46534462aa",
+  "verdict": "fail_original_whole_task_nine_criteria_fail_preservation_full_contract_qualified",
+  "verifier_actions": {
+    "API_calls": 0,
+    "GPU_calls": 0,
+    "GUI_calls": 0,
+    "frozen_oracle_or_source_edits": 0,
+    "model_calls": 0,
+    "production_edits": 0,
+    "read_only_proc_identity_checks": 8,
+    "service_calls": 0
+  },
+  "whole_task_success_credit": false,
+  "worker_preservation": {
+    "claim_limit": "All8recorded worker PID/start identities are alive and unchanged in independent post-task read-only /proc check. No new GPU API or residency/allocator inspection performed. This supplements missing standard snapshots but does not prove all resource state.",
+    "independent_post_task_CPU_identity_check": {
+      "at": "2026-10-17T10:16:08.024719+00:00",
+      "workers": [
+        {
+          "current_not_zombie": true,
+          "current_start_matches": true,
+          "pid": 1968792,
+          "process_start": "15062451",
+          "role": "controller"
+        },
+        {
+          "current_not_zombie": true,
+          "current_start_matches": true,
+          "pid": 1968941,
+          "process_start": "15062510",
+          "role": "supervisor"
+        },
+        {
+          "current_not_zombie": true,
+          "current_start_matches": true,
+          "pid": 1977341,
+          "process_start": "15067703",
+          "role": "kev"
+        },
+        {
+          "current_not_zombie": true,
+          "current_start_matches": true,
+          "pid": 1973818,
+          "process_start": "15065509",
+          "role": "trunk"
+        },
+        {
+          "current_not_zombie": true,
+          "current_start_matches": true,
+          "pid": 1974849,
+          "process_start": "15066221",
+          "role": "point"
+        },
+        {
+          "current_not_zombie": true,
+          "current_start_matches": true,
+          "pid": 1974949,
+          "process_start": "15066323",
+          "role": "tts"
+        },
+        {
+          "current_not_zombie": true,
+          "current_start_matches": true,
+          "pid": 1975224,
+          "process_start": "15066424",
+          "role": "adapter"
+        },
+        {
+          "current_not_zombie": true,
+          "current_start_matches": true,
+          "pid": 1975406,
+          "process_start": "15066526",
+          "role": "portal"
+        }
+      ]
+    },
+    "runner_reason": "standard_daemon_identity_file_absent",
+    "runner_snapshot_available": false,
+    "runner_workers_preserved_field": null
+  }
+}

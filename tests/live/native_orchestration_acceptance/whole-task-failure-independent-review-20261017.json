@@ -1,0 +1,720 @@
+{
+  "artifact_integrity": {
+    "actual_file_evidence_equal_saved_terminal": true,
+    "bundle_file_bytes": 14314020,
+    "bundle_files": 30,
+    "bundle_sha256": "c5dd8498e866be4a00f5c185f092c3ab23afa37f871aa60ec7bcd1416669aa79",
+    "decision_binding_files_verified": 63,
+    "decision_capture_limit_marker_present": false,
+    "evidence_manifest_equal_independent_recomputation": true,
+    "input_hashes_preserved": {
+      "Input/corrections.json": "2abbfb8c34b37131964b3a4960acb5caf0f3646d82b87b522e9b778873737f27",
+      "Input/draft-1.txt": "a81e29e264ad9a46d87093479b51e9d73b738cfc120ce7a1f911f65b28dcdcc3",
+      "Input/draft-2.txt": "7373131d59be110473d96490676030f80c57d2b6c3d35038a3589e8f0dfc26b0",
+      "Input/draft-3.txt": "8346728579859a8ca12fe2af4d8ab2692918a1668c51ff41024b308623498908",
+      "Input/task-brief.txt": "fef12873697dda96e1eaafcedddfb334354839b7abc6c0bc3dd0cd45204c4e61"
+    },
+    "only_files_present": [
+      "Input/corrections.json",
+      "Input/draft-1.txt",
+      "Input/draft-2.txt",
+      "Input/draft-3.txt",
+      "Input/task-brief.txt"
+    ]
+  },
+  "case_id": "LHN-047",
+  "cleanup": {
+    "all_preexisting_managed_window_identities_preserved": true,
+    "coverage": "preexisting managed client windows; not a full desktop/harness-state equivalence oracle",
+    "downstream_idle_reported": true,
+    "guard_failure": null,
+    "guard_stopped_before_final_metadata_flush": true,
+    "managed_window_count_before": 14,
+    "owned_windows_closed_reported": true,
+    "passive_guard_omissions": 0,
+    "passive_owned_guard_observations": 788,
+    "teardown_errors": null,
+    "three_registered_owned_xids_absent_from_terminal_inventory": [
+      "79691799",
+      "81789897",
+      "65032846"
+    ]
+  },
+  "confirmed_dispatches": [
+    {
+      "action_id": "864b18272d294bb5844b31009064fe28",
+      "description": "double_click window Workbench",
+      "effect_receipt": {
+        "effect_state": "unknown",
+        "environment_may_have_changed": true,
+        "schema": "robit.omni.ui-effect-receipt.v1"
+      },
+      "phase": 2,
+      "receipt": {
+        "backend": "x11_guarded_xtest",
+        "reason": "native_pointer_invoked",
+        "status": "dispatched"
+      },
+      "status": "observed_unverified",
+      "verb": "double_click"
+    },
+    {
+      "action_id": "a962146cdd884b9bb00cdfb4d626f6b0",
+      "description": "click table_cell Input",
+      "effect_receipt": {
+        "effect_state": "unknown",
+        "environment_may_have_changed": true,
+        "schema": "robit.omni.ui-effect-receipt.v1"
+      },
+      "phase": 4,
+      "receipt": {
+        "backend": "x11_guarded_xtest",
+        "point_receipt": {
+          "candidate_id": "atspi:77986aa2a65e9fe657ec51e143967241",
+          "capture_root": {
+            "geometry": {
+              "height": 2500,
+              "width": 1440,
+              "x": 0,
+              "y": 0
+            },
+            "window_id": "492"
+          },
+          "capture_source": "x11_root_screen",
+          "content_region": {
+            "content": {
+              "height": 616,
+              "width": 850,
+              "x": 44,
+              "y": 32
+            },
+            "frame_extents": {
+              "bottom": 67,
+              "left": 61,
+              "right": 61,
+              "top": 55
+            },
+            "space": "window",
+            "surface": {
+              "height": 738,
+              "width": 972,
+              "x": -17,
+              "y": -23
+            },
+            "window_id": "65032846"
+          },
+          "frame_sha256": "1d1a614fd8e0dcc22c201f929c95b571025de7d769faa0df32be7d6c579c9151",
+          "geometry": {
+            "height": 738,
+            "width": 972,
+            "x": -17,
+            "y": -23
+          },
+          "identity": {
+            "process_id": 4181345,
+            "window_id": "65032846"
+          },
+          "image_geometry": {
+            "height": 616,
+            "width": 850,
+            "x": 44,
+            "y": 32
+          },
+          "model": "moondream/moondream3.1-9B-A2B",
+          "native_probe": {
+            "binding": {
+              "bounds": {
+                "height": 44,
+                "width": 476,
+                "x": 248,
+                "y": 124
+              },
+              "generation": "1",
+              "node_id": "atspi:77986aa2a65e9fe657ec51e143967241",
+              "revision": "d71ff17c61d9c7bd870d9fe951c1f80174833f3d1c442d9d56bf85f95199dc65",
+              "scope_id": "atspi:8ea9e5659382102f4c5c2ebea11098f2",
+              "session_id": "b6a04e2b308bfbc339a720a423df783102e353165f2ad9e879dcdcd051bba3c0",
+              "verb": "click"
+            },
+            "complete": true,
+            "coordinate_binding": {
+              "content": {
+                "height": 616,
+                "width": 850,
+                "x": 44,
+                "y": 32
+              },
+              "frame_extents": {
+                "bottom": 67,
+                "left": 61,
+                "right": 61,
+                "top": 55
+              },
+              "space": "window",
+              "surface": {
+                "height": 738,
+                "width": 972,
+                "x": -17,
+                "y": -23
+              },
+              "window_id": "65032846"
+            },
+            "geometry": {
+              "height": 738,
+              "width": 972,
+              "x": -17,
+              "y": -23
+            },
+            "identity": {
+              "process_id": 4181345,
+              "window_id": "65032846"
+            },
+            "input_attempted": false,
+            "point": {
+              "x": 486,
+              "y": 146
+            },
+            "process_start": "2637573",
+            "reason": "native_hit_null",
+            "schema": "robit.omni.native-pointer-probe.v1",
+            "status": "provider_unknown"
+          },
+          "pixel_offset": {
+            "x": 61,
+            "y": 55
+          },
+          "point": {
+            "x": 0.310546875,
+            "y": 0.185546875
+          },
+          "process_start": "2637573",
+          "revision": "1da27e6c2d2f9118de14560df456881dc62d91f3",
+          "schema": "robit.omni.native-point.v1",
+          "semantic_revision": "d71ff17c61d9c7bd870d9fe951c1f80174833f3d1c442d9d56bf85f95199dc65",
+          "semantic_target": {
+            "bounds": {
+              "height": 44,
+              "width": 476,
+              "x": 248,
+              "y": 124
+            },
+            "generation": "1",
+            "id": "atspi:77986aa2a65e9fe657ec51e143967241",
+            "scope_id": "atspi:8ea9e5659382102f4c5c2ebea11098f2"
+          },
+          "source_frame_sha256": "2add7a03cec8d9958bfee01824815889b31bc9a4fb95a900e7a49bcf82f8060b",
+          "source_image_geometry": {
+            "height": 715,
+            "width": 955,
+            "x": 0,
+            "y": 0
+          }
+        },
+        "reason": "native_pointer_invoked",
+        "status": "dispatched"
+      },
+      "status": "observed_unverified",
+      "verb": "click"
+    },
+    {
+      "action_id": "5ca7b485539c452aa1a0ff9212563f76",
+      "description": "switch_window window New Document (Draft) - Text Editor",
+      "effect_receipt": {
+        "action_id": "5ca7b485539c452aa1a0ff9212563f76",
+        "after_revision": "7db47539c76e4249a13cb4b81f703a06eab19f46ec9be09af0fd7d655b6262d4",
+        "after_semantic_revision": "7db47539c76e4249a13cb4b81f703a06eab19f46ec9be09af0fd7d655b6262d4",
+        "before_revision": "fbcf970d1ac59c44a59b2c8ada897f217b42aac1a4772949ec683569e7454f18",
+        "before_semantic_revision": "fbcf970d1ac59c44a59b2c8ada897f217b42aac1a4772949ec683569e7454f18",
+        "effect_state": "applied",
+        "environment_may_have_changed": true,
+        "idempotency_key": "a872ece9dfd419f6476281190b3605715d6b9ec08586028a5b886247b80bba91",
+        "predicates_sha256": "25f1bfab0b1ea107f2b7fd0b23ed5306b3b47de6562b069a350f9919a6cebedb",
+        "resource": "atspi:55e9e9945ea35d28b54d9d444389a293",
+        "schema": "robit.omni.ui-effect-receipt.v1"
+      },
+      "phase": 5,
+      "receipt": {
+        "reason": "native_pattern_invoked",
+        "status": "dispatched"
+      },
+      "status": "verified",
+      "verb": "switch_window"
+    },
+    {
+      "action_id": "73fba015a15b45b0abf9e5d86042b7e6",
+      "description": "switch_window window Workbench",
+      "effect_receipt": {
+        "action_id": "73fba015a15b45b0abf9e5d86042b7e6",
+        "after_revision": "5b29dfc79f4ff5afb223f9a06b7fdffe7763447e784f9e3ddd6db9312f2d5567",
+        "after_semantic_revision": "5b29dfc79f4ff5afb223f9a06b7fdffe7763447e784f9e3ddd6db9312f2d5567",
+        "before_revision": "c1577df5463bb693e9207918f08274fe42b7159178ed836bb0592d46b9909524",
+        "before_semantic_revision": "c1577df5463bb693e9207918f08274fe42b7159178ed836bb0592d46b9909524",
+        "effect_state": "applied",
+        "environment_may_have_changed": true,
+        "idempotency_key": "a9d898bfdb4165c671dda058717ce959e8ca685f981b0fcb794d8e8bd7b9d78f",
+        "predicates_sha256": "c304f9ddd5c2938eaa17871879aa3c3ad6ebe5a27950f78ef021127f729d2ee3",
+        "resource": "atspi:8ea9e5659382102f4c5c2ebea11098f2",
+        "schema": "robit.omni.ui-effect-receipt.v1"
+      },
+      "phase": 6,
+      "receipt": {
+        "reason": "native_pattern_invoked",
+        "status": "dispatched"
+      },
+      "status": "verified",
+      "verb": "switch_window"
+    },
+    {
+      "action_id": "9c9991c48acc462e8067a89edbde630c",
+      "description": "double_click button tmp",
+      "effect_receipt": {
+        "effect_state": "unknown",
+        "environment_may_have_changed": true,
+        "schema": "robit.omni.ui-effect-receipt.v1"
+      },
+      "phase": 8,
+      "receipt": {
+        "backend": "x11_guarded_xtest",
+        "reason": "native_pointer_invoked",
+        "status": "dispatched"
+      },
+      "status": "observed_unverified",
+      "verb": "double_click"
+    }
+  ],
+  "criterion_verdicts": [
+    {
+      "assertion": "Exactly the ten specified source spans change; protected and similar passages remain byte-identical",
+      "id": "LHN-047-C01",
+      "reason": "All three edited drafts are absent; exact ten-change artifact oracle fails.",
+      "verdict": "failed"
+    },
+    {
+      "assertion": "Ten unique index entries identify the correct draft and exact old/new text",
+      "id": "LHN-047-C02",
+      "reason": "Change-index CSV absent, so ten exact unique change rows are not delivered.",
+      "verdict": "failed"
+    },
+    {
+      "assertion": "Two style explanations match captured official guidance without authorizing additional edits",
+      "id": "LHN-047-C03",
+      "reason": "No style explanations or edited deliverables were produced.",
+      "verdict": "failed"
+    },
+    {
+      "assertion": "Relevant official pages and visible sections were actually acquired through native GUI navigation",
+      "id": "LHN-047-C04",
+      "reason": "Only owned Files/Text Editor actions dispatched; no native browser acquisition of official sources. Host readiness source copies are independent evaluator artifacts, not solver navigation.",
+      "verdict": "failed"
+    },
+    {
+      "assertion": "All declared final outputs exist in exact owned paths and have validated content, not merely filenames",
+      "id": "LHN-047-C05",
+      "reason": "All five required output paths absent.",
+      "verdict": "failed"
+    },
+    {
+      "assertion": "Native apps reopened and inspected saved deliverables; current view agrees with actual disk",
+      "id": "LHN-047-C06",
+      "reason": "No saved outputs exist to reopen; no reopen verification evidence.",
+      "verdict": "failed"
+    },
+    {
+      "assertion": "Actual keyboard and physical mouse input occurred through the guarded native controller with no prohibited solver path",
+      "id": "LHN-047-C07",
+      "reason": "Three physical pointer actions and two window switches recorded, but no authored keyboard typing or Save/delivery control. Overall method criterion fails.",
+      "verdict": "failed"
+    },
+    {
+      "assertion": "Declared inputs/unrelated windows are preserved and only positively owned windows were closed",
+      "id": "LHN-047-C08",
+      "reason": "All five input hashes unchanged, all14 preexisting managed client window identities preserved, three positively registered owned windows closed. This verifies the original bounded preservation assertion; full expanded harness-state criterion remains unproven.",
+      "verdict": "bounded_preservation_verified"
+    },
+    {
+      "assertion": "Archive contains exactly the case's declared deliverables and permitted input/source assets; no unrelated or missing member",
+      "id": "LHN-047-C09",
+      "reason": "Required ZIP absent; exact archive member/byte oracle fails.",
+      "verdict": "failed"
+    },
+    {
+      "assertion": "Fresh same-cookie turn obtains exact paths, sources and finding via actual memory_search without GUI/file work",
+      "id": "LHN-047-C10",
+      "reason": "No memory_write or memory_search tool calls and no fresh same-cookie recall occurred.",
+      "verdict": "failed"
+    }
+  ],
+  "delegation_evidence": {
+    "actual_point_http_response": {
+      "at": "2026-10-17T09:19:33.353832+00:00",
+      "event": "point_http_response",
+      "request_png_sha256": "1d1a614fd8e0dcc22c201f929c95b571025de7d769faa0df32be7d6c579c9151",
+      "request_wall_s": 4.349142202991061,
+      "response_body_sha256": "72c0dd50a9c994b1ce163615e9b7996951bbe555fea144657b69460fd726da09",
+      "response_json": {
+        "model": "moondream/moondream3.1-9B-A2B",
+        "points": [
+          {
+            "x": 0.310546875,
+            "y": 0.185546875
+          }
+        ],
+        "revision": "1da27e6c2d2f9118de14560df456881dc62d91f3"
+      },
+      "sequence": 6,
+      "status_code": 200,
+      "timing_scope": "HTTP point request including worker load/inference/shed; not isolated engine-load time"
+    },
+    "actual_tts_or_asr_calls": false,
+    "kev": {
+      "receipts": [
+        {
+          "digest": "2fe8e82c5d42bffcbd241843b8f2f21b2201bef8a04ff5479791189f04ba9ec1",
+          "id": "40cbedcee4dd45c4adabc9c559e1c433",
+          "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+          "model_confirmed": true,
+          "reply_sha256": "cffc456be0d3e6b90555628193fe402a56c2993d951b7463ee1338ba05b9dbb0",
+          "schema": "robit.omni.ui-policy-receipt.v1",
+          "status": "accepted"
+        },
+        {
+          "digest": "fa3fa9964a8b405b7ed8cb0a6d2e7a15a8b9d5d021a66f1816a3601194171a0d",
+          "id": "e396f92a37e94d758525a37acca9baf1",
+          "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+          "model_confirmed": true,
+          "reply_sha256": "0763df6c52746985bda874854e08d6535abb400968cca538897bc4d30386d457",
+          "schema": "robit.omni.ui-policy-receipt.v1",
+          "status": "accepted"
+        },
+        {
+          "digest": "9edb82a8a8394bd1577c2993083edf9d441c5421f1f8fa52c8f2d84875d91d20",
+          "id": "57a3b1ba2de2490980a4e9035193c76b",
+          "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+          "model_confirmed": true,
+          "reply_sha256": "420c6fa0ef0f41f00fb3d14d1871f7701266509ff7eaa9e2e0e3d03df6cf7751",
+          "schema": "robit.omni.ui-policy-receipt.v1",
+          "status": "accepted"
+        },
+        {
+          "digest": "9823584dc9f6b3345200853d78c791b811797be699ff217c027bc26581e001e3",
+          "id": "26a87967087a4a25bc287b16e820944f",
+          "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+          "model_confirmed": true,
+          "reply_sha256": "8072bd92e747a30c274fc2445ec220a66e6d97a4959ef3de262ffd0c2ded12e7",
+          "schema": "robit.omni.ui-policy-receipt.v1",
+          "status": "accepted"
+        },
+        {
+          "digest": "6e118af32c977222c79caa7f4836e1df90bdb97aa2d5f3911ebacaa89e2a0d19",
+          "id": "3121423ffc654863a2239aa721021183",
+          "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+          "model_confirmed": true,
+          "reply_sha256": "e22276391cc59a75d3e0dda68f59dac75e0b1d117cb384d8650e3d9f74c6d9ec",
+          "schema": "robit.omni.ui-policy-receipt.v1",
+          "status": "accepted"
+        },
+        {
+          "digest": "7b872b8d32a601a061097834038b49cf4fea0bc6fd5fd225f01bf499ae2958e5",
+          "id": "a720ae61b7654bd78ac58a599ed44317",
+          "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+          "model_confirmed": true,
+          "reply_sha256": "013c69cd559debf8078cf83ca67004cb2288a18f5d5db38bb73619dfe6e83ca6",
+          "schema": "robit.omni.ui-policy-receipt.v1",
+          "status": "accepted"
+        },
+        {
+          "digest": "7ce6f67d0ae960d375b08af1aab0264c457e15a7a3110e8b6b3fb55530cc4c24",
+          "id": "5cdf0d7fcdad4d7588809f4252acbf52",
+          "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+          "model_confirmed": true,
+          "reply_sha256": "1d5af6e847ff77029ac69e03f9e865889efb80850e18cec23eda1ec8d0973259",
+          "schema": "robit.omni.ui-policy-receipt.v1",
+          "status": "accepted"
+        }
+      ],
+      "unique_receipts": 7
+    },
+    "moondream": {
+      "receipts": [
+        {
+          "candidate_id": "atspi:77986aa2a65e9fe657ec51e143967241",
+          "digest": "64df8dc31fc1c5bc2b172f0c08fea82e85497aa09594007e403f4e740c223a23",
+          "frame_sha256": "1d1a614fd8e0dcc22c201f929c95b571025de7d769faa0df32be7d6c579c9151",
+          "model": "moondream/moondream3.1-9B-A2B",
+          "revision": "1da27e6c2d2f9118de14560df456881dc62d91f3",
+          "schema": "robit.omni.native-point.v1"
+        }
+      ],
+      "unique_receipts": 1
+    },
+    "point_image_and_model_binding_verified": true,
+    "qualifier": "Model-confirmed service receipts and MD HTTP response/image were recorded. No new GPU query or independent tensor validation was performed by reviewer."
+  },
+  "diagnosis_examples": [
+    {
+      "claim_limit": "Old proposal had no typed immediate selector. Mismatch is a source-supported semantic observation, not violation of a preexisting atomic anchor.",
+      "finding": "Actual proposal says activate inactive Text Editor; downstream action instead targets already-active Workbench with pointer family. It later double-clicks the Workbench window.",
+      "source_bind": "0003-bind_subgoal.json",
+      "source_expand": "0004-expand.json"
+    },
+    {
+      "claim_limit": "Source-bound target restriction is the next bounded hypothesis; it does not establish that a correctly targeted click would complete the whole task.",
+      "finding": "Actual proposal says double-click Input folder; downstream action selects c10=tmp breadcrumb instead of observed c3=Input. Later double-click navigates to tmp.",
+      "source_bind": "0029-bind_subgoal.json",
+      "source_expand": "0030-expand.json"
+    }
+  ],
+  "frontend_path": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/cpu-portal/ornith-20261017T091807728279Z",
+  "limits": [
+    "No official-site navigation, saved deliverable, reopen, typed edit, archive or memory success.",
+    "Only one Ornith attempt, with1800controller budget versus prior1200; no paired timing/reliability claim.",
+    "Original100-task localtwo-model/remoteOrnith breadth remains incomplete.",
+    "Expanded harness-state preservation not independently captured.",
+    "Whole-task response capture retains parsed adapter response plus reported raw-wire hash; raw response bytes are not independently reconstructed from parsed JSON.",
+    "Run and full frontend sidecar artifacts require external durable archival; compact audit alone is not the complete evidence bundle."
+  ],
+  "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+  "next_acceptance_boundary": "Separate new frozen atomic-anchor source/target/family controls and separate CU.FACT.045 provenance control; no source acquisition/effect/task credit from host plan consistency alone.",
+  "phase_results": [
+    {
+      "handoff_present": true,
+      "input_attempted": false,
+      "new_effect_count": 0,
+      "operation": "intent_boundary",
+      "phase": 1,
+      "reason": "intent_policy_abstained",
+      "status": "abstained",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": true,
+      "new_effect_count": 0,
+      "operation": "resolve_pointer",
+      "phase": 2,
+      "reason": "One input observed; no effect predicate or progress verified",
+      "status": "observed_unverified",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": false,
+      "new_effect_count": 0,
+      "operation": "intent_boundary",
+      "phase": 3,
+      "reason": "intent_policy_abstained",
+      "status": "abstained",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": true,
+      "new_effect_count": 0,
+      "operation": "resolve_pointer",
+      "phase": 4,
+      "reason": "One input observed; no effect predicate or progress verified",
+      "status": "observed_unverified",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": null,
+      "new_effect_count": null,
+      "operation": "verified_prefix",
+      "phase": 5,
+      "reason": null,
+      "status": "complete",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": null,
+      "new_effect_count": null,
+      "operation": "verified_prefix",
+      "phase": 6,
+      "reason": null,
+      "status": "complete",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": false,
+      "new_effect_count": 0,
+      "operation": "intent_boundary",
+      "phase": 7,
+      "reason": "intent_policy_abstained",
+      "status": "abstained",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": true,
+      "new_effect_count": 0,
+      "operation": "resolve_pointer",
+      "phase": 8,
+      "reason": "One input observed; no effect predicate or progress verified",
+      "status": "observed_unverified",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": false,
+      "new_effect_count": 0,
+      "operation": "intent_boundary",
+      "phase": 9,
+      "reason": "intent_policy_abstained",
+      "status": "abstained",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": null,
+      "new_effect_count": 0,
+      "operation": "resolve_pointer",
+      "phase": 10,
+      "reason": "native_pointer_target_occluded",
+      "status": "rejected",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": false,
+      "new_effect_count": 0,
+      "operation": "intent_boundary",
+      "phase": 11,
+      "reason": "intent_policy_abstained",
+      "status": "abstained",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": null,
+      "new_effect_count": 0,
+      "operation": "resolve_pointer",
+      "phase": 12,
+      "reason": "native_pointer_target_occluded",
+      "status": "rejected",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": false,
+      "new_effect_count": 0,
+      "operation": "intent_boundary",
+      "phase": 13,
+      "reason": "intent_policy_abstained",
+      "status": "abstained",
+      "task_progress": false
+    },
+    {
+      "handoff_present": true,
+      "input_attempted": false,
+      "new_effect_count": 0,
+      "operation": "intent_boundary",
+      "phase": 14,
+      "reason": "intent_policy_abstained",
+      "status": "abstained",
+      "task_progress": false
+    }
+  ],
+  "reviewed_at": "2026-10-17T09:29:51.932288+00:00",
+  "reviewer": "acceptance_verifier",
+  "run_path": "/tmp/qwen-execution-sop-live-20261017/runtime-data/gpu1-acceptance/long-horizon/ornith-LHN-047-execution-contract-20261017T091827Z",
+  "schema": "robit.omni.independent-whole-task-failure-review.v1",
+  "source": {
+    "actual_loaded_imports_sha256": "64a7badd4bb96cf236f01e8ba18fc9aa4570a6328059f3efcd945470a7e67dfe",
+    "loaded_timeout_s": 1800,
+    "observed_module_adoption": "12 actual imported module paths/code filenames/file hashes verified against tested candidate at startup; separate from git HEAD.",
+    "source_before_equals_after": true
+  },
+  "summary": {
+    "actual_authored_keyboard_input": false,
+    "confirmed_dispatched_inputs": 5,
+    "controller_timeout_s": 1800,
+    "different_budget_cohort": true,
+    "input_ceiling_enforced": false,
+    "phase_cap": 40,
+    "physical_pointer_actions": 3,
+    "planner_phases": 14,
+    "prior_baseline_timeout_s": 1200,
+    "required_outputs_present": {
+      "Archive/editorial-pack.zip": false,
+      "Edited/change-index.csv": false,
+      "Edited/draft-1.txt": false,
+      "Edited/draft-2.txt": false,
+      "Edited/draft-3.txt": false
+    },
+    "run_elapsed_s": 213.1009744000039,
+    "task_elapsed_s": 205.91613584200968,
+    "terminal_controller_status": "blocked",
+    "terminal_reason": "Three consecutive native phases were invalid or unverified.",
+    "verified_window_switches": 2
+  },
+  "task_signature_sha256": "840e87f62a4aef5d747ddbf83b017e6647423896797ff5bfa9cc3a46534462aa",
+  "verdict": "failed_whole_task",
+  "verifier_actions": {
+    "desktop_inputs_or_observations": 0,
+    "gpu_or_service_calls": 0,
+    "model_calls": 0,
+    "production_edits": 0,
+    "read_only_proc_identity_checks": 8
+  },
+  "whole_task_success_credit": false,
+  "worker_preservation": {
+    "claim_limit": "All8recordedPID/startidentities still match after the task. This supplements unavailable standard daemon snapshots; no terminal GPU residency or complete allocator-state proof is inferred.",
+    "independent_current_proc_identity_check_at": "2026-10-17T09:29:51.932340+00:00",
+    "recorded_workers": [
+      {
+        "current_start_matches": true,
+        "pid": 259628,
+        "process_start": "9821988",
+        "role": "controller"
+      },
+      {
+        "current_start_matches": true,
+        "pid": 259729,
+        "process_start": "9822031",
+        "role": "supervisor"
+      },
+      {
+        "current_start_matches": true,
+        "pid": 267226,
+        "process_start": "9826723",
+        "role": "kev"
+      },
+      {
+        "current_start_matches": true,
+        "pid": 264311,
+        "process_start": "9824864",
+        "role": "trunk"
+      },
+      {
+        "current_start_matches": true,
+        "pid": 265086,
+        "process_start": "9825200",
+        "role": "point"
+      },
+      {
+        "current_start_matches": true,
+        "pid": 265154,
+        "process_start": "9825302",
+        "role": "tts"
+      },
+      {
+        "current_start_matches": true,
+        "pid": 265310,
+        "process_start": "9825403",
+        "role": "adapter"
+      },
+      {
+        "current_start_matches": true,
+        "pid": 265465,
+        "process_start": "9825505",
+        "role": "portal"
+      }
+    ],
+    "runner_reason": "standard_daemon_identity_file_absent",
+    "runner_snapshot_available": false,
+    "runner_workers_preserved_field": null
+  }
+}

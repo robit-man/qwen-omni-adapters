@@ -99,7 +99,9 @@ def test_portal_uses_one_narrow_call_preserves_policy_and_only_dispatches_valid_
         elif schema_name == 'native_ui_subgoal':
             if mode == 'replan' and len(seen) > 3:
                 assert context['last_result']['slow_pointer_resolution']['status'] == 'replan'
-            answer = proposal()
+            answer = {**proposal(), 'immediate_action': (
+                {'family': 'pointer_or_activation', 'target': 'c0'} if len(seen) == 1
+                else {'family': 'blocked'})}
         else:
             action = ({'family': 'pointer_or_activation', 'target': 'c0'} if len(seen) == 2
                       else {'family': 'blocked', 'reason': 'Only a fixture input was tested.'})

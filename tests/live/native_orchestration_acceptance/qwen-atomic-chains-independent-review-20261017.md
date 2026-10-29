@@ -1,0 +1,9 @@
+Qwen actual-chain independent review — 2026-10-17
+
+All 16 actual Qwen requests pass raw-wire, receipt, JSON-schema, model and sampler checks. The eight proposal requests equal the corresponding Ornith requests byte for byte after changing only the top-level model tag. Each downstream request consumes Qwen’s own actual proposal; independent pure compilation reproduces every saved binding and inert expansion. All four atomic anchors are source-valid and honored.
+
+Saved adoption and before/after broker evidence bind the new Qwen trunk to model blob 91804f… and projector 554a8… with 65,536-token context, active scoped GPU1 lease, and trunk/Kev residency only on that GPU. Twelve staged frontend module hashes match the loaded-code attestation. No fresh full-weight digest or raw upstream generation-payload capture was performed. Outer num_predict 8192 is requested; the actual adapter configuration records a 4,096-token cap.
+
+Both Qwen phase01 conditions choose the real Input folder, unlike the redundant active-Workbench anchor in the Ornith candidate. This is one paired-output difference, not proof of a general ranking or an atomic-mode gain. Atomic phase05 chooses the actual inactive Editor. Atomic phase06 correctly targets Editor Open as an exploratory prerequisite; the predicted file chooser has not been observed. Baseline phase06 asks visual inspection to find Open although that native control is already supplied. Baseline phase07 mentions an unobserved task-brief entry, then requests inspection; atomic phase07 chooses the real Input folder but still needs exact-operation selection and recovery-ledger enforcement.
+
+All 16 frozen v3 model/source/condition chains are now recorded across both models. There were zero desktop inputs, verified effects, source acquisitions or whole-task passes in this panel. The 100-task end-to-end matrix remains outstanding.

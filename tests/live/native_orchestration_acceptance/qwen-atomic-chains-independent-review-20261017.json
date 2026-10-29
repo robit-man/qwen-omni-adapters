@@ -1,0 +1,2417 @@
+{
+  "actual_context": 65536,
+  "adoption_file_sha256": "212a0462e9f1f22e56ca5519efb812eabfb719f3020240ff7b27ef4f462e98c3",
+  "causal_and_semantic_limits": [
+    "Single actual chain per source/model/condition, fixed source order and baseline-before-atomic condition order. No repeated-trial accuracy, long-horizon improvement, or SOTA equivalence follows.",
+    "Candidate condition changes proposal schema/system and downstream binding/system together; changed model proposals are mediators. Containment does not prove the model chose the right referent or operation.",
+    "Qwen phase01 observes Input appropriately in both conditions. Ornith atomic phase01 chose redundant active Workbench. This is a concrete paired-output difference on one captured source, not a controlled general ranking or a proof atomic mode caused improvement.",
+    "Baseline phase06 overlooks supplied Open control while asking visual inspection to find it. Atomic phase06 selects source-valid Editor Open, but exact chooser behavior is predicted and unobserved.",
+    "Visual_inspection outputs here are inert proposals only; Moondream was not called by this chain panel and no current image was supplied. Historical model observations cannot be recast as current pixels.",
+    "Source snapshots are historical exact native captures; model_projection flags omitted nodes and no absence authority. Lack of brief/file row in projection cannot establish actual desktop absence.",
+    "No model-independent correctness score added post hoc. Frozen host negative guard tests and semantic outcome review remain separate from the sixteen actual-model chain cells.",
+    "All sixteen frozen v3 model/condition/source chains now have recordings across Ornith and Qwen; this does not complete original100task/model/host end-to-end acceptance matrix.",
+    "No clicks, typing, native verification, source acquisition, files saved, memory integration, ASR/TTS loop, or complete task execution occurred within this diagnostic panel. Separate whole-task run must be independently graded."
+  ],
+  "chains": [
+    {
+      "actual_downstream_decision": {
+        "action": {
+          "family": "pointer_or_activation",
+          "objective": "Open and read Input/task-brief.txt to acquire the authoritative correction list, protected text, and official source URLs before editing.",
+          "target": "c3",
+          "transition_kind": "focus_changed_within_scope"
+        },
+        "assessment": "The Workbench file manager is active and shows the Input folder containing 5 items. I need to open the Input folder to find task-brief.txt. The Input table_cell (c3) is the row in the file list; activating it should open the folder.",
+        "intended_resource": "Input folder in Workbench file manager",
+        "remaining_criteria": [
+          "Read Input/task-brief.txt for corrections, protected text, source URLs",
+          "Read draft-1.txt, draft-2.txt, draft-3.txt",
+          "Apply ten corrections across three drafts",
+          "Preserve protected quotations",
+          "Save edited copies to Edited/ paths",
+          "Create change-index.csv",
+          "Research style guidance for two justifications",
+          "Package editorial-pack.zip",
+          "Verify corrected and protected passages",
+          "Store session memory"
+        ],
+        "source_epoch": "b58db29d3ad94459bad26b6c8615b8d3",
+        "source_phase": 1
+      },
+      "actual_proposal": {
+        "current_view": "File manager active at Workbench directory showing an Input folder (5 items); Text Editor and Firefox windows are open but inactive.",
+        "needed_evidence": [
+          "Full contents of Input/task-brief.txt including the ten corrections, protected passages, and official source URLs",
+          "Text of Input/draft-1.txt, draft-2.txt, and draft-3.txt",
+          "Any style-guidance files or URLs listed in the brief"
+        ],
+        "next_operation": "Double-click the Input folder in the Workbench file manager to list its contents, then open task-brief.txt in the Text Editor.",
+        "next_subgoal": "Open and read Input/task-brief.txt to acquire the authoritative correction list, protected text, and official source URLs before editing."
+      },
+      "actual_proposal_exactly_bound_and_consumed": true,
+      "actual_source_control": {
+        "active_window": false,
+        "families": [
+          "pointer_or_activation",
+          "scroll"
+        ],
+        "focused": false,
+        "name": "Input",
+        "ref": "c3",
+        "role": "table_cell",
+        "structure": {
+          "ancestors": [
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+              "name": "",
+              "role": "tree_table",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+              "name": "",
+              "role": "list",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+              "name": "Input",
+              "role": "table_row",
+              "visible": true
+            }
+          ],
+          "child_index": 0,
+          "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+        }
+      },
+      "atomic_anchor_honored": null,
+      "calls": [
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "baseline",
+            "desktop_input_count": 0,
+            "elapsed_s": 8.455,
+            "finished_at": "2026-10-17T10:03:24.477545+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "fa925a5771e2a1586d9ae4a91e8f8db9aeb2f099de7b37856d81a32514707d2b",
+            "request_sha256": "21b63f4fe364fcc7e6036f227fd9d20ae7edcd504583180c85f81e06daed34dd",
+            "response_bytes_sha256": "0760523ba0a28113d7bcc1b44d29584e9f82fec603fe98dad07ca2f71b7a9d11",
+            "source_id": "SRC.PHASE01",
+            "started_at": "2026-10-17T10:03:16.022471+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "proposal"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "proposal"
+        },
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "baseline",
+            "desktop_input_count": 0,
+            "elapsed_s": 13.223,
+            "finished_at": "2026-10-17T10:03:37.743404+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "15f807bf43d441bd81a2eb9216692e0be7feed1da5c110f5b659ba9e51fb8ddc",
+            "request_sha256": "61203344897010684121dca3400e9bb0ec777733872d4749c96c3ae87e281187",
+            "response_bytes_sha256": "5a09200d27ec7f5440a1ee2ca972f960d7016ebf28ba13dbe8d97a114b6e1fc4",
+            "source_id": "SRC.PHASE01",
+            "started_at": "2026-10-17T10:03:24.520565+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "action"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "action"
+        }
+      ],
+      "condition": "baseline",
+      "effect_or_task_success_credit": false,
+      "first_request_tag_only_delta_vs_ornith_bytes": true,
+      "inert_expansion_reproduces": true,
+      "sampler_and_fixed_request_fields_match_ornith": true,
+      "semantic_review": {
+        "handoff": "Downstream chooses the actual c3 Input referent named by the first proposal.",
+        "premise": "Accurately identifies the visible Input folder row and five-item metadata; does not claim brief content has been acquired. Proposes opening that folder before the file.",
+        "qualification": "focus_changed_within_scope is an optional immediate prediction, not proof the folder opened. No fast policy chose click versus double-click and no input was executed.",
+        "strategy": "source_valid_Input_folder_prerequisite"
+      },
+      "source_context_positive_controls": [
+        {
+          "active_window": true,
+          "families": [
+            "pointer_or_activation",
+            "key_chord",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Workbench",
+          "ref": "c0",
+          "role": "window",
+          "structure": {
+            "ancestors": [],
+            "child_index": 1
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "switch_window"
+          ],
+          "name": "New Document (Draft) - Text Editor",
+          "ref": "c1",
+          "role": "window"
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Input",
+          "ref": "c3",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "5 items",
+          "ref": "c5",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 1,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        }
+      ],
+      "source_id": "SRC.PHASE01",
+      "source_valid_family_target": true
+    },
+    {
+      "actual_downstream_decision": {
+        "action": {
+          "family": "pointer_or_activation",
+          "objective": "Read Input/task-brief.txt to acquire the supplied corrections, protected quotations, declared input inventory, and official source starting URLs before editing any draft.",
+          "target": "c3"
+        },
+        "assessment": "The Workbench file manager is active and already showing the Input folder with 5 items. The next step is to activate the Input row to reveal its files, then open task-brief.txt. No prior actions have been executed, so this is the first concrete step toward reading the brief.",
+        "intended_resource": "Input folder row in Workbench file manager (c3)",
+        "remaining_criteria": [
+          "Read Input/task-brief.txt for corrections, protected quotations, input inventory, and source URLs",
+          "Read draft-1.txt, draft-2.txt, draft-3.txt",
+          "Apply exactly ten supplied corrections across three drafts",
+          "Preserve protected quotations and non-target sentences",
+          "Save edited copies to Edited/draft-1.txt, Edited/draft-2.txt, Edited/draft-3.txt",
+          "Record each change in Edited/change-index.csv",
+          "Research official style guidance for two editorial justifications",
+          "Package edited copies with index into Archive/editorial-pack.zip",
+          "Reopen and verify corrected and protected passages",
+          "Use genuine keyboard typing for authored text and actual mouse input for at least one Save/delivery control"
+        ],
+        "source_epoch": "b58db29d3ad94459bad26b6c8615b8d3",
+        "source_phase": 1
+      },
+      "actual_proposal": {
+        "current_view": "Active Workbench file manager window showing the Input folder (5 items) under the Workbench path; Text Editor and Firefox windows are open but inactive.",
+        "immediate_action": {
+          "family": "pointer_or_activation",
+          "target": "c3"
+        },
+        "needed_evidence": [
+          "Contents of Input/task-brief.txt including the ten corrections, protected passages, and official source URLs",
+          "Full text of draft-1.txt, draft-2.txt, and draft-3.txt",
+          "Official style guidance pages for the two editorial justifications"
+        ],
+        "next_operation": "Activate the Workbench window and open the Input folder to locate and open task-brief.txt.",
+        "next_subgoal": "Read Input/task-brief.txt to acquire the supplied corrections, protected quotations, declared input inventory, and official source starting URLs before editing any draft."
+      },
+      "actual_proposal_exactly_bound_and_consumed": true,
+      "actual_source_control": {
+        "active_window": false,
+        "families": [
+          "pointer_or_activation",
+          "scroll"
+        ],
+        "focused": false,
+        "name": "Input",
+        "ref": "c3",
+        "role": "table_cell",
+        "structure": {
+          "ancestors": [
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+              "name": "",
+              "role": "tree_table",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+              "name": "",
+              "role": "list",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+              "name": "Input",
+              "role": "table_row",
+              "visible": true
+            }
+          ],
+          "child_index": 0,
+          "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+        }
+      },
+      "atomic_anchor_honored": true,
+      "calls": [
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "atomic_anchor",
+            "desktop_input_count": 0,
+            "elapsed_s": 9.764,
+            "finished_at": "2026-10-17T10:03:47.591746+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "fad872dd920589fd294691e5bf37dafca05a08c98acc97ae0093dfc59e7cb8ee",
+            "request_sha256": "bbc3751fb4deb678632fbd2f8ab8b696af539da3fa845667e1576fb182cebd6f",
+            "response_bytes_sha256": "b142caa78ad5241c8490066fb74a10e1b5b1ec576fc7f803db7be1b4de9a125f",
+            "source_id": "SRC.PHASE01",
+            "started_at": "2026-10-17T10:03:37.827518+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "proposal"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "proposal"
+        },
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "atomic_anchor",
+            "desktop_input_count": 0,
+            "elapsed_s": 12.158,
+            "finished_at": "2026-10-17T10:03:59.819702+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "b116b3a9573e0258c317dceb3076cd15e29887f0fb50f66441cb8cea73016bef",
+            "request_sha256": "0dcee5a3b81c5b38b14fc7b6b562da1b5bee10ee825d859c1e437d791357fb95",
+            "response_bytes_sha256": "5ff46e7e070fd1633ae2ce0136a5bb90a811d2b6ef94ddc72b16bf110188f62f",
+            "source_id": "SRC.PHASE01",
+            "started_at": "2026-10-17T10:03:47.661374+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "action"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "action"
+        }
+      ],
+      "condition": "atomic_anchor",
+      "effect_or_task_success_credit": false,
+      "first_request_tag_only_delta_vs_ornith_bytes": true,
+      "inert_expansion_reproduces": true,
+      "sampler_and_fixed_request_fields_match_ornith": true,
+      "semantic_review": {
+        "handoff": "Typed c3 anchor preserved. Free next_operation also redundantly mentions activating already-active Workbench, but actual immediate anchor is the Input row, not Workbench c0.",
+        "premise": "Accurately identifies Input as an observed folder row, not an already opened listing of the five contents. Does not repeat the historical unsupported all-contents-invisible premise.",
+        "qualification": "This narrow outcome is better grounded than Ornith atomic phase01, but baseline Qwen also chooses Input; no causal gain attributable to atomic mode or general task ability follows.",
+        "strategy": "source_valid_Input_folder_prerequisite"
+      },
+      "source_context_positive_controls": [
+        {
+          "active_window": true,
+          "families": [
+            "pointer_or_activation",
+            "key_chord",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Workbench",
+          "ref": "c0",
+          "role": "window",
+          "structure": {
+            "ancestors": [],
+            "child_index": 1
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "switch_window"
+          ],
+          "name": "New Document (Draft) - Text Editor",
+          "ref": "c1",
+          "role": "window"
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Input",
+          "ref": "c3",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "5 items",
+          "ref": "c5",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 1,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        }
+      ],
+      "source_id": "SRC.PHASE01",
+      "source_valid_family_target": true
+    },
+    {
+      "actual_downstream_decision": {
+        "action": {
+          "family": "visual_inspection",
+          "objective": "Open Input/task-brief.txt in the Text Editor to read the official source starting URLs, the declared input inventory, and the exact delivery/archive requirements before editing any draft."
+        },
+        "assessment": "The Input folder is selected in the Workbench file manager and shows 5 items, but the individual file rows are not yet in the semantic control list. I need to see the expanded file list to locate and open task-brief.txt.",
+        "intended_resource": "Workbench file list showing Input folder contents",
+        "remaining_criteria": [
+          "Read task-brief.txt for official source starting URLs, declared input inventory, and exact delivery/archive requirements.",
+          "Confirm the three draft input files exist and capture their current text.",
+          "Apply exactly the ten supplied corrections across the three drafts, preserving protected quotations.",
+          "Save new edited copies to Edited/draft-1.txt, Edited/draft-2.txt, Edited/draft-3.txt.",
+          "Record each change in Edited/change-index.csv.",
+          "Research official style guidance for two editorial justifications without expanding edit scope.",
+          "Package Edited/ into Archive/editorial-pack.zip.",
+          "Reopen edited copies and verify both corrected and protected passages.",
+          "Store a concise session memory with verified output paths, official source URLs, and one source-bound finding."
+        ],
+        "source_epoch": "b58db29d3ad94459bad26b6c8615b8d3",
+        "source_phase": 5
+      },
+      "actual_proposal": {
+        "current_view": "Workbench file manager is active at the Workbench directory; the Input folder is selected showing 5 items, but task-brief.txt is not yet open in the Text Editor.",
+        "needed_evidence": [
+          "Full contents of Input/task-brief.txt including official source starting URLs, declared input inventory, and exact delivery/archive requirements.",
+          "Confirmation that the three draft input files exist in Input/ and their current text.",
+          "Whether Edited/ and Archive/ directories already exist under Workbench."
+        ],
+        "next_operation": "Double-click the Input folder in the Workbench file manager to reveal task-brief.txt, then open it in the Text Editor.",
+        "next_subgoal": "Open Input/task-brief.txt in the Text Editor to read the official source starting URLs, the declared input inventory, and the exact delivery/archive requirements before editing any draft."
+      },
+      "actual_proposal_exactly_bound_and_consumed": true,
+      "actual_source_control": null,
+      "atomic_anchor_honored": null,
+      "calls": [
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "baseline",
+            "desktop_input_count": 0,
+            "elapsed_s": 13.637,
+            "finished_at": "2026-10-17T10:04:13.532864+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "03b18a781dad417bf40bb345dc9acf0b1561bafd97428dbc7c5f43fba93009b7",
+            "request_sha256": "17f3499dd5cee6f14f321fee569ada12869c8c34673729160dd4c810eaea8543",
+            "response_bytes_sha256": "05bf0cb052ef087138c7cf12a14a28a95e5320e2fde6c9c9005eede022094733",
+            "source_id": "SRC.PHASE05",
+            "started_at": "2026-10-17T10:03:59.895506+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "proposal"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "proposal"
+        },
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "baseline",
+            "desktop_input_count": 0,
+            "elapsed_s": 18.796,
+            "finished_at": "2026-10-17T10:04:32.384540+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "10d57c9c067fb33f51c778bbf30dd95a1806da3abb69b071a5acc76b1fdb5b31",
+            "request_sha256": "7f4481d934870ef99ddea8ef3191d3416fd2ecfb33ee89aefec722defca78255",
+            "response_bytes_sha256": "bb8a1a233e0f9ac5a0065c4298ffdb11be8e1ac2bcf746a5058abb89fab42990",
+            "source_id": "SRC.PHASE05",
+            "started_at": "2026-10-17T10:04:13.588089+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "action"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "action"
+        }
+      ],
+      "condition": "baseline",
+      "effect_or_task_success_credit": false,
+      "first_request_tag_only_delta_vs_ornith_bytes": true,
+      "inert_expansion_reproduces": true,
+      "sampler_and_fixed_request_fields_match_ornith": true,
+      "semantic_review": {
+        "handoff": "First proposal says double-click Input; downstream instead requests visual_inspection. Legacy baseline has no typed atomic anchor, so this is strategy drift rather than an atomic-contract violation.",
+        "premise": "Recognizes that the semantic list lacks individual child files. The source projection explicitly omits visible nodes, so absence of a row cannot establish absence on screen.",
+        "qualification": "A bounded inspection can be permissible under uncertainty after an unverified click, but no expanded file listing, brief acquisition, or task progress is shown. Whether reading current pixels helps is not tested by this inert chain.",
+        "strategy": "no_input_visual_inspection_incomplete_progress_evidence"
+      },
+      "source_context_positive_controls": [
+        {
+          "active_window": true,
+          "families": [
+            "pointer_or_activation",
+            "key_chord",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Workbench",
+          "ref": "c0",
+          "role": "window",
+          "structure": {
+            "ancestors": [],
+            "child_index": 1
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "switch_window"
+          ],
+          "name": "New Document (Draft) - Text Editor",
+          "ref": "c1",
+          "role": "window"
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Input",
+          "ref": "c3",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "5 items",
+          "ref": "c5",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 1,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        }
+      ],
+      "source_id": "SRC.PHASE05",
+      "source_valid_family_target": true
+    },
+    {
+      "actual_downstream_decision": {
+        "action": {
+          "family": "switch_window",
+          "objective": "Open Input/task-brief.txt in the Text Editor to read the official source starting URLs, the declared input inventory, and the exact delivery/archive requirements before editing any draft.",
+          "target": "c1"
+        },
+        "assessment": "The Workbench file manager is active and the Input folder is selected, showing 5 items. The Text Editor window (c1) is open but inactive. The prior pointer recovery click on the Input row was observed but unverified. The planning handoff proposes activating the Text Editor window to proceed with opening task-brief.txt. This is the logical next step: bring the Text Editor into focus so I can open the task brief file.",
+        "intended_resource": "New Document (Draft) - Text Editor",
+        "remaining_criteria": [
+          "Read task-brief.txt for official source starting URLs, declared input inventory, and exact delivery/archive requirements.",
+          "Confirm the three draft input files exist and capture their current text.",
+          "Apply exactly the ten supplied corrections across the three drafts, preserving protected quotations.",
+          "Save new edited copies to Edited/draft-1.txt, Edited/draft-2.txt, Edited/draft-3.txt.",
+          "Record each change in Edited/change-index.csv.",
+          "Research official style guidance for two editorial justifications without expanding edit scope.",
+          "Package Edited/ into Archive/editorial-pack.zip.",
+          "Reopen edited copies and verify both corrected and protected passages.",
+          "Store a concise session memory with verified output paths, official source URLs, and one source-bound finding."
+        ],
+        "source_epoch": "b58db29d3ad94459bad26b6c8615b8d3",
+        "source_phase": 5
+      },
+      "actual_proposal": {
+        "current_view": "Workbench file manager is active at the Workbench folder, showing the Input folder (5 items) and path breadcrumbs; Text Editor and Firefox windows are open but inactive.",
+        "immediate_action": {
+          "family": "switch_window",
+          "target": "c1"
+        },
+        "needed_evidence": [
+          "Contents of Input/task-brief.txt: official source starting URLs, declared input inventory, exact delivery/archive requirements.",
+          "Confirmation that the three draft input files exist and their current text.",
+          "Whether Edited/ and Archive/ directories already exist in Workbench."
+        ],
+        "next_operation": "Activate the Text Editor window, then open task-brief.txt from the Workbench folder.",
+        "next_subgoal": "Open Input/task-brief.txt in the Text Editor to read the official source starting URLs, the declared input inventory, and the exact delivery/archive requirements before editing any draft."
+      },
+      "actual_proposal_exactly_bound_and_consumed": true,
+      "actual_source_control": {
+        "active_window": false,
+        "families": [
+          "switch_window"
+        ],
+        "name": "New Document (Draft) - Text Editor",
+        "ref": "c1",
+        "role": "window"
+      },
+      "atomic_anchor_honored": true,
+      "calls": [
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "atomic_anchor",
+            "desktop_input_count": 0,
+            "elapsed_s": 14.791,
+            "finished_at": "2026-10-17T10:04:47.249079+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "2436e5d5d5fb91c00058f32b3ec0ae4c39023eee99569a0729a111af2eb667cd",
+            "request_sha256": "e6b717dd01a5231ef28d5e33ec800cad5792b4de31ca55230e5295c9649111ab",
+            "response_bytes_sha256": "98379a995ef4ad4b48d7238ca2d70ea630f423e33f5b5b8dc64901af4def432a",
+            "source_id": "SRC.PHASE05",
+            "started_at": "2026-10-17T10:04:32.458517+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "proposal"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "proposal"
+        },
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "atomic_anchor",
+            "desktop_input_count": 0,
+            "elapsed_s": 18.909,
+            "finished_at": "2026-10-17T10:05:06.220484+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "f9f57ab1f40a4574c6e9ee2b12b6069af21da78262b4fb847a4f0e7db9f4fa8b",
+            "request_sha256": "7da69947ca9bd4f5c39cfd617249594c03b12bb49179dc6ecf53bf41859f21aa",
+            "response_bytes_sha256": "1c3b8d63dee28d9ab55c73d36674cad231a92a5e72bde62848a9300001b6df5f",
+            "source_id": "SRC.PHASE05",
+            "started_at": "2026-10-17T10:04:47.311095+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "action"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "action"
+        }
+      ],
+      "condition": "atomic_anchor",
+      "effect_or_task_success_credit": false,
+      "first_request_tag_only_delta_vs_ornith_bytes": true,
+      "inert_expansion_reproduces": true,
+      "sampler_and_fixed_request_fields_match_ornith": true,
+      "semantic_review": {
+        "handoff": "Actual new proposal is consumed and inactive Editor c1 anchor preserved.",
+        "premise": "Correctly identifies c1 as the inactive Editor and recognizes prior Input click observed but unverified.",
+        "qualification": "Switching is a plausible prerequisite to opening through Editor; there is no actual activation, Open dialog, or acquired brief in this cohort.",
+        "strategy": "permissible_inactive_Editor_switch"
+      },
+      "source_context_positive_controls": [
+        {
+          "active_window": true,
+          "families": [
+            "pointer_or_activation",
+            "key_chord",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Workbench",
+          "ref": "c0",
+          "role": "window",
+          "structure": {
+            "ancestors": [],
+            "child_index": 1
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "switch_window"
+          ],
+          "name": "New Document (Draft) - Text Editor",
+          "ref": "c1",
+          "role": "window"
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Input",
+          "ref": "c3",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "5 items",
+          "ref": "c5",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 1,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        }
+      ],
+      "source_id": "SRC.PHASE05",
+      "source_valid_family_target": true
+    },
+    {
+      "actual_downstream_decision": {
+        "action": {
+          "family": "visual_inspection",
+          "objective": "Open Input/task-brief.txt in the active Text Editor to read the official source starting URLs, declared input inventory, and exact delivery/archive requirements before editing any draft."
+        },
+        "assessment": "The Text Editor window is now active but shows an empty New Document (Draft). I need to see the editor's menu bar and toolbar to find the Open control so I can navigate to Input/task-brief.txt. A visual read of the current view will reveal the available controls before I attempt a click.",
+        "intended_resource": "New Document (Draft) - Text Editor",
+        "remaining_criteria": [
+          "Read task-brief.txt for official source starting URLs, declared input inventory, and exact delivery/archive requirements.",
+          "Confirm the three draft input files exist and capture their current text.",
+          "Apply exactly the ten supplied corrections across the three drafts, preserving protected quotations.",
+          "Save new edited copies to Edited/draft-1.txt, Edited/draft-2.txt, Edited/draft-3.txt.",
+          "Record each change in Edited/change-index.csv.",
+          "Research official style guidance for two editorial justifications without expanding edit scope.",
+          "Package Edited/ into Archive/editorial-pack.zip.",
+          "Reopen edited copies and verify both corrected and protected passages.",
+          "Store a concise session memory with verified output paths, official source URLs, and one source-bound finding."
+        ],
+        "source_epoch": "b58db29d3ad94459bad26b6c8615b8d3",
+        "source_phase": 6
+      },
+      "actual_proposal": {
+        "current_view": "Text Editor window is active showing an empty New Document (Draft); Workbench and Firefox are available in the background.",
+        "needed_evidence": [
+          "Contents of Input/task-brief.txt including official source starting URLs, declared input inventory, and delivery/archive requirements.",
+          "Confirmation that draft-1.txt, draft-2.txt, and draft-3.txt exist in the Workbench input area and their current text.",
+          "Whether Edited/ and Archive/ directories already exist under the Workbench path."
+        ],
+        "next_operation": "Use the Text Editor Open dialog to navigate to the Workbench Input folder and open task-brief.txt.",
+        "next_subgoal": "Open Input/task-brief.txt in the active Text Editor to read the official source starting URLs, declared input inventory, and exact delivery/archive requirements before editing any draft."
+      },
+      "actual_proposal_exactly_bound_and_consumed": true,
+      "actual_source_control": null,
+      "atomic_anchor_honored": null,
+      "calls": [
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "baseline",
+            "desktop_input_count": 0,
+            "elapsed_s": 14.805,
+            "finished_at": "2026-10-17T10:05:21.116373+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "afc523170d26152a7a48a368f79ed9097926a500ec652121d9d64195fb78156b",
+            "request_sha256": "8e95bd36d2ba112d43702ba2a9737e058f467e954833a20dbd38ce23ac7046e9",
+            "response_bytes_sha256": "45b17a4ffe6e87a6bb16da6f6e4ec15649856f8cdbf9f141a50e32678d6b12b1",
+            "source_id": "SRC.PHASE06",
+            "started_at": "2026-10-17T10:05:06.311374+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "proposal"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "proposal"
+        },
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "baseline",
+            "desktop_input_count": 0,
+            "elapsed_s": 21.719,
+            "finished_at": "2026-10-17T10:05:42.903346+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "1fffac8809b5318c853a815ee556add644ba79186040c5b25a7bc022eae5dd08",
+            "request_sha256": "cb86f7f0ab23bae2ec139bc875651344e14dadb9556a8bfdf68f33ee897794b7",
+            "response_bytes_sha256": "bd5ef7e4e13b31c556910fc121890b18b06e4a5ce77bfc344832c500e05b5208",
+            "source_id": "SRC.PHASE06",
+            "started_at": "2026-10-17T10:05:21.184569+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "action"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "action"
+        }
+      ],
+      "condition": "baseline",
+      "effect_or_task_success_credit": false,
+      "first_request_tag_only_delta_vs_ornith_bytes": true,
+      "inert_expansion_reproduces": true,
+      "sampler_and_fixed_request_fields_match_ornith": true,
+      "semantic_review": {
+        "handoff": "Proposal requests using the Editor Open dialog; downstream asks visual_inspection before choosing an actual Open control.",
+        "premise": "The source explicitly includes c4 Open and its c5 nested Recently Used Documents control, yet action says a visual read is needed to find Open/menu/toolbar controls. This rationale overlooks positive supplied native evidence.",
+        "qualification": "The inspection is a legal noninput operation, not a proven whole-task failure. Actual visual reading was not invoked and may return additional evidence; no outcome is inferred.",
+        "strategy": "redundant_inspection_rationale_for_already_supplied_control"
+      },
+      "source_context_positive_controls": [
+        {
+          "active_window": false,
+          "families": [
+            "switch_window"
+          ],
+          "name": "Workbench",
+          "ref": "c0",
+          "role": "window"
+        },
+        {
+          "active_window": true,
+          "families": [
+            "pointer_or_activation",
+            "key_chord",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "New Document (Draft) - Text Editor",
+          "ref": "c1",
+          "role": "window",
+          "structure": {
+            "ancestors": [],
+            "child_index": 1
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "text_entry",
+            "text_submit",
+            "key_chord",
+            "scroll"
+          ],
+          "focused": true,
+          "name": "",
+          "ref": "c3",
+          "role": "textbox",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:c34362b0e09416508710a30b590aa65f",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:c270d9d87f554aaffca5d0e07c679481",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:3a35d139ccaaa28d9fe25c6289d370dc",
+                "name": "",
+                "role": "scroll_pane",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:3a35d139ccaaa28d9fe25c6289d370dc"
+          },
+          "text_observation": {
+            "captured_range": {
+              "end": 0,
+              "start": 0
+            },
+            "character_count": 0,
+            "selection_count": 0,
+            "truncated": false
+          },
+          "value": ""
+        },
+        {
+          "active_window": false,
+          "description": "Recently Used Documents",
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Open",
+          "ref": "c4",
+          "role": "button",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:44450aa5a46e15e52226a568491c1d36",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:6e8e156668f165d16b58fbc4e4c29a5f",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:c236f49a529c3b014c01982717c3aa95",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:c236f49a529c3b014c01982717c3aa95"
+          }
+        },
+        {
+          "active_window": false,
+          "checked": false,
+          "description": "Recently Used Documents",
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Open",
+          "ref": "c5",
+          "role": "toggle_button",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:6e8e156668f165d16b58fbc4e4c29a5f",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:c236f49a529c3b014c01982717c3aa95",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:ed809c5a0794194b7090282f571de157",
+                "name": "Open",
+                "role": "button",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:ed809c5a0794194b7090282f571de157",
+            "parent_ref": "c4"
+          }
+        }
+      ],
+      "source_id": "SRC.PHASE06",
+      "source_valid_family_target": true
+    },
+    {
+      "actual_downstream_decision": {
+        "action": {
+          "family": "pointer_or_activation",
+          "objective": "Open Input/task-brief.txt in the Text Editor to read the official source starting URLs, declared input inventory, and exact delivery/archive requirements before editing any draft.",
+          "target": "c4",
+          "transition_kind": "popup_opened"
+        },
+        "assessment": "The Text Editor window is now active and shows an empty draft with an Open button. I need to open the file chooser to navigate to Input/task-brief.txt. Clicking the Open button (c4) should bring up a file dialog where I can select the task brief.",
+        "intended_resource": "Open button in Text Editor",
+        "remaining_criteria": [
+          "Read task-brief.txt for official source starting URLs, declared input inventory, and exact delivery/archive requirements.",
+          "Confirm the three draft input files exist and capture their current text.",
+          "Apply exactly the ten supplied corrections across the three drafts, preserving protected quotations.",
+          "Save new edited copies to Edited/draft-1.txt, Edited/draft-2.txt, Edited/draft-3.txt.",
+          "Record each change in Edited/change-index.csv.",
+          "Research official style guidance for two editorial justifications without expanding edit scope.",
+          "Package Edited/ into Archive/editorial-pack.zip.",
+          "Reopen edited copies and verify both corrected and protected passages.",
+          "Store a concise session memory with verified output paths, official source URLs, and one source-bound finding."
+        ],
+        "source_epoch": "b58db29d3ad94459bad26b6c8615b8d3",
+        "source_phase": 6
+      },
+      "actual_proposal": {
+        "current_view": "New Document (Draft) - Text Editor is the active window, showing an empty draft with Open, New tab, View, and Main menu controls; Workbench and Mozilla Firefox are inactive.",
+        "immediate_action": {
+          "family": "pointer_or_activation",
+          "target": "c4"
+        },
+        "needed_evidence": [
+          "Contents of Input/task-brief.txt: official source starting URLs, declared input inventory, and exact delivery/archive requirements.",
+          "Confirmation that draft-1.txt, draft-2.txt, and draft-3.txt exist and their current text.",
+          "Whether Edited/ and Archive/ directories already exist under Workbench."
+        ],
+        "next_operation": "Click the Open button (c4) in the Text Editor to bring up the file chooser, then navigate to Workbench/Input/task-brief.txt.",
+        "next_subgoal": "Open Input/task-brief.txt in the Text Editor to read the official source starting URLs, declared input inventory, and exact delivery/archive requirements before editing any draft."
+      },
+      "actual_proposal_exactly_bound_and_consumed": true,
+      "actual_source_control": {
+        "active_window": false,
+        "description": "Recently Used Documents",
+        "families": [
+          "pointer_or_activation",
+          "scroll"
+        ],
+        "focused": false,
+        "name": "Open",
+        "ref": "c4",
+        "role": "button",
+        "structure": {
+          "ancestors": [
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:44450aa5a46e15e52226a568491c1d36",
+              "name": "",
+              "role": "panel",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:6e8e156668f165d16b58fbc4e4c29a5f",
+              "name": "",
+              "role": "panel",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:c236f49a529c3b014c01982717c3aa95",
+              "name": "",
+              "role": "panel",
+              "visible": true
+            }
+          ],
+          "child_index": 0,
+          "parent_id": "atspi:c236f49a529c3b014c01982717c3aa95"
+        }
+      },
+      "atomic_anchor_honored": true,
+      "calls": [
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "atomic_anchor",
+            "desktop_input_count": 0,
+            "elapsed_s": 16.89,
+            "finished_at": "2026-10-17T10:05:59.860972+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "11581b21eb107e19d0970524b9a58d815ad25e770036b43ec069144359fa728f",
+            "request_sha256": "45d798d70c5029b2c2b15ba46306b57f1523af407f9ba3ef3f452077d8c69918",
+            "response_bytes_sha256": "a2f21f2ce54d01b25158ef8e7c08c0fdac63019ad1824373bac819cc039cd458",
+            "source_id": "SRC.PHASE06",
+            "started_at": "2026-10-17T10:05:42.971056+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "proposal"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "proposal"
+        },
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "atomic_anchor",
+            "desktop_input_count": 0,
+            "elapsed_s": 20.276,
+            "finished_at": "2026-10-17T10:06:20.184537+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "a873d6dad3d64dea94a89d8dd20c0d8fdf8338b51b9618c16e8ebc2562c926ad",
+            "request_sha256": "ce986e069f17846e37c94dedfca4a4d314f94e976dcc3d8d021429c32c319dee",
+            "response_bytes_sha256": "2a416646b02ed27a288797444ae215c0f277ff3bd5f86cfe5ca1329456cc39dc",
+            "source_id": "SRC.PHASE06",
+            "started_at": "2026-10-17T10:05:59.908885+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "action"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "action"
+        }
+      ],
+      "condition": "atomic_anchor",
+      "effect_or_task_success_credit": false,
+      "first_request_tag_only_delta_vs_ornith_bytes": true,
+      "inert_expansion_reproduces": true,
+      "sampler_and_fixed_request_fields_match_ornith": true,
+      "semantic_review": {
+        "handoff": "Typed pointer c4 anchor preserved; optional popup_opened descriptor is a requested observation boundary.",
+        "premise": "Correctly identifies c4 as Open in the active Editor, rather than attributing it to a Workbench folder listing. The source description is Recently Used Documents and includes a nested Open toggle; exact popup/file-chooser behavior still requires observation.",
+        "qualification": "A file chooser is predicted, not observed. No direct brief-loading or source acquisition credit, and no proof of correct future navigation.",
+        "strategy": "permissible_Editor_Open_exploratory_prerequisite"
+      },
+      "source_context_positive_controls": [
+        {
+          "active_window": false,
+          "families": [
+            "switch_window"
+          ],
+          "name": "Workbench",
+          "ref": "c0",
+          "role": "window"
+        },
+        {
+          "active_window": true,
+          "families": [
+            "pointer_or_activation",
+            "key_chord",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "New Document (Draft) - Text Editor",
+          "ref": "c1",
+          "role": "window",
+          "structure": {
+            "ancestors": [],
+            "child_index": 1
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "text_entry",
+            "text_submit",
+            "key_chord",
+            "scroll"
+          ],
+          "focused": true,
+          "name": "",
+          "ref": "c3",
+          "role": "textbox",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:c34362b0e09416508710a30b590aa65f",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:c270d9d87f554aaffca5d0e07c679481",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:3a35d139ccaaa28d9fe25c6289d370dc",
+                "name": "",
+                "role": "scroll_pane",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:3a35d139ccaaa28d9fe25c6289d370dc"
+          },
+          "text_observation": {
+            "captured_range": {
+              "end": 0,
+              "start": 0
+            },
+            "character_count": 0,
+            "selection_count": 0,
+            "truncated": false
+          },
+          "value": ""
+        },
+        {
+          "active_window": false,
+          "description": "Recently Used Documents",
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Open",
+          "ref": "c4",
+          "role": "button",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:44450aa5a46e15e52226a568491c1d36",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:6e8e156668f165d16b58fbc4e4c29a5f",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:c236f49a529c3b014c01982717c3aa95",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:c236f49a529c3b014c01982717c3aa95"
+          }
+        },
+        {
+          "active_window": false,
+          "checked": false,
+          "description": "Recently Used Documents",
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Open",
+          "ref": "c5",
+          "role": "toggle_button",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:6e8e156668f165d16b58fbc4e4c29a5f",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:c236f49a529c3b014c01982717c3aa95",
+                "name": "",
+                "role": "panel",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:ed809c5a0794194b7090282f571de157",
+                "name": "Open",
+                "role": "button",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:ed809c5a0794194b7090282f571de157",
+            "parent_ref": "c4"
+          }
+        }
+      ],
+      "source_id": "SRC.PHASE06",
+      "source_valid_family_target": true
+    },
+    {
+      "actual_downstream_decision": {
+        "action": {
+          "family": "visual_inspection",
+          "objective": "Open Input/task-brief.txt in the Text Editor to read the official source starting URLs, declared input inventory, and exact delivery/archive requirements before editing any draft."
+        },
+        "assessment": "The Workbench file manager is active and showing the Input folder with 5 items, but the semantic control list does not yet expose the individual file entries (task-brief.txt, draft-1/2/3.txt). I need to see the file list to locate and open task-brief.txt.",
+        "intended_resource": "Workbench file list in Input folder",
+        "remaining_criteria": [
+          "Read task-brief.txt for official source starting URLs, declared input inventory, and exact delivery/archive requirements.",
+          "Confirm the three draft input files exist and capture their current text.",
+          "Apply exactly the ten supplied corrections across the three drafts, preserving protected quotations.",
+          "Save new edited copies to Edited/draft-1.txt, Edited/draft-2.txt, Edited/draft-3.txt.",
+          "Record each change in Edited/change-index.csv.",
+          "Research official style guidance for two editorial justifications without expanding edit scope.",
+          "Package Edited/ into Archive/editorial-pack.zip.",
+          "Reopen edited copies and verify both corrected and protected passages.",
+          "Store a concise session memory with verified output paths, official source URLs, and one source-bound finding."
+        ],
+        "source_epoch": "b58db29d3ad94459bad26b6c8615b8d3",
+        "source_phase": 7
+      },
+      "actual_proposal": {
+        "current_view": "Workbench file manager is active, showing the Input folder (5 items) inside the Workbench directory; Text Editor and Firefox are available but not active.",
+        "needed_evidence": [
+          "Contents of Input/task-brief.txt (official source URLs, input inventory, delivery/archive requirements).",
+          "Confirmation that draft-1.txt, draft-2.txt, draft-3.txt exist in Input/ and their current text.",
+          "Whether Edited/ and Archive/ directories already exist under Workbench."
+        ],
+        "next_operation": "Double-click the task-brief.txt entry in the Input folder to open it in the Text Editor.",
+        "next_subgoal": "Open Input/task-brief.txt in the Text Editor to read the official source starting URLs, declared input inventory, and exact delivery/archive requirements before editing any draft."
+      },
+      "actual_proposal_exactly_bound_and_consumed": true,
+      "actual_source_control": null,
+      "atomic_anchor_honored": null,
+      "calls": [
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "baseline",
+            "desktop_input_count": 0,
+            "elapsed_s": 14.434,
+            "finished_at": "2026-10-17T10:06:34.726998+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "6e226490ea359c33bc9d02fda88727c57f71e30f2c53c47cc898d970f7379f2f",
+            "request_sha256": "e1a7599c5b5c9228f4922e62cf85ae257ddaa21f4805a2b450f2b4159e5b9fca",
+            "response_bytes_sha256": "19891ad968a12b7c1f8f2c5c684247f2c6a26d5aa56def67b20d7b5505e8b903",
+            "source_id": "SRC.PHASE07",
+            "started_at": "2026-10-17T10:06:20.292930+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "proposal"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "proposal"
+        },
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "baseline",
+            "desktop_input_count": 0,
+            "elapsed_s": 21.367,
+            "finished_at": "2026-10-17T10:06:56.176774+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "39c577403e1b77fd09c355fe4cc19d5637426c823561875b285b5eed0bcfbbf0",
+            "request_sha256": "7b7f079fe02c4ae00d53dd522d3784de902321cbbab4b131461efcf8cbe32fb1",
+            "response_bytes_sha256": "ba4a4286dd5c73181a05ebf161c76cf66e679e5ec881122e8abfe974ec1bc56d",
+            "source_id": "SRC.PHASE07",
+            "started_at": "2026-10-17T10:06:34.809803+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "action"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "action"
+        }
+      ],
+      "condition": "baseline",
+      "effect_or_task_success_credit": false,
+      "first_request_tag_only_delta_vs_ornith_bytes": true,
+      "inert_expansion_reproduces": true,
+      "sampler_and_fixed_request_fields_match_ornith": true,
+      "semantic_review": {
+        "handoff": "Downstream visual_inspection differs from proposed file double-click; old baseline allows this, with no atomic anchor violation.",
+        "premise": "First proposal says double-click task-brief.txt entry although no such entry is in supplied controls. It is a desired file from the task, not an observed selector. Downstream avoids fabricating a selector but describes a file list in Input whose contents are not established by the visible folder row.",
+        "qualification": "Native projection omits236visible nodes and forbids absence claims; no claim that the file definitely does not exist or is definitely off screen. No read executed; proposed inspection remains incomplete.",
+        "strategy": "unobserved_file_entry_in_prose_followed_by_no_input_inspection"
+      },
+      "source_context_positive_controls": [
+        {
+          "active_window": true,
+          "families": [
+            "pointer_or_activation",
+            "key_chord",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Workbench",
+          "ref": "c0",
+          "role": "window",
+          "structure": {
+            "ancestors": [],
+            "child_index": 1
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "switch_window"
+          ],
+          "name": "New Document (Draft) - Text Editor",
+          "ref": "c1",
+          "role": "window"
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Input",
+          "ref": "c3",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "5 items",
+          "ref": "c5",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 1,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        }
+      ],
+      "source_id": "SRC.PHASE07",
+      "source_valid_family_target": true
+    },
+    {
+      "actual_downstream_decision": {
+        "action": {
+          "family": "pointer_or_activation",
+          "objective": "Open Input/task-brief.txt in the Text Editor to read the official source starting URLs, declared input inventory, and exact delivery/archive requirements before editing any draft.",
+          "target": "c3",
+          "transition_kind": "focus_changed_within_scope"
+        },
+        "assessment": "The Workbench file manager is active and showing the Input folder row (5 items). The prior single click on the Input cell was observed but unverified; the folder may not yet be expanded. I need to activate the Input folder to reveal task-brief.txt and the three drafts before reading the brief. This is a fresh guarded input on the active window, not a repeat of the failed Text Editor state.",
+        "intended_resource": "Input folder row in Workbench",
+        "remaining_criteria": [
+          "Read task-brief.txt for official source starting URLs, declared input inventory, and exact delivery/archive requirements.",
+          "Confirm the three draft input files exist and capture their current text.",
+          "Apply exactly the ten supplied corrections across the three drafts, preserving protected quotations.",
+          "Save new edited copies to Edited/draft-1.txt, Edited/draft-2.txt, Edited/draft-3.txt.",
+          "Record each change in Edited/change-index.csv.",
+          "Research official style guidance for two editorial justifications without expanding edit scope.",
+          "Package Edited/ into Archive/editorial-pack.zip.",
+          "Reopen edited copies and verify both corrected and protected passages.",
+          "Store a concise session memory with verified output paths, official source URLs, and one source-bound finding."
+        ],
+        "source_epoch": "b58db29d3ad94459bad26b6c8615b8d3",
+        "source_phase": 7
+      },
+      "actual_proposal": {
+        "current_view": "Workbench file manager is active at the Workbench directory, showing the Input folder (5 items) and the path to the execution contract Workbench.",
+        "immediate_action": {
+          "family": "pointer_or_activation",
+          "target": "c3"
+        },
+        "needed_evidence": [
+          "The contents of Input/task-brief.txt (official source starting URLs, declared input inventory, exact delivery/archive requirements).",
+          "Confirmation that the three draft input files exist in Input/ and their current text.",
+          "Whether Edited/ and Archive/ directories already exist in Workbench."
+        ],
+        "next_operation": "Double-click the Input folder in the Workbench file manager to reveal task-brief.txt, then open it in the Text Editor.",
+        "next_subgoal": "Open Input/task-brief.txt in the Text Editor to read the official source starting URLs, declared input inventory, and exact delivery/archive requirements before editing any draft."
+      },
+      "actual_proposal_exactly_bound_and_consumed": true,
+      "actual_source_control": {
+        "active_window": false,
+        "families": [
+          "pointer_or_activation",
+          "scroll"
+        ],
+        "focused": false,
+        "name": "Input",
+        "ref": "c3",
+        "role": "table_cell",
+        "structure": {
+          "ancestors": [
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+              "name": "",
+              "role": "tree_table",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+              "name": "",
+              "role": "list",
+              "visible": true
+            },
+            {
+              "enabled": true,
+              "generation": "1",
+              "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+              "name": "Input",
+              "role": "table_row",
+              "visible": true
+            }
+          ],
+          "child_index": 0,
+          "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+        }
+      },
+      "atomic_anchor_honored": true,
+      "calls": [
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "atomic_anchor",
+            "desktop_input_count": 0,
+            "elapsed_s": 15.9,
+            "finished_at": "2026-10-17T10:07:12.152625+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "a0caa9743f48d96ede5488e6718216000c570d0a0f56b160c87c1898d966e4f1",
+            "request_sha256": "75ba41789f799b131f15176c078d68fd17d365f4dbff4a935eadbf0237455606",
+            "response_bytes_sha256": "3307d1b445d7364113742bbb18b967149727c4ea8ca6f7f733a603604ece5ee3",
+            "source_id": "SRC.PHASE07",
+            "started_at": "2026-10-17T10:06:56.252729+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "proposal"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "proposal"
+        },
+        {
+          "raw_request_bytes_json_receipt_schema_model_sampler_checks": true,
+          "receipt": {
+            "attempted": true,
+            "condition": "atomic_anchor",
+            "desktop_input_count": 0,
+            "elapsed_s": 20.958,
+            "finished_at": "2026-10-17T10:07:33.169549+00:00",
+            "http_transmission_attempted": true,
+            "request_bytes_sha256": "cd6def81cd8387cbdfee11a86bba0e228d89879ead26cf65d48281bb08d4fda4",
+            "request_sha256": "8367f1ec72d54ddcf886e6affe6ac64cf6d1909690782fd493af7d0b65bb7124",
+            "response_bytes_sha256": "5c2ecd8be337cfb00521c3593a2a1aeb59dc54b86696b2e3b4b4a37188a6a606",
+            "source_id": "SRC.PHASE07",
+            "started_at": "2026-10-17T10:07:12.211338+00:00",
+            "status": "response_received",
+            "status_code": 200,
+            "step": "action"
+          },
+          "request_top_level_fields": [
+            "messages",
+            "model",
+            "omni",
+            "options",
+            "response_format",
+            "response_modalities",
+            "speech_mode",
+            "stream",
+            "think"
+          ],
+          "step": "action"
+        }
+      ],
+      "condition": "atomic_anchor",
+      "effect_or_task_success_credit": false,
+      "first_request_tag_only_delta_vs_ornith_bytes": true,
+      "inert_expansion_reproduces": true,
+      "sampler_and_fixed_request_fields_match_ornith": true,
+      "semantic_review": {
+        "handoff": "Typed c3 pointer anchor preserved and free operation says double-click Input.",
+        "premise": "Correctly describes the observed Input folder row and keeps prior single-click effect unverified; does not claim its full contents are acquired.",
+        "qualification": "Calling an input fresh/guarded does not itself prove a new operation strategy after an uncertain prior Input click. The next fast policy must choose an exact legal operation and respect the recovery ledger; neither policy execution nor retry safety is tested here.",
+        "strategy": "source_valid_Input_folder_prerequisite_with_uncertain_prior_input"
+      },
+      "source_context_positive_controls": [
+        {
+          "active_window": true,
+          "families": [
+            "pointer_or_activation",
+            "key_chord",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Workbench",
+          "ref": "c0",
+          "role": "window",
+          "structure": {
+            "ancestors": [],
+            "child_index": 1
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "switch_window"
+          ],
+          "name": "New Document (Draft) - Text Editor",
+          "ref": "c1",
+          "role": "window"
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "Input",
+          "ref": "c3",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 0,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        },
+        {
+          "active_window": false,
+          "families": [
+            "pointer_or_activation",
+            "scroll"
+          ],
+          "focused": false,
+          "name": "5 items",
+          "ref": "c5",
+          "role": "table_cell",
+          "structure": {
+            "ancestors": [
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:2610e1f4a92374a0d4a9b0d0e444a64d",
+                "name": "",
+                "role": "tree_table",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:5d2b7ffd077c8c6f55ef78384168f466",
+                "name": "",
+                "role": "list",
+                "visible": true
+              },
+              {
+                "enabled": true,
+                "generation": "1",
+                "id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91",
+                "name": "Input",
+                "role": "table_row",
+                "visible": true
+              }
+            ],
+            "child_index": 1,
+            "parent_id": "atspi:b0967d9a88ee5b1fc0e21186c6b9dc91"
+          }
+        }
+      ],
+      "source_id": "SRC.PHASE07",
+      "source_valid_family_target": true
+    }
+  ],
+  "gpu_and_model_evidence": {
+    "actual_adapter_config_recorded": {
+      "comprehension_context_file": null,
+      "comprehension_context_tokens": 65536,
+      "comprehension_disable_thinking": true,
+      "comprehension_max_output_tokens": 2048,
+      "comprehension_model": "local-audio-bridge",
+      "comprehension_repeat_penalty": 1.1,
+      "comprehension_url": "http://127.0.0.1:8901/v1/chat/completions",
+      "language_api": "openai",
+      "language_disable_thinking": false,
+      "language_llama_context_probe": true,
+      "language_max_output_tokens": 4096,
+      "language_model": "local-audio-bridge",
+      "language_url": "http://127.0.0.1:8901/v1/chat/completions",
+      "live_addressee_gate": true,
+      "spoken_language_max_output_tokens": 512,
+      "spoken_max_audio_seconds": 24.0,
+      "spoken_max_sentences": 2,
+      "spoken_max_tts_blocks": 4,
+      "timeout_s": 900.0,
+      "tts_stream_frames": 8,
+      "tts_url": "http://127.0.0.1:8892/synthesize"
+    },
+    "actual_context_tokens": 65536,
+    "adoption_broker": {
+      "active_leases": [
+        {
+          "created_at": 1792231270.3414478,
+          "expected_release_at": 1792238470.3414478,
+          "expected_release_utc": "2026-10-17T12:01:10Z",
+          "gpu_uuids": [
+            "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0"
+          ],
+          "horizon_status": "expected",
+          "justification": "Qwen Omni comprehension and speech service (robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km)",
+          "owner": "robit-omni-phone-portal",
+          "recommendations": [],
+          "requested_mib": 45000,
+          "seconds_until_expected_release": 7109,
+          "state": "active",
+          "yield_on_request": false
+        }
+      ],
+      "at": "2026-10-17T10:02:41.420555+00:00",
+      "gpu_health": {
+        "admission_blocked": false,
+        "error": null,
+        "missing_selected_gpu_ids": [],
+        "recovery_actions": {},
+        "supported": true
+      },
+      "gpu_uuid": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+      "inference_hold": {
+        "active": false,
+        "path": "/etc/ollama-unify/inference-hold"
+      },
+      "processes": [
+        {
+          "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+          "other_selected_residency": [],
+          "pid": 1973818,
+          "resident_on_gpu1": true
+        },
+        {
+          "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+          "other_selected_residency": [],
+          "pid": 1977341,
+          "resident_on_gpu1": true
+        }
+      ],
+      "unregistered_gpu_quarantine": [],
+      "warnings": [
+        "GPU leases reserve shared accelerators for other users and agents. Inspect active_leases before acquiring; every new lease must identify its owner. Purpose and expected duration are recommended for coordination, but omitting them does not block deployment. Active external leases: robit-omni-phone-portal until 2026-10-17T12:01:10Z."
+      ]
+    },
+    "adoption_pid_bindings_match_run": true,
+    "blob_sizes_independently_match_manifest": true,
+    "broker_after": {
+      "active_leases": [
+        {
+          "created_at": 1792231270.3414478,
+          "expected_release_at": 1792238470.3414478,
+          "expected_release_utc": "2026-10-17T12:01:10Z",
+          "gpu_uuids": [
+            "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0"
+          ],
+          "horizon_status": "expected",
+          "justification": "Qwen Omni comprehension and speech service (robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km)",
+          "owner": "robit-omni-phone-portal",
+          "recommendations": [],
+          "requested_mib": 45000,
+          "seconds_until_expected_release": 6816,
+          "state": "active",
+          "yield_on_request": false
+        }
+      ],
+      "at": "2026-10-17T10:07:34.278889+00:00",
+      "gpu_health": {
+        "admission_blocked": false,
+        "error": null,
+        "missing_selected_gpu_ids": [],
+        "recovery_actions": {},
+        "supported": true
+      },
+      "gpu_uuid": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+      "inference_hold": {
+        "active": false,
+        "path": "/etc/ollama-unify/inference-hold"
+      },
+      "processes": [
+        {
+          "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+          "other_selected_residency": [],
+          "pid": 1973818,
+          "resident_on_gpu1": true
+        },
+        {
+          "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+          "other_selected_residency": [],
+          "pid": 1977341,
+          "resident_on_gpu1": true
+        }
+      ],
+      "unregistered_gpu_quarantine": [],
+      "warnings": [
+        "GPU leases reserve shared accelerators for other users and agents. Inspect active_leases before acquiring; every new lease must identify its owner. Purpose and expected duration are recommended for coordination, but omitting them does not block deployment. Active external leases: robit-omni-phone-portal until 2026-10-17T12:01:10Z."
+      ]
+    },
+    "broker_before": {
+      "active_leases": [
+        {
+          "created_at": 1792231270.3414478,
+          "expected_release_at": 1792238470.3414478,
+          "expected_release_utc": "2026-10-17T12:01:10Z",
+          "gpu_uuids": [
+            "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0"
+          ],
+          "horizon_status": "expected",
+          "justification": "Qwen Omni comprehension and speech service (robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km)",
+          "owner": "robit-omni-phone-portal",
+          "recommendations": [],
+          "requested_mib": 45000,
+          "seconds_until_expected_release": 7074,
+          "state": "active",
+          "yield_on_request": false
+        }
+      ],
+      "at": "2026-10-17T10:03:15.969497+00:00",
+      "gpu_health": {
+        "admission_blocked": false,
+        "error": null,
+        "missing_selected_gpu_ids": [],
+        "recovery_actions": {},
+        "supported": true
+      },
+      "gpu_uuid": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+      "inference_hold": {
+        "active": false,
+        "path": "/etc/ollama-unify/inference-hold"
+      },
+      "processes": [
+        {
+          "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+          "other_selected_residency": [],
+          "pid": 1973818,
+          "resident_on_gpu1": true
+        },
+        {
+          "cuda_visible_devices": "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0",
+          "other_selected_residency": [],
+          "pid": 1977341,
+          "resident_on_gpu1": true
+        }
+      ],
+      "unregistered_gpu_quarantine": [],
+      "warnings": [
+        "GPU leases reserve shared accelerators for other users and agents. Inspect active_leases before acquiring; every new lease must identify its owner. Purpose and expected duration are recommended for coordination, but omitting them does not block deployment. Active external leases: robit-omni-phone-portal until 2026-10-17T12:01:10Z."
+      ]
+    },
+    "evidence_mode": "saved_root_adoption_and_driver_before_after_receipts_only_no_reviewer_GPU_or_API_calls",
+    "fresh_full_weight_digest_recomputed": false,
+    "installed_manifest_path": "/srv/ollama/models/manifests/registry.ollama.ai/robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge/q4km",
+    "installed_manifest_sha256": "3e37bfe6c5fc07d3cd0cfe1557f5efa9b16f8ab0316a5207a4828f5b87da391f",
+    "kev_health_recorded": {
+      "calls": 0,
+      "device": "cuda",
+      "model": "jaredpalmer/kev-4b@6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+      "pid": 1977341,
+      "ready": true,
+      "revision": "6cfce5c2fa4b4bd64026336ab649c5ca78857d52"
+    },
+    "model_layer": {
+      "digest": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+      "mediaType": "application/vnd.ollama.image.model",
+      "size": 16547400480
+    },
+    "projector_layer": {
+      "digest": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+      "mediaType": "application/vnd.ollama.image.projector",
+      "size": 1652306304
+    },
+    "residency_scope": "Saved broker receipts explicitly observe trunk and Kev on GPU1 only. Driver pre-call guards check all8 PID/start identities and CUDA_VISIBLE_DEVICES for trunk/point/TTS/Kev. Point/TTS allocations or calls are not independently proven by trunk/Kev residency.",
+    "sampler_scope": "Outer request temperature0,num_predict8192,thinkfalse exact. Saved actual adapter configuration caps language outputs4096; current source translates native thinking boolean and min(requested,configuredmaximum). This source inference is not a raw upstream max_tokens capture. Different models have native templates/tokenizers; no pure-weight-only isolation claim.",
+    "worker_identities": {
+      "adapter": {
+        "pid": 1975224,
+        "process_start": "15066424"
+      },
+      "controller": {
+        "pid": 1968792,
+        "process_start": "15062451"
+      },
+      "kev": {
+        "pid": 1977341,
+        "process_start": "15067703"
+      },
+      "point": {
+        "pid": 1974849,
+        "process_start": "15066221"
+      },
+      "portal": {
+        "pid": 1975406,
+        "process_start": "15066526"
+      },
+      "supervisor": {
+        "pid": 1968941,
+        "process_start": "15062510"
+      },
+      "trunk": {
+        "pid": 1973818,
+        "process_start": "15065509"
+      },
+      "tts": {
+        "pid": 1974949,
+        "process_start": "15066323"
+      }
+    }
+  },
+  "loaded_code_file_sha256": "05c1f8a71ad46095e3960a2219300ae369454052211a1ec801e3e8e026c898e7",
+  "loaded_imports_count": 12,
+  "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+  "model_layer": {
+    "digest": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+    "mediaType": "application/vnd.ollama.image.model",
+    "size": 16547400480
+  },
+  "paired_mechanistic_checks": {
+    "downstream_context_compiled_from_each_Qwen_actual_proposal": 8,
+    "downstream_fixed_envelope_sampler_system_match_Ornith": 8,
+    "exact_first_request_wire_tag_only_change_from_Ornith": 8,
+    "historical_Ornith_action_replayed_as_Qwen": false,
+    "proposal_responses_filled_from_golden_host_cases": false,
+    "same_panel_and_candidate_source_hashes_as_Ornith": true
+  },
+  "panel_manifest_sha256": "5867138ce737b04db541c8e9df9ce8e9bff0d46e6f69c042489c53f2a56cd9ee",
+  "projector_layer": {
+    "digest": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+    "mediaType": "application/vnd.ollama.image.projector",
+    "size": 1652306304
+  },
+  "reviewed_at": "2026-10-17T10:10:36.196089+00:00",
+  "reviewer": "acceptance_verifier",
+  "run_json_sha256": "ff6b1f4721d927a6f06c4f84005de6f42ccdd0b80d33a517af5191ba0ee630c3",
+  "run_path": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/actual-qwen-atomic-chains-20261017T100315Z",
+  "schema": "robit.omni.independent-qwen-atomic-chain-review.v1",
+  "source_evidence": {
+    "adoption_driver_sha256": "258e3653039b36162348380b351704fade47dbee0c7c96432fd8aaaf4eff1147",
+    "context_revision_is_not_loaded_source_adoption": true,
+    "driver_sha256": "0e1f1fe7622b51a0540d27013855364e13df11be547bb8e849044f8d1faf2720",
+    "idle_frontend_source_revision_context": "24f1691767e61c94350fe0610c20036d0eec560b",
+    "loaded_candidate_imports_report": "/home/roko/Documents/qwen-omni-adapters-main/runtime-data/gpu1-acceptance/operator-audit/execution-sop-20261017/qwen-candidate-loaded-code-verification.json",
+    "loaded_candidate_imports_report_sha256": "05c1f8a71ad46095e3960a2219300ae369454052211a1ec801e3e8e026c898e7",
+    "loaded_module_attestation_limits": "Root report attests actual CPU frontend module paths. Reviewer independently recomputes those twelve on-disk module hashes; no live /proc/API/GUI inspection or new loaded-process attestation was performed. Same three compiler/app source hashes as Ornith chain cohort.",
+    "loaded_module_count": 12,
+    "loaded_stage_files_readback_hashes_match": true,
+    "loaded_stage_timeout_s": 1800,
+    "production_atomic_handoff_suffix_reconstructed_from_actual_AST": true,
+    "pure_compiler_bind_and_expand_reexecuted": true
+  },
+  "source_hashes": {
+    "portal/app.py": "df98313232d7e1ca51f49870198f93a55a94e0ea99b10fd6e72fda737fa4e73d",
+    "portal/ui_decision.py": "a35ef963e0c0b31d65668ca0c02787fadd1e090a5201676ab6ca3b1c4050a7ab",
+    "portal/ui_task.py": "ea4b055872ad46d3fad5601109ea332f906a1e3cc271f11a2a48dfcdf4d12350"
+  },
+  "summary": {
+    "actual_http_requests": 16,
+    "actual_proposal_binding_chains_verified": 8,
+    "candidate_anchors_honored": 4,
+    "candidate_source_valid_anchors": 4,
+    "explicit_replans": 0,
+    "frozen_v3_model_chain_cells_total": 16,
+    "http_200": 16,
+    "model_schema_valid_responses": 16,
+    "ornith_previously_recorded": 8,
+    "qwen_cells_recorded": 8,
+    "source_acquisitions": 0,
+    "v3_cells_unrun_after_both_cohorts": 0,
+    "verified_desktop_effects": 0,
+    "whole_task_passes": 0
+  },
+  "verdict": "actual_Qwen_chain_bindings_and_four_atomic_containments_verified_semantic_outcomes_qualified_no_desktop_success",
+  "verified_requests": 16,
+  "verifier_actions": {
+    "frozen_oracles_or_inputs_edited": 0,
+    "gpu_calls": 0,
+    "gui_calls": 0,
+    "model_calls": 0,
+    "production_edits": 0,
+    "pure_compiler_calls_only": true,
+    "service_calls": 0
+  },
+  "whole_task_success_credit": false
+}

@@ -1,0 +1,136 @@
+{
+  "archive_files_verified": 14,
+  "archive_index_sha256": "6bb299b94a1bd37618df498937c67bfd5c473d5af124d35a8b8638366e33fdaf",
+  "claim_limits": [
+    "This establishes a caller/service contract fault, not model refusal, semantic inability, or GPU failure.",
+    "Two earlier accepted requests remain positive construction controls.",
+    "No model threshold or service cap change, no actual model/HTTP/GUI/GPU/service calls, and no production edits in this independent review.",
+    "Repairing projection admission alone cannot prove primitive selection, task progress, source acquisition or whole-task completion."
+  ],
+  "claims_superseded": "Whole-task report correctly left exception origin pending separate diagnosis; this supplement now establishes its exact local cause. Prior whole-task criteria/oracles and failure verdict remain unchanged.",
+  "diagnosis_archive": "/home/roko/Documents/qwen-omni-research/2026-10-17/kev047-local-contract-fault-20261017T101655Z",
+  "diagnosis_findings_sha256": "7369648d61c29a81ae05b85d2f33ff3d68d7c1a585df03c0eddbbabdddde4291",
+  "exact_exception": "ValueError: Exact intent criteria exceed the bounded service contract",
+  "independent_offline_results_exactly_equal_saved_reproduction": true,
+  "reproducer_sha256": "7edeff7c21905cb412d9b2b785155a1dc1bf041032a75b91c1a8e6383e625ec3",
+  "reproduction": {
+    "no_model_gui_gpu_service_calls": true,
+    "results": [
+      {
+        "actual_frozen_facade_guard": {
+          "errors": [
+            {
+              "message": "Exact intent criteria exceed the bounded service contract",
+              "source_line": 111,
+              "type": "ValueError"
+            }
+          ],
+          "http_client_post_calls": 0,
+          "selected_action_id": "intent-abstain"
+        },
+        "archived_status": "rejected",
+        "bank_sha256": "553e1163b49ba1a4d5db789310ae38025993409d6c311bd45252ec8df4c81d23",
+        "context_sha256": "ce9d3f2e891c048e6228e8214a0d1924d1b50fd6cd728c90abdb5d6c3c4c0ce2",
+        "criterion_characters": {
+          "intent-0": 2918,
+          "intent-1": 2925,
+          "intent-2": 2924,
+          "intent-abstain": 41,
+          "intent-observe": 41
+        },
+        "default_json_request_bytes": 15015,
+        "exact_frozen_constructor_reconstruction": true,
+        "pure_server_validation": {
+          "exception": "invalid action ID or description",
+          "status": "rejected"
+        },
+        "receipt_id": "093df360df424200be2babc6343d01e0",
+        "request_sha256": "d4806235c4ac8f946f068a6c0f0f63329fde55aecfe6b84dd508308a986ffe83",
+        "state_characters": 4685
+      },
+      {
+        "archived_status": "accepted",
+        "bank_sha256": "c851b3e8b2f0f1f16c19234c55ec6d190307514125339987db4606a27f9e34aa",
+        "context_sha256": "ccda073b20caf4591dce1a5a07d6513b4001c6640d1fa2351ced4a1f188c4965",
+        "criterion_characters": {
+          "intent-0": 901,
+          "intent-1": 908,
+          "intent-2": 907,
+          "intent-abstain": 41,
+          "intent-observe": 41
+        },
+        "default_json_request_bytes": 8140,
+        "exact_frozen_constructor_reconstruction": true,
+        "pure_server_validation": {
+          "status": "accepted"
+        },
+        "receipt_id": "356bc80c71ef481e839a8d69246259ed",
+        "request_sha256": "a9d8e37b510890fb1a1e4350fd0dced3e0b15f7f70df7f0d5e23038e07d8e07b",
+        "state_characters": 4101
+      },
+      {
+        "actual_frozen_facade_guard": {
+          "errors": [
+            {
+              "message": "Exact intent criteria exceed the bounded service contract",
+              "source_line": 111,
+              "type": "ValueError"
+            }
+          ],
+          "http_client_post_calls": 0,
+          "selected_action_id": "intent-abstain"
+        },
+        "archived_status": "rejected",
+        "bank_sha256": "553e1163b49ba1a4d5db789310ae38025993409d6c311bd45252ec8df4c81d23",
+        "context_sha256": "fc80808ec79e1b32b51370c1ab4df6bc5fd0780200d88796c8fac473944a3a59",
+        "criterion_characters": {
+          "intent-0": 2918,
+          "intent-1": 2925,
+          "intent-2": 2924,
+          "intent-abstain": 41,
+          "intent-observe": 41
+        },
+        "default_json_request_bytes": 15338,
+        "exact_frozen_constructor_reconstruction": true,
+        "pure_server_validation": {
+          "exception": "invalid action ID or description",
+          "status": "rejected"
+        },
+        "receipt_id": "6b082e49a2bd43e29992bb6baadfad2a",
+        "request_sha256": "2875a523126afe4916d76be6e06b6e96bc5a41eeaacd1df235d6c409d899ab94",
+        "state_characters": 4996
+      },
+      {
+        "archived_status": "accepted",
+        "bank_sha256": "0750f89b3a2b2693bc705f3fa1d15c92552650ea87e404fdcfce570e9ecf112e",
+        "context_sha256": "46c641fb924a9ef45a3e869ca3850ffb7662011037dfdcc9ad19d6e031fa1812",
+        "criterion_characters": {
+          "intent-0": 499,
+          "intent-1": 506,
+          "intent-2": 505,
+          "intent-abstain": 41,
+          "intent-observe": 41
+        },
+        "default_json_request_bytes": 7771,
+        "exact_frozen_constructor_reconstruction": true,
+        "pure_server_validation": {
+          "status": "accepted"
+        },
+        "receipt_id": "6fc2f39927fe4b0b91d28807215be76a",
+        "request_sha256": "0277239dacb7de53bbca1b2f603fe12dc5f488a15743de70b6464fca1869faf3",
+        "state_characters": 5062
+      }
+    ],
+    "schema": "qwen-omni.kev047-local-reproduction.v1",
+    "source_files_are_exact_archived_copies": true
+  },
+  "reviewed_at": "2026-10-17T10:21:02.958872+00:00",
+  "reviewer": "acceptance_verifier",
+  "root_cause": "Full native target node, including visible brief value and structure, is serialized into each primitive criterion. Actual criteria2918/2925/2924characters exceed unchanged1000character contract. Actual context4996/4685characters and total15338/15015bytes fit their separate caps.",
+  "schema": "robit.omni.independent-kev047-contract-reproduction.v1",
+  "source": "Exact archived frozen-stage portal/computer_use.py line111; independent fake HTTP client confirms zero post calls for both failing requests. Frozen pure server validate_request rejects the same descriptions.",
+  "supplemented_report_sha256": "4068d18b8896c439778bee49158d3f466eb9ec4bc614cd4a4650b1623adc95db",
+  "supplements_report": "tests/live/native_orchestration_acceptance/qwen-whole-task-independent-review-20261017.json",
+  "verdict": "confirmed_local_finite_criterion_overflow_before_HTTP",
+  "whole_task_success_credit": false
+}

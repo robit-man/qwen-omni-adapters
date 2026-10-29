@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from portal.desktop import desktop_subprocess_environment
-from portal.native_ui import _x11_foreground, native_task_scope_sha256, normalize_native_task_scope
+from portal.native_ui import native_task_scope_sha256, normalize_native_task_scope
 from runtime.acceptance_native_support import (
     CapabilityBlocked,
     NativeEvidenceObserver,
@@ -29,6 +29,13 @@ from runtime.acceptance_native_support import (
     process_start,
 )
 from runtime.computer_use_speech import _SpeechDeadline
+from runtime.long_horizon_amendments import (
+    AmendmentRelease,
+    prepare_capability,
+    probe_calendar_document,
+)
+from runtime.long_horizon_amendments import supported as amendment_case
+from runtime.long_horizon_amendments import verified_event as verified_amendment_event
 from runtime.long_horizon_cases import (
     bounded_bytes,
     capture_source_proofs,
@@ -43,8 +50,25 @@ from runtime.long_horizon_cases import (
     readiness_requirements,
     safe_path,
     sha,
+    source_readiness,
+    verified_media_inputs,
 )
 from runtime.long_horizon_desktop import TaskDesktop, managed_inventory, unrelated_preservation
+from runtime.long_horizon_owned_close import (
+    OwnedCloseEvent,
+    probe_owned_close,
+)
+from runtime.long_horizon_owned_close import (
+    capability as owned_close_capability,
+)
+from runtime.long_horizon_owned_close import (
+    supported as owned_close_case,
+)
+from runtime.long_horizon_owned_close import (
+    verified_event as verified_owned_close_event,
+)
+from runtime.owned_window_close import request_owned_window_close
+from runtime.passive_focus_guard import FocusStopped, FocusUnavailable, sample_owned_focus
 from runtime.verify_real_desktop import (
     dispatched_actions,
     physical_pointer_action,
@@ -155,19 +179,44 @@ class Guard:
         self.desktop, self.deadline, self.root = desktop, deadline, root
         self.stop, self.records, self.positions = threading.Event(), [], []
         self.failure = None
+        self.shutdown = {"requested": False, "joined": None}
+        self.focus_samples, self.focus_sample_count, self.focus_samples_omitted = [], 0, 0
         self.thread = threading.Thread(target=self.run, daemon=True)
 
+    def _remember_focus(self, receipt):
+        self.focus_sample_count += 1
+        # Keep every exceptional/transition sample and changed stable proof;
+        # repeating stable samples add only a count, never false progress.
+        if not self.focus_samples or self.focus_samples[-1] != receipt:
+            if len(self.focus_samples) < 8192:
+                self.focus_samples.append(receipt)
+            else:
+                self.focus_samples[-1] = receipt
+                self.focus_samples_omitted += 1
+
     def inspect(self):
-        identity = _x11_foreground(self.desktop.environment)
-        if not self.desktop.is_owned(identity):
-            raise RuntimeError("foreground_identity_outside_owned_scope")
-        return identity
+        scope = {"schema": "robit.omni.native-task-scope.v1", "windows": [
+            {"window_id": row.window_id, "process_id": int(row.pid), "process_start": row.process_start}
+            for row in self.desktop.windows]}
+        try:
+            sample = sample_owned_focus(self.desktop.environment, scope,
+                stop_requested=self.stop.is_set)
+        except (FocusUnavailable, FocusStopped) as error:
+            self._remember_focus(error.evidence)
+            raise
+        self._remember_focus(sample.receipt())
+        return sample.identity
 
     def run(self):
         with (self.root / "pointer-observations.jsonl").open("w") as journal:
             while not self.stop.is_set() and len(self.positions) < 8192:
                 try:
                     identity = self.inspect()
+                    if self.stop.is_set():
+                        return
+                    if identity is None:
+                        self.stop.wait(.25)
+                        continue  # An owned transition grants no pointer sample.
                     if not self.records or self.records[-1] != identity:
                         self.records.append(identity)
                     result = subprocess.run(["xdotool", "getmouselocation", "--shell"],
@@ -179,6 +228,8 @@ class Guard:
                         self.positions.append(record)
                         journal.write(json.dumps(record) + "\n")
                         journal.flush()
+                except FocusStopped:
+                    return  # Normal shutdown is not a foreign-focus failure.
                 except Exception as exc:
                     self.failure = {**safe_error(exc, stage="owned_foreground_guard"),
                                     "reason": "owned_foreground_read_or_identity_unavailable"}
@@ -187,11 +238,22 @@ class Guard:
                 self.stop.wait(.25)
 
     def close(self):
+        self.shutdown["requested"] = True
         self.stop.set()
         if self.thread.ident is not None:
             self.thread.join(timeout=3)
-            if self.thread.is_alive():
-                raise RuntimeError("owned_foreground_guard_shutdown_unconfirmed")
+        self.shutdown["joined"] = not self.thread.is_alive()
+        if not self.shutdown["joined"]:
+            raise RuntimeError("owned_foreground_guard_shutdown_unconfirmed")
+
+
+def guard_evidence(guard):
+    """Copy passive state after shutdown on every terminal path, including failure."""
+    return copy.deepcopy({"failure": guard.failure, "records": guard.records,
+        "focus_samples": getattr(guard, "focus_samples", []),
+        "focus_sample_count": getattr(guard, "focus_sample_count", None),
+        "focus_samples_omitted": getattr(guard, "focus_samples_omitted", None),
+        "shutdown": getattr(guard, "shutdown", None)})
 
 
 def stream_turn(client, base, payload, root, seconds, *, desktop=None, observer=None, milestone=None):
@@ -456,6 +518,13 @@ def prepare_blank_apps(desktop, observer, case, work, root, browser, *, suppleme
         if (state.get("outside_owned_foreground") or state.get("window_id") != window.window_id
                 or native.get("scope", {}).get("window_id") != window.window_id or not native.get("nodes")):
             raise CapabilityBlocked("owned_native_setup_observation_unavailable:" + app)
+        if amendment_case(case) and app == "calc":
+            # The declared blank Calc is foreground now; never activate or
+            # pre-save it to manufacture a calendar capability later.
+            receipt["calendar_document_probe"] = probe_calendar_document(
+                {"window_id": window.window_id, "process_id": int(window.pid),
+                 "process_start": window.process_start}, desktop.environment)
+            save(root / "setup-native-observations.json", receipts)
     return receipts
 
 
@@ -488,6 +557,8 @@ def finalize_run(report, root, case, *, desktop, observer, guard, client, reques
         if resource:
             ok, _ = attempt(stage, resource.close)
             stop_ok &= ok
+    if guard:
+        report["ownership_guard"] = guard_evidence(guard)
     if desktop:
         attempt("ownership_journal", lambda: save(root / "window-ownership.json", desktop.launches))
         if stop_ok:
@@ -550,6 +621,8 @@ def evaluate(args) -> int:
     result = independent_verdict(case, current, method_verified=report.get("method", {}).get("verified") is True
         and report.get("downstream_idle") is True and report.get("owned_windows_closed") is True
         and report.get("source_unchanged") is True
+        and verified_owned_close_event(case, root, report)
+        and verified_amendment_event(case, root, report)
         and report.get("unrelated_window_preservation", {}).get("verified") is True
         and current == report["final_file_evidence"] and immutable, review=review, bundle_sha256=bundle)
     save(root / "independent-verdict.json", {**result, "bundle_sha256": bundle, "immutable_evidence_verified": immutable})
@@ -591,8 +664,14 @@ def run(args) -> int:
     try:
         report["source_before"] = source_state()
         report["workers_before"] = worker_snapshot()
-        initial = materialize(case, work)
+        fixture_options = {"owned_media_cache": args.owned_media_cache,
+                           "owned_media_manifest_sha256": args.owned_media_manifest_sha256}
+        initial = materialize(case, work, **fixture_options)
         report["initial_input_hashes"] = initial
+        if case["fixture"].get("additional_asset_requirements") and args.owned_media_cache is not None:
+            report["owned_media_capability"] = verified_media_inputs(case, work,
+                args.owned_media_cache, args.owned_media_manifest_sha256)
+            save(root / "owned-media-capability.json", report["owned_media_capability"])
         save(root / "readiness-requirements.json", {"case_id": case["case_id"],
             "task_signature_sha256": case["task_signature_sha256"], "source_revision": report["source_before"]["revision"],
             "required_host_artifact_ids": sorted(readiness_requirements(case)),
@@ -600,14 +679,22 @@ def run(args) -> int:
             "rubric_readiness": "predeclared_criteria_complete; grading_remains_post_run",
             "materialized_inputs_only": True, "solver_must_not_receive_this_file": True})
         proof = read_json(args.readiness_file) if args.readiness_file else None
-        blockers = readiness(case, proof, revision=report["source_before"]["revision"], work=work,
-                             evidence_root=args.readiness_file.parent.resolve() if args.readiness_file else root)
+        # Source preflight permits blank owned setup only. Final readiness for
+        # controlled cases still requires fresh native/document/protocol evidence
+        # before the first solver/model submission.
+        setup_capability_required = owned_close_case(case) or amendment_case(case)
+        preflight = {"revision": report["source_before"]["revision"], "work": work,
+                     "evidence_root": args.readiness_file.parent.resolve() if args.readiness_file else root}
+        blockers = (source_readiness(case, proof, **preflight) if setup_capability_required and not args.prepare_only
+                    else readiness(case, proof, **preflight, **fixture_options))
         report["readiness_blockers"] = blockers
         if args.prepare_only or blockers:
             report["status"] = "prepared_inputs" if args.prepare_only else "blocked_precondition"
             return 2 if blockers else 0
-        report["captured_source_provenance"] = capture_source_proofs(case, args.readiness_file,
-            root / "host-source-evidence", revision=report["source_before"]["revision"], work=work)
+        if not setup_capability_required:
+            report["captured_source_provenance"] = capture_source_proofs(case, args.readiness_file,
+                root / "host-source-evidence", revision=report["source_before"]["revision"], work=work,
+                **fixture_options)
         if not args.model or not args.token_file:
             raise ValueError("Live evaluation requires exact model and token file")
         if args.token_file.is_symlink() or not 0 < args.token_file.stat().st_size <= 4096:
@@ -635,6 +722,49 @@ def run(args) -> int:
         report["host_fixture_condition"].update(setup_completed=True, supplemental_window_count=sum(
             item["setup_origin"] == "host_default_text_editor" for item in setup))
         native_scope = registered_native_scope(desktop)
+        close_event = None
+        amendment_event = None
+        if owned_close_case(case):
+            verify_registered_native_scope(desktop, native_scope)
+            close_capability_path = root / "owned-close-capability.json"
+            save(close_capability_path, owned_close_capability(case, root / "setup-native-observations.json", work,
+                revision=report["source_before"]["revision"],
+                probe=lambda target: probe_owned_close(target, environment)))
+            fixture_options["owned_close_capability"] = close_capability_path
+        elif amendment_case(case):
+            verify_registered_native_scope(desktop, native_scope)
+            calc = [row for row in setup if row["application"] == "calc"]
+            if len(calc) != 1:
+                raise CapabilityBlocked("exact_registered_calendar_window_unavailable")
+            row = calc[0]
+            amendment = prepare_capability(case, work=work, revision=report["source_before"]["revision"],
+                initial_hashes=initial, calc_window={"window_id": row["window_id"],
+                    "process_id": int(row["process_id"]), "process_start": row["process_start"]},
+                document_probe=row["calendar_document_probe"])
+            fixture_options["amendment_capability"] = root / "amendment-capability.json"
+            save(fixture_options["amendment_capability"], amendment)
+        if setup_capability_required:
+            blockers = readiness(case, proof, **preflight, **fixture_options)
+            report["readiness_blockers"] = blockers
+            if blockers:
+                raise CapabilityBlocked("controlled_fixture_capability_unverified")
+            report["captured_source_provenance"] = capture_source_proofs(case, args.readiness_file,
+                root / "host-source-evidence", revision=report["source_before"]["revision"], work=work,
+                **fixture_options)
+        if owned_close_case(case):
+            close_event = OwnedCloseEvent(case, close_capability_path, work, initial,
+                revision=report["source_before"]["revision"], journal=root / "owned-close-events.jsonl",
+                probe=lambda target: probe_owned_close(target, environment),
+                request_close=lambda target: request_owned_window_close(target["window_id"],
+                    target["process_id"], target["process_start"], environment),
+                window_status=desktop.controlled_window_observation,
+                reserve_close=desktop.reserve_controlled_close)
+            report["controlled_perturbation"] = close_event.snapshot()
+        elif amendment_case(case):
+            amendment_event = AmendmentRelease(case, capability=amendment, work=work,
+                revision=report["source_before"]["revision"], initial_hashes=initial,
+                event_root=root / "amendment-events", environment=environment)
+            report["controlled_perturbation"] = amendment_event.snapshot()
         report["native_task_scope"] = {"schema": native_scope["schema"],
             "sha256": native_task_scope_sha256(native_scope), "base_window_count": len(native_scope["windows"]),
             "authority": "fresh_registered_setup_windows", "model_visible": False}
@@ -651,6 +781,14 @@ def run(args) -> int:
                       "files": file_evidence(work, initial, case)}
             with (root / "milestones.jsonl").open("a") as journal:
                 journal.write(json.dumps(record) + "\n")
+            if close_event is not None:
+                close_event.observe(state)
+                report["controlled_perturbation"] = close_event.snapshot()
+            elif amendment_event is not None:
+                amendment_event.observe(state)
+                report["controlled_perturbation"] = amendment_event.snapshot()
+                release = report["controlled_perturbation"].get("release")
+                report["released_input_hashes"] = {release["path"]: release["sha256"]} if release else {}
         verify_registered_native_scope(desktop, payload["portal_native_task_scope"])
         request_started, report["portal_turn_attempts"] = True, 1
         result, guard = stream_turn(client, base, payload,
@@ -669,12 +807,13 @@ def run(args) -> int:
         report["method"] = method_evidence(result["events"], guard)
         save(root / "metrics.json", measured_metrics(result["events"], elapsed_s=result.get("elapsed_s"),
                                                      method=report["method"]))
-        report["ownership_guard"] = {"failure": guard.failure, "records": guard.records}
+        report["ownership_guard"] = guard_evidence(guard)
         save(root / "native-outcomes-index.json", native_outcome_index(result["events"]))
         save(root / "final-native.json", observer.fresh())
         report["final_file_evidence"] = file_evidence(work, initial, case)
         report["independent_result"] = independent_verdict(case, report["final_file_evidence"],
-            method_verified=report["method"]["verified"])
+            method_verified=report["method"]["verified"] and verified_owned_close_event(case, root, report)
+            and verified_amendment_event(case, root, report))
         if case["memory_followup"]["required"] and result["final"] and not result["error"] and memory_written(result["events"]):
             recall_root = root / "recall"
             recall_root.mkdir()
@@ -715,6 +854,10 @@ def parser():
     result.add_argument("--token-file", type=Path)
     result.add_argument("--output", type=Path, required=True)
     result.add_argument("--readiness-file", type=Path)
+    result.add_argument("--owned-media-cache", type=Path,
+                        help="Host-owned frozen declared MP4 input cache, outside Workbench")
+    result.add_argument("--owned-media-manifest-sha256",
+                        help="Independent external pin for the exact owned-media cache manifest")
     result.add_argument("--timeout", type=float, default=1800)
     result.add_argument("--drain-timeout", type=float, default=300)
     result.add_argument("--think", action="store_true")

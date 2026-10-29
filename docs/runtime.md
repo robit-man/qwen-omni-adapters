@@ -130,6 +130,36 @@ an intentional blocking text/ASR/cloned-TTS/co-residency diagnostic.
 Explicit `OMNI_MODEL` and `OMNI_LANGUAGE_MODEL` environment values remain
 supported for advanced and legacy profiles.
 
+## Cooperative GPU relocation on broker hosts
+
+Services that can restart on another accelerator can run under the broker's
+`docker gpu run --placement flexible` supervisor. Its repeated `--gpu` options
+are ordered candidates; only the assigned UUID is exposed to the workers.
+Prefer the standalone accelerator first and use a lower priority than jobs
+requiring a particular NVLink pair. Fixed placement remains the default.
+
+The portal supports an inherited, parent-owned lease through
+`OLLAMA_UNIFY_GPU_LEASE_SUPERVISED=1` and `OLLAMA_UNIFY_GPU_LEASE`. It verifies
+the exact pending reservation before starting CUDA and retains its actual
+resident-PID check. The parent owns heartbeat, readiness and final release, so
+the child does not acquire or release a duplicate reservation.
+
+Set `OMNI_GPU_DRAIN_FILE` to a private file under the portal state directory.
+Use `.venv/bin/python portal/gpu_lease.py drain` as `--drain-command`, `resume`
+as `--resume-command`, and `ready` as `--ready-command`. Draining pauses new
+writes with a retryable response while existing requests and streams finish.
+The hook reports success only when active and queued counters are zero. The
+supervisor then stops its own workers gracefully, the broker verifies source
+CUDA release, and the same lease moves to the pre-reserved destination.
+Readiness reopens admission only for the new matching supervisor and GPU.
+Cancelled handoffs reopen the existing instance; a busy owner or missing
+destination never authorizes overlapping GPU ownership.
+
+This policy can briefly pause the lower-priority service. It does not relocate
+a live CUDA context, start a trainer automatically, or override a fixed GPU
+requirement. Explicitly pinned services remain fixed unless their operator
+changes their deployment policy.
+
 ## Runtime prerequisites
 
 - the Omni Ollama tag has been pulled locally;
@@ -516,13 +546,44 @@ and needs a new artifact schema and release gate.
 - Foreground text callers can select `portal_execution_profile:"native_task"`
   with automatic tools and `native_ui` permission. This explicitly enters the
   mandatory planner/controller state machine instead of generic discovery.
-  Each fresh planning observation includes mapped inactive windows. One
-  schema-constrained Omni phase is validated before its first input; the rapid
-  controller owns its internal steps. Authorized memory phases use the existing
+  Each fresh planning observation includes mapped inactive windows. The direct
+  model reply carries semantic intent; the host expands the exact captured
+  referent into the canonical handoff and validates it before input. The
+  optional compact route retains its separate subgoal/action binding. The rapid
+  controller owns the actual steps. Authorized memory phases use the existing
   session store. The mode preserves native `think`/sampling, bounds phases,
   wall time and failed replans, and retains raw receipts while compacting planner
   history. It marks completion as an unverified planner claim. See
   [the protocol](protocol.md) and [live evaluation](computer-use-long-horizon-evaluation.md).
+- Native planning retains bounded row relationships, source-bound control
+  discovery and historical observation/plan recall. Partial labels and omitted
+  evidence stay explicitly unknown. Generated plans use host-derived immediate
+  effects and stop their verified prefix at a failed readback or opaque input.
+  A generated drag returns unknown effect and zero progress; a completed gesture
+  alone is not proof of the requested application change. After a fast-policy
+  abstention, unchanged same-target fast delegation is excluded for one next
+  phase while inspection, new targets and explicit pointer recovery remain.
+- Kev's primitive-intent projection describes repeated observed nodes once and
+  retains opaque audit bindings privately. The exact finite candidate bank,
+  task authority and native source bindings remain with the host. The pinned
+  worker still requires strict encoding within 2,048 state tokens and 4,096
+  tokens per row; the active selection threshold remains 0.95. Fitting this
+  request does not establish confidence, correct selection or a successful
+  task. No model limit, lease, backend setting or executor authority changes as
+  a consequence of this projection.
+- Planner and policy configuration retain their existing defaults:
+  `OMNI_NATIVE_COMPACT_PLANNER=0` selects the direct route; explicit `1` selects
+  compact mode. With an active SystemOne provider compact mode delegates
+  ambiguous activation to it; without one it offers exact-control `activate`
+  choices that expand to one guarded `ui_boundary` input. An unset
+  `OMNI_COMPUTER_USE_POLICY_URL` supplies no such provider. With a URL, its mode
+  defaults to `shadow`; active intent selection requires
+  `OMNI_COMPUTER_USE_POLICY_MODE=active`. The local evaluation cohort used
+  direct mode (`0`) and actual Kev at `http://127.0.0.1:8950`. These settings
+  are recorded conditions, not new defaults. The general Laya decision plane
+  is separate: a CPU Laya endpoint does not establish loaded Kev weights.
+  Egg claims require actual adopted source/configuration, role/model identity
+  and invocation evidence for Kev and Moondream on that host.
 - Within one portal tool loop, a fresh server-executed native/browser
   observation retires older registered UI maps and candidate offers from the
   model's working history. The newest pair stays intact. Historical action,
@@ -628,3 +689,14 @@ Pausing stops active voice requests and background execution; it is not micropho
 
 Never manually delete a referenced file under an Ollama `blobs` or `manifests`
 directory.
+
+For a public portal, supervise ingress separately from the CUDA restart so a
+GPU relocation keeps the same address. `OMNI_PORTAL_EXTERNAL_TUNNEL=1` uses an
+independent tunnel and touches `OMNI_PORTAL_EXTERNAL_TUNNEL_READY_FILE` only
+after the local smoke gates pass. Keep that readiness file in the outer
+supervisor's volatile runtime directory: it survives internal GPU moves, but
+is absent on a fresh boot. Keep the ingress unit bound to the outer service,
+not to its restartable child. `OMNI_PORTAL_PERSISTENT_TOKEN_FILE` retains the
+private access token across those child restarts; it must be an owner-only
+file under the private state directory. Default standalone startup keeps its
+existing owned-tunnel behavior.

@@ -1,7 +1,8 @@
 """Offline suite loading, declared-input setup and independent artifact evidence.
 
-No function in this module launches applications, networks or models. The
-evaluator pack remains outside the solver workbench and is never a user goal.
+No function launches desktop applications, networks or models. Explicit owned
+media verification uses CPU decoders. The evaluator pack remains outside the
+solver workbench and is never a user goal.
 """
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ import hashlib
 import json
 import os
 import stat
+import subprocess
 from itertools import islice
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -73,8 +75,13 @@ def load_case(case_id: str, data_root: Path = DATA) -> dict[str, Any]:
     return case
 
 
-def materialize(case: dict[str, Any], work: Path) -> dict[str, str]:
+def materialize(case: dict[str, Any], work: Path, *, owned_media_cache: Path | None = None,
+                owned_media_manifest_sha256: str | None = None) -> dict[str, str]:
     """Create declared input bytes only, in a brand-new owned workbench."""
+    if ((owned_media_cache is not None or owned_media_manifest_sha256 is not None)
+            and (owned_media_cache is None or owned_media_manifest_sha256 is None
+                 or not case["fixture"].get("additional_asset_requirements"))):
+        raise ValueError("Media materialization requires a declared case, cache and external manifest pin")
     work.mkdir(mode=0o700, exist_ok=False)
     inventory = {}
     for item in case["fixture"]["input_files"]:
@@ -90,7 +97,32 @@ def materialize(case: dict[str, Any], work: Path) -> dict[str, str]:
             output.write(data)
         path.chmod(0o444 if item.get("mode_after_materialization") == "0444" else 0o600)
         inventory[relative] = sha(data)
+    if owned_media_cache is not None:
+        from runtime.long_horizon_media import materialize_media
+        media, _ = materialize_media(case, work, owned_media_cache,
+            expected_manifest_sha256=owned_media_manifest_sha256)
+        if set(media) & set(inventory):
+            raise ValueError("Media inputs overlap declared inline inputs")
+        inventory.update(media)
     return inventory
+
+
+def verified_media_inputs(case: dict, work: Path, cache: Path, manifest_sha256: str) -> dict:
+    """Actual decoder capability plus independent copies; never a boolean waiver."""
+    from runtime.long_horizon_media import verify_media_cache
+    if cache.resolve().is_relative_to(work.resolve()):
+        raise ValueError("Solver workbench cannot confer media capability")
+    capability = verify_media_cache(case, cache, expected_manifest_sha256=manifest_sha256)
+    for relative, asset in capability["assets"].items():
+        target = safe_path(work, relative)
+        source = safe_path(cache, Path(relative).name)
+        if (sha(bounded_bytes(target)) != asset["sha256"] or target.stat().st_nlink != 1
+                or (target.stat().st_dev, target.stat().st_ino) == (source.stat().st_dev, source.stat().st_ino)):
+            raise ValueError("Media inputs are not independent exact materialized copies")
+    for item in case["fixture"]["input_files"]:
+        if sha(bounded_bytes(safe_path(work, item["path"]))) != item["content_sha256"]:
+            raise ValueError("Declared inline media-case inputs changed")
+    return {**capability, "work_root": str(work.resolve()), "materialized_inputs_verified": True}
 
 
 def readiness_requirements(case: dict[str, Any]) -> set[str]:
@@ -134,14 +166,10 @@ def _source_artifact(case: dict[str, Any], artifact: dict[str, Any], key: str,
         raise ValueError("Missing or changed frozen source bytes")
 
 
-def readiness(case: dict[str, Any], proof: dict[str, Any] | None, *, revision: str,
-              work: Path, evidence_root: Path) -> list[str]:
-    """Check technical prerequisites; this is never a user approval step."""
+def source_readiness(case: dict[str, Any], proof: dict[str, Any] | None, *, revision: str,
+                     work: Path, evidence_root: Path) -> list[str]:
+    """Validate source prerequisites only; this does not establish fixture readiness."""
     blockers = rubric_blockers(case)
-    if case.get("controlled_perturbation"):
-        blockers.append("controlled_perturbation_injector_not_implemented")
-    if case["fixture"].get("additional_asset_requirements"):
-        blockers.append("declared_media_materializer_not_implemented")
     if not isinstance(proof, dict):
         return [*blockers, "missing_case_bound_host_readiness_pack"]
     if (proof.get("schema") != "robit.omni.long-native-readiness.v1"
@@ -185,12 +213,56 @@ def readiness(case: dict[str, Any], proof: dict[str, Any] | None, *, revision: s
     return blockers
 
 
-def capture_source_proofs(case: dict, proof_path: Path, destination: Path, *, revision: str, work: Path) -> dict:
+def readiness(case: dict[str, Any], proof: dict[str, Any] | None, *, revision: str,
+              work: Path, evidence_root: Path, owned_close_capability: Path | None = None,
+              amendment_capability: Path | None = None, owned_media_cache: Path | None = None,
+              owned_media_manifest_sha256: str | None = None) -> list[str]:
+    """Check every technical prerequisite, including actual fixture capability."""
+    blockers = []
+    if case.get("controlled_perturbation"):
+        from runtime.long_horizon_amendments import supported as amendment_case
+        from runtime.long_horizon_amendments import validate_capability as valid_amendment
+        from runtime.long_horizon_owned_close import supported as close_case
+        from runtime.long_horizon_owned_close import validate_capability as valid_close
+        if close_case(case) and owned_close_capability is not None:
+            try:
+                valid_close(case, owned_close_capability, work, revision=revision)
+            except (OSError, ValueError, TypeError, KeyError):
+                blockers.append("owned_close_capability_unverified")
+        elif amendment_case(case) and amendment_capability is not None:
+            try:
+                valid = (not amendment_capability.resolve().is_relative_to(work.resolve())
+                    and valid_amendment(case, json.loads(bounded_bytes(amendment_capability)),
+                        work=work, revision=revision, initial_hashes={
+                            item["path"]: item["content_sha256"] for item in case["fixture"]["input_files"]}))
+            except (OSError, ValueError, TypeError, KeyError):
+                valid = False
+            if not valid:
+                blockers.append("amendment_capability_unverified")
+        else:
+            blockers.append("controlled_perturbation_injector_not_implemented")
+    if case["fixture"].get("additional_asset_requirements"):
+        if owned_media_cache is None or owned_media_manifest_sha256 is None:
+            blockers.append("declared_media_materializer_not_implemented")
+        else:
+            try:
+                verified_media_inputs(case, work, owned_media_cache, owned_media_manifest_sha256)
+            except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
+                blockers.append("owned_media_capability_unverified")
+    return blockers + source_readiness(case, proof, revision=revision, work=work, evidence_root=evidence_root)
+
+
+def capture_source_proofs(case: dict, proof_path: Path, destination: Path, *, revision: str, work: Path,
+                          owned_close_capability: Path | None = None, amendment_capability: Path | None = None,
+                          owned_media_cache: Path | None = None,
+                          owned_media_manifest_sha256: str | None = None) -> dict:
     """Copy already validated public-reference proof bytes outside Workbench."""
     destination.mkdir(mode=0o700, exist_ok=False)
     pack_bytes = bounded_bytes(proof_path)
     pack = json.loads(pack_bytes)
-    if readiness(case, pack, revision=revision, work=work, evidence_root=proof_path.parent):
+    if readiness(case, pack, revision=revision, work=work, evidence_root=proof_path.parent,
+                 owned_close_capability=owned_close_capability, amendment_capability=amendment_capability,
+                 owned_media_cache=owned_media_cache, owned_media_manifest_sha256=owned_media_manifest_sha256):
         raise ValueError("Source prerequisites changed before capture")
     captured = {"schema": "robit.omni.long-native-captured-sources.v1", "case_id": case["case_id"],
                 "task_signature_sha256": case["task_signature_sha256"], "pack_sha256": sha(pack_bytes), "sources": []}

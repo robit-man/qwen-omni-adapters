@@ -1,0 +1,10 @@
+{
+  "authority": "independent_verifier_frozen_contract_not_execution_result",
+  "files": {
+    "test_whole_task_contract.py": "d4042b245ec244b67bddfb967487a3fca973140f7e2560916acbe3cca42efc80",
+    "whole-task-acceptance.json": "50bb82e80e1b3790c66c56bc85746f9d81069c0482cdbf3273c733d293e786df",
+    "whole-task-review.md": "6068ee44a1e9d8c7ce5edf9ea2d5a8ffb239ad784263905c80d95f0d13027a9f"
+  },
+  "schema": "robit.omni.whole-native-orchestration-acceptance-manifest.v1",
+  "spec_revision": 1
+}

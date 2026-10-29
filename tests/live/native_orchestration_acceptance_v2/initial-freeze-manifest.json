@@ -1,0 +1,56 @@
+{
+  "case_ids": [
+    "PTR.NEGATIVE.V2.010"
+  ],
+  "comparison_unit": "one current-readable-document diagnostic by model by condition; zero new executions",
+  "evaluator_files": {
+    "runtime/verify_orchestration_contracts.py": "1b844cb1c89bd64db81feada699294a63aec68b65720a2711b330f0d12be6941"
+  },
+  "files": {
+    "PTR.NEGATIVE.V2.010.json": "4f05f5755a276137f7497e2a8a29339a73aca1a875b121a8b726158d4c0af6b5",
+    "README.md": "c1d8908da0b5674d40f816c266e4aa19fc1f414e93854e52777c040fab0d22c5",
+    "source-native-observation.json": "4189277cc818f9b5b5b88ea61a565bb603cd94b717774cc671834bbbe53380af",
+    "source-pointer-packet.json": "ab95aed18753cd0f50044acc573c0f1933d8859dddaaa9435a93c9e20f5333d7",
+    "source-pointer-request.bin": "b5ec836155239122368b3fa4e5de909c78586e0d808587c1d07d2ffd8126a07b",
+    "test_panel.py": "8b04b697ff23df66da4400690006f2f633c756476e78560ff34d5a56650bc33b"
+  },
+  "frozen_at": "2026-10-17T09:10:36.771187+00:00",
+  "frozen_before_own_first_model_call": true,
+  "initial_cells": [
+    {
+      "case_id": "PTR.NEGATIVE.V2.010",
+      "condition": "baseline",
+      "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+      "status": "unrun"
+    },
+    {
+      "case_id": "PTR.NEGATIVE.V2.010",
+      "condition": "candidate",
+      "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+      "status": "unrun"
+    },
+    {
+      "case_id": "PTR.NEGATIVE.V2.010",
+      "condition": "baseline",
+      "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+      "status": "unrun"
+    },
+    {
+      "case_id": "PTR.NEGATIVE.V2.010",
+      "condition": "candidate",
+      "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+      "status": "unrun"
+    }
+  ],
+  "models": [
+    "robit/ornith-1.5-omni-audio-bridge:q4km",
+    "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"
+  ],
+  "original_panel_manifest_sha256": "98171822f007368171f011c67f328c0d4723cd310bd09fda56961e06ced09af4",
+  "purpose": "separately frozen actual-current-document negative; previous panel preserved",
+  "review_only_case_ids": [],
+  "revision": 2,
+  "schema": "robit.omni.orchestration-acceptance-panel.v1",
+  "whole_task_manifest_sha256": "4877ce711d4cab49631259ea92d49cdd2db7118d24574136e9ec962d93bb1457",
+  "whole_task_success_credit": false
+}

@@ -126,6 +126,7 @@ class TaskDesktop(OwnedDesktop):
         self.editor = editor
         self.launches: list[dict[str, Any]] = []
         self._flatpak_owners: dict[int, Any] = {}
+        self._controlled_close_attempts: set[tuple[str, str, str]] = set()
 
     def open_application(self, binary, args, application, window_class, *, stdin=None,
                          standalone=False, log_path=None, child_environment=None, expected_executable=None):
@@ -280,11 +281,31 @@ class TaskDesktop(OwnedDesktop):
                         launch["last_ownership_receipt"] = matches[0].owner.last_receipt
         return None
 
+    def controlled_window_status(self, target):
+        from runtime.long_horizon_owned_close import window_observation
+        return window_observation(target, self.controlled_window_observation(target))[0]
+
+    def controlled_window_observation(self, target):
+        return {"identity": dict(target), "inventory": managed_inventory(self.environment)}
+
+    def reserve_controlled_close(self, target):
+        key = tuple(target[k] for k in ("window_id", "process_id", "process_start"))
+        if not any((row.window_id, row.pid, row.process_start) == key for row in self.windows):
+            raise ValueError("Controlled close target is not positively registered")
+        self._controlled_close_attempts.add(key)
+
     def close(self):
         receipts = []
         for launch in reversed(self.launches):
             receipt = {key: value for key, value in launch.items() if key not in {"before_xids", "new_visible_xids"}}
             receipt["closed"] = False
+            key = (launch.get("window_id"), launch.get("pid"), launch.get("process_start"))
+            if key in getattr(self, "_controlled_close_attempts", set()):
+                target = dict(zip(("window_id", "process_id", "process_start"), key, strict=True))
+                receipt["closed"] = self.controlled_window_status(target) == "absent"
+                receipt["controlled_close_not_retried"] = True
+                receipts.append(receipt)
+                continue
             if launch.get("ownership_kind") in {"flatpak_firefox", "flatpak_chromium"}:
                 owner = self._flatpak_owners.get(id(launch))
                 try:

@@ -102,13 +102,14 @@ def test_real_portal_compiler_orders_two_passes_preserves_options_and_prevents_i
         assert 'Preserve this exact caller policy.' in payload['messages'][0]['content']
         context = json.loads(payload['messages'][1]['content'])
         if payload['response_format']['json_schema']['name'] == 'native_ui_subgoal':
-            result = proposal()
+            result = {**proposal(), 'immediate_action': {'family': 'blocked'}}
             if mode == 'invalid_proposal':
                 result['input_authority'] = True
             elif mode == 'cancel_after_proposal':
                 next(iter(store._sessions.values())).cancel.set()
         else:
-            assert len(seen) == 2 and context['planning_handoff']['proposal'] == proposal()
+            assert len(seen) == 2 and context['planning_handoff']['proposal'] == {
+                **proposal(), 'immediate_action': {'family': 'blocked'}}
             result = {'action': {'family': 'blocked', 'reason': 'No applicable offered operation',
                 'objective': proposal()['next_subgoal']}, 'source_epoch': context['working_state']['source_epoch'],
                 'source_phase': context['working_state']['source_phase'], 'assessment': 'No completion claim.',

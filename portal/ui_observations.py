@@ -16,6 +16,7 @@ def _encoded(value):
 class NativeObservationArchive:
     MAX_RECORDS = 16
     MAX_BYTES = 512 * 1024
+    MAX_PLANNING_BYTES = 32 * 1024
 
     def __init__(self, epoch: str):
         self.epoch = epoch
@@ -64,10 +65,11 @@ class NativeObservationArchive:
         body = {'window_title': str(title)[:500], 'document_evidence': source, 'ui_text': text,
                 'native_content_excerpt': copy.deepcopy(excerpt), 'source_revision': state['revision'],
                 'source_scope_id': scope.get('id'), 'source_truncated': state.get('truncated', True)}
-        # Focus/capture revisions and toolbar changes do not create another copy
-        # of the same document excerpt. The original source binding stays exact.
+        # Capture revisions alone do not create another copy. Both exposed
+        # text channels participate: an unchanged toolbar excerpt must never
+        # hide a changed document value in ui_text. Source bindings stay exact.
         identity = {'session': self.session, 'scope': scope.get('id'), 'document': source,
-                    'content': excerpt['text'] if excerpt else text}
+                    'content': {'ui_text': text, 'excerpt_text': excerpt['text'] if excerpt else None}}
         reference = 'obs-' + hashlib.sha256(_encoded([self.epoch, identity])).hexdigest()[:24]
         if reference in self.records:
             self.bytes -= len(_encoded(self.records[reference]))
@@ -113,3 +115,38 @@ class NativeObservationArchive:
                     'schema': 'robit.omni.native-observation-recall.v1', 'reference': reference,
                     'temporal_scope': 'historical', 'current_ui_verified': False,
                     'input_authority': False, 'first_expansion_in_task': first}}
+
+    def planning_view(self) -> dict:
+        """Expand exact historical data for planning, without current UI rights.
+
+        The ordinary index stays small for terminal/audit responses. When the
+        full retained set cannot fit this separate data budget, retain whole
+        recent records and expose every omission through the unchanged index.
+        Explicit recall can still retrieve those records; no text is clipped.
+        """
+        index, selected, omitted = self.view(), {}, []
+        for reference, record in reversed(self.records.items()):
+            wrapped = {'reference': reference, 'temporal_scope': 'historical',
+                'evidence_authority': 'untrusted_historical_native_observation',
+                'input_authority': False, 'current_ui_verified': False,
+                'current_visual_input': False, 'task_progress': False,
+                'retained_observation': copy.deepcopy(record)}
+            if len(_encoded([*selected.values(), wrapped])) > self.MAX_PLANNING_BYTES:
+                omitted.append(reference)
+            else:
+                selected[reference] = wrapped
+        records = [selected[reference] for reference in self.records if reference in selected]
+        self.expanded.update(selected)
+        index['expanded_records'] = records
+        index['expansion_metadata'] = {
+            'schema': 'robit.omni.native-historical-working-set.v1',
+            'presentation': 'exact_retained_native_archive_records',
+            'input_authority': False, 'current_ui_verified': False,
+            'current_visual_input': False, 'task_progress': False,
+            'records': len(records), 'expanded_utf8_bytes': len(_encoded(records)),
+            'maximum_records': self.MAX_RECORDS, 'maximum_expanded_utf8_bytes': self.MAX_PLANNING_BYTES,
+            'truncated': bool(omitted),
+            'omitted_references': [reference for reference in self.records if reference in omitted],
+            'omission_reason': 'whole_record_data_budget' if omitted else None,
+            'omitted_records_available_via': 'recall_observation'}
+        return index

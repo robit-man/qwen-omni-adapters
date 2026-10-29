@@ -2197,7 +2197,8 @@ class _AtspiBridge:
         }
 
         def visit(node: Any, window: str = "", depth: int = 0, application_pid: int | None = None,
-                  parent: str = identity_root, namespace_relay: bool = False) -> bool:
+                  parent: str = identity_root, namespace_relay: bool = False,
+                  ancestors: tuple = (), child_index: int | None = None) -> bool:
             nonlocal truncated, text_remaining, coverage_uncertain
             if len(seen) >= self.MAX_NODES or depth > self.MAX_DEPTH:
                 truncated = True
@@ -2353,6 +2354,14 @@ class _AtspiBridge:
                 "focused": state.contains(state_type.FOCUSED),
                 "operations": operations if window else [],
             }
+            if window:
+                # Retain relationships already witnessed by this traversal.
+                # No inferred labels, geometry grouping, or extra provider reads.
+                item["structure"] = {"ancestors": [dict(value) for value in ancestors[-3:]]}
+                if ancestors:
+                    item["structure"]["parent_id"] = ancestors[-1]["id"]
+                if child_index is not None:
+                    item["structure"]["child_index"] = child_index
             if window and (node_id == window or item["focused"]) and visible and enabled and not sensitive:
                 item["operations"].append("key_chord")
             if (node_id in active and visible and enabled and not sensitive
@@ -2425,13 +2434,15 @@ class _AtspiBridge:
             truncated |= count > self.MAX_CHILDREN
             child_list_complete = count <= self.MAX_CHILDREN
             observed_children.setdefault(raw, set())
+            lineage = (*ancestors, {key: item[key] for key in
+                ("id", "generation", "role", "name", "visible", "enabled")}) if window else ()
             for index in range(min(count, self.MAX_CHILDREN)):
                 if len(seen) >= self.MAX_NODES:
                     truncated = True
                     child_list_complete = False
                     break
                 admitted = visit(self._read(lambda i=index: node.get_child_at_index(i)), window, depth + 1,
-                                 application_pid, raw, namespace_relay)
+                                 application_pid, raw, namespace_relay, lineage[-3:], index)
                 child_list_complete &= admitted
             if child_list_complete:
                 complete_children.add(raw)

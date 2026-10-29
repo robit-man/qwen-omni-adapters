@@ -6,7 +6,7 @@ import json
 
 import httpx
 import pytest
-from test_ui_task import NoEffectAdapter, no_effect_phase
+from test_ui_task import NoEffectAdapter
 
 import portal.app as app_module
 import portal.tools as tools_module
@@ -14,6 +14,7 @@ from portal.app import DEFAULT_MODEL, SESSION_COOKIE_NAME, PortalConfig, create_
 from portal.computer_use import ComputerUseStore
 from portal.native_ui import NativeUiAdapter
 from portal.ui_task import NativePhaseCompilationError, phase_response_schema
+from qwen_omni_adapters.computer_use import parse_intent
 
 TOKEN = "native-task-route-token-at-least-24-characters"
 HEADERS = {"Authorization": "Bearer " + TOKEN}
@@ -67,6 +68,7 @@ class Adapter:
     def __init__(self, session):
         self.session, self.value, self.saved = session, "", ""
         self.calls, self.planning_calls, self.ordinary_calls = [], 0, 0
+        self.prepared_intents = []
 
     def _state(self, include_windows=False):
         nodes = [{"id": "draft", "role": "textbox", "name": "Draft", "value": self.value, "operations": ["set_value"]},
@@ -88,6 +90,15 @@ class Adapter:
     def planning_observe(self):
         self.planning_calls += 1
         return self._state(True)
+
+    def boundary_observe(self):
+        return self.observe()
+
+    def prepare_intent(self, intent):
+        self.prepared_intents.append(parse_intent(intent))
+
+    def finish_intent(self):
+        pass
 
     def perform(self, action):
         self.calls.append(copy.deepcopy(action))
@@ -155,13 +166,15 @@ def test_native_text_knowledge_reaches_real_compiler_and_phase_feedback(tmp_path
             effect = packet["last_result"]["outcomes"][0]["observed_effects"][0]
             assert effect["text_observation"]["character_count"] == len("Reference note")
             assert effect["text_observation"]["selection_count"] == 0
-            plan = {"kind": "complete", "message": "Fixture claim only"}
+            assert packet["last_result"]["status"] == "observed_unverified"
+            plan = {"kind": "blocked", "reason": "Commit observed; independent task verification is still needed."}
         return httpx.Response(200, json={"model": DEFAULT_MODEL,
             "message": {"role": "assistant", "content": json.dumps(_working_reply(request, plan))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     result, _ = _post(app.test_client(), _request(stream), stream)
     assert len(packets) == 2
+    assert result["portal"]["native_task"]["status"] == "blocked"
     assert result["portal"]["native_task"]["task_verified"] is False
 
 
@@ -177,9 +190,12 @@ def test_metadata_only_changes_do_not_renew_zero_effect_budget_through_actual_ro
         def clarified():
             state = observe()
             state["session_id"] = session
+            state["nodes"][0]["operations"].append("set_value")
+            state["nodes"][0].pop("text_selection", None)
             state["nodes"][0].update(value="a" * 18, text_observation={
-                "character_count": 18 + len(packets), "selection_count": 1,
-                "captured_range": {"start": 0, "end": 18}, "truncated": bool(packets)})
+                "character_count": 18, "captured_range": {"start": 0, "end": 18}, "truncated": False})
+            if len(packets) % 2:
+                state["nodes"][0]["text_observation"]["selection_count"] = 0
             return state
 
         adapter.observe = adapter.planning_observe = clarified
@@ -194,22 +210,30 @@ def test_metadata_only_changes_do_not_renew_zero_effect_budget_through_actual_ro
         packets.append(packet)
         current = packet["current_state"]
         draft = next(node for node in current["state"]["nodes"] if node["id"] == "draft")
-        assert draft["text_observation"]["character_count"] == 17 + len(packets)
-        plan = no_effect_phase() if len(packets) <= 4 else {"kind": "complete", "message": "Unverified claim"}
+        assert draft["text_observation"]["character_count"] == 18
+        assert draft["text_observation"]["captured_range"] == {"start": 0, "end": 18}
+        assert draft["text_observation"]["truncated"] is False
+        assert draft["text_observation"].get("selection_count") in {None, 0}
+        plan = {"kind": "ui", "steps": [{"id": "already-written", "verb": "set_value",
+            "target": {"node_id": "draft"}, "args": {"value": "a" * 18},
+            "expect": [{"kind": "text", "text": "A narrative claim is not a write effect"}]}],
+            "final_predicates": [{"kind": "text", "text": "A missing receipt does not become observed"}]}
         return httpx.Response(200, json={"message": {"content": json.dumps(_working_reply(request, plan))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     result, _ = _post(app.test_client(), _request(stream), stream)
     assert result["portal"]["native_task"]["status"] == "blocked"
-    assert len(packets) == 4 and len(adapters[0].calls) == 2
+    assert len(packets) == 4 and adapters[0].calls == []
     for packet in packets:
         current = packet["current_state"]
         assert current["content_sha256"] == current["state"]["model_projection"]["raw_source_sha256"]
-    feedback = packets[2]["last_result"]
-    assert feedback["error"] == "ui_phase_repeated_without_new_effect"
-    assert feedback["phase_handoff"]["new_effect_count"] == 0
-    assert [item["effect_receipt"]["effect_state"] for item in feedback["outcomes"]] == ["absent", "replayed", "replayed"]
-    assert all(item["status"] == "verified" for item in feedback["outcomes"])
+    assert result["portal"]["native_task"]["task_verified"] is False
+    for trace in result["portal"]["safe_tools_executed"]:
+        feedback = json.loads(trace["result"])
+        assert feedback["task_progress"] is False
+        assert feedback["phase_handoff"]["new_effect_count"] == 0
+        assert feedback["phase_handoff"]["terminal_verified"] is False
+        assert feedback["phase_handoff"]["goal_verified"] is False
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -246,9 +270,16 @@ def test_native_profile_compiles_strict_phase_and_executes_two_inputs_internally
         else:
             assert len(requests) == 2
             assert [action["verb"] for action in adapters[0].calls] == ["set_value", "invoke"]
-            assert packet["last_result"]["phase_handoff"]["new_effect_count"] == 2
+            feedback = packet["last_result"]
+            assert feedback["status"] == "observed_unverified"
+            assert feedback["phase_handoff"]["new_effect_count"] == 1
+            assert feedback["phase_handoff"]["terminal_verified"] is False
+            assert feedback["phase_handoff"]["goal_verified"] is False
+            assert feedback["effect_receipt"]["effect_state"] == "unknown"
+            assert feedback["ui_boundary_receipt"]["task_progress"] is False
+            assert adapters[0].value == adapters[0].saved == "Reference note"
             assert not any("before" in outcome or "after" in outcome for outcome in packet["last_result"]["outcomes"])
-            plan = {"kind": "complete", "message": "Planner completion claim."}
+            plan = {"kind": "blocked", "reason": "Commit observed; independent task verification is still needed."}
         return httpx.Response(200, json={"model": DEFAULT_MODEL, "message": {"role": "assistant", "content": json.dumps(_working_reply(request, plan))}})
 
     class NoDiscovery:
@@ -264,16 +295,27 @@ def test_native_profile_compiles_strict_phase_and_executes_two_inputs_internally
     result, events = _post(client, body, stream)
     assert len(requests) == 2 and adapters[0].planning_calls == 2
     assert adapters[0].ordinary_calls >= 5
-    assert result["message"]["content"] == "Planner completion claim."
-    assert result["portal"]["native_task"]["status"] == "planner_claim"
+    assert result["message"]["content"] == "Commit observed; independent task verification is still needed."
+    assert result["portal"]["native_task"]["status"] == "blocked"
     assert result["portal"]["native_task"]["task_verified"] is False
     assert result["portal"]["tool_allowlist"] == ["native_ui"]
     traces = result["portal"]["safe_tools_executed"]
     assert len(traces) == 1 and traces[0]["name"] == "native_ui"
     raw = json.loads(traces[0]["result"])
-    assert len(raw["outcomes"]) == 2 and raw["terminal_receipt"]["status"] == "verified"
+    assert traces[0]["arguments"]["operation"] == "verified_prefix"
+    assert len(raw["outcomes"]) == 2
+    assert [outcome["status"] for outcome in raw["outcomes"]] == ["verified", "observed_unverified"]
+    assert raw["phase_handoff"]["terminal_verified"] is False
+    assert raw["phase_handoff"]["goal_verified"] is False
+    assert raw["verified_prefix_receipt"]["verified_prefix_count"] == 1
+    assert raw["verified_prefix_receipt"]["attempted_step_count"] == 2
+    assert raw["verified_prefix_receipt"]["stop"] == "opaque_input_boundary"
+    assert raw["verified_prefix_receipt"]["model_terminal_predicates_verified"] is False
+    assert raw["task_progress"] is False
+    assert adapters[0].value == adapters[0].saved == "Reference note"
+    assert [intent["verb"] for intent in adapters[0].prepared_intents] == ["invoke"]
     assert all("before" in outcome and "after" in outcome for outcome in raw["outcomes"])
-    assert store._owned("native-phase-owned-session-12345", "desktop").cancel.is_set() is False
+    assert store._owned("native-phase-owned-session-12345", "desktop").cancel.is_set() is True
     if stream:
         assert [event["phase"] for event in events if event["type"] == "tool"] == ["start", "complete"]
 
@@ -438,13 +480,17 @@ def test_malformed_compiler_content_recovers_with_fresh_observation_and_real_wor
             content = json.dumps(_working_reply(request, _phase()))
         else:
             assert len(requests) == 3 and len(adapters[0].calls) == 2
-            content = json.dumps(_working_reply(request, {"kind": "complete", "message": "Planner claim after recovery."}))
+            assert packet["last_result"]["status"] == "observed_unverified"
+            content = json.dumps(_working_reply(request, {"kind": "blocked",
+                "reason": "Compiler recovered and commit observed; task verification remains incomplete."}))
         return httpx.Response(200, json={"message": {"role": "assistant", "content": content}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
     result, _ = _post(app.test_client(), body, stream)
-    assert result["portal"]["native_task"]["status"] == "planner_claim"
+    assert result["portal"]["native_task"]["status"] == "blocked"
+    assert result["portal"]["native_task"]["task_verified"] is False
     assert [action["verb"] for action in adapters[0].calls] == ["set_value", "invoke"]
+    assert adapters[0].value == adapters[0].saved == "Reference note"
     assert len(result["portal"]["safe_tools_executed"]) == 1
     assert result["portal"]["tool_allowlist"] == ["native_ui"]
 
@@ -601,19 +647,18 @@ def test_cancel_and_external_renew_before_store_lookup_cannot_dispatch_into_new_
 
     store, adapters = _install_store(monkeypatch)
     session_id = "native-lookup-race-session-12345"
-    original = tools_module.PortalToolHarness.execute
+    original = store.immediate_transition
     old_events, renewed_events, compiler_calls = [], [], []
 
-    def execute(harness, session, name, arguments):
-        if name == "native_ui":
-            old_events.append(store._owned(session, "desktop").cancel)
-            store.clear(session)
-            # An independent request may renew the current session after Trash.
-            contextvars.Context().run(lambda: store.planning_observation(session))
-            renewed_events.append(store._owned(session, "desktop").cancel)
-        return original(harness, session, name, arguments)
+    def execute(session, step, **kwargs):
+        old_events.append(store._owned(session, "desktop").cancel)
+        store.clear(session)
+        # An independent request may renew the current session after Trash.
+        contextvars.Context().run(lambda: store.planning_observation(session))
+        renewed_events.append(store._owned(session, "desktop").cancel)
+        return original(session, step, **kwargs)
 
-    monkeypatch.setattr(tools_module.PortalToolHarness, "execute", execute)
+    monkeypatch.setattr(store, "immediate_transition", execute)
 
     def upstream(request):
         compiler_calls.append(request)
@@ -701,13 +746,13 @@ def test_cancel_renew_at_scope_entry_cannot_admit_memory_executor(tmp_path, monk
     entries, next_events = [], []
 
     @contextmanager
-    def scope(session_id, surface, event):
+    def scope(session_id, surface, event, **kwargs):
         entries.append(event)
         if len(entries) == 2:
             store.clear(session_id)
             next_events.append(store.begin_task(session_id, surface))
-        with original(session_id, surface, event):
-            yield
+        with original(session_id, surface, event, **kwargs) as receipts:
+            yield receipts
 
     monkeypatch.setattr(store, 'task_scope', scope)
     calls = []

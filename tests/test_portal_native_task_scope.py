@@ -78,7 +78,8 @@ def test_scope_reaches_owned_epoch_and_model_gets_only_digest_count(tmp_path, mo
         assert current["window_scope_sha256"] == native_task_scope_sha256(SCOPE)
         assert current["window_scope_count"] == 1
         events.append(store._owned(session, "desktop").cancel)
-        plan = _phase() if len(packets) == 1 else {"kind": "complete", "message": "Unverified task claim"}
+        plan = _phase() if len(packets) == 1 else {"kind": "blocked",
+            "reason": "Scoped commit observed; independent task verification is still needed."}
         return httpx.Response(200, json={"message": {"content": json.dumps(_working_reply(request, plan))}})
 
     app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
@@ -86,6 +87,16 @@ def test_scope_reaches_owned_epoch_and_model_gets_only_digest_count(tmp_path, mo
     client.set_cookie(SESSION_COOKIE_NAME, session)
     result, _ = _post(client, body, stream)
     assert len(packets) == 2 and len(adapters[0].calls) == 2
+    assert [action["verb"] for action in adapters[0].calls] == ["set_value", "invoke"]
+    assert adapters[0].value == adapters[0].saved == "Reference note"
+    trace = result["portal"]["safe_tools_executed"][0]
+    assert trace["arguments"]["operation"] == "verified_prefix"
+    receipt = json.loads(trace["result"])
+    assert receipt["status"] == "observed_unverified"
+    assert receipt["phase_handoff"]["terminal_verified"] is False
+    assert receipt["phase_handoff"]["goal_verified"] is False
+    assert receipt["task_progress"] is False
+    assert result["portal"]["native_task"]["status"] == "blocked"
     assert result["portal"]["native_task"]["window_scope_sha256"] == native_task_scope_sha256(SCOPE)
     assert result["portal"]["native_task"]["task_verified"] is False
     assert adapters[0].scope == SCOPE and adapters[0].closed and all(event.is_set() for event in events)

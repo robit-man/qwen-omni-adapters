@@ -230,25 +230,45 @@ def test_wrapped_feedback_preserves_unknown_and_false_without_claiming_current_a
     assert result["intent_selection_receipt"]["goal_sha256"] == _digest(GOAL)
 
 
-@pytest.mark.parametrize("oversized", ["goal", "feedback", "row"])
-def test_wrapper_admission_never_trims_goal_or_full_evidence(oversized):
+@pytest.mark.parametrize("oversized", ["goal", "feedback"])
+def test_wrapper_admission_never_trims_goal_or_historical_evidence(oversized):
     adapter, store, cancel, requests = configured()
     goal, feedback = GOAL, None
     if oversized == "goal":
         goal = "g" * 19000
     elif oversized == "feedback":
         feedback = {"effect_receipt": {"full": "x" * 9000}}
-    else:
-        original = adapter.observe
-        def large():
-            state = original()
-            state["nodes"][0]["value"] = "x" * 4000
-            return state
-        adapter.observe = large
     with store.task_scope("session", "desktop", cancel):
         result = store.observation_boundary("session", intent(), goal=goal, objective=OBJECTIVE, feedback=feedback)
     assert not requests and not adapter.calls
     assert result["ui_boundary_receipt"]["input_attempted"] is False
+
+
+def test_wrapper_marks_partial_shared_text_and_keeps_complete_native_guard_evidence():
+    adapter, store, cancel, requests = configured()
+    original = adapter.observe
+    value = "x" * 4000
+    def large():
+        state = original()
+        state["nodes"][0]["value"] = value
+        return state
+    adapter.observe = large
+    with store.task_scope("session", "desktop", cancel):
+        result = store.observation_boundary("session", intent(), goal=GOAL, objective=OBJECTIVE)
+    assert len(requests) == len(adapter.calls) == 1
+    shared = json.loads(requests[0]["state"])
+    assert shared["task"]["goal"] == GOAL and shared["task"]["active_objective"] == OBJECTIVE
+    node = shared["nodes"]["n0"]
+    assert "value" not in node["observed"]
+    coverage = node["projection"]["omitted_fields"]["value"]
+    assert coverage["complete"] is False and coverage["omission_is_absence"] is False
+    assert coverage["source_characters"] == 4000 and coverage["preview"] == value[:256]
+    assert coverage["source_sha256"] == _digest(value)
+    assert max(map(len, requests[0]["questions"]["action"]["criteria"].values())) <= 1000
+    before = result["dispatch_record"]["before"]
+    observed = next(item for item in before["nodes"] if item["id"] == node["observed"]["id"])
+    assert observed["value"] == value
+    assert result["task_progress"] is False and result["new_effect_count"] == 0
 
 
 def test_wrapped_policy_requires_confirmed_model_and_preserves_delegated_cancel():
