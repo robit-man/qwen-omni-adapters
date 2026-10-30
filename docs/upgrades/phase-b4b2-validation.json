@@ -1,0 +1,30 @@
+{
+  "schema": "robit.omni.upgrade-validation.v1",
+  "milestone": "B4b2-native",
+  "source_gate": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "tests_passed": 6219,
+    "pytest_seconds": 276.49
+  },
+  "source_sha256": {
+    "patches/llama.cpp-qwen3tts-reference-prompt.patch": "e3c0cd96de622821c8334b76e4388fe69f431ace3338087c7b5e2fea6334720d",
+    "scripts/build_llama_cpp.sh": "e1a907265d5d13c80e1533286c1eed9d6ac5410cfe2729d64e15d3c07baddac2",
+    "scripts/build_llama_cpp.ps1": "1a0d302454f263e952e3cc322b097f1a0e95462134bc69feae9fab8aef808a37",
+    "runtime/qualify_tts_reference_prompt.py": "a3315f42fc79d01c52e21b0a7bbd6fe9225998322cfdd16aab3d92413fada130",
+    "tests/test_native_json_grammar.py": "9603ce87bfd419802990f28f2c6cbbe72a504735515e135e0bd3fd30af519b82"
+  },
+  "native_pin": "458681e1d5d4a29a1463c4732e03226cf384b997",
+  "native_build_and_repeat_passed": true,
+  "sidecar_sha256": "7838f27ad60ed5181c60e9b6e7263df944933f07099602aa70a5e96c8640f388",
+  "tts_model_sha256": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129",
+  "tts_projector_sha256": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2",
+  "reference_encoder_sha256": "587b2b59ebfa815c5490fbc4bddb5dde3454cfbca4eef108d8688b668628a0e5",
+  "full_prompt_pcm_outputs": 24,
+  "legacy_pcm_outputs": 12,
+  "exact_intelligibility_transcriptions": 8,
+  "primary_restarted": false,
+  "public_voice_contract_qualified": false,
+  "perceptual_cloning_quality_qualified": false,
+  "publication_qualified": false
+}

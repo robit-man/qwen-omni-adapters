@@ -106,6 +106,21 @@
       ]
     },
     {
+      "id": "B4b2",
+      "objective": "Native Qwen3-TTS Base full reference-text/acoustic prompt and immutable reference-only decoder conditioning",
+      "status": "native_A100_and_Orin_24_exact_PCM_outputs_8_exact_transcriptions_public_encoder_voice_contract_and_perceptual_quality_pending",
+      "evidence": [
+        "phase-b4b2-reference-prompt.md",
+        "phase-b4b2-reference-a100.json",
+        "phase-b4b2-reference-orin.json",
+        "phase-b4b2-reference-long-a100.json",
+        "phase-b4b2-reference-long-orin.json",
+        "phase-b4b2-legacy-regression.json",
+        "phase-b4b2-intelligibility.json",
+        "phase-b4b2-validation.json"
+      ]
+    },
+    {
       "id": "C",
       "objective": "Train, package and qualify exact-trunk decision, retrieval and streaming-audio heads",
       "status": "pending_training_and_backend_integration",

@@ -17,6 +17,7 @@ $TokenRowsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-token-rows
 $IndexedViewsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-indexed-tts-views.patch"
 $ReferenceEncoderPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-encoder.patch"
 $ReferenceIgpuPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-integrated-gpu.patch"
+$ReferencePromptPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-prompt.patch"
 $BuildDir = Join-Path $SourceDir "build"
 
 if (-not (Test-Path (Join-Path $SourceDir ".git"))) {
@@ -79,6 +80,7 @@ if ((Test-PatchMarker "tools/tts/reference-encode.cpp" 'params.reference_encoder
     Apply-NativePatch $ReferenceEncoderPatchFile "Qwen3-TTS reference acoustic encoder"
 }
 Apply-NativePatch $ReferenceIgpuPatchFile "Qwen3-TTS integrated GPU residency"
+Apply-NativePatch $ReferencePromptPatchFile "Qwen3-TTS full reference prompt"
 
 cmake -S $SourceDir -B $BuildDir -DGGML_CUDA=ON -DLLAMA_CURL=OFF
 cmake --build $BuildDir --config Release --target llama-server llama-tts llama-tts-reference-encode --parallel $BuildJobs
@@ -89,4 +91,5 @@ if (-not (Test-Path $Tts)) { throw "llama-tts.exe was not built" }
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-persistent" | Out-Null
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-no-conditioning-cache" | Out-Null
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-conditioning-cache-rows" | Out-Null
+& $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-reference-prompt-file" | Out-Null
 Write-Host "Built patched llama-server and llama-tts in $BuildDir"
