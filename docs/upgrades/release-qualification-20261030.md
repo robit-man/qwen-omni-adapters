@@ -71,6 +71,10 @@ retaining red → blue → green. One run takes 6.31 s versus the failed 6.63 s
 control; the Orin regression takes 59.94 s versus 51.05 s before splitting.
 These are single observations, not a claimed latency improvement. The source
 tests cover both complete and streaming paths and channel authority.
+The final Orin routing regression uses temporary patched HTTP workers with the
+restored original 64K Q8 worker, whose standard-layer digests match the v2
+candidate. The initial installed v2 candidate's complete operational/cloning
+run used 16K Q8. No native worker was restarted for the routing regression.
 
 The first Ornith audio-fixture attempt used an unsupported sample rate. The
 fixtures were normalized to the documented 16 kHz PCM16 input and only those

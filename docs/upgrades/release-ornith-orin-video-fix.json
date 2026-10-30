@@ -13,5 +13,12 @@
       "wer": 0.0
     }
   ],
-  "passed": true
+  "passed": true,
+  "runtime_context": {
+    "primary": "restored original Ornith compact bridge, same standard-layer digests as v2 candidate",
+    "context_tokens": 65536,
+    "kv": "q8_0",
+    "worker_restarted_for_this_check": false,
+    "http_runtime": "patched upgrade adapter/portal, temporary loopback ports"
+  }
 }
