@@ -15,6 +15,7 @@ $JsonStringBoundsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-json-string-
 $ConditioningCachePatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-conditioning-cache.patch"
 $TokenRowsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-token-rows.patch"
 $IndexedViewsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-indexed-tts-views.patch"
+$ReferenceEncoderPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-encoder.patch"
 $BuildDir = Join-Path $SourceDir "build"
 
 if (-not (Test-Path (Join-Path $SourceDir ".git"))) {
@@ -62,10 +63,17 @@ if (-not ((Test-PatchMarker "common/arg.cpp" '"--tts-conditioning-cache-rows"') 
           (Test-PatchMarker "tools/mtmd/mtmd-helper-gen.cpp" 'conditioning->token_rows.find(t)'))) {
   Apply-NativePatch $TokenRowsPatchFile "Qwen3-TTS bounded token rows"
 }
-Apply-NativePatch $IndexedViewsPatchFile "Indexed TTS source views"
+if ((Test-PatchMarker "ggml/include/gguf.h" 'gguf_select_tensor_view(') -and
+    (Test-PatchMarker "src/llama-model-loader.cpp" 'indexed_view = true;') -and
+    (Test-PatchMarker "tools/mtmd/clip.cpp" 'robit.ollama-audio-bridge.v2')) {
+    Write-Host "Indexed TTS source views patch is already applied"
+} else {
+    Apply-NativePatch $IndexedViewsPatchFile "Indexed TTS source views"
+}
+Apply-NativePatch $ReferenceEncoderPatchFile "Qwen3-TTS reference acoustic encoder"
 
 cmake -S $SourceDir -B $BuildDir -DGGML_CUDA=ON -DLLAMA_CURL=OFF
-cmake --build $BuildDir --config Release --target llama-server llama-tts --parallel $BuildJobs
+cmake --build $BuildDir --config Release --target llama-server llama-tts llama-tts-reference-encode --parallel $BuildJobs
 $Tts = Join-Path $BuildDir "bin\Release\llama-tts.exe"
 if (-not (Test-Path $Tts)) { $Tts = Join-Path $BuildDir "bin\llama-tts.exe" }
 if (-not (Test-Path $Tts)) { throw "llama-tts.exe was not built" }

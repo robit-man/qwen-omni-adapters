@@ -20,13 +20,20 @@ from qwen_omni_adapters.ollama_sidecar import (
     prepare_ollama_sidecar,
     resolve_ollama_sidecar,
 )
-from qwen_omni_adapters.single_gguf import SingleGGUFError, inspect_monolithic_gguf
+from qwen_omni_adapters.single_gguf import (
+    SingleGGUFError,
+    inspect_monolithic_gguf,
+    materialize_component_view,
+)
+from runtime.export_tts_reference_encoder import export_reference_encoder
 
 
-def checkpoint(path: Path, arch: str) -> Path:
+def checkpoint(path: Path, arch: str, *, metadata=None) -> Path:
     writer = gguf.GGUFWriter(str(path), arch=arch)
     writer.add_name("public checkpoint fixture")
     writer.add_key_value(arch + ".block_count", 1, gguf.GGUFValueType.UINT32)
+    for key, value in (metadata or {}).items():
+        writer.add_string(key, value)
     writer.add_tensor("plain.weight", np.arange(64, dtype=np.float32).reshape(2, 32))
     quantized = gguf.quants.quantize(np.arange(64, dtype=np.float32).reshape(2, 32),
                                     gguf.GGMLQuantizationType.Q8_0)
@@ -136,6 +143,53 @@ def test_failed_repack_preserves_previous_output_and_cleans_only_own_partial(tmp
     with pytest.raises(SingleGGUFError, match="overwrite an input"):
         pack_indexed_tts_sidecar(tts_gguf=model, tts_projector_gguf=projector,
                                  out_gguf=model, overwrite=True)
+
+
+@pytest.mark.parametrize("direct", [False, True])
+def test_reference_encoder_shares_one_tag_and_preserves_all_three_component_views(tmp_path, direct):
+    if direct and os.name == "nt":
+        pytest.skip("Windows uses materialized component files")
+    _, model, projector = sidecar(tmp_path)
+    reference = checkpoint(tmp_path / "reference.gguf", "clip", metadata={
+        "clip.audio.projector_type": "qwen3tts_refenc",
+        "robit.reference_encoder.abi": "robit.qwen3tts.reference-encoder.v1"})
+    bundle = tmp_path / "expanded.gguf"
+    packed = pack_indexed_tts_sidecar(tts_gguf=model, tts_projector_gguf=projector,
+                                     tts_reference_encoder_gguf=reference, out_gguf=bundle)
+    assert inspect_monolithic_gguf(bundle)["valid"]
+    root, name = tmp_path / "store", "robit/reference:edge-v2"
+    standard_tag(root, name)
+    attach_ollama_sidecar(model=name, bundle_gguf=bundle, models_dir=root)
+    prepared = prepare_ollama_sidecar(model=name, output_dir=tmp_path / "views",
+                                     models_dir=root, prefer_direct=direct)
+    assert set(prepared["views"]) == {"tts_model", "tts_projector", "tts_reference_encoder"}
+    for view, source in (("tts_model", model), ("tts_projector", projector), ("tts_reference_encoder", reference)):
+        path = Path(prepared["views"][view]["output"])
+        if direct:
+            assert path.is_symlink() and hashlib.sha256(path.read_bytes()).hexdigest() == packed["sha256"]
+            path = tmp_path / (view + "-standalone.gguf")
+            materialize_component_view(bundle_gguf=bundle, view=view, out_gguf=path)
+        assert path.read_bytes() == source.read_bytes()
+    assert len([layer for layer in json.loads(manifest_path(name, root).read_text())["layers"]
+                if layer["mediaType"] == OMNI_LAYER_MEDIA_TYPE]) == 1
+    bundle.write_bytes(bundle.read_bytes().replace(b"robit.qwen3tts.reference-encoder.v1",
+                                                  b"robit.qwen3tts.reference-encoder.v9"))
+    inspection = inspect_monolithic_gguf(bundle)
+    assert not inspection["valid"] and "invalid indexed reference encoder ABI" in inspection["errors"]
+
+
+def test_unqualified_reference_architecture_and_unpinned_source_are_rejected(tmp_path):
+    _, model, projector = sidecar(tmp_path)
+    reference = checkpoint(tmp_path / "reference.gguf", "clip")
+    out = tmp_path / "invalid.gguf"
+    with pytest.raises(SingleGGUFError, match="qualified.*ABI"):
+        pack_indexed_tts_sidecar(tts_gguf=model, tts_projector_gguf=projector,
+                                 tts_reference_encoder_gguf=reference, out_gguf=out)
+    source = tmp_path / "wrong.safetensors"
+    source.write_bytes(b"wrong checkpoint must be rejected before Torch is loaded")
+    with pytest.raises(ValueError, match="pinned"):
+        export_reference_encoder(source, out)
+    assert not out.exists()
 
 
 def test_index_does_not_accept_tensors_outside_its_declared_views(tmp_path):

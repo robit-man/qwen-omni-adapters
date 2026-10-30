@@ -90,6 +90,19 @@
       ]
     },
     {
+      "id": "B4b1",
+      "objective": "Add frozen native reference acoustic encoder under the same indexed model identity",
+      "status": "A100_2912_codes_exact_from_installed_shared_sidecar_existing_TTS_preserved_Orin_build_in_progress",
+      "evidence": [
+        "phase-b4b1-reference-encoder.md",
+        "phase-b4b1-export.json",
+        "phase-b4b1-installed.json",
+        "phase-b4b1-native-indexed.json",
+        "phase-b4b1-tts-regression.json",
+        "phase-b4b1-validation.json"
+      ]
+    },
+    {
       "id": "C",
       "objective": "Train, package and qualify exact-trunk decision, retrieval and streaming-audio heads",
       "status": "pending_training_and_backend_integration",

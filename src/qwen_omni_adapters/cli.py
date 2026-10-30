@@ -188,6 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
     pack_tts = sub.add_parser("pack-tts", help="Pack deterministic, shared indexed TTS sidecar v2")
     pack_tts.add_argument("--tts", type=Path, required=True)
     pack_tts.add_argument("--tts-projector", type=Path, required=True)
+    pack_tts.add_argument("--tts-reference-encoder", type=Path)
     pack_tts.add_argument("--out", type=Path, required=True)
     pack_tts.add_argument("--overwrite", action="store_true")
 
@@ -267,7 +268,8 @@ def main(argv: list[str] | None = None) -> int:
             result = adapter_contract()
         elif args.command == "pack-tts":
             result = pack_indexed_tts_sidecar(tts_gguf=args.tts, tts_projector_gguf=args.tts_projector,
-                                             out_gguf=args.out, overwrite=args.overwrite)
+                                             out_gguf=args.out, overwrite=args.overwrite,
+                                             tts_reference_encoder_gguf=args.tts_reference_encoder)
         elif args.command == "pack":
             result = pack_monolithic_gguf(
                 base_gguf=args.base,

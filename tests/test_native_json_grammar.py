@@ -23,7 +23,8 @@ BOUNDS_PATCH = "llama.cpp-json-string-bounds.patch"
 CONDITIONING_PATCH = "llama.cpp-qwen3tts-conditioning-cache.patch"
 TOKEN_ROWS_PATCH = "llama.cpp-qwen3tts-token-rows.patch"
 INDEXED_VIEWS_PATCH = "llama.cpp-indexed-tts-views.patch"
-INDEPENDENT_PATCHES = (PATCH, BOUNDS_PATCH, CONDITIONING_PATCH, TOKEN_ROWS_PATCH, INDEXED_VIEWS_PATCH)
+REFERENCE_ENCODER_PATCH = "llama.cpp-qwen3tts-reference-encoder.patch"
+INDEPENDENT_PATCHES = (PATCH, BOUNDS_PATCH, CONDITIONING_PATCH, TOKEN_ROWS_PATCH, INDEXED_VIEWS_PATCH, REFERENCE_ENCODER_PATCH)
 
 
 def _patch_preimage(text: str, source: Path) -> None:
@@ -34,6 +35,8 @@ def _patch_preimage(text: str, source: Path) -> None:
         if line.startswith("--- a/"):
             current = line[6:].strip()
             files[current] = []
+        elif line.startswith("--- /dev/null"):
+            current = None
         elif line.startswith("@@"):
             position = int(re.match(r"@@ -(\d+)", line)[1]) - 1
         elif current and line[:1] in {" ", "-"}:
@@ -99,6 +102,9 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
     target.parent.mkdir(parents=True)
     target.write_text('#!/bin/sh\nprintf "%s\\n" "--tts-stream-frames --tts-persistent --tts-no-conditioning-cache --tts-conditioning-cache-rows"\n')
     target.chmod(0o755)
+    reference_encoder = target.parent / "llama-tts-reference-encode"
+    reference_encoder.write_text("#!/bin/sh\nexit 0\n")
+    reference_encoder.chmod(0o755)
     env = {**os.environ, "PATH": str(commands) + os.pathsep + os.environ["PATH"],
            "BUILD_CALLS": str(tmp_path / "cmake-calls"), "LLAMA_CPP_BUILD_DIR": str(target.parent.parent),
            "CUDACXX": str(nvcc),
@@ -110,7 +116,8 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
                                               (BOUNDS_PATCH, "JSON string length bounds"),
                                               (CONDITIONING_PATCH, "Qwen3-TTS immutable conditioning cache"),
                                               (TOKEN_ROWS_PATCH, "Qwen3-TTS bounded token rows"),
-                                              (INDEXED_VIEWS_PATCH, "Indexed TTS source views")])
+                                              (INDEXED_VIEWS_PATCH, "Indexed TTS source views"),
+                                              (REFERENCE_ENCODER_PATCH, "Qwen3-TTS reference acoustic encoder")])
 def test_linux_builder_applies_each_independent_patch_once_and_keeps_pin(tmp_path, patch_name, label):
     repo, source, env = _build_fixture(tmp_path, patch_name=patch_name)
     command = ["bash", str(repo / "scripts/build_llama_cpp.sh"), str(source)]

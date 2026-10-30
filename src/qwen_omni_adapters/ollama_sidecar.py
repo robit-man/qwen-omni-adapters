@@ -343,24 +343,22 @@ def prepare_ollama_sidecar(
 ) -> dict[str, Any]:
     """Materialize disposable runtime views directly from an installed Ollama tag."""
     resolved = resolve_ollama_sidecar(model=model, models_dir=models_dir)
+    declared = {
+        str(component.get("name"))
+        for component in (resolved["inspection"].get("manifest") or {}).get("components", [])
+        if isinstance(component, dict)
+    }
     default_views = (
-        ("tts_model", "tts_projector")
+        ("tts_model", "tts_projector") + (("tts_reference_encoder",) if "tts_reference_encoder" in declared else ())
         if resolved["profile"] == "trained-audio-bridge"
         else RUNTIME_VIEWS
     )
     selected_views = default_views if views is None else views
-    unknown = sorted(set(selected_views) - set(RUNTIME_VIEWS))
+    unknown = sorted(set(selected_views) - {*RUNTIME_VIEWS, "tts_reference_encoder"})
     if unknown:
         raise OllamaSidecarError(f"unsupported runtime views: {', '.join(unknown)}")
     if not selected_views:
         raise OllamaSidecarError("at least one runtime view is required")
-    declared = {
-        str(component.get("name"))
-        for component in (resolved["inspection"].get("manifest") or {}).get(
-            "components", []
-        )
-        if isinstance(component, dict)
-    }
     unavailable = sorted(set(selected_views) - declared)
     if unavailable:
         raise OllamaSidecarError(

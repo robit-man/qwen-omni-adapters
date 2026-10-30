@@ -49,6 +49,27 @@ current disk reclamation or lower GPU allocation.
 
 ### Native indexed views
 
+The reference-encoder extension may additionally carry `tts_reference_encoder`
+under `s.t.e.*` with metadata under
+`robit.audio_bundle.component.tts_reference_encoder.kv.*`. It requires
+`robit.qwen3tts.reference-encoder.v1`, `clip` architecture and the
+`qwen3tts_refenc` audio projector type. The inspector rejects unknown optional
+components and incompatible reference-encoder ABI metadata. Older two-component
+v2 sidecars remain valid. Readers predating this extension reject its expanded
+inventory; use the matching runtime and native patch set.
+
+Build the component offline from the pinned official tokenizer checkpoint using
+`runtime/export_tts_reference_encoder.py`. That build-only tool accepts local
+safetensors and adds no runtime download or Torch dependency. `pack-tts` accepts
+`--tts-reference-encoder FILE` to include it in the same authenticated model tag.
+Preparation includes its materialized view or a third direct source alias.
+`llama-tts-reference-encode` selects that indexed role explicitly, retaining
+original tensor offsets. Ordinary model and codec loaders select their existing
+roles. The encoder emits 16 acoustic codes per 12.5 Hz frame from bounded
+24 kHz mono references; this component alone does not add transcript-conditioned
+cloning to the speech request protocol. See
+[`phase-b4b1-reference-encoder.md`](upgrades/phase-b4b1-reference-encoder.md).
+
 The runtime's `llama.cpp-indexed-tts-views.patch` adds
 `robit.indexed-tts-views.v1`: role-aware native loading of the v2 TTS envelope.
 The model loader selects `s.t.m.*`; the codec loader selects `s.t.p.*`. Both
@@ -56,7 +77,7 @@ restore their original metadata namespace, tokenizer, tensor names, shapes and
 quantization while retaining the original container offsets. This is a patched
 native loader, not stock Ollama execution of a heterogeneous GGUF.
 
-On POSIX, `prepare --direct-views` creates two disposable source aliases and a
+On POSIX, `prepare --direct-views` creates disposable source aliases and a
 versioned receipt instead of reconstructed payloads. Bootstrap, the portable
 supervisor and broker launcher prefer this mode for v2. Existing v1 bundles and
 Windows retain materialization. Ordinary materialization still rejects aliases;

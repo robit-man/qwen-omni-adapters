@@ -87,6 +87,16 @@ TTS_PROJECTOR_COMPONENT = EmbeddedComponent(
     output_modalities=("audio",),
 )
 
+TTS_REFERENCE_ENCODER_COMPONENT = EmbeddedComponent(
+    name="tts_reference_encoder",
+    role="reference-audio-acoustic-tokenizer",
+    tensor_prefix="s.t.e.",
+    metadata_prefix=f"{BUNDLE_NAMESPACE}.component.tts_reference_encoder.kv.",
+    source="",
+    input_modalities=("audio",),
+    output_modalities=("codec_tokens",),
+)
+
 EMBEDDED_COMPONENTS = (
     BASE_PROJECTOR_COMPONENT,
     COMPREHENSION_COMPONENT,
@@ -94,8 +104,9 @@ EMBEDDED_COMPONENTS = (
     TTS_COMPONENT,
     TTS_PROJECTOR_COMPONENT,
 )
-COMPONENT_BY_NAME = {component.name: component for component in EMBEDDED_COMPONENTS}
-RESERVED_TENSOR_PREFIXES = tuple(component.tensor_prefix for component in EMBEDDED_COMPONENTS)
+ALL_EMBEDDED_COMPONENTS = (*EMBEDDED_COMPONENTS, TTS_REFERENCE_ENCODER_COMPONENT)
+COMPONENT_BY_NAME = {component.name: component for component in ALL_EMBEDDED_COMPONENTS}
+RESERVED_TENSOR_PREFIXES = tuple(component.tensor_prefix for component in ALL_EMBEDDED_COMPONENTS)
 
 
 class SingleGGUFError(RuntimeError):
@@ -474,9 +485,9 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
         errors.append("missing or unsupported bundle schema")
     view_counts = {"base": 0, **{component.name: 0 for component in EMBEDDED_COMPONENTS}}
     for tensor in reader.tensors:
-        for component in EMBEDDED_COMPONENTS:
+        for component in ALL_EMBEDDED_COMPONENTS:
             if tensor.name.startswith(component.tensor_prefix):
-                view_counts[component.name] += 1
+                view_counts[component.name] = view_counts.get(component.name, 0) + 1
                 break
         else:
             view_counts["base"] += 1
@@ -485,7 +496,7 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
         "comprehension": (
             view_counts["comprehension_model"] + view_counts["comprehension_projector"]
         ),
-        "tts": view_counts["tts_model"] + view_counts["tts_projector"],
+        "tts": view_counts["tts_model"] + view_counts["tts_projector"] + view_counts.get("tts_reference_encoder", 0),
     }
     required_groups = (
         ("tts",)
@@ -511,9 +522,11 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
         index = (manifest or {}).get("component_index", {})
         entries = index.get("components", {}) if isinstance(index, dict) else {}
         required = {"tts_model", "tts_projector"}
+        allowed = required | {"tts_reference_encoder"}
         if (not isinstance(index, dict) or index.get("schema") != "robit.gguf-component-index.v2"
-                or not isinstance(entries, dict) or set(entries) != required or declared != required):
-            errors.append("indexed sidecar requires exactly the two indexed TTS components")
+                or not isinstance(entries, dict) or not required <= set(entries) <= allowed
+                or declared != set(entries)):
+            errors.append("indexed sidecar requires the two indexed TTS components and only supported optional components")
         else:
             for name, entry in entries.items():
                 component = COMPONENT_BY_NAME[name]
@@ -529,8 +542,15 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
                         or entry.get("architecture") != metadata.get(
                             component.metadata_prefix + "general.architecture")):
                     errors.append(f"invalid indexed component descriptor: {name}")
-        if sum(view_counts[name] for name in required) != len(reader.tensors):
+                if name == "tts_reference_encoder" and (
+                        metadata.get(component.metadata_prefix + "clip.audio.projector_type") != "qwen3tts_refenc"
+                        or metadata.get(component.metadata_prefix + "robit.reference_encoder.abi") != "robit.qwen3tts.reference-encoder.v1"):
+                    errors.append("invalid indexed reference encoder ABI")
+        indexed_names = entries if isinstance(entries, dict) else required
+        if sum(view_counts.get(name, 0) for name in indexed_names) != len(reader.tensors):
             errors.append("indexed TTS sidecar contains tensors outside its declared views")
+    elif view_counts.get("tts_reference_encoder"):
+        errors.append("reference acoustic encoder requires indexed sidecar v2")
     return {
         "valid": not errors,
         "path": str(resolved),
@@ -596,7 +616,7 @@ class ComponentViewIndex:
             name: [] for name in ("base", *COMPONENT_BY_NAME)
         }
         for tensor in self.reader.tensors:
-            for component in EMBEDDED_COMPONENTS:
+            for component in ALL_EMBEDDED_COMPONENTS:
                 if tensor.name.startswith(component.tensor_prefix):
                     self.views[component.name].append(
                         (tensor, tensor.name.removeprefix(component.tensor_prefix))
