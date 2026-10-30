@@ -1,0 +1,466 @@
+{
+  "schema": "robit.omni.reference-overlap-pipeline.v1",
+  "model": "/usr/share/ollama/.ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+  "tts_sha256": "7838f27ad60ed5181c60e9b6e7263df944933f07099602aa70a5e96c8640f388",
+  "observations": [
+    {
+      "label": "pair-0-baseline",
+      "prepared": false,
+      "pair": 0,
+      "stages": [
+        {
+          "type": "stage",
+          "stage": "language",
+          "time_s": 0.04570882301777601
+        },
+        {
+          "type": "stage",
+          "stage": "tts",
+          "time_s": 1.66359722497873
+        },
+        {
+          "type": "audio_start",
+          "stage": null,
+          "time_s": 9.518263616133481
+        },
+        {
+          "type": "audio_end",
+          "stage": null,
+          "time_s": 14.20169166312553
+        }
+      ],
+      "reference_encoder_spans": [
+        {
+          "start_s": 3.6087883829604834,
+          "end_s": 4.932840000139549
+        }
+      ],
+      "preparations": [],
+      "first_audio_s": 9.518263616133481,
+      "total_s": 14.203280833084136,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "minimum_available_mib": 3332.4000000000015,
+      "reference_encodes": 1
+    },
+    {
+      "label": "pair-0-prepared",
+      "prepared": true,
+      "pair": 0,
+      "stages": [
+        {
+          "type": "stage",
+          "stage": "language",
+          "time_s": 0.04937645886093378
+        },
+        {
+          "type": "stage",
+          "stage": "tts",
+          "time_s": 1.4618874008301646
+        },
+        {
+          "type": "audio_start",
+          "stage": null,
+          "time_s": 6.844943665899336
+        },
+        {
+          "type": "audio_end",
+          "stage": null,
+          "time_s": 11.384381227893755
+        }
+      ],
+      "reference_encoder_spans": [
+        {
+          "start_s": 2.0420957929454744,
+          "end_s": 3.171996871009469
+        }
+      ],
+      "preparations": [
+        {
+          "end_s": 3.1724954380188137,
+          "result": {
+            "prepared": true
+          },
+          "tts_loaded": false
+        }
+      ],
+      "first_audio_s": 6.844943665899336,
+      "total_s": 11.386910639936104,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "minimum_available_mib": 3511.100000000002,
+      "reference_encodes": 1
+    },
+    {
+      "label": "pair-1-prepared",
+      "prepared": true,
+      "pair": 1,
+      "stages": [
+        {
+          "type": "stage",
+          "stage": "language",
+          "time_s": 0.0459934629034251
+        },
+        {
+          "type": "stage",
+          "stage": "tts",
+          "time_s": 1.5285673721227795
+        },
+        {
+          "type": "audio_start",
+          "stage": null,
+          "time_s": 6.797048117034137
+        },
+        {
+          "type": "audio_end",
+          "stage": null,
+          "time_s": 11.314647552091628
+        }
+      ],
+      "reference_encoder_spans": [
+        {
+          "start_s": 1.9572181629482657,
+          "end_s": 3.0389504770282656
+        }
+      ],
+      "preparations": [
+        {
+          "end_s": 3.0395458401180804,
+          "result": {
+            "prepared": true
+          },
+          "tts_loaded": false
+        }
+      ],
+      "first_audio_s": 6.797048117034137,
+      "total_s": 11.318039291072637,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "minimum_available_mib": 3340.9000000000015,
+      "reference_encodes": 1
+    },
+    {
+      "label": "pair-1-baseline",
+      "prepared": false,
+      "pair": 1,
+      "stages": [
+        {
+          "type": "stage",
+          "stage": "language",
+          "time_s": 0.04822955187410116
+        },
+        {
+          "type": "stage",
+          "stage": "tts",
+          "time_s": 1.4339112578891218
+        },
+        {
+          "type": "audio_start",
+          "stage": null,
+          "time_s": 7.783868839032948
+        },
+        {
+          "type": "audio_end",
+          "stage": null,
+          "time_s": 11.890643470920622
+        }
+      ],
+      "reference_encoder_spans": [
+        {
+          "start_s": 3.35644185799174,
+          "end_s": 4.308080538874492
+        }
+      ],
+      "preparations": [],
+      "first_audio_s": 7.783868839032948,
+      "total_s": 11.892082888865843,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "minimum_available_mib": 3333.300000000003,
+      "reference_encodes": 1
+    },
+    {
+      "label": "pair-2-baseline",
+      "prepared": false,
+      "pair": 2,
+      "stages": [
+        {
+          "type": "stage",
+          "stage": "language",
+          "time_s": 0.0503764939494431
+        },
+        {
+          "type": "stage",
+          "stage": "tts",
+          "time_s": 1.4198061788920313
+        },
+        {
+          "type": "audio_start",
+          "stage": null,
+          "time_s": 8.162329646991566
+        },
+        {
+          "type": "audio_end",
+          "stage": null,
+          "time_s": 12.758209350053221
+        }
+      ],
+      "reference_encoder_spans": [
+        {
+          "start_s": 3.3826251509599388,
+          "end_s": 4.548804217018187
+        }
+      ],
+      "preparations": [],
+      "first_audio_s": 8.162329646991566,
+      "total_s": 12.759655583882704,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "minimum_available_mib": 3509.100000000002,
+      "reference_encodes": 1
+    },
+    {
+      "label": "pair-2-prepared",
+      "prepared": true,
+      "pair": 2,
+      "stages": [
+        {
+          "type": "stage",
+          "stage": "language",
+          "time_s": 0.05185150098986924
+        },
+        {
+          "type": "stage",
+          "stage": "tts",
+          "time_s": 1.3696760050952435
+        },
+        {
+          "type": "audio_start",
+          "stage": null,
+          "time_s": 6.738872019108385
+        },
+        {
+          "type": "audio_end",
+          "stage": null,
+          "time_s": 11.510806286009029
+        }
+      ],
+      "reference_encoder_spans": [
+        {
+          "start_s": 1.8810792709700763,
+          "end_s": 3.057591065997258
+        }
+      ],
+      "preparations": [
+        {
+          "end_s": 3.058097888948396,
+          "result": {
+            "prepared": true
+          },
+          "tts_loaded": false
+        }
+      ],
+      "first_audio_s": 6.738872019108385,
+      "total_s": 11.51323669613339,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "minimum_available_mib": 3311.7000000000007,
+      "reference_encodes": 1
+    }
+  ],
+  "physical_playback_measured": false,
+  "whole_model_qualified": false,
+  "first_audio_s": {
+    "baseline_median": 8.162329646991566,
+    "prepared_median": 6.797048117034137,
+    "reduction_percent": 16.7266159173152
+  },
+  "total_s": {
+    "baseline_median": 12.759655583882704,
+    "prepared_median": 11.386910639936104,
+    "reduction_percent": 10.758479607244064
+  },
+  "all_pcm_exact": true,
+  "qualified_pilot_sha256": "4e7237e62377edce297ec38f097b073edbc7794003492d4991b2285d6d46ddf4",
+  "maintained_reproducer": "runtime/qualify_reference_overlap.py",
+  "observation_note": "For this short reply, checkpoint identity hashing overlapped language; the native reference encoder began after the language stage. First audio is adapter PCM availability, not physical playback.",
+  "paired_first_audio_reductions_percent": [
+    28.086214650567786,
+    12.677766576054116,
+    17.439354809785613
+  ]
+}

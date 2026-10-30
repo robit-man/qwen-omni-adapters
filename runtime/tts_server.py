@@ -28,6 +28,7 @@ import time
 import uuid
 import wave
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -81,6 +82,7 @@ class Config:
     adaptive_context: bool = False
     reference_encoder: Path | None = None
     continuous_batch: bool = False
+    prepare_reference: bool = False
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -174,6 +176,7 @@ class Config:
             adaptive_context=os.environ.get("OMNI_TTS_ADAPTIVE_CONTEXT", "0") == "1",
             reference_encoder=reference_encoder,
             continuous_batch=os.environ.get("OMNI_TTS_CONTINUOUS_BATCH", "0") == "1",
+            prepare_reference=os.environ.get("OMNI_TTS_PREPARE_REFERENCE", "0") == "1",
         )
 
 
@@ -736,7 +739,7 @@ def _normalize_reference(source: Path, directory: Path) -> tuple[Path, int]:
     return output, samples
 
 
-def _encode_reference(config: Config, source: Path) -> list[list[int]]:
+def _encode_reference(config: Config, source: Path, *, cancel_event=None) -> list[list[int]]:
     """Run only the same-bundle frozen encoder, releasing it before TTS loading."""
     encoder = config.reference_encoder
     binary = config.binary.with_name("llama-tts-reference-encode" + config.binary.suffix)
@@ -744,6 +747,8 @@ def _encode_reference(config: Config, source: Path) -> list[list[int]]:
         raise TTSError("the installed bundle/runtime does not provide full reference encoding")
     if config.lease_token and not config.gpu_uuid:
         raise TTSError("OMNI_TTS_GPU_UUID is required with a scoped GPU lease")
+    if cancel_event is not None and cancel_event.is_set():
+        raise TTSError("reference preparation cancelled")
     with tempfile.TemporaryDirectory(prefix="robit-omni-reference-encode-") as temporary:
         directory = Path(temporary)
         normalized, samples = _normalize_reference(source, directory)
@@ -776,8 +781,9 @@ def _encode_reference(config: Config, source: Path) -> list[list[int]]:
 
                 def guard():
                     while not stop.wait(.1):
-                        available = _reference_headroom()
-                        if available is None or available < 2048:
+                        cancelled = cancel_event is not None and cancel_event.is_set()
+                        available = _reference_headroom() if is_tegra() else None
+                        if cancelled or (is_tegra() and (available is None or available < 2048)):
                             low_memory.set()
                             try:
                                 process.kill()
@@ -785,7 +791,7 @@ def _encode_reference(config: Config, source: Path) -> list[list[int]]:
                                 pass
                             return
 
-                if is_tegra():
+                if is_tegra() or cancel_event is not None:
                     observer = threading.Thread(target=guard, daemon=True)
                     observer.start()
                 _wait_for_cuda_residency(process, config.gpu_uuid, config.residency_timeout_s)
@@ -888,7 +894,7 @@ class PersistentTTSWorker:
             spec.reference_text,
         )
 
-    def _reference_material(self, spec: SynthesisSpec) -> bytes:
+    def _reference_material(self, spec: SynthesisSpec, *, cancel_event=None) -> bytes:
         encoder = self.config.reference_encoder
         if encoder is None or not encoder.is_file() or not spec.speaker:
             raise TTSError("full reference conditioning requires an installed encoder and reference audio")
@@ -898,7 +904,8 @@ class PersistentTTSWorker:
         if key == self._reference_key and self._reference_json is not None:
             self.reference_cache_hits += 1
             return self._reference_json
-        data = _encode_reference(self.config, Path(spec.speaker))
+        data = (_encode_reference(self.config, Path(spec.speaker), cancel_event=cancel_event)
+                if cancel_event is not None else _encode_reference(self.config, Path(spec.speaker)))
         value = json.dumps({"schema": "robit.qwen3tts.reference-prompt.v1",
                             "reference_text": spec.reference_text, "codes": data},
                            ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -907,6 +914,18 @@ class PersistentTTSWorker:
         self._reference_key, self._reference_json = key, value
         self.reference_encodes += 1
         return value
+
+    def prepare_reference(self, spec: SynthesisSpec, cancel_event) -> None:
+        """Snapshot and encode a saved reference without loading or generating TTS."""
+        expected = self._profile(spec)[-2]
+        with tempfile.TemporaryDirectory(prefix="robit-omni-reference-prepare-") as directory:
+            with Path(spec.speaker).open("rb") as stream:
+                original = stream.read(50 * 1024 * 1024 + 1)
+            if len(original) > 50 * 1024 * 1024 or hashlib.sha256(original).hexdigest() != expected:
+                raise TTSError("reference changed during preparation")
+            snapshot = Path(directory) / ("speaker" + Path(spec.speaker).suffix)
+            snapshot.write_bytes(original)
+            self._reference_material(replace(spec, speaker=str(snapshot)), cancel_event=cancel_event)
 
     @property
     def ready(self) -> bool:
@@ -1274,6 +1293,28 @@ def create_app(config: Config | None = None) -> Flask:
     lock = threading.Lock()
     persistent = PersistentTTSWorker(runtime) if runtime.persistent else None
     warm_spec = _warm_spec(runtime)
+    preparation_lock = threading.Lock()
+    pending_preparation = None
+    speech_waiters = 0
+
+    def reference_signature(spec):
+        if spec is None or spec.speaker_audio is not None or not spec.reference_text or not spec.speaker:
+            return None
+        return _reference_digest(Path(spec.speaker)), spec.reference_text, spec.language
+
+    @contextmanager
+    def speech_priority(spec):
+        nonlocal speech_waiters
+        signature = reference_signature(spec) if runtime.prepare_reference else None
+        with preparation_lock:
+            speech_waiters += 1
+            if pending_preparation is not None and signature != pending_preparation[0]:
+                pending_preparation[1].set()
+        try:
+            yield
+        finally:
+            with preparation_lock:
+                speech_waiters -= 1
 
     if persistent is not None:
         atexit.register(persistent.close)
@@ -1316,6 +1357,36 @@ def create_app(config: Config | None = None) -> Flask:
             }
         ), 200 if not missing else 503
 
+    @app.post("/prepare-reference")
+    def prepare_reference_route():
+        nonlocal pending_preparation
+        if not runtime.prepare_reference or persistent is None:
+            return jsonify({"prepared": False}), 404
+        acquired = False
+        try:
+            body = request.get_json(force=True)
+            if not isinstance(body, dict):
+                raise TTSError("request body must be a JSON object")
+            spec = _synthesis_spec(runtime, {**body, "text": "Reference preparation."})
+            signature = reference_signature(spec)
+            if signature is None or not lock.acquire(blocking=False):
+                return jsonify({"prepared": False}), 200
+            acquired = True
+            with preparation_lock:
+                if speech_waiters or persistent.ready:
+                    return jsonify({"prepared": False}), 200
+                cancel = threading.Event()
+                pending_preparation = signature, cancel
+            persistent.prepare_reference(spec, cancel)
+            return jsonify({"prepared": not cancel.is_set()}), 200
+        except (TTSError, ValueError, OSError, subprocess.TimeoutExpired):
+            return jsonify({"prepared": False}), 200
+        finally:
+            if acquired:
+                with preparation_lock:
+                    pending_preparation = None
+                lock.release()
+
     @app.post("/residency")
     def residency_route():
         """Shed or restore the optional resident graph without stopping HTTP."""
@@ -1329,7 +1400,7 @@ def create_app(config: Config | None = None) -> Flask:
                 raise TTSError("residency action must be shed or warm")
             if persistent is None:
                 raise TTSError("persistent TTS residency is disabled")
-            with lock:
+            with speech_priority(warm_spec if action == "warm" else None), lock:
                 if action == "shed":
                     idle.shed()
                 else:
@@ -1357,8 +1428,8 @@ def create_app(config: Config | None = None) -> Flask:
             body = request.get_json(force=True)
             if not isinstance(body, dict):
                 raise TTSError("request body must be a JSON object")
-            with lock:
-                spec = _synthesis_spec(runtime, body)
+            spec = _synthesis_spec(runtime, body)
+            with speech_priority(spec), lock:
                 if persistent is not None and spec.speaker_audio is None:
                     successful = False
                     try:
@@ -1385,7 +1456,7 @@ def create_app(config: Config | None = None) -> Flask:
             spec = _synthesis_spec(runtime, body)
 
             def generate() -> Iterator[bytes]:
-                with lock:
+                with speech_priority(spec), lock:
                     successful = False
                     try:
                         if persistent is not None and spec.speaker_audio is None:
@@ -1426,7 +1497,7 @@ def create_app(config: Config | None = None) -> Flask:
             specs = _batch_specs(runtime, body)
 
             def generate() -> Iterator[bytes]:
-                with lock:
+                with speech_priority(specs[0]), lock:
                     inline_reference = specs[0].speaker_audio is not None
                     ephemeral = persistent is None or inline_reference
                     worker = PersistentTTSWorker(runtime) if ephemeral else persistent

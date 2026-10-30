@@ -1,0 +1,28 @@
+{
+  "schema": "robit.omni.source-validation.v1",
+  "baseline_commit": "054caee31f87ba93b6653e9ea7b7b7c2f19ed869",
+  "before": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6246,
+    "duration_s": 277.15
+  },
+  "after": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6252,
+    "duration_s": 277.64,
+    "additional_gates": "compileall, Ruff, contract, VAD, call queue, playback, session cache, npm installer and shell syntax passed; new maintained reproducer compiled and linted separately after its addition"
+  },
+  "source_sha256": {
+    "runtime/adapter_server.py": "e479e8a51f519e6c9bf4264397667374ee97041518b7d7c90a3eeb6faf4dc5fe",
+    "runtime/tts_server.py": "d85d215268ccfcd9aebe29d01abb0d16d342a098fefe7b5c78f14ed1b7484a71",
+    "runtime/qualify_tts_reference_http.py": "a1b7706d361deb5c83a3e45b92426f130f771cdc8d83569a788fbf3022a1c4fd",
+    "runtime/qualify_reference_overlap.py": "26125d1976722f4b987a1ce1a3fc15868a77c9e533aeb3fdd1276faee7aabe3f",
+    "tests/test_reference_overlap.py": "f94198ca1c2b198cf045add0371a5c11c625f0d70c303187f4fb12348d2c51ef"
+  },
+  "real_A100_and_Orin_reference_routes_passed": true,
+  "real_Orin_pipeline_pairs_passed": 3,
+  "whole_model_release_qualified": false,
+  "registry_publication_complete": false
+}

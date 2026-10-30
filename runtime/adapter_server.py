@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import wave
 from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
@@ -99,6 +100,7 @@ class Config:
     # does not acquire an unexpected extra backend request. Deployed adapters
     # enable it by default in ``from_environment`` below.
     live_addressee_gate: bool = False
+    prepare_reference: bool = False
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -162,6 +164,7 @@ class Config:
             live_addressee_gate=(
                 os.environ.get("OMNI_LIVE_ADDRESSEE_GATE", "1") == "1"
             ),
+            prepare_reference=os.environ.get("OMNI_TTS_PREPARE_REFERENCE", "0") == "1",
         )
 
 
@@ -2309,6 +2312,29 @@ def _finish_response(
     return result
 
 
+_REFERENCE_PREPARATION_SLOT = threading.BoundedSemaphore(1)
+
+
+def _start_reference_preparation(parsed, config, client):
+    if (not config.prepare_reference or not parsed.synthesize
+            or not parsed.speech.get("reference_text") or not parsed.speech.get("speaker_file")
+            or parsed.speech.get("speaker_audio") or not _REFERENCE_PREPARATION_SLOT.acquire(blocking=False)):
+        return
+
+    def prepare():
+        try:
+            url = config.tts_url.rstrip("/").rsplit("/", 1)[0] + "/prepare-reference"
+            response = client.post(url,
+                                   json=dict(parsed.speech), timeout=min(config.timeout_s, 30))
+            response.close()
+        except Exception:
+            logging.getLogger(__name__).debug("Optional reference preparation was unavailable")
+        finally:
+            _REFERENCE_PREPARATION_SLOT.release()
+
+    threading.Thread(target=prepare, name="voice-reference-preparation", daemon=True).start()
+
+
 def execute(
     parsed: ParsedAdapterRequest,
     config: Config,
@@ -2370,6 +2396,7 @@ def execute(
         last_user = next(message for message in reversed(parsed.messages) if message.role == "user")
         result = _direct_response(parsed.model, last_user.content.strip())
     else:
+        _start_reference_preparation(parsed, config, client)
         language_payload = build_language_payload(
             parsed,
             observation,
@@ -2519,6 +2546,7 @@ def execute_stream(
             message={"role": "assistant", "content": last_user.content.strip()},
         )
     else:
+        _start_reference_preparation(parsed, config, client)
         yield _stream_event("stage", stage="language")
         payload = build_language_payload(
             parsed,

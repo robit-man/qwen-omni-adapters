@@ -401,6 +401,20 @@ discard it. Single blocks and speaker-embedding requests stay independent.
 No target state enters the immutable reference cache. See
 [the native and HTTP qualification](upgrades/phase-b3b-utterance-state.md).
 
+`OMNI_TTS_PREPARE_REFERENCE=1` opts into preparing a saved full-reference voice
+while the primary language request runs. Set it on both adapter and TTS worker.
+Only `speaker_file` plus `reference_text` qualifies; inline references and
+embedding-only profiles keep their existing paths. The internal loopback
+`POST /prepare-reference` validates checkpoint identities and encodes the reference
+into the existing bounded RAM conditioning cache. It loads no TTS generation
+weights and synthesizes no response text. Preparation skips busy or already
+resident workers; different-profile speech cancels the owned preparation encoder
+before waiting. Same-profile speech joins and reuses its result. Existing Tegra
+admission and memory floors apply. The default is off; the measured short Orin
+reply improved median first PCM by 16.7% without changing audio, while broad
+concurrency and release qualification remain pending. See
+[the preparation comparison](upgrades/phase-b3c-reference-overlap.md).
+
 The default packet policy is `OMNI_TTS_STREAM_FRAMES=auto` (also selected when
 unset). Full-reference synthesis using an adaptive 4096-position context selects
 four codec frames, approximately 320 ms per decode window. Other profiles retain

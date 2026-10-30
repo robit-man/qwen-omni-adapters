@@ -73,7 +73,7 @@
     {
       "id": "B3",
       "objective": "Committed speech handoff and adaptive initial/steady acoustic windows",
-      "status": "automatic_cadence_and_opt_in_full_reference_utterance_decoder_state_verified_committed_handoff_and_dynamic_window_ramp_pending",
+      "status": "automatic_cadence_utterance_decoder_state_and_saved_reference_preparation_verified_committed_handoff_and_dynamic_window_ramp_pending",
       "evidence": []
     },
     {
@@ -107,6 +107,18 @@
         "phase-b3b-speaker.json",
         "phase-b3b-intelligibility.json",
         "phase-b3b-validation.json"
+      ]
+    },
+    {
+      "id": "B3c",
+      "objective": "Overlap saved-reference preparation with primary language inference without retaining TTS generation weights or speaking unresolved text",
+      "status": "opt_in_A100_Orin_routes_exact_3_matched_Orin_pipeline_pairs_first_PCM_16_7_percent_lower_full_concurrency_pending",
+      "evidence": [
+        "phase-b3c-reference-overlap.md",
+        "phase-b3c-http-a100.json",
+        "phase-b3c-http-orin.json",
+        "phase-b3c-pipeline-orin.json",
+        "phase-b3c-validation.json"
       ]
     },
     {

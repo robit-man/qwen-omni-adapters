@@ -46,6 +46,7 @@ def main():
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--automatic-packets", action="store_true")
     parser.add_argument("--continuous-batch", action="store_true")
+    parser.add_argument("--prepare-reference", action="store_true")
     args = parser.parse_args()
     uuid = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     token = os.environ.get("OLLAMA_UNIFY_GPU_LEASE", "")
@@ -109,6 +110,7 @@ def main():
         stream_frames=None if args.automatic_packets else 2,
         timeout_s=120,
         continuous_batch=args.continuous_batch,
+        prepare_reference=args.prepare_reference,
     )
     native_states = []
     original_close = tts.PersistentTTSWorker.close
@@ -145,8 +147,19 @@ def main():
         "transcript_sha256": tts._reference_digest(args.transcript_file),
         "automatic_packets": args.automatic_packets,
         "continuous_batch": args.continuous_batch,
+        "prepare_reference": args.prepare_reference,
     }
     outputs = []
+    if args.prepare_reference:
+        started = time.monotonic()
+        preparation = client.post("/prepare-reference", json=body)
+        assert preparation.status_code == 200 and preparation.json == {"prepared": True}
+        health = client.get("/healthz").json
+        assert not health["persistent_ready"] and health["persistent_pid"] is None
+        assert health["reference_encodes"] == 1
+        assert not list((work / "temporary").iterdir())
+        report["preparation_s"] = time.monotonic() - started
+        report["no_tts_worker_loaded_during_preparation"] = True
 
     def stream(payload, label, route="/synthesize/stream"):
         started = time.monotonic()
