@@ -46,6 +46,7 @@ from qwen_omni_adapters.audio import (
 )
 from qwen_omni_adapters.ollama_sidecar import resolve_ollama_sidecar
 from qwen_omni_adapters.single_gguf import materialize_component_view
+from qwen_omni_adapters.tts_residency import IdleTTSResidency
 from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
 
 
@@ -68,6 +69,8 @@ class Config:
     persistent: bool = True
     warm_speaker_file: str = ""
     conditioning_cache: bool = True
+    idle_keepalive_s: float = 0
+    idle_min_available_mib: int = 6144
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -141,6 +144,8 @@ class Config:
             warm_speaker_file=os.environ.get(
                 "OMNI_TTS_WARM_SPEAKER_FILE", ""
             ).strip(),
+            idle_keepalive_s=float(os.environ.get("OMNI_TTS_IDLE_KEEPALIVE_S", "0")),
+            idle_min_available_mib=int(os.environ.get("OMNI_TTS_IDLE_MIN_AVAILABLE_MIB", "6144")),
         )
 
 
@@ -958,6 +963,10 @@ def create_app(config: Config | None = None) -> Flask:
 
     if persistent is not None:
         atexit.register(persistent.close)
+    idle = IdleTTSResidency(persistent, lock, seconds=runtime.idle_keepalive_s,
+                           minimum_available_mib=runtime.idle_min_available_mib)
+    atexit.register(idle.stop)
+    app.extensions["tts_idle_residency"] = idle
 
     @app.get("/healthz")
     def healthz():
@@ -971,7 +980,9 @@ def create_app(config: Config | None = None) -> Flask:
                 "ok": not missing,
                 "missing": missing,
                 "persistent": bool(persistent),
-                "residency_policy": "request",
+                "residency_policy": "bounded-idle" if persistent is not None and runtime.idle_keepalive_s else "request",
+                "idle_keepalive_s": runtime.idle_keepalive_s,
+                "idle_residency_state": idle.last_transition,
                 "persistent_ready": bool(persistent and persistent.ready),
                 "persistent_pid": persistent.pid if persistent else None,
                 "speaker_reference_configured": warm_spec is not None,
@@ -1001,11 +1012,13 @@ def create_app(config: Config | None = None) -> Flask:
                 raise TTSError("persistent TTS residency is disabled")
             with lock:
                 if action == "shed":
-                    persistent.close()
+                    idle.shed()
                 else:
                     if warm_spec is None:
                         raise TTSError("no warm speaker reference is configured")
                     persistent.ensure(warm_spec)
+                    if runtime.idle_keepalive_s:
+                        idle.finish(True)
                 return jsonify(
                     {
                         "ok": True,
@@ -1028,14 +1041,17 @@ def create_app(config: Config | None = None) -> Flask:
             with lock:
                 spec = _synthesis_spec(runtime, body)
                 if persistent is not None and spec.speaker_audio is None:
+                    successful = False
                     try:
+                        idle.begin()
                         wav = _pcm_wav(b"".join(persistent.stream(spec)))
                         _validate_wav(wav)
+                        successful = True
                     finally:
-                        persistent.close()
+                        idle.finish(successful)
                 else:
                     if persistent is not None:
-                        persistent.close()
+                        idle.shed()
                     wav = synthesize(runtime, body)
             return Response(wav, content_type="audio/wav")
         except (TTSError, ValueError, subprocess.TimeoutExpired) as exc:
@@ -1051,16 +1067,19 @@ def create_app(config: Config | None = None) -> Flask:
 
             def generate() -> Iterator[bytes]:
                 with lock:
+                    successful = False
                     try:
                         if persistent is not None and spec.speaker_audio is None:
+                            idle.begin()
                             yield from persistent.stream(spec)
                         else:
                             if persistent is not None:
-                                persistent.close()
+                                idle.shed()
                             yield from _stream_synthesize(runtime, spec)
+                        successful = True
                     finally:
                         if persistent is not None:
-                            persistent.close()
+                            idle.finish(successful)
 
             response = Response(
                 stream_with_context(generate()),
@@ -1095,11 +1114,18 @@ def create_app(config: Config | None = None) -> Flask:
                     if worker is None:  # narrowed above; keeps type checkers honest
                         raise TTSError("TTS worker is unavailable")
                     if inline_reference and persistent is not None:
-                        persistent.close()
+                        idle.shed()
+                    successful = False
                     try:
+                        if worker is persistent:
+                            idle.begin()
                         yield from _stream_worker_batch(worker, specs)
+                        successful = True
                     finally:
-                        worker.close()
+                        if worker is persistent:
+                            idle.finish(successful)
+                        else:
+                            worker.close()
 
             response = Response(
                 stream_with_context(generate()),

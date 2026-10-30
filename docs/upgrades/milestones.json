@@ -50,11 +50,12 @@
     {
       "id": "B2",
       "objective": "Lower TTS loading and memory cost through bounded token-row reads",
-      "status": "verified_on_scoped_A100_same_checkpoint",
+      "status": "verified_on_scoped_A100_and_Orin_with_matched_native_controls",
       "evidence": [
         "phase-b-token-rows.json",
         "phase-b-token-rows.md",
-        "phase-b-token-rows-validation.json"
+        "phase-b-token-rows-validation.json",
+        "phase-e-orin-token-rows.json"
       ]
     },
     {
@@ -66,8 +67,14 @@
     {
       "id": "B4",
       "objective": "Qualify reference transcripts/acoustic prompts and profile-specific warm residency without reducing cloning fidelity",
-      "status": "pending",
-      "evidence": []
+      "status": "bounded_idle_policy_verified_A100_and_initial_Orin_cases_current_Orin_load_declines_retention_full_reference_prompts_pending",
+      "evidence": [
+        "phase-b4-idle.md",
+        "phase-b4-idle-a100.json",
+        "phase-b4-idle-orin-initial.json",
+        "phase-b4-idle-orin-pressure.json",
+        "phase-b4-validation.json"
+      ]
     },
     {
       "id": "C",
@@ -84,10 +91,12 @@
     {
       "id": "E",
       "objective": "Orin concurrency, complete parity, latency and safe memory qualification of both versioned releases",
-      "status": "Orin_candidate_TTS_repeatability_verified_full_matrix_pending",
+      "status": "Orin_matched_TTS_resource_and_repeatability_cases_verified_full_matrix_pending",
       "evidence": [
         "phase-e-orin-preparation.json",
-        "phase-e-orin-tts-repeat.json"
+        "phase-e-orin-tts-repeat.json",
+        "phase-e-orin-token-rows.json",
+        "phase-b4-idle-orin-pressure.json"
       ]
     },
     {

@@ -403,6 +403,26 @@ worst predicted underrun versus 155 ms with two frames). Treat these
 host-specific values as tuning evidence, not a universal benchmark. A
 voice-profile change intentionally replaces the worker.
 
+### Bounded idle TTS residency
+
+Request-scoped shedding remains the default. Set `OMNI_TTS_IDLE_KEEPALIVE_S`
+to 1–300 seconds to retain a successful file-reference worker between requests.
+The same profile reuses loaded weights; every native prompt still clears
+generation state, resets both samplers and creates a fresh audio helper.
+Cancelled or failed streams close the worker immediately. Inline references
+remain ephemeral and are not retained by this policy. A profile change reloads
+only TTS, and `/residency` with `action:"shed"` still releases it explicitly.
+
+On Tegra, `OMNI_TTS_IDLE_MIN_AVAILABLE_MIB` defaults to 6144. The monitor checks
+unified headroom through the accelerator module and sheds idle TTS on low or
+unavailable telemetry, or idle expiry. It never closes an active generation.
+The health response exposes `idle_residency_state`, including typed expiry,
+headroom, cancellation and explicit-release reasons. On discrete CUDA, the
+existing scoped broker budget and UUID checks still apply.
+The option does not change the Qwen3.8 request-scoped default or automatically
+qualify warm residency for either backbone; measure the selected profile's
+actual peak memory and concurrent work before enabling it.
+
 The patched code2wav graph consumes and persists exactly the real codec-frame
 count rather than advancing retained state through rear padding to 72 frames.
 Run `python runtime/verify_pcm_stream.py` against raw `/synthesize/stream` PCM
