@@ -188,7 +188,17 @@ if patch_marker_present common/arg.cpp '"--tts-utterance-controls"' \
 else
   apply_patch_file "$UTTERANCE_STATE_PATCH_FILE" "Qwen3-TTS utterance decoder state"
 fi
-apply_patch_file "$AUDIO_FRAMES_PATCH_FILE" "Qwen3A reference audio frame alignment"
+if patch_marker_present tools/mtmd/mtmd-audio.cpp 'params.mel_floor        = 1e-10f;' \
+  && patch_marker_present tools/mtmd/mtmd-audio.cpp 'out.n_len     = win_eff;' \
+  && patch_marker_present tools/mtmd/clip.cpp '((img->nx() % chunk_size) + 7) / 8;' \
+  && patch_marker_present tools/mtmd/models/qwen3a.cpp \
+    'const int64_t n_pos = (n_frames / 100) * 13 + ((n_frames % 100) + 7) / 8;'; then
+  # The later window-tail patch changes the chunk-size line in this patch's
+  # context, so reverse-apply alone cannot recognize the composed sources.
+  printf 'Qwen3A reference audio frame alignment patch is already applied\n'
+else
+  apply_patch_file "$AUDIO_FRAMES_PATCH_FILE" "Qwen3A reference audio frame alignment"
+fi
 apply_patch_file "$AUDIO_TAIL_PATCH_FILE" "Qwen3A original CNN window-tail batching"
 apply_patch_file "$AUDIO_PREFILL_PATCH_FILE" "Qwen3A versioned trained audio prefill"
 apply_patch_file "$VIDEO_SAMPLING_PATCH_FILE" "Per-clip bounded video sampling"

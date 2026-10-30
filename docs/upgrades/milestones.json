@@ -283,7 +283,9 @@
         "video-sampling-20261030.md",
         "video-sampling-20261030.json",
         "orin-native-repair-build-20261030.json",
-        "orin-video-sampling-20261030.json"
+        "orin-video-sampling-20261030.json",
+        "composed-builder-20261030.md",
+        "composed-builder-20261030.json"
       ]
     },
     {
