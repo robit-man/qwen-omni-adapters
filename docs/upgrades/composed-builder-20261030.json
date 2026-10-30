@@ -1,0 +1,21 @@
+{
+  "schema": "robit.omni.composed-native-builder.v1",
+  "failure": "audio-frame patch reverse-apply rejects subsequent window-tail context",
+  "native_patch_count": 16,
+  "real_linux_builder_completed_twice": true,
+  "same_native_server_and_mtmd_bytes_as_video_qualification": true,
+  "source_tests_passed": 6282,
+  "source_gate_elapsed_s": 285.02,
+  "windows_execution_tested": false,
+  "release_qualified": false,
+  "evidence_logs": [
+    "composed-builder-native.log",
+    "composed-builder-native-repeat.log",
+    "composed-builder-full-validation.log"
+  ],
+  "source_sha256": {
+    "scripts/build_llama_cpp.sh": "8c6f5937b2e85055ffecf4a3c2b48139a241d3f8cdcef6eba11877044450e0a2",
+    "scripts/build_llama_cpp.ps1": "cd427e10afeac33bebaec7480064dbd16ad19993fb7cf963956c1376109f42a0",
+    "tests/test_native_json_grammar.py": "93496531f6997233a66551eaf0f2ffb5313607e1d25adf649324176347220832"
+  }
+}

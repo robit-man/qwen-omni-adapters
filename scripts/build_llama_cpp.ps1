@@ -98,7 +98,14 @@ if ((Test-PatchMarker "common/arg.cpp" '"--tts-utterance-controls"') -and
 } else {
     Apply-NativePatch $UtteranceStatePatchFile "Qwen3-TTS utterance decoder state"
 }
-Apply-NativePatch $AudioFramesPatchFile "Qwen3A reference audio frame alignment"
+if ((Test-PatchMarker "tools/mtmd/mtmd-audio.cpp" 'params.mel_floor        = 1e-10f;') -and
+    (Test-PatchMarker "tools/mtmd/mtmd-audio.cpp" 'out.n_len     = win_eff;') -and
+    (Test-PatchMarker "tools/mtmd/clip.cpp" '((img->nx() % chunk_size) + 7) / 8;') -and
+    (Test-PatchMarker "tools/mtmd/models/qwen3a.cpp" 'const int64_t n_pos = (n_frames / 100) * 13 + ((n_frames % 100) + 7) / 8;')) {
+    Write-Host "Qwen3A reference audio frame alignment patch is already applied"
+} else {
+    Apply-NativePatch $AudioFramesPatchFile "Qwen3A reference audio frame alignment"
+}
 Apply-NativePatch $AudioTailPatchFile "Qwen3A original CNN window-tail batching"
 Apply-NativePatch $AudioPrefillPatchFile "Qwen3A versioned trained audio prefill"
 Apply-NativePatch $VideoSamplingPatchFile "Per-clip bounded video sampling"

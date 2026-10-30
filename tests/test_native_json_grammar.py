@@ -147,6 +147,27 @@ def test_linux_builder_applies_each_independent_patch_once_and_keeps_pin(tmp_pat
     assert all("--target llama-server llama-tts" in calls[index] for index in (1, 3))
 
 
+def test_audio_alignment_rebuild_accepts_later_window_tail_context(tmp_path):
+    repo, source, env = _build_fixture(tmp_path, patch_name=AUDIO_FRAMES_PATCH)
+    command = ["bash", str(repo / "scripts/build_llama_cpp.sh"), str(source)]
+    subprocess.run(command, env=env, capture_output=True, text=True, check=True)
+    path = source / "tools/mtmd/models/qwen3a.cpp"
+    text = path.read_text().replace(
+        "const int64_t chunk_size = std::min<int64_t>(100, n_frames);",
+        "const int64_t chunk_size = img->audio_cnn_chunk_size > 0\n"
+        "        ? img->audio_cnn_chunk_size : std::min<int64_t>(100, n_frames);",
+    )
+    path.write_text(text)
+    reverse = subprocess.run(
+        [shutil.which("git"), "-C", str(source), "apply", "--reverse", "--check",
+         str(repo / "patches" / AUDIO_FRAMES_PATCH)], capture_output=True,
+    )
+    assert reverse.returncode != 0
+    result = subprocess.run(command, env=env, capture_output=True, text=True, check=True)
+    assert "Qwen3A reference audio frame alignment patch is already applied" in result.stdout
+    assert path.read_text() == text
+
+
 def test_wrong_vendor_pin_stops_before_patch_or_build(tmp_path):
     repo, source, env = _build_fixture(tmp_path, pin="0" * 40)
     before = (source / "common/json-schema-to-grammar.cpp").read_bytes()

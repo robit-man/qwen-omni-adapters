@@ -1,0 +1,33 @@
+{
+  "source_revision": "633959e",
+  "existing_core_before": "active",
+  "cpu_only_build": true,
+  "existing_build_directory_preserved": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference",
+  "new_build_directory": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-edge-v2",
+  "patches": [
+    {
+      "patch": "llama.cpp-video-sampling-contract.patch",
+      "sha256": "12c2942babc659fe424387f2c0c8ee05dc9ee91e9d9978c0ad874e786f3c97ac"
+    }
+  ],
+  "build_exit_code": 0,
+  "memory_guard": {
+    "minimum_available_mib": 6183.421875,
+    "floor_crossed": false
+  },
+  "native_prefill_abi_version": 2,
+  "existing_core_after": "active",
+  "binaries": {
+    "llama-server": "0017f100c1a5df7f16fb8c6a603c99459928cf7bd29071a66684c3654f40595c",
+    "llama-tts": "df58499cc043cce0caac99b7d97992b9b090c91fec1ce1ffb2f3f3dacee80e11",
+    "llama-tts-reference-encode": "ea593ad788763d4524675d4b9f792a55022f6972650f981fc1234b2d5bb46506"
+  },
+  "all_sixteen_patch_source_files_byte_match_a100": true,
+  "source_file_count": 34,
+  "shared_libraries_sha256": {
+    "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-edge-v2/bin/libllama-common.so.0.3.0": "5bd4b885b06625e376e17d29b35d8071064e0aa17f6b9ed38f64e96c17939c4c",
+    "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-edge-v2/bin/libllama-server-impl.so": "8d81593ddbc045955f3350cec4ae0d4594b3ca8ebf05975e5b470938686e2a40",
+    "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-edge-v2/bin/libllama.so.0.3.0": "87999d73f24cba1f8288986202f0edc687e0a0605d2aa73a26a2353b76153adb",
+    "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-edge-v2/bin/libmtmd.so.0.3.0": "169f4f6f78fcb51113495acc095e1788fc0d117728585e454a636389fa7181da"
+  }
+}

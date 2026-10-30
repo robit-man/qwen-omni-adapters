@@ -42,3 +42,16 @@ match the compiled tree. See [the native receipts](video-sampling-20261030.json)
 and `runtime/qualify_video_sampling.cpp`. Native helpers must be rebuilt against
 the updated headers. No environmental-audio or full-release acceptance follows
 from passing these video and PCM controls.
+
+The same parser/decoder controls pass on Orin with integrated-GPU residency
+proved through the accelerator module before execution. Its vocabulary adds two
+text tokens: default 1,103, then 110/292/565 for the three budgets. Minimum
+available memory was 5,015.87 MiB, and the existing production service stayed
+active. All 34 patched source files match the A100 build. See
+[Orin controls](orin-video-sampling-20261030.json) and
+[build/library hashes](orin-native-repair-build-20261030.json). This test performs
+no primary language forward pass and does not clear Ornith model qualification.
+
+The matching original-repository integration branch `release/edge-v2-qualification`
+is pushed at `5e93bf8`, with all 6,281 tests passing in 284.13 seconds. Original
+main remains unchanged while the public model tags are unavailable.
