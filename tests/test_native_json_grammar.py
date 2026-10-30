@@ -27,7 +27,8 @@ REFERENCE_ENCODER_PATCH = "llama.cpp-qwen3tts-reference-encoder.patch"
 REFERENCE_IGPU_PATCH = "llama.cpp-qwen3tts-reference-integrated-gpu.patch"
 REFERENCE_PROMPT_PATCH = "llama.cpp-qwen3tts-reference-prompt.patch"
 UTTERANCE_STATE_PATCH = "llama.cpp-qwen3tts-utterance-state.patch"
-INDEPENDENT_PATCHES = (PATCH, BOUNDS_PATCH, CONDITIONING_PATCH, TOKEN_ROWS_PATCH, INDEXED_VIEWS_PATCH, REFERENCE_ENCODER_PATCH, REFERENCE_IGPU_PATCH, REFERENCE_PROMPT_PATCH, UTTERANCE_STATE_PATCH)
+AUDIO_FRAMES_PATCH = "llama.cpp-qwen3a-valid-audio-frames.patch"
+INDEPENDENT_PATCHES = (PATCH, BOUNDS_PATCH, CONDITIONING_PATCH, TOKEN_ROWS_PATCH, INDEXED_VIEWS_PATCH, REFERENCE_ENCODER_PATCH, REFERENCE_IGPU_PATCH, REFERENCE_PROMPT_PATCH, UTTERANCE_STATE_PATCH, AUDIO_FRAMES_PATCH)
 
 
 def _patch_preimage(text: str, source: Path) -> None:
@@ -123,7 +124,8 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
                                               (REFERENCE_ENCODER_PATCH, "Qwen3-TTS reference acoustic encoder"),
                                               (REFERENCE_IGPU_PATCH, "Qwen3-TTS integrated GPU residency"),
                                               (REFERENCE_PROMPT_PATCH, "Qwen3-TTS full reference prompt"),
-                                              (UTTERANCE_STATE_PATCH, "Qwen3-TTS utterance decoder state")])
+                                              (UTTERANCE_STATE_PATCH, "Qwen3-TTS utterance decoder state"),
+                                              (AUDIO_FRAMES_PATCH, "Qwen3A reference audio frame alignment")])
 def test_linux_builder_applies_each_independent_patch_once_and_keeps_pin(tmp_path, patch_name, label):
     repo, source, env = _build_fixture(tmp_path, patch_name=patch_name)
     command = ["bash", str(repo / "scripts/build_llama_cpp.sh"), str(source)]

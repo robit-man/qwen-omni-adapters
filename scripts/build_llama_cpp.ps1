@@ -19,6 +19,7 @@ $ReferenceEncoderPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-ref
 $ReferenceIgpuPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-integrated-gpu.patch"
 $ReferencePromptPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-prompt.patch"
 $UtteranceStatePatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-utterance-state.patch"
+$AudioFramesPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3a-valid-audio-frames.patch"
 $BuildDir = Join-Path $SourceDir "build"
 
 if (-not (Test-Path (Join-Path $SourceDir ".git"))) {
@@ -94,6 +95,7 @@ if ((Test-PatchMarker "common/arg.cpp" '"--tts-utterance-controls"') -and
 } else {
     Apply-NativePatch $UtteranceStatePatchFile "Qwen3-TTS utterance decoder state"
 }
+Apply-NativePatch $AudioFramesPatchFile "Qwen3A reference audio frame alignment"
 
 cmake -S $SourceDir -B $BuildDir -DGGML_CUDA=ON -DLLAMA_CURL=OFF
 cmake --build $BuildDir --config Release --target llama-server llama-tts llama-tts-reference-encode --parallel $BuildJobs

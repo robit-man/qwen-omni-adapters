@@ -244,6 +244,19 @@
       "evidence": []
     },
     {
+      "id": "E1",
+      "objective": "Align native frozen audio encoder frame accounting and mel preprocessing with the training reference",
+      "status": "eight_fixture_token_counts_exact_and_features_aligned_full_reference_tts_preserved_long_tail_and_semantic_qualification_pending",
+      "evidence": [
+        "audio-encoder-alignment-20261030.md",
+        "audio-encoder-alignment-20261030.json",
+        "audio-encoder-patch-composition-20261030.json",
+        "audio-encoder-tts-regression-20261030.json",
+        "audio-encoder-validation-20261030.json",
+        "environmental-repair-training-20261030.md"
+      ]
+    },
+    {
       "id": "E",
       "objective": "Qualify Ornith on Orin and Qwen3.8 on the current A100 host, preserving complete parity and safe memory",
       "status": "operational_cloning_and_video_speech_passed_Ornith_Orin_Qwen_A100_semantic_environmental_parity_failed",

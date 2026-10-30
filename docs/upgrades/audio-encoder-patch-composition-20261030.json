@@ -1,0 +1,71 @@
+{
+  "pinned_commit": "458681e1d5d4a29a1463c4732e03226cf384b997",
+  "patches": [
+    {
+      "patch": "llama.cpp-qwen3tts-pcm-stream.patch",
+      "sha256": "e6e0bea703b00ecfb2eb396ec9e57d5ba448485286a8166274426006777fc048",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-qwen3tts-persistent.patch",
+      "sha256": "10af2fa49b6f11846e4dcee491b940b1a0c3db57a51bdc54d130bb4b877478b1",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-qwen3tts-stream-state.patch",
+      "sha256": "3bf906dd0b647688b6c34b71b5659f512eb145547f9a2ac773224292e2801d24",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-json-pattern-safety.patch",
+      "sha256": "3bf26ee34bef31fb5871bf6796d13d67b9fbe639587c3b67f18bee6ae30f811f",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-json-string-bounds.patch",
+      "sha256": "b99c198c5ac2da5fec9c3d2fe822606db7b90e459c4409e223b15ff62ec00818",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-qwen3tts-conditioning-cache.patch",
+      "sha256": "6545d9a89e2fa0851d496bf6e4b73bf5cd1344346bc7dc4595fbebddcd9585dd",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-qwen3tts-token-rows.patch",
+      "sha256": "6b7b389b433d7fd6494f3016b6c89686c8911062763bd5772d2bb40cd2e4cc6f",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-indexed-tts-views.patch",
+      "sha256": "c3833f8ed362de6fe6c56501f41117301e869e25486e89a9e97357525cfd9f64",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-qwen3tts-reference-encoder.patch",
+      "sha256": "ceea5900f513f33fed86ee5c4b47b2c0d6db1f0f76d8e557c06903444c5e62cf",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-qwen3tts-reference-integrated-gpu.patch",
+      "sha256": "ed8e59a63b15da8b6c7edf4e82da50bb8e7c9d05bc5e1a875fe5fea27079c39d",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-qwen3tts-reference-prompt.patch",
+      "sha256": "e3c0cd96de622821c8334b76e4388fe69f431ace3338087c7b5e2fea6334720d",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-qwen3tts-utterance-state.patch",
+      "sha256": "b7f9ceff112c8006dc8ba9ef8282adcf0535d4dace56f969f20c6ec1ec07361d",
+      "applies_to_pinned_source_in_order": true
+    },
+    {
+      "patch": "llama.cpp-qwen3a-valid-audio-frames.patch",
+      "sha256": "f666cf7a6dcbe6e50707345e480086cf334928d5dd6ca0a9c4ac49c78c59a1ff",
+      "applies_to_pinned_source_in_order": true
+    }
+  ],
+  "changed_encoder_sources_match_compiled_sources": true
+}

@@ -1,0 +1,138 @@
+[
+  {
+    "id": "probe-speech",
+    "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+    "before": {
+      "native_tokens": 52,
+      "reference_tokens": 47,
+      "cosine": 0.9921675324440002,
+      "relative_rmse": 0.12494447082281113
+    },
+    "after": {
+      "native_tokens": 47,
+      "reference_tokens": 47,
+      "cosine": 0.9999462366104126,
+      "relative_rmse": 0.011036282405257225
+    },
+    "native_gpu_resident_before_encode": true
+  },
+  {
+    "id": "probe-silence",
+    "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+    "before": {
+      "native_tokens": 65,
+      "reference_tokens": 52,
+      "cosine": 0.8764148354530334,
+      "relative_rmse": 0.4900374114513397
+    },
+    "after": {
+      "native_tokens": 52,
+      "reference_tokens": 52,
+      "cosine": 0.9999153017997742,
+      "relative_rmse": 0.013223706744611263
+    },
+    "native_gpu_resident_before_encode": true
+  },
+  {
+    "id": "probe-alarm",
+    "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+    "before": {
+      "native_tokens": 65,
+      "reference_tokens": 52,
+      "cosine": 0.9786831140518188,
+      "relative_rmse": 0.20545664429664612
+    },
+    "after": {
+      "native_tokens": 52,
+      "reference_tokens": 52,
+      "cosine": 0.9998301863670349,
+      "relative_rmse": 0.019155707210302353
+    },
+    "native_gpu_resident_before_encode": true
+  },
+  {
+    "id": "probe-noise",
+    "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+    "before": {
+      "native_tokens": 65,
+      "reference_tokens": 52,
+      "cosine": 0.9852810502052307,
+      "relative_rmse": 0.1726655811071396
+    },
+    "after": {
+      "native_tokens": 52,
+      "reference_tokens": 52,
+      "cosine": 0.9999063611030579,
+      "relative_rmse": 0.013860812410712242
+    },
+    "native_gpu_resident_before_encode": true
+  },
+  {
+    "id": "probe-music",
+    "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+    "before": {
+      "native_tokens": 65,
+      "reference_tokens": 52,
+      "cosine": 0.9557531476020813,
+      "relative_rmse": 0.2952027916908264
+    },
+    "after": {
+      "native_tokens": 52,
+      "reference_tokens": 52,
+      "cosine": 0.9998749494552612,
+      "relative_rmse": 0.015951676294207573
+    },
+    "native_gpu_resident_before_encode": true
+  },
+  {
+    "id": "probe-esc50-clock_alarm",
+    "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+    "before": {
+      "native_tokens": 78,
+      "reference_tokens": 65,
+      "cosine": 0.9796845316886902,
+      "relative_rmse": 0.200598806142807
+    },
+    "after": {
+      "native_tokens": 65,
+      "reference_tokens": 65,
+      "cosine": 0.9999460577964783,
+      "relative_rmse": 0.010667866095900536
+    },
+    "native_gpu_resident_before_encode": true
+  },
+  {
+    "id": "probe-esc50-dog",
+    "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+    "before": {
+      "native_tokens": 78,
+      "reference_tokens": 65,
+      "cosine": 0.9906376004219055,
+      "relative_rmse": 0.13732005655765533
+    },
+    "after": {
+      "native_tokens": 65,
+      "reference_tokens": 65,
+      "cosine": 0.9998920559883118,
+      "relative_rmse": 0.015108933672308922
+    },
+    "native_gpu_resident_before_encode": true
+  },
+  {
+    "id": "probe-esc50-church_bells",
+    "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+    "before": {
+      "native_tokens": 78,
+      "reference_tokens": 65,
+      "cosine": 0.9861283898353577,
+      "relative_rmse": 0.16629481315612793
+    },
+    "after": {
+      "native_tokens": 65,
+      "reference_tokens": 65,
+      "cosine": 0.9998390674591064,
+      "relative_rmse": 0.018061287701129913
+    },
+    "native_gpu_resident_before_encode": true
+  }
+]
