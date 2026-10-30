@@ -1,0 +1,38 @@
+{
+  "schema": "robit.omni.orin-preparation.v1",
+  "source_commit": "03744863522d921129949562b2757cab9150311a",
+  "candidate_native_build": "passed on Tegra234 at pinned llama.cpp revision",
+  "environment_bootstrap": "passed in isolated checkout; optional models skipped",
+  "doctor": "passed for installed Ornith bridge profile",
+  "live_comparison": "not qualified; default native 32768-token TTS context allocated 3584 MiB KV and worker closed before ready",
+  "production_after_attempt": {
+    "core": "active",
+    "harness": "active",
+    "primary_pid_unchanged": true,
+    "primary_gpu_residency": true,
+    "primary_health": "ok"
+  },
+  "benchmark_changes": [
+    "Tegra-specific accelerator residency proof remains mandatory",
+    "memory floor sampled at 100 ms, kills only benchmark child",
+    "explicit matched context and recorded native library bindings",
+    "restores native context and library environment after startup failure"
+  ],
+  "controls": {
+    "owned_child_killed_peer_survived": true,
+    "environment_restored_after_failure": true
+  },
+  "validation": {
+    "tests_passed": 5019,
+    "pytest_seconds": 291.38,
+    "remaining_gates": "passed",
+    "final_benchmark_compile_and_lint": "passed"
+  },
+  "limits": [
+    "No Orin latency or memory improvement claimed",
+    "No production service stopped or restarted",
+    "Matched baseline/candidate run requires safe available memory or authorized qualification window",
+    "No extra neural weights downloaded"
+  ],
+  "source_sha256": "d720a0452efbe12e183bca1389091ab75cf09ad480742a246a0f4e055fb4f67f"
+}

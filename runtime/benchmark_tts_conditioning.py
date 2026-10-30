@@ -1,6 +1,8 @@
 """Bounded A/B/A comparison using the same bundled TTS checkpoint and references.
 
-Run through docker gpu run with a scoped budget. The readiness file is written
+On discrete CUDA, run through docker gpu run with a scoped budget. On Tegra,
+require an explicit available-memory floor; residency is proven by the runtime's
+integrated-device checks. The readiness file is written
 only after actual residency and the native ready frame, and every worker is
 closed before returning. No public service is started or restarted.
 """
@@ -14,13 +16,16 @@ import re
 import statistics
 import subprocess
 import sys
+import threading
 import time
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from qwen_omni_adapters.accelerator import accelerator_profile, is_tegra, process_is_gpu_resident
 from runtime.tts_server import Config, PersistentTTSWorker, _pcm_wav, _synthesis_spec
 from runtime.verify_pcm_stream import analyze_pcm
 
@@ -31,18 +36,26 @@ PROMPTS = (
 )
 
 
-def ensure_with_matching_libraries(worker: PersistentTTSWorker, spec) -> dict[str, str]:
+def ensure_with_matching_libraries(worker: PersistentTTSWorker, spec,
+                                   extra_directories: list[Path], context_size: int) -> dict[str, str]:
     """A copied ELF must use its matching libraries rather than build RUNPATH."""
     directory = worker.config.binary.parent.resolve()
     previous = os.environ.get("LD_LIBRARY_PATH")
+    previous_context = os.environ.get("LLAMA_ARG_CTX_SIZE")
     try:
-        os.environ["LD_LIBRARY_PATH"] = str(directory)
+        os.environ["LD_LIBRARY_PATH"] = os.pathsep.join(map(str, [directory, *extra_directories]))
+        if context_size:
+            os.environ["LLAMA_ARG_CTX_SIZE"] = str(context_size)
         worker.ensure(spec)
     finally:
         if previous is None:
             os.environ.pop("LD_LIBRARY_PATH", None)
         else:
             os.environ["LD_LIBRARY_PATH"] = previous
+        if previous_context is None:
+            os.environ.pop("LLAMA_ARG_CTX_SIZE", None)
+        else:
+            os.environ["LLAMA_ARG_CTX_SIZE"] = previous_context
     paths = {}
     for line in Path(f"/proc/{worker.pid}/maps").read_text().splitlines():
         fields = line.split(maxsplit=5)
@@ -52,9 +65,52 @@ def ensure_with_matching_libraries(worker: PersistentTTSWorker, spec) -> dict[st
         if path.name.startswith(("libllama.so", "libllama-common.so", "libmtmd.so")):
             assert path.parent.resolve() == directory, f"wrong native library for comparison: {path}"
             paths[path.name] = str(path)
+        elif path.name.startswith("libggml"):
+            assert path.parent.resolve() in {directory, *extra_directories}, \
+                f"unrecorded GGML library for comparison: {path}"
+            paths[path.name] = str(path)
     assert any(name.startswith("libllama.so") for name in paths)
     assert any(name.startswith("libmtmd.so") for name in paths)
     return paths
+
+
+def available_memory_mib() -> float:
+    for line in Path("/proc/meminfo").read_text().splitlines():
+        if line.startswith("MemAvailable:"):
+            return int(line.split()[1]) / 1024
+    raise RuntimeError("MemAvailable is required for this benchmark")
+
+
+@contextmanager
+def memory_guard(worker: PersistentTTSWorker, floor_mib: int):
+    """Observe system headroom and terminate only this benchmark's child if low."""
+    state = {"minimum_available_mib": available_memory_mib(), "floor_mib": floor_mib,
+             "floor_crossed": False, "sampling_interval_s": .1}
+    stopped = threading.Event()
+
+    def observe():
+        while not stopped.is_set():
+            available = available_memory_mib()
+            state["minimum_available_mib"] = min(state["minimum_available_mib"], available)
+            if floor_mib and available < floor_mib:
+                state["floor_crossed"] = True
+                process = worker.process
+                if process is not None and process.poll() is None:
+                    try:
+                        process.kill()
+                    except ProcessLookupError:
+                        pass
+            stopped.wait(.1)
+
+    thread = threading.Thread(target=observe, daemon=True)
+    thread.start()
+    try:
+        yield state
+        assert not state["floor_crossed"], "benchmark crossed the available-memory floor"
+    finally:
+        stopped.set()
+        thread.join(timeout=1)
+        print(json.dumps({"memory_guard": state}), flush=True)
 
 
 def counter_log(worker: PersistentTTSWorker) -> str:
@@ -82,6 +138,10 @@ def main() -> None:
     parser.add_argument("--baseline-binary", type=Path)
     parser.add_argument("--baseline-keep-cache", action="store_true")
     parser.add_argument("--expected-full-table-loads", type=int, choices=(0, 1), default=0)
+    parser.add_argument("--extra-library-dir", type=Path, action="append", default=[])
+    parser.add_argument("--minimum-available-mib", type=int, default=0)
+    parser.add_argument("--context-size", type=int, default=0,
+                        help="matched native context; zero preserves the native/environment default")
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--projector", type=Path, required=True)
     parser.add_argument("--reference", action="append", type=Path, required=True)
@@ -91,8 +151,16 @@ def main() -> None:
     args = parser.parse_args()
     uuid = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     token = os.environ.get("OLLAMA_UNIFY_GPU_LEASE", "")
-    if not uuid.startswith("GPU-") or "," in uuid or not token:
+    tegra = is_tegra()
+    if tegra and (args.minimum_available_mib <= 0 or uuid or token):
+        parser.error("Tegra requires a positive memory floor and no discrete GPU scope")
+    if not tegra and (not uuid.startswith("GPU-") or "," in uuid or not token):
         parser.error("use one exact UUID through the scoped GPU run wrapper")
+    if args.minimum_available_mib < 0:
+        parser.error("memory floor must be nonnegative")
+    if args.context_size < 0:
+        parser.error("context size must be nonnegative")
+    extra_directories = [path.resolve(strict=True) for path in args.extra_library_dir]
     if len(args.reference) > 2:
         parser.error("at most two references per bounded comparison")
     work = args.work_dir.resolve()
@@ -102,6 +170,8 @@ def main() -> None:
                     projector=args.projector.resolve(), gpu_uuid=uuid, require_gpu=True,
                     timeout_s=120, residency_timeout_s=90, max_frames=96, stream_frames=2)
     report = {"schema": "robit.omni.tts-conditioning-benchmark.v1", "gpu_uuid": uuid,
+              "accelerator": accelerator_profile(),
+              "context_size": args.context_size or os.environ.get("LLAMA_ARG_CTX_SIZE", "native-default"),
               "scope": "same checkpoint, baseline/candidate seeded PCM equality",
               "baseline_binary": str((args.baseline_binary or args.binary).resolve()),
               "candidate_binary": str(args.binary.resolve()),
@@ -116,17 +186,23 @@ def main() -> None:
                 conditioning_cache=enabled or args.baseline_keep_cache))
             pcm_results = []
             samples = []
+            guard = None
             try:
+                guard = memory_guard(worker, args.minimum_available_mib)
+                memory = guard.__enter__()
+                assert memory["minimum_available_mib"] >= args.minimum_available_mib
                 first = _synthesis_spec(config, {"text": PROMPTS[0], "speaker_file": str(reference),
                                                 "seed": 42, "stream_frames": 2})
                 load_started = time.monotonic()
-                libraries = ensure_with_matching_libraries(worker, first)
+                libraries = ensure_with_matching_libraries(worker, first, extra_directories, args.context_size)
                 load_seconds = time.monotonic() - load_started
                 if not admitted:
                     args.ready_file.touch()
-                    wait_for_broker_ready(token)
+                    if not tegra:
+                        wait_for_broker_ready(token)
                     admitted = True
                 pid = worker.pid
+                assert process_is_gpu_resident(pid, uuid), "worker lost GPU residency"
                 for index, text in enumerate(PROMPTS):
                     spec = replace(first, text=text)
                     started = time.monotonic()
@@ -162,12 +238,15 @@ def main() -> None:
                 report["samples"].append({"reference_sha256": hashlib.sha256(reference.read_bytes()).hexdigest(),
                     "reference_name": reference.name, "cache_enabled": enabled, "load_s": load_seconds,
                     "native_libraries": libraries,
+                    "gpu_residency_verified": True, "memory_headroom": memory,
                     "a_b_a_identical": True, "cold_request_first_pcm_s": load_seconds + samples[0]["first_pcm_s"],
                     "runs": samples})
                 print(json.dumps({"reference": reference.name, "cache": enabled,
                                   "first_pcm_s": [x["first_pcm_s"] for x in samples]}), flush=True)
             finally:
                 worker.close()
+                if guard is not None:
+                    guard.__exit__(*sys.exc_info())
     for offset in range(0, len(report["samples"]), 2):
         baseline, cached = report["samples"][offset:offset + 2]
         assert [x["pcm_sha256"] for x in baseline["runs"]] == [x["pcm_sha256"] for x in cached["runs"]], \

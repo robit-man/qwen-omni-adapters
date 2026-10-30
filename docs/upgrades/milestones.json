@@ -67,8 +67,10 @@
     {
       "id": "E",
       "objective": "Orin concurrency, complete parity, latency and safe memory qualification of both versioned releases",
-      "status": "baseline_observed_candidate_pending",
-      "evidence": []
+      "status": "isolated_candidate_built_live_qualification_pending_safe_window",
+      "evidence": [
+        "phase-e-orin-preparation.json"
+      ]
     }
   ],
   "completed_whole_objective": false,
