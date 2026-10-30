@@ -1,0 +1,24 @@
+{
+  "schema": "robit.omni.source-validation.v1",
+  "gate": "./scripts/validate.sh",
+  "tests_passed": 5035,
+  "pytest_seconds": 276.13,
+  "remaining_gates": "passed",
+  "native_build": "passed; final prefetch-only patch compiled and PCM comparison passed",
+  "source_sha256": {
+    "patches/llama.cpp-indexed-tts-views.patch": "c3833f8ed362de6fe6c56501f41117301e869e25486e89a9e97357525cfd9f64",
+    "src/qwen_omni_adapters/component_views.py": "744b8dde8c2898d4532f44279b5ff0247528add79144351e142d9dd9236b3d96",
+    "src/qwen_omni_adapters/ollama_sidecar.py": "0acdcd057b70da950ecd8ea5e9e89cadd7e5f88362d4328e7d9e2bb34661cde4",
+    "src/qwen_omni_adapters/daemon.py": "1a204ec30b3c5c6f89e098dff5b933a6ddaa3653ca397227b3e3c1ba3188df3a",
+    "src/qwen_omni_adapters/cli.py": "fc8d10d8ebc51060d9c8d42fa12b7196d123f5e67a8785a862935049ee71b982",
+    "runtime/verify_indexed_views.py": "434c6f04abdcfff5b8f7b2ce860242c13bdce05876fe14ed9df4b863211e7880",
+    "runtime/benchmark_tts_conditioning.py": "9a48f926c875e07a14791494b8dd3c6f0b353e94479ef7a0dce4df2c0cac7a59",
+    "scripts/build_llama_cpp.sh": "b8ce5eeb2cd58d105e180ba41cad2037db515f6dbe08496b3b82a0d8904f0c27",
+    "scripts/build_llama_cpp.ps1": "1034c8c54ea0fe6e145d8645aae3a6fa5f09f84dac1e69630770c5c3764bd5c6",
+    "scripts/bootstrap.sh": "9807be1457ff0aa17c640f858bbdb00759d48f242244088bd430b4915ec79ad4",
+    "portal/start.sh": "0042a776d063ae53c46767dc83f1b5ea0b813883e49f2fc403184cd63492835a",
+    "tests/test_indexed_sidecar.py": "759a9d12230aa8d21da1e3da1f07bbf1f968a81459b8b9e7de34ef8e3a985984",
+    "tests/test_native_json_grammar.py": "173c5a5ddcd7842063d5490217f8b4230bb9e32b77df43802b202ffd1c4a2b36",
+    "tests/test_ollama_sidecar.py": "8c7920dce38102fc718b98aad2fc6b67a4eaff40f8adf2034edab090af2ed4bf"
+  }
+}

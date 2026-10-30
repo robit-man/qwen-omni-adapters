@@ -1,0 +1,33 @@
+{
+  "schema": "robit.omni.native-view-verification.v1",
+  "components": [
+    {
+      "component": "tts_model",
+      "tensor_count": 311,
+      "metadata_keys": 29,
+      "tensor_types": [
+        0,
+        12,
+        14
+      ],
+      "payload_bytes_compared": 1029935104,
+      "original_offsets_preserved": true,
+      "all_metadata_shapes_types_and_payloads_identical": true,
+      "failed_selection_preserves_original_context": true
+    },
+    {
+      "component": "tts_projector",
+      "tensor_count": 378,
+      "metadata_keys": 27,
+      "tensor_types": [
+        0,
+        1,
+        8
+      ],
+      "payload_bytes_compared": 446396100,
+      "original_offsets_preserved": true,
+      "all_metadata_shapes_types_and_payloads_identical": true,
+      "failed_selection_preserves_original_context": true
+    }
+  ]
+}

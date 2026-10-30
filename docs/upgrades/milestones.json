@@ -26,8 +26,15 @@
     {
       "id": "A3",
       "objective": "Native filtered component reads without materialized executable copies",
-      "status": "pending_native_loader_implementation",
-      "evidence": []
+      "status": "verified_native_views_and_POSIX_supervisor_paths_on_scoped_A100",
+      "evidence": [
+        "phase-a3-native-views.json",
+        "phase-a3-native-views.md",
+        "phase-a3-tts.json",
+        "phase-a3-routes.json",
+        "phase-a3-preparation.json",
+        "phase-a3-validation.json"
+      ]
     },
     {
       "id": "B1",

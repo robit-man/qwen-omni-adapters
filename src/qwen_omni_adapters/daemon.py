@@ -545,7 +545,13 @@ class OmniDaemon:
                 self.cache_dir / "comprehension-model.gguf",
                 self.cache_dir / "comprehension-projector.gguf",
             ]
-        if not all(path.is_file() for path in required):
+        indexed_sidecar = (resolved.get("inspection", {}).get("manifest") or {}).get("schema") == "robit.ollama-audio-bridge.v2"
+        if indexed_sidecar:
+            prepare_ollama_sidecar(
+                model=self.config.model, output_dir=self.cache_dir, overwrite=True,
+                prefer_direct=True,
+            )
+        elif not all(path.is_file() for path in required):
             prepare_ollama_sidecar(
                 model=self.config.model,
                 output_dir=self.cache_dir,

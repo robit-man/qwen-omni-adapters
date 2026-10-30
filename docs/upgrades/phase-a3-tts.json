@@ -1,0 +1,727 @@
+{
+  "schema": "robit.omni.tts-conditioning-benchmark.v1",
+  "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+  "accelerator": {
+    "system": "Linux",
+    "machine": "x86_64",
+    "tegra": false,
+    "residency_backend": "nvidia-smi-compute-apps",
+    "gpu_memory_model": "discrete"
+  },
+  "context_size": "native-default",
+  "scope": "same checkpoint, baseline/candidate seeded PCM equality",
+  "baseline_binary": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/llama-tts",
+  "candidate_binary": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/llama-tts",
+  "candidate_indexed_sidecar": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/phase-a2/shared-tts-sidecar-v2.gguf",
+  "baseline_conditioning_cache_enabled": true,
+  "samples": [
+    {
+      "reference_sha256": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+      "reference_name": "female_voice.wav",
+      "cache_enabled": false,
+      "load_s": 1.9639912149868906,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0"
+      },
+      "gpu_residency_verified": true,
+      "memory_headroom": {
+        "minimum_available_mib": 330647.02734375,
+        "floor_mib": 0,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "a_b_a_identical": true,
+      "cold_request_first_pcm_s": 2.1798909309436567,
+      "runs": [
+        {
+          "index": 0,
+          "first_pcm_s": 0.21589971595676616,
+          "total_s": 1.2751904419856146,
+          "pcm_bytes": 157440,
+          "pcm_sha256": "dcf5e09ecda7df88c2735d4e61ff9cd0807dd2c1d15cf28d253b8e813bfd7e91",
+          "audio_s": 3.28,
+          "worker_pid": 47612,
+          "cpu_peak_rss_kib": 1268268,
+          "conditioning_counters": [
+            0,
+            1,
+            0
+          ],
+          "row_counters": [
+            22,
+            17,
+            180224
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 78720,
+            "duration_seconds": 3.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 20,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.0030517578125,
+              "minimum": -0.236053466796875,
+              "maximum": 0.261444091796875,
+              "standard_deviation": 0.12428681558243475
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.30754117058886327,
+              "10": 0.26348423548074895,
+              "20": 0.2665372244006563
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09343857362627563,
+              "maximum": 1.6192123471765725
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "index": 1,
+          "first_pcm_s": 0.06785239203600213,
+          "total_s": 1.0243063830421306,
+          "pcm_bytes": 145920,
+          "pcm_sha256": "0c3baf54d08c8a9316836041a04f9c724799543fc90d1815d3b1ff38a3b04272",
+          "audio_s": 3.04,
+          "worker_pid": 47612,
+          "cpu_peak_rss_kib": 1268268,
+          "conditioning_counters": [
+            0,
+            1,
+            1
+          ],
+          "row_counters": [
+            30,
+            48,
+            245760
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 72960,
+            "duration_seconds": 3.04,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 19,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.02471923828125,
+              "minimum": -0.460662841796875,
+              "maximum": 0.451629638671875,
+              "standard_deviation": 0.19039753630844303
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.16520234379385848,
+              "10": 0.2669362721214093,
+              "20": 0.2280483330771119
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.16718924399951104,
+              "maximum": 1.1220909132462704
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "index": 2,
+          "first_pcm_s": 0.0693294369848445,
+          "total_s": 1.1715175620047376,
+          "pcm_bytes": 157440,
+          "pcm_sha256": "dcf5e09ecda7df88c2735d4e61ff9cd0807dd2c1d15cf28d253b8e813bfd7e91",
+          "audio_s": 3.28,
+          "worker_pid": 47612,
+          "cpu_peak_rss_kib": 1268268,
+          "conditioning_counters": [
+            0,
+            1,
+            2
+          ],
+          "row_counters": [
+            30,
+            87,
+            245760
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 78720,
+            "duration_seconds": 3.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 20,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.0030517578125,
+              "minimum": -0.236053466796875,
+              "maximum": 0.261444091796875,
+              "standard_deviation": 0.12428681558243475
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.30754117058886327,
+              "10": 0.26348423548074895,
+              "20": 0.2665372244006563
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09343857362627563,
+              "maximum": 1.6192123471765725
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        }
+      ]
+    },
+    {
+      "reference_sha256": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+      "reference_name": "female_voice.wav",
+      "cache_enabled": true,
+      "load_s": 2.0419558589928783,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0"
+      },
+      "gpu_residency_verified": true,
+      "memory_headroom": {
+        "minimum_available_mib": 330391.71484375,
+        "floor_mib": 0,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "a_b_a_identical": true,
+      "cold_request_first_pcm_s": 2.2511429239530116,
+      "runs": [
+        {
+          "index": 0,
+          "first_pcm_s": 0.20918706496013328,
+          "total_s": 1.2787232369882986,
+          "pcm_bytes": 157440,
+          "pcm_sha256": "dcf5e09ecda7df88c2735d4e61ff9cd0807dd2c1d15cf28d253b8e813bfd7e91",
+          "audio_s": 3.28,
+          "worker_pid": 50595,
+          "cpu_peak_rss_kib": 1091376,
+          "conditioning_counters": [
+            0,
+            1,
+            0
+          ],
+          "row_counters": [
+            22,
+            17,
+            180224
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 78720,
+            "duration_seconds": 3.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 20,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.0030517578125,
+              "minimum": -0.236053466796875,
+              "maximum": 0.261444091796875,
+              "standard_deviation": 0.12428681558243475
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.30754117058886327,
+              "10": 0.26348423548074895,
+              "20": 0.2665372244006563
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09343857362627563,
+              "maximum": 1.6192123471765725
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "index": 1,
+          "first_pcm_s": 0.06715022202115506,
+          "total_s": 1.0229676040471531,
+          "pcm_bytes": 145920,
+          "pcm_sha256": "0c3baf54d08c8a9316836041a04f9c724799543fc90d1815d3b1ff38a3b04272",
+          "audio_s": 3.04,
+          "worker_pid": 50595,
+          "cpu_peak_rss_kib": 1091376,
+          "conditioning_counters": [
+            0,
+            1,
+            1
+          ],
+          "row_counters": [
+            30,
+            48,
+            245760
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 72960,
+            "duration_seconds": 3.04,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 19,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.02471923828125,
+              "minimum": -0.460662841796875,
+              "maximum": 0.451629638671875,
+              "standard_deviation": 0.19039753630844303
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.16520234379385848,
+              "10": 0.2669362721214093,
+              "20": 0.2280483330771119
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.16718924399951104,
+              "maximum": 1.1220909132462704
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "index": 2,
+          "first_pcm_s": 0.06621363299200311,
+          "total_s": 1.1388387869810686,
+          "pcm_bytes": 157440,
+          "pcm_sha256": "dcf5e09ecda7df88c2735d4e61ff9cd0807dd2c1d15cf28d253b8e813bfd7e91",
+          "audio_s": 3.28,
+          "worker_pid": 50595,
+          "cpu_peak_rss_kib": 1091376,
+          "conditioning_counters": [
+            0,
+            1,
+            2
+          ],
+          "row_counters": [
+            30,
+            87,
+            245760
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 78720,
+            "duration_seconds": 3.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 20,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.0030517578125,
+              "minimum": -0.236053466796875,
+              "maximum": 0.261444091796875,
+              "standard_deviation": 0.12428681558243475
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.30754117058886327,
+              "10": 0.26348423548074895,
+              "20": 0.2665372244006563
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09343857362627563,
+              "maximum": 1.6192123471765725
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        }
+      ],
+      "warm_first_pcm_reduction_percent": 2.783148493455556,
+      "peak_worker_rss_reduction_percent": 13.947525286453654
+    },
+    {
+      "reference_sha256": "79f6cd76dfe2f5cb6e2f217d1e03020cb8d75b8b49a3dc617e6bfa41ea49f61e",
+      "reference_name": "default_voice.wav",
+      "cache_enabled": false,
+      "load_s": 1.9812095380038954,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0"
+      },
+      "gpu_residency_verified": true,
+      "memory_headroom": {
+        "minimum_available_mib": 330328.24609375,
+        "floor_mib": 0,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "a_b_a_identical": true,
+      "cold_request_first_pcm_s": 2.202988208970055,
+      "runs": [
+        {
+          "index": 0,
+          "first_pcm_s": 0.22177867096615955,
+          "total_s": 1.103754551964812,
+          "pcm_bytes": 130560,
+          "pcm_sha256": "a86794ab63c25e4d7d6a8cea1270187d4d5a801c3c1b78715b26ba3e1e6bc8a0",
+          "audio_s": 2.72,
+          "worker_pid": 52287,
+          "cpu_peak_rss_kib": 1272272,
+          "conditioning_counters": [
+            0,
+            1,
+            0
+          ],
+          "row_counters": [
+            22,
+            17,
+            180224
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 65280,
+            "duration_seconds": 2.72,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 17,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.050140380859375,
+              "minimum": -0.744110107421875,
+              "maximum": 0.282684326171875,
+              "standard_deviation": 0.21466878514775184
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3823572790121293,
+              "10": 0.34784430299213004,
+              "20": 0.26507006669737904
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.050239887781293575,
+              "maximum": 0.4291126941002729
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "index": 1,
+          "first_pcm_s": 0.07089808298042044,
+          "total_s": 0.750853002013173,
+          "pcm_bytes": 107520,
+          "pcm_sha256": "b043c0d0ba26eb80525918e7483aecbf37bc4b89d4575b62cbcefbadf72c8e9d",
+          "audio_s": 2.24,
+          "worker_pid": 52287,
+          "cpu_peak_rss_kib": 1272272,
+          "conditioning_counters": [
+            0,
+            1,
+            1
+          ],
+          "row_counters": [
+            30,
+            48,
+            245760
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 53760,
+            "duration_seconds": 2.24,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 14,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.074676513671875,
+              "minimum": -0.790496826171875,
+              "maximum": 0.643035888671875,
+              "standard_deviation": 0.3736834033196869
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.10414687694526792,
+              "10": 0.2530192880521584,
+              "20": 0.2785804607753431
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08463232903494272,
+              "maximum": 1.4781387010900116
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "index": 2,
+          "first_pcm_s": 0.06857080402551219,
+          "total_s": 0.9078352610231377,
+          "pcm_bytes": 130560,
+          "pcm_sha256": "a86794ab63c25e4d7d6a8cea1270187d4d5a801c3c1b78715b26ba3e1e6bc8a0",
+          "audio_s": 2.72,
+          "worker_pid": 52287,
+          "cpu_peak_rss_kib": 1272272,
+          "conditioning_counters": [
+            0,
+            1,
+            2
+          ],
+          "row_counters": [
+            30,
+            87,
+            245760
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 65280,
+            "duration_seconds": 2.72,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 17,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.050140380859375,
+              "minimum": -0.744110107421875,
+              "maximum": 0.282684326171875,
+              "standard_deviation": 0.21466878514775184
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3823572790121293,
+              "10": 0.34784430299213004,
+              "20": 0.26507006669737904
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.050239887781293575,
+              "maximum": 0.4291126941002729
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        }
+      ]
+    },
+    {
+      "reference_sha256": "79f6cd76dfe2f5cb6e2f217d1e03020cb8d75b8b49a3dc617e6bfa41ea49f61e",
+      "reference_name": "default_voice.wav",
+      "cache_enabled": true,
+      "load_s": 2.070908010995481,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0"
+      },
+      "gpu_residency_verified": true,
+      "memory_headroom": {
+        "minimum_available_mib": 330568.8828125,
+        "floor_mib": 0,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "a_b_a_identical": true,
+      "cold_request_first_pcm_s": 2.30075063300319,
+      "runs": [
+        {
+          "index": 0,
+          "first_pcm_s": 0.229842622007709,
+          "total_s": 1.127982244011946,
+          "pcm_bytes": 130560,
+          "pcm_sha256": "a86794ab63c25e4d7d6a8cea1270187d4d5a801c3c1b78715b26ba3e1e6bc8a0",
+          "audio_s": 2.72,
+          "worker_pid": 54267,
+          "cpu_peak_rss_kib": 1089728,
+          "conditioning_counters": [
+            0,
+            1,
+            0
+          ],
+          "row_counters": [
+            22,
+            17,
+            180224
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 65280,
+            "duration_seconds": 2.72,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 17,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.050140380859375,
+              "minimum": -0.744110107421875,
+              "maximum": 0.282684326171875,
+              "standard_deviation": 0.21466878514775184
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3823572790121293,
+              "10": 0.34784430299213004,
+              "20": 0.26507006669737904
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.050239887781293575,
+              "maximum": 0.4291126941002729
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "index": 1,
+          "first_pcm_s": 0.0674731420003809,
+          "total_s": 0.7645797519944608,
+          "pcm_bytes": 107520,
+          "pcm_sha256": "b043c0d0ba26eb80525918e7483aecbf37bc4b89d4575b62cbcefbadf72c8e9d",
+          "audio_s": 2.24,
+          "worker_pid": 54267,
+          "cpu_peak_rss_kib": 1089728,
+          "conditioning_counters": [
+            0,
+            1,
+            1
+          ],
+          "row_counters": [
+            30,
+            48,
+            245760
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 53760,
+            "duration_seconds": 2.24,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 14,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.074676513671875,
+              "minimum": -0.790496826171875,
+              "maximum": 0.643035888671875,
+              "standard_deviation": 0.3736834033196869
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.10414687694526792,
+              "10": 0.2530192880521584,
+              "20": 0.2785804607753431
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08463232903494272,
+              "maximum": 1.4781387010900116
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "index": 2,
+          "first_pcm_s": 0.07016355101950467,
+          "total_s": 0.9355665780021809,
+          "pcm_bytes": 130560,
+          "pcm_sha256": "a86794ab63c25e4d7d6a8cea1270187d4d5a801c3c1b78715b26ba3e1e6bc8a0",
+          "audio_s": 2.72,
+          "worker_pid": 54267,
+          "cpu_peak_rss_kib": 1089728,
+          "conditioning_counters": [
+            0,
+            1,
+            2
+          ],
+          "row_counters": [
+            30,
+            87,
+            245760
+          ],
+          "pcm_continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 65280,
+            "duration_seconds": 2.72,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 17,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.050140380859375,
+              "minimum": -0.744110107421875,
+              "maximum": 0.282684326171875,
+              "standard_deviation": 0.21466878514775184
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3823572790121293,
+              "10": 0.34784430299213004,
+              "20": 0.26507006669737904
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.050239887781293575,
+              "maximum": 0.4291126941002729
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        }
+      ],
+      "warm_first_pcm_reduction_percent": 1.313693702860852,
+      "peak_worker_rss_reduction_percent": 14.347875297106283
+    }
+  ],
+  "prompts": [
+    "The blue bicycle is parked beside the garden gate.",
+    "Seven small birds are sitting on the wooden fence.",
+    "The blue bicycle is parked beside the garden gate."
+  ],
+  "qualification_notes": [
+    "Baseline and candidate both use conditioning cache, exact checkpoint and seed; only input layout differs",
+    "Initial full-file prefetch candidate rejected for 438 MiB higher peak RSS",
+    "Qualified native view disables full-file MAP_POPULATE to avoid touching sibling codec tensors",
+    "Real TTS route smoke used the same loader ABI before this prefetch-only allocation fix; final native PCM comparison covers the updated allocation policy",
+    "One process per layout/reference; not p95/p99 or full-stack Orin qualification"
+  ]
+}

@@ -7,7 +7,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from qwen_omni_adapters.component_views import prepare_component_views
+from qwen_omni_adapters.component_views import (
+    prepare_component_views,
+    prepare_indexed_source_aliases,
+)
 from qwen_omni_adapters.single_gguf import (
     AUDIO_BRIDGE_SCHEMAS,
     INDEXED_AUDIO_BRIDGE_SCHEMA,
@@ -336,6 +339,7 @@ def prepare_ollama_sidecar(
     models_dir: Path | None = None,
     overwrite: bool = False,
     reuse: bool = False,
+    prefer_direct: bool = False,
 ) -> dict[str, Any]:
     """Materialize disposable runtime views directly from an installed Ollama tag."""
     resolved = resolve_ollama_sidecar(model=model, models_dir=models_dir)
@@ -365,10 +369,18 @@ def prepare_ollama_sidecar(
         )
     destination = output_dir.expanduser().resolve()
     destination.mkdir(parents=True, exist_ok=True)
-    outputs, component_index = prepare_component_views(
-        bundle=Path(resolved["bundle"]), bundle_digest=resolved["layer"]["digest"],
-        output_dir=destination, views=selected_views, overwrite=overwrite, reuse=reuse,
-    )
+    indexed = (resolved["inspection"].get("manifest") or {})
+    if prefer_direct and indexed.get("schema") == INDEXED_AUDIO_BRIDGE_SCHEMA and os.name != "nt":
+        outputs, component_index = prepare_indexed_source_aliases(
+            bundle=Path(resolved["bundle"]), bundle_digest=resolved["layer"]["digest"],
+            output_dir=destination, views=selected_views, overwrite=overwrite,
+            components=indexed["component_index"]["components"],
+        )
+    else:
+        outputs, component_index = prepare_component_views(
+            bundle=Path(resolved["bundle"]), bundle_digest=resolved["layer"]["digest"],
+            output_dir=destination, views=selected_views, overwrite=overwrite, reuse=reuse,
+        )
     return {
         "model": model,
         "bundle": resolved["bundle"],

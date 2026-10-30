@@ -226,6 +226,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     prepare.add_argument("--models-dir", type=Path)
     prepare.add_argument("--overwrite", action="store_true")
+    prepare.add_argument("--direct-views", action="store_true",
+                         help="Prefer indexed source aliases on v2 POSIX runtimes; requires patched native loader")
     prepare.add_argument(
         "--reuse", action="store_true",
         help="Reuse source-bound views after verifying their SHA-256; rebuild only misses",
@@ -309,6 +311,7 @@ def main(argv: list[str] | None = None) -> int:
                 models_dir=args.models_dir,
                 overwrite=args.overwrite,
                 reuse=args.reuse,
+                prefer_direct=args.direct_views,
             )
         elif args.command == "doctor":
             return _doctor(args)

@@ -12,6 +12,7 @@ JSON_PATTERN_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-json-pattern-safety.patch
 JSON_STRING_BOUNDS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-json-string-bounds.patch
 CONDITIONING_CACHE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-conditioning-cache.patch
 TOKEN_ROWS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-token-rows.patch
+INDEXED_VIEWS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-indexed-tts-views.patch
 BUILD_DIR=${LLAMA_CPP_BUILD_DIR:-$SOURCE_DIR/build}
 if command -v nproc >/dev/null 2>&1; then
   default_jobs=$(nproc)
@@ -143,6 +144,7 @@ if patch_marker_present common/arg.cpp '"--tts-conditioning-cache-rows"' \
 else
   apply_patch_file "$TOKEN_ROWS_PATCH_FILE" "Qwen3-TTS bounded token rows"
 fi
+apply_patch_file "$INDEXED_VIEWS_PATCH_FILE" "Indexed TTS source views"
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in

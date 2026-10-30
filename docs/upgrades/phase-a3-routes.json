@@ -1,0 +1,25 @@
+{
+  "schema": "robit.omni.indexed-tts-route-qualification.v1",
+  "scope": "real Flask route handlers and native CUDA workers; in-process client, no public server",
+  "model_layout": "two source aliases to one installed v2 blob",
+  "checks": [
+    {
+      "complete_wav_equals_materialized_pcm": "dcf5e09ecda7df88c2735d4e61ff9cd0807dd2c1d15cf28d253b8e813bfd7e91"
+    },
+    {
+      "ordered_stream_equals_materialized_pcm": true,
+      "chunks": 21
+    },
+    {
+      "request_local_reference_equals_file_clone": true
+    },
+    {
+      "cancel_closes_only_active_tts_worker": true
+    },
+    {
+      "fresh_B_after_cancel_equals_materialized_B": "0c3baf54d08c8a9316836041a04f9c724799543fc90d1815d3b1ff38a3b04272"
+    }
+  ],
+  "gpu_residency_verified": true,
+  "cleanup_verified": true
+}

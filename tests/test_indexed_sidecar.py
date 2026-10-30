@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -145,3 +146,52 @@ def test_index_does_not_accept_tensors_outside_its_declared_views(tmp_path):
     inspection = inspect_monolithic_gguf(bundle)
     assert not inspection["valid"]
     assert any("outside" in error for error in inspection["errors"])
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows retains materialized views")
+def test_direct_views_alias_one_bound_blob_without_copying_payloads_and_cleanup_preserves_it(tmp_path):
+    bundle, _, _ = sidecar(tmp_path)
+    root = tmp_path / "store"
+    name = "robit/direct:edge-v2"
+    standard_tag(root, name)
+    attach_ollama_sidecar(model=name, bundle_gguf=bundle, models_dir=root)
+    resolved = resolve_ollama_sidecar(model=name, models_dir=root)
+    before = Path(resolved["bundle"]).read_bytes()
+    directory = tmp_path / "aliases"
+    prepared = prepare_ollama_sidecar(model=name, output_dir=directory, models_dir=root, prefer_direct=True)
+    assert prepared["component_index"]["materialized_bytes"] == 0
+    assert set(prepared["component_index"]["direct_views"]) == {"tts_model", "tts_projector"}
+    for report in prepared["views"].values():
+        alias = Path(report["output"])
+        assert alias.is_symlink() and alias.resolve() == Path(resolved["bundle"])
+        assert report["read_mode"] == "indexed-source-alias"
+    repeated = prepare_ollama_sidecar(model=name, output_dir=directory, models_dir=root, prefer_direct=True)
+    assert repeated["component_index"]["materialized_bytes"] == 0
+    # The ordinary materializer continues to reject aliases; it must never
+    # silently treat the multigraph container as an extracted standalone GGUF.
+    with pytest.raises(SingleGGUFError, match="symlink"):
+        prepare_ollama_sidecar(model=name, output_dir=directory, models_dir=root, reuse=True)
+    for path in directory.glob("*.gguf"):
+        path.unlink()
+    assert Path(resolved["bundle"]).read_bytes() == before
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows retains materialized views")
+def test_direct_rebinding_replaces_only_aliases_and_never_writes_through_targets(tmp_path):
+    bundle, _, _ = sidecar(tmp_path)
+    root = tmp_path / "store"
+    name = "robit/direct:edge-v2"
+    standard_tag(root, name)
+    attach_ollama_sidecar(model=name, bundle_gguf=bundle, models_dir=root)
+    directory = tmp_path / "aliases"
+    directory.mkdir()
+    unrelated = tmp_path / "preserved-reference.gguf"
+    unrelated.write_bytes(b"do not follow this link")
+    (directory / "tts-model.gguf").symlink_to(unrelated)
+    (directory / "tts-projector.gguf").write_bytes(b"older derived view")
+    with pytest.raises(SingleGGUFError, match="exists"):
+        prepare_ollama_sidecar(model=name, output_dir=directory, models_dir=root, prefer_direct=True)
+    assert (directory / "tts-model.gguf").readlink() == unrelated
+    prepare_ollama_sidecar(model=name, output_dir=directory, models_dir=root, prefer_direct=True, overwrite=True)
+    assert unrelated.read_bytes() == b"do not follow this link"
+    assert (directory / "tts-model.gguf").resolve() == (directory / "tts-projector.gguf").resolve()

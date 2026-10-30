@@ -85,6 +85,45 @@ def _write_index(path: Path, data: dict[str, Any]) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def prepare_indexed_source_aliases(
+    *, bundle: Path, bundle_digest: str, output_dir: Path, views: tuple[str, ...],
+    components: dict[str, Any], overwrite: bool,
+) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    """Alias the installed v2 source for the patched role-aware native loaders.
+
+    An alias is not an extracted GGUF. Each native loader selects its own
+    metadata/tensor namespace while retaining offsets into the original file.
+    Replacement renames the alias itself; it never writes through its target.
+    Materialized-view verification remains separate and still rejects symlinks.
+    """
+    source = bundle.resolve(strict=True)
+    destination = output_dir.expanduser().resolve()
+    destination.mkdir(parents=True, exist_ok=True)
+    outputs = {view: destination / (view.replace("_", "-") + ".gguf") for view in views}
+    matching = {view: path.is_symlink() and path.readlink() == source for view, path in outputs.items()}
+    for view, path in outputs.items():
+        if path.is_dir() and not path.is_symlink():
+            raise SingleGGUFError(f"component output must not be a directory: {path}")
+        if (path.exists() or path.is_symlink()) and not matching[view] and not overwrite:
+            raise SingleGGUFError(f"component output exists; pass overwrite=True to rebind: {path}")
+    reports = {}
+    with tempfile.TemporaryDirectory(prefix=".indexed-views-", dir=destination) as temporary:
+        for view, path in outputs.items():
+            if not matching[view]:
+                alias = Path(temporary) / path.name
+                alias.symlink_to(source)
+                os.replace(alias, path)
+            reports[view] = {"view": view, "output": str(path), "source": str(source),
+                             "read_mode": "indexed-source-alias", **components[view]}
+    index = {"schema": "robit.omni.direct-component-views.v1", "bundle_digest": bundle_digest,
+             "source": str(source), "source_identity": _source_identity(source),
+             "native_loader_abi": "robit.indexed-tts-views.v1", "direct_views": list(views),
+             "materialized_views": [], "materialized_bytes": 0, "reused_views": [],
+             "reused_bytes": 0, "views": reports}
+    _write_index(destination / INDEX_FILENAME, index)
+    return reports, index
+
+
 def prepare_component_views(
     *, bundle: Path, bundle_digest: str, output_dir: Path, views: tuple[str, ...],
     overwrite: bool, reuse: bool,

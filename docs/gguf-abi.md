@@ -45,8 +45,30 @@ flat GGUF manifests remain the supported tag shape. This follows the
 candidate identities, unchanged backbone layers, byte-identical extracted TTS
 checkpoints and reuse across tags. The pair avoids 1,482,396,128 payload bytes
 on a new installation. Existing legacy blobs remain; this is not a claim of
-current disk reclamation or lower GPU allocation. Direct filtered native loading
-remains a separate implementation milestone; v2 currently materializes views.
+current disk reclamation or lower GPU allocation.
+
+### Native indexed views
+
+The runtime's `llama.cpp-indexed-tts-views.patch` adds
+`robit.indexed-tts-views.v1`: role-aware native loading of the v2 TTS envelope.
+The model loader selects `s.t.m.*`; the codec loader selects `s.t.p.*`. Both
+restore their original metadata namespace, tokenizer, tensor names, shapes and
+quantization while retaining the original container offsets. This is a patched
+native loader, not stock Ollama execution of a heterogeneous GGUF.
+
+On POSIX, `prepare --direct-views` creates two disposable source aliases and a
+versioned receipt instead of reconstructed payloads. Bootstrap, the portable
+supervisor and broker launcher prefer this mode for v2. Existing v1 bundles and
+Windows retain materialization. Ordinary materialization still rejects aliases;
+use a fresh output directory for an explicitly extracted view. Cleanup unlinks
+the aliases and leaves the installed blob intact. Direct mode requires the
+updated native build from this checkout.
+
+The native view is read-only and must not be serialized. Its metadata/tensor
+inventory is filtered in memory; its file offsets and physical alignment belong
+to the original sidecar. Full-file mmap prefetch is disabled only for indexed
+model views, preventing a transient duplicate read of sibling codec tensors.
+See the [native view qualification](upgrades/phase-a3-native-views.md).
 
 ## Invariants
 

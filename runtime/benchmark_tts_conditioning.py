@@ -136,6 +136,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--baseline-binary", type=Path)
+    parser.add_argument("--indexed-sidecar", type=Path,
+                        help="candidate loads both component views directly from this v2 GGUF")
     parser.add_argument("--baseline-keep-cache", action="store_true")
     parser.add_argument("--expected-full-table-loads", type=int, choices=(0, 1), default=0)
     parser.add_argument("--extra-library-dir", type=Path, action="append", default=[])
@@ -175,6 +177,7 @@ def main() -> None:
               "scope": "same checkpoint, baseline/candidate seeded PCM equality",
               "baseline_binary": str((args.baseline_binary or args.binary).resolve()),
               "candidate_binary": str(args.binary.resolve()),
+              "candidate_indexed_sidecar": str(args.indexed_sidecar.resolve()) if args.indexed_sidecar else None,
               "baseline_conditioning_cache_enabled": args.baseline_keep_cache,
               "samples": [], "prompts": list(PROMPTS)}
     admitted = False
@@ -183,6 +186,8 @@ def main() -> None:
         for enabled in (False, True):
             active_binary = args.binary if enabled else (args.baseline_binary or args.binary)
             worker = PersistentTTSWorker(replace(config, binary=active_binary.resolve(),
+                model=args.indexed_sidecar.resolve() if enabled and args.indexed_sidecar else config.model,
+                projector=args.indexed_sidecar.resolve() if enabled and args.indexed_sidecar else config.projector,
                 conditioning_cache=enabled or args.baseline_keep_cache))
             pcm_results = []
             samples = []

@@ -1,0 +1,45 @@
+{
+  "schema": "robit.omni.direct-view-preparation.v1",
+  "samples": [
+    {
+      "direct": false,
+      "seconds": 5.775909384014085,
+      "materialized_bytes": 0,
+      "materialized_views": []
+    },
+    {
+      "direct": false,
+      "seconds": 5.783705845999066,
+      "materialized_bytes": 0,
+      "materialized_views": []
+    },
+    {
+      "direct": false,
+      "seconds": 5.676034666015767,
+      "materialized_bytes": 0,
+      "materialized_views": []
+    },
+    {
+      "direct": true,
+      "seconds": 4.7124515430186875,
+      "materialized_bytes": 0,
+      "materialized_views": []
+    },
+    {
+      "direct": true,
+      "seconds": 4.742480837972835,
+      "materialized_bytes": 0,
+      "materialized_views": []
+    },
+    {
+      "direct": true,
+      "seconds": 4.772607767023146,
+      "materialized_bytes": 0,
+      "materialized_views": []
+    }
+  ],
+  "materialized_component_file_bytes": 1482388192,
+  "direct_payload_bytes": 0,
+  "alias_allocated_bytes": 8192,
+  "scope": "three verified warm materialized preparations then three direct preparations on the same v2 tag; no GPU allocation"
+}

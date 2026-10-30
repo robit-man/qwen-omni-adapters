@@ -21,7 +21,8 @@ PATCH = "llama.cpp-json-pattern-safety.patch"
 BOUNDS_PATCH = "llama.cpp-json-string-bounds.patch"
 CONDITIONING_PATCH = "llama.cpp-qwen3tts-conditioning-cache.patch"
 TOKEN_ROWS_PATCH = "llama.cpp-qwen3tts-token-rows.patch"
-INDEPENDENT_PATCHES = (PATCH, BOUNDS_PATCH, CONDITIONING_PATCH, TOKEN_ROWS_PATCH)
+INDEXED_VIEWS_PATCH = "llama.cpp-indexed-tts-views.patch"
+INDEPENDENT_PATCHES = (PATCH, BOUNDS_PATCH, CONDITIONING_PATCH, TOKEN_ROWS_PATCH, INDEXED_VIEWS_PATCH)
 
 
 def _patch_preimage(text: str, source: Path) -> None:
@@ -88,7 +89,8 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
 @pytest.mark.parametrize("patch_name,label", [(PATCH, "JSON pattern string safety"),
                                               (BOUNDS_PATCH, "JSON string length bounds"),
                                               (CONDITIONING_PATCH, "Qwen3-TTS immutable conditioning cache"),
-                                              (TOKEN_ROWS_PATCH, "Qwen3-TTS bounded token rows")])
+                                              (TOKEN_ROWS_PATCH, "Qwen3-TTS bounded token rows"),
+                                              (INDEXED_VIEWS_PATCH, "Indexed TTS source views")])
 def test_linux_builder_applies_each_independent_patch_once_and_keeps_pin(tmp_path, patch_name, label):
     repo, source, env = _build_fixture(tmp_path, patch_name=patch_name)
     command = ["bash", str(repo / "scripts/build_llama_cpp.sh"), str(source)]

@@ -133,8 +133,9 @@ def test_attach_and_resolve_omni_sidecar_layer(tmp_path: Path) -> None:
     assert Path(prepared["views"]["tts_model"]["output"]).is_file()
 
 
+@pytest.mark.parametrize("prefer_direct", [False, True])
 def test_lightweight_bridge_resolves_standard_layers_and_materializes_only_tts(
-    tmp_path: Path,
+    tmp_path: Path, prefer_direct: bool,
 ) -> None:
     models_dir = tmp_path / "models"
     blobs = models_dir / "blobs"
@@ -181,6 +182,7 @@ def test_lightweight_bridge_resolves_standard_layers_and_materializes_only_tts(
         model="robit/bridge:q4km",
         output_dir=tmp_path / "runtime-cache",
         models_dir=models_dir,
+        prefer_direct=prefer_direct,
     )
 
     assert resolved["profile"] == "trained-audio-bridge"
