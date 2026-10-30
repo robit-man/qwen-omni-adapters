@@ -1,0 +1,31 @@
+{
+  "schema": "robit.omni.native-ctc-parity.v1",
+  "head_gguf_sha256": "e939e15685138903f1c49701ccba830dcac058c780d116b5319532bd892bca15",
+  "native_source_sha256": "4e07949fd5bfa7959cb13e647df0609501e4ede22754764bc448c073b07d833d",
+  "decoder_source_sha256": "664669e6110ff75adaa0874af9932eaca02b0f53919c25d876330b07bf8f0cd1",
+  "binary_sha256": "f21b1a06e70356cf04b0361df57fd24858b7ddcb76319c4986d974238a451f0f",
+  "unique_feature_matrices": 315,
+  "maximum_absolute_logit_error": 6.103515625e-05,
+  "greedy_different_frames": 0,
+  "greedy_frames": 37167,
+  "results": {
+    "validation": {
+      "mean_speech_wer": 0.13612963702028247,
+      "empty_false_transcript_rate": 0.0,
+      "rows": 160,
+      "all_decoder_text_exact": true
+    },
+    "test": {
+      "mean_speech_wer": 0.09067606774089366,
+      "empty_false_transcript_rate": 0.0,
+      "rows": 155,
+      "all_decoder_text_exact": true
+    }
+  },
+  "total_s": 20.561584868002683,
+  "native_cuda_only": true,
+  "reasoning_weights_loaded": false,
+  "runtime_route_enabled": false,
+  "streaming_qualified": false,
+  "whole_model_qualified": false
+}

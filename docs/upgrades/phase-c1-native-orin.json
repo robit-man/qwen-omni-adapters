@@ -1,0 +1,35 @@
+{
+  "schema": "robit.omni.native-ctc-fixtures.v1",
+  "head_sha256": "e939e15685138903f1c49701ccba830dcac058c780d116b5319532bd892bca15",
+  "manifest_sha256": "9698b8fa1de15d2f1bd1601d6651ca3890d4a7ec892b353a6b8f807bf953370d",
+  "binary_sha256": "30d36aea0528f5738d2c9db83400dfce1d0d556a334728fd060a0b38c61fc148",
+  "producer_pid": 3337788,
+  "gpu_uuid": "",
+  "tegra": true,
+  "native_cuda_only": true,
+  "all_decoder_text_exact": true,
+  "maximum_absolute_logit_error": 8.392333984375e-05,
+  "native_median_ms": 3.31786,
+  "minimum_available_mib": 6949.800000000003,
+  "metrics": {
+    "validation": {
+      "mean_speech_wer": 0.1361296370202825,
+      "empty_false_transcript_rate": 0,
+      "speech_rows": 154,
+      "noise_rows": 6
+    },
+    "test": {
+      "mean_speech_wer": 0.09067606774089366,
+      "empty_false_transcript_rate": 0,
+      "speech_rows": 147,
+      "noise_rows": 8
+    }
+  },
+  "fixture_rows": 315,
+  "elapsed_s": 44.72372598294169,
+  "language_weights_loaded": false,
+  "encoder_executed_in_this_probe": false,
+  "runtime_route_enabled": false,
+  "streaming_qualified": false,
+  "whole_release_qualified": false
+}

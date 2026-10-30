@@ -190,9 +190,22 @@
       ]
     },
     {
+      "id": "C1",
+      "objective": "Qualify the trained English audio head and training-only decoder, export a native component and reproduce held-out outputs on CUDA",
+      "status": "quality_and_A100_Orin_native_head_cached_feature_gates_passed_sidecar_attachment_live_encoder_and_streaming_pending",
+      "evidence": [
+        "phase-c1-native-head.md",
+        "phase-c1-quality.json",
+        "phase-c1-rebalance-rejected.json",
+        "phase-c1-native-a100.json",
+        "phase-c1-native-orin.json",
+        "phase-c1-validation.json"
+      ]
+    },
+    {
       "id": "C",
       "objective": "Train, package and qualify exact-trunk decision, retrieval and streaming-audio heads",
-      "status": "native_shared_encoder_training_pipeline_verified_7_real_CTC_pilots_rejected_for_quality_decision_retrieval_and_native_head_integration_pending",
+      "status": "English_head_and_training_lexicon_pass_fixed_quality_and_A100_Orin_native_cached_feature_gates_bundle_live_encoder_streaming_decision_retrieval_integration_pending",
       "evidence": [
         "phase-c0-native-training.md",
         "phase-c0-input-audit.json",
@@ -200,7 +213,11 @@
         "phase-c0-native-features.json",
         "phase-c0-data.json",
         "phase-c0-training-progress.json",
-        "phase-c0-validation.json"
+        "phase-c0-validation.json",
+        "phase-c1-native-head.md",
+        "phase-c1-quality.json",
+        "phase-c1-native-a100.json",
+        "phase-c1-native-orin.json"
       ]
     },
     {
@@ -212,7 +229,7 @@
     {
       "id": "E",
       "objective": "Orin concurrency, complete parity, latency and safe memory qualification of both versioned releases",
-      "status": "Orin_matched_TTS_resource_and_repeatability_cases_verified_full_matrix_pending",
+      "status": "Ornith_TTS_and_head_subgates_verified_Qwen_isolated_host_preparation_unverified_SSH_command_channels_unresponsive_full_matrix_pending",
       "evidence": [
         "phase-e-orin-preparation.json",
         "phase-e-orin-tts-repeat.json",
@@ -221,7 +238,8 @@
         "production-integration.json",
         "phase-b5-context-orin.json",
         "phase-b4-idle-orin-adaptive.json",
-        "phase-b4b1-reference-orin.json"
+        "phase-b4b1-reference-orin.json",
+        "phase-e-qwen-host-preparation.json"
       ]
     },
     {

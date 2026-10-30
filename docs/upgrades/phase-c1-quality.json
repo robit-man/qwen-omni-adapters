@@ -1,0 +1,69 @@
+{
+  "schema": "robit.omni.ctc-lexicon-pilot.v1",
+  "tool_sha256": "76f02ffb0558a80022f5ba40ded19032e3e0663f7df1c280af6b578f3131bc2a",
+  "head_sha256": "7a3f96dfa38f75f726c387aec37e59ef678cb4a08d506194295f3fa7709a13d5",
+  "lexicon_sha256": "a05102d33f8815e3c39a27245b44332439ba5b61b58caf07274de24c29b3792b",
+  "lexicon_training_only": true,
+  "lexicon_words": 35670,
+  "external_language_model": false,
+  "beam_width": 16,
+  "frame_candidates": 32,
+  "exhaustive_small_lattices_passed": 8,
+  "validation_gate": true,
+  "native_runtime_integrated": false,
+  "whole_release_qualified": false,
+  "test_gate": true,
+  "validation": {
+    "speech_mean_wer": 0.13612963702028247,
+    "empty_false_transcript_rate": 0.0,
+    "speech_rows": 154,
+    "noise_rows": 6,
+    "greedy_fallback_rows": 4,
+    "strata": {
+      "espeak-ng plus deterministic procedural ambience": {
+        "rows": 78,
+        "mean_wer": 0.05979012385190875
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "rows": 29,
+        "mean_wer": 0.07136431758294447
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "rows": 47,
+        "mean_wer": 0.3027823240589198
+      }
+    }
+  },
+  "test": {
+    "speech_mean_wer": 0.09067606774089366,
+    "empty_false_transcript_rate": 0.0,
+    "speech_rows": 147,
+    "noise_rows": 8,
+    "greedy_fallback_rows": 1,
+    "strata": {
+      "espeak-ng plus deterministic procedural ambience": {
+        "rows": 72,
+        "mean_wer": 0.09256230834007396
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "rows": 75,
+        "mean_wer": 0.08886527676568058
+      }
+    }
+  },
+  "parameters": 2496000,
+  "head_gguf_sha256": "e939e15685138903f1c49701ccba830dcac058c780d116b5319532bd892bca15",
+  "head_gguf_bytes": 10518848,
+  "head_gguf_architecture": "robit_audio_ctc",
+  "source_training_report": "full-head-1/report.json",
+  "training_manifest_sha256": "94684473f81bdbf0e821fac1a5071432dad43098a6a7a60d1c2da29a904087ee",
+  "encoder_tensor_sha256": "8ee28b14130f8ad1dd5bdb38139090772c5217675e811ea85a8d309be9607210",
+  "baseline_greedy_validation_wer": 0.17107663660529085,
+  "validation_reference_OOV_tokens": 151,
+  "validation_reference_tokens": 3336,
+  "authoritative_full_bridge_retained": true,
+  "streaming_qualified": false,
+  "multilingual_qualified": false,
+  "native_encoder_head_integration_complete": false,
+  "sidecar_attachment_complete": false
+}
