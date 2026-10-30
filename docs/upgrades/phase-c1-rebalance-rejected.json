@@ -1,0 +1,196 @@
+{
+  "schema": "robit.omni.audio-ctc-head-pilot.v1",
+  "feature_backend": "native-ggml-float32",
+  "feature_manifest_sha256": "0951213dc0915c18e7e2a90262d01710b51397f8d121b9cd03f0c39d65eca8fa",
+  "architecture": "layernorm-affine-gelu-causal-conv3-residual-affine-ctc",
+  "parameters": 2496000,
+  "encoder_tensor_sha256": "8ee28b14130f8ad1dd5bdb38139090772c5217675e811ea85a8d309be9607210",
+  "vocabulary_size": 2048,
+  "head_sha256": "abe6d24999041fbfc276e01ef939e3bae5827d7222dc706e704ce44c4426fd1e",
+  "tool_sha256": "915019865be39e05d9bea9d9fb94d31dc53e7e9438d0ac1cc6e7ae446cd0341d",
+  "manifest_sha256": "3e2515558b988bc69e8dae58ebd8cfac42a0f46f07836af5ad6f4c43cd0b6143",
+  "selection": "validation_wer_plus_5_times_empty_false_rate",
+  "validation_gate": false,
+  "validation_maximum_mean_wer": 0.15,
+  "validation_maximum_empty_false_rate": 0.05,
+  "history": [
+    {
+      "epoch": 1,
+      "mean_train_loss": 0.9956443683890736,
+      "validation_wer": 0.22462691226489193,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 29.551778189023025
+    },
+    {
+      "epoch": 2,
+      "mean_train_loss": 0.2922559225325491,
+      "validation_wer": 0.21162583130099144,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.069406083028298
+    },
+    {
+      "epoch": 3,
+      "mean_train_loss": 0.2219369375764155,
+      "validation_wer": 0.19447887679921966,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.15977011003997
+    },
+    {
+      "epoch": 4,
+      "mean_train_loss": 0.1844865481613898,
+      "validation_wer": 0.2153575337282471,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.20033052196959
+    },
+    {
+      "epoch": 5,
+      "mean_train_loss": 0.15822438773279096,
+      "validation_wer": 0.19985545571088367,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.264661031018477
+    },
+    {
+      "epoch": 6,
+      "mean_train_loss": 0.13861586513472537,
+      "validation_wer": 0.20021036102384623,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.234277453040704
+    },
+    {
+      "epoch": 7,
+      "mean_train_loss": 0.12230198055797932,
+      "validation_wer": 0.1917674697587488,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.199166576960124
+    },
+    {
+      "epoch": 8,
+      "mean_train_loss": 0.1094994606895774,
+      "validation_wer": 0.19209943020835177,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.181734159006737
+    },
+    {
+      "epoch": 9,
+      "mean_train_loss": 0.09906385521386184,
+      "validation_wer": 0.19579862520562238,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.230067702999804
+    },
+    {
+      "epoch": 10,
+      "mean_train_loss": 0.08943393008673892,
+      "validation_wer": 0.2032476109190974,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.228481637022924
+    },
+    {
+      "epoch": 11,
+      "mean_train_loss": 0.08312964300898945,
+      "validation_wer": 0.1984182854307115,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.080076528014615
+    },
+    {
+      "epoch": 12,
+      "mean_train_loss": 0.0755279365868545,
+      "validation_wer": 0.19396304452599314,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.3918797870283
+    },
+    {
+      "epoch": 13,
+      "mean_train_loss": 0.07156544153304661,
+      "validation_wer": 0.186257744139539,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.27800664602546
+    },
+    {
+      "epoch": 14,
+      "mean_train_loss": 0.06536786925120681,
+      "validation_wer": 0.18624070871833365,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.923218261043075
+    },
+    {
+      "epoch": 15,
+      "mean_train_loss": 0.06194056398728315,
+      "validation_wer": 0.19385369784608147,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.131285704963375
+    },
+    {
+      "epoch": 16,
+      "mean_train_loss": 0.05897286773896685,
+      "validation_wer": 0.19518151625934396,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.205319612985477
+    },
+    {
+      "epoch": 17,
+      "mean_train_loss": 0.056085158223468885,
+      "validation_wer": 0.19615284926406493,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.197216941043735
+    },
+    {
+      "epoch": 18,
+      "mean_train_loss": 0.05346605735374432,
+      "validation_wer": 0.18469996848258274,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.1888035510201
+    },
+    {
+      "epoch": 19,
+      "mean_train_loss": 0.04934707977389004,
+      "validation_wer": 0.19886139037764777,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.157038301986177
+    },
+    {
+      "epoch": 20,
+      "mean_train_loss": 0.046589979388404125,
+      "validation_wer": 0.18770421560330758,
+      "validation_empty_false_rate": 0.0,
+      "elapsed_s": 28.233799259993248
+    }
+  ],
+  "native_runtime_integrated": false,
+  "partial_streaming_qualified": false,
+  "whole_release_qualified": false,
+  "elapsed_s": 606.8580260290182,
+  "gpu_peak_allocated_mib": 636.59814453125,
+  "data": {
+    "schema": "robit.omni.dataset-resampling.v1",
+    "source_manifest_sha256": "94684473f81bdbf0e821fac1a5071432dad43098a6a7a60d1c2da29a904087ee",
+    "manifest_sha256": "3e2515558b988bc69e8dae58ebd8cfac42a0f46f07836af5ad6f4c43cd0b6143",
+    "feature_manifest_sha256": "0951213dc0915c18e7e2a90262d01710b51397f8d121b9cd03f0c39d65eca8fa",
+    "heldout_rows_sha256": "68d6bd5c84185660cb517164847b2b4e6762a86b7b70891ee7ef510000939338",
+    "heldout_serialization": "source order; json.dumps(sort_keys=True) plus newline per row",
+    "heldout_rows_unchanged": true,
+    "added_training_rows": 8911,
+    "training_recovery_multiplier": 8,
+    "new_unique_audio": 0,
+    "old_training_sources": {
+      "espeak-ng plus deterministic procedural ambience": 490,
+      "deterministic procedural audio": 462,
+      "LibriSpeech dev-clean with deterministic local augmentation": 1096,
+      "Qwen3-TTS large-vocabulary recovery corpus": 1273,
+      "LibriSpeech train-clean-100; full duration-qualified split": 28539
+    },
+    "new_training_sources": {
+      "espeak-ng plus deterministic procedural ambience": 490,
+      "deterministic procedural audio": 462,
+      "LibriSpeech dev-clean with deterministic local augmentation": 1096,
+      "Qwen3-TTS large-vocabulary recovery corpus": 10184,
+      "LibriSpeech train-clean-100; full duration-qualified split": 28539
+    },
+    "quality_limits_changed": false,
+    "runtime_activation_authorized_by_this_report": false
+  },
+  "selected_validation": {
+    "speech_mean_wer": 0.18469996848258274,
+    "empty_false_transcript_rate": 0.0
+  },
+  "test_evaluated": false
+}

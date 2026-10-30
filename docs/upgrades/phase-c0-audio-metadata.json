@@ -1,0 +1,35 @@
+{
+  "audio_fields": {
+    "source": {
+      "clip.audio.projection_dim": 2048,
+      "clip.audio.embedding_length": 1280,
+      "clip.audio.feed_forward_length": 5120,
+      "clip.audio.block_count": 32,
+      "clip.audio.attention.head_count": 20,
+      "clip.audio.num_mel_bins": 128,
+      "clip.audio.attention.layer_norm_epsilon": 9.999999747378752e-06,
+      "clip.audio.projector_type": "qwen3a"
+    },
+    "ornith": {
+      "clip.audio.projection_dim": 2048,
+      "clip.audio.embedding_length": 1280,
+      "clip.audio.feed_forward_length": 5120,
+      "clip.audio.block_count": 32,
+      "clip.audio.attention.head_count": 20,
+      "clip.audio.num_mel_bins": 128,
+      "clip.audio.attention.layer_norm_epsilon": 9.999999747378752e-06,
+      "clip.audio.projector_type": "qwen3a"
+    },
+    "qwen": {
+      "clip.audio.projection_dim": 2048,
+      "clip.audio.embedding_length": 1280,
+      "clip.audio.feed_forward_length": 5120,
+      "clip.audio.block_count": 32,
+      "clip.audio.attention.head_count": 20,
+      "clip.audio.num_mel_bins": 128,
+      "clip.audio.attention.layer_norm_epsilon": 9.999999747378752e-06,
+      "clip.audio.projector_type": "qwen3a"
+    }
+  },
+  "different_fields": {}
+}

@@ -144,10 +144,46 @@ The adapter preserves the full locale for response wording and regional
 conventions, then maps its primary subtag to one of Qwen3-TTS's ten ISO 639-1
 language tokens. Regional acoustic accent still comes from the speaker
 reference; the locale does not claim a separate accent checkpoint.
+
+`speech.reference_text` optionally supplies the words spoken in the reference,
+up to 2048 Unicode characters without NUL. A nonblank value requires
+`speaker_file` or `speaker_audio` and selects Qwen3-TTS Base's full reference-text
+and acoustic-code conditioning. The frozen reference encoder must be present in
+the same installed sidecar and the matching native runtime must be built. Missing
+components fail explicitly. Omitted/blank text retains speaker-embedding
+conditioning. This does not enable VoiceDesign, preset style instructions or
+another model family. Successful synthesis reports `adapter.voice_conditioning`:
+`reference_prompt`, `speaker_embedding`, or `unconditioned`.
+
+Reference audio is normalized to bounded 24 kHz mono PCM16 with the pinned soxr
+algorithm before frozen encoding. A bounded, one-entry RAM cache keys the
+reference content, transcript, language, exact Base/codec/encoder identities,
+normalization and conditioning versions. Saving a voice profile and its transcript
+requires an explicit save action. The wrapper's request-local references and conditioning files are
+temporary and their workers close after the utterance. A nonblank transcript is
+never silently downgraded to speaker-embedding-only cloning.
+
+Saved voice presets may carry their own `reference_text`. Selecting another
+preset selects or clears that transcript along with the audio; uploaded audio
+never inherits a server preset's transcript. The portal voice dialog accepts an
+optional transcript for the selected reference. The desktop indicator's
+**Reference transcript** action explicitly saves it for that voice. Changing a
+voice does not restart the reasoning trunk. Python clients support
+`--speaker-audio`/`--speaker-file` and `--reference-text`; the JavaScript example
+accepts `OMNI_SPEAKER_REFERENCE` and `OMNI_REFERENCE_TEXT`.
 The reference adapter treats `max_frames` as a per-block ceiling: long replies
 are split at natural text boundaries, PCM sequence numbering remains continuous,
 and the complete final WAV concatenates every block. The adapter trace reports
 the number as `tts_blocks`.
+
+Packet cadence is owned by the speech backend when no override is supplied.
+The coordinated runtime defaults `OMNI_TTS_STREAM_FRAMES` to `auto`: full-reference
+requests with an adaptive 4K context select four frames, while other profiles
+retain eight. An explicit server setting or direct `speech.stream_frames` value
+from 1 to 72 is preserved. Automatic batches use one cadence for all blocks,
+selected against the largest context requirement. These are real acoustic decode
+windows, not slices cut from an already completed WAV. The public PCM events,
+sequence numbering, sample format and final-WAV behavior remain unchanged.
 
 ## Message media fields
 

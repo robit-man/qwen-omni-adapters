@@ -1,0 +1,12 @@
+{
+  "schema": "robit.omni.ctc-token-density-audit.v1",
+  "tokenizer_training_manifest_sha256": "65384f60557f0339782f5c3cde39561b89f6a7feb42ff5878f890df109f91802",
+  "tokenizer_2048_sha256": "7edfe91fc9f9716c357c464d6f8ffc40ed0d9db7bc5fa2a7d2d54452c924c345",
+  "validation_speech_records": 154,
+  "original_mean_required_frame_fraction": 0.3913532566484104,
+  "candidate_mean_required_frame_fraction": 0.22724021033233105,
+  "original_p95_required_frame_fraction": 0.5866133866133866,
+  "candidate_p95_required_frame_fraction": 0.36121794871794866,
+  "original_density_wer_correlation": 0.18397823002204777,
+  "only_training_text_used_to_fit_tokenizer": true
+}

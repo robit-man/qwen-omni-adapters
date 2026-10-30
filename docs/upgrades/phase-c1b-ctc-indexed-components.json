@@ -1,0 +1,29 @@
+{
+  "components": [
+    {
+      "view": "tts_model",
+      "sha256": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129",
+      "bytes": 1035965280,
+      "exact_source": true
+    },
+    {
+      "view": "tts_projector",
+      "sha256": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2",
+      "bytes": 446422912,
+      "exact_source": true
+    },
+    {
+      "view": "tts_reference_encoder",
+      "sha256": "587b2b59ebfa815c5490fbc4bddb5dde3454cfbca4eef108d8688b668628a0e5",
+      "bytes": 190080704,
+      "exact_source": true
+    },
+    {
+      "view": "audio_ctc_head",
+      "sha256": "e939e15685138903f1c49701ccba830dcac058c780d116b5319532bd892bca15",
+      "bytes": 10518848,
+      "exact_source": true
+    }
+  ],
+  "all_exact": true
+}

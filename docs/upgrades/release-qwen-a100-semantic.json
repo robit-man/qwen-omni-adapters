@@ -1,0 +1,53 @@
+{
+  "schema": "robit.omni.semantic-auditory-gates.v1",
+  "family": "qwen",
+  "checks": [
+    {
+      "fixture": "alarm.wav",
+      "status": 200,
+      "elapsed_s": 1.4224349859869108,
+      "passed": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Continuous low-level broadband hiss with faint periodic amplitude modulation and no distinct tonal events, impacts, or rhythmic pulses.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "Continuous low-level broadband hiss with faint periodic amplitude modulation and no distinct tonal events, impacts, or rhythmic pulses."
+    },
+    {
+      "fixture": "esc50-clock_alarm.wav",
+      "status": 200,
+      "elapsed_s": 1.8204333879984915,
+      "passed": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>The recording consists of continuous low-level broadband hiss with no distinct tonal peaks, rhythmic pulses, or transient impacts. The noise floor remains steady throughout the duration without audible modulation.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "The recording consists of continuous low-level broadband hiss with no distinct tonal peaks, rhythmic pulses, or transient impacts. The noise floor remains steady throughout the duration without audible modulation."
+    },
+    {
+      "fixture": "esc50-dog.wav",
+      "status": 200,
+      "elapsed_s": 1.7996725239790976,
+      "passed": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Low-level broadband hiss with occasional short, soft transient clicks and faint tonal hums in the midrange. No clear rhythmic pattern or sustained melodic content detected.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "Low-level broadband hiss with occasional short, soft transient clicks and faint tonal hums in the midrange. No clear rhythmic pattern or sustained melodic content detected."
+    },
+    {
+      "fixture": "esc50-church_bells.wav",
+      "status": 200,
+      "elapsed_s": 1.509874178969767,
+      "passed": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Continuous low-level broadband hiss with faint intermittent tonal swells and no distinct percussive events.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "Continuous low-level broadband hiss with faint intermittent tonal swells and no distinct percussive events."
+    },
+    {
+      "fixture": "colors-speech.mp4",
+      "status": 200,
+      "elapsed_s": 6.6345247339922935,
+      "passed": false,
+      "content": "The provided media consists of a sequence of solid color frames with black bars at the top and bottom. The colors transition from red to blue, then to green, over a duration marked as 0m0.00s to [0m5.00s]. There is no visible text, figures, or objects other than the colored background.\n\n<speech_transcript></speech_transcript>\n<audio_observation>No audio information was provided in the source material.</audio_observation>\n<visual_observation>The video displays a series of solid color backgrounds framed by black bars at the top and bottom. The sequence begins with a bright red screen, which then transitions to a vibrant blue, followed by a vivid green. This progression occurs over a five-second interval, as indicated by the timestamps 0m0.00s and [0m5.00s]. No other visual elements are present.</visual_observation>",
+      "transcript": "",
+      "audio_observation": "No audio information was provided in the source material.",
+      "wer": 1.0
+    }
+  ],
+  "passed": false
+}

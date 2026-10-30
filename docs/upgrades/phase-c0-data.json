@@ -1,0 +1,14 @@
+{
+  "schema": "robit.omni.audio-head-full-training-expansion.v1",
+  "archive_sha256": "d4ddd1d5a6ab303066f14971d768ee43278a5f2a0aa43dc716b0e64ecbbbf6e2",
+  "license": "CC BY 4.0",
+  "added_training_utterances": 28539,
+  "added_speakers": 251,
+  "added_speech_hours": 100.59087965277813,
+  "excluded_over_30s": 0,
+  "speaker_overlap_with_original_corpus": 0,
+  "unchanged_evaluation_rows_sha256": "989455d158aa6dc40512f292dda56d9a28c43d0e579c0be7b6f9d41aa25b4ae1",
+  "validation_rows": 160,
+  "test_rows": 155,
+  "manifest_sha256": "94684473f81bdbf0e821fac1a5071432dad43098a6a7a60d1c2da29a904087ee"
+}

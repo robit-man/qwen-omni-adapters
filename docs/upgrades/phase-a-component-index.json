@@ -1,0 +1,1045 @@
+{
+  "schema": "robit.omni.component-view-benchmark.v1",
+  "created_at": "2026-10-29T23:49:23.867418+00:00",
+  "scope": "CPU artifact preparation only; no inference or GPU-residency measurement",
+  "python": "3.12.3",
+  "platform": "Linux",
+  "architecture": "x86_64",
+  "trials_per_mode": 3,
+  "baseline_revision": "7554ae0118a2b1527ab537a1cd11e4cd7251770c",
+  "baseline_source_sha256": "b140db2d86cfeaf790b5ac03cc0976b953062b07fb499d16ccd4997fba07c74f",
+  "upgraded_source_sha256": {
+    "src/qwen_omni_adapters/ollama_sidecar.py": "2db4600d6411301cc0cd2979da9a30d9b57c4a9a540f8e749ad7b8d172582971",
+    "src/qwen_omni_adapters/single_gguf.py": "2a24435e85315cf8e840c6dbce72da2365409f19cba820e1af2fd925dddfb22f",
+    "src/qwen_omni_adapters/component_views.py": "1d77d82b123fa865f0692179236222aed125f914c3fb158a2d79a2d548c78739"
+  },
+  "work_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029",
+  "profiles": [
+    {
+      "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+      "bundle_digest": "sha256:56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+      "component_bytes": 1482388192,
+      "baseline_materialized_bytes_per_run": 1482388192,
+      "warm_materialized_bytes_per_run": 0,
+      "exact_component_sha256": {
+        "tts_model": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129",
+        "tts_projector": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2"
+      },
+      "component_bytes_identical": true,
+      "warm_component_identities_unchanged": true,
+      "baseline_median_s": 28.47944034001557,
+      "warm_median_s": 6.033543867000844,
+      "median_preparation_reduction_percent": 78.81438751967573,
+      "baseline_runs": [
+        {
+          "elapsed_s": 21.672548360947985,
+          "process_peak_rss_kib": 2117052,
+          "implementation": "/home/roko/Documents/qwen-omni-adapters-main/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "bundle_digest": "sha256:56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                  "from": "ornith-1.5:9b",
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "size": 5629109056
+                },
+                "path": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "annotations": {
+                    "io.robit.audio-bridge.modalities": "vision,audio",
+                    "io.robit.audio-bridge.schema": "robit.ollama-audio-bridge-tag.v1",
+                    "org.opencontainers.image.title": "mmproj-ornith15-omni-audio-bridge-final-bf16.gguf"
+                  },
+                  "digest": "sha256:7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "size": 1640239200
+                },
+                "path": "/srv/ollama/models/blobs/sha256-7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 6.36
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 0.63
+              }
+            }
+          }
+        },
+        {
+          "elapsed_s": 43.847452868008986,
+          "process_peak_rss_kib": 2119808,
+          "implementation": "/home/roko/Documents/qwen-omni-adapters-main/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "bundle_digest": "sha256:56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                  "from": "ornith-1.5:9b",
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "size": 5629109056
+                },
+                "path": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "annotations": {
+                    "io.robit.audio-bridge.modalities": "vision,audio",
+                    "io.robit.audio-bridge.schema": "robit.ollama-audio-bridge-tag.v1",
+                    "org.opencontainers.image.title": "mmproj-ornith15-omni-audio-bridge-final-bf16.gguf"
+                  },
+                  "digest": "sha256:7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "size": 1640239200
+                },
+                "path": "/srv/ollama/models/blobs/sha256-7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 25.55
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 3.66
+              }
+            }
+          }
+        },
+        {
+          "elapsed_s": 28.47944034001557,
+          "process_peak_rss_kib": 2118396,
+          "implementation": "/home/roko/Documents/qwen-omni-adapters-main/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "bundle_digest": "sha256:56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                  "from": "ornith-1.5:9b",
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "size": 5629109056
+                },
+                "path": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "annotations": {
+                    "io.robit.audio-bridge.modalities": "vision,audio",
+                    "io.robit.audio-bridge.schema": "robit.ollama-audio-bridge-tag.v1",
+                    "org.opencontainers.image.title": "mmproj-ornith15-omni-audio-bridge-final-bf16.gguf"
+                  },
+                  "digest": "sha256:7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "size": 1640239200
+                },
+                "path": "/srv/ollama/models/blobs/sha256-7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 11.77
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 2.29
+              }
+            }
+          }
+        }
+      ],
+      "indexed_prime": {
+        "elapsed_s": 27.12914830702357,
+        "process_peak_rss_kib": 2117604,
+        "implementation": "/home/roko/Documents/qwen-omni-upgrade/src/qwen_omni_adapters/ollama_sidecar.py",
+        "gguf_version": "0.19.0",
+        "result": {
+          "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+          "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+          "bundle_digest": "sha256:56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+          "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0",
+          "disposable_cache": true,
+          "profile": "trained-audio-bridge",
+          "standard_layers": {
+            "language_model": {
+              "layer": {
+                "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                "from": "ornith-1.5:9b",
+                "mediaType": "application/vnd.ollama.image.model",
+                "size": 5629109056
+              },
+              "path": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+              "available": true
+            },
+            "projector": {
+              "layer": {
+                "annotations": {
+                  "io.robit.audio-bridge.modalities": "vision,audio",
+                  "io.robit.audio-bridge.schema": "robit.ollama-audio-bridge-tag.v1",
+                  "org.opencontainers.image.title": "mmproj-ornith15-omni-audio-bridge-final-bf16.gguf"
+                },
+                "digest": "sha256:7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                "mediaType": "application/vnd.ollama.image.projector",
+                "size": 1640239200
+              },
+              "path": "/srv/ollama/models/blobs/sha256-7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+              "available": true
+            }
+          },
+          "views": {
+            "tts_model": {
+              "schema": "robit.ollama-monolithic-omni.v3",
+              "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+              "view": "tts_model",
+              "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-model.gguf",
+              "output_size_bytes": 1035965280,
+              "architecture": "qwen3tts",
+              "tensor_count": 311,
+              "metadata_copied": 28,
+              "metadata_skipped": [],
+              "elapsed_s": 11.85,
+              "reused": false
+            },
+            "tts_projector": {
+              "schema": "robit.ollama-monolithic-omni.v3",
+              "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+              "view": "tts_projector",
+              "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-projector.gguf",
+              "output_size_bytes": 446422912,
+              "architecture": "clip",
+              "tensor_count": 378,
+              "metadata_copied": 26,
+              "metadata_skipped": [],
+              "elapsed_s": 4.11,
+              "reused": false
+            }
+          },
+          "component_index": {
+            "schema": "robit.omni.component-view-index.v1",
+            "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/component-view-index.json",
+            "reused_views": [],
+            "materialized_views": [
+              "tts_model",
+              "tts_projector"
+            ],
+            "reused_bytes": 0,
+            "materialized_bytes": 1482388192
+          }
+        }
+      },
+      "warm_runs": [
+        {
+          "elapsed_s": 6.033543867000844,
+          "process_peak_rss_kib": 583636,
+          "implementation": "/home/roko/Documents/qwen-omni-upgrade/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "bundle_digest": "sha256:56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                  "from": "ornith-1.5:9b",
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "size": 5629109056
+                },
+                "path": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "annotations": {
+                    "io.robit.audio-bridge.modalities": "vision,audio",
+                    "io.robit.audio-bridge.schema": "robit.ollama-audio-bridge-tag.v1",
+                    "org.opencontainers.image.title": "mmproj-ornith15-omni-audio-bridge-final-bf16.gguf"
+                  },
+                  "digest": "sha256:7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "size": 1640239200
+                },
+                "path": "/srv/ollama/models/blobs/sha256-7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 11.85,
+                "reused": true
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 4.11,
+                "reused": true
+              }
+            },
+            "component_index": {
+              "schema": "robit.omni.component-view-index.v1",
+              "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/component-view-index.json",
+              "reused_views": [
+                "tts_model",
+                "tts_projector"
+              ],
+              "materialized_views": [],
+              "reused_bytes": 1482388192,
+              "materialized_bytes": 0
+            }
+          }
+        },
+        {
+          "elapsed_s": 6.035222907026764,
+          "process_peak_rss_kib": 584544,
+          "implementation": "/home/roko/Documents/qwen-omni-upgrade/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "bundle_digest": "sha256:56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                  "from": "ornith-1.5:9b",
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "size": 5629109056
+                },
+                "path": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "annotations": {
+                    "io.robit.audio-bridge.modalities": "vision,audio",
+                    "io.robit.audio-bridge.schema": "robit.ollama-audio-bridge-tag.v1",
+                    "org.opencontainers.image.title": "mmproj-ornith15-omni-audio-bridge-final-bf16.gguf"
+                  },
+                  "digest": "sha256:7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "size": 1640239200
+                },
+                "path": "/srv/ollama/models/blobs/sha256-7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 11.85,
+                "reused": true
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 4.11,
+                "reused": true
+              }
+            },
+            "component_index": {
+              "schema": "robit.omni.component-view-index.v1",
+              "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/component-view-index.json",
+              "reused_views": [
+                "tts_model",
+                "tts_projector"
+              ],
+              "materialized_views": [],
+              "reused_bytes": 1482388192,
+              "materialized_bytes": 0
+            }
+          }
+        },
+        {
+          "elapsed_s": 6.000962090969551,
+          "process_peak_rss_kib": 585796,
+          "implementation": "/home/roko/Documents/qwen-omni-upgrade/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "bundle_digest": "sha256:56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                  "from": "ornith-1.5:9b",
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "size": 5629109056
+                },
+                "path": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "annotations": {
+                    "io.robit.audio-bridge.modalities": "vision,audio",
+                    "io.robit.audio-bridge.schema": "robit.ollama-audio-bridge-tag.v1",
+                    "org.opencontainers.image.title": "mmproj-ornith15-omni-audio-bridge-final-bf16.gguf"
+                  },
+                  "digest": "sha256:7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "size": 1640239200
+                },
+                "path": "/srv/ollama/models/blobs/sha256-7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 11.85,
+                "reused": true
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 4.11,
+                "reused": true
+              }
+            },
+            "component_index": {
+              "schema": "robit.omni.component-view-index.v1",
+              "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/component-view-index.json",
+              "reused_views": [
+                "tts_model",
+                "tts_projector"
+              ],
+              "materialized_views": [],
+              "reused_bytes": 1482388192,
+              "materialized_bytes": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+      "bundle_digest": "sha256:2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+      "component_bytes": 1482388192,
+      "baseline_materialized_bytes_per_run": 1482388192,
+      "warm_materialized_bytes_per_run": 0,
+      "exact_component_sha256": {
+        "tts_model": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129",
+        "tts_projector": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2"
+      },
+      "component_bytes_identical": true,
+      "warm_component_identities_unchanged": true,
+      "baseline_median_s": 22.694271865999326,
+      "warm_median_s": 5.962831864017062,
+      "median_preparation_reduction_percent": 73.72538806609342,
+      "baseline_runs": [
+        {
+          "elapsed_s": 21.860388695029542,
+          "process_peak_rss_kib": 2116168,
+          "implementation": "/home/roko/Documents/qwen-omni-adapters-main/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "bundle_digest": "sha256:2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "digest": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                  "size": 16547400480
+                },
+                "path": "/srv/ollama/models/blobs/sha256-91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "digest": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                  "size": 1652306304
+                },
+                "path": "/srv/ollama/models/blobs/sha256-554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 6.64
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 0.7
+              }
+            }
+          }
+        },
+        {
+          "elapsed_s": 22.694271865999326,
+          "process_peak_rss_kib": 2117048,
+          "implementation": "/home/roko/Documents/qwen-omni-adapters-main/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "bundle_digest": "sha256:2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "digest": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                  "size": 16547400480
+                },
+                "path": "/srv/ollama/models/blobs/sha256-91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "digest": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                  "size": 1652306304
+                },
+                "path": "/srv/ollama/models/blobs/sha256-554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 7.12
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 0.81
+              }
+            }
+          }
+        },
+        {
+          "elapsed_s": 22.80077860597521,
+          "process_peak_rss_kib": 2119728,
+          "implementation": "/home/roko/Documents/qwen-omni-adapters-main/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "bundle_digest": "sha256:2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "digest": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                  "size": 16547400480
+                },
+                "path": "/srv/ollama/models/blobs/sha256-91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "digest": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                  "size": 1652306304
+                },
+                "path": "/srv/ollama/models/blobs/sha256-554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 7.07
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 1.02
+              }
+            }
+          }
+        }
+      ],
+      "indexed_prime": {
+        "elapsed_s": 21.255785368965007,
+        "process_peak_rss_kib": 2116600,
+        "implementation": "/home/roko/Documents/qwen-omni-upgrade/src/qwen_omni_adapters/ollama_sidecar.py",
+        "gguf_version": "0.19.0",
+        "result": {
+          "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+          "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+          "bundle_digest": "sha256:2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+          "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1",
+          "disposable_cache": true,
+          "profile": "trained-audio-bridge",
+          "standard_layers": {
+            "language_model": {
+              "layer": {
+                "mediaType": "application/vnd.ollama.image.model",
+                "digest": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                "size": 16547400480
+              },
+              "path": "/srv/ollama/models/blobs/sha256-91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+              "available": true
+            },
+            "projector": {
+              "layer": {
+                "mediaType": "application/vnd.ollama.image.projector",
+                "digest": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                "size": 1652306304
+              },
+              "path": "/srv/ollama/models/blobs/sha256-554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+              "available": true
+            }
+          },
+          "views": {
+            "tts_model": {
+              "schema": "robit.ollama-monolithic-omni.v3",
+              "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+              "view": "tts_model",
+              "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-model.gguf",
+              "output_size_bytes": 1035965280,
+              "architecture": "qwen3tts",
+              "tensor_count": 311,
+              "metadata_copied": 28,
+              "metadata_skipped": [],
+              "elapsed_s": 9.02,
+              "reused": false
+            },
+            "tts_projector": {
+              "schema": "robit.ollama-monolithic-omni.v3",
+              "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+              "view": "tts_projector",
+              "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-projector.gguf",
+              "output_size_bytes": 446422912,
+              "architecture": "clip",
+              "tensor_count": 378,
+              "metadata_copied": 26,
+              "metadata_skipped": [],
+              "elapsed_s": 1.11,
+              "reused": false
+            }
+          },
+          "component_index": {
+            "schema": "robit.omni.component-view-index.v1",
+            "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/component-view-index.json",
+            "reused_views": [],
+            "materialized_views": [
+              "tts_model",
+              "tts_projector"
+            ],
+            "reused_bytes": 0,
+            "materialized_bytes": 1482388192
+          }
+        }
+      },
+      "warm_runs": [
+        {
+          "elapsed_s": 5.962831864017062,
+          "process_peak_rss_kib": 587284,
+          "implementation": "/home/roko/Documents/qwen-omni-upgrade/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "bundle_digest": "sha256:2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "digest": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                  "size": 16547400480
+                },
+                "path": "/srv/ollama/models/blobs/sha256-91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "digest": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                  "size": 1652306304
+                },
+                "path": "/srv/ollama/models/blobs/sha256-554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 9.02,
+                "reused": true
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 1.11,
+                "reused": true
+              }
+            },
+            "component_index": {
+              "schema": "robit.omni.component-view-index.v1",
+              "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/component-view-index.json",
+              "reused_views": [
+                "tts_model",
+                "tts_projector"
+              ],
+              "materialized_views": [],
+              "reused_bytes": 1482388192,
+              "materialized_bytes": 0
+            }
+          }
+        },
+        {
+          "elapsed_s": 6.034293484000955,
+          "process_peak_rss_kib": 586276,
+          "implementation": "/home/roko/Documents/qwen-omni-upgrade/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "bundle_digest": "sha256:2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "digest": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                  "size": 16547400480
+                },
+                "path": "/srv/ollama/models/blobs/sha256-91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "digest": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                  "size": 1652306304
+                },
+                "path": "/srv/ollama/models/blobs/sha256-554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 9.02,
+                "reused": true
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 1.11,
+                "reused": true
+              }
+            },
+            "component_index": {
+              "schema": "robit.omni.component-view-index.v1",
+              "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/component-view-index.json",
+              "reused_views": [
+                "tts_model",
+                "tts_projector"
+              ],
+              "materialized_views": [],
+              "reused_bytes": 1482388192,
+              "materialized_bytes": 0
+            }
+          }
+        },
+        {
+          "elapsed_s": 5.862256122054532,
+          "process_peak_rss_kib": 587224,
+          "implementation": "/home/roko/Documents/qwen-omni-upgrade/src/qwen_omni_adapters/ollama_sidecar.py",
+          "gguf_version": "0.19.0",
+          "result": {
+            "model": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+            "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "bundle_digest": "sha256:2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+            "output_dir": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1",
+            "disposable_cache": true,
+            "profile": "trained-audio-bridge",
+            "standard_layers": {
+              "language_model": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.model",
+                  "digest": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                  "size": 16547400480
+                },
+                "path": "/srv/ollama/models/blobs/sha256-91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+                "available": true
+              },
+              "projector": {
+                "layer": {
+                  "mediaType": "application/vnd.ollama.image.projector",
+                  "digest": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                  "size": 1652306304
+                },
+                "path": "/srv/ollama/models/blobs/sha256-554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+                "available": true
+              }
+            },
+            "views": {
+              "tts_model": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_model",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-model.gguf",
+                "output_size_bytes": 1035965280,
+                "architecture": "qwen3tts",
+                "tensor_count": 311,
+                "metadata_copied": 28,
+                "metadata_skipped": [],
+                "elapsed_s": 9.02,
+                "reused": true
+              },
+              "tts_projector": {
+                "schema": "robit.ollama-monolithic-omni.v3",
+                "bundle": "/srv/ollama/models/blobs/sha256-2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+                "view": "tts_projector",
+                "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/tts-projector.gguf",
+                "output_size_bytes": 446422912,
+                "architecture": "clip",
+                "tensor_count": 378,
+                "metadata_copied": 26,
+                "metadata_skipped": [],
+                "elapsed_s": 1.11,
+                "reused": true
+              }
+            },
+            "component_index": {
+              "schema": "robit.omni.component-view-index.v1",
+              "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-1/component-view-index.json",
+              "reused_views": [
+                "tts_model",
+                "tts_projector"
+              ],
+              "materialized_views": [],
+              "reused_bytes": 1482388192,
+              "materialized_bytes": 0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,152 @@
+{
+  "schema": "robit.omni.release-live-api.v1",
+  "family": "ornith",
+  "model": "robit/ornith-1.5-omni:edge-v2-ctc-candidate-20261030",
+  "checks": [
+    {
+      "name": "text_think_false",
+      "passed": true,
+      "elapsed_s": 1.4487354510929435,
+      "evidence": {
+        "no_thinking": true,
+        "tag_exact": true
+      }
+    },
+    {
+      "name": "separate_thinking",
+      "passed": true,
+      "elapsed_s": 1.9194877841509879,
+      "evidence": {
+        "thinking_chars": 14,
+        "final_correct": true
+      }
+    },
+    {
+      "name": "structured_tool_speech_deferral",
+      "passed": true,
+      "elapsed_s": 3.270609652157873,
+      "evidence": {
+        "structured_call": true,
+        "arguments_exact": true,
+        "unresolved_tool_not_spoken": true
+      }
+    },
+    {
+      "name": "fresh_red_blue_red",
+      "passed": true,
+      "elapsed_s": 19.26538666104898,
+      "evidence": {
+        "observed_colors": [
+          "red",
+          "blue",
+          "red"
+        ],
+        "fresh_visual_provenance": true
+      }
+    },
+    {
+      "name": "audio_transcription",
+      "passed": true,
+      "elapsed_s": 2.942018711939454,
+      "evidence": {
+        "transcript": "The blue bicycle is parked beside the garden gate.",
+        "wer": 0.0,
+        "current_visual_input": false
+      }
+    },
+    {
+      "name": "environment_alarm",
+      "passed": true,
+      "elapsed_s": 5.057122702943161,
+      "evidence": {
+        "audio_observation": "No intelligible speech is present throughout the clip. The audio consists of continuous, low-level electronic noise resembling faint static or hiss across the entire recording. There are no discernible tones, hums, mechanical sounds, impacts, or other identifiable acoustic events beyond this steady background noise floor.",
+        "transcript": ""
+      }
+    },
+    {
+      "name": "environment_noise",
+      "passed": true,
+      "elapsed_s": 2.9765712830703706,
+      "evidence": {
+        "audio_observation": "A single soft heartbeat-like thump is heard, followed by faint ambient room noise.",
+        "transcript": ""
+      }
+    },
+    {
+      "name": "environment_music",
+      "passed": true,
+      "elapsed_s": 2.6959636248648167,
+      "evidence": {
+        "audio_observation": "No audible content detected in this audio sample.",
+        "transcript": ""
+      }
+    },
+    {
+      "name": "silence_requires_speech",
+      "passed": true,
+      "elapsed_s": 3.0143463409040123,
+      "evidence": {
+        "comprehension_only": true,
+        "no_language_or_tts": true
+      }
+    },
+    {
+      "name": "sampled_video_with_audio",
+      "passed": true,
+      "elapsed_s": 52.52846023696475,
+      "evidence": {
+        "observation": "<speech_transcript></speech_transcript>\n<audio_observation>The audio is unavailable for this exchange, so I cannot report any sounds, music, ambience, or speaker activity with confidence.</audio_observation>\n<visual_observation>A solid red field fills the frame from 0 to about 5 seconds. At roughly 5 seconds the entire frame shifts to a solid blue field that holds until about 10 seconds. From around 10 seconds onward the frame is a solid green field, which persists through the end of the clip. Each color change appears as an abrupt full-frame swap rather than a gradual transition; no text, shapes, or other elements are visible at any point.</visual_observation>",
+        "audio_observation": "The audio is unavailable for this exchange, so I cannot report any sounds, music, ambience, or speaker activity with confidence."
+      }
+    },
+    {
+      "name": "request_local_voice_complete",
+      "passed": true,
+      "elapsed_s": 13.473949314793572,
+      "evidence": {
+        "wav_bytes": 207404,
+        "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+        "first_pcm_s": null,
+        "stream_chunks": 0,
+        "format": "24kHz mono PCM16"
+      }
+    },
+    {
+      "name": "request_local_voice_stream",
+      "passed": true,
+      "elapsed_s": 13.502721763914451,
+      "evidence": {
+        "wav_bytes": 207404,
+        "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+        "first_pcm_s": 8.73904406814836,
+        "stream_chunks": 14,
+        "format": "24kHz mono PCM16"
+      }
+    },
+    {
+      "name": "post_tts_audio_transcription",
+      "passed": true,
+      "elapsed_s": 2.811514458153397,
+      "evidence": {
+        "transcript": "The blue bicycle is parked beside the garden gate.",
+        "wer": 0.0,
+        "current_visual_input": false
+      }
+    },
+    {
+      "name": "concurrent_session_isolation",
+      "passed": true,
+      "elapsed_s": 2.8307160870172083,
+      "evidence": {
+        "isolated_responses": true,
+        "concurrent_sessions": 2
+      }
+    }
+  ],
+  "passed": true,
+  "physical_playback_qualified": false,
+  "primary_gpu_resident": true,
+  "primary_pid": 3429094,
+  "scope": "Operational request/response, GPU residency and PCM contracts; not semantic auditory accuracy",
+  "fixture_correction": "Audio WAV fixtures were normalized to the documented 16 kHz PCM16 input before the failed contract checks were rerun."
+}

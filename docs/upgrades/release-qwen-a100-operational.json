@@ -1,0 +1,150 @@
+{
+  "schema": "robit.omni.release-live-api.v1",
+  "family": "qwen",
+  "model": "robit/qwen3.8-27b-e03-omni:edge-v2-ctc-candidate-20261030",
+  "checks": [
+    {
+      "name": "text_think_false",
+      "passed": true,
+      "elapsed_s": 0.7773503870121203,
+      "evidence": {
+        "no_thinking": true,
+        "tag_exact": true
+      }
+    },
+    {
+      "name": "separate_thinking",
+      "passed": true,
+      "elapsed_s": 1.7413017020444386,
+      "evidence": {
+        "thinking_chars": 80,
+        "final_correct": true
+      }
+    },
+    {
+      "name": "structured_tool_speech_deferral",
+      "passed": true,
+      "elapsed_s": 2.0557632529526018,
+      "evidence": {
+        "structured_call": true,
+        "arguments_exact": true,
+        "unresolved_tool_not_spoken": true
+      }
+    },
+    {
+      "name": "fresh_red_blue_red",
+      "passed": true,
+      "elapsed_s": 6.8898255079984665,
+      "evidence": {
+        "observed_colors": [
+          "red",
+          "blue",
+          "red"
+        ],
+        "fresh_visual_provenance": true
+      }
+    },
+    {
+      "name": "audio_transcription",
+      "passed": true,
+      "elapsed_s": 1.6038924439926632,
+      "evidence": {
+        "transcript": "The blue bicycle is parked beside the garden gate.",
+        "wer": 0.0,
+        "current_visual_input": false
+      }
+    },
+    {
+      "name": "environment_alarm",
+      "passed": true,
+      "elapsed_s": 1.5875923130079173,
+      "evidence": {
+        "audio_observation": "Continuous low-level broadband hiss with faint periodic amplitude modulation and no distinct tonal events, impacts, or rhythmic pulses.",
+        "transcript": ""
+      }
+    },
+    {
+      "name": "environment_noise",
+      "passed": true,
+      "elapsed_s": 2.0453763739787973,
+      "evidence": {
+        "audio_observation": "The recording consists of continuous low-level broadband hiss with no distinct tonal peaks, transients, or rhythmic pulses. The noise floor remains steady throughout the duration without audible modulation, suggesting an unoccupied channel or ambient room tone.",
+        "transcript": ""
+      }
+    },
+    {
+      "name": "environment_music",
+      "passed": true,
+      "elapsed_s": 1.9898482339922339,
+      "evidence": {
+        "audio_observation": "The recording consists of continuous low-level broadband hiss with no distinct tonal peaks, transients, or rhythmic pulses. The noise floor remains steady throughout the duration without audible modulation, dropouts, or external interference.",
+        "transcript": ""
+      }
+    },
+    {
+      "name": "silence_requires_speech",
+      "passed": true,
+      "elapsed_s": 1.5079503190354444,
+      "evidence": {
+        "comprehension_only": true,
+        "no_language_or_tts": true
+      }
+    },
+    {
+      "name": "sampled_video_with_audio",
+      "passed": true,
+      "elapsed_s": 6.343953570001759,
+      "evidence": {
+        "observation": "<speech_transcript></speech_transcript>\n<audio_observation>No audio track is present or described; no speech, music, ambient sound, or other acoustic events can be confirmed.</audio_observation>\n<visual_observation>The video consists of a full-frame solid color field bordered by thin black bars at the top and bottom. From 0.00 s to about 2.00 s, the frame is uniformly bright red with no visible objects, text, or motion. Around 3.00 s, it changes abruptly to a uniform bright blue that persists until about 4.00 s. At roughly 5.00 s, the color switches again to a uniform bright green, which remains through the end of the clip. Each segment is static with no internal movement or transitions other than the instantaneous color changes.</visual_observation>",
+        "audio_observation": "No audio track is present or described; no speech, music, ambient sound, or other acoustic events can be confirmed."
+      }
+    },
+    {
+      "name": "request_local_voice_complete",
+      "passed": true,
+      "elapsed_s": 8.898947826994117,
+      "evidence": {
+        "wav_bytes": 180524,
+        "pcm_sha256": "cd70e485c910d66270f56516ed02d69b2cf3643d2e25f653bc0287e8e4ea454d",
+        "first_pcm_s": null,
+        "stream_chunks": 0,
+        "format": "24kHz mono PCM16"
+      }
+    },
+    {
+      "name": "request_local_voice_stream",
+      "passed": true,
+      "elapsed_s": 8.885960603016429,
+      "evidence": {
+        "wav_bytes": 180524,
+        "pcm_sha256": "cd70e485c910d66270f56516ed02d69b2cf3643d2e25f653bc0287e8e4ea454d",
+        "first_pcm_s": 7.755905751953833,
+        "stream_chunks": 12,
+        "format": "24kHz mono PCM16"
+      }
+    },
+    {
+      "name": "post_tts_audio_transcription",
+      "passed": true,
+      "elapsed_s": 1.6694119609892368,
+      "evidence": {
+        "transcript": "The blue bicycle is parked beside the garden gate.",
+        "wer": 0.0,
+        "current_visual_input": false
+      }
+    },
+    {
+      "name": "concurrent_session_isolation",
+      "passed": true,
+      "elapsed_s": 2.055323870969005,
+      "evidence": {
+        "isolated_responses": true,
+        "concurrent_sessions": 2
+      }
+    }
+  ],
+  "passed": true,
+  "physical_playback_qualified": false,
+  "primary_gpu_resident": true,
+  "primary_pid": 3747453
+}

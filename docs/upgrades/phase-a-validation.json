@@ -1,0 +1,83 @@
+{
+  "schema": "robit.omni.upgrade-validation.v1",
+  "created_at": "2026-10-30T00:00:26.170091+00:00",
+  "preserved_snapshot": "cf0183da45b9a4992e105373e37d2d6e7bdfedbe",
+  "original_main": {
+    "revision": "7554ae0118a2b1527ab537a1cd11e4cd7251770c",
+    "validation_passed": true,
+    "tests_passed": 6167,
+    "pytest_elapsed_s": 400.42
+  },
+  "final_upgrade_gate": {
+    "command": "./scripts/validate.sh",
+    "exit_code": 0,
+    "pytest": {
+      "tests": "5015",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "283.071"
+    },
+    "remaining_gates_passed": [
+      "VAD",
+      "call queue",
+      "call playback",
+      "session cache",
+      "npm installer",
+      "shell syntax",
+      "contract"
+    ],
+    "log_sha256": "dad5f2d438ac1c408584bc8a3dc11a2f07e02a0e6451936ebc26587d943dce32",
+    "junit_sha256": "8f932882f73f08fc5ced5d137bd02e4956761f51c33e39a621f6b33b4636c7e4"
+  },
+  "first_upgrade_full_run": {
+    "tests": "5015",
+    "failures": "1",
+    "errors": "0",
+    "skipped": "0",
+    "time": "336.442"
+  },
+  "baseline_focus_guard_isolation": {
+    "tests": "60",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "3.181"
+  },
+  "upgrade_focus_guard_and_packaging": {
+    "tests": "80",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "3.565"
+  },
+  "measured_implementation_sha256": {
+    "src/qwen_omni_adapters/ollama_sidecar.py": "2db4600d6411301cc0cd2979da9a30d9b57c4a9a540f8e749ad7b8d172582971",
+    "src/qwen_omni_adapters/single_gguf.py": "2a24435e85315cf8e840c6dbce72da2365409f19cba820e1af2fd925dddfb22f",
+    "src/qwen_omni_adapters/component_views.py": "1d77d82b123fa865f0692179236222aed125f914c3fb158a2d79a2d548c78739"
+  },
+  "benchmark_receipt_sha256": "d751f1f411b40a72b3098d5914808736f5fcd6ff162b1c3282bac941620bb077",
+  "installed_weight_cli_check": {
+    "materialized_bytes": 0,
+    "materialized_views": [],
+    "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/component-index-benchmark-20261029/profile-0/component-view-index.json",
+    "reused_bytes": 1482388192,
+    "reused_views": [
+      "tts_model",
+      "tts_projector"
+    ],
+    "schema": "robit.omni.component-view-index.v1"
+  },
+  "cleanup": {
+    "removed_bytes": 2964780247,
+    "removed_files": 6,
+    "benchmark_directory_absent": true,
+    "source_ollama_blobs_retained": true
+  },
+  "remote_ci": {
+    "initial_run": 40974818628,
+    "runner_started": false,
+    "reason": "Account payments failed or spending limit must be increased; no workflow gates disabled"
+  },
+  "scope": "Artifact preparation only; no new neural training, inference qualification, GPU-residency change or speech-latency claim"
+}

@@ -1,0 +1,123 @@
+{
+  "schema": "robit.omni.native-shared-feature-current-bundles.v1",
+  "all_four_inputs_byte_identical_across_original_and_two_backbones": true,
+  "source_pin": "458681e1d5d4a29a1463c4732e03226cf384b997",
+  "probe_source_sha256": "6ae31ba579c10fce3e8130c0eef40eba9872e9dfdb29ca4ba44daf82ca1b3415",
+  "extractor_sha256": "19cdfd8fc86e36c21f6669805b67defc73ecac0257dd0e46dbf494fbca19d204",
+  "cases": {
+    "source": {
+      "schema": "robit.omni.native-audio-feature-cache.v1",
+      "dtype": "float32",
+      "width": 1280,
+      "language_weights_loaded": false,
+      "language_forward_passes": 0,
+      "native_features_binary_sha256": "4152b96395fa411db53e18204cfabd884c6aa3c2c49961b68bcae54a65bd5577",
+      "projector_sha256": "1104376db833f1e89c84834144ac3863340c2cd1ddaeddb39cb0247fb5c20c8d",
+      "manifest_sha256": "e647f58c8902b205923392420ee6a6bd26c0bf06c20cc731fac5ccc8af0956f1",
+      "features": {
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v2/audio/base-nonspeech-0000-silence.wav": {
+          "frames": 39,
+          "audio_sha256": "c8272530be482e759f755be8a72769c5c9c5e91e143d7f6711209d63b4cf3d9a",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-source/features/0.f32",
+          "feature_sha256": "4a3eda5c93fd6b9e65322d60a07e6b94c7e4556a9eb0eebd7f7a80f679d48602"
+        },
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v2/audio/base-speech-0010-0.wav": {
+          "frames": 39,
+          "audio_sha256": "a3d8ec5afa1d3ba723cd0a2d1a3d94b2b60c988dffde9e5a96caf6b90d2ade2f",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-source/features/1.f32",
+          "feature_sha256": "2f6daca788ff56c794985a327425d3a0986f31062d6f31c2df9c1252cd2acd0b"
+        },
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v2/audio/librispeech-3853-163249-0041.wav": {
+          "frames": 104,
+          "audio_sha256": "3935ae7f10fe665b0da24961f48589e112737d1d49903a5e6690e6eceb2e0293",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-source/features/2.f32",
+          "feature_sha256": "52d5890aaa324b7098b593c91bfd463884e84e7bec1552c94330f44415b62738"
+        },
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v3-tts-recovery/audio/tts-recovery-00000.wav": {
+          "frames": 195,
+          "audio_sha256": "91e5abb40cdc74b804197e8ae4fe0d3b53bf4bbfb56aab13b845271cb952ad20",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-source/features/3.f32",
+          "feature_sha256": "9ad8de50f12e9edab14ddc6125ff91468221992ea6b82ce21624e1d7fb527169"
+        }
+      },
+      "elapsed_s": 2.9539800800266676
+    },
+    "ornith": {
+      "schema": "robit.omni.native-audio-feature-cache.v1",
+      "dtype": "float32",
+      "width": 1280,
+      "language_weights_loaded": false,
+      "language_forward_passes": 0,
+      "native_features_binary_sha256": "4152b96395fa411db53e18204cfabd884c6aa3c2c49961b68bcae54a65bd5577",
+      "projector_sha256": "7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+      "manifest_sha256": "e647f58c8902b205923392420ee6a6bd26c0bf06c20cc731fac5ccc8af0956f1",
+      "features": {
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v2/audio/base-nonspeech-0000-silence.wav": {
+          "frames": 39,
+          "audio_sha256": "c8272530be482e759f755be8a72769c5c9c5e91e143d7f6711209d63b4cf3d9a",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-ornith/features/0.f32",
+          "feature_sha256": "4a3eda5c93fd6b9e65322d60a07e6b94c7e4556a9eb0eebd7f7a80f679d48602"
+        },
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v2/audio/base-speech-0010-0.wav": {
+          "frames": 39,
+          "audio_sha256": "a3d8ec5afa1d3ba723cd0a2d1a3d94b2b60c988dffde9e5a96caf6b90d2ade2f",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-ornith/features/1.f32",
+          "feature_sha256": "2f6daca788ff56c794985a327425d3a0986f31062d6f31c2df9c1252cd2acd0b"
+        },
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v2/audio/librispeech-3853-163249-0041.wav": {
+          "frames": 104,
+          "audio_sha256": "3935ae7f10fe665b0da24961f48589e112737d1d49903a5e6690e6eceb2e0293",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-ornith/features/2.f32",
+          "feature_sha256": "52d5890aaa324b7098b593c91bfd463884e84e7bec1552c94330f44415b62738"
+        },
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v3-tts-recovery/audio/tts-recovery-00000.wav": {
+          "frames": 195,
+          "audio_sha256": "91e5abb40cdc74b804197e8ae4fe0d3b53bf4bbfb56aab13b845271cb952ad20",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-ornith/features/3.f32",
+          "feature_sha256": "9ad8de50f12e9edab14ddc6125ff91468221992ea6b82ce21624e1d7fb527169"
+        }
+      },
+      "elapsed_s": 1.7783481620135717
+    },
+    "qwen": {
+      "schema": "robit.omni.native-audio-feature-cache.v1",
+      "dtype": "float32",
+      "width": 1280,
+      "language_weights_loaded": false,
+      "language_forward_passes": 0,
+      "native_features_binary_sha256": "4152b96395fa411db53e18204cfabd884c6aa3c2c49961b68bcae54a65bd5577",
+      "projector_sha256": "554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+      "manifest_sha256": "e647f58c8902b205923392420ee6a6bd26c0bf06c20cc731fac5ccc8af0956f1",
+      "features": {
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v2/audio/base-nonspeech-0000-silence.wav": {
+          "frames": 39,
+          "audio_sha256": "c8272530be482e759f755be8a72769c5c9c5e91e143d7f6711209d63b4cf3d9a",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-qwen/features/0.f32",
+          "feature_sha256": "4a3eda5c93fd6b9e65322d60a07e6b94c7e4556a9eb0eebd7f7a80f679d48602"
+        },
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v2/audio/base-speech-0010-0.wav": {
+          "frames": 39,
+          "audio_sha256": "a3d8ec5afa1d3ba723cd0a2d1a3d94b2b60c988dffde9e5a96caf6b90d2ade2f",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-qwen/features/1.f32",
+          "feature_sha256": "2f6daca788ff56c794985a327425d3a0986f31062d6f31c2df9c1252cd2acd0b"
+        },
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v2/audio/librispeech-3853-163249-0041.wav": {
+          "frames": 104,
+          "audio_sha256": "3935ae7f10fe665b0da24961f48589e112737d1d49903a5e6690e6eceb2e0293",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-qwen/features/2.f32",
+          "feature_sha256": "52d5890aaa324b7098b593c91bfd463884e84e7bec1552c94330f44415b62738"
+        },
+        "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-corpus-v3-tts-recovery/audio/tts-recovery-00000.wav": {
+          "frames": 195,
+          "audio_sha256": "91e5abb40cdc74b804197e8ae4fe0d3b53bf4bbfb56aab13b845271cb952ad20",
+          "feature_path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/maintained-features-qwen/features/3.f32",
+          "feature_sha256": "9ad8de50f12e9edab14ddc6125ff91468221992ea6b82ce21624e1d7fb527169"
+        }
+      },
+      "elapsed_s": 1.8596160740125924
+    }
+  },
+  "language_weights_loaded": false,
+  "language_forward_passes": 0,
+  "whole_release_qualified": false
+}

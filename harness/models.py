@@ -14,6 +14,7 @@ from typing import Any
 
 import httpx
 
+from qwen_omni_adapters.accelerator import is_tegra
 from qwen_omni_adapters.model_catalog import MANAGED_MODELS, MODEL_BY_TAG
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
@@ -340,6 +341,15 @@ class IndicatorModelManager:
             "OMNI_STARTUP_SMOKE": "0",
             "OMNI_TTS_PERSISTENT": "1",
         }
+        if model.key in {"ornith15_v2", "qwen38_v2"}:
+            cache_type = "q8_0" if model.key == "ornith15_v2" and is_tegra() else "f16"
+            values.update({
+                "OMNI_COMPREHENSION_CACHE_TYPE_K": cache_type,
+                "OMNI_COMPREHENSION_CACHE_TYPE_V": cache_type,
+                "OMNI_TTS_ADAPTIVE_CONTEXT": "1",
+                "OMNI_TTS_PREPARE_REFERENCE": "1",
+                "OMNI_TTS_IDLE_KEEPALIVE_S": "0",
+            })
         _replace_env(
             self.repo_root / ".env",
             values,

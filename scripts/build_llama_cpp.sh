@@ -10,6 +10,13 @@ PERSISTENT_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-persistent.patch
 STREAM_STATE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-stream-state.patch
 JSON_PATTERN_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-json-pattern-safety.patch
 JSON_STRING_BOUNDS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-json-string-bounds.patch
+CONDITIONING_CACHE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-conditioning-cache.patch
+TOKEN_ROWS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-token-rows.patch
+INDEXED_VIEWS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-indexed-tts-views.patch
+REFERENCE_ENCODER_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-encoder.patch
+REFERENCE_IGPU_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-integrated-gpu.patch
+REFERENCE_PROMPT_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-prompt.patch
+UTTERANCE_STATE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-utterance-state.patch
 BUILD_DIR=${LLAMA_CPP_BUILD_DIR:-$SOURCE_DIR/build}
 if command -v nproc >/dev/null 2>&1; then
   default_jobs=$(nproc)
@@ -135,6 +142,48 @@ fi
 # Independent common-code fix; do not fold it into the overlapping TTS markers.
 apply_patch_file "$JSON_PATTERN_PATCH_FILE" "JSON pattern string safety"
 apply_patch_file "$JSON_STRING_BOUNDS_PATCH_FILE" "JSON string length bounds"
+if patch_marker_present common/arg.cpp '"--tts-no-conditioning-cache"' \
+  && patch_marker_present tools/mtmd/mtmd-helper-gen.cpp 'mtmd_helper_gen_audio_cache_init(' \
+  && patch_marker_present tools/tts/tts.cpp 'conditioning_cache.get()'; then
+  printf 'Qwen3-TTS immutable conditioning cache patch is already applied\n'
+else
+  apply_patch_file "$CONDITIONING_CACHE_PATCH_FILE" "Qwen3-TTS immutable conditioning cache"
+fi
+if patch_marker_present common/arg.cpp '"--tts-conditioning-cache-rows"' \
+  && patch_marker_present src/llama-model.cpp 'uint32_t llama_model_get_tok_embd_row(' \
+  && patch_marker_present tools/mtmd/mtmd-helper-gen.cpp 'conditioning->token_rows.find(t)'; then
+  printf 'Qwen3-TTS bounded token rows patch is already applied\n'
+else
+  apply_patch_file "$TOKEN_ROWS_PATCH_FILE" "Qwen3-TTS bounded token rows"
+fi
+if patch_marker_present ggml/include/gguf.h 'gguf_select_tensor_view(' \
+  && patch_marker_present src/llama-model-loader.cpp 'indexed_view = true;' \
+  && patch_marker_present tools/mtmd/clip.cpp 'robit.ollama-audio-bridge.v2'; then
+  printf 'Indexed TTS source views patch is already applied\n'
+else
+  apply_patch_file "$INDEXED_VIEWS_PATCH_FILE" "Indexed TTS source views"
+fi
+if patch_marker_present tools/tts/reference-encode.cpp 'params.reference_encoder = true;' \
+  && patch_marker_present tools/mtmd/clip-model.h 'ref_semantic_book' \
+  && patch_marker_present tools/mtmd/models/qwen3tts-refenc.cpp 'reference_downsample'; then
+  printf 'Qwen3-TTS reference acoustic encoder patch is already applied\n'
+else
+  apply_patch_file "$REFERENCE_ENCODER_PATCH_FILE" "Qwen3-TTS reference acoustic encoder"
+fi
+apply_patch_file "$REFERENCE_IGPU_PATCH_FILE" "Qwen3-TTS integrated GPU residency"
+if patch_marker_present tools/mtmd/mtmd-helper-gen.cpp 'reference_decoder_state' \
+  && patch_marker_present tools/tts/tts.cpp 'robit.qwen3tts.reference-prompt.v1'; then
+  printf 'Qwen3-TTS full reference prompt patch is already applied\n'
+else
+  apply_patch_file "$REFERENCE_PROMPT_PATCH_FILE" "Qwen3-TTS full reference prompt"
+fi
+if patch_marker_present common/arg.cpp '"--tts-utterance-controls"' \
+  && patch_marker_present tools/tts/tts.cpp 'robit.qwen3tts.utterance-control.v1' \
+  && patch_marker_present tools/mtmd/mtmd-helper-gen.cpp 'set_waveform_state'; then
+  printf 'Qwen3-TTS utterance decoder state patch is already applied\n'
+else
+  apply_patch_file "$UTTERANCE_STATE_PATCH_FILE" "Qwen3-TTS utterance decoder state"
+fi
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in
@@ -183,11 +232,16 @@ else
   cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" "${cmake_options[@]}"
 fi
 printf 'Checking patched llama.cpp targets incrementally in %s\n' "$BUILD_DIR"
-cmake --build "$BUILD_DIR" "${build_options[@]}" --target llama-server llama-tts --parallel "$BUILD_JOBS"
+cmake --build "$BUILD_DIR" "${build_options[@]}" --target llama-server llama-tts llama-tts-reference-encode --parallel "$BUILD_JOBS"
 if [[ $(uname -s) == Linux ]]; then
   "${PYTHON:-python3}" "$REPO_ROOT/runtime/cuda_toolchain.py" --build-dir "$BUILD_DIR" --build-complete
 fi
 
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-stream-frames'
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-persistent'
+"$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-no-conditioning-cache'
+"$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-conditioning-cache-rows'
+"$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-reference-prompt-file'
+"$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-utterance-controls'
+[[ -x "$BUILD_DIR/bin/llama-tts-reference-encode" ]] || { printf 'Reference encoder was not built\n' >&2; exit 1; }
 printf 'Built patched llama-server and llama-tts in %s\n' "$BUILD_DIR/bin"

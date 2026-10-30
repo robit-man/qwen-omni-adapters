@@ -1,0 +1,13 @@
+diff --git a/tools/tts/reference-encode.cpp b/tools/tts/reference-encode.cpp
+--- a/tools/tts/reference-encode.cpp
++++ b/tools/tts/reference-encode.cpp
+@@ -61,7 +61,8 @@
+         }
+         bool gpu_weights = false;
+         for (auto entry : clip_get_mem_usage(encoder.get())) {
+-            gpu_weights |= ggml_backend_dev_type(entry.first) == GGML_BACKEND_DEVICE_TYPE_GPU && entry.second > 0;
++            const auto type = ggml_backend_dev_type(entry.first);
++            gpu_weights |= (type == GGML_BACKEND_DEVICE_TYPE_GPU || type == GGML_BACKEND_DEVICE_TYPE_IGPU) && entry.second > 0;
+         }
+         if (!gpu_weights) {
+             throw std::runtime_error("reference weights are not GPU resident");

@@ -86,6 +86,12 @@ def build_request(args: argparse.Namespace) -> dict[str, Any]:
         speech["voice"] = args.voice
     if args.locale:
         speech["locale"] = args.locale
+    if getattr(args, "speaker_audio", None):
+        speech["speaker_audio"] = _envelope(Path(args.speaker_audio), "audio/wav")
+    if getattr(args, "speaker_file", None):
+        speech["speaker_file"] = args.speaker_file
+    if getattr(args, "reference_text", None) is not None:
+        speech["reference_text"] = args.reference_text
     return {
         "model": args.model,
         "messages": [message],
@@ -122,6 +128,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--model", default="robit/qwen3.8-omni:latest")
     parser.add_argument("--timeout", type=float, default=900)
     parser.add_argument("--voice")
+    reference = parser.add_mutually_exclusive_group()
+    reference.add_argument("--speaker-audio", help="client-local reference WAV")
+    reference.add_argument("--speaker-file", help="server-local reference path")
+    parser.add_argument("--reference-text", help="words spoken in the reference, up to 2048 characters")
     parser.add_argument(
         "--locale",
         help="spoken-response BCP 47 locale, for example en-US or en-GB",

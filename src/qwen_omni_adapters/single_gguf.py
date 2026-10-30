@@ -13,6 +13,8 @@ from qwen_omni_adapters.contract import adapter_contract
 
 BUNDLE_SCHEMA = "robit.ollama-monolithic-omni.v3"
 LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA = "robit.ollama-audio-bridge.v1"
+INDEXED_AUDIO_BRIDGE_SCHEMA = "robit.ollama-audio-bridge.v2"
+AUDIO_BRIDGE_SCHEMAS = {LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA, INDEXED_AUDIO_BRIDGE_SCHEMA}
 BUNDLE_NAMESPACE = "robit.audio_bundle"
 CONTAINER_FORMAT = "robit-namespaced-multigraph-gguf-v1"
 MAX_GGML_TENSOR_NAME_BYTES = 127
@@ -85,6 +87,26 @@ TTS_PROJECTOR_COMPONENT = EmbeddedComponent(
     output_modalities=("audio",),
 )
 
+TTS_REFERENCE_ENCODER_COMPONENT = EmbeddedComponent(
+    name="tts_reference_encoder",
+    role="reference-audio-acoustic-tokenizer",
+    tensor_prefix="s.t.e.",
+    metadata_prefix=f"{BUNDLE_NAMESPACE}.component.tts_reference_encoder.kv.",
+    source="",
+    input_modalities=("audio",),
+    output_modalities=("codec_tokens",),
+)
+
+AUDIO_CTC_COMPONENT = EmbeddedComponent(
+    name="audio_ctc_head",
+    role="optional-english-audio-ctc-head",
+    tensor_prefix="a.h.c.",
+    metadata_prefix=f"{BUNDLE_NAMESPACE}.component.audio_ctc_head.kv.",
+    source="",
+    input_modalities=("audio_features",),
+    output_modalities=("ctc_logits",),
+)
+
 EMBEDDED_COMPONENTS = (
     BASE_PROJECTOR_COMPONENT,
     COMPREHENSION_COMPONENT,
@@ -92,8 +114,9 @@ EMBEDDED_COMPONENTS = (
     TTS_COMPONENT,
     TTS_PROJECTOR_COMPONENT,
 )
-COMPONENT_BY_NAME = {component.name: component for component in EMBEDDED_COMPONENTS}
-RESERVED_TENSOR_PREFIXES = tuple(component.tensor_prefix for component in EMBEDDED_COMPONENTS)
+ALL_EMBEDDED_COMPONENTS = (*EMBEDDED_COMPONENTS, TTS_REFERENCE_ENCODER_COMPONENT, AUDIO_CTC_COMPONENT)
+COMPONENT_BY_NAME = {component.name: component for component in ALL_EMBEDDED_COMPONENTS}
+RESERVED_TENSOR_PREFIXES = tuple(component.tensor_prefix for component in ALL_EMBEDDED_COMPONENTS)
 
 
 class SingleGGUFError(RuntimeError):
@@ -464,14 +487,17 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         manifest = None
         errors.append(f"invalid bundle manifest JSON: {exc}")
+    if manifest is not None and not isinstance(manifest, dict):
+        manifest = None
+        errors.append("bundle manifest must be a JSON object")
     schema = metadata.get(f"{BUNDLE_NAMESPACE}.schema")
-    if schema not in {BUNDLE_SCHEMA, LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA}:
+    if schema not in {BUNDLE_SCHEMA, *AUDIO_BRIDGE_SCHEMAS}:
         errors.append("missing or unsupported bundle schema")
     view_counts = {"base": 0, **{component.name: 0 for component in EMBEDDED_COMPONENTS}}
     for tensor in reader.tensors:
-        for component in EMBEDDED_COMPONENTS:
+        for component in ALL_EMBEDDED_COMPONENTS:
             if tensor.name.startswith(component.tensor_prefix):
-                view_counts[component.name] += 1
+                view_counts[component.name] = view_counts.get(component.name, 0) + 1
                 break
         else:
             view_counts["base"] += 1
@@ -480,11 +506,13 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
         "comprehension": (
             view_counts["comprehension_model"] + view_counts["comprehension_projector"]
         ),
-        "tts": view_counts["tts_model"] + view_counts["tts_projector"],
+        "tts": view_counts["tts_model"] + view_counts["tts_projector"] + view_counts.get("tts_reference_encoder", 0),
     }
+    if view_counts.get("audio_ctc_head"):
+        counts["audio_heads"] = view_counts["audio_ctc_head"]
     required_groups = (
         ("tts",)
-        if schema == LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA
+        if schema in AUDIO_BRIDGE_SCHEMAS
         else ("base", "comprehension", "tts")
     )
     for component in required_groups:
@@ -500,6 +528,50 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
             errors.append(f"bundle manifest declares unknown component {component_name}")
         elif view_counts[component_name] == 0:
             errors.append(f"bundle has no {component_name} tensors")
+    if schema == INDEXED_AUDIO_BRIDGE_SCHEMA:
+        if not isinstance(manifest, dict) or manifest.get("schema") != schema:
+            errors.append("indexed sidecar manifest schema does not match GGUF schema")
+        index = (manifest or {}).get("component_index", {})
+        entries = index.get("components", {}) if isinstance(index, dict) else {}
+        required = {"tts_model", "tts_projector"}
+        allowed = required | {"tts_reference_encoder", "audio_ctc_head"}
+        if (not isinstance(index, dict) or index.get("schema") != "robit.gguf-component-index.v2"
+                or not isinstance(entries, dict) or not required <= set(entries) <= allowed
+                or declared != set(entries)):
+            errors.append("indexed sidecar requires the two indexed TTS components and only supported optional components")
+        else:
+            for name, entry in entries.items():
+                component = COMPONENT_BY_NAME[name]
+                if (not isinstance(entry, dict)
+                        or entry.get("tensor_prefix") != component.tensor_prefix
+                        or entry.get("metadata_prefix") != component.metadata_prefix
+                        or entry.get("tensor_count") != view_counts[name]
+                        or not isinstance(entry.get("gguf_sha256"), str)
+                        or len(entry["gguf_sha256"]) != 64
+                        or any(char not in "0123456789abcdef" for char in entry["gguf_sha256"])
+                        or type(entry.get("gguf_size_bytes")) is not int
+                        or entry["gguf_size_bytes"] <= 0
+                        or entry.get("architecture") != metadata.get(
+                            component.metadata_prefix + "general.architecture")):
+                    errors.append(f"invalid indexed component descriptor: {name}")
+                if name == "tts_reference_encoder" and (
+                        metadata.get(component.metadata_prefix + "clip.audio.projector_type") != "qwen3tts_refenc"
+                        or metadata.get(component.metadata_prefix + "robit.reference_encoder.abi") != "robit.qwen3tts.reference-encoder.v1"):
+                    errors.append("invalid indexed reference encoder ABI")
+                if name == "audio_ctc_head" and (
+                        not isinstance(entry, dict) or entry.get("architecture") != "robit_audio_ctc"
+                        or view_counts[name] != 8
+                        or metadata.get(component.metadata_prefix + "robit.audio_ctc.schema") != "robit.omni.audio-ctc-head.v1"
+                        or not isinstance(metadata.get(component.metadata_prefix + "robit.audio_ctc.encoder_sha256"), str)
+                        or len(metadata[component.metadata_prefix + "robit.audio_ctc.encoder_sha256"]) != 64):
+                    errors.append("invalid indexed audio CTC head ABI")
+        indexed_names = entries if isinstance(entries, dict) else required
+        if sum(view_counts.get(name, 0) for name in indexed_names) != len(reader.tensors):
+            errors.append("indexed TTS sidecar contains tensors outside its declared views")
+    elif view_counts.get("tts_reference_encoder"):
+        errors.append("reference acoustic encoder requires indexed sidecar v2")
+    elif view_counts.get("audio_ctc_head"):
+        errors.append("audio CTC head requires indexed sidecar v2")
     return {
         "valid": not errors,
         "path": str(resolved),
@@ -547,6 +619,41 @@ def _copy_view_metadata(
     return copied, skipped
 
 
+class ComponentViewIndex:
+    """Parse a sidecar once and retain its ordered, architecture-specific views."""
+
+    def __init__(self, bundle_gguf: Path) -> None:
+        gguf, self.numpy = _require_gguf()
+        self.source = bundle_gguf.expanduser().resolve()
+        if not self.source.is_file():
+            raise SingleGGUFError(f"bundle GGUF does not exist: {self.source}")
+        self.reader = gguf.GGUFReader(str(self.source))
+        self.metadata = _reader_metadata(self.reader)
+        if self.metadata.get(f"{BUNDLE_NAMESPACE}.schema") not in {
+            BUNDLE_SCHEMA, *AUDIO_BRIDGE_SCHEMAS,
+        }:
+            raise SingleGGUFError(f"unsupported or missing bundle schema in {self.source}")
+        self.views: dict[str, list[tuple[Any, str]]] = {
+            name: [] for name in ("base", *COMPONENT_BY_NAME)
+        }
+        for tensor in self.reader.tensors:
+            for component in ALL_EMBEDDED_COMPONENTS:
+                if tensor.name.startswith(component.tensor_prefix):
+                    self.views[component.name].append(
+                        (tensor, tensor.name.removeprefix(component.tensor_prefix))
+                    )
+                    break
+            else:
+                self.views["base"].append((tensor, tensor.name))
+
+    def materialize(
+        self, *, view: str, out_gguf: Path, overwrite: bool = False,
+    ) -> dict[str, Any]:
+        return _materialize_indexed_view(
+            index=self, view=view, out_gguf=out_gguf, overwrite=overwrite,
+        )
+
+
 def materialize_component_view(
     *,
     bundle_gguf: Path,
@@ -555,11 +662,17 @@ def materialize_component_view(
     overwrite: bool = False,
 ) -> dict[str, Any]:
     """Materialize one byte-preserving executable GGUF view from a sidecar."""
+    return ComponentViewIndex(bundle_gguf).materialize(
+        view=view, out_gguf=out_gguf, overwrite=overwrite,
+    )
+
+
+def _materialize_indexed_view(
+    *, index: ComponentViewIndex, view: str, out_gguf: Path, overwrite: bool,
+) -> dict[str, Any]:
     gguf, np = _require_gguf()
-    source = bundle_gguf.expanduser().resolve()
+    source = index.source
     out = out_gguf.expanduser().resolve()
-    if not source.is_file():
-        raise SingleGGUFError(f"bundle GGUF does not exist: {source}")
     if source == out:
         raise SingleGGUFError("materialized output must not overwrite the bundle")
     if out.exists() and not overwrite:
@@ -569,29 +682,16 @@ def materialize_component_view(
         allowed = ", ".join(["base", *COMPONENT_BY_NAME])
         raise SingleGGUFError(f"unknown component view {view!r}; expected one of: {allowed}")
 
-    reader = gguf.GGUFReader(str(source))
-    metadata = _reader_metadata(reader)
-    if metadata.get(f"{BUNDLE_NAMESPACE}.schema") not in {
-        BUNDLE_SCHEMA,
-        LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA,
-    }:
-        raise SingleGGUFError(f"unsupported or missing bundle schema in {source}")
+    reader = index.reader
+    metadata = index.metadata
     if component:
         architecture = str(metadata.get(component.metadata_prefix + "general.architecture") or "")
-        tensor_prefix = component.tensor_prefix
     else:
-        architecture = _architecture(reader)
-        tensor_prefix = ""
+        architecture = str(metadata.get("general.architecture") or "")
     if not architecture:
         raise SingleGGUFError(f"view {view!r} has no general.architecture metadata")
 
-    selected: list[tuple[Any, str]] = []
-    for tensor in reader.tensors:
-        if component:
-            if tensor.name.startswith(tensor_prefix):
-                selected.append((tensor, tensor.name.removeprefix(tensor_prefix)))
-        elif not tensor.name.startswith(RESERVED_TENSOR_PREFIXES):
-            selected.append((tensor, tensor.name))
+    selected = index.views[view]
     if not selected:
         raise SingleGGUFError(f"view {view!r} has no tensors")
 

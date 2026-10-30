@@ -579,6 +579,7 @@ def main(argv: list[str] | None = None) -> int:
             voices=voice_manager.views,
             on_voice_select=voice_select,
             on_voice_import=voice_import,
+            on_voice_reference_text=voice_manager.set_reference_text,
             updates=update_manager.view if update_manager is not None else None,
             on_update=update_manager.install if update_manager is not None else None,
             required=indicator_required,

@@ -13,6 +13,7 @@ from qwen_omni_adapters.accelerator import accelerator_profile, is_tegra
 from qwen_omni_adapters.applications import discover_applications
 from qwen_omni_adapters.contract import adapter_contract
 from qwen_omni_adapters.gpu_broker import probe_gpu_broker
+from qwen_omni_adapters.indexed_sidecar import pack_indexed_tts_sidecar
 from qwen_omni_adapters.ollama_sidecar import (
     OllamaSidecarError,
     attach_ollama_sidecar,
@@ -184,6 +185,15 @@ def build_parser() -> argparse.ArgumentParser:
     pack.add_argument("--tts-projector-source")
     pack.add_argument("--overwrite", action="store_true")
 
+    pack_tts = sub.add_parser("pack-tts", help="Pack deterministic, shared indexed TTS sidecar v2")
+    pack_tts.add_argument("--tts", type=Path, required=True)
+    pack_tts.add_argument("--tts-projector", type=Path, required=True)
+    pack_tts.add_argument("--tts-reference-encoder", type=Path)
+    pack_tts.add_argument("--audio-ctc-head", type=Path,
+                         help="Include the optional qualified English head; does not enable a runtime route")
+    pack_tts.add_argument("--out", type=Path, required=True)
+    pack_tts.add_argument("--overwrite", action="store_true")
+
     inspect = sub.add_parser("inspect", help="Validate and describe a sidecar GGUF")
     inspect.add_argument("bundle", type=Path)
 
@@ -214,11 +224,19 @@ def build_parser() -> argparse.ArgumentParser:
             "comprehension_projector",
             "tts_model",
             "tts_projector",
+            "tts_reference_encoder",
+            "audio_ctc_head",
         ),
         help="View to materialize; repeat to select a subset",
     )
     prepare.add_argument("--models-dir", type=Path)
     prepare.add_argument("--overwrite", action="store_true")
+    prepare.add_argument("--direct-views", action="store_true",
+                         help="Prefer indexed source aliases on v2 POSIX runtimes; requires patched native loader")
+    prepare.add_argument(
+        "--reuse", action="store_true",
+        help="Reuse source-bound views after verifying their SHA-256; rebuild only misses",
+    )
 
     doctor = sub.add_parser("doctor", help="Check the host before deployment")
     doctor.add_argument(
@@ -252,6 +270,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "contract":
             result = adapter_contract()
+        elif args.command == "pack-tts":
+            result = pack_indexed_tts_sidecar(tts_gguf=args.tts, tts_projector_gguf=args.tts_projector,
+                                             out_gguf=args.out, overwrite=args.overwrite,
+                                             tts_reference_encoder_gguf=args.tts_reference_encoder,
+                                             audio_ctc_head_gguf=args.audio_ctc_head)
         elif args.command == "pack":
             result = pack_monolithic_gguf(
                 base_gguf=args.base,
@@ -294,6 +317,8 @@ def main(argv: list[str] | None = None) -> int:
                 views=views,
                 models_dir=args.models_dir,
                 overwrite=args.overwrite,
+                reuse=args.reuse,
+                prefer_direct=args.direct_views,
             )
         elif args.command == "doctor":
             return _doctor(args)

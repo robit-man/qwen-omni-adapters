@@ -108,7 +108,8 @@ def test_adapter_contract_separates_wire_schema_from_bundle_schema() -> None:
 
 def test_tts_stream_window_validation_and_cli_arguments(tmp_path: Path) -> None:
     config = _tts_config(tmp_path)
-    assert config.stream_frames == 8
+    assert config.stream_frames is None
+    assert _synthesis_spec(config, {"text": "Hello"}).stream_frames == 8
     spec = _synthesis_spec(
         config,
         {"text": "Hello", "locale": "en-gb", "stream_frames": 12},
@@ -377,6 +378,9 @@ def test_tts_residency_endpoint_sheds_and_rewarms_the_separate_graph(
     reference.write_bytes(_wav(16000))
 
     class FakePersistentWorker:
+        reference_encodes = 0
+        reference_cache_hits = 0
+
         def __init__(self, _config) -> None:
             self.ready = False
 
@@ -424,6 +428,9 @@ def test_tts_starts_cold_and_sheds_after_each_completed_synthesis(
     events: list[str] = []
 
     class FakePersistentWorker:
+        reference_encodes = 0
+        reference_cache_hits = 0
+
         def __init__(self, _config) -> None:
             self.ready = False
 
@@ -1087,6 +1094,24 @@ def test_comprehension_payload_tags_video_for_qwen_style_server(monkeypatch) -> 
     assert payload["max_tokens"] == 2048
 
 
+@pytest.mark.parametrize("task", ["chat", "describe", "transcribe"])
+def test_media_perception_uses_only_its_pinned_system_policy(task: str) -> None:
+    parsed = parse_adapter_request(_base_request(
+        omni={"task": task},
+        messages=[
+            {"role": "system", "content": "CALLER_POLICY_SENTINEL"},
+            {"role": "user", "content": "Describe.",
+             "audios": [{"data": _encoded(_wav(16000))}]},
+        ],
+    ))
+    config = Config("http://comp", "omni", "http://ollama", "http://tts", 30)
+    perception = build_comprehension_payload(parsed, config)
+    assert [message["role"] for message in perception["messages"]] == ["system", "user"]
+    assert "CALLER_POLICY_SENTINEL" not in json.dumps(perception)
+    language = build_language_payload(parsed, None, config=config)
+    assert "CALLER_POLICY_SENTINEL" in json.dumps(language)
+
+
 def test_chat_comprehension_payload_forbids_conversational_media_reply() -> None:
     parsed = parse_adapter_request(
         _base_request(
@@ -1117,6 +1142,56 @@ def test_chat_comprehension_payload_forbids_conversational_media_reply() -> None
     assert "Analyze this audio" in media_parts[-1]["text"]
     assert "non-speech evidence" in media_parts[-1]["text"]
     assert "nothing else" in media_parts[-1]["text"]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_trained_bridge_keeps_audio_and_visual_evidence_in_their_own_pass(
+    monkeypatch, stream: bool,
+) -> None:
+    from runtime import adapter_server
+
+    monkeypatch.setattr(adapter_server, "_video_is_pipe_readable", lambda _data: True)
+    monkeypatch.setattr(adapter_server, "_video_audio", lambda _media: _encoded(_wav(16000)))
+    parsed = parse_adapter_request(_base_request(
+        omni={"task": "describe"},
+        messages=[{"role": "user", "content": "Describe.", "videos": [
+            {"mime_type": "video/mp4", "data": _encoded(_mp4())},
+        ]}],
+    ))
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        seen.append(payload)
+        types = {part["type"] for message in payload["messages"][1:]
+                 for part in message["content"]}
+        assert not {"input_audio", "input_video"} <= types
+        assert payload["cache_prompt"] is False
+        if "input_audio" in types:
+            assert payload["messages"][0]["content"] == TRAINED_AUDIO_SYSTEM_PROMPT
+            text = ("<speech_transcript>Copper lighthouse seven.</speech_transcript>"
+                    "<audio_observation>A bell.</audio_observation>"
+                    "<visual_observation>FALSE_AUDIO_VISUAL</visual_observation>")
+        else:
+            text = ("<speech_transcript>FALSE_VISUAL_SPEECH</speech_transcript>"
+                    "<audio_observation>FALSE_VISUAL_SOUND</audio_observation>"
+                    "<visual_observation>Red, blue, green.</visual_observation>")
+        return httpx.Response(200, json={"choices": [{"message": {"content": text}}]})
+
+    config = Config("http://comp", "one-primary", "http://language", "http://tts", 30,
+                    comprehension_disable_thinking=True)
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = (list(execute_stream(parsed, config, client))[-1] if stream
+              else execute(parsed, config, client))
+    if stream:
+        result = json.loads(result)["response"]
+    assert len(seen) == 2
+    assert {payload["model"] for payload in seen} == {"one-primary"}
+    assert result["adapter"]["input_transcript"] == "Copper lighthouse seven."
+    assert result["adapter"]["audio_observation"] == "A bell."
+    assert result["adapter"]["evidence_provenance"]["current_visual_input"] is True
+    assert "Red, blue, green." in result["message"]["content"]
+    assert "FALSE_" not in json.dumps(result)
 
 
 def test_computer_visual_evidence_uses_normalized_gui_grounding_prompt() -> None:
@@ -2046,7 +2121,7 @@ def test_reference_server_streams_pcm_and_keeps_final_wav_envelope() -> None:
         "/api/chat",
         "/synthesize/stream/batch",
     ]
-    assert seen[1][1]["stream_frames"] == 8
+    assert "stream_frames" not in seen[1][1]
     assert seen[1][1]["blocks"] == ["Speak."]
     assert [event["type"] for event in events] == [
         "stage",
@@ -2167,7 +2242,7 @@ def test_live_stream_stops_runaway_decoded_audio_without_changing_codec_window()
             )
         )
 
-    assert seen_tts_payload["stream_frames"] == 8
+    assert "stream_frames" not in seen_tts_payload
 
 
 def test_long_tts_stream_uses_multiple_blocks_and_one_complete_wav(

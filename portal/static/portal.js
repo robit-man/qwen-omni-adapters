@@ -307,6 +307,7 @@
     voicePresetOptions: document.getElementById("voice-preset-options"),
     voiceReferenceControls: document.getElementById("voice-reference-controls"),
     voiceReferenceInput: document.getElementById("voice-reference-input"),
+    voiceReferenceText: document.getElementById("voice-reference-text"),
     voiceReferenceAudio: document.getElementById("voice-reference-audio"),
     voiceReferenceStatus: document.getElementById("voice-reference-status"),
     voiceReferenceClear: document.getElementById("voice-reference-clear"),
@@ -2690,6 +2691,7 @@
   }
 
   function applyVoiceDefaults(profile = state.voice.defaults) {
+    elements.voiceReferenceText.value = "";
     selectVoiceLocale(profile.locale || profile.language || "en");
     elements.voiceTemperature.value = String(profile.temperature ?? 0.7);
     elements.voiceTopK.value = String(profile.topK ?? 40);
@@ -2704,6 +2706,7 @@
   }
 
   function clearVoiceReference() {
+    elements.voiceReferenceText.value = "";
     state.voice.reference = null;
     if (state.voice.referenceUrl) URL.revokeObjectURL(state.voice.referenceUrl);
     state.voice.referenceUrl = null;
@@ -2716,6 +2719,7 @@
 
   async function setVoiceReference(file) {
     if (!file) return;
+    elements.voiceReferenceText.value = "";
     if (!file.name.toLowerCase().endsWith(".wav") && file.type !== "audio/wav") {
       throw new Error("Voice reference must be an uncompressed WAV file");
     }
@@ -2810,8 +2814,12 @@
     };
     if (payload.clone_enabled && state.voice.reference) {
       payload.speaker_audio = state.voice.reference.envelope;
+        payload.reference_text = elements.voiceReferenceText.value.trim();
     } else if (payload.clone_enabled && state.voice.selectedPreset) {
       payload.preset = state.voice.selectedPreset;
+      if (elements.voiceReferenceText.value.trim()) {
+        payload.reference_text = elements.voiceReferenceText.value.trim();
+      }
     }
     return payload;
   }

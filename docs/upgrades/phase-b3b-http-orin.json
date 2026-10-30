@@ -1,0 +1,474 @@
+{
+  "schema": "robit.omni.tts-reference-http.v1",
+  "observations": [
+    {
+      "label": "saved-0",
+      "first_pcm_s": 6.237796345027164,
+      "total_s": 10.593161795986816,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 3208571,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 0,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:headroom"
+    },
+    {
+      "label": "saved-1",
+      "first_pcm_s": 3.7039288207888603,
+      "total_s": 6.9491355288773775,
+      "pcm_sha256": "27338f29ca6b86a9c6be6e069f6d9eff7a4ea5e48adfba6ef7beafbdfe7dd14e",
+      "pcm_bytes": 149760,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 74880,
+        "duration_seconds": 3.12,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 9,
+        "tail_samples": 5760,
+        "start_sample": {
+          "median": -0.0933685302734375,
+          "minimum": -0.269989013671875,
+          "maximum": 0.198822021484375,
+          "standard_deviation": 0.18374593617012525
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4370505008502015,
+          "10": 0.42091331167797275,
+          "20": 0.4448117652962676
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.13616660451709797,
+          "maximum": 1.2729628797465224
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 3208660,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 1,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:headroom"
+    },
+    {
+      "label": "saved-2",
+      "first_pcm_s": 3.7222183300182223,
+      "total_s": 8.152416189201176,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 3208726,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 2,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:headroom"
+    },
+    {
+      "label": "saved-reloaded",
+      "first_pcm_s": 3.814730345038697,
+      "total_s": 8.294219038914889,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 3208825,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 3,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:headroom"
+    },
+    {
+      "label": "inline",
+      "first_pcm_s": 6.331500377040356,
+      "total_s": 11.145965960109606,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 3208949,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 3,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:not-ready"
+    },
+    {
+      "label": "inline-batch",
+      "first_pcm_s": 5.923066118033603,
+      "total_s": 13.323479353217408,
+      "pcm_sha256": "9e3b589fe771308b290f0df7ff3a4fe0fc4e081cca4288e45d1c66c0471d0a5f",
+      "pcm_bytes": 357120,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 178560,
+        "duration_seconds": 7.44,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 23,
+        "tail_samples": 1920,
+        "start_sample": {
+          "median": -0.01141357421875,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.1709804397400971
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.28898801896771276,
+          "10": 0.30271763345964664,
+          "20": 0.2755360670842669
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.08267212348665645,
+          "maximum": 1.2692926078744189
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 3209311,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 3,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:explicit"
+    },
+    {
+      "label": "inline-batch-repeat",
+      "first_pcm_s": 6.436963364016265,
+      "total_s": 14.769091547932476,
+      "pcm_sha256": "9e3b589fe771308b290f0df7ff3a4fe0fc4e081cca4288e45d1c66c0471d0a5f",
+      "pcm_bytes": 357120,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 178560,
+        "duration_seconds": 7.44,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 23,
+        "tail_samples": 1920,
+        "start_sample": {
+          "median": -0.01141357421875,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.1709804397400971
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.28898801896771276,
+          "10": 0.30271763345964664,
+          "20": 0.2755360670842669
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.08267212348665645,
+          "maximum": 1.2692926078744189
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 3209493,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 3,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:explicit"
+    },
+    {
+      "label": "saved-after-inline",
+      "first_pcm_s": 3.7584973871707916,
+      "total_s": 8.228482081089169,
+      "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+      "pcm_bytes": 207360,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 103680,
+        "duration_seconds": 4.32,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 13,
+        "tail_samples": 3840,
+        "start_sample": {
+          "median": -0.0104827880859375,
+          "minimum": -0.410614013671875,
+          "maximum": 0.323211669921875,
+          "standard_deviation": 0.17868889038324645
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4872653671592807,
+          "10": 0.2796083748066254,
+          "20": 0.35049888496784387
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.21632654231352355,
+          "maximum": 1.1884966799296262
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 3209726,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 4,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:headroom"
+    }
+  ],
+  "transitions": [],
+  "public_voice_contract_qualified": false,
+  "perceptual_cloning_quality_qualified": false,
+  "checkpoint_sha256": "7838f27ad60ed5181c60e9b6e7263df944933f07099602aa70a5e96c8640f388",
+  "reference_sha256": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+  "transcript_sha256": "ed748b88f9e465a541d61702d89aaa45633d51f59c4ff3630038e9353834de04",
+  "automatic_packets": true,
+  "continuous_batch": true,
+  "all_saved_a_b_a_exact": true,
+  "inline_matches_saved": true,
+  "complete_wav_matches_stream": true,
+  "cancel_cleans_request": true,
+  "inline_batch_exact": false,
+  "continuous_batch_repeat_exact": true,
+  "temporary_reference_files_remaining": 0,
+  "native_state_transfers": [
+    [
+      1,
+      0,
+      5218948,
+      73,
+      54
+    ],
+    [
+      2,
+      5218948,
+      5218948,
+      112,
+      39
+    ],
+    [
+      1,
+      0,
+      5218948,
+      73,
+      54
+    ],
+    [
+      2,
+      5218948,
+      5218948,
+      112,
+      39
+    ]
+  ]
+}

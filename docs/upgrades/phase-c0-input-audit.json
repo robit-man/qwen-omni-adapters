@@ -1,0 +1,38 @@
+{
+  "schema": "robit.omni.audio-head-input-audit.v1",
+  "audio_towers": {
+    "source": {
+      "path": "/srv/fine_tuning_suite/training_suite/outputs/omni_portal_runtime/components/comprehension-projector.gguf",
+      "tensor_count": 524,
+      "frozen_tensor_sha256": "8ee28b14130f8ad1dd5bdb38139090772c5217675e811ea85a8d309be9607210"
+    },
+    "ornith": {
+      "path": "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-ornith15-standard/release/mmproj-ornith15-omni-audio-bridge-final-bf16.gguf",
+      "tensor_count": 524,
+      "frozen_tensor_sha256": "8ee28b14130f8ad1dd5bdb38139090772c5217675e811ea85a8d309be9607210"
+    },
+    "qwen": {
+      "path": "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-qwen38-e03/release/mmproj-qwen38-e03-omni-audio-bridge-nothink-bf16.gguf",
+      "tensor_count": 524,
+      "frozen_tensor_sha256": "8ee28b14130f8ad1dd5bdb38139090772c5217675e811ea85a8d309be9607210"
+    }
+  },
+  "manifest_sha256": "65384f60557f0339782f5c3cde39561b89f6a7feb42ff5878f890df109f91802",
+  "split_counts": {
+    "train": 3321,
+    "test": 155,
+    "validation": 160
+  },
+  "sources": {
+    "espeak-ng plus deterministic procedural ambience": 640,
+    "deterministic procedural audio": 476,
+    "LibriSpeech dev-clean with deterministic local augmentation": 1200,
+    "Qwen3-TTS large-vocabulary recovery corpus": 1320
+  },
+  "empty_transcripts": {
+    "validation": 6,
+    "train": 462,
+    "test": 8
+  },
+  "unique_audio_paths": 2402
+}

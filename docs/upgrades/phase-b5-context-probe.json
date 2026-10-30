@@ -1,0 +1,194 @@
+{
+  "schema": "robit.omni.context-probe.v1",
+  "complete": true,
+  "samples": [
+    {
+      "context": 32768,
+      "reference_sha256": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+      "runs": [
+        {
+          "first_pcm_s": 0.20776948699494824,
+          "total_s": 1.294295601954218,
+          "pcm_sha256": "dcf5e09ecda7df88c2735d4e61ff9cd0807dd2c1d15cf28d253b8e813bfd7e91"
+        },
+        {
+          "first_pcm_s": 0.06701645901193842,
+          "total_s": 1.217842415033374,
+          "pcm_sha256": "0c3baf54d08c8a9316836041a04f9c724799543fc90d1815d3b1ff38a3b04272"
+        },
+        {
+          "first_pcm_s": 0.06665820896159858,
+          "total_s": 1.0949885259615257,
+          "pcm_sha256": "dcf5e09ecda7df88c2735d4e61ff9cd0807dd2c1d15cf28d253b8e813bfd7e91"
+        }
+      ],
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0"
+      },
+      "cpu_peak_rss_kib": 1091476,
+      "gpu_peak_mib": 6266,
+      "native_context_log": [
+        "llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.",
+        "print_info: n_ctx_train           = 32768",
+        "print_info: n_ctx_orig_yarn       = 32768",
+        "llama_context: n_ctx                 = 32768",
+        "llama_context: n_ctx_seq             = 32768",
+        "llama_kv_cache:      CUDA0 KV buffer size =     0.00 MiB",
+        "llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.",
+        "print_info: n_ctx_train           = 32768",
+        "print_info: n_ctx_orig_yarn       = 32768",
+        "llama_context: n_ctx                 = 32768",
+        "llama_context: n_ctx_seq             = 32768",
+        "llama_kv_cache:      CUDA0 KV buffer size =  3584.00 MiB"
+      ]
+    },
+    {
+      "context": 32768,
+      "reference_sha256": "79f6cd76dfe2f5cb6e2f217d1e03020cb8d75b8b49a3dc617e6bfa41ea49f61e",
+      "runs": [
+        {
+          "first_pcm_s": 0.23188728402601555,
+          "total_s": 1.108118659001775,
+          "pcm_sha256": "a86794ab63c25e4d7d6a8cea1270187d4d5a801c3c1b78715b26ba3e1e6bc8a0"
+        },
+        {
+          "first_pcm_s": 0.07247081398963928,
+          "total_s": 0.7740302549791522,
+          "pcm_sha256": "b043c0d0ba26eb80525918e7483aecbf37bc4b89d4575b62cbcefbadf72c8e9d"
+        },
+        {
+          "first_pcm_s": 0.06749031197978184,
+          "total_s": 0.9235981050296687,
+          "pcm_sha256": "a86794ab63c25e4d7d6a8cea1270187d4d5a801c3c1b78715b26ba3e1e6bc8a0"
+        }
+      ],
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0"
+      },
+      "cpu_peak_rss_kib": 1090380,
+      "gpu_peak_mib": 6266,
+      "native_context_log": [
+        "llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.",
+        "print_info: n_ctx_train           = 32768",
+        "print_info: n_ctx_orig_yarn       = 32768",
+        "llama_context: n_ctx                 = 32768",
+        "llama_context: n_ctx_seq             = 32768",
+        "llama_kv_cache:      CUDA0 KV buffer size =     0.00 MiB",
+        "llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.",
+        "print_info: n_ctx_train           = 32768",
+        "print_info: n_ctx_orig_yarn       = 32768",
+        "llama_context: n_ctx                 = 32768",
+        "llama_context: n_ctx_seq             = 32768",
+        "llama_kv_cache:      CUDA0 KV buffer size =  3584.00 MiB"
+      ]
+    },
+    {
+      "context": 4096,
+      "reference_sha256": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+      "runs": [
+        {
+          "first_pcm_s": 0.21230075601488352,
+          "total_s": 1.2820439729839563,
+          "pcm_sha256": "dcf5e09ecda7df88c2735d4e61ff9cd0807dd2c1d15cf28d253b8e813bfd7e91"
+        },
+        {
+          "first_pcm_s": 0.06624318700050935,
+          "total_s": 1.0322474790154956,
+          "pcm_sha256": "0c3baf54d08c8a9316836041a04f9c724799543fc90d1815d3b1ff38a3b04272"
+        },
+        {
+          "first_pcm_s": 0.06446477596182376,
+          "total_s": 1.1204907019855455,
+          "pcm_sha256": "dcf5e09ecda7df88c2735d4e61ff9cd0807dd2c1d15cf28d253b8e813bfd7e91"
+        }
+      ],
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0"
+      },
+      "cpu_peak_rss_kib": 1091600,
+      "gpu_peak_mib": 3106,
+      "native_context_log": [
+        "llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.",
+        "print_info: n_ctx_train           = 32768",
+        "print_info: n_ctx_orig_yarn       = 32768",
+        "llama_context: n_ctx                 = 4096",
+        "llama_context: n_ctx_seq             = 4096",
+        "llama_context: n_ctx_seq (4096) < n_ctx_train (32768) -- the full capacity of the model will not be utilized",
+        "llama_kv_cache:      CUDA0 KV buffer size =     0.00 MiB",
+        "llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.",
+        "print_info: n_ctx_train           = 32768",
+        "print_info: n_ctx_orig_yarn       = 32768",
+        "llama_context: n_ctx                 = 4096",
+        "llama_context: n_ctx_seq             = 4096",
+        "llama_context: n_ctx_seq (4096) < n_ctx_train (32768) -- the full capacity of the model will not be utilized",
+        "llama_kv_cache:      CUDA0 KV buffer size =   448.00 MiB"
+      ]
+    },
+    {
+      "context": 4096,
+      "reference_sha256": "79f6cd76dfe2f5cb6e2f217d1e03020cb8d75b8b49a3dc617e6bfa41ea49f61e",
+      "runs": [
+        {
+          "first_pcm_s": 0.22080401895800605,
+          "total_s": 1.0893867669510655,
+          "pcm_sha256": "a86794ab63c25e4d7d6a8cea1270187d4d5a801c3c1b78715b26ba3e1e6bc8a0"
+        },
+        {
+          "first_pcm_s": 0.0686786660226062,
+          "total_s": 0.7883422230370343,
+          "pcm_sha256": "b043c0d0ba26eb80525918e7483aecbf37bc4b89d4575b62cbcefbadf72c8e9d"
+        },
+        {
+          "first_pcm_s": 0.06539350200910121,
+          "total_s": 0.907073604001198,
+          "pcm_sha256": "a86794ab63c25e4d7d6a8cea1270187d4d5a801c3c1b78715b26ba3e1e6bc8a0"
+        }
+      ],
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0"
+      },
+      "cpu_peak_rss_kib": 1092756,
+      "gpu_peak_mib": 3106,
+      "native_context_log": [
+        "llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.",
+        "print_info: n_ctx_train           = 32768",
+        "print_info: n_ctx_orig_yarn       = 32768",
+        "llama_context: n_ctx                 = 4096",
+        "llama_context: n_ctx_seq             = 4096",
+        "llama_context: n_ctx_seq (4096) < n_ctx_train (32768) -- the full capacity of the model will not be utilized",
+        "llama_kv_cache:      CUDA0 KV buffer size =     0.00 MiB",
+        "llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.",
+        "print_info: n_ctx_train           = 32768",
+        "print_info: n_ctx_orig_yarn       = 32768",
+        "llama_context: n_ctx                 = 4096",
+        "llama_context: n_ctx_seq             = 4096",
+        "llama_context: n_ctx_seq (4096) < n_ctx_train (32768) -- the full capacity of the model will not be utilized",
+        "llama_kv_cache:      CUDA0 KV buffer size =   448.00 MiB"
+      ]
+    }
+  ]
+}

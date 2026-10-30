@@ -1,0 +1,166 @@
+diff --git a/ggml/include/gguf.h b/ggml/include/gguf.h
+index b3a1e1230..8021ea192 100644
+--- a/ggml/include/gguf.h
++++ b/ggml/include/gguf.h
+@@ -89,6 +89,14 @@ extern "C" {
+ 
+     GGML_API void gguf_free(struct gguf_context * ctx);
+ 
++    // Select one namespaced, read-only tensor view after a no_alloc load.
++    // Replaces/frees *tensor_context only on success. File data offset, tensor
++    // offsets, shapes and quantization stay bound to the original source file.
++    // The selected context is a loader view and must not be serialized.
++    GGML_API bool gguf_select_tensor_view(struct gguf_context * ctx,
++            const char * tensor_prefix, const char * metadata_prefix,
++            struct ggml_context ** tensor_context);
++
+     GGML_API const char * gguf_type_name(enum gguf_type type);
+ 
+     GGML_API uint32_t gguf_get_version    (const struct gguf_context * ctx);
+diff --git a/ggml/src/gguf.cpp b/ggml/src/gguf.cpp
+index 6c7b58178..6c5c8dce8 100644
+--- a/ggml/src/gguf.cpp
++++ b/ggml/src/gguf.cpp
+@@ -227,6 +227,74 @@ struct gguf_context {
+     void * data = nullptr;
+ };
+ 
++bool gguf_select_tensor_view(struct gguf_context * ctx,
++        const char * tensor_prefix, const char * metadata_prefix,
++        struct ggml_context ** tensor_context) {
++    if (!ctx || ctx->data || !tensor_context || !*tensor_context ||
++            !tensor_prefix || !*tensor_prefix || !metadata_prefix || !*metadata_prefix) {
++        GGML_LOG_ERROR("%s: a no_alloc context and nonempty prefixes are required\n", __func__);
++        return false;
++    }
++    const std::string tp(tensor_prefix), mp(metadata_prefix);
++    std::vector<gguf_kv> metadata;
++    std::vector<gguf_tensor_info> tensors;
++    bool architecture = false;
++    for (const auto & source : ctx->kv) {
++        if (source.key.compare(0, mp.size(), mp) != 0) {
++            continue;
++        }
++        gguf_kv item = source;
++        item.key.erase(0, mp.size());
++        if (item.key.empty()) {
++            return false;
++        }
++        if (item.key == "general.architecture") {
++            architecture = !item.is_array && item.type == GGUF_TYPE_STRING &&
++                           !item.get_val<std::string>().empty();
++            if (!architecture) {
++                return false;
++            }
++        }
++        metadata.push_back(std::move(item));
++    }
++    for (const auto & source : ctx->info) {
++        const std::string name(source.t.name);
++        if (name.compare(0, tp.size(), tp) != 0) {
++            continue;
++        }
++        const std::string selected_name = name.substr(tp.size());
++        if (selected_name.empty()) {
++            return false;
++        }
++        gguf_tensor_info item = source;
++        ggml_set_name(&item.t, selected_name.c_str());
++        tensors.push_back(item); // preserve original source offset, never compact it
++    }
++    if (!architecture || tensors.empty() || tensors.size() > SIZE_MAX / ggml_tensor_overhead()) {
++        GGML_LOG_ERROR("%s: missing component architecture or tensors\n", __func__);
++        return false;
++    }
++    struct ggml_context * selected = ggml_init({tensors.size() * ggml_tensor_overhead(), nullptr, true});
++    if (!selected) {
++        return false;
++    }
++    for (const auto & item : tensors) {
++        struct ggml_tensor * tensor = ggml_new_tensor(selected, item.t.type, GGML_MAX_DIMS, item.t.ne);
++        if (!tensor) {
++            ggml_free(selected);
++            return false;
++        }
++        ggml_set_name(tensor, item.t.name);
++    }
++    // Commit only after all metadata and tensor descriptors are valid. The
++    // container's physical alignment, data offset and size remain unchanged.
++    ctx->kv = std::move(metadata);
++    ctx->info = std::move(tensors);
++    ggml_free(*tensor_context);
++    *tensor_context = selected;
++    return true;
++}
++
+ struct gguf_reader {
+     gguf_reader(
+             gguf_reader_callback_t callback,
+diff --git a/src/llama-model-loader.cpp b/src/llama-model-loader.cpp
+index 7663797ba..a344f1f3e 100644
+--- a/src/llama-model-loader.cpp
++++ b/src/llama-model-loader.cpp
+@@ -573,6 +573,18 @@ llama_model_loader::llama_model_loader(
+             throw std::runtime_error(format("%s: failed to load model from %s", __func__, fname.c_str()));
+         }
+ 
++        const int64_t bundle_schema = gguf_find_key(metadata, "robit.audio_bundle.schema");
++        if (bundle_schema >= 0 && gguf_get_kv_type(metadata, bundle_schema) == GGUF_TYPE_STRING &&
++                strcmp(gguf_get_val_str(metadata, bundle_schema), "robit.ollama-audio-bridge.v2") == 0) {
++            if (!gguf_select_tensor_view(metadata, "s.t.m.",
++                    "robit.audio_bundle.component.tts_model.kv.", &ctx)) {
++                ggml_free(ctx);
++                throw std::runtime_error("invalid indexed TTS model view");
++            }
++            LLAMA_LOG_INFO("%s: indexed TTS model view; original file offsets retained\n", __func__);
++            indexed_view = true;
++        }
++
+         get_key(llm_kv(LLM_KV_GENERAL_ARCHITECTURE), arch_name, false);
+         llm_kv = LLM_KV(llm_arch_from_string(arch_name));
+ 
+@@ -1419,7 +1431,9 @@ void llama_model_loader::init_mappings(bool prefetch, llama_mlocks * mlock_mmaps
+                 }
+             }
+ 
+-            const size_t prefetch_size = prefetch && use_mmap ? -1 : 0;
++            // MAP_POPULATE reads the whole physical file, including sibling
++            // graphs. An indexed view must fault only its selected tensor pages.
++            const size_t prefetch_size = prefetch && use_mmap && !indexed_view ? -1 : 0;
+ 
+             std::unique_ptr<llama_mmap> mapping = std::make_unique<llama_mmap>(file.get(), prefetch_size, is_numa,
+                     lazy.for_file(idx));
+diff --git a/src/llama-model-loader.h b/src/llama-model-loader.h
+index 9e51d0ce7..88a04cc1a 100644
+--- a/src/llama-model-loader.h
++++ b/src/llama-model-loader.h
+@@ -79,6 +79,7 @@ struct llama_model_loader {
+     size_t   n_bytes    = 0;
+ 
+     bool use_mmap = false;
++    bool indexed_view = false;
+     bool use_direct_io = false;
+     bool check_tensors;
+     bool no_alloc;
+diff --git a/tools/mtmd/clip.cpp b/tools/mtmd/clip.cpp
+index e2ba518a6..b13dd363e 100644
+--- a/tools/mtmd/clip.cpp
++++ b/tools/mtmd/clip.cpp
+@@ -1195,6 +1195,17 @@ struct clip_model_loader {
+             throw std::runtime_error(string_format("%s: failed to load CLIP model from %s. Does this file exist?\n", __func__, fname));
+         }
+ 
++        const int64_t bundle_schema = gguf_find_key(ctx_gguf.get(), "robit.audio_bundle.schema");
++        if (bundle_schema >= 0 && gguf_get_kv_type(ctx_gguf.get(), bundle_schema) == GGUF_TYPE_STRING &&
++                strcmp(gguf_get_val_str(ctx_gguf.get(), bundle_schema), "robit.ollama-audio-bridge.v2") == 0) {
++            if (!gguf_select_tensor_view(ctx_gguf.get(), "s.t.p.",
++                    "robit.audio_bundle.component.tts_projector.kv.", &meta)) {
++                ggml_free(meta);
++                throw std::runtime_error("invalid indexed TTS codec view");
++            }
++            LOG_INF("%s: indexed TTS codec view; original file offsets retained\n", __func__);
++        }
++
+         ctx_meta.reset(meta);
+ 
+         const int n_tensors = gguf_get_n_tensors(ctx_gguf.get());

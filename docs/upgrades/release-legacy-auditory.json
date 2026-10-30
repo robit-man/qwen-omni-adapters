@@ -1,0 +1,47 @@
+{
+  "schema": "robit.omni.legacy-auditory-comparison.v1",
+  "model_sha256": "d9e2876556e7873e02c0359f832432ee2d67ab7dd0cee3efe0f77fd7a1f4dd85",
+  "projector_sha256": "1104376db833f1e89c84834144ac3863340c2cd1ddaeddb39cb0247fb5c20c8d",
+  "cases": [
+    {
+      "fixture": "speech.wav",
+      "elapsed_s": 0.614435505005531,
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>Speech with a synthesized, robotic voice and a low-frequency hum in the background.</audio_observation>"
+    },
+    {
+      "fixture": "alarm.wav",
+      "elapsed_s": 0.3950557759962976,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Continuous high-pitched beeping sound</audio_observation>"
+    },
+    {
+      "fixture": "noise.wav",
+      "elapsed_s": 0.3488304720376618,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Static noise</audio_observation>"
+    },
+    {
+      "fixture": "music.wav",
+      "elapsed_s": 0.41894248098833486,
+      "content": "<speech_transcript></speech_transcript><audio_observation>A continuous, high-pitched electronic tone is present throughout the audio clip.</audio_observation>"
+    },
+    {
+      "fixture": "esc50-clock_alarm.wav",
+      "elapsed_s": 0.4998826930532232,
+      "content": "<speech_transcript></speech_transcript><audio_observation>A continuous, high-pitched, electronic buzzing sound, similar to a telephone dial tone or a synthesizer, is present throughout the audio clip.</audio_observation>"
+    },
+    {
+      "fixture": "esc50-dog.wav",
+      "elapsed_s": 0.4042373829870485,
+      "content": "<speech_transcript></speech_transcript><audio_observation>A dog barks once, followed by a person speaking.</audio_observation>"
+    },
+    {
+      "fixture": "esc50-church_bells.wav",
+      "elapsed_s": 0.36847648303955793,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Church bells ringing</audio_observation>"
+    },
+    {
+      "fixture": "colors-speech.mp4",
+      "elapsed_s": 2.180842545989435,
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript>\n<audio_observation>Speech from a male voice, clear and steady, with no background noise or music.</audio_observation>\n<visual_observation>The video consists of a sequence of solid-colored screens. It begins with a red screen, transitions to a blue screen, and then to a green screen. Each color fills the entire frame for a few seconds before changing to the next.</visual_observation>"
+    }
+  ]
+}

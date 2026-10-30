@@ -1,0 +1,32 @@
+{
+  "schema": "robit.omni.source-validation.v1",
+  "baseline_commit": "b034c5c39b93638f05a481632873ff50e3725006",
+  "before": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6257,
+    "duration_s": 275.51
+  },
+  "after": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6260,
+    "duration_s": 280.04,
+    "additional_gates": "all source, contract, VAD, call queue, browser cache, npm installer, JS and shell gates passed"
+  },
+  "source_sha256": {
+    "runtime/audio_ctc_probe.cpp": "d3836bf9b3fa56e6278c09d056a98cfb6aa4cd31a813fe6db02b4eedaf054094",
+    "src/qwen_omni_adapters/single_gguf.py": "5f51726b84b63d32ca5139da734da061c67bc2d431d239c1edec0be76ad480e5",
+    "src/qwen_omni_adapters/indexed_sidecar.py": "3681554ec75afec831cc7e31a1136f25d489eab89db2f1f11aea5404a5d74bbb",
+    "src/qwen_omni_adapters/ollama_sidecar.py": "9aed197a480be880fc0156d882cc16670a23e6d3ee9a332988b8c230c15b1e02",
+    "src/qwen_omni_adapters/cli.py": "6c337c486803dd0163737019576d82048122058e40852a708909095902cd9aef",
+    "tests/test_indexed_sidecar.py": "18a1662cc24535578f4403a690d8ed6e4853a8e839f3775fb69be199eb9361b5"
+  },
+  "all_four_materialized_views_source_exact": true,
+  "both_candidate_backbone_and_projector_layers_unchanged": true,
+  "direct_head_native_315_fixtures_passed_each_A100_Orin": true,
+  "voice_reference_routes_passed_each_A100_Orin": true,
+  "new_head_runtime_enabled": false,
+  "whole_model_release_qualified": false,
+  "registry_publication_complete": false
+}

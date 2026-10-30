@@ -15,6 +15,16 @@ const endpoint = process.env.OMNI_ADAPTER_URL ?? "http://127.0.0.1:11435/api/cha
 const model = process.env.OMNI_MODEL ?? "robit/qwen3.8-omni:latest";
 const toolRouting = process.env.OMNI_TOOL_ROUTING ?? "client";
 const speechLocale = process.env.OMNI_SPEECH_LOCALE?.trim();
+const referencePath = process.env.OMNI_SPEAKER_REFERENCE;
+const referenceText = process.env.OMNI_REFERENCE_TEXT;
+const speech = speechLocale ? { locale: speechLocale } : {};
+if (referencePath) {
+  speech.speaker_audio = { mime_type: "audio/wav", encoding: "base64", data: (await readFile(referencePath)).toString("base64") };
+}
+if (referenceText !== undefined) {
+  if (referenceText.trim() && !referencePath) throw new Error("OMNI_REFERENCE_TEXT requires OMNI_SPEAKER_REFERENCE");
+  speech.reference_text = referenceText;
+}
 if (!["client", "relevant"].includes(toolRouting)) {
   throw new Error("OMNI_TOOL_ROUTING must be client or relevant");
 }
@@ -40,7 +50,7 @@ const response = await fetch(endpoint, {
     },
     response_modalities: ["text", "audio"],
     speech_mode: "always",
-    speech: speechLocale ? { locale: speechLocale } : {},
+    speech,
     think: true,
     stream: false,
   }),

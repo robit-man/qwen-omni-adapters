@@ -1,0 +1,16 @@
+{
+  "schema": "robit.omni.reference-normalization-investigation.v1",
+  "samples": 35834,
+  "original_normalized_sha256": "4b9368b03e4216f8586eccbd7a6a2000e348272ce1e3c867dda0b078ba9f01d1",
+  "orin_integer_output_sha256": "312ea187971935878e380240c690bc9ad8da0df102fa7434513079b3f547d2e3",
+  "integer_output_different_samples": 11933,
+  "maximum_pcm16_step_difference": 1,
+  "orin_float_explicit_roundtrip_sha256": "16b63fc12409d91e5a5d5de6c64010869122bb41e98f84a14dde7f5a84e6d6fa",
+  "float_output_different_samples": 47,
+  "a100_v2_matches_original_normalization": true,
+  "orin_runtime_pcm_sha256": "11b5ab22c8d6b837534ab02ec1f5c78c22d9acfab7fb1d418d876f10ba2ebd3f",
+  "orin_native_control_pcm_sha256": "11b5ab22c8d6b837534ab02ec1f5c78c22d9acfab7fb1d418d876f10ba2ebd3f",
+  "orin_runtime_matches_native_control": true,
+  "thresholds_relaxed": false,
+  "normalization_version": "24khz-soxr-precision20-float-pcm16-v2"
+}

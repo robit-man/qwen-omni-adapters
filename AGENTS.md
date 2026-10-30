@@ -1,5 +1,13 @@
 # AGENTS.md — Qwen Omni runtime instructions
 
+## Upgrade mandate
+
+This is the `qwen-omni-upgrade` fork. Read [agents.md](agents.md), the durable
+user ground truth for single-tag packaging, full reference voice cloning,
+feature parity and measured improvements, before changing this repository.
+The inherited instructions below still apply. Proposed neural heads and Edge v2
+releases are future work until actual training and qualification prove them.
+
 This repository is a standalone runtime baseline. An agent receiving only this
 checkout must be able to install, validate, deploy, diagnose, and safely stop
 the logical Omni model without relying on `fine_tuning_suite`.
@@ -39,7 +47,8 @@ editing the controller during every difficult trajectory.
 - Stock Ollama executes the standard Qwen3.8 model/projector layers. It does
   not execute the custom audio/video/TTS sidecar layer.
 - The sidecar is one valid namespaced GGUF container, but it is not a valid
-  `FROM` target for stock Ollama. The runtime materializes executable views.
+  `FROM` target for stock Ollama. Legacy payloads use materialized executable
+  views; indexed v2 TTS payloads support validated native filtered reads.
 - Qwen3.8, Qwen3-Omni, and Qwen3-TTS meet at a semantic-text boundary. Do not
   splice incompatible hidden states or claim a native monolithic graph.
 - Adapter v1 is `robit.ollama.omni-adapter.v1`; its portable route requires
@@ -101,7 +110,10 @@ editing the controller during every difficult trajectory.
   spoken turn.
 - The Qwen3-TTS resident protocol must reset generation memory and samplers and
   create a fresh audio-generation helper between prompts. Matching profiles may
-  reuse one PID and loaded weights; decoded request state may not.
+  reuse one PID and loaded weights. Explicit full-reference batch utterances
+  may carry only bounded causal waveform state between blocks; end, abort,
+  cancellation and any profile change must discard it. Decoded target state
+  must never enter the immutable reference cache or cross utterances.
 - The Qwen3-TTS code2wav graph must retain state at the last real codec frame,
   never after rear padding. Run `runtime/verify_pcm_stream.py` against raw PCM
   after rebuilding; browser smoothing cannot satisfy this source-level gate.

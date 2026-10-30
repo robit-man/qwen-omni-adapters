@@ -1,0 +1,24 @@
+[
+  {
+    "model": "robit/ornith-1.5-omni:edge-v2-reference-candidate-20261030",
+    "layer_digest": "sha256:7838f27ad60ed5181c60e9b6e7263df944933f07099602aa70a5e96c8640f388",
+    "layer_size": 1672479648,
+    "views": [
+      "tts_model",
+      "tts_projector",
+      "tts_reference_encoder"
+    ],
+    "materialized_bytes": 0
+  },
+  {
+    "model": "robit/qwen3.8-27b-e03-omni:edge-v2-reference-candidate-20261030",
+    "layer_digest": "sha256:7838f27ad60ed5181c60e9b6e7263df944933f07099602aa70a5e96c8640f388",
+    "layer_size": 1672479648,
+    "views": [
+      "tts_model",
+      "tts_projector",
+      "tts_reference_encoder"
+    ],
+    "materialized_bytes": 0
+  }
+]

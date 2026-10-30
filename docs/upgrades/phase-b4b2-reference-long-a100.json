@@ -1,0 +1,307 @@
+{
+  "schema": "robit.omni.tts-reference-prompt-qualification.v1",
+  "accelerator": {
+    "system": "Linux",
+    "machine": "x86_64",
+    "tegra": false,
+    "residency_backend": "nvidia-smi-compute-apps",
+    "gpu_memory_model": "discrete"
+  },
+  "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+  "binary_sha256": "dc84ba02b3915a95c48552aeaf7ea5e05b2af7d6efd1bfa00ecc1313f790fc8c",
+  "reference_sha256": "79f6cd76dfe2f5cb6e2f217d1e03020cb8d75b8b49a3dc617e6bfa41ea49f61e",
+  "reference_prompt_sha256": "6fa7cade8af51921112dab2cfe60546e4bea5a6472988f30b82a26a5e496072b",
+  "context_size": 4096,
+  "cases": [
+    {
+      "cache_enabled": false,
+      "worker_pid": 1644849,
+      "gpu_residency_verified": true,
+      "load_s": 1.0398051110096276,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0"
+      },
+      "memory_headroom": {
+        "minimum_available_mib": 338771.50390625,
+        "floor_mib": 0,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "a_b_a_identical": true,
+      "runs": [
+        {
+          "index": 0,
+          "first_pcm_s": 0.40475034702103585,
+          "total_s": 1.2607637980254367,
+          "pcm_bytes": 126720,
+          "pcm_sha256": "7a97f4ebee72ec043ed7fbfe85060dfa54fc6a3409fdc01a0c682dbab541761f",
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 63360,
+            "duration_seconds": 2.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.001495361328125,
+              "minimum": -0.445037841796875,
+              "maximum": 0.590301513671875,
+              "standard_deviation": 0.27155591984063604
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.25145862497638627,
+              "10": 0.2638601960180842,
+              "20": 0.24233657216607546
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.07989542176352435,
+              "maximum": 0.6795964314259115
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "reference_counters": null
+        },
+        {
+          "index": 1,
+          "first_pcm_s": 0.20064042398007587,
+          "total_s": 1.047788740019314,
+          "pcm_bytes": 126720,
+          "pcm_sha256": "be2e5b735d850048ad5f73d3d284e8c4ea33997fb2708aba5aa91ad0d00d686e",
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 63360,
+            "duration_seconds": 2.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -3.0517578125e-05,
+              "minimum": -0.522918701171875,
+              "maximum": 0.489715576171875,
+              "standard_deviation": 0.21569268829289973
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.4869965514308966,
+              "10": 0.25863849420223634,
+              "20": 0.24750427810225084
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.03477553350887772,
+              "maximum": 0.9762880337227858
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "reference_counters": null
+        },
+        {
+          "index": 2,
+          "first_pcm_s": 0.19535818201256916,
+          "total_s": 1.0449043969856575,
+          "pcm_bytes": 126720,
+          "pcm_sha256": "7a97f4ebee72ec043ed7fbfe85060dfa54fc6a3409fdc01a0c682dbab541761f",
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 63360,
+            "duration_seconds": 2.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.001495361328125,
+              "minimum": -0.445037841796875,
+              "maximum": 0.590301513671875,
+              "standard_deviation": 0.27155591984063604
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.25145862497638627,
+              "10": 0.2638601960180842,
+              "20": 0.24233657216607546
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.07989542176352435,
+              "maximum": 0.6795964314259115
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "reference_counters": null
+        }
+      ]
+    },
+    {
+      "cache_enabled": true,
+      "worker_pid": 1646751,
+      "gpu_residency_verified": true,
+      "load_s": 1.0682577280094847,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0"
+      },
+      "memory_headroom": {
+        "minimum_available_mib": 338505.8515625,
+        "floor_mib": 0,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "a_b_a_identical": true,
+      "runs": [
+        {
+          "index": 0,
+          "first_pcm_s": 0.41640779201406986,
+          "total_s": 1.2818661439814605,
+          "pcm_bytes": 126720,
+          "pcm_sha256": "7a97f4ebee72ec043ed7fbfe85060dfa54fc6a3409fdc01a0c682dbab541761f",
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 63360,
+            "duration_seconds": 2.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.001495361328125,
+              "minimum": -0.445037841796875,
+              "maximum": 0.590301513671875,
+              "standard_deviation": 0.27155591984063604
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.25145862497638627,
+              "10": 0.2638601960180842,
+              "20": 0.24233657216607546
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.07989542176352435,
+              "maximum": 0.6795964314259115
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "reference_counters": [
+            1,
+            1,
+            0,
+            6564915
+          ]
+        },
+        {
+          "index": 1,
+          "first_pcm_s": 0.08825075498316437,
+          "total_s": 0.9147616780246608,
+          "pcm_bytes": 126720,
+          "pcm_sha256": "be2e5b735d850048ad5f73d3d284e8c4ea33997fb2708aba5aa91ad0d00d686e",
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 63360,
+            "duration_seconds": 2.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -3.0517578125e-05,
+              "minimum": -0.522918701171875,
+              "maximum": 0.489715576171875,
+              "standard_deviation": 0.21569268829289973
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.4869965514308966,
+              "10": 0.25863849420223634,
+              "20": 0.24750427810225084
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.03477553350887772,
+              "maximum": 0.9762880337227858
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "reference_counters": [
+            1,
+            1,
+            1,
+            6564915
+          ]
+        },
+        {
+          "index": 2,
+          "first_pcm_s": 0.08919843198964372,
+          "total_s": 0.9417157230200246,
+          "pcm_bytes": 126720,
+          "pcm_sha256": "7a97f4ebee72ec043ed7fbfe85060dfa54fc6a3409fdc01a0c682dbab541761f",
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 63360,
+            "duration_seconds": 2.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.001495361328125,
+              "minimum": -0.445037841796875,
+              "maximum": 0.590301513671875,
+              "standard_deviation": 0.27155591984063604
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.25145862497638627,
+              "10": 0.2638601960180842,
+              "20": 0.24233657216607546
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.07989542176352435,
+              "maximum": 0.6795964314259115
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "reference_counters": [
+            1,
+            1,
+            2,
+            6564915
+          ]
+        }
+      ]
+    }
+  ],
+  "public_voice_contract_qualified": false,
+  "perceptual_cloning_quality_qualified": false,
+  "all_pcm_exact": true,
+  "reference_conditioning_reused": true,
+  "warm_first_pcm_reduction_percent": 55.18944150624008
+}

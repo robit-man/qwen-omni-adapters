@@ -1,0 +1,268 @@
+diff --git a/common/arg.cpp b/common/arg.cpp
+index 734a8f96f..868ceabbb 100644
+--- a/common/arg.cpp
++++ b/common/arg.cpp
+@@ -4461,6 +4461,12 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
+         }
+     ).set_examples({LLAMA_EXAMPLE_TTS}));
+ 
++    add_opt(common_arg(
++        {"--tts-no-conditioning-cache"},
++        "disable model-bound immutable speaker/token conditioning reuse (comparison baseline)",
++        [](common_params & params) { params.tts_conditioning_cache = false; }
++    ).set_examples({LLAMA_EXAMPLE_TTS}));
++
+     //
+     // diffusion params
+     //
+diff --git a/common/common.h b/common/common.h
+index 889cc3288..4050477e0 100644
+--- a/common/common.h
++++ b/common/common.h
+@@ -756,6 +756,7 @@ struct common_params {
+     bool tts_stream = false;
+     int32_t tts_stream_frames = 72;
+     bool tts_persistent = false;
++    bool tts_conditioning_cache = true;
+ 
+     bool is_gen_docs = false; // whether we are running inside llama-gen-docs
+ };
+diff --git a/tools/mtmd/mtmd-helper-gen.cpp b/tools/mtmd/mtmd-helper-gen.cpp
+index 1c58d3ae1..9b867ef4c 100644
+--- a/tools/mtmd/mtmd-helper-gen.cpp
++++ b/tools/mtmd/mtmd-helper-gen.cpp
+@@ -76,6 +76,38 @@ static bool write_wav16(std::vector<char> & buf, const std::vector<float> & pcm,
+     return true;
+ }
+ 
++struct mtmd_helper_gen_audio_cache {
++    const llama_model * model = nullptr;
++    const mtmd_context * mctx = nullptr;
++    std::vector<float> token_embeddings;
++    std::vector<llama_token> special_tokens;
++    // One reference, bounded to 16 MiB of normalized input. Exact content
++    // comparison also detects in-place mutation and bitmap-address reuse.
++    std::vector<unsigned char> speaker_input;
++    std::vector<float> speaker_embedding;
++    uint32_t speaker_nx = 0, speaker_ny = 0;
++    bool speaker_audio = false;
++    std::string speaker_language;
++    mtmd_helper_gen_audio_cache_stats stats{};
++};
++
++mtmd_helper_gen_audio_cache * mtmd_helper_gen_audio_cache_init(
++        llama_context * lctx, mtmd_context * mctx) {
++    auto * cache = new mtmd_helper_gen_audio_cache();
++    cache->model = llama_get_model(lctx);
++    cache->mctx = mctx;
++    return cache;
++}
++
++void mtmd_helper_gen_audio_cache_free(mtmd_helper_gen_audio_cache * cache) {
++    delete cache;
++}
++
++mtmd_helper_gen_audio_cache_stats mtmd_helper_gen_audio_cache_get_stats(
++        const mtmd_helper_gen_audio_cache * cache) {
++    return cache ? cache->stats : mtmd_helper_gen_audio_cache_stats{};
++}
++
+ class mtmd_gen_audio_pipeline {
+ public:
+     mtmd_gen_audio_pipeline(llama_context * lctx, mtmd_context * mctx)
+@@ -106,7 +138,10 @@ protected:
+ // then code2wav decodes them to PCM
+ class qwen3tts_gen_audio_pipeline : public mtmd_gen_audio_pipeline {
+ public:
+-    using mtmd_gen_audio_pipeline::mtmd_gen_audio_pipeline;
++    qwen3tts_gen_audio_pipeline(llama_context * lctx, mtmd_context * mctx,
++                               mtmd_helper_gen_audio_cache * cache)
++        : mtmd_gen_audio_pipeline(lctx, mctx), conditioning(cache ? cache : &local_cache),
++          tok_embd(conditioning->token_embeddings) {}
+ 
+     void reset() override {
+         seq_id = 0;
+@@ -140,8 +175,35 @@ public:
+ 
+         std::vector<float> speaker_embd;
+         if (inp->speaker_ref) {
+-            if (!encode_speaker(inp->speaker_ref, speaker_embd)) {
+-                return 1;
++            const auto * reference = inp->speaker_ref;
++            const size_t size = mtmd_bitmap_get_n_bytes(reference);
++            const auto * bytes = mtmd_bitmap_get_data(reference);
++            const bool match = size == conditioning->speaker_input.size() &&
++                !conditioning->speaker_embedding.empty() &&
++                conditioning->speaker_nx == mtmd_bitmap_get_nx(reference) &&
++                conditioning->speaker_ny == mtmd_bitmap_get_ny(reference) &&
++                conditioning->speaker_audio == mtmd_bitmap_is_audio(reference) &&
++                conditioning->speaker_language == lang &&
++                std::equal(conditioning->speaker_input.begin(),
++                           conditioning->speaker_input.end(), bytes);
++            if (match) {
++                speaker_embd = conditioning->speaker_embedding;
++                conditioning->stats.speaker_hits++;
++            } else {
++                if (!encode_speaker(inp->speaker_ref, speaker_embd)) {
++                    return 1;
++                }
++                conditioning->stats.speaker_encodes++;
++                conditioning->speaker_input.clear();
++                conditioning->speaker_embedding.clear();
++                if (size <= 16 * 1024 * 1024) {
++                    conditioning->speaker_input.assign(bytes, bytes + size);
++                    conditioning->speaker_embedding = speaker_embd;
++                    conditioning->speaker_nx = mtmd_bitmap_get_nx(reference);
++                    conditioning->speaker_ny = mtmd_bitmap_get_ny(reference);
++                    conditioning->speaker_audio = mtmd_bitmap_is_audio(reference);
++                    conditioning->speaker_language = lang;
++                }
+             }
+         }
+ 
+@@ -332,6 +394,15 @@ private:
+         if (specials_ok) {
+             return true;
+         }
++        if (conditioning->special_tokens.size() == 10 && !tok_embd.empty()) {
++            llama_token * targets[] = { &codec_0, &codec_bos, &codec_eos, &codec_pad,
++                &c_think, &c_think_b, &c_think_e, &tts_pad, &tts_bos, &tts_eos };
++            for (size_t i = 0; i < 10; ++i) {
++                *targets[i] = conditioning->special_tokens[i];
++            }
++            specials_ok = true;
++            return true;
++        }
+         codec_0   = find_special_token(vocab, "<|codec_0|>");
+         codec_bos = find_special_token(vocab, "<|codec_bos|>");
+         codec_eos = find_special_token(vocab, "<|codec_eos_token|>");
+@@ -360,6 +431,9 @@ private:
+             LOG_ERR("mtmd_helper_gen_audio: token embedding copy failed\n");
+             return false;
+         }
++        conditioning->stats.token_table_loads++;
++        conditioning->special_tokens = { codec_0, codec_bos, codec_eos, codec_pad,
++            c_think, c_think_b, c_think_e, tts_pad, tts_bos, tts_eos };
+         specials_ok = true;
+         return true;
+     }
+@@ -432,7 +506,9 @@ private:
+     llama_token tts_pad    = LLAMA_TOKEN_NULL;
+     llama_token tts_bos    = LLAMA_TOKEN_NULL;
+     llama_token tts_eos    = LLAMA_TOKEN_NULL;
+-    std::vector<float> tok_embd; // whole token embedding matrix, n_vocab * n_embd
++    mtmd_helper_gen_audio_cache local_cache;
++    mtmd_helper_gen_audio_cache * conditioning;
++    std::vector<float> & tok_embd; // immutable table shared only by matching model contexts
+ 
+     // must match hparams.wav_tfm_swa hardcoded in clip.cpp
+     size_t window_frames = 72;
+@@ -993,10 +1069,11 @@ private:
+     std::vector<char> out_buf;
+ };
+ 
+-static std::unique_ptr<mtmd_gen_audio_pipeline> make_pipeline(llama_context * lctx, mtmd_context * mctx) {
++static std::unique_ptr<mtmd_gen_audio_pipeline> make_pipeline(
++        llama_context * lctx, mtmd_context * mctx, mtmd_helper_gen_audio_cache * cache = nullptr) {
+     switch (mtmd_gen_audio_get_info(mctx).type) {
+         case MTMD_GEN_AUDIO_TYPE_QWEN3TTS:
+-            return std::unique_ptr<mtmd_gen_audio_pipeline>(new qwen3tts_gen_audio_pipeline(lctx, mctx));
++            return std::unique_ptr<mtmd_gen_audio_pipeline>(new qwen3tts_gen_audio_pipeline(lctx, mctx, cache));
+         case MTMD_GEN_AUDIO_TYPE_POCKETTTS:
+             return std::unique_ptr<mtmd_gen_audio_pipeline>(new pockettts_gen_audio_pipeline(lctx, mctx));
+         default:
+@@ -1009,8 +1086,17 @@ struct mtmd_helper_gen_audio {
+ };
+ 
+ mtmd_helper_gen_audio * mtmd_helper_gen_audio_init(struct llama_context * lctx, struct mtmd_context * mctx) {
++    return mtmd_helper_gen_audio_init_cached(lctx, mctx, nullptr);
++}
++
++mtmd_helper_gen_audio * mtmd_helper_gen_audio_init_cached(
++        llama_context * lctx, mtmd_context * mctx, mtmd_helper_gen_audio_cache * cache) {
+     auto * ctx = new mtmd_helper_gen_audio();
+-    ctx->pipeline = make_pipeline(lctx, mctx);
++    if (cache && (cache->model != llama_get_model(lctx) || cache->mctx != mctx)) {
++        LOG_ERR("mtmd_helper_gen_audio: conditioning cache belongs to another model context\n");
++        return ctx;
++    }
++    ctx->pipeline = make_pipeline(lctx, mctx, cache);
+     return ctx;
+ }
+ 
+diff --git a/tools/mtmd/mtmd-helper.h b/tools/mtmd/mtmd-helper.h
+index 772e0f091..feb49cfd4 100644
+--- a/tools/mtmd/mtmd-helper.h
++++ b/tools/mtmd/mtmd-helper.h
+@@ -189,6 +189,24 @@ MTMD_API bool mtmd_helper_model_can_chat(struct llama_context * lctx, struct mtm
+ struct mtmd_helper_gen_audio;
+ typedef struct mtmd_helper_gen_audio mtmd_helper_gen_audio;
+ 
++// Model-bound immutable conditioning only. Never stores generated codes, PCM,
++// prompt/KV state, samplers or codec decoder state. The owner must outlive helpers.
++struct mtmd_helper_gen_audio_cache;
++typedef struct mtmd_helper_gen_audio_cache mtmd_helper_gen_audio_cache;
++struct mtmd_helper_gen_audio_cache_stats {
++    uint64_t token_table_loads;
++    uint64_t speaker_encodes;
++    uint64_t speaker_hits;
++};
++MTMD_API mtmd_helper_gen_audio_cache * mtmd_helper_gen_audio_cache_init(
++    struct llama_context * lctx, struct mtmd_context * mctx);
++MTMD_API void mtmd_helper_gen_audio_cache_free(mtmd_helper_gen_audio_cache * cache);
++MTMD_API struct mtmd_helper_gen_audio_cache_stats mtmd_helper_gen_audio_cache_get_stats(
++    const mtmd_helper_gen_audio_cache * cache);
++MTMD_API mtmd_helper_gen_audio * mtmd_helper_gen_audio_init_cached(
++    struct llama_context * lctx, struct mtmd_context * mctx,
++    mtmd_helper_gen_audio_cache * cache);
++
+ enum mtmd_helper_gen_audio_outtype {
+     MTMD_HELPER_GEN_AUDIO_OUTTYPE_PCM, // raw PCM
+     MTMD_HELPER_GEN_AUDIO_OUTTYPE_WAV, // WAV PCM 16-bit LE, mono
+@@ -274,7 +292,9 @@ struct mtmd_helper_gen_audio_deleter {
+ using gen_audio_ptr = std::unique_ptr<mtmd_helper_gen_audio, mtmd_helper_gen_audio_deleter>;
+ struct gen_audio {
+     gen_audio_ptr ctx;
+-    gen_audio(struct llama_context * lctx, struct mtmd_context * mctx) : ctx(mtmd_helper_gen_audio_init(lctx, mctx)) {}
++    gen_audio(struct llama_context * lctx, struct mtmd_context * mctx,
++              mtmd_helper_gen_audio_cache * cache = nullptr)
++        : ctx(mtmd_helper_gen_audio_init_cached(lctx, mctx, cache)) {}
+     void reset() {
+         mtmd_helper_gen_audio_reset(ctx.get());
+     }
+diff --git a/tools/tts/tts.cpp b/tools/tts/tts.cpp
+index 805605bc8..8c70401ad 100644
+--- a/tools/tts/tts.cpp
++++ b/tools/tts/tts.cpp
+@@ -152,8 +152,13 @@ int main(int argc, char ** argv) {
+         speaker_bitmap.reset(wrapper.bitmap);
+     }
+ 
++    std::unique_ptr<mtmd_helper_gen_audio_cache, decltype(&mtmd_helper_gen_audio_cache_free)>
++        conditioning_cache(params.tts_conditioning_cache
++            ? mtmd_helper_gen_audio_cache_init(lctx, mctx.get()) : nullptr,
++            mtmd_helper_gen_audio_cache_free);
++
+     auto generate = [&](const std::string & prompt, bool framed) -> bool {
+-        mtmd_helper::gen_audio gen(lctx, mctx.get());
++        mtmd_helper::gen_audio gen(lctx, mctx.get(), conditioning_cache.get());
+         llama_memory_clear(llama_get_memory(lctx), true);
+         mtmd_gen_audio_reset_rng(mctx.get());
+         common_sampler_ptr request_sampler(
+@@ -309,7 +314,15 @@ int main(int argc, char ** argv) {
+                 if (prompt.empty()) {
+                     throw base64_error("prompt is empty");
+                 }
+-                if (!generate(prompt, true)) {
++                const bool generated = generate(prompt, true);
++                if (conditioning_cache) {
++                    const auto stats = mtmd_helper_gen_audio_cache_get_stats(conditioning_cache.get());
++                    LOG_INF("tts conditioning: token_tables=%llu speaker_encodes=%llu speaker_hits=%llu\n",
++                        (unsigned long long) stats.token_table_loads,
++                        (unsigned long long) stats.speaker_encodes,
++                        (unsigned long long) stats.speaker_hits);
++                }
++                if (!generated) {
+                     const std::string error = "persistent TTS generation failed";
+                     tts_write_frame('E', error.data(), error.size());
+                 }

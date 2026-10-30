@@ -1,0 +1,28 @@
+{
+  "pairs": [
+    {
+      "model": "robit/ornith-1.5-omni:edge-v2-ctc-candidate-20261030",
+      "sidecar": "sha256:d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+      "standard_layers": {
+        "language_model": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+        "projector": "sha256:7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c"
+      },
+      "backbone_and_projector_unchanged": true,
+      "ctc_default_disabled": true
+    },
+    {
+      "model": "robit/qwen3.8-27b-e03-omni:edge-v2-ctc-candidate-20261030",
+      "sidecar": "sha256:d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+      "standard_layers": {
+        "language_model": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+        "projector": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03"
+      },
+      "backbone_and_projector_unchanged": true,
+      "ctc_default_disabled": true
+    }
+  ],
+  "shared_sidecar_bytes": 1682999584,
+  "prior_sidecar_bytes": 1672479648,
+  "additional_bytes": 10519936,
+  "new_head_runtime_enabled": false
+}

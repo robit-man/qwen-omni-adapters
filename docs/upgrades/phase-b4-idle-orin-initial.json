@@ -1,0 +1,101 @@
+{
+  "schema": "robit.omni.orin-idle-retention.v1",
+  "accelerator": {
+    "system": "Linux",
+    "machine": "aarch64",
+    "tegra": true,
+    "residency_backend": "tegra-device-handles",
+    "gpu_memory_model": "unified",
+    "tegra_soc": "tegra234",
+    "l4t_release": "R36.3.0",
+    "cuda_architectures": "87"
+  },
+  "context_size": 32768,
+  "retention_floor_mib": 6144,
+  "active_memory_guard_floor_mib": 2048,
+  "scope": "same compiled B2 binary/checkpoints; real Flask handlers; in-process client beside resident primary and harness",
+  "samples": [
+    {
+      "keepalive_s": 0,
+      "runs": [
+        {
+          "text_index": 0,
+          "first_pcm_s": 3.993254335131496,
+          "total_s": 8.46258986601606,
+          "pid": 2979550,
+          "cpu_peak_rss_kib": null,
+          "pcm_sha256": "149bd68692a82175ec45c97b75f10f6cf1611dc75e4c512d78f3f71af80bf14a",
+          "audio_seconds": 3.28
+        },
+        {
+          "text_index": 1,
+          "first_pcm_s": 3.8106542569585145,
+          "total_s": 8.195878258906305,
+          "pid": 2979637,
+          "cpu_peak_rss_kib": null,
+          "pcm_sha256": "4b5100df2d3a63ab20583f93536d5969a5db3bb7a0d66d4768b939d4634ee629",
+          "audio_seconds": 3.04
+        },
+        {
+          "text_index": 2,
+          "first_pcm_s": 3.6219299079384655,
+          "total_s": 8.705891201971099,
+          "pid": 2979714,
+          "cpu_peak_rss_kib": null,
+          "pcm_sha256": "149bd68692a82175ec45c97b75f10f6cf1611dc75e4c512d78f3f71af80bf14a",
+          "audio_seconds": 3.28
+        }
+      ],
+      "memory_headroom": {
+        "minimum_available_mib": 6772.1484375,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      }
+    },
+    {
+      "keepalive_s": 5,
+      "runs": [
+        {
+          "text_index": 0,
+          "first_pcm_s": 3.7648890810087323,
+          "total_s": 7.843623533844948,
+          "pid": 2979861,
+          "cpu_peak_rss_kib": 682924,
+          "pcm_sha256": "149bd68692a82175ec45c97b75f10f6cf1611dc75e4c512d78f3f71af80bf14a",
+          "audio_seconds": 3.28
+        },
+        {
+          "text_index": 1,
+          "first_pcm_s": 0.27373896492645144,
+          "total_s": 3.403584790881723,
+          "pid": 2979861,
+          "cpu_peak_rss_kib": 683188,
+          "pcm_sha256": "4b5100df2d3a63ab20583f93536d5969a5db3bb7a0d66d4768b939d4634ee629",
+          "audio_seconds": 3.04
+        },
+        {
+          "text_index": 2,
+          "first_pcm_s": 0.25901872711256146,
+          "total_s": 3.6246238541789353,
+          "pid": 2979861,
+          "cpu_peak_rss_kib": 683452,
+          "pcm_sha256": "149bd68692a82175ec45c97b75f10f6cf1611dc75e4c512d78f3f71af80bf14a",
+          "audio_seconds": 3.28
+        }
+      ],
+      "memory_headroom": {
+        "minimum_available_mib": 6963.19140625,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      }
+    }
+  ],
+  "completed": true,
+  "source_sha256": {
+    "runtime/tts_server.py": "e6b660566bc6a93ef39bd42d0e2f28f3288a5666183a574e28b9e68486643220",
+    "src/qwen_omni_adapters/tts_residency.py": "8d6213c550177fe03fa4509c43dc17219cfc6d513a7ac55fb2b2bafbbaf27853"
+  },
+  "idle_expiry_verified": true
+}

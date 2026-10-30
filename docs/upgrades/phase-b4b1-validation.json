@@ -1,0 +1,30 @@
+{
+  "schema": "robit.omni.upgrade-validation.v1",
+  "milestone": "B4b1",
+  "source_gate": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "tests_passed": 6217,
+    "pytest_seconds": 273.59
+  },
+  "source_sha256": {
+    "patches/llama.cpp-qwen3tts-reference-encoder.patch": "ceea5900f513f33fed86ee5c4b47b2c0d6db1f0f76d8e557c06903444c5e62cf",
+    "runtime/export_tts_reference_encoder.py": "9386f75f300521573de973e188adaf063fae8bdadabe4ca7c8148eb2b386867a",
+    "runtime/qualify_tts_reference_encoder.py": "0137660fabbc3ecefb79aa493031d7fdc2ff95e95a9d356a90f1bacf3436674a",
+    "scripts/build_llama_cpp.sh": "e51032a8091085a820c794f9fd8eaaca1847087a6ce025142b911c6fea0478b8",
+    "scripts/build_llama_cpp.ps1": "f745ecc00f7828e044a0c933eb7780b7b9a9aef3fab4c82b8717af6236c760d5",
+    "src/qwen_omni_adapters/indexed_sidecar.py": "5788ffcc675581de2cd2b8f22c7c2289262efc5c718bd0a3eb2bdbf941bd1f75",
+    "src/qwen_omni_adapters/single_gguf.py": "07478c84097e6907ca7439bf7627f491753bb3bc2153bfcfd16188f8cf568db3",
+    "src/qwen_omni_adapters/ollama_sidecar.py": "0d1eb2e046c425f1eafee2f66592b2ecef96a1aeafb755c6e9ea30840d478de0",
+    "tests/test_indexed_sidecar.py": "ffd18a4d07e75ae9565bbc21eda4d0812d2902afc166126803819af85d6e82e4",
+    "tests/test_native_json_grammar.py": "daedc72dfc760d250cd212669336aedd48d7625b2245a64511b53a9477dba6a0"
+  },
+  "native_build_and_repeat_passed": true,
+  "existing_tts_pcm_comparisons_identical": 12,
+  "native_reference_codes_identical": 2912,
+  "installed_indexed_view_tested": true,
+  "runtime_torch_dependency_added": false,
+  "runtime_reference_conditioning_enabled": false,
+  "full_voice_cloning_qualified": false,
+  "release_qualified": false
+}

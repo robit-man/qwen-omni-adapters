@@ -342,6 +342,7 @@ def build_indicator(
     voices: Callable[[], list[Mapping[str, Any]]] | None = None,
     on_voice_select: Callable[[str], tuple[bool, str]] | None = None,
     on_voice_import: Callable[[str], tuple[bool, str]] | None = None,
+    on_voice_reference_text: Callable[[str, str], tuple[bool, str]] | None = None,
     updates: Callable[[], Mapping[str, Any]] | None = None,
     on_update: Callable[[], tuple[bool, str]] | None = None,
     required: bool = False,
@@ -874,6 +875,28 @@ def build_indicator(
             self._voice_signature = None
             self._refresh_voices()
 
+        def _voice_reference_text(self, view) -> None:
+            if on_voice_reference_text is None:
+                return
+            dialog = Gtk.Dialog(title="Reference transcript", modal=True)
+            dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Save", Gtk.ResponseType.OK)
+            entry = Gtk.Entry()
+            entry.set_max_length(2048)
+            entry.set_text(str(view.get("reference_text") or ""))
+            content = dialog.get_content_area()
+            content.pack_start(Gtk.Label(label="Words spoken in this voice reference. Leave blank to use speaker conditioning."), False, False, 8)
+            content.pack_start(entry, False, False, 8)
+            dialog.show_all()
+            try:
+                if dialog.run() == Gtk.ResponseType.OK:
+                    ok, detail = on_voice_reference_text(str(view["id"]), entry.get_text())
+                    self._status_item.set_label(detail[:80])
+                    if ok:
+                        self._voice_signature = None
+            finally:
+                dialog.destroy()
+            self._refresh_voices()
+
         def _refresh_voices(self) -> bool:
             try:
                 views = list(self._voices()) if self._voices is not None else []
@@ -886,6 +909,7 @@ def build_indicator(
                     str(view.get("label") or ""),
                     view.get("active") is True,
                     view.get("custom") is True,
+                    str(view.get("reference_text") or ""),
                 )
                 for view in views
             )
@@ -917,6 +941,11 @@ def build_indicator(
             custom.set_sensitive(on_voice_import is not None)
             custom.connect("activate", lambda *_: self._voice_import())
             self._voices_menu.append(custom)
+            selected = next((view for view in views if view.get("active") is True), None)
+            transcript = Gtk.MenuItem(label="Reference transcript…")
+            transcript.set_sensitive(on_voice_reference_text is not None and selected is not None)
+            transcript.connect("activate", lambda *_: self._voice_reference_text(selected))
+            self._voices_menu.append(transcript)
             self._voices_item.set_label(
                 f"Voice — {active_label}" if active_label else "Voice"
             )

@@ -20,6 +20,7 @@
       "type": "string",
       "description": "Server-local WAV/MP3 reference; relative paths resolve from the profile file."
     },
+    "reference_text": {"type": "string", "maxLength": 2048, "pattern": "^[^\\u0000]*$", "description": "Optional transcript belonging to this reference; blank preserves speaker-embedding conditioning."},
     "presets": {
       "type": "array",
       "minItems": 1,
@@ -31,6 +32,7 @@
           "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"},
           "label": {"type": "string", "minLength": 1, "maxLength": 80},
           "speaker_file": {"type": "string", "minLength": 1},
+          "reference_text": {"type": "string", "maxLength": 2048, "pattern": "^[^\\u0000]*$"},
           "default": {"type": "boolean"}
         },
         "additionalProperties": false

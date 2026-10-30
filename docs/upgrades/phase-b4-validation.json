@@ -1,0 +1,19 @@
+{
+  "schema": "robit.omni.upgrade-validation.v1",
+  "milestone": "B4a",
+  "source_gate": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "tests_passed": 5041,
+    "pytest_seconds": 282.69
+  },
+  "source_sha256": {
+    "runtime/tts_server.py": "baa7194192c12d794827ce3df473b500f21071255d11751f9926dafe5f3dc602",
+    "runtime/benchmark_tts_idle.py": "678f7a5e505a8ee808d97a35cf73d5812584dd4754975ae88da74d7e34622630",
+    "src/qwen_omni_adapters/tts_residency.py": "10c7b5cb4737ebfd93ac835e26b9c6cecf9c18e5f7a3a270f14260944a6f0a91",
+    "tests/test_tts_idle_residency.py": "7455ed327eff4786e7823dc4b6b0e6462b1502cc65962717e6a81d03ce9f3ee1"
+  },
+  "live_scope": "A100 route correctness and bounded idle retention; Orin initial warm cases and later resource refusal; full release qualification incomplete",
+  "default_keepalive_s": 0,
+  "tegra_idle_min_available_mib": 6144
+}

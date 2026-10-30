@@ -4,6 +4,114 @@ This document defines artifact schema `robit.ollama-monolithic-omni.v3` and
 its delivery as a custom layer in one Ollama model manifest. The public HTTP
 schema is independently versioned as `robit.ollama.omni-adapter.v1`.
 
+## Indexed trained-bridge sidecar v2
+
+`robit.ollama-audio-bridge.v2` is an additional, backward-compatible artifact
+schema for reduced trained-bridge profiles. It contains the two existing TTS
+graphs. The language trunk and matching trained vision/audio projector remain
+standard Ollama layers. Existing v1 and legacy full-Omni bundles still resolve.
+
+The v2 manifest has a `robit.gguf-component-index.v2` inventory with each
+component's architecture, tensor and metadata prefixes, tensor count, original
+GGUF size and SHA-256. Its sources are content digests; input paths, filenames
+and backbone names do not change the payload. Thus identical TTS checkpoints
+share one content-addressed Ollama blob across independently versioned backbones.
+This does not combine their trained language/audio projections.
+
+Each tag's custom-layer annotation `io.robit.omni.binding.v2` records a
+`robit.omni.layer-binding.v2` object containing the sidecar digest and exact
+language/projector layer digests and sizes. Resolution rejects a changed pair,
+changed sidecar or missing binding. Attachment records the selected identities;
+it does not prove that an arbitrary projector was trained for that trunk. Begin
+with the corresponding qualified baseline tag, then retain its standard layers.
+
+```bash
+.venv/bin/qwen-omni pack-tts \
+  --tts components/tts-model.gguf \
+  --tts-projector components/tts-projector.gguf \
+  --out release/shared-tts-sidecar-v2.gguf
+
+ollama cp robit/ornith-1.5-omni-audio-bridge:q4km robit/ornith-1.5-omni:edge-v2-candidate
+.venv/bin/qwen-omni attach robit/ornith-1.5-omni:edge-v2-candidate release/shared-tts-sidecar-v2.gguf
+.venv/bin/qwen-omni prepare robit/ornith-1.5-omni:edge-v2-candidate --out runtime-data/components --reuse
+```
+
+The resolver follows Ollama 0.40's v2-first lookup, including its canonical
+public host and encoded custom-registry ports, with legacy fallback. Existing
+flat GGUF manifests remain the supported tag shape. This follows the
+[pinned Ollama path implementation](https://github.com/ollama/ollama/blob/v0.40.11/manifest/paths.go).
+
+[Qualification evidence](upgrades/phase-a2-sharing.json) records both installed
+candidate identities, unchanged backbone layers, byte-identical extracted TTS
+checkpoints and reuse across tags. The pair avoids 1,482,396,128 payload bytes
+on a new installation. Existing legacy blobs remain; this is not a claim of
+current disk reclamation or lower GPU allocation.
+
+### Native indexed views
+
+The reference-encoder extension may additionally carry `tts_reference_encoder`
+under `s.t.e.*` with metadata under
+`robit.audio_bundle.component.tts_reference_encoder.kv.*`. It requires
+`robit.qwen3tts.reference-encoder.v1`, `clip` architecture and the
+`qwen3tts_refenc` audio projector type. The inspector rejects unknown optional
+components and incompatible reference-encoder ABI metadata. Older two-component
+v2 sidecars remain valid. Readers predating this extension reject its expanded
+inventory; use the matching runtime and native patch set.
+
+Build the component offline from the pinned official tokenizer checkpoint using
+`runtime/export_tts_reference_encoder.py`. That build-only tool accepts local
+safetensors and adds no runtime download or Torch dependency. `pack-tts` accepts
+`--tts-reference-encoder FILE` to include it in the same authenticated model tag.
+Preparation includes its materialized view or a third direct source alias.
+`llama-tts-reference-encode` selects that indexed role explicitly, retaining
+original tensor offsets. Ordinary model and codec loaders select their existing
+roles. The encoder emits 16 acoustic codes per 12.5 Hz frame from bounded
+24 kHz mono references; this component alone does not add transcript-conditioned
+cloning to the speech request protocol. See
+[`phase-b4b1-reference-encoder.md`](upgrades/phase-b4b1-reference-encoder.md).
+
+The optional English `audio_ctc_head` component uses tensor prefix `a.h.c.*`
+and metadata prefix `robit.audio_bundle.component.audio_ctc_head.kv.*`. Its ABI is
+`robit.omni.audio-ctc-head.v1`, architecture `robit_audio_ctc`, with eight F32
+tensors and an exact frozen-encoder identity. The exported component also carries
+its training-only lexicon, tokenizer and qualification identities. Include it
+with `pack-tts --audio-ctc-head FILE`. It remains listed in
+`runtime.disabled_components`; ordinary runtime preparation selects the existing
+TTS components only. Explicit `prepare --view audio_ctc_head --direct-views`
+creates one source alias. Materialization remains available and reproduces the
+original head GGUF exactly.
+
+The matching `runtime/audio_ctc_probe.cpp` selects the head's metadata and tensor
+namespace while preserving the container offsets. It executes the small head
+without reconstructing a separate file or loading the sibling speech weights.
+The model/tag binding still preserves each backbone's own language weights and
+trained projector. The shared frozen audio-feature interface was qualified for
+both corresponding backbones; other feature interfaces require new evaluation.
+This component does not enable an ASR route or establish streaming/multilingual
+capability. See [head qualification](upgrades/phase-c1-native-head.md) and
+[single-tag attachment](upgrades/phase-c1b-indexed-head.md).
+
+The runtime's `llama.cpp-indexed-tts-views.patch` adds
+`robit.indexed-tts-views.v1`: role-aware native loading of the v2 TTS envelope.
+The model loader selects `s.t.m.*`; the codec loader selects `s.t.p.*`. Both
+restore their original metadata namespace, tokenizer, tensor names, shapes and
+quantization while retaining the original container offsets. This is a patched
+native loader, not stock Ollama execution of a heterogeneous GGUF.
+
+On POSIX, `prepare --direct-views` creates disposable source aliases and a
+versioned receipt instead of reconstructed payloads. Bootstrap, the portable
+supervisor and broker launcher prefer this mode for v2. Existing v1 bundles and
+Windows retain materialization. Ordinary materialization still rejects aliases;
+use a fresh output directory for an explicitly extracted view. Cleanup unlinks
+the aliases and leaves the installed blob intact. Direct mode requires the
+updated native build from this checkout.
+
+The native view is read-only and must not be serialized. Its metadata/tensor
+inventory is filtered in memory; its file offsets and physical alignment belong
+to the original sidecar. Full-file mmap prefetch is disabled only for indexed
+model views, preventing a transient duplicate read of sibling codec tensors.
+See the [native view qualification](upgrades/phase-a3-native-views.md).
+
 ## Invariants
 
 - The sidecar is one valid GGUF v3 file with a contiguous tensor index.
@@ -149,6 +257,37 @@ Runtimes without a filtered mmap implementation create disposable views:
 Equivalent single-view extraction is available through `omni-unpack`. The
 runtime cache is not a release artifact and must be removed after workers stop.
 The tag retains the source sidecar and can recreate it at any time.
+
+### Indexed preparation in the upgrade fork
+
+`prepare --reuse --overwrite` reuses verified component files and repairs only
+missing, changed or unverified views. Bootstrap uses this path. Preparation
+without `--reuse` retains the previous overwrite/refusal behavior. All misses
+share one parsed sidecar tensor inventory; the existing resolver still performs
+its own schema inspection. The standalone `unpack` operation remains explicit.
+
+The generated `component-view-index.json` uses schema
+`robit.omni.component-view-index.v1`. It binds the extractor version, installed
+Ollama layer descriptor, source path and source inode/size/timestamps to each
+output filename, SHA-256 and materialization report. Every reuse reads and hashes
+the complete output; same-size corruption cannot be accepted merely because a
+file exists. A changed source, unsupported index or malformed bounded receipt
+invalidates reuse. Source changes during preparation prevent publication of a
+new receipt. Output symlinks are rejected. This receipt inherits the resolver's
+trust in the installed Ollama descriptor; it is not an authenticity signature.
+
+The preparation result adds `component_index` with reused/materialized view
+lists and byte totals, and `reused` on each view. `--overwrite` permits repair;
+with `--reuse`, valid views are retained. Reused reports retain the original
+extraction timing, so use external wall timing to measure preparation latency.
+A warm hit leaves the component files and index unchanged. Receipts are
+disposable alongside their views; delete them only after their workers stop.
+
+This is validated materialization reuse, not direct filtered mmap, tensor-content
+deduplication or reduced GPU residency. Both existing sidecar schemas and their
+matching model/codec tensors remain unchanged. The benchmark
+`runtime/benchmark_component_views.py` compares an original checkout with this
+path using installed weights, fresh CPU processes and an explicitly new cache.
 
 ## Why direct stock loading is rejected
 

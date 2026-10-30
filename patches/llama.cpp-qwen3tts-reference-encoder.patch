@@ -1,0 +1,425 @@
+diff --git a/tools/mtmd/CMakeLists.txt b/tools/mtmd/CMakeLists.txt
+index e60c9c878..ad7492719 100644
+--- a/tools/mtmd/CMakeLists.txt
++++ b/tools/mtmd/CMakeLists.txt
+@@ -58,6 +58,7 @@ add_library(mtmd
+             models/qwen3a.cpp
+             models/mimo-audio.cpp
+             models/qwen3tts-spkenc.cpp
++            models/qwen3tts-refenc.cpp
+             models/qwen3tts-gen.cpp
+             models/pockettts-seanet.cpp
+             models/pockettts-spkenc.cpp
+diff --git a/tools/mtmd/clip-impl.h b/tools/mtmd/clip-impl.h
+index f6045093c..5a1694bc6 100644
+--- a/tools/mtmd/clip-impl.h
++++ b/tools/mtmd/clip-impl.h
+@@ -497,6 +497,7 @@ enum projector_type {
+     PROJECTOR_TYPE_MIMO_AUDIO,
+     PROJECTOR_TYPE_QWEN3TTS_SPKENC,
+     PROJECTOR_TYPE_QWEN3TTS_GEN,
++    PROJECTOR_TYPE_QWEN3TTS_REFENC,
+     PROJECTOR_TYPE_POCKETTTS_SPKENC,
+     PROJECTOR_TYPE_POCKETTTS_GEN,
+     PROJECTOR_TYPE_MUSE_GLIMMER,
+@@ -562,6 +563,7 @@ static std::map<projector_type, std::string> PROJECTOR_TYPE_NAMES = {
+     { PROJECTOR_TYPE_QWEN3TTS_SPKENC,   "qwen3tts_spkenc"},
+     { PROJECTOR_TYPE_QWEN3TTS_GEN,      "qwen3tts_gen"},
+     { PROJECTOR_TYPE_POCKETTTS_SPKENC,  "pockettts_spkenc"},
++    { PROJECTOR_TYPE_QWEN3TTS_REFENC,    "qwen3tts_refenc"},
+     { PROJECTOR_TYPE_POCKETTTS_GEN,     "pockettts_gen"},
+     { PROJECTOR_TYPE_MUSE_GLIMMER,      "muse-glimmer"},
+ };
+diff --git a/tools/mtmd/clip-model.h b/tools/mtmd/clip-model.h
+index 060938d86..3ef63efdd 100644
+--- a/tools/mtmd/clip-model.h
++++ b/tools/mtmd/clip-model.h
+@@ -743,6 +743,10 @@ struct clip_model {
+     ggml_tensor * downsample_norm_w = nullptr;
+     ggml_tensor * downsample_norm_b = nullptr;
+     ggml_tensor * rvq_codebook = nullptr; // merged 3D [n_q, max_bins, dim]
++    ggml_tensor * ref_semantic_in = nullptr;
++    ggml_tensor * ref_acoustic_in = nullptr;
++    ggml_tensor * ref_semantic_book = nullptr;
++    ggml_tensor * ref_acoustic_books = nullptr;
+ 
+     // mimo-v2.5: text-side RVQ code embedding ("text codebook")
+     ggml_tensor * mm_a_code_embd = nullptr; // merged 3D [n_channels, vocab, dim]
+diff --git a/tools/mtmd/clip.cpp b/tools/mtmd/clip.cpp
+index b13dd363e..80f9e2a7c 100644
+--- a/tools/mtmd/clip.cpp
++++ b/tools/mtmd/clip.cpp
+@@ -1094,6 +1094,10 @@ static std::unique_ptr<clip_graph> clip_get_graph_builder(clip_ctx * ctx, const
+             {
+                 builder = std::make_unique<clip_graph_qwen3tts_spkenc>(ctx, img);
+             } break;
++        case PROJECTOR_TYPE_QWEN3TTS_REFENC:
++            {
++                builder = std::make_unique<clip_graph_qwen3tts_refenc>(ctx, img);
++            } break;
+         case PROJECTOR_TYPE_POCKETTTS_SPKENC:
+             {
+                 builder = std::make_unique<clip_graph_pockettts_spkenc>(ctx, img);
+@@ -1179,7 +1183,8 @@ struct clip_model_loader {
+     clip_model_loader(const char * fname,
+             bool skip_tensors = false,
+             mtmd_progress_callback progress_cb = nullptr,
+-            void * progress_user_data = nullptr)
++            void * progress_user_data = nullptr,
++            bool reference_encoder = false)
+         : fname(fname),
+           progress_callback(progress_cb),
+           progress_callback_user_data(progress_user_data) {
+@@ -1198,12 +1203,15 @@ struct clip_model_loader {
+         const int64_t bundle_schema = gguf_find_key(ctx_gguf.get(), "robit.audio_bundle.schema");
+         if (bundle_schema >= 0 && gguf_get_kv_type(ctx_gguf.get(), bundle_schema) == GGUF_TYPE_STRING &&
+                 strcmp(gguf_get_val_str(ctx_gguf.get(), bundle_schema), "robit.ollama-audio-bridge.v2") == 0) {
+-            if (!gguf_select_tensor_view(ctx_gguf.get(), "s.t.p.",
+-                    "robit.audio_bundle.component.tts_projector.kv.", &meta)) {
++            const char * tensor_prefix = reference_encoder ? "s.t.e." : "s.t.p.";
++            const char * metadata_prefix = reference_encoder
++                ? "robit.audio_bundle.component.tts_reference_encoder.kv."
++                : "robit.audio_bundle.component.tts_projector.kv.";
++            if (!gguf_select_tensor_view(ctx_gguf.get(), tensor_prefix, metadata_prefix, &meta)) {
+                 ggml_free(meta);
+-                throw std::runtime_error("invalid indexed TTS codec view");
++                throw std::runtime_error("invalid indexed TTS component view");
+             }
+-            LOG_INF("%s: indexed TTS codec view; original file offsets retained\n", __func__);
++            LOG_INF("%s: indexed TTS component view; original file offsets retained\n", __func__);
+         }
+ 
+         ctx_meta.reset(meta);
+@@ -1842,6 +1850,16 @@ struct clip_model_loader {
+                         // matches the reference decoder's sliding_window (speech_tokenizer/config.json)
+                         hparams.wav_tfm_swa = 72;
+                     } break;
++                case PROJECTOR_TYPE_QWEN3TTS_REFENC:
++                    {
++                        hparams.audio_sample_rate = 24000;
++                        hparams.seanet_ratios = { 4, 5, 6, 8 };
++                        hparams.seanet_n_stage = 4;
++                        hparams.mimi_downsample = 2;
++                        hparams.mimi_tfm_context = 250;
++                        hparams.rope_theta = 10000.0f;
++                        hparams.ffn_op = FFN_GELU_ERF;
++                    } break;
+                 case PROJECTOR_TYPE_POCKETTTS_SPKENC:
+                 case PROJECTOR_TYPE_POCKETTTS_GEN:
+                     {
+@@ -2071,7 +2089,8 @@ struct clip_model_loader {
+                 // checks below do not apply to it.
+                 // pocket-tts is encoder-free in the same sense: mimi convolves the raw waveform
+                 const bool fft_based = model.proj_type != PROJECTOR_TYPE_GEMMA4UA &&
+-                                       model.proj_type != PROJECTOR_TYPE_POCKETTTS_SPKENC;
++                                       model.proj_type != PROJECTOR_TYPE_POCKETTTS_SPKENC &&
++                                       model.proj_type != PROJECTOR_TYPE_QWEN3TTS_REFENC;
+ 
+                 // Validate audio hparams loaded from GGUF metadata
+                 if (hparams.n_mel_bins <= 0 || (fft_based && hparams.n_mel_bins > 256)) {
+@@ -2931,6 +2950,15 @@ struct clip_model_loader {
+                     model.mm_fc_w = get_tensor(string_format(TN_MM_AUDIO_FC, "weight"));
+                     model.mm_fc_b = get_tensor(string_format(TN_MM_AUDIO_FC, "bias"));
+                 } break;
++            case PROJECTOR_TYPE_QWEN3TTS_REFENC:
++                {
++                    load_seanet(model.seanet, false);
++                    model.downsample_w = get_tensor("a.downsample.conv.weight");
++                    model.ref_semantic_in = get_tensor("a.ref.semantic.in.weight");
++                    model.ref_acoustic_in = get_tensor("a.ref.acoustic.in.weight");
++                    model.ref_semantic_book = get_tensor("a.ref.semantic.codebook.weight");
++                    model.ref_acoustic_books = get_tensor("a.ref.acoustic.codebook.weight");
++                } break;
+             case PROJECTOR_TYPE_POCKETTTS_SPKENC:
+                 {
+                     load_seanet(model.seanet, false);
+@@ -3943,7 +3971,8 @@ struct clip_init_result clip_init(const char * fname, struct clip_context_params
+         clip_model_loader loader(fname,
+             /* skip_tensors */ false,
+             ctx_params.progress_callback,
+-            ctx_params.progress_callback_user_data);
++            ctx_params.progress_callback_user_data,
++            ctx_params.reference_encoder);
+         bool skip_audio = false;
+ 
+         if (loader.has_vision) {
+@@ -4323,6 +4352,10 @@ int clip_n_output_tokens(const clip_ctx * ctx, const clip_image_f32 * img) {
+                 // one hidden-state vector fed back to the talker per call
+                 n_patches = 1;
+             } break;
++        case PROJECTOR_TYPE_QWEN3TTS_REFENC:
++            {
++                n_patches = (img->nx() + 1919) / 1920;
++            } break;
+         case PROJECTOR_TYPE_POCKETTTS_SPKENC:
+             {
+                 // one conditioning row per 12.5Hz frame
+@@ -5077,6 +5110,7 @@ bool clip_encode(struct clip_ctx * ctx, struct clip_encode_params * params) {
+                 }
+                 set_input_i32("patches", patches);
+             } break;
++        case PROJECTOR_TYPE_QWEN3TTS_REFENC:
+         case PROJECTOR_TYPE_POCKETTTS_SPKENC:
+             {
+                 set_pockettts_tfm_inputs();
+@@ -5908,6 +5942,8 @@ int clip_n_mmproj_embd(const struct clip_ctx * ctx) {
+             return ctx->model.mm_fc_w->ne[2];
+         case PROJECTOR_TYPE_QWEN3TTS_GEN:
+             return ctx->model.gen_code_out_embd_w->ne[0];
++        case PROJECTOR_TYPE_QWEN3TTS_REFENC:
++            return 16;
+         case PROJECTOR_TYPE_POCKETTTS_SPKENC:
+             return ctx->model.spk_proj_w->ne[1];
+         case PROJECTOR_TYPE_POCKETTTS_GEN:
+diff --git a/tools/mtmd/clip.h b/tools/mtmd/clip.h
+index 99c941637..962d13894 100644
+--- a/tools/mtmd/clip.h
++++ b/tools/mtmd/clip.h
+@@ -58,6 +58,7 @@ struct clip_context_params {
+     bool no_alloc;
+     mtmd_progress_callback progress_callback;
+     void * progress_callback_user_data;
++    bool reference_encoder = false;
+ };
+ 
+ struct clip_init_result {
+diff --git a/tools/mtmd/models/models.h b/tools/mtmd/models/models.h
+index bc7532a99..03365b917 100644
+--- a/tools/mtmd/models/models.h
++++ b/tools/mtmd/models/models.h
+@@ -365,6 +365,11 @@ struct clip_graph_pockettts_spkenc : clip_graph {
+     ggml_tensor * tfm_layer_forward(ggml_tensor * cur, const clip_layer & layer, ggml_tensor * inp_pos, ggml_tensor * kq_mask, int il) const;
+ };
+ 
++struct clip_graph_qwen3tts_refenc : clip_graph_pockettts_spkenc {
++    using clip_graph_pockettts_spkenc::clip_graph_pockettts_spkenc;
++    ggml_cgraph * build() override;
++};
++
+ //
+ // pocket-tts generation:
+ // GEN_CODE = flow-matching decoder + end-of-speech head, one latent per call
+diff --git a/tools/mtmd/models/pockettts-seanet.cpp b/tools/mtmd/models/pockettts-seanet.cpp
+index c47207f56..e81f7eff7 100644
+--- a/tools/mtmd/models/pockettts-seanet.cpp
++++ b/tools/mtmd/models/pockettts-seanet.cpp
+@@ -38,7 +38,17 @@ ggml_tensor * clip_graph_pockettts_seanet::conv1d(ggml_tensor * x, ggml_tensor *
+         x = ggml_pad_ext(ctx0, x, p_total, p_extra, 0, 0, 0, 0, 0, 0);
+     }
+ 
+-    ggml_tensor * y = ggml_conv_1d(ctx0, w, x, stride, 0, dilation);
++    ggml_tensor * y;
++    if (proj_type == PROJECTOR_TYPE_QWEN3TTS_REFENC) {
++        ggml_tensor * columns = ggml_im2col(ctx0, w, x, stride, 0, 0, 0, dilation, 0, false, GGML_TYPE_F32);
++        y = ggml_mul_mat(ctx0,
++            ggml_reshape_2d(ctx0, columns, columns->ne[0], columns->ne[2] * columns->ne[1]),
++            ggml_reshape_2d(ctx0, w, w->ne[0] * w->ne[1], w->ne[2]));
++        ggml_mul_mat_set_prec(y, GGML_PREC_F32);
++        y = ggml_reshape_3d(ctx0, y, columns->ne[1], w->ne[2], columns->ne[2]);
++    } else {
++        y = ggml_conv_1d(ctx0, w, x, stride, 0, dilation);
++    }
+     y = ggml_reshape_2d(ctx0, y, y->ne[0], y->ne[1]);
+     if (b) {
+         y = ggml_add(ctx0, y, ggml_reshape_2d(ctx0, b, 1, b->ne[0]));
+diff --git a/tools/mtmd/models/pockettts-spkenc.cpp b/tools/mtmd/models/pockettts-spkenc.cpp
+index f802d9068..0eb485899 100644
+--- a/tools/mtmd/models/pockettts-spkenc.cpp
++++ b/tools/mtmd/models/pockettts-spkenc.cpp
+@@ -18,9 +18,10 @@ ggml_tensor * clip_graph_pockettts_spkenc::tfm_layer_forward(ggml_tensor * cur,
+     Kcur = ggml_reshape_3d(ctx0, Kcur, d_head, n_head, n_pos);
+     Vcur = ggml_reshape_3d(ctx0, Vcur, d_head, n_head, n_pos);
+ 
+-    Qcur = ggml_rope_ext(ctx0, Qcur, inp_pos, nullptr, d_head, GGML_ROPE_TYPE_NORMAL, 0,
++    const int rope_type = proj_type == PROJECTOR_TYPE_QWEN3TTS_REFENC ? GGML_ROPE_TYPE_NEOX : GGML_ROPE_TYPE_NORMAL;
++    Qcur = ggml_rope_ext(ctx0, Qcur, inp_pos, nullptr, d_head, rope_type, 0,
+                          hparams.rope_theta, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+-    Kcur = ggml_rope_ext(ctx0, Kcur, inp_pos, nullptr, d_head, GGML_ROPE_TYPE_NORMAL, 0,
++    Kcur = ggml_rope_ext(ctx0, Kcur, inp_pos, nullptr, d_head, rope_type, 0,
+                          hparams.rope_theta, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+ 
+     cur = build_attn(layer.o_w, nullptr, Qcur, Kcur, Vcur, kq_mask, kq_scale, il);
+@@ -29,7 +30,7 @@ ggml_tensor * clip_graph_pockettts_spkenc::tfm_layer_forward(ggml_tensor * cur,
+ 
+     inp = cur;
+     cur = build_norm(cur, layer.ln_2_w, layer.ln_2_b, NORM_TYPE_NORMAL, eps, il);
+-    cur = build_ffn(cur, layer.ff_up_w, nullptr, nullptr, nullptr, layer.ff_down_w, nullptr, FFN_GELU, il);
++    cur = build_ffn(cur, layer.ff_up_w, nullptr, nullptr, nullptr, layer.ff_down_w, nullptr, hparams.ffn_op, il);
+     cur = ggml_mul(ctx0, cur, layer.ls_2_w);
+     cur = ggml_add(ctx0, cur, inp);
+ 
+diff --git a/tools/mtmd/models/qwen3tts-refenc.cpp b/tools/mtmd/models/qwen3tts-refenc.cpp
+new file mode 100644
+index 000000000..5dcd61437
+--- /dev/null
++++ b/tools/mtmd/models/qwen3tts-refenc.cpp
+@@ -0,0 +1,49 @@
++#include "models.h"
++
++ggml_cgraph * clip_graph_qwen3tts_refenc::build() {
++    ggml_tensor * raw = build_inp_raw(1);
++    ggml_tensor * cur = ggml_reshape_2d(ctx0, raw, raw->ne[0], raw->ne[1]);
++    clip_graph_pockettts_seanet seanet(*this);
++    cur = seanet.encode(cur);
++    cb(cur, "reference_seanet", -1);
++    cur = ggml_cont(ctx0, ggml_transpose(ctx0, cur));
++
++    ggml_tensor * positions = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, cur->ne[1]);
++    ggml_set_name(positions, "inp_pos");
++    ggml_set_input(positions);
++    ggml_tensor * mask = ggml_new_tensor_2d(ctx0, GGML_TYPE_F32, cur->ne[1], cur->ne[1]);
++    ggml_set_name(mask, "kq_mask");
++    ggml_set_input(mask);
++    for (int il = 0; il < n_layer; ++il) {
++        cur = tfm_layer_forward(cur, model.layers[il], positions, mask, il);
++    }
++    cb(cur, "reference_transformer", -1);
++    cur = ggml_cont(ctx0, ggml_transpose(ctx0, cur));
++    cur = seanet.conv1d(cur, model.downsample_w, nullptr, 2, 1, true);
++    cur = ggml_cont(ctx0, ggml_transpose(ctx0, cur));
++    cb(cur, "reference_downsample", -1);
++
++    ggml_tensor * codes = nullptr;
++    for (int group = 0; group < 2; ++group) {
++        ggml_tensor * projection = group == 0 ? model.ref_semantic_in : model.ref_acoustic_in;
++        ggml_tensor * books = group == 0 ? model.ref_semantic_book : model.ref_acoustic_books;
++        ggml_tensor * residual = build_mm(projection, cur);
++        const int count = group == 0 ? 1 : 15;
++        for (int q = 0; q < count; ++q) {
++            ggml_tensor * book = ggml_view_2d(ctx0, books, books->ne[0], books->ne[1], books->nb[1], q * books->nb[2]);
++            book = ggml_cont(ctx0, book);
++            ggml_tensor * norm = ggml_sum_rows(ctx0, ggml_sqr(ctx0, book));
++            norm = ggml_cont(ctx0, ggml_transpose(ctx0, norm));
++            ggml_tensor * score = ggml_sub(ctx0, ggml_scale(ctx0, build_mm(book, residual), 2.0f), norm);
++            ggml_tensor * index = ggml_argmax(ctx0, score);
++            cb(index, "reference_code", group == 0 ? 0 : q + 1);
++            ggml_tensor * row = ggml_reshape_2d(ctx0, ggml_cast(ctx0, index, GGML_TYPE_F32), 1, index->ne[0]);
++            codes = codes ? ggml_concat(ctx0, codes, row, 0) : row;
++            if (q + 1 < count) {
++                residual = ggml_sub(ctx0, residual, ggml_get_rows(ctx0, book, index));
++            }
++        }
++    }
++    ggml_build_forward_expand(gf, codes);
++    return gf;
++}
+diff --git a/tools/tts/CMakeLists.txt b/tools/tts/CMakeLists.txt
+index 0a0b5730e..d95df22f6 100644
+--- a/tools/tts/CMakeLists.txt
++++ b/tools/tts/CMakeLists.txt
+@@ -3,6 +3,10 @@ add_executable(${TARGET} tts.cpp)
+ target_link_libraries(${TARGET} PRIVATE llama llama-common mtmd ${CMAKE_THREAD_LIBS_INIT})
+ target_compile_features(${TARGET} PRIVATE cxx_std_17)
+ 
++add_executable(llama-tts-reference-encode reference-encode.cpp)
++target_link_libraries(llama-tts-reference-encode PRIVATE llama llama-common mtmd ${CMAKE_THREAD_LIBS_INIT})
++target_compile_features(llama-tts-reference-encode PRIVATE cxx_std_17)
++
+ if(LLAMA_TOOLS_INSTALL)
+     install(TARGETS ${TARGET} RUNTIME)
+ endif()
+diff --git a/tools/tts/reference-encode.cpp b/tools/tts/reference-encode.cpp
+new file mode 100644
+index 000000000..53887c6c8
+--- /dev/null
++++ b/tools/tts/reference-encode.cpp
+@@ -0,0 +1,99 @@
++#include "clip.h"
++#include "clip-impl.h"
++#include "ggml-backend.h"
++#include "llama.h"
++
++#include <cmath>
++#include <cstdlib>
++#include <fstream>
++#include <iostream>
++#include <memory>
++#include <stdexcept>
++
++int main(int argc, char ** argv) {
++    try {
++        if (argc == 2 && std::string(argv[1]) == "--help") {
++            std::cout << "usage: llama-tts-reference-encode MODEL INPUT_F32_24KHZ OUTPUT_I32" << std::endl;
++            return 0;
++        }
++        if (argc != 4) {
++            throw std::runtime_error("usage: llama-tts-reference-encode MODEL INPUT_F32_24KHZ OUTPUT_I32");
++        }
++        std::ifstream input(argv[2], std::ios::binary | std::ios::ate);
++        const std::streamoff bytes = input.tellg();
++        if (!input || bytes < 12000 * 4 || bytes > 720000 * 4 || bytes % 4 != 0) {
++            throw std::runtime_error("reference must be 0.5-30 seconds of mono 24kHz float32 samples");
++        }
++        clip_image_f32 audio;
++        audio.set_size({(int) (bytes / 4), 1}, false, true);
++        std::vector<float> samples((size_t) (bytes / 4));
++        input.seekg(0);
++        input.read(reinterpret_cast<char *>(samples.data()), bytes);
++        if (!input) {
++            throw std::runtime_error("incomplete reference input");
++        }
++        for (float value : samples) {
++            if (!std::isfinite(value) || std::abs(value) > 1.0f) {
++                throw std::runtime_error("invalid normalized reference sample");
++            }
++        }
++        audio.cpy_buf(samples);
++#ifdef _WIN32
++        const int precision_status = _putenv_s("NVIDIA_TF32_OVERRIDE", "0");
++#else
++        const int precision_status = setenv("NVIDIA_TF32_OVERRIDE", "0", 1);
++#endif
++        if (precision_status != 0) {
++            throw std::runtime_error("could not select full-precision reference encoding");
++        }
++        llama_backend_init();
++        clip_context_params params{};
++        params.use_gpu = true;
++        params.flash_attn_type = CLIP_FLASH_ATTN_TYPE_DISABLED;
++        params.warmup = false;
++        params.reference_encoder = true;
++        auto loaded = clip_init(argv[1], params);
++        std::unique_ptr<clip_ctx, decltype(&clip_free)> encoder(loaded.ctx_a, clip_free);
++        clip_free(loaded.ctx_v);
++        clip_free(loaded.ctx_gen_a);
++        if (!encoder || clip_n_mmproj_embd(encoder.get()) != 16) {
++            throw std::runtime_error("invalid reference encoder");
++        }
++        bool gpu_weights = false;
++        for (auto entry : clip_get_mem_usage(encoder.get())) {
++            gpu_weights |= ggml_backend_dev_type(entry.first) == GGML_BACKEND_DEVICE_TYPE_GPU && entry.second > 0;
++        }
++        if (!gpu_weights) {
++            throw std::runtime_error("reference weights are not GPU resident");
++        }
++        std::cout << "R" << std::endl;
++        std::string action;
++        if (!std::getline(std::cin, action) || action != "GO") {
++            throw std::runtime_error("reference encoding was not admitted");
++        }
++        const size_t expected = (size_t) ((audio.nx() + 1919) / 1920) * 16;
++        std::vector<float> encoded(expected);
++        clip_image_f32_batch batch;
++        batch.is_audio = true;
++        batch.entries.push_back(std::move(audio));
++        if (!clip_image_batch_encode(encoder.get(), 8, &batch, encoded) || encoded.size() != expected) {
++            throw std::runtime_error("reference encoding failed");
++        }
++        std::vector<int32_t> codes;
++        for (float value : encoded) {
++            if (!std::isfinite(value) || value < 0 || value >= 2048 || value != std::floor(value)) {
++                throw std::runtime_error("invalid reference code");
++            }
++            codes.push_back((int32_t) value);
++        }
++        std::ofstream output(argv[3], std::ios::binary);
++        output.write(reinterpret_cast<const char *>(codes.data()), codes.size() * sizeof(int32_t));
++        if (!output) {
++            throw std::runtime_error("reference output failed");
++        }
++        return 0;
++    } catch (const std::exception & error) {
++        std::cerr << error.what() << std::endl;
++        return 1;
++    }
++}

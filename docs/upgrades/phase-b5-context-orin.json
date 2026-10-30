@@ -1,0 +1,2352 @@
+{
+  "schema": "robit.omni.tts-context-qualification.v1",
+  "complete": true,
+  "accelerator": {
+    "system": "Linux",
+    "machine": "aarch64",
+    "tegra": true,
+    "residency_backend": "tegra-device-handles",
+    "gpu_memory_model": "unified",
+    "tegra_soc": "tegra234",
+    "l4t_release": "R36.3.0",
+    "cuda_architectures": "87"
+  },
+  "samples": [
+    {
+      "adaptive": false,
+      "reference_sha256": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+      "runs": [
+        {
+          "language": "en",
+          "case": 0,
+          "utf8_bytes": 50,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7724203271791339,
+          "total_s": 4.9452490620315075,
+          "pcm_sha256": "149bd68692a82175ec45c97b75f10f6cf1611dc75e4c512d78f3f71af80bf14a",
+          "pcm_bytes": 157440,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 78720,
+            "duration_seconds": 3.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 20,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.00048828125,
+              "minimum": -0.327117919921875,
+              "maximum": 0.329315185546875,
+              "standard_deviation": 0.1527864636841124
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.20484103585026628,
+              "10": 0.18812790683953196,
+              "20": 0.2672639511027125
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08275990027614433,
+              "maximum": 1.4256753349943694
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 1,
+          "utf8_bytes": 50,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.2983770719729364,
+          "total_s": 3.4472806078847498,
+          "pcm_sha256": "4b5100df2d3a63ab20583f93536d5969a5db3bb7a0d66d4768b939d4634ee629",
+          "pcm_bytes": 145920,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 72960,
+            "duration_seconds": 3.04,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 19,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.014617919921875,
+              "minimum": -0.230560302734375,
+              "maximum": 0.599090576171875,
+              "standard_deviation": 0.19636800665996365
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.30417803781860064,
+              "10": 0.22090402103967918,
+              "20": 0.23727888137817416
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.18244581912720165,
+              "maximum": 1.451211282570927
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 2,
+          "utf8_bytes": 50,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.24795524193905294,
+          "total_s": 3.6943119349889457,
+          "pcm_sha256": "149bd68692a82175ec45c97b75f10f6cf1611dc75e4c512d78f3f71af80bf14a",
+          "pcm_bytes": 157440,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 78720,
+            "duration_seconds": 3.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 20,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.00048828125,
+              "minimum": -0.327117919921875,
+              "maximum": 0.329315185546875,
+              "standard_deviation": 0.1527864636841124
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.20484103585026628,
+              "10": 0.18812790683953196,
+              "20": 0.2672639511027125
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08275990027614433,
+              "maximum": 1.4256753349943694
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "zh",
+          "case": 3,
+          "utf8_bytes": 42,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7778546679764986,
+          "total_s": 4.75006085797213,
+          "pcm_sha256": "bf6b41fb20900ee2a886abeece4ddd2b1e01986757d7342bcb5288e7979bde85",
+          "pcm_bytes": 145920,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 72960,
+            "duration_seconds": 3.04,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 19,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.01898193359375,
+              "minimum": -0.207366943359375,
+              "maximum": 0.176971435546875,
+              "standard_deviation": 0.08890908572891389
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.28458189700252057,
+              "10": 0.2588483051370811,
+              "20": 0.3098813679589213
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09041507361048483,
+              "maximum": 0.7039837624033335
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ja",
+          "case": 4,
+          "utf8_bytes": 54,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7803443060256541,
+          "total_s": 5.09227465512231,
+          "pcm_sha256": "8a5d5c568d4cb5b16625086c21dffb917e796152edf5a624a3f960683d035dda",
+          "pcm_bytes": 161280,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 80640,
+            "duration_seconds": 3.36,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 21,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.0081787109375,
+              "minimum": -0.526824951171875,
+              "maximum": 0.468719482421875,
+              "standard_deviation": 0.23277571404241354
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.20018447449460533,
+              "10": 0.23067660642882143,
+              "20": 0.21511085246406436
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.2200952860504835,
+              "maximum": 1.7889920057785242
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ko",
+          "case": 5,
+          "utf8_bytes": 51,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8106968919746578,
+          "total_s": 4.828050173120573,
+          "pcm_sha256": "6edb8913f24dbc6ca9e7d4cedbc3d1caa018bc800cbe91c82824156e213dd860",
+          "pcm_bytes": 145920,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 72960,
+            "duration_seconds": 3.04,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 19,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.015289306640625,
+              "minimum": -0.480194091796875,
+              "maximum": 0.392791748046875,
+              "standard_deviation": 0.19468984512230328
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.49463363904305013,
+              "10": 0.2582779802390311,
+              "20": 0.268832387864371
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.049408304294759196,
+              "maximum": 0.637327474028185
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "de",
+          "case": 6,
+          "utf8_bytes": 44,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7818932349327952,
+          "total_s": 7.1326486971229315,
+          "pcm_sha256": "04de4779cd0e44fb19deb0f5f3b3cc9f7133fa7fcd294ac9d9821eaafa4ce21f",
+          "pcm_bytes": 222720,
+          "continuity": {
+            "ok": false,
+            "sample_rate": 24000,
+            "samples": 111360,
+            "duration_seconds": 4.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 29,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.247528076171875,
+              "maximum": 0.595672607421875,
+              "standard_deviation": 0.1730642534297275
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 1.0129832642112275,
+              "10": 0.5529806271504771,
+              "20": 0.6411764030673197
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.061138878455327623,
+              "maximum": 1.2748612222506144
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "fr",
+          "case": 7,
+          "utf8_bytes": 52,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8040750019717962,
+          "total_s": 7.8431618919130415,
+          "pcm_sha256": "5127a5b65e54ca2ceddd34ef1b3638c14bc7280feb9b32411d4713cab47688af",
+          "pcm_bytes": 276480,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 138240,
+            "duration_seconds": 5.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 36,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.308563232421875,
+              "maximum": 0.228851318359375,
+              "standard_deviation": 0.09750182037841205
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.7800707788898753,
+              "10": 0.4954100535054401,
+              "20": 0.49101472993533263
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09874143929070198,
+              "maximum": 0.6024489117441997
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ru",
+          "case": 8,
+          "utf8_bytes": 70,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7832063059322536,
+          "total_s": 6.105070663848892,
+          "pcm_sha256": "119939c4b91091d1d823351cb42fd27890e23d4d8a87c9cd2f2de56d4b44eb81",
+          "pcm_bytes": 203520,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 101760,
+            "duration_seconds": 4.24,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 26,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -3.0517578125e-05,
+              "minimum": -0.235565185546875,
+              "maximum": 0.605926513671875,
+              "standard_deviation": 0.15013575966842443
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.43467631309666277,
+              "10": 0.4662900027335458,
+              "20": 0.5470866282615945
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.11525319130271831,
+              "maximum": 0.7599062446236764
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "pt",
+          "case": 9,
+          "utf8_bytes": 52,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7942446870729327,
+          "total_s": 6.888578495942056,
+          "pcm_sha256": "f09a97b39789d57dd82d28e496d1d83de1f08d0eb89e45be0377a7e4805d2c8e",
+          "pcm_bytes": 245760,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 122880,
+            "duration_seconds": 5.12,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 32,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.261199951171875,
+              "maximum": 0.168060302734375,
+              "standard_deviation": 0.08750984912962477
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.6192613564041363,
+              "10": 0.6429193797980834,
+              "20": 0.7327471738297715
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.05747305319676188,
+              "maximum": 1.5064990100793523
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "es",
+          "case": 10,
+          "utf8_bytes": 54,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7753391091246158,
+          "total_s": 7.324451416032389,
+          "pcm_sha256": "6e226aad5dbdd3a9414cc2dc7efdc6be2f409560c513baab21c78b3eb1d3082e",
+          "pcm_bytes": 245760,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 122880,
+            "duration_seconds": 5.12,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 32,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.409149169921875,
+              "maximum": 0.662078857421875,
+              "standard_deviation": 0.17501654135413716
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.7037717246070345,
+              "10": 0.5879435820261923,
+              "20": 0.3290822496110874
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09019297023196815,
+              "maximum": 1.3554638687679086
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "it",
+          "case": 11,
+          "utf8_bytes": 54,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7797368341125548,
+          "total_s": 8.476285255048424,
+          "pcm_sha256": "51f8e2190fe8df7e1db29124afd7fcfcaa7627d2fde493a2a1c681380f12c9a5",
+          "pcm_bytes": 268800,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 134400,
+            "duration_seconds": 5.6,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 35,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.353729248046875,
+              "maximum": 0.283905029296875,
+              "standard_deviation": 0.12706180592301236
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.5162648602852975,
+              "10": 0.3659045031793312,
+              "20": 0.3109097889452721
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09609036076897635,
+              "maximum": 0.47921515529445136
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 12,
+          "utf8_bytes": 4096,
+          "context_size": 32768,
+          "generation_frames_limit": 16,
+          "first_pcm_s": 1.344087281031534,
+          "total_s": 3.0128880150150508,
+          "pcm_sha256": "6ae61afea11593871abb2e5e69b4f676bab841bb51e108fb5590db09a4fb6765",
+          "pcm_bytes": 61440,
+          "continuity": {
+            "ok": false,
+            "sample_rate": 24000,
+            "samples": 30720,
+            "duration_seconds": 1.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 8,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0,
+              "standard_deviation": 0.0
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 3879030.591703619,
+              "10": 0.8755950357709134,
+              "20": 0.847565541382363
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.0,
+              "maximum": 0.0
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "zh",
+          "case": 13,
+          "utf8_bytes": 12288,
+          "context_size": 32768,
+          "generation_frames_limit": 16,
+          "first_pcm_s": 2.2581882448866963,
+          "total_s": 3.3734596939757466,
+          "pcm_sha256": "674e5c9ff2733e0df151e288b1350c5a380b55aaee65163e4ace87d4d1308b55",
+          "pcm_bytes": 61440,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 30720,
+            "duration_seconds": 1.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 8,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.01031494140625,
+              "minimum": -0.243621826171875,
+              "maximum": 0.336151123046875,
+              "standard_deviation": 0.16948454773353938
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.37843229056210875,
+              "10": 0.43451185498826833,
+              "20": 0.37209711580269356
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.2096147952857555,
+              "maximum": 0.6983092868345843
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        }
+      ],
+      "cpu_peak_rss_kib": 1946320,
+      "gpu_resident_samples_mib": [],
+      "system_headroom": {
+        "minimum_available_mib": 3179.42578125,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0"
+      }
+    },
+    {
+      "adaptive": false,
+      "reference_sha256": "79f6cd76dfe2f5cb6e2f217d1e03020cb8d75b8b49a3dc617e6bfa41ea49f61e",
+      "runs": [
+        {
+          "language": "en",
+          "case": 0,
+          "utf8_bytes": 50,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8037907229736447,
+          "total_s": 4.1026707261335105,
+          "pcm_sha256": "4828849c3549400a6634358c7715da369e815f53e1f0fde57e4a9a881b24dc4f",
+          "pcm_bytes": 126720,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 63360,
+            "duration_seconds": 2.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0189208984375,
+              "minimum": -0.833953857421875,
+              "maximum": 0.281707763671875,
+              "standard_deviation": 0.3290061896757501
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.676409800147233,
+              "10": 0.3241049104379345,
+              "20": 0.3581230365882257
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.07126873316341566,
+              "maximum": 0.7501625817835668
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 1,
+          "utf8_bytes": 50,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.2800393500365317,
+          "total_s": 2.58417214686051,
+          "pcm_sha256": "b9c02ce679a01dd8c05136083a298d715d31f2d970c931fba3c7b64d53cbf9f6",
+          "pcm_bytes": 115200,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 57600,
+            "duration_seconds": 2.4,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 15,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0569610595703125,
+              "minimum": -0.629364013671875,
+              "maximum": 0.527313232421875,
+              "standard_deviation": 0.3024971739957288
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.22069059337540656,
+              "10": 0.32423441810880244,
+              "20": 0.2586327550408067
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.049086916609264584,
+              "maximum": 1.4857376215233287
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 2,
+          "utf8_bytes": 50,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.23987932200543582,
+          "total_s": 2.911449169041589,
+          "pcm_sha256": "4828849c3549400a6634358c7715da369e815f53e1f0fde57e4a9a881b24dc4f",
+          "pcm_bytes": 126720,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 63360,
+            "duration_seconds": 2.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0189208984375,
+              "minimum": -0.833953857421875,
+              "maximum": 0.281707763671875,
+              "standard_deviation": 0.3290061896757501
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.676409800147233,
+              "10": 0.3241049104379345,
+              "20": 0.3581230365882257
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.07126873316341566,
+              "maximum": 0.7501625817835668
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "zh",
+          "case": 3,
+          "utf8_bytes": 42,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8245222349651158,
+          "total_s": 3.8265372819732875,
+          "pcm_sha256": "710400bf726764648c6bc3e92ca02cc35213518d5ff397d6e4b9d998c632b72a",
+          "pcm_bytes": 115200,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 57600,
+            "duration_seconds": 2.4,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 15,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.0106658935546875,
+              "minimum": -0.242645263671875,
+              "maximum": 0.360565185546875,
+              "standard_deviation": 0.1891105658573923
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.253410825273385,
+              "10": 0.30887615665382817,
+              "20": 0.31488966499083765
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.03691066716238403,
+              "maximum": 1.378452703436382
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ja",
+          "case": 4,
+          "utf8_bytes": 54,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7884089131839573,
+          "total_s": 4.507271924056113,
+          "pcm_sha256": "f3d435ea212054b61eda1dbb48b7850d6ee307395a209436ff190c4499a8033e",
+          "pcm_bytes": 138240,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 69120,
+            "duration_seconds": 2.88,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.007598876953125,
+              "minimum": -0.871063232421875,
+              "maximum": 0.410369873046875,
+              "standard_deviation": 0.31954265395331954
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.19405038425083698,
+              "10": 0.278335477989888,
+              "20": 0.2597282768444264
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.06139774492969633,
+              "maximum": 1.7055492511236288
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ko",
+          "case": 5,
+          "utf8_bytes": 51,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8513593450188637,
+          "total_s": 4.856201417045668,
+          "pcm_sha256": "6bb532481feed3547da8d43a242654f3fc0d39d206d623a05ff07c928d51f7c8",
+          "pcm_bytes": 138240,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 69120,
+            "duration_seconds": 2.88,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.587860107421875,
+              "maximum": 0.332244873046875,
+              "standard_deviation": 0.1966540646708078
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.48600815336367875,
+              "10": 0.31972070705898137,
+              "20": 0.31283233373963565
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.035585191608650146,
+              "maximum": 1.0157886160028482
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "de",
+          "case": 6,
+          "utf8_bytes": 44,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8275717080105096,
+          "total_s": 4.609205364016816,
+          "pcm_sha256": "7e414bc815a3d78d461f25bc477370bc19a0d5449d23bb55cb0dc0fe6fe559fc",
+          "pcm_bytes": 142080,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 71040,
+            "duration_seconds": 2.96,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.009124755859375,
+              "minimum": -0.483612060546875,
+              "maximum": 0.328094482421875,
+              "standard_deviation": 0.22892597068814308
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3390067349126732,
+              "10": 0.19563691967486976,
+              "20": 0.1670889493564001
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.06024397090968859,
+              "maximum": 0.839598418987832
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "fr",
+          "case": 7,
+          "utf8_bytes": 52,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8384625690523535,
+          "total_s": 4.495566149009392,
+          "pcm_sha256": "853f1aa5f53cedf3dfe3de103e3399228c3e63099c4146b8b224f22edc73a671",
+          "pcm_bytes": 134400,
+          "continuity": {
+            "ok": false,
+            "sample_rate": 24000,
+            "samples": 67200,
+            "duration_seconds": 2.8,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 17,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.070220947265625,
+              "minimum": -0.161468505859375,
+              "maximum": 0.647918701171875,
+              "standard_deviation": 0.18234143012405837
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.8529399265577278,
+              "10": 0.37068875064146317,
+              "20": 0.33910733542894905
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.03687874292906218,
+              "maximum": 0.18935060436420875
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ru",
+          "case": 8,
+          "utf8_bytes": 70,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8275609579868615,
+          "total_s": 4.147967882920057,
+          "pcm_sha256": "961fd0f2e7063744b645ee3bb1415d844af27f3e4591c02c92124e542696035b",
+          "pcm_bytes": 122880,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 61440,
+            "duration_seconds": 2.56,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.011810302734375,
+              "minimum": -0.818817138671875,
+              "maximum": 0.416473388671875,
+              "standard_deviation": 0.30421570289815186
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3926783734303097,
+              "10": 0.24272608993666409,
+              "20": 0.2184036436697813
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.049281436958899034,
+              "maximum": 2.4638706308061753
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "pt",
+          "case": 9,
+          "utf8_bytes": 52,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8291792050004005,
+          "total_s": 5.73207508190535,
+          "pcm_sha256": "9d4f3cf9ceb208f931d1c9d55d242b170e5ccf542e533195a8b2fccf7738e28f",
+          "pcm_bytes": 165120,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 82560,
+            "duration_seconds": 3.44,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 21,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.457244873046875,
+              "maximum": 0.376190185546875,
+              "standard_deviation": 0.21688193363973204
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.1520058118581208,
+              "10": 0.1374455110957799,
+              "20": 0.17716708446026924
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.0348478733732932,
+              "maximum": 0.2999085663501226
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "es",
+          "case": 10,
+          "utf8_bytes": 54,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8641701079905033,
+          "total_s": 5.827118074987084,
+          "pcm_sha256": "57a740c27ce929897b81844751c0ced506235cad3240de918a4883f9f75a5a65",
+          "pcm_bytes": 172800,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 86400,
+            "duration_seconds": 3.6,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 22,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.621063232421875,
+              "maximum": 0.587371826171875,
+              "standard_deviation": 0.232343246518381
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.44756926609221115,
+              "10": 0.21829758045679723,
+              "20": 0.24728960679631226
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.01661713326882579,
+              "maximum": 0.686147797037948
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "it",
+          "case": 11,
+          "utf8_bytes": 54,
+          "context_size": 32768,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8570183319970965,
+          "total_s": 6.919521673116833,
+          "pcm_sha256": "16fc0b36c0add624f27584ddadf064cf4920175df6ffd670a49138ae19376981",
+          "pcm_bytes": 241920,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 120960,
+            "duration_seconds": 5.04,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 31,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.647430419921875,
+              "maximum": 0.625946044921875,
+              "standard_deviation": 0.2620638852567922
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.6938815723424598,
+              "10": 0.19731975591617734,
+              "20": 0.24740656969889993
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.031197974636122963,
+              "maximum": 0.3477229937237942
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 12,
+          "utf8_bytes": 4096,
+          "context_size": 32768,
+          "generation_frames_limit": 16,
+          "first_pcm_s": 1.3807731799315661,
+          "total_s": 3.0320848119445145,
+          "pcm_sha256": "31d39b7a6337576cf705216554c21dcebc38157994d4bc772c388cd4560b9633",
+          "pcm_bytes": 61440,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 30720,
+            "duration_seconds": 1.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 8,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.061767578125,
+              "minimum": -0.119720458984375,
+              "maximum": 0.226409912109375,
+              "standard_deviation": 0.11250156739525981
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.2976311246066032,
+              "10": 0.5150911428058089,
+              "20": 0.5191475970732972
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.1505639160429359,
+              "maximum": 1.1729858021868196
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "zh",
+          "case": 13,
+          "utf8_bytes": 12288,
+          "context_size": 32768,
+          "generation_frames_limit": 16,
+          "first_pcm_s": 2.325773971155286,
+          "total_s": 3.5420307270251215,
+          "pcm_sha256": "bd8ecd470400c9c078954039e633d1ad96b487a84aea3d4d058dafa022204ab0",
+          "pcm_bytes": 61440,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 30720,
+            "duration_seconds": 1.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 8,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.002960205078125,
+              "minimum": -0.535125732421875,
+              "maximum": 0.189178466796875,
+              "standard_deviation": 0.2421719807919385
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.23571708586701715,
+              "10": 0.43707663154484167,
+              "20": 0.44589213858359183
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08592135242323376,
+              "maximum": 0.20612483700149556
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        }
+      ],
+      "cpu_peak_rss_kib": 1943708,
+      "gpu_resident_samples_mib": [],
+      "system_headroom": {
+        "minimum_available_mib": 3283.69140625,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0"
+      }
+    },
+    {
+      "adaptive": true,
+      "reference_sha256": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+      "runs": [
+        {
+          "language": "en",
+          "case": 0,
+          "utf8_bytes": 50,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.6345299340318888,
+          "total_s": 5.034919596044347,
+          "pcm_sha256": "149bd68692a82175ec45c97b75f10f6cf1611dc75e4c512d78f3f71af80bf14a",
+          "pcm_bytes": 157440,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 78720,
+            "duration_seconds": 3.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 20,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.00048828125,
+              "minimum": -0.327117919921875,
+              "maximum": 0.329315185546875,
+              "standard_deviation": 0.1527864636841124
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.20484103585026628,
+              "10": 0.18812790683953196,
+              "20": 0.2672639511027125
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08275990027614433,
+              "maximum": 1.4256753349943694
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 1,
+          "utf8_bytes": 50,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.24214791390113533,
+          "total_s": 3.2883569409605116,
+          "pcm_sha256": "4b5100df2d3a63ab20583f93536d5969a5db3bb7a0d66d4768b939d4634ee629",
+          "pcm_bytes": 145920,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 72960,
+            "duration_seconds": 3.04,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 19,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.014617919921875,
+              "minimum": -0.230560302734375,
+              "maximum": 0.599090576171875,
+              "standard_deviation": 0.19636800665996365
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.30417803781860064,
+              "10": 0.22090402103967918,
+              "20": 0.23727888137817416
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.18244581912720165,
+              "maximum": 1.451211282570927
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 2,
+          "utf8_bytes": 50,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.23490511300042272,
+          "total_s": 3.2981785701122135,
+          "pcm_sha256": "149bd68692a82175ec45c97b75f10f6cf1611dc75e4c512d78f3f71af80bf14a",
+          "pcm_bytes": 157440,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 78720,
+            "duration_seconds": 3.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 20,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.00048828125,
+              "minimum": -0.327117919921875,
+              "maximum": 0.329315185546875,
+              "standard_deviation": 0.1527864636841124
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.20484103585026628,
+              "10": 0.18812790683953196,
+              "20": 0.2672639511027125
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08275990027614433,
+              "maximum": 1.4256753349943694
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "zh",
+          "case": 3,
+          "utf8_bytes": 42,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7047147080302238,
+          "total_s": 4.631428061053157,
+          "pcm_sha256": "bf6b41fb20900ee2a886abeece4ddd2b1e01986757d7342bcb5288e7979bde85",
+          "pcm_bytes": 145920,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 72960,
+            "duration_seconds": 3.04,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 19,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.01898193359375,
+              "minimum": -0.207366943359375,
+              "maximum": 0.176971435546875,
+              "standard_deviation": 0.08890908572891389
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.28458189700252057,
+              "10": 0.2588483051370811,
+              "20": 0.3098813679589213
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09041507361048483,
+              "maximum": 0.7039837624033335
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ja",
+          "case": 4,
+          "utf8_bytes": 54,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.6386209491174668,
+          "total_s": 5.010843319119886,
+          "pcm_sha256": "8a5d5c568d4cb5b16625086c21dffb917e796152edf5a624a3f960683d035dda",
+          "pcm_bytes": 161280,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 80640,
+            "duration_seconds": 3.36,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 21,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.0081787109375,
+              "minimum": -0.526824951171875,
+              "maximum": 0.468719482421875,
+              "standard_deviation": 0.23277571404241354
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.20018447449460533,
+              "10": 0.23067660642882143,
+              "20": 0.21511085246406436
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.2200952860504835,
+              "maximum": 1.7889920057785242
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ko",
+          "case": 5,
+          "utf8_bytes": 51,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.6847457971889526,
+          "total_s": 4.595876079984009,
+          "pcm_sha256": "6edb8913f24dbc6ca9e7d4cedbc3d1caa018bc800cbe91c82824156e213dd860",
+          "pcm_bytes": 145920,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 72960,
+            "duration_seconds": 3.04,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 19,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.015289306640625,
+              "minimum": -0.480194091796875,
+              "maximum": 0.392791748046875,
+              "standard_deviation": 0.19468984512230328
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.49463363904305013,
+              "10": 0.2582779802390311,
+              "20": 0.268832387864371
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.049408304294759196,
+              "maximum": 0.637327474028185
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "de",
+          "case": 6,
+          "utf8_bytes": 44,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7533764301333576,
+          "total_s": 6.87552947900258,
+          "pcm_sha256": "04de4779cd0e44fb19deb0f5f3b3cc9f7133fa7fcd294ac9d9821eaafa4ce21f",
+          "pcm_bytes": 222720,
+          "continuity": {
+            "ok": false,
+            "sample_rate": 24000,
+            "samples": 111360,
+            "duration_seconds": 4.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 29,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.247528076171875,
+              "maximum": 0.595672607421875,
+              "standard_deviation": 0.1730642534297275
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 1.0129832642112275,
+              "10": 0.5529806271504771,
+              "20": 0.6411764030673197
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.061138878455327623,
+              "maximum": 1.2748612222506144
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "fr",
+          "case": 7,
+          "utf8_bytes": 52,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.6776291620917618,
+          "total_s": 7.2314646751619875,
+          "pcm_sha256": "5127a5b65e54ca2ceddd34ef1b3638c14bc7280feb9b32411d4713cab47688af",
+          "pcm_bytes": 276480,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 138240,
+            "duration_seconds": 5.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 36,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.308563232421875,
+              "maximum": 0.228851318359375,
+              "standard_deviation": 0.09750182037841205
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.7800707788898753,
+              "10": 0.4954100535054401,
+              "20": 0.49101472993533263
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09874143929070198,
+              "maximum": 0.6024489117441997
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ru",
+          "case": 8,
+          "utf8_bytes": 70,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.6990266139619052,
+          "total_s": 5.914166865870357,
+          "pcm_sha256": "119939c4b91091d1d823351cb42fd27890e23d4d8a87c9cd2f2de56d4b44eb81",
+          "pcm_bytes": 203520,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 101760,
+            "duration_seconds": 4.24,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 26,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -3.0517578125e-05,
+              "minimum": -0.235565185546875,
+              "maximum": 0.605926513671875,
+              "standard_deviation": 0.15013575966842443
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.43467631309666277,
+              "10": 0.4662900027335458,
+              "20": 0.5470866282615945
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.11525319130271831,
+              "maximum": 0.7599062446236764
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "pt",
+          "case": 9,
+          "utf8_bytes": 52,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7146772840060294,
+          "total_s": 7.033072128891945,
+          "pcm_sha256": "f09a97b39789d57dd82d28e496d1d83de1f08d0eb89e45be0377a7e4805d2c8e",
+          "pcm_bytes": 245760,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 122880,
+            "duration_seconds": 5.12,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 32,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.261199951171875,
+              "maximum": 0.168060302734375,
+              "standard_deviation": 0.08750984912962477
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.6192613564041363,
+              "10": 0.6429193797980834,
+              "20": 0.7327471738297715
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.05747305319676188,
+              "maximum": 1.5064990100793523
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "es",
+          "case": 10,
+          "utf8_bytes": 54,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7124089919961989,
+          "total_s": 6.918971225852147,
+          "pcm_sha256": "6e226aad5dbdd3a9414cc2dc7efdc6be2f409560c513baab21c78b3eb1d3082e",
+          "pcm_bytes": 245760,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 122880,
+            "duration_seconds": 5.12,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 32,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.409149169921875,
+              "maximum": 0.662078857421875,
+              "standard_deviation": 0.17501654135413716
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.7037717246070345,
+              "10": 0.5879435820261923,
+              "20": 0.3290822496110874
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09019297023196815,
+              "maximum": 1.3554638687679086
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "it",
+          "case": 11,
+          "utf8_bytes": 54,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.6878113290295005,
+          "total_s": 7.256281337002292,
+          "pcm_sha256": "51f8e2190fe8df7e1db29124afd7fcfcaa7627d2fde493a2a1c681380f12c9a5",
+          "pcm_bytes": 268800,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 134400,
+            "duration_seconds": 5.6,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 35,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.353729248046875,
+              "maximum": 0.283905029296875,
+              "standard_deviation": 0.12706180592301236
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.5162648602852975,
+              "10": 0.3659045031793312,
+              "20": 0.3109097889452721
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.09609036076897635,
+              "maximum": 0.47921515529445136
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 12,
+          "utf8_bytes": 4096,
+          "context_size": 8192,
+          "generation_frames_limit": 16,
+          "first_pcm_s": 1.2503170028794557,
+          "total_s": 2.824108012020588,
+          "pcm_sha256": "6ae61afea11593871abb2e5e69b4f676bab841bb51e108fb5590db09a4fb6765",
+          "pcm_bytes": 61440,
+          "continuity": {
+            "ok": false,
+            "sample_rate": 24000,
+            "samples": 30720,
+            "duration_seconds": 1.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 8,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0,
+              "standard_deviation": 0.0
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 3879030.591703619,
+              "10": 0.8755950357709134,
+              "20": 0.847565541382363
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.0,
+              "maximum": 0.0
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "zh",
+          "case": 13,
+          "utf8_bytes": 12288,
+          "context_size": 16384,
+          "generation_frames_limit": 16,
+          "first_pcm_s": 2.1760976361110806,
+          "total_s": 3.3135834271088243,
+          "pcm_sha256": "674e5c9ff2733e0df151e288b1350c5a380b55aaee65163e4ace87d4d1308b55",
+          "pcm_bytes": 61440,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 30720,
+            "duration_seconds": 1.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 8,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.01031494140625,
+              "minimum": -0.243621826171875,
+              "maximum": 0.336151123046875,
+              "standard_deviation": 0.16948454773353938
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.37843229056210875,
+              "10": 0.43451185498826833,
+              "20": 0.37209711580269356
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.2096147952857555,
+              "maximum": 0.6983092868345843
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        }
+      ],
+      "cpu_peak_rss_kib": 1946520,
+      "gpu_resident_samples_mib": [],
+      "system_headroom": {
+        "minimum_available_mib": 3418.9453125,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0"
+      }
+    },
+    {
+      "adaptive": true,
+      "reference_sha256": "79f6cd76dfe2f5cb6e2f217d1e03020cb8d75b8b49a3dc617e6bfa41ea49f61e",
+      "runs": [
+        {
+          "language": "en",
+          "case": 0,
+          "utf8_bytes": 50,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.6705921671818942,
+          "total_s": 4.540887020993978,
+          "pcm_sha256": "4828849c3549400a6634358c7715da369e815f53e1f0fde57e4a9a881b24dc4f",
+          "pcm_bytes": 126720,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 63360,
+            "duration_seconds": 2.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0189208984375,
+              "minimum": -0.833953857421875,
+              "maximum": 0.281707763671875,
+              "standard_deviation": 0.3290061896757501
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.676409800147233,
+              "10": 0.3241049104379345,
+              "20": 0.3581230365882257
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.07126873316341566,
+              "maximum": 0.7501625817835668
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 1,
+          "utf8_bytes": 50,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.2661468649748713,
+          "total_s": 2.898106194101274,
+          "pcm_sha256": "b9c02ce679a01dd8c05136083a298d715d31f2d970c931fba3c7b64d53cbf9f6",
+          "pcm_bytes": 115200,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 57600,
+            "duration_seconds": 2.4,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 15,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0569610595703125,
+              "minimum": -0.629364013671875,
+              "maximum": 0.527313232421875,
+              "standard_deviation": 0.3024971739957288
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.22069059337540656,
+              "10": 0.32423441810880244,
+              "20": 0.2586327550408067
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.049086916609264584,
+              "maximum": 1.4857376215233287
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 2,
+          "utf8_bytes": 50,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.2154467508662492,
+          "total_s": 2.953810998937115,
+          "pcm_sha256": "4828849c3549400a6634358c7715da369e815f53e1f0fde57e4a9a881b24dc4f",
+          "pcm_bytes": 126720,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 63360,
+            "duration_seconds": 2.64,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0189208984375,
+              "minimum": -0.833953857421875,
+              "maximum": 0.281707763671875,
+              "standard_deviation": 0.3290061896757501
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.676409800147233,
+              "10": 0.3241049104379345,
+              "20": 0.3581230365882257
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.07126873316341566,
+              "maximum": 0.7501625817835668
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "zh",
+          "case": 3,
+          "utf8_bytes": 42,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.6677284550387412,
+          "total_s": 3.6281749040354043,
+          "pcm_sha256": "710400bf726764648c6bc3e92ca02cc35213518d5ff397d6e4b9d998c632b72a",
+          "pcm_bytes": 115200,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 57600,
+            "duration_seconds": 2.4,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 15,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.0106658935546875,
+              "minimum": -0.242645263671875,
+              "maximum": 0.360565185546875,
+              "standard_deviation": 0.1891105658573923
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.253410825273385,
+              "10": 0.30887615665382817,
+              "20": 0.31488966499083765
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.03691066716238403,
+              "maximum": 1.378452703436382
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ja",
+          "case": 4,
+          "utf8_bytes": 54,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7693581008352339,
+          "total_s": 4.61612168001011,
+          "pcm_sha256": "f3d435ea212054b61eda1dbb48b7850d6ee307395a209436ff190c4499a8033e",
+          "pcm_bytes": 138240,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 69120,
+            "duration_seconds": 2.88,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.007598876953125,
+              "minimum": -0.871063232421875,
+              "maximum": 0.410369873046875,
+              "standard_deviation": 0.31954265395331954
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.19405038425083698,
+              "10": 0.278335477989888,
+              "20": 0.2597282768444264
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.06139774492969633,
+              "maximum": 1.7055492511236288
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ko",
+          "case": 5,
+          "utf8_bytes": 51,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7695006378926337,
+          "total_s": 4.3800605069845915,
+          "pcm_sha256": "6bb532481feed3547da8d43a242654f3fc0d39d206d623a05ff07c928d51f7c8",
+          "pcm_bytes": 138240,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 69120,
+            "duration_seconds": 2.88,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.587860107421875,
+              "maximum": 0.332244873046875,
+              "standard_deviation": 0.1966540646708078
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.48600815336367875,
+              "10": 0.31972070705898137,
+              "20": 0.31283233373963565
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.035585191608650146,
+              "maximum": 1.0157886160028482
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "de",
+          "case": 6,
+          "utf8_bytes": 44,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7620696839876473,
+          "total_s": 4.646583921043202,
+          "pcm_sha256": "7e414bc815a3d78d461f25bc477370bc19a0d5449d23bb55cb0dc0fe6fe559fc",
+          "pcm_bytes": 142080,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 71040,
+            "duration_seconds": 2.96,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.009124755859375,
+              "minimum": -0.483612060546875,
+              "maximum": 0.328094482421875,
+              "standard_deviation": 0.22892597068814308
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3390067349126732,
+              "10": 0.19563691967486976,
+              "20": 0.1670889493564001
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.06024397090968859,
+              "maximum": 0.839598418987832
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "fr",
+          "case": 7,
+          "utf8_bytes": 52,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7774744660127908,
+          "total_s": 4.365967451129109,
+          "pcm_sha256": "853f1aa5f53cedf3dfe3de103e3399228c3e63099c4146b8b224f22edc73a671",
+          "pcm_bytes": 134400,
+          "continuity": {
+            "ok": false,
+            "sample_rate": 24000,
+            "samples": 67200,
+            "duration_seconds": 2.8,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 17,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.070220947265625,
+              "minimum": -0.161468505859375,
+              "maximum": 0.647918701171875,
+              "standard_deviation": 0.18234143012405837
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.8529399265577278,
+              "10": 0.37068875064146317,
+              "20": 0.33910733542894905
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.03687874292906218,
+              "maximum": 0.18935060436420875
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "ru",
+          "case": 8,
+          "utf8_bytes": 70,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7932947350200266,
+          "total_s": 4.075953972991556,
+          "pcm_sha256": "961fd0f2e7063744b645ee3bb1415d844af27f3e4591c02c92124e542696035b",
+          "pcm_bytes": 122880,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 61440,
+            "duration_seconds": 2.56,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 16,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.011810302734375,
+              "minimum": -0.818817138671875,
+              "maximum": 0.416473388671875,
+              "standard_deviation": 0.30421570289815186
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3926783734303097,
+              "10": 0.24272608993666409,
+              "20": 0.2184036436697813
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.049281436958899034,
+              "maximum": 2.4638706308061753
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "pt",
+          "case": 9,
+          "utf8_bytes": 52,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.8007780069019645,
+          "total_s": 5.232887184014544,
+          "pcm_sha256": "9d4f3cf9ceb208f931d1c9d55d242b170e5ccf542e533195a8b2fccf7738e28f",
+          "pcm_bytes": 165120,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 82560,
+            "duration_seconds": 3.44,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 21,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.457244873046875,
+              "maximum": 0.376190185546875,
+              "standard_deviation": 0.21688193363973204
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.1520058118581208,
+              "10": 0.1374455110957799,
+              "20": 0.17716708446026924
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.0348478733732932,
+              "maximum": 0.2999085663501226
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "es",
+          "case": 10,
+          "utf8_bytes": 54,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7720431392081082,
+          "total_s": 5.320688507054001,
+          "pcm_sha256": "57a740c27ce929897b81844751c0ced506235cad3240de918a4883f9f75a5a65",
+          "pcm_bytes": 172800,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 86400,
+            "duration_seconds": 3.6,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 22,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.621063232421875,
+              "maximum": 0.587371826171875,
+              "standard_deviation": 0.232343246518381
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.44756926609221115,
+              "10": 0.21829758045679723,
+              "20": 0.24728960679631226
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.01661713326882579,
+              "maximum": 0.686147797037948
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "it",
+          "case": 11,
+          "utf8_bytes": 54,
+          "context_size": 4096,
+          "generation_frames_limit": 96,
+          "first_pcm_s": 0.7687935822177678,
+          "total_s": 6.899960479000583,
+          "pcm_sha256": "16fc0b36c0add624f27584ddadf064cf4920175df6ffd670a49138ae19376981",
+          "pcm_bytes": 241920,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 120960,
+            "duration_seconds": 5.04,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 31,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": 0.0,
+              "minimum": -0.647430419921875,
+              "maximum": 0.625946044921875,
+              "standard_deviation": 0.2620638852567922
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.6938815723424598,
+              "10": 0.19731975591617734,
+              "20": 0.24740656969889993
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.031197974636122963,
+              "maximum": 0.3477229937237942
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "en",
+          "case": 12,
+          "utf8_bytes": 4096,
+          "context_size": 8192,
+          "generation_frames_limit": 16,
+          "first_pcm_s": 1.3251051630359143,
+          "total_s": 2.951875484082848,
+          "pcm_sha256": "31d39b7a6337576cf705216554c21dcebc38157994d4bc772c388cd4560b9633",
+          "pcm_bytes": 61440,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 30720,
+            "duration_seconds": 1.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 8,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.061767578125,
+              "minimum": -0.119720458984375,
+              "maximum": 0.226409912109375,
+              "standard_deviation": 0.11250156739525981
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.2976311246066032,
+              "10": 0.5150911428058089,
+              "20": 0.5191475970732972
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.1505639160429359,
+              "maximum": 1.1729858021868196
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "language": "zh",
+          "case": 13,
+          "utf8_bytes": 12288,
+          "context_size": 16384,
+          "generation_frames_limit": 16,
+          "first_pcm_s": 2.2210056260228157,
+          "total_s": 3.351242610020563,
+          "pcm_sha256": "bd8ecd470400c9c078954039e633d1ad96b487a84aea3d4d058dafa022204ab0",
+          "pcm_bytes": 61440,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 30720,
+            "duration_seconds": 1.28,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 8,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.002960205078125,
+              "minimum": -0.535125732421875,
+              "maximum": 0.189178466796875,
+              "standard_deviation": 0.2421719807919385
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.23571708586701715,
+              "10": 0.43707663154484167,
+              "20": 0.44589213858359183
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08592135242323376,
+              "maximum": 0.20612483700149556
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        }
+      ],
+      "cpu_peak_rss_kib": 1944816,
+      "gpu_resident_samples_mib": [],
+      "system_headroom": {
+        "minimum_available_mib": 3332.171875,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0"
+      }
+    }
+  ],
+  "memory_measurement": "per-worker resident samples after allocation/generation; Tegra system headroom at 100ms",
+  "scope": "short speech in all ten supported languages and bounded-generation long-input capacity; not perceptual scoring or long-utterance fidelity",
+  "all_baseline_continuity_checks_passed": false,
+  "release_qualified": false
+}

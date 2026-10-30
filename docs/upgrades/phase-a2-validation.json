@@ -1,0 +1,16 @@
+{
+  "schema": "robit.omni.source-validation.v1",
+  "gate": "./scripts/validate.sh",
+  "tests_passed": 5031,
+  "pytest_seconds": 281.05,
+  "remaining_gates": "passed",
+  "source_sha256": {
+    "src/qwen_omni_adapters/indexed_sidecar.py": "8b6df1727f42b565e73cf2c38355b019f4b4f4fda490b94d02b4b57298721722",
+    "src/qwen_omni_adapters/single_gguf.py": "f2113fc8bf393f3d8334c5e27c66a30f395837e13770e5bc2763a581f0a22334",
+    "src/qwen_omni_adapters/ollama_sidecar.py": "490a07263a7ce898f12341a2b678cfb88e7a409c9259380b56274fa0c02fc42d",
+    "src/qwen_omni_adapters/cli.py": "01260e8c3deb2e268c0a2d73fda151082468a9e9ab2b41f7826e3c457299a0b3",
+    "runtime/qualify_indexed_sidecar.py": "84fba4286b90e123575a946501c9adc2c1d0a70769d38a4b268fdfc5ada9d50d",
+    "tests/test_indexed_sidecar.py": "801ab7028955649541cc259edc5fc7962e82e007479942b3bd6159b9d1d70d5f",
+    "tests/test_ollama_sidecar.py": "0b33a3a697ded33b4e7cb4a9ebf37959571d979019116c4b3fd78fc874ae0694"
+  }
+}

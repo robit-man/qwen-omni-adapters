@@ -40,6 +40,7 @@ SUPERVISOR_LOG="$LOG_DIR/supervisor.log"
 CACHE_MARKER="$CACHE_DIR/.robit-omni-portal-cache"
 
 SIDECAR_PROFILE=legacy-cascade
+SIDECAR_SCHEMA=""
 COMP_MODEL_GGUF="$CACHE_DIR/comprehension-model.gguf"
 COMP_PROJECTOR_GGUF="$CACHE_DIR/comprehension-projector.gguf"
 ADAPTER_COMPREHENSION_MODEL=local-qwen3-omni
@@ -91,6 +92,7 @@ resolve_runtime_profile() {
   local default_language_context_probe=0
   resolved=$("$PYTHON_BIN" -m qwen_omni_adapters resolve "$MODEL")
   SIDECAR_PROFILE=$(jq -r '.profile // "legacy-cascade"' <<<"$resolved")
+  SIDECAR_SCHEMA=$(jq -r '.inspection.manifest.schema // ""' <<<"$resolved")
   if [[ "$SIDECAR_PROFILE" == trained-audio-bridge ]]; then
     COMP_MODEL_GGUF=$(jq -er '.standard_layers.language_model.path' <<<"$resolved")
     COMP_PROJECTOR_GGUF=$(jq -er '.standard_layers.projector.path' <<<"$resolved")
@@ -364,6 +366,12 @@ check_port_available() {
 }
 
 prepare_cache() {
+  if [[ "$SIDECAR_SCHEMA" == robit.ollama-audio-bridge.v2 ]]; then
+    mkdir -p "$CACHE_DIR"
+    "$PYTHON_BIN" -m qwen_omni_adapters prepare "$MODEL" --out "$CACHE_DIR" --overwrite --direct-views
+    : >"$CACHE_MARKER"
+    return
+  fi
   local required=(
     "$CACHE_DIR/tts-model.gguf"
     "$CACHE_DIR/tts-projector.gguf"
@@ -634,9 +642,10 @@ run_foreground() {
   OMNI_COMPONENT_CACHE="$CACHE_DIR" \
   OMNI_TTS_MODEL_GGUF="$CACHE_DIR/tts-model.gguf" \
   OMNI_TTS_PROJECTOR_GGUF="$CACHE_DIR/tts-projector.gguf" \
+  OMNI_TTS_REFERENCE_ENCODER_GGUF="$CACHE_DIR/tts-reference-encoder.gguf" \
   LLAMA_TTS_BIN="$REPO_ROOT/vendor/llama.cpp/build/bin/llama-tts" \
   OMNI_TTS_GPU_LAYERS=-1 \
-  OMNI_TTS_STREAM_FRAMES="${OMNI_TTS_STREAM_FRAMES:-2}" \
+  OMNI_TTS_STREAM_FRAMES="${OMNI_TTS_STREAM_FRAMES:-auto}" \
   OMNI_TTS_PERSISTENT="${OMNI_TTS_PERSISTENT:-1}" \
   OMNI_TTS_WARM_SPEAKER_FILE="${OMNI_TTS_WARM_SPEAKER_FILE:-$SCRIPT_DIR/voices/female_voice.wav}" \
   OMNI_TTS_GPU_UUID="$gpu_uuid" \

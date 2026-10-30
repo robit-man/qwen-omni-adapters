@@ -1,0 +1,31 @@
+{
+  "schema": "robit.omni.upgrade-validation.v1",
+  "milestone": "B4b1-Orin",
+  "source_gate": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "tests_passed": 6218,
+    "pytest_seconds": 274.04
+  },
+  "source_sha256": {
+    "patches/llama.cpp-qwen3tts-reference-integrated-gpu.patch": "ed8e59a63b15da8b6c7edf4e82da50bb8e7c9d05bc5e1a875fe5fea27079c39d",
+    "scripts/build_llama_cpp.sh": "6d2bea3ac5c7b52d4d0e1b12192dd6f338d300a0eb12177a1aa33f8c1cbbd5b1",
+    "scripts/build_llama_cpp.ps1": "aaca2a490edc27a2391a479939caad1ee5c5759353f55095206d722d2bbc914b",
+    "runtime/qualify_tts_reference_encoder.py": "9aecd8ddb43f23e28df637e0a21e0a68fa64f73a5a3050ef95cc6715ae5aad48",
+    "tests/test_native_json_grammar.py": "ced16ecdc7f54d8340466b6cefca71e6897382f72dc1426674064044494f93ac"
+  },
+  "devices": [
+    "A100 discrete CUDA",
+    "Tegra234 integrated CUDA"
+  ],
+  "oracle_codes_identical_on_each": 2912,
+  "primary_restarted": false,
+  "full_voice_cloning_qualified": false,
+  "earlier_source_gate": {
+    "passed": 6217,
+    "failed": 1,
+    "failure": "inherited passive-focus process-group timing assertion",
+    "scoped_unchanged_rerun": 60,
+    "full_unchanged_rerun_passed": true
+  }
+}

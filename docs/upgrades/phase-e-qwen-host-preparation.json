@@ -1,0 +1,36 @@
+{
+  "schema": "robit.omni.qwen-host-preparation.v1",
+  "host": "192.168.1.41",
+  "ssh_account": "egg",
+  "authentication": "existing key-based login; no password reused",
+  "observed_hardware": {
+    "architecture": "aarch64",
+    "tegra_release": "R39.2.1",
+    "total_memory_kib": 31405988,
+    "available_memory_kib_before_build": 23542552,
+    "broker_present": false,
+    "cuda_toolkit": "/usr/local/cuda-13.2"
+  },
+  "before": {
+    "qwen_omni_adapters_service": "failed",
+    "desktop_harness": "active",
+    "ollama_loaded_models": 0
+  },
+  "owned_preparation": {
+    "checkout": "/home/egg/qwen-omni-upgrade",
+    "revision": "e2be9b9",
+    "isolated_python_install": "passed",
+    "native_build_unit": "omni-upgrade-qwen-native-build.service",
+    "native_revision": "458681e1d5d4a29a1463c4732e03226cf384b997",
+    "native_build_jobs": 4,
+    "last_observed_build_progress": "5 percent; source compilation",
+    "candidate_transfer": "interrupted before remote verification; partial artifacts retained",
+    "source_validation": "unconfirmed; command session became unresponsive"
+  },
+  "current_limitation": "SSH authentication succeeds but command and forwarding channels stop responding. Cause unconfirmed. Requests to stop the owned build timed out, so its current state is unknown. Local desktop status requested from the user.",
+  "existing_services_restarted": false,
+  "model_inference_start_issued": false,
+  "native_build_complete": false,
+  "qwen_model_qualification_complete": false,
+  "registry_publication_complete": false
+}

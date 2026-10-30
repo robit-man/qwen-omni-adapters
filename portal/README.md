@@ -374,10 +374,13 @@ primary subtag to the model's supported `language` token. Qwen3-TTS Base does
 not expose separate regional acoustic tokens; spoken accent remains primarily
 controlled by the selected or cloned speaker reference.
 
-The current llama.cpp interface for the Base checkpoint extracts a speaker
-embedding from reference audio (`--tts-speaker-file`). It does not yet expose
-the official Python stack's higher-fidelity `ref_audio + ref_text` in-context
-clone path. It also has no separate natural-language style-instruction input.
+The Base checkpoint uses speaker-embedding conditioning when no reference
+transcript is supplied. With the upgraded same-bundle reference encoder, the
+voice dialog's optional **Reference transcript** selects full reference-text and
+acoustic-code conditioning. Saved presets may carry their own `reference_text`;
+uploaded audio does not inherit another voice's transcript. Missing encoder
+components fail explicitly when full conditioning is requested. The runtime
+still has no separate natural-language style-instruction input.
 Do not prepend style directions to spoken text: the model may read them aloud.
 The official [Qwen3-TTS repository](https://github.com/QwenLM/Qwen3-TTS)
 documents VoiceDesign and CustomVoice capabilities, but those are separate

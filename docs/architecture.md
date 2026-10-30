@@ -54,6 +54,14 @@ width. One local llama.cpp server then performs media comprehension and the
 language/tool pass; the Omni Thinker is absent and a second Ollama language
 runner is not started.
 
+For mixed audio/visual inputs, trained bridges run native vision and the
+speech-trained audio prefill as two bounded perception requests through that
+same resident trunk. Only the audio pass supplies transcript/acoustic tags;
+only the visual pass supplies visual evidence. This prevents native visual
+prefill from suppressing the audio bridge's transcript. It adds no second
+reasoner and does not establish environmental-sound accuracy or sample-accurate
+audio/video alignment.
+
 Static model-facing policy is not duplicated across Python and JavaScript.
 `src/qwen_omni_adapters/context.json` is the packaged source for prompts, tool
 descriptions/discovery hints, structured control tools, and durable-task phase
@@ -129,6 +137,7 @@ The custom GGUF uses namespaces for byte-preserving component views:
 | `a.c.p.*` | comprehension projector |
 | `s.t.m.*` | TTS model |
 | `s.t.p.*` | TTS codec/projector |
+| `s.t.e.*` | optional frozen TTS reference acoustic encoder in indexed v2 |
 
 `qwen-omni prepare` reconstructs only the runtime views. They are disposable;
 the attached sidecar remains the source of truth.
@@ -138,6 +147,15 @@ directly executable and the custom sidecar contains only `s.t.m.*` and
 `s.t.p.*`. Preparation therefore materializes only the two TTS views. The
 resolver validates the standard model and combined vision/audio projector
 blobs before startup.
+
+Indexed v2 sidecars may also declare the frozen reference encoder. Preparation
+selects that third view when present. Supported POSIX loaders read the indexed
+source offsets directly; other paths retain byte-preserving materialization.
+The reference encoder runs lazily before TTS loading, then exits. A supplied
+reference transcript selects Base's full text/acoustic prompt and reference-only
+decoder priming. Its immutable conditioning cache is separate from fresh target
+KV, samplers and decoder state. These remain distinct executable architectures
+under one Ollama identity; no additional reasoning trunk is introduced.
 
 ## State and concurrency
 
@@ -227,5 +245,5 @@ Media chat likewise keeps prior textual conversation and bounded historical
 visual observations, but only the newest attachment is labelled as current
 perceptual evidence. Qwen3-TTS uses a
 persistent framed subprocess protocol so matching-profile requests reuse the
-resident model and the browser can schedule the first two-frame PCM window as
+resident model and the browser can schedule the selected PCM windows as
 soon as it arrives.

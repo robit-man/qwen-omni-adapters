@@ -1,0 +1,43 @@
+{
+  "component_index": {
+    "components": {
+      "audio_ctc_head": {
+        "architecture": "robit_audio_ctc",
+        "gguf_sha256": "e939e15685138903f1c49701ccba830dcac058c780d116b5319532bd892bca15",
+        "gguf_size_bytes": 10518848,
+        "metadata_prefix": "robit.audio_bundle.component.audio_ctc_head.kv.",
+        "tensor_count": 8,
+        "tensor_prefix": "a.h.c."
+      },
+      "tts_model": {
+        "architecture": "qwen3tts",
+        "gguf_sha256": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129",
+        "gguf_size_bytes": 1035965280,
+        "metadata_prefix": "robit.audio_bundle.component.tts_model.kv.",
+        "tensor_count": 311,
+        "tensor_prefix": "s.t.m."
+      },
+      "tts_projector": {
+        "architecture": "clip",
+        "gguf_sha256": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2",
+        "gguf_size_bytes": 446422912,
+        "metadata_prefix": "robit.audio_bundle.component.tts_projector.kv.",
+        "tensor_count": 378,
+        "tensor_prefix": "s.t.p."
+      },
+      "tts_reference_encoder": {
+        "architecture": "clip",
+        "gguf_sha256": "587b2b59ebfa815c5490fbc4bddb5dde3454cfbca4eef108d8688b668628a0e5",
+        "gguf_size_bytes": 190080704,
+        "metadata_prefix": "robit.audio_bundle.component.tts_reference_encoder.kv.",
+        "tensor_count": 129,
+        "tensor_prefix": "s.t.e."
+      }
+    },
+    "schema": "robit.gguf-component-index.v2"
+  },
+  "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audio-head-pilot/shared-tts-ctc-sidecar-v2.gguf",
+  "schema": "robit.ollama-audio-bridge.v2",
+  "sha256": "d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+  "size_bytes": 1682999584
+}

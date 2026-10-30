@@ -1,0 +1,32 @@
+{
+  "schema": "robit.omni.upgrade-validation.v1",
+  "milestone": "B5",
+  "source_gate": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "tests_passed": 6213,
+    "pytest_seconds": 277.22
+  },
+  "source_sha256": {
+    "runtime/tts_server.py": "2abe62874553d3eada9a2760c547ecab62c93356c4488b278e69f24e7aac4dc3",
+    "runtime/benchmark_tts_context.py": "9faf816b92a3f0eaad834dcda809295e17b76722d513ec05bb387c2df35025a2",
+    "tests/test_tts_idle_residency.py": "4eb8d6a3121cf45253bd5e859eac789872a3f89e53dbafb914a867190eeacff4",
+    "runtime-data/upgrade-evidence/phase-b5-final-validation.log": "8e24c9efb4b7c9e2cde1303dd0f936d300b1f65043d1fcf8aafa45959bf176c0"
+  },
+  "a100_native_binary_sha256": "f5fadb911b5a7b7c442c294bcaf3662e3a4c97e34a414f3b8c6fee513a379c7f",
+  "orin_native_binary_sha256": "b5f1d96bc1e71f004f487d70a014be79dd61dfdc9d377a540b2d9ba4a5862f1d",
+  "checkpoint_identities": {
+    "tts_model_sha256": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129",
+    "tts_projector_sha256": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2",
+    "a100_indexed_source_sha256": "5f39fca31532abfb5c162b3c258e26bc7ab959a94708ab32000185301d35ebf7"
+  },
+  "pcm_comparisons_identical_per_device": 28,
+  "devices": [
+    "A100 scoped CUDA",
+    "Tegra234 production-primary co-resident"
+  ],
+  "baseline_continuity_flags_preserved_not_qualified": true,
+  "production_services_restarted": false,
+  "adaptive_enabled_by_default": false,
+  "release_qualified": false
+}

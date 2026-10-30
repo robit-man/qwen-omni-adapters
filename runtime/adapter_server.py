@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import wave
 from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
@@ -58,6 +59,7 @@ from qwen_omni_adapters.contract import (
     parse_adapter_request,
 )
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState
+from qwen_omni_adapters.tts_packets import stream_frame_setting
 
 
 @dataclass(frozen=True)
@@ -90,7 +92,7 @@ class Config:
     # is known to degenerate, so this stays opt-in per deployment profile.
     comprehension_disable_thinking: bool = False
     comprehension_repeat_penalty: float = 1.0
-    tts_stream_frames: int = 8
+    tts_stream_frames: int | None = None
     spoken_max_sentences: int = 2
     spoken_max_tts_blocks: int = 4
     spoken_max_audio_seconds: float = 24.0
@@ -98,6 +100,7 @@ class Config:
     # does not acquire an unexpected extra backend request. Deployed adapters
     # enable it by default in ``from_environment`` below.
     live_addressee_gate: bool = False
+    prepare_reference: bool = False
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -148,7 +151,7 @@ class Config:
             comprehension_repeat_penalty=float(
                 os.environ.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.0")
             ),
-            tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
+            tts_stream_frames=stream_frame_setting(os.environ.get("OMNI_TTS_STREAM_FRAMES")),
             spoken_max_sentences=int(
                 os.environ.get("OMNI_SPOKEN_MAX_SENTENCES", "2")
             ),
@@ -161,6 +164,7 @@ class Config:
             live_addressee_gate=(
                 os.environ.get("OMNI_LIVE_ADDRESSEE_GATE", "1") == "1"
             ),
+            prepare_reference=os.environ.get("OMNI_TTS_PREPARE_REFERENCE", "0") == "1",
         )
 
 
@@ -1121,6 +1125,11 @@ def build_comprehension_payload(
 ) -> dict[str, Any]:
     media_messages: list[dict[str, Any]] = []
     for message in parsed.messages:
+        # Perception has one server-pinned extraction policy. Caller/portal
+        # system instructions belong to the language stage; forwarding them
+        # here also violates templates that require a single initial system.
+        if message.role == "system":
+            continue
         # This marker is emitted only by the internal computer-use loop. It
         # requests a coordinate-bearing perception summary without forwarding
         # arbitrary task text into the untrusted media encoder. Ordinary photos,
@@ -1604,6 +1613,36 @@ def _require_comprehension(config: Config) -> None:
         )
 
 
+def _separate_bridge_perception(
+    payload: dict[str, Any], config: Config,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Keep the speech-trained bridge's prefill separate from native vision.
+
+    Both requests use the same resident primary model. This is a structural
+    modality decision, independent of generated words or inferred intent.
+    """
+    if not config.comprehension_disable_thinking:
+        return payload, None
+    media = [part for message in payload["messages"][1:]
+             for part in message["content"]]
+    if not (any(part["type"] == "input_audio" for part in media)
+            and any(part["type"] in {"image_url", "input_video"} for part in media)):
+        return payload, None
+    visual = copy.deepcopy(payload)
+    audio = copy.deepcopy(payload)
+    audio["messages"] = [{"role": "system", "content": TRAINED_AUDIO_SYSTEM_PROMPT}]
+    for source, target in zip(payload["messages"][1:], visual["messages"][1:], strict=True):
+        target["content"] = [part for part in target["content"] if part["type"] != "input_audio"]
+        acoustic = [part for part in source["content"] if part["type"] == "input_audio"]
+        if acoustic:
+            audio["messages"].append({"role": source["role"], "content": [
+                *acoustic, {"type": "text", "text": TRAINED_AUDIO_SUFFIX_PROMPT},
+            ]})
+    visual["mm_processor_kwargs"] = {"use_audio_in_video": False}
+    audio["mm_processor_kwargs"] = {"use_audio_in_video": False}
+    return visual, audio
+
+
 def _comprehend(
     parsed: ParsedAdapterRequest,
     config: Config,
@@ -1628,16 +1667,28 @@ def _comprehend(
         if frame_cap in attempted:
             continue
         attempted.add(frame_cap)
+        payload, audio_payload = _separate_bridge_perception(
+            build_comprehension_payload(parsed, config, max_video_frames=frame_cap), config,
+        )
         response = client.post(
             config.comprehension_url,
-            json=build_comprehension_payload(parsed, config, max_video_frames=frame_cap),
+            json=payload,
         )
         last_response = response
         if _context_overflow(response) and frame_cap > 1:
             continue
-        return _assistant_text(
+        visual_text = _assistant_text(
             _json_response(response, "comprehension"),
             "comprehension",
+        )
+        if audio_payload is None:
+            return visual_text
+        audio_response = client.post(config.comprehension_url, json=audio_payload)
+        audio_text = _assistant_text(_json_response(audio_response, "comprehension"), "comprehension")
+        return (
+            f"<speech_transcript>{_observation_transcript(audio_text) or ''}</speech_transcript>"
+            f"<audio_observation>{_observation_audio(audio_text) or ''}</audio_observation>"
+            f"<visual_observation>{_observation_visual(visual_text) or ''}</visual_observation>"
         )
     if last_response is None:  # pragma: no cover - frame_caps is never empty
         raise AdapterStageError("comprehension was not attempted")
@@ -2281,6 +2332,12 @@ def _finish_response(
         result["adapter"]["tts_blocks"] = tts_blocks
     if parsed.speech.get("locale"):
         result["adapter"]["speech_locale"] = str(parsed.speech["locale"])
+    if "tts" in executed:
+        result["adapter"]["voice_conditioning"] = (
+            "reference_prompt" if parsed.speech.get("reference_text") else
+            "speaker_embedding" if parsed.speech.get("speaker_file") or parsed.speech.get("speaker_audio") else
+            "unconditioned"
+        )
     if observation is not None:
         result["adapter"]["observation"] = observation
         transcript = _observation_transcript(observation)
@@ -2300,6 +2357,29 @@ def _finish_response(
     if speech_addressee:
         result["adapter"]["speech_addressee"] = speech_addressee.casefold()
     return result
+
+
+_REFERENCE_PREPARATION_SLOT = threading.BoundedSemaphore(1)
+
+
+def _start_reference_preparation(parsed, config, client):
+    if (not config.prepare_reference or not parsed.synthesize
+            or not parsed.speech.get("reference_text") or not parsed.speech.get("speaker_file")
+            or parsed.speech.get("speaker_audio") or not _REFERENCE_PREPARATION_SLOT.acquire(blocking=False)):
+        return
+
+    def prepare():
+        try:
+            url = config.tts_url.rstrip("/").rsplit("/", 1)[0] + "/prepare-reference"
+            response = client.post(url,
+                                   json=dict(parsed.speech), timeout=min(config.timeout_s, 30))
+            response.close()
+        except Exception:
+            logging.getLogger(__name__).debug("Optional reference preparation was unavailable")
+        finally:
+            _REFERENCE_PREPARATION_SLOT.release()
+
+    threading.Thread(target=prepare, name="voice-reference-preparation", daemon=True).start()
 
 
 def execute(
@@ -2363,6 +2443,7 @@ def execute(
         last_user = next(message for message in reversed(parsed.messages) if message.role == "user")
         result = _direct_response(parsed.model, last_user.content.strip())
     else:
+        _start_reference_preparation(parsed, config, client)
         language_payload = build_language_payload(
             parsed,
             observation,
@@ -2512,6 +2593,7 @@ def execute_stream(
             message={"role": "assistant", "content": last_user.content.strip()},
         )
     else:
+        _start_reference_preparation(parsed, config, client)
         yield _stream_event("stage", stage="language")
         payload = build_language_payload(
             parsed,
@@ -2697,7 +2779,7 @@ def execute_stream(
         tts_payload = {
             "blocks": text_blocks,
             "output": DEFAULT_AUDIO_CONTRACT.output.to_dict(),
-            "stream_frames": config.tts_stream_frames,
+            **({"stream_frames": config.tts_stream_frames} if config.tts_stream_frames is not None else {}),
             **dict(parsed.speech),
         }
         pending = b""

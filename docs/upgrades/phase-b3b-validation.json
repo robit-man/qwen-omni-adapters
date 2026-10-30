@@ -1,0 +1,30 @@
+{
+  "schema": "robit.omni.source-validation.v1",
+  "baseline_commit": "7d9911b66af60903cb61a1d2b45ff44b74ef6dbe",
+  "before": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6235,
+    "duration_s": 276.51
+  },
+  "after": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6242,
+    "duration_s": 277.14,
+    "additional_gates": "compileall, Ruff, contract, VAD, call queue, call playback, session cache, npm installer and shell syntax passed"
+  },
+  "source_sha256": {
+    "AGENTS.md": "73adca89ecd3bb519bb15142507d0071f2f735b290c171f3954bb84fe36a2652",
+    "runtime/tts_server.py": "a9756be81d7e90e9c6618f0a5a9e12400e8a8ae3e9dd6a6d2cc8f6e4dfccde12",
+    "runtime/qualify_tts_reference_http.py": "607a44aefcc0817ed154214e14bbd3fd08c7db4b4b03a8335cff4a3c75031d11",
+    "runtime/qualify_tts_utterance.py": "cb24b665539357ad5fe50f815e4d375b56b7d8f83c01ccd5204ffa2c354431fa",
+    "scripts/build_llama_cpp.sh": "6c843a77e3171913077274395ad04c16aa1aae9f33bf92173f70094511181057",
+    "scripts/build_llama_cpp.ps1": "6ae3aa0dd4074d3da22bd8c9f17261202c23ab2bb06d7401bedc7af050eff76d",
+    "patches/llama.cpp-qwen3tts-utterance-state.patch": "b7f9ceff112c8006dc8ba9ef8282adcf0535d4dace56f969f20c6ec1ec07361d",
+    "tests/test_tts_utterance.py": "cf17f34c54a6278daff0b3ca252166c049d1659607f57e84f10d183f4106fa97",
+    "tests/test_native_json_grammar.py": "5095ad060d37c0dfd0ed67a7a4efe07200d0b3c855e1624ce180ffd9bf413111"
+  },
+  "whole_model_release_qualified": false,
+  "registry_publication_complete": false
+}

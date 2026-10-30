@@ -1,0 +1,41 @@
+{
+  "schema": "robit.omni.upgrade-validation.v1",
+  "milestone": "B3a",
+  "base_commit": "0045877",
+  "source_gate": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "tests_passed": 6235,
+    "pytest_seconds": 274.91
+  },
+  "source_sha256": {
+    "portal/start.sh": "7d77367a27bb4d6a0146f3d0562b9637d0178bc7bafcf1a3bbefddd4082afbe2",
+    "runtime/adapter_server.py": "ba7349bfcad028a36512b0edb0c0e7cc497c428df3dd7f730214e37e7e6e5de2",
+    "runtime/benchmark_tts_cadence.py": "d32ea66fdd355afad09dfbfc84ceec6768775912163cbee44ad0d8dbb652caff",
+    "runtime/qualify_tts_reference_http.py": "999e17d7fd144aac5e51f0bee1c86711b466b394fdd6eeb6f6734098105227c8",
+    "runtime/qualify_tts_speaker.py": "e8042eec5b5473bb188f10ac2e4fe74f0364e8c8abf21def138079f6d6288352",
+    "runtime/replay_tts_cadence.cjs": "34cf60b51074a5a4a302d3609f7a1b14f30b2539ed5ddeb649c0933fd2c28c74",
+    "runtime/tts_server.py": "d3629adea157318f7ebffb345856df9829479954a02ddb40557288b9138fede4",
+    "runtime/tts_speaker_probe.cpp": "bcc033934c527ae11fa210614247685b6562fd85a4907c6df8299a51b52e087f",
+    "src/qwen_omni_adapters/daemon.py": "045aacb40117bd144fd9b48efb1ff1f9420f3965624c3680152e662961144003",
+    "src/qwen_omni_adapters/tts_packets.py": "96cd26bb2bfc43f6dddd16d18dbe4e6f8a3981350d4483c9a60e9d17b8dc8a3b",
+    "tests/test_daemon.py": "895b68027d7a745c60f72648cbf79c55dac3a44c5fa11f667fe4bbc59249b5b3",
+    "tests/test_omni_adapter.py": "174835bb3b8d192aa95d8ab4242e9481f5f5008c4f151e73e04395df3dbf97a0",
+    "tests/test_tts_packet_policy.py": "44e6885e97397ddebfaca46ff897e87bee1fb50ca417f369b28eb2d07d961c53"
+  },
+  "sidecar_sha256": "7838f27ad60ed5181c60e9b6e7263df944933f07099602aa70a5e96c8640f388",
+  "actual_auto_route_gates": [
+    "phase-b3a-auto-a100.json",
+    "phase-b3a-auto-orin.json"
+  ],
+  "replay_uses_unmodified_browser_functions": true,
+  "replay_includes_network_or_physical_speaker_latency": false,
+  "exact_intelligibility_transcriptions": 8,
+  "speaker_metric": "same-bundle projected speaker conditioning, not calibrated verification",
+  "negative_voice_observations_retained": true,
+  "primary_restarted": false,
+  "committed_handoff_overlap_complete": false,
+  "dynamic_within_utterance_window_ramp_complete": false,
+  "whole_release_qualified": false,
+  "publication_qualified": false
+}

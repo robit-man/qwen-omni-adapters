@@ -4,6 +4,7 @@
   "language": "en",
   "locale": "en-US",
   "speaker_file": "voices/female_voice.wav",
+  "reference_text": "",
   "presets": [
     {
       "id": "female",

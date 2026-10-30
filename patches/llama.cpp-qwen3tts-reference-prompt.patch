@@ -1,0 +1,527 @@
+diff --git a/common/arg.cpp b/common/arg.cpp
+index 14e88643f..6a4519d00 100644
+--- a/common/arg.cpp
++++ b/common/arg.cpp
+@@ -4438,6 +4438,13 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
+             params.tts_speaker_file = value;
+         }
+     ).set_examples({LLAMA_EXAMPLE_TTS}));
++    add_opt(common_arg(
++        {"--tts-reference-prompt-file"}, "FNAME",
++        "Qwen3-TTS Base reference transcript and acoustic codes JSON",
++        [](common_params & params, const std::string & value) {
++            params.tts_reference_prompt_file = value;
++        }
++    ).set_examples({LLAMA_EXAMPLE_TTS}));
+     add_opt(common_arg(
+         {"--tts-stream"},
+         "write generated PCM16 LE audio to stdout as decoder windows complete",
+diff --git a/common/common.h b/common/common.h
+index 289e63ac2..f49e3d076 100644
+--- a/common/common.h
++++ b/common/common.h
+@@ -753,6 +753,7 @@ struct common_params {
+     // TTS params
+     std::string tts_lang = "";
+     std::string tts_speaker_file = "";
++    std::string tts_reference_prompt_file = "";
+     bool tts_stream = false;
+     int32_t tts_stream_frames = 72;
+     bool tts_persistent = false;
+diff --git a/tools/mtmd/clip.cpp b/tools/mtmd/clip.cpp
+index 80f9e2a7c..cf178b652 100644
+--- a/tools/mtmd/clip.cpp
++++ b/tools/mtmd/clip.cpp
+@@ -1124,11 +1124,12 @@ static std::unique_ptr<clip_graph> clip_get_graph_builder(clip_ctx * ctx, const
+                 const float top_p = params ? params->top_p : 1.0f;
+                 const int64_t n_codes = ctx->model.gen_code_head_w->ne[2] + 1;
+                 int n_frames = 1;
+-                if (gen_process == CLIP_GEN_PROCESS_GEN_WAV) {
++                if (gen_process == CLIP_GEN_PROCESS_GEN_WAV || gen_process == CLIP_GEN_PROCESS_EMBED_CODES) {
+                     GGML_ASSERT(params != nullptr && params->codes != nullptr);
+                     GGML_ASSERT(params->codes->size() % (size_t) n_codes == 0);
+                     n_frames = (int) (params->codes->size() / (size_t) n_codes);
+-                    GGML_ASSERT(n_frames > 0 && n_frames <= ctx->model.hparams.wav_tfm_swa);
++                    const int limit = gen_process == CLIP_GEN_PROCESS_EMBED_CODES ? 375 : ctx->model.hparams.wav_tfm_swa;
++                    GGML_ASSERT(n_frames > 0 && n_frames <= limit);
+                 }
+                 builder = std::make_unique<clip_graph_qwen3tts_gen>(ctx, img, gen_process, n_frames, top_k, top_p);
+             } break;
+@@ -4575,7 +4576,7 @@ bool clip_encode(struct clip_ctx * ctx, struct clip_encode_params * params) {
+         }
+         set_input_f32("inp_raw", inp_raw);
+ 
+-    } else if (params->gen_process != CLIP_GEN_PROCESS_GEN_WAV) {
++    } else if (params->gen_process != CLIP_GEN_PROCESS_GEN_WAV && params->gen_process != CLIP_GEN_PROCESS_EMBED_CODES) {
+         // audio input. GEN_WAV is not here: it takes codes or feats, set in the switch below
+         GGML_ASSERT(imgs.entries.size() == 1);
+ 
+@@ -5228,13 +5229,13 @@ bool clip_encode(struct clip_ctx * ctx, struct clip_encode_params * params) {
+             } break;
+         case PROJECTOR_TYPE_QWEN3TTS_GEN:
+             {
+-                if (params->gen_process == CLIP_GEN_PROCESS_GEN_WAV) {
++                if (params->gen_process == CLIP_GEN_PROCESS_GEN_WAV || params->gen_process == CLIP_GEN_PROCESS_EMBED_CODES) {
+                     GGML_ASSERT(params->codes != nullptr);
+ 
+                     // frame-major input to group-major. The graph is sized to these real
+                     // frames so the persisted decoder state stops at the same boundary.
+                     const int64_t n_codes  = model.gen_code_head_w->ne[2] + 1;
+-                    const int64_t n_frames_w = hparams.wav_tfm_swa;
++                    const int64_t n_frames_w = params->gen_process == CLIP_GEN_PROCESS_EMBED_CODES ? 375 : hparams.wav_tfm_swa;
+                     const int64_t n_frames   = (int64_t) params->codes->size() / n_codes;
+                     GGML_ASSERT(n_frames > 0 && n_frames <= n_frames_w);
+ 
+@@ -5260,7 +5261,9 @@ bool clip_encode(struct clip_ctx * ctx, struct clip_encode_params * params) {
+                         }
+                     }
+                     set_input_i32("inp_codes", codes);
+-                    set_gen_state_in();
++                    if (params->gen_process == CLIP_GEN_PROCESS_GEN_WAV) {
++                        set_gen_state_in();
++                    }
+                 } else {
+                     // code0 indexes gen_code_out_embd_w via ggml_get_rows; bound it
+                     const int64_t vocab0 = model.gen_code_out_embd_w->ne[1];
+@@ -5719,7 +5722,8 @@ bool clip_encode(struct clip_ctx * ctx, struct clip_encode_params * params) {
+     if (embeddings != nullptr) {
+         // sanity check (assuming that all images in batch have the same number of tokens, so we only check the first one)
+         const int n_tokens_out = embeddings->ne[1];
+-        const int expected_n_tokens_out = clip_n_output_tokens(ctx, &imgs.entries[0]);
++        const int expected_n_tokens_out = params->gen_process == CLIP_GEN_PROCESS_EMBED_CODES
++            ? (int) params->codes->size() / 16 : clip_n_output_tokens(ctx, &imgs.entries[0]);
+         if (n_tokens_out != expected_n_tokens_out) {
+             LOG_ERR("%s: expected output %d tokens, got %d\n", __func__, expected_n_tokens_out, n_tokens_out);
+             GGML_ABORT("Invalid number of output tokens");
+diff --git a/tools/mtmd/clip.h b/tools/mtmd/clip.h
+index 962d13894..7b6e87ccc 100644
+--- a/tools/mtmd/clip.h
++++ b/tools/mtmd/clip.h
+@@ -92,6 +92,7 @@ enum clip_gen_process_type {
+     CLIP_GEN_PROCESS_GEN_UNKNOWN,
+     CLIP_GEN_PROCESS_GEN_CODE, // h_state to codes
+     CLIP_GEN_PROCESS_GEN_WAV,  // codes to raw PCM audio
++    CLIP_GEN_PROCESS_EMBED_CODES,
+ };
+ struct clip_encode_params {
+     int n_threads = 1;
+diff --git a/tools/mtmd/models/qwen3tts-gen.cpp b/tools/mtmd/models/qwen3tts-gen.cpp
+index 30b4cec5b..7053fa77c 100644
+--- a/tools/mtmd/models/qwen3tts-gen.cpp
++++ b/tools/mtmd/models/qwen3tts-gen.cpp
+@@ -656,6 +656,27 @@ std::vector<c2w_state_slot> list_c2w_state_slots(const clip_hparams & hparams, c
+ // ggml_build_forward_select() then picks the one that actually runs
+ ggml_cgraph * clip_graph_qwen3tts_gen::build() {
+     GGML_ASSERT(n_batch == 1); // this module only ever processes one frame at a time
++    if (gen_process == CLIP_GEN_PROCESS_EMBED_CODES) {
++        GGML_ASSERT(n_frames > 0 && n_frames <= 375);
++        const int64_t groups = model.gen_code_head_w->ne[2] + 1;
++        ggml_tensor * input = ggml_new_tensor_2d(ctx0, GGML_TYPE_I32, n_frames, groups);
++        ggml_set_name(input, "inp_codes");
++        ggml_set_input(input);
++        ggml_tensor * sum = nullptr;
++        for (int64_t group = 0; group < groups; ++group) {
++            ggml_tensor * ids = ggml_view_1d(ctx0, input, n_frames, group * input->nb[1]);
++            ggml_tensor * table = model.gen_code_out_embd_w;
++            if (group > 0) {
++                table = ggml_view_2d(ctx0, model.gen_code_embd_w,
++                    model.gen_code_embd_w->ne[0], model.gen_code_embd_w->ne[1],
++                    model.gen_code_embd_w->nb[1], (group - 1) * model.gen_code_embd_w->nb[2]);
++            }
++            ggml_tensor * rows = ggml_get_rows(ctx0, table, ids);
++            sum = sum ? ggml_add(ctx0, sum, rows) : rows;
++        }
++        ggml_build_forward_expand(gf, sum);
++        return gf;
++    }
+     GGML_ASSERT(n_frames > 0 && n_frames <= hparams.wav_tfm_swa);
+ 
+     int idx;
+diff --git a/tools/mtmd/mtmd-helper-gen.cpp b/tools/mtmd/mtmd-helper-gen.cpp
+index 5b4752dcc..189c996c9 100644
+--- a/tools/mtmd/mtmd-helper-gen.cpp
++++ b/tools/mtmd/mtmd-helper-gen.cpp
+@@ -96,6 +96,12 @@ struct mtmd_helper_gen_audio_cache {
+     bool speaker_audio = false;
+     std::string speaker_language;
+     mtmd_helper_gen_audio_cache_stats stats{};
++    std::vector<int32_t> reference_codes;
++    std::vector<float> reference_embeddings;
++    std::vector<uint8_t> reference_decoder_state;
++    std::string reference_text, reference_language;
++    uint64_t reference_speaker_epoch = UINT64_MAX;
++    mtmd_helper_gen_audio_reference_stats reference_stats{};
+ };
+ 
+ mtmd_helper_gen_audio_cache * mtmd_helper_gen_audio_cache_init(
+@@ -120,6 +126,11 @@ mtmd_helper_gen_audio_row_stats mtmd_helper_gen_audio_cache_get_row_stats(
+     return cache ? cache->row_stats : mtmd_helper_gen_audio_row_stats{};
+ }
+ 
++mtmd_helper_gen_audio_reference_stats mtmd_helper_gen_audio_cache_get_reference_stats(
++        const mtmd_helper_gen_audio_cache * cache) {
++    return cache ? cache->reference_stats : mtmd_helper_gen_audio_reference_stats{};
++}
++
+ void mtmd_helper_gen_audio_cache_set_row_limit(mtmd_helper_gen_audio_cache * cache, uint32_t rows) {
+     if (cache) {
+         cache->max_rows = std::min<size_t>(rows, 4096);
+@@ -137,6 +148,7 @@ public:
+     virtual ~mtmd_gen_audio_pipeline() = default;
+ 
+     virtual void reset() = 0;
++    virtual int32_t set_reference_prompt(const int32_t *, size_t, const char *, size_t) { return 1; }
+     virtual int32_t set_input(const mtmd_helper_gen_audio_inp * inp) = 0;
+     // decodes at most n_batch prompt tokens; returns remaining count (0 = done), <0 on error
+     virtual int32_t step_prompt(int32_t n_batch) = 0;
+@@ -163,6 +175,18 @@ public:
+                                mtmd_helper_gen_audio_cache * cache)
+         : mtmd_gen_audio_pipeline(lctx, mctx), conditioning(cache ? cache : &local_cache) {}
+ 
++    int32_t set_reference_prompt(const int32_t * codes, size_t count,
++                                const char * text, size_t text_len) override {
++        if (!codes || count < 16 || count > 375 * 16 || count % 16 != 0 ||
++                !text || text_len == 0 || text_len > 8192 ||
++                std::any_of(codes, codes + count, [](int32_t c) { return c < 0 || c >= 2048; })) {
++            return 1;
++        }
++        reference_codes.assign(codes, codes + count);
++        reference_text.assign(text, text_len);
++        return 0;
++    }
++
+     void reset() override {
+         seq_id = 0;
+         pos = 0;
+@@ -181,6 +205,10 @@ public:
+     int32_t set_input(const mtmd_helper_gen_audio_inp * inp) override {
+         reset();
+         seq_id = inp->seq_id;
++        if (!reference_codes.empty() && !inp->speaker_ref) {
++            LOG_ERR("mtmd_helper_gen_audio: reference prompt requires a speaker reference\n");
++            return 1;
++        }
+ 
+         if (!ensure_cache()) {
+             return 1;
+@@ -285,11 +313,52 @@ public:
+         prompt.push_back(sum_row(tts_pad, c_think_e));
+         if (!speaker_embd.empty()) prompt.push_back(sum_vec(tts_pad, speaker_embd));
+         prompt.push_back(sum_row(tts_bos, codec_pad));
++        if (!reference_codes.empty()) {
++            const std::string wrapped = "<|im_start|>assistant\n" + reference_text + "<|im_end|>\n";
++            std::vector<llama_token> ref_ids(wrapped.size() + 16);
++            const int count = llama_tokenize(vocab, wrapped.c_str(), (int32_t) wrapped.size(),
++                ref_ids.data(), (int32_t) ref_ids.size(), false, true);
++            if (count < 6) {
++                return 1;
++            }
++            for (int i = 3; i < count - 2; ++i) {
++                prompt.push_back(sum_row(ref_ids[i], codec_pad));
++            }
++        }
+         for (int i = 3; i < n_ids - 5; i++) prompt.push_back(sum_row(ids[(size_t) i], codec_pad));
+         prompt.push_back(sum_row(tts_eos, codec_pad));
+         prompt.push_back(sum_row(tts_pad, codec_bos));
++        if (!reference_codes.empty()) {
++            const size_t frames = reference_codes.size() / 16;
++            reference_hit = conditioning->reference_speaker_epoch == conditioning->stats.speaker_encodes &&
++                conditioning->reference_codes == reference_codes &&
++                conditioning->reference_text == reference_text && conditioning->reference_language == lang &&
++                !conditioning->reference_decoder_state.empty();
++            reference_embeddings.resize(frames * n_e);
++            if (reference_hit) {
++                reference_embeddings = conditioning->reference_embeddings;
++                conditioning->reference_stats.hits++;
++            } else if (mtmd_gen_audio_code_embeddings(mctx, reference_codes.data(), reference_codes.size(),
++                    reference_embeddings.data(), reference_embeddings.size()) != 0) {
++                return 1;
++            } else {
++                conditioning->reference_stats.embedding_encodes++;
++            }
++            const auto pad = row(tts_pad);
++            for (size_t frame = 0; frame < frames; ++frame) {
++                std::vector<float> value(n_e);
++                for (int i = 0; i < n_e; ++i) {
++                    value[i] = reference_embeddings[frame * n_e + i] + pad[i];
++                }
++                prompt.push_back(std::move(value));
++            }
++        }
+ 
+         n_prompt = (int) prompt.size();
++        if (!reference_codes.empty() && (uint32_t) n_prompt >= llama_n_ctx(lctx)) {
++            LOG_ERR("mtmd_helper_gen_audio: reference prompt exceeds context capacity\n");
++            return 1;
++        }
+ 
+         // the talker uses the qwen3vl interleaved mrope, all sections are equal for a text/codec stream
+         mrope = llama_model_rope_type(model) == LLAMA_ROPE_TYPE_MROPE ||
+@@ -312,6 +381,43 @@ public:
+         top_p = inp->top_p > 0 ? inp->top_p : def.top_p;
+         seed  = inp->seed;
+         out_type = inp->out_type;
++        if (!reference_codes.empty()) {
++            if (reference_hit) {
++                c2w_state = conditioning->reference_decoder_state;
++            } else {
++                for (size_t offset = 0; offset < reference_codes.size(); offset += 72 * 16) {
++                    const size_t end = std::min(offset + 72 * 16, reference_codes.size());
++                    codes_buf.assign(reference_codes.begin() + offset, reference_codes.begin() + end);
++                    if (!flush_gen_wav()) {
++                        return 1;
++                    }
++                    audio_pcm.clear();
++                }
++                conditioning->reference_stats.decoder_primes++;
++                const size_t bytes = reference_codes.size() * sizeof(int32_t) +
++                    reference_embeddings.size() * sizeof(float) + c2w_state.size() + reference_text.size() + lang.size();
++                // One immutable reference, never a target continuation. Decline large entries.
++                std::vector<int32_t>().swap(conditioning->reference_codes);
++                std::vector<float>().swap(conditioning->reference_embeddings);
++                std::vector<uint8_t>().swap(conditioning->reference_decoder_state);
++                std::string().swap(conditioning->reference_text);
++                std::string().swap(conditioning->reference_language);
++                conditioning->reference_speaker_epoch = UINT64_MAX;
++                conditioning->reference_stats.cached_bytes = 0;
++                if (bytes <= 16 * 1024 * 1024) {
++                    conditioning->reference_codes = reference_codes;
++                    conditioning->reference_embeddings = reference_embeddings;
++                    conditioning->reference_decoder_state = c2w_state;
++                    conditioning->reference_text = reference_text;
++                    conditioning->reference_language = lang;
++                    conditioning->reference_speaker_epoch = conditioning->stats.speaker_encodes;
++                    conditioning->reference_stats.cached_bytes = bytes;
++                }
++            }
++            // Reference priming must not advance the request's acoustic sampler.
++            mtmd_gen_audio_reset_rng(mctx);
++            reference_embeddings.clear();
++        }
+ 
+         // the prompt above holds the whole text stream up to tts_eos, so every generated
+         // frame adds tts_pad on top of the codes embedding
+@@ -543,6 +649,10 @@ private:
+     llama_token tts_eos    = LLAMA_TOKEN_NULL;
+     mtmd_helper_gen_audio_cache local_cache;
+     mtmd_helper_gen_audio_cache * conditioning;
++    std::vector<int32_t> reference_codes;
++    std::string reference_text;
++    std::vector<float> reference_embeddings;
++    bool reference_hit = false;
+ 
+     // must match hparams.wav_tfm_swa hardcoded in clip.cpp
+     size_t window_frames = 72;
+@@ -1152,6 +1262,11 @@ int32_t mtmd_helper_gen_audio_set_input(mtmd_helper_gen_audio * ctx, const mtmd_
+     return ctx->pipeline->set_input(inp);
+ }
+ 
++int32_t mtmd_helper_gen_audio_set_reference_prompt(mtmd_helper_gen_audio * ctx,
++        const int32_t * codes, size_t n_codes, const char * text, size_t text_len) {
++    return ctx && ctx->pipeline ? ctx->pipeline->set_reference_prompt(codes, n_codes, text, text_len) : 1;
++}
++
+ int32_t mtmd_helper_gen_audio_step_prompt(mtmd_helper_gen_audio * ctx, int32_t n_batch) {
+     if (!ctx->pipeline) {
+         return -1;
+diff --git a/tools/mtmd/mtmd-helper.h b/tools/mtmd/mtmd-helper.h
+index cfea7ac7d..b8e4162c6 100644
+--- a/tools/mtmd/mtmd-helper.h
++++ b/tools/mtmd/mtmd-helper.h
+@@ -189,8 +189,8 @@ MTMD_API bool mtmd_helper_model_can_chat(struct llama_context * lctx, struct mtm
+ struct mtmd_helper_gen_audio;
+ typedef struct mtmd_helper_gen_audio mtmd_helper_gen_audio;
+ 
+-// Model-bound immutable conditioning only. Never stores generated codes, PCM,
+-// prompt/KV state, samplers or codec decoder state. The owner must outlive helpers.
++// Model-bound immutable conditioning, including reference-only decoder state.
++// Never stores target codes/PCM, prompt/KV state or samplers. Owner outlives helpers.
+ struct mtmd_helper_gen_audio_cache;
+ typedef struct mtmd_helper_gen_audio_cache mtmd_helper_gen_audio_cache;
+ struct mtmd_helper_gen_audio_cache_stats {
+@@ -210,6 +210,14 @@ struct mtmd_helper_gen_audio_row_stats {
+ };
+ MTMD_API struct mtmd_helper_gen_audio_row_stats mtmd_helper_gen_audio_cache_get_row_stats(
+     const mtmd_helper_gen_audio_cache * cache);
++struct mtmd_helper_gen_audio_reference_stats {
++    uint64_t embedding_encodes;
++    uint64_t decoder_primes;
++    uint64_t hits;
++    uint64_t cached_bytes;
++};
++MTMD_API struct mtmd_helper_gen_audio_reference_stats mtmd_helper_gen_audio_cache_get_reference_stats(
++    const mtmd_helper_gen_audio_cache * cache);
+ MTMD_API void mtmd_helper_gen_audio_cache_set_row_limit(
+     mtmd_helper_gen_audio_cache * cache, uint32_t rows);
+ MTMD_API mtmd_helper_gen_audio * mtmd_helper_gen_audio_init_cached(
+@@ -244,6 +252,10 @@ MTMD_API void mtmd_helper_gen_audio_free(mtmd_helper_gen_audio * ctx);
+ 
+ MTMD_API void mtmd_helper_gen_audio_reset(mtmd_helper_gen_audio * ctx);
+ 
++MTMD_API int32_t mtmd_helper_gen_audio_set_reference_prompt(
++    mtmd_helper_gen_audio * ctx, const int32_t * codes, size_t n_codes,
++    const char * reference_text, size_t reference_text_len);
++
+ MTMD_API int32_t mtmd_helper_gen_audio_set_input(
+                         mtmd_helper_gen_audio * ctx,
+                         const struct mtmd_helper_gen_audio_inp * inp);
+@@ -307,6 +319,10 @@ struct gen_audio {
+     void reset() {
+         mtmd_helper_gen_audio_reset(ctx.get());
+     }
++    int32_t set_reference_prompt(const int32_t * codes, size_t n_codes,
++                                const char * text, size_t text_len) {
++        return mtmd_helper_gen_audio_set_reference_prompt(ctx.get(), codes, n_codes, text, text_len);
++    }
+     int32_t set_input(const struct mtmd_helper_gen_audio_inp * inp) {
+         return mtmd_helper_gen_audio_set_input(ctx.get(), inp);
+     }
+diff --git a/tools/mtmd/mtmd.cpp b/tools/mtmd/mtmd.cpp
+index 617ce8bbf..2246fdd6e 100644
+--- a/tools/mtmd/mtmd.cpp
++++ b/tools/mtmd/mtmd.cpp
+@@ -1835,6 +1835,43 @@ void mtmd_gen_audio_reset_rng(mtmd_context * ctx) {
+     }
+ }
+ 
++int32_t mtmd_gen_audio_code_embeddings(mtmd_context * ctx, const int32_t * codes,
++        size_t n_codes, float * output, size_t output_capacity) {
++    if (!ctx || !codes || !output || n_codes == 0 || n_codes % 16 != 0 || n_codes > 375 * 16 ||
++            mtmd_gen_audio_get_info(ctx).type != MTMD_GEN_AUDIO_TYPE_QWEN3TTS) {
++        return 1;
++    }
++    const size_t width = (size_t) clip_n_mmproj_embd(ctx->ctx_gen_a);
++    const size_t count = n_codes / 16 * width;
++    if (output_capacity != count) {
++        return 1;
++    }
++    try {
++        std::vector<int32_t> input(codes, codes + n_codes);
++        clip_image_f32 dummy;
++        dummy.set_size({1, 1}, false, true);
++        dummy.cpy_buf(std::vector<float>(1, 0.0f));
++        clip_image_f32_batch batch;
++        batch.is_audio = true;
++        batch.entries.push_back(std::move(dummy));
++        std::vector<float> result(count);
++        clip_encode_params params;
++        params.imgs = &batch;
++        params.n_threads = ctx->n_threads;
++        params.gen_process = CLIP_GEN_PROCESS_EMBED_CODES;
++        params.codes = &input;
++        params.out_embd = &result;
++        if (!clip_encode(ctx->ctx_gen_a, &params)) {
++            return 1;
++        }
++        std::copy(result.begin(), result.end(), output);
++        return 0;
++    } catch (const std::exception & e) {
++        LOG_ERR("%s: error: %s\n", __func__, e.what());
++        return 1;
++    }
++}
++
+ mtmd_gen_inp mtmd_gen_inp_default(const mtmd_context * ctx) {
+     mtmd_gen_inp inp{};
+     inp.type = MTMD_GEN_PROCESS_TYPE_GEN_CODE;
+diff --git a/tools/mtmd/mtmd.h b/tools/mtmd/mtmd.h
+index 80c08eb47..232b0354e 100644
+--- a/tools/mtmd/mtmd.h
++++ b/tools/mtmd/mtmd.h
+@@ -362,6 +362,8 @@ struct mtmd_gen_audio_info {
+ 
+ MTMD_API struct mtmd_gen_audio_info mtmd_gen_audio_get_info(const mtmd_context * ctx);
+ MTMD_API void mtmd_gen_audio_reset_rng(mtmd_context * ctx);
++MTMD_API int32_t mtmd_gen_audio_code_embeddings(mtmd_context * ctx,
++    const int32_t * codes, size_t n_codes, float * output, size_t output_capacity);
+ 
+ 
+ enum mtmd_gen_process_type {
+diff --git a/tools/tts/tts.cpp b/tools/tts/tts.cpp
+index 8778e400d..f7535640a 100644
+--- a/tools/tts/tts.cpp
++++ b/tools/tts/tts.cpp
+@@ -6,11 +6,13 @@
+ #include "llama.h"
+ #include "mtmd.h"
+ #include "mtmd-helper.h"
++#include <nlohmann/json.hpp>
+ 
+ #include <cstdio>
+ #include <cstdint>
+ #include <cstring>
+ #include <iostream>
++#include <fstream>
+ #include <string>
+ 
+ #ifdef _WIN32
+@@ -81,6 +83,44 @@ int main(int argc, char ** argv) {
+         LOG_ERR("--tts-stream-frames must be between 1 and 72\n");
+         return 1;
+     }
++    std::vector<int32_t> reference_codes;
++    std::string reference_text;
++    if (!params.tts_reference_prompt_file.empty()) {
++        try {
++            if (params.tts_speaker_file.empty()) {
++                throw std::runtime_error("reference prompt requires --tts-speaker-file");
++            }
++            std::ifstream input(params.tts_reference_prompt_file, std::ios::binary | std::ios::ate);
++            if (!input || input.tellg() <= 0 || input.tellg() > 128 * 1024) {
++                throw std::runtime_error("reference prompt file must be 1..131072 bytes");
++            }
++            input.seekg(0);
++            const auto profile = nlohmann::json::parse(input);
++            if (profile.at("schema") != "robit.qwen3tts.reference-prompt.v1") {
++                throw std::runtime_error("unsupported reference prompt schema");
++            }
++            reference_text = profile.at("reference_text").get<std::string>();
++            const auto & codes = profile.at("codes");
++            if (reference_text.empty() || reference_text.size() > 8192 || !codes.is_array() ||
++                    codes.empty() || codes.size() > 375) {
++                throw std::runtime_error("reference prompt exceeds text or frame limits");
++            }
++            for (const auto & frame : codes) {
++                if (!frame.is_array() || frame.size() != 16) {
++                    throw std::runtime_error("reference prompt requires 16 codes per frame");
++                }
++                for (const auto & code : frame) {
++                    if (!code.is_number_integer() || code < 0 || code >= 2048) {
++                        throw std::runtime_error("reference prompt code out of range");
++                    }
++                    reference_codes.push_back(code.get<int32_t>());
++                }
++            }
++        } catch (const std::exception &) {
++            LOG_ERR("invalid reference prompt file (schema, size, text or codes)\n");
++            return 1;
++        }
++    }
+ 
+ #ifdef _WIN32
+     if (params.tts_stream) {
+@@ -180,6 +220,11 @@ int main(int argc, char ** argv) {
+         inp.seed        = params.sampling.seed;
+         inp.out_type    = MTMD_HELPER_GEN_AUDIO_OUTTYPE_WAV;
+ 
++        if (!reference_codes.empty() && gen.set_reference_prompt(reference_codes.data(), reference_codes.size(),
++                reference_text.data(), reference_text.size()) != 0) {
++            LOG_ERR("set_reference_prompt failed\n");
++            return false;
++        }
+         if (gen.set_input(&inp) != 0) {
+             LOG_ERR("set_input failed\n");
+             return false;
+@@ -326,6 +371,12 @@ int main(int argc, char ** argv) {
+                     LOG_INF("tts token rows: reads=%llu hits=%llu cached_bytes=%llu\n",
+                         (unsigned long long) rows.row_reads, (unsigned long long) rows.row_hits,
+                         (unsigned long long) rows.cached_bytes);
++                    if (!reference_codes.empty()) {
++                        const auto ref = mtmd_helper_gen_audio_cache_get_reference_stats(conditioning_cache.get());
++                        LOG_INF("tts reference prompt: embeddings=%llu primes=%llu hits=%llu cached_bytes=%llu\n",
++                            (unsigned long long) ref.embedding_encodes, (unsigned long long) ref.decoder_primes,
++                            (unsigned long long) ref.hits, (unsigned long long) ref.cached_bytes);
++                    }
+                 }
+                 if (!generated) {
+                     const std::string error = "persistent TTS generation failed";

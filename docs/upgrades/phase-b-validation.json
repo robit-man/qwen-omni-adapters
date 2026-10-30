@@ -1,0 +1,24 @@
+{
+  "schema": "robit.omni.upgrade-validation.v1",
+  "milestone": "B1",
+  "source_gate": {
+    "tests": "5018",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "280.950"
+  },
+  "validate_exit_code": 0,
+  "native_build_exit_code": 0,
+  "native_pcm_comparisons": 12,
+  "all_pcm_continuity_gates_passed": true,
+  "all_cached_uncached_pcm_identical": true,
+  "gpu_lease_released": true,
+  "whole_phase_b_complete": false,
+  "artifact_sha256": {
+    "patches/llama.cpp-qwen3tts-conditioning-cache.patch": "6545d9a89e2fa0851d496bf6e4b73bf5cd1344346bc7dc4595fbebddcd9585dd",
+    "runtime/tts_server.py": "d9c54a11cf28ce60bde715da88caab133defc44728da779d1d44066d432130a2",
+    "docs/upgrades/phase-b-conditioning.json": "b8b484be9d9ea6dbac554ae7ad54a96b285ec5d2e702b9d8584c5cc5646cab62",
+    "runtime-data/upgrade-evidence/phase-b-source-final.log": "85fcb373965b4eb70213543aeccdb925bf73a43ee7028775712fb77de38db432"
+  }
+}

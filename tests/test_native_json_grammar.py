@@ -20,6 +20,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PIN = "458681e1d5d4a29a1463c4732e03226cf384b997"
 PATCH = "llama.cpp-json-pattern-safety.patch"
 BOUNDS_PATCH = "llama.cpp-json-string-bounds.patch"
+CONDITIONING_PATCH = "llama.cpp-qwen3tts-conditioning-cache.patch"
+TOKEN_ROWS_PATCH = "llama.cpp-qwen3tts-token-rows.patch"
+INDEXED_VIEWS_PATCH = "llama.cpp-indexed-tts-views.patch"
+REFERENCE_ENCODER_PATCH = "llama.cpp-qwen3tts-reference-encoder.patch"
+REFERENCE_IGPU_PATCH = "llama.cpp-qwen3tts-reference-integrated-gpu.patch"
+REFERENCE_PROMPT_PATCH = "llama.cpp-qwen3tts-reference-prompt.patch"
+UTTERANCE_STATE_PATCH = "llama.cpp-qwen3tts-utterance-state.patch"
+INDEPENDENT_PATCHES = (PATCH, BOUNDS_PATCH, CONDITIONING_PATCH, TOKEN_ROWS_PATCH, INDEXED_VIEWS_PATCH, REFERENCE_ENCODER_PATCH, REFERENCE_IGPU_PATCH, REFERENCE_PROMPT_PATCH, UTTERANCE_STATE_PATCH)
 
 
 def _patch_preimage(text: str, source: Path) -> None:
@@ -30,6 +38,8 @@ def _patch_preimage(text: str, source: Path) -> None:
         if line.startswith("--- a/"):
             current = line[6:].strip()
             files[current] = []
+        elif line.startswith("--- /dev/null"):
+            current = None
         elif line.startswith("@@"):
             position = int(re.match(r"@@ -(\d+)", line)[1]) - 1
         elif current and line[:1] in {" ", "-"}:
@@ -53,7 +63,7 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
     commands.mkdir()
     shutil.copyfile(ROOT / "scripts/build_llama_cpp.sh", repo / "scripts/build_llama_cpp.sh")
     shutil.copyfile(ROOT / "runtime/cuda_toolchain.py", repo / "runtime/cuda_toolchain.py")
-    for name in (PATCH, BOUNDS_PATCH):
+    for name in INDEPENDENT_PATCHES:
         shutil.copyfile(ROOT / "patches" / name, repo / "patches" / name)
     _patch_preimage((ROOT / "patches" / patch_name).read_text(), source)
     subprocess.run(["git", "init", "-q", str(source)], check=True)
@@ -61,13 +71,16 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
                        "tools/mtmd/clip.cpp": "state_out describes this exact output boundary\n"}.items():
         path = source / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text)
+        path.write_text((path.read_text() if path.exists() else "") + text)
     git = commands / "git"
-    other_patch = BOUNDS_PATCH if patch_name == PATCH else PATCH
+    other_patches = "|".join(f'"{repo / "patches" / name}"'
+                             for name in INDEPENDENT_PATCHES if name != patch_name)
     # Only the selected independent patch is exercised by this control-flow
     # fixture; the other is an already-applied prerequisite. Full real pinned
     # source composition is covered by the native proof, not this mock.
-    git.write_text(f'#!/bin/sh\nif [ "$3" = rev-parse ]; then printf "%s\\n" "{pin}"; elif [ "$3" = apply ] && [ "$4" = --reverse ] && [ "$6" = "{repo / "patches" / other_patch}" ]; then exit 0; else exec {shutil.which("git")} "$@"; fi\n')
+    git.write_text(f'#!/bin/sh\nif [ "$3" = rev-parse ]; then printf "%s\\n" "{pin}"; exit 0; fi\n'
+                  f'if [ "$3" = apply ] && [ "$4" = --reverse ]; then case "$6" in '
+                  f'{other_patches}) exit 0;; esac; fi\nexec {shutil.which("git")} "$@"\n')
     cmake = commands / "cmake"
     # This patch-control fixture models configuration, not compilation. Let
     # real CMake read generated compiler metadata, as the builder now does.
@@ -90,8 +103,11 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
     nvcc.chmod(0o755)
     target = tmp_path / "build/bin/llama-tts"
     target.parent.mkdir(parents=True)
-    target.write_text('#!/bin/sh\nprintf "%s\\n" "--tts-stream-frames --tts-persistent"\n')
+    target.write_text('#!/bin/sh\nprintf "%s\\n" "--tts-stream-frames --tts-persistent --tts-no-conditioning-cache --tts-conditioning-cache-rows --tts-reference-prompt-file --tts-utterance-controls"\n')
     target.chmod(0o755)
+    reference_encoder = target.parent / "llama-tts-reference-encode"
+    reference_encoder.write_text("#!/bin/sh\nexit 0\n")
+    reference_encoder.chmod(0o755)
     env = {**os.environ, "PATH": str(commands) + os.pathsep + os.environ["PATH"],
            "BUILD_CALLS": str(tmp_path / "cmake-calls"), "LLAMA_CPP_BUILD_DIR": str(target.parent.parent),
            "CUDACXX": str(nvcc),
@@ -100,7 +116,14 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
 
 
 @pytest.mark.parametrize("patch_name,label", [(PATCH, "JSON pattern string safety"),
-                                              (BOUNDS_PATCH, "JSON string length bounds")])
+                                              (BOUNDS_PATCH, "JSON string length bounds"),
+                                              (CONDITIONING_PATCH, "Qwen3-TTS immutable conditioning cache"),
+                                              (TOKEN_ROWS_PATCH, "Qwen3-TTS bounded token rows"),
+                                              (INDEXED_VIEWS_PATCH, "Indexed TTS source views"),
+                                              (REFERENCE_ENCODER_PATCH, "Qwen3-TTS reference acoustic encoder"),
+                                              (REFERENCE_IGPU_PATCH, "Qwen3-TTS integrated GPU residency"),
+                                              (REFERENCE_PROMPT_PATCH, "Qwen3-TTS full reference prompt"),
+                                              (UTTERANCE_STATE_PATCH, "Qwen3-TTS utterance decoder state")])
 def test_linux_builder_applies_each_independent_patch_once_and_keeps_pin(tmp_path, patch_name, label):
     repo, source, env = _build_fixture(tmp_path, patch_name=patch_name)
     command = ["bash", str(repo / "scripts/build_llama_cpp.sh"), str(source)]

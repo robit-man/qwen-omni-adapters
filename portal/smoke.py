@@ -157,10 +157,10 @@ def main() -> int:
         voice_profile = status_data.get("voice_profile") or {}
         if (
             voice_profile.get("speaker_reference") is not True
-            or voice_profile.get("clone_mode") != "speaker_embedding"
+            or voice_profile.get("clone_mode") not in {"speaker_embedding", "reference_prompt"}
         ):
             raise RuntimeError(
-                "voice-clone smoke requires a configured speaker-embedding reference"
+                "voice-clone smoke requires a configured voice reference"
             )
 
     checks: dict[str, Any] = {"status": "pass"}

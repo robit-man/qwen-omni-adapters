@@ -176,8 +176,8 @@ if ((PREPARE_COMPONENTS)); then
   CACHE=${OMNI_COMPONENT_CACHE:-$REPO_ROOT/runtime-data/components}
   mkdir -p "$CACHE"
   "$VENV/bin/python" -m qwen_omni_adapters prepare \
-    "$MODEL" --out "$CACHE" --overwrite >/dev/null
-  printf 'Materialized disposable component views in %s\n' "$CACHE"
+    "$MODEL" --out "$CACHE" --overwrite --reuse --direct-views >/dev/null
+  printf 'Prepared disposable component views in %s\n' "$CACHE"
 fi
 
 printf 'Bootstrap complete. Validate with:\n  %s/bin/qwen-omni doctor --deployment\n' "$VENV"

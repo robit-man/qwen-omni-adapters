@@ -392,16 +392,108 @@ reference is active. The bundled female default and male alternate are real
 clone references; synthesis cannot silently degrade to an unconditioned
 generic voice during startup validation.
 
-The interactive wrapper default is `OMNI_TTS_STREAM_FRAMES=8`, approximately
-640 ms of codec audio per state-carrying decode window. The phone keeps an 80 ms
+`OMNI_TTS_CONTINUOUS_BATCH=1` opts into causal waveform continuity within a
+full-reference `/synthesize/stream/batch` utterance (maximum 64 blocks). The
+default remains off pending broad voice/language qualification. Language KV,
+samplers and helpers still reset for every block. Only bounded decoder state
+crosses a block boundary; end, abort, cancellation, errors and profile changes
+discard it. Single blocks and speaker-embedding requests stay independent.
+No target state enters the immutable reference cache. See
+[the native and HTTP qualification](upgrades/phase-b3b-utterance-state.md).
+
+`OMNI_TTS_PREPARE_REFERENCE=1` opts into preparing a saved full-reference voice
+while the primary language request runs. Set it on both adapter and TTS worker.
+Only `speaker_file` plus `reference_text` qualifies; inline references and
+embedding-only profiles keep their existing paths. The internal loopback
+`POST /prepare-reference` validates checkpoint identities and encodes the reference
+into the existing bounded RAM conditioning cache. It loads no TTS generation
+weights and synthesizes no response text. Preparation skips busy or already
+resident workers; different-profile speech cancels the owned preparation encoder
+before waiting. Same-profile speech joins and reuses its result. Existing Tegra
+admission and memory floors apply. The default is off; the measured short Orin
+reply improved median first PCM by 16.7% without changing audio, while broad
+concurrency and release qualification remain pending. See
+[the preparation comparison](upgrades/phase-b3c-reference-overlap.md).
+
+The default packet policy is `OMNI_TTS_STREAM_FRAMES=auto` (also selected when
+unset). Full-reference synthesis using an adaptive 4096-position context selects
+four codec frames, approximately 320 ms per decode window. Other profiles retain
+eight frames, approximately 640 ms. An explicit value from 1 to 72 overrides the
+automatic choice; the adapter defers to the speech worker unless configured
+explicitly. A batch selects one cadence using its largest context tier so the
+worker is not replaced between blocks. The phone keeps an 80 ms
 initial playout lead, uses a 3 ms late-arrival scheduling floor, and applies a
 guarded 3 ms crossfade between sufficiently large contiguous buffers. In a
 post-isolation Tegra reference probe, two-frame decoding ran at 1.33x real time,
 four-frame decoding at 1.06x, and eight-frame decoding at 0.91x. Only the
 eight-frame window kept the measured source cadence ahead of playback (2 ms
 worst predicted underrun versus 155 ms with two frames). Treat these
-host-specific values as tuning evidence, not a universal benchmark. A
-voice-profile change intentionally replaces the worker.
+host-specific values as historical tuning evidence, not a universal benchmark.
+The newer full-reference/4K pilot and unmodified browser playback replay favor
+four frames; see `docs/upgrades/phase-b3a-cadence.md`. A voice-profile change
+intentionally replaces the worker.
+
+### Bounded idle TTS residency
+
+Request-scoped shedding remains the default. Set `OMNI_TTS_IDLE_KEEPALIVE_S`
+to 1–300 seconds to retain a successful file-reference worker between requests.
+The same profile reuses loaded weights; every native prompt still clears
+generation state, resets both samplers and creates a fresh audio helper.
+Cancelled or failed streams close the worker immediately. Inline references
+remain ephemeral and are not retained by this policy. A profile change reloads
+only TTS, and `/residency` with `action:"shed"` still releases it explicitly.
+
+On Tegra, `OMNI_TTS_IDLE_MIN_AVAILABLE_MIB` defaults to 6144. The monitor checks
+unified headroom through the accelerator module and sheds idle TTS on low or
+unavailable telemetry, or idle expiry. It never closes an active generation.
+The health response exposes `idle_residency_state`, including typed expiry,
+headroom, cancellation and explicit-release reasons. On discrete CUDA, the
+existing scoped broker budget and UUID checks still apply.
+The option does not change the Qwen3.8 request-scoped default or automatically
+qualify warm residency for either backbone; measure the selected profile's
+actual peak memory and concurrent work before enabling it.
+
+### Bounded TTS context
+
+`OMNI_TTS_ADAPTIVE_CONTEXT=1` opts into per-request TTS KV sizing. The default
+preserves the native context configuration. This setting affects only the speech
+worker; the reasoning trunk keeps its existing qualified context policy.
+
+The pinned Qwen3-TTS helper needs one position per generated codec frame, plus
+text and a small fixed wrapper. The adaptive policy reserves the complete UTF-8
+byte count, the requested frame budget and 256 control positions, then rounds
+up to 4096, 8192, 16384 or 32768. It never truncates text or generation frames.
+A batch reserves its largest member's tier for every block so it can share one
+worker. Changing tier replaces only the TTS worker. Custom inputs that exceed
+the 32768-position bound fail explicitly. With this option enabled, the explicit
+`--ctx-size` argument takes precedence over generic `LLAMA_ARG_CTX_SIZE`.
+
+On the scoped A100 qualification, both references preserved exact PCM across
+all ten supported languages and two bounded-generation long-input cases. Short
+speech used 3106 MiB of resident GPU memory versus 6266 MiB at 32K; long English
+and Chinese input selected 8K and 16K. These are context-preservation and memory
+measurements, not perceptual language/voice scoring or long-utterance quality
+qualification. See `docs/upgrades/phase-b5-context.md` and its receipts.
+
+When `reference_text` selects full Base cloning, context admission also reserves
+the complete reference UTF-8 byte count and up to 375 reference acoustic frames.
+The transcript is optional, bounded to 2048 characters, and must belong to the
+supplied reference. Omission/blank text preserves the existing speaker-embedding
+path. The component must be installed under the same model tag. Normal startup
+prepares `tts-reference-encoder.gguf` when the sidecar declares it; the supervisor
+passes that view through `OMNI_TTS_REFERENCE_ENCODER_GGUF`.
+
+The same-bundle encoder runs in a private child before speech weights load,
+with actual GPU-residency proof and scoped prepare/ready transitions. On Tegra,
+encoding requires at least 3072 MiB available before admission and stops only its
+own child if headroom falls below 2048 MiB. Audio normalization uses float soxr
+output and explicit PCM16 rounding to avoid platform-dependent integer dither.
+Original reference snapshots, normalized audio, codes and native prompt files
+are temporary. One bounded RAM entry reuses encoded conditioning for a saved
+reference; inline references use an utterance-local worker. No Torch inference,
+independent model download, new service or reasoning restart is required.
+
+### Native streaming state
 
 The patched code2wav graph consumes and persists exactly the real codec-frame
 count rather than advancing retained state through rear padding to 72 frames.

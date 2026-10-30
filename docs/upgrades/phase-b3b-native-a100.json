@@ -1,0 +1,681 @@
+{
+  "schema": "robit.omni.tts-utterance-prototype.v1",
+  "cases": [
+    {
+      "control": false,
+      "runs": [
+        {
+          "name": "0-outside-0",
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "pcm_sha256": "0d99e754d960f4d29acc9e1132d1e7a7e710bd98ed9c1fc7f3a9f8f967416b99",
+          "pcm_bytes": 180480,
+          "total_s": 1.495277191977948,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 90240,
+            "duration_seconds": 3.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 23,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0013427734375,
+              "minimum": -0.270233154296875,
+              "maximum": 0.181610107421875,
+              "standard_deviation": 0.10533646897860369
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3277075480301526,
+              "10": 0.3027950591165001,
+              "20": 0.3162942329729116
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.060529441648746116,
+              "maximum": 1.25564265141506
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "0-outside-1",
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "pcm_sha256": "e2aaa049318e72510c09bcb47ca33730f303471ce712e278fbd9248eaa01b472",
+          "pcm_bytes": 138240,
+          "total_s": 0.9906302499584854,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 69120,
+            "duration_seconds": 2.88,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.02056884765625,
+              "minimum": -0.315399169921875,
+              "maximum": 0.427459716796875,
+              "standard_deviation": 0.17568632310418736
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.48276540729324013,
+              "10": 0.2048867515765459,
+              "20": 0.21447994527543163
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.05167445043968523,
+              "maximum": 1.2057329731798994
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "0-outside-2",
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "pcm_sha256": "0d99e754d960f4d29acc9e1132d1e7a7e710bd98ed9c1fc7f3a9f8f967416b99",
+          "pcm_bytes": 180480,
+          "total_s": 1.2842205950291827,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 90240,
+            "duration_seconds": 3.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 23,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0013427734375,
+              "minimum": -0.270233154296875,
+              "maximum": 0.181610107421875,
+              "standard_deviation": 0.10533646897860369
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3277075480301526,
+              "10": 0.3027950591165001,
+              "20": 0.3162942329729116
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.060529441648746116,
+              "maximum": 1.25564265141506
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        }
+      ],
+      "memory": {
+        "minimum_available_mib": 338402.60546875,
+        "floor_mib": 0,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0"
+      }
+    },
+    {
+      "control": true,
+      "runs": [
+        {
+          "name": "1-outside-0",
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "pcm_sha256": "0d99e754d960f4d29acc9e1132d1e7a7e710bd98ed9c1fc7f3a9f8f967416b99",
+          "pcm_bytes": 180480,
+          "total_s": 1.4517052420414984,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 90240,
+            "duration_seconds": 3.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 23,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0013427734375,
+              "minimum": -0.270233154296875,
+              "maximum": 0.181610107421875,
+              "standard_deviation": 0.10533646897860369
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3277075480301526,
+              "10": 0.3027950591165001,
+              "20": 0.3162942329729116
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.060529441648746116,
+              "maximum": 1.25564265141506
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "1-outside-1",
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "pcm_sha256": "e2aaa049318e72510c09bcb47ca33730f303471ce712e278fbd9248eaa01b472",
+          "pcm_bytes": 138240,
+          "total_s": 0.9689347469829954,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 69120,
+            "duration_seconds": 2.88,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.02056884765625,
+              "minimum": -0.315399169921875,
+              "maximum": 0.427459716796875,
+              "standard_deviation": 0.17568632310418736
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.48276540729324013,
+              "10": 0.2048867515765459,
+              "20": 0.21447994527543163
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.05167445043968523,
+              "maximum": 1.2057329731798994
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "1-outside-2",
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "pcm_sha256": "0d99e754d960f4d29acc9e1132d1e7a7e710bd98ed9c1fc7f3a9f8f967416b99",
+          "pcm_bytes": 180480,
+          "total_s": 1.312756223953329,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 90240,
+            "duration_seconds": 3.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 23,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0013427734375,
+              "minimum": -0.270233154296875,
+              "maximum": 0.181610107421875,
+              "standard_deviation": 0.10533646897860369
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3277075480301526,
+              "10": 0.3027950591165001,
+              "20": 0.3162942329729116
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.060529441648746116,
+              "maximum": 1.25564265141506
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "joined-0-0",
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "pcm_sha256": "0d99e754d960f4d29acc9e1132d1e7a7e710bd98ed9c1fc7f3a9f8f967416b99",
+          "pcm_bytes": 180480,
+          "total_s": 1.2782837750273757,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 90240,
+            "duration_seconds": 3.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 23,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0013427734375,
+              "minimum": -0.270233154296875,
+              "maximum": 0.181610107421875,
+              "standard_deviation": 0.10533646897860369
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3277075480301526,
+              "10": 0.3027950591165001,
+              "20": 0.3162942329729116
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.060529441648746116,
+              "maximum": 1.25564265141506
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "joined-0-1",
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "pcm_sha256": "aa94b8c7227f141c426e7403ec86873c9615682bdf04d5ebf0ae26f2c295ac47",
+          "pcm_bytes": 138240,
+          "total_s": 1.005257468961645,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 69120,
+            "duration_seconds": 2.88,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.0306396484375,
+              "minimum": -0.311737060546875,
+              "maximum": 0.368133544921875,
+              "standard_deviation": 0.17007966031157165
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.5000021396822786,
+              "10": 0.2085997293869685,
+              "20": 0.2138289516288812
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.041315580998689365,
+              "maximum": 1.5724711434367142
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "after-end-0",
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "pcm_sha256": "0d99e754d960f4d29acc9e1132d1e7a7e710bd98ed9c1fc7f3a9f8f967416b99",
+          "pcm_bytes": 180480,
+          "total_s": 1.2811724269995466,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 90240,
+            "duration_seconds": 3.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 23,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0013427734375,
+              "minimum": -0.270233154296875,
+              "maximum": 0.181610107421875,
+              "standard_deviation": 0.10533646897860369
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3277075480301526,
+              "10": 0.3027950591165001,
+              "20": 0.3162942329729116
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.060529441648746116,
+              "maximum": 1.25564265141506
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "joined-1-0",
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "pcm_sha256": "0d99e754d960f4d29acc9e1132d1e7a7e710bd98ed9c1fc7f3a9f8f967416b99",
+          "pcm_bytes": 180480,
+          "total_s": 1.2801684289588593,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 90240,
+            "duration_seconds": 3.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 23,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0013427734375,
+              "minimum": -0.270233154296875,
+              "maximum": 0.181610107421875,
+              "standard_deviation": 0.10533646897860369
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3277075480301526,
+              "10": 0.3027950591165001,
+              "20": 0.3162942329729116
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.060529441648746116,
+              "maximum": 1.25564265141506
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "joined-1-1",
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "pcm_sha256": "aa94b8c7227f141c426e7403ec86873c9615682bdf04d5ebf0ae26f2c295ac47",
+          "pcm_bytes": 138240,
+          "total_s": 0.9890060420148075,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 69120,
+            "duration_seconds": 2.88,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.0306396484375,
+              "minimum": -0.311737060546875,
+              "maximum": 0.368133544921875,
+              "standard_deviation": 0.17007966031157165
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.5000021396822786,
+              "10": 0.2085997293869685,
+              "20": 0.2138289516288812
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.041315580998689365,
+              "maximum": 1.5724711434367142
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "after-end-1",
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "pcm_sha256": "0d99e754d960f4d29acc9e1132d1e7a7e710bd98ed9c1fc7f3a9f8f967416b99",
+          "pcm_bytes": 180480,
+          "total_s": 1.291669678001199,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 90240,
+            "duration_seconds": 3.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 23,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0013427734375,
+              "minimum": -0.270233154296875,
+              "maximum": 0.181610107421875,
+              "standard_deviation": 0.10533646897860369
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3277075480301526,
+              "10": 0.3027950591165001,
+              "20": 0.3162942329729116
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.060529441648746116,
+              "maximum": 1.25564265141506
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "abort-target",
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "pcm_sha256": "e2aaa049318e72510c09bcb47ca33730f303471ce712e278fbd9248eaa01b472",
+          "pcm_bytes": 138240,
+          "total_s": 0.9868051190278493,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 69120,
+            "duration_seconds": 2.88,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.02056884765625,
+              "minimum": -0.315399169921875,
+              "maximum": 0.427459716796875,
+              "standard_deviation": 0.17568632310418736
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.48276540729324013,
+              "10": 0.2048867515765459,
+              "20": 0.21447994527543163
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.05167445043968523,
+              "maximum": 1.2057329731798994
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "after-abort",
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "pcm_sha256": "0d99e754d960f4d29acc9e1132d1e7a7e710bd98ed9c1fc7f3a9f8f967416b99",
+          "pcm_bytes": 180480,
+          "total_s": 1.2917072899872437,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 90240,
+            "duration_seconds": 3.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 23,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0013427734375,
+              "minimum": -0.270233154296875,
+              "maximum": 0.181610107421875,
+              "standard_deviation": 0.10533646897860369
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3277075480301526,
+              "10": 0.3027950591165001,
+              "20": 0.3162942329729116
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.060529441648746116,
+              "maximum": 1.25564265141506
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "bad-id-target",
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "pcm_sha256": "e2aaa049318e72510c09bcb47ca33730f303471ce712e278fbd9248eaa01b472",
+          "pcm_bytes": 138240,
+          "total_s": 0.9673462309874594,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 69120,
+            "duration_seconds": 2.88,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 18,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.02056884765625,
+              "minimum": -0.315399169921875,
+              "maximum": 0.427459716796875,
+              "standard_deviation": 0.17568632310418736
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.48276540729324013,
+              "10": 0.2048867515765459,
+              "20": 0.21447994527543163
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.05167445043968523,
+              "maximum": 1.2057329731798994
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        },
+        {
+          "name": "after-invalid",
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "pcm_sha256": "0d99e754d960f4d29acc9e1132d1e7a7e710bd98ed9c1fc7f3a9f8f967416b99",
+          "pcm_bytes": 180480,
+          "total_s": 1.2970517629873939,
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 90240,
+            "duration_seconds": 3.76,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 23,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.0013427734375,
+              "minimum": -0.270233154296875,
+              "maximum": 0.181610107421875,
+              "standard_deviation": 0.10533646897860369
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.3277075480301526,
+              "10": 0.3027950591165001,
+              "20": 0.3162942329729116
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.060529441648746116,
+              "maximum": 1.25564265141506
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          }
+        }
+      ],
+      "memory": {
+        "minimum_available_mib": 338252.5,
+        "floor_mib": 0,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/ggml-reference-prefix/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/ggml-reference-prefix/lib/libggml-cpu.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/native-reference-encoder/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/native-reference-encoder/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/native-reference-encoder/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/ggml-reference-prefix/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/ggml-reference-prefix/lib/libggml-base.so.0.22.0"
+      }
+    }
+  ],
+  "perceptual_cloning_quality_qualified": false,
+  "state_transfers": [
+    [
+      1,
+      0,
+      5218948,
+      66,
+      47
+    ],
+    [
+      2,
+      5218948,
+      5218948,
+      102,
+      36
+    ],
+    [
+      1,
+      0,
+      5218948,
+      66,
+      47
+    ],
+    [
+      2,
+      5218948,
+      5218948,
+      102,
+      36
+    ],
+    [
+      1,
+      0,
+      5218948,
+      55,
+      36
+    ],
+    [
+      1,
+      0,
+      5218948,
+      55,
+      36
+    ]
+  ],
+  "joins": {
+    "reset": {
+      "jump": 0,
+      "local_rms": 16.765198328680754,
+      "jump_over_rms": 0.0
+    },
+    "continuous": {
+      "jump": 0,
+      "local_rms": 16.36144477116859,
+      "jump_over_rms": 0.0
+    }
+  },
+  "passed": true,
+  "prototype_qualifier_sha256": "a92d2e15ba28e49ab97350e4f9d9113770322a786951a6e06d180cf9c7a5a306",
+  "native_patch_sha256": "b7f9ceff112c8006dc8ba9ef8282adcf0535d4dace56f969f20c6ec1ec07361d"
+}

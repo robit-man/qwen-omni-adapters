@@ -1,0 +1,11 @@
+{
+  "abi": "robit.qwen3tts.reference-encoder.v1",
+  "source_repository": "Qwen/Qwen3-TTS-Tokenizer-12Hz",
+  "source_revision": "7dd38ad4e9bad454aae9cd937d0cd577604fe229",
+  "source_sha256": "836b7b357f5ea43e889936a3709af68dfe3751881acefe4ecf0dbd30ba571258",
+  "output": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/reference-encoder-source/reference-encoder.gguf",
+  "sha256": "587b2b59ebfa815c5490fbc4bddb5dde3454cfbca4eef108d8688b668628a0e5",
+  "size_bytes": 190080704,
+  "tensor_count": 129,
+  "required_by_current_synthesis_path": false
+}

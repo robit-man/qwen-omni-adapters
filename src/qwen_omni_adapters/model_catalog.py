@@ -63,6 +63,24 @@ MANAGED_MODELS: tuple[ManagedModel, ...] = (
         max_context_tokens=65_536,
         language_disable_thinking=False,
     ),
+    ManagedModel(
+        key="ornith15_v2",
+        label="Ornith 1.5 Omni Edge v2",
+        tag="robit/ornith-1.5-omni:edge-v2",
+        size_gib=8.34,
+        generation="compact",
+        max_context_tokens=16_384,
+        language_disable_thinking=True,
+    ),
+    ManagedModel(
+        key="qwen38_v2",
+        label="Qwen3.8 E03 Omni Edge v2",
+        tag="robit/qwen3.8-27b-e03-omni:edge-v2",
+        size_gib=18.52,
+        generation="compact",
+        max_context_tokens=16_384,
+        language_disable_thinking=False,
+    ),
 )
 
 MODEL_BY_TAG = {model.tag: model for model in MANAGED_MODELS}

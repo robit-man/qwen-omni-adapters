@@ -1,0 +1,32 @@
+{
+  "schema": "robit.omni.source-validation.v1",
+  "baseline_commit": "e2be9b9c09214f80a654435a1715aedf33ec2f61",
+  "before": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6252,
+    "duration_s": 277.64
+  },
+  "after": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6257,
+    "duration_s": 275.51,
+    "additional_gates": "source, contract, VAD, call queue, browser cache, npm installer, JS and shell passed. The maintained native qualifier was added afterward, separately compiled/linted and executed on Tegra."
+  },
+  "source_sha256": {
+    "runtime/audio_ctc_probe.cpp": "4e07949fd5bfa7959cb13e647df0609501e4ede22754764bc448c073b07d833d",
+    "runtime/export_audio_ctc_head.py": "53a621a498085d9250a19f6bcf405f910899350a2cf64909059d4090e81b6d2c",
+    "runtime/qualify_audio_ctc_native.py": "3039ee20448ed9a712c00efdc3b24a4563bbd703f53b804494efd2208cdb9009",
+    "src/qwen_omni_adapters/audio_ctc.py": "664669e6110ff75adaa0874af9932eaca02b0f53919c25d876330b07bf8f0cd1",
+    "tests/test_audio_ctc_decoder.py": "7c88a6cbba3672f1df39430b5cb0b7db016d4cd34626e2257cf5de6d55f2efd2",
+    "tests/test_audio_ctc_export.py": "fae8a17c70cedc184bb12eaccb4124e68d50f328808fbc9fcbbaca1bd342d87a"
+  },
+  "native_probe_compiled_A100_Orin": true,
+  "native_head_fixed_fixture_quality_passed": true,
+  "native_live_encoder_integration_complete": false,
+  "sidecar_head_attached": false,
+  "streaming_qualified": false,
+  "whole_model_release_qualified": false,
+  "registry_publication_complete": false
+}

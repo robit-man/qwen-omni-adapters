@@ -1,0 +1,135 @@
+"""Backbone-independent, deterministic packaging of the bundled TTS graphs."""
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+from dataclasses import replace
+from pathlib import Path
+from typing import Any
+
+from qwen_omni_adapters.single_gguf import (
+    AUDIO_CTC_COMPONENT,
+    BUNDLE_NAMESPACE,
+    INDEXED_AUDIO_BRIDGE_SCHEMA,
+    TTS_COMPONENT,
+    TTS_PROJECTOR_COMPONENT,
+    TTS_REFERENCE_ENCODER_COMPONENT,
+    SingleGGUFError,
+    _add_reader_tensor,
+    _architecture,
+    _copy_metadata,
+    _reader_metadata,
+    _require_gguf,
+    _sha256,
+    inspect_monolithic_gguf,
+)
+
+
+def pack_indexed_tts_sidecar(*, tts_gguf: Path, tts_projector_gguf: Path,
+                             out_gguf: Path, overwrite: bool = False,
+                             tts_reference_encoder_gguf: Path | None = None,
+                             audio_ctc_head_gguf: Path | None = None) -> dict[str, Any]:
+    """Identical checkpoints produce one blob regardless of paths or backbone.
+
+    Exact language/projector bindings belong to each tag's layer descriptor;
+    putting them into this payload would duplicate all TTS weights per backbone.
+    This still uses independent executable views, not a stock Ollama graph.
+    """
+    gguf, np = _require_gguf()
+    definitions = [TTS_COMPONENT, TTS_PROJECTOR_COMPONENT]
+    sources = [tts_gguf, tts_projector_gguf]
+    if tts_reference_encoder_gguf is not None:
+        definitions.append(TTS_REFERENCE_ENCODER_COMPONENT)
+        sources.append(tts_reference_encoder_gguf)
+    if audio_ctc_head_gguf is not None:
+        definitions.append(AUDIO_CTC_COMPONENT)
+        sources.append(audio_ctc_head_gguf)
+    inputs = [path.expanduser().resolve() for path in sources]
+    for path in inputs:
+        if not path.is_file():
+            raise SingleGGUFError(f"GGUF input does not exist: {path}")
+    identities = [(path.stat().st_ino, path.stat().st_size, path.stat().st_mtime_ns,
+                   path.stat().st_ctime_ns) for path in inputs]
+    out = out_gguf.expanduser().resolve()
+    if out in inputs:
+        raise SingleGGUFError("sidecar output must not overwrite an input checkpoint")
+    if out.exists() and not overwrite:
+        raise SingleGGUFError(f"output already exists: {out}")
+    readers = [(component, path, gguf.GGUFReader(str(path))) for component, path in
+               zip(definitions, inputs, strict=True)]
+    components = []
+    index = {}
+    for component, path, reader in readers:
+        if not reader.tensors or not _architecture(reader):
+            raise SingleGGUFError(f"component has no architecture or tensors: {path}")
+        if component is TTS_REFERENCE_ENCODER_COMPONENT:
+            metadata = _reader_metadata(reader)
+            if (_architecture(reader) != "clip"
+                    or metadata.get("clip.audio.projector_type") != "qwen3tts_refenc"
+                    or metadata.get("robit.reference_encoder.abi") != "robit.qwen3tts.reference-encoder.v1"):
+                raise SingleGGUFError("reference encoder requires the qualified Qwen3-TTS reference-encoder ABI")
+        if component is AUDIO_CTC_COMPONENT:
+            metadata = _reader_metadata(reader)
+            if (_architecture(reader) != "robit_audio_ctc" or len(reader.tensors) != 8
+                    or metadata.get("robit.audio_ctc.schema") != "robit.omni.audio-ctc-head.v1"
+                    or not isinstance(metadata.get("robit.audio_ctc.encoder_sha256"), str)
+                    or len(metadata["robit.audio_ctc.encoder_sha256"]) != 64):
+                raise SingleGGUFError("audio CTC head requires the qualified native head ABI")
+        digest = _sha256(path)
+        components.append(replace(component, source="sha256:" + digest).to_dict())
+        index[component.name] = {
+            "tensor_prefix": component.tensor_prefix, "metadata_prefix": component.metadata_prefix,
+            "architecture": _architecture(reader), "tensor_count": len(reader.tensors),
+            "gguf_sha256": digest, "gguf_size_bytes": path.stat().st_size,
+        }
+    manifest = {
+        "schema": INDEXED_AUDIO_BRIDGE_SCHEMA, "profile": "trained-audio-bridge",
+        "physical_bundle_artifacts": 1, "components": components,
+        "component_index": {"schema": "robit.gguf-component-index.v2", "components": index},
+        "standard_layers": {"binding": "io.robit.omni.binding.v2 in the Ollama sidecar layer descriptor"},
+        "runtime": {"language_trunk_copies": 1, "omni_thinker_required": False,
+                    "materialized_views": [component.name for component in definitions],
+                    "combined_projector_is_standard_ollama_layer": True},
+    }
+    if audio_ctc_head_gguf is not None:
+        manifest["runtime"]["disabled_components"] = ["audio_ctc_head"]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fd, filename = tempfile.mkstemp(prefix=out.name + ".", suffix=".partial", dir=out.parent)
+    os.close(fd)
+    partial = Path(filename)
+    writer = gguf.GGUFWriter(str(partial), arch="clip")
+    try:
+        writer.add_name("Robit Omni shared audio sidecar v2" if audio_ctc_head_gguf is not None
+                        else "Robit Omni shared TTS sidecar v2")
+        for component, _, reader in readers:
+            _, skipped = _copy_metadata(reader=reader, writer=writer, prefix=component.metadata_prefix)
+            unexpected = set(skipped) - {"GGUF.version", "GGUF.tensor_count", "GGUF.kv_count"}
+            if unexpected:
+                raise SingleGGUFError(f"cannot preserve component metadata: {sorted(unexpected)}")
+        writer.add_key_value(BUNDLE_NAMESPACE + ".schema", INDEXED_AUDIO_BRIDGE_SCHEMA,
+                             gguf.GGUFValueType.STRING)
+        writer.add_key_value(BUNDLE_NAMESPACE + ".manifest",
+                             json.dumps(manifest, separators=(",", ":"), sort_keys=True),
+                             gguf.GGUFValueType.STRING)
+        for component, _, reader in readers:
+            for tensor in reader.tensors:
+                _add_reader_tensor(writer, tensor, component.tensor_prefix + tensor.name, np)
+        writer.write_header_to_file()
+        writer.write_kv_data_to_file()
+        writer.write_tensors_to_file()
+        writer.close()
+        current = [(path.stat().st_ino, path.stat().st_size, path.stat().st_mtime_ns,
+                    path.stat().st_ctime_ns) for path in inputs]
+        if current != identities:
+            raise SingleGGUFError("checkpoint changed while packing; require immutable inputs")
+        inspection = inspect_monolithic_gguf(partial)
+        if not inspection["valid"]:
+            raise SingleGGUFError(f"indexed sidecar inspection failed: {inspection['errors']}")
+        os.replace(partial, out)
+    finally:
+        writer.close()
+        partial.unlink(missing_ok=True)
+    return {"schema": INDEXED_AUDIO_BRIDGE_SCHEMA, "output": str(out),
+            "size_bytes": out.stat().st_size, "sha256": _sha256(out),
+            "component_index": manifest["component_index"]}

@@ -1,0 +1,288 @@
+{
+  "schema": "robit.omni.upgrade-milestones.v1",
+  "user_objective": "Finish the remaining milestones under agents.md, preserving one tag, one reasoning trunk and arbitrary reference cloning.",
+  "authorization": "User requested all remaining milestones; continue sequential, measured changes without treating intermediate checkpoints as completion of the whole objective.",
+  "milestones": [
+    {
+      "id": "A1",
+      "objective": "Indexed verified component reuse",
+      "status": "verified",
+      "commit": "00b36f1864f717e882c73898e6e8d88b8b511eb0",
+      "evidence": [
+        "phase-a-component-index.json",
+        "phase-a-validation.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "objective": "Canonical component packaging and proven storage deduplication",
+      "status": "verified_canonical_payload_shared_by_both_installed_candidate_tags",
+      "evidence": [
+        "phase-a2-sharing.json",
+        "phase-a2-sharing.md",
+        "phase-a2-validation.json"
+      ]
+    },
+    {
+      "id": "A3",
+      "objective": "Native filtered component reads without materialized executable copies",
+      "status": "verified_native_views_and_POSIX_supervisor_paths_on_scoped_A100",
+      "evidence": [
+        "phase-a3-native-views.json",
+        "phase-a3-native-views.md",
+        "phase-a3-tts.json",
+        "phase-a3-routes.json",
+        "phase-a3-preparation.json",
+        "phase-a3-validation.json"
+      ]
+    },
+    {
+      "id": "B1",
+      "objective": "Reuse immutable current-backend voice conditioning without carrying decoded request state",
+      "status": "verified_for_current_gguf_conditioning_path",
+      "evidence": [
+        "phase-b-conditioning.json",
+        "phase-b-conditioning.md",
+        "phase-b-validation.json"
+      ],
+      "commit": "0d24e48"
+    },
+    {
+      "id": "B2",
+      "objective": "Lower TTS loading and memory cost through bounded token-row reads",
+      "status": "verified_on_scoped_A100_and_Orin_with_matched_native_controls",
+      "evidence": [
+        "phase-b-token-rows.json",
+        "phase-b-token-rows.md",
+        "phase-b-token-rows-validation.json",
+        "phase-e-orin-token-rows.json"
+      ]
+    },
+    {
+      "id": "B5",
+      "objective": "Bound TTS context by full UTF-8 input and generation budget without truncation",
+      "status": "verified_28_exact_PCM_comparisons_per_device_A100_and_Orin_opt_in_full_profile_peak_memory_pending",
+      "evidence": [
+        "phase-b5-context.md",
+        "phase-b5-context-a100.json",
+        "phase-b5-context-orin.json",
+        "phase-b5-context-probe.json",
+        "phase-b5-validation.json"
+      ]
+    },
+    {
+      "id": "B3",
+      "objective": "Committed speech handoff and adaptive initial/steady acoustic windows",
+      "status": "automatic_cadence_utterance_decoder_state_and_saved_reference_preparation_verified_committed_handoff_and_dynamic_window_ramp_pending",
+      "evidence": []
+    },
+    {
+      "id": "B3a",
+      "objective": "Choose the measured packet cadence for adaptive 4K full-reference speech while preserving explicit overrides",
+      "status": "A100_Orin_actual_auto_routes_verified_scheduled_browser_start_improved_negative_voice_cases_retained_full_perceptual_release_gates_pending",
+      "evidence": [
+        "phase-b3a-cadence.md",
+        "phase-b3a-native-a100.json",
+        "phase-b3a-native-orin.json",
+        "phase-b3a-alternate-a100.json",
+        "phase-b3a-alternate-orin.json",
+        "phase-b3a-speaker.json",
+        "phase-b3a-intelligibility.json",
+        "phase-b3a-auto-a100.json",
+        "phase-b3a-auto-orin.json",
+        "phase-b3a-validation.json"
+      ]
+    },
+    {
+      "id": "B3b",
+      "objective": "Retain bounded causal waveform state only within one committed full-reference batch utterance",
+      "status": "opt_in_A100_Orin_native_and_actual_HTTP_continuation_isolation_verified_broad_voice_quality_pending",
+      "evidence": [
+        "phase-b3b-utterance-state.md",
+        "phase-b3b-native-a100.json",
+        "phase-b3b-native-orin.json",
+        "phase-b3b-http-a100.json",
+        "phase-b3b-http-orin.json",
+        "phase-b3b-native-apply.json",
+        "phase-b3b-speaker.json",
+        "phase-b3b-intelligibility.json",
+        "phase-b3b-validation.json"
+      ]
+    },
+    {
+      "id": "B3c",
+      "objective": "Overlap saved-reference preparation with primary language inference without retaining TTS generation weights or speaking unresolved text",
+      "status": "opt_in_A100_Orin_routes_exact_3_matched_Orin_pipeline_pairs_first_PCM_16_7_percent_lower_full_concurrency_pending",
+      "evidence": [
+        "phase-b3c-reference-overlap.md",
+        "phase-b3c-http-a100.json",
+        "phase-b3c-http-orin.json",
+        "phase-b3c-pipeline-orin.json",
+        "phase-b3c-validation.json"
+      ]
+    },
+    {
+      "id": "B4",
+      "objective": "Qualify reference transcripts/acoustic prompts and profile-specific warm residency without reducing cloning fidelity",
+      "status": "bounded_idle_native_full_reference_and_synthesis_API_verified_A100_Orin_full_clone_quality_release_gates_pending",
+      "evidence": [
+        "phase-b4-idle.md",
+        "phase-b4-idle-a100.json",
+        "phase-b4-idle-orin-initial.json",
+        "phase-b4-idle-orin-pressure.json",
+        "phase-b4-validation.json",
+        "phase-b4-idle-orin-adaptive.json"
+      ]
+    },
+    {
+      "id": "B4b1",
+      "objective": "Add frozen native reference acoustic encoder under the same indexed model identity",
+      "status": "A100_and_Orin_2912_codes_each_exact_from_shared_sidecar_existing_TTS_preserved_full_conditioning_pending",
+      "evidence": [
+        "phase-b4b1-reference-encoder.md",
+        "phase-b4b1-export.json",
+        "phase-b4b1-installed.json",
+        "phase-b4b1-native-indexed.json",
+        "phase-b4b1-tts-regression.json",
+        "phase-b4b1-validation.json",
+        "phase-b4b1-reference-orin.json",
+        "phase-b4b1-igpu-a100.json",
+        "phase-b4b1-igpu-validation.json"
+      ]
+    },
+    {
+      "id": "B4b2",
+      "objective": "Native Qwen3-TTS Base full reference-text/acoustic prompt and immutable reference-only decoder conditioning",
+      "status": "native_A100_and_Orin_24_exact_PCM_outputs_8_exact_transcriptions_public_encoder_voice_contract_and_perceptual_quality_pending",
+      "evidence": [
+        "phase-b4b2-reference-prompt.md",
+        "phase-b4b2-reference-a100.json",
+        "phase-b4b2-reference-orin.json",
+        "phase-b4b2-reference-long-a100.json",
+        "phase-b4b2-reference-long-orin.json",
+        "phase-b4b2-legacy-regression.json",
+        "phase-b4b2-intelligibility.json",
+        "phase-b4b2-validation.json"
+      ]
+    },
+    {
+      "id": "B4b3",
+      "objective": "Expose bounded full-reference conditioning in speech requests, portal and saved profiles with ephemeral inline state",
+      "status": "actual_A100_and_Orin_synthesis_routes_exact_saved_inline_WAV_batch_cancellation_verified_full_perceptual_and_release_parity_pending",
+      "evidence": [
+        "phase-b4b3-reference-api.md",
+        "phase-b4b3-http-a100.json",
+        "phase-b4b3-http-orin.json",
+        "phase-b4b3-normalization.json",
+        "phase-b4b3-validation.json"
+      ]
+    },
+    {
+      "id": "C0",
+      "objective": "Train attached audio heads from verified shared native features with no additional reasoning model and explicit rejection gates",
+      "status": "native_feature_parity_and_guarded_training_verified_7_quality_rejections_no_runtime_head_activation",
+      "evidence": [
+        "phase-c0-native-training.md",
+        "phase-c0-native-features.json",
+        "phase-c0-training-progress.json",
+        "phase-c0-data.json",
+        "phase-c0-validation.json"
+      ]
+    },
+    {
+      "id": "C1",
+      "objective": "Qualify the trained English audio head and training-only decoder, export a native component and reproduce held-out outputs on CUDA",
+      "status": "quality_and_A100_Orin_native_head_cached_feature_gates_passed_sidecar_attachment_live_encoder_and_streaming_pending",
+      "evidence": [
+        "phase-c1-native-head.md",
+        "phase-c1-quality.json",
+        "phase-c1-rebalance-rejected.json",
+        "phase-c1-native-a100.json",
+        "phase-c1-native-orin.json",
+        "phase-c1-validation.json"
+      ]
+    },
+    {
+      "id": "C1b",
+      "objective": "Package the qualified English head in the single indexed model identity and prove direct execution without voice regression",
+      "status": "two_installed_candidate_tags_exact_components_and_A100_Orin_head_voice_regression_verified_head_disabled_live_encoder_and_streaming_pending",
+      "evidence": [
+        "phase-c1b-indexed-head.md",
+        "phase-c1b-ctc-sidecar-pack.json",
+        "phase-c1b-ctc-indexed-components.json",
+        "phase-c1b-ctc-tag-bindings.json",
+        "phase-c1b-indexed-ctc-a100.json",
+        "phase-c1b-indexed-ctc-orin.json",
+        "phase-c1b-voice-a100.json",
+        "phase-c1b-voice-orin.json",
+        "phase-c1b-validation.json"
+      ]
+    },
+    {
+      "id": "C",
+      "objective": "Train, package and qualify exact-trunk decision, retrieval and streaming-audio heads",
+      "status": "English_head_trained_qualified_packaged_in_both_single_tag_candidates_native_A100_Orin_verified_live_encoder_streaming_decision_retrieval_pending",
+      "evidence": [
+        "phase-c0-native-training.md",
+        "phase-c0-input-audit.json",
+        "phase-c0-audio-metadata.json",
+        "phase-c0-native-features.json",
+        "phase-c0-data.json",
+        "phase-c0-training-progress.json",
+        "phase-c0-validation.json",
+        "phase-c1-native-head.md",
+        "phase-c1-quality.json",
+        "phase-c1-native-a100.json",
+        "phase-c1-native-orin.json",
+        "phase-c1b-indexed-head.md"
+      ]
+    },
+    {
+      "id": "D",
+      "objective": "Train and qualify small recurrent sensory/task state without continuously running the full trunk",
+      "status": "pending_training_and_backend_integration",
+      "evidence": []
+    },
+    {
+      "id": "E",
+      "objective": "Qualify Ornith on Orin and Qwen3.8 on the current A100 host, preserving complete parity and safe memory",
+      "status": "operational_cloning_and_video_speech_passed_Ornith_Orin_Qwen_A100_semantic_environmental_parity_failed",
+      "evidence": [
+        "phase-e-orin-preparation.json",
+        "phase-e-orin-tts-repeat.json",
+        "phase-e-orin-token-rows.json",
+        "phase-b4-idle-orin-pressure.json",
+        "production-integration.json",
+        "phase-b5-context-orin.json",
+        "phase-b4-idle-orin-adaptive.json",
+        "phase-b4b1-reference-orin.json",
+        "phase-e-qwen-host-preparation.json",
+        "release-qualification-20261030.json",
+        "release-ornith-orin-operational.json",
+        "release-qwen-a100-operational.json",
+        "release-ornith-semantic.json",
+        "release-qwen-a100-semantic.json",
+        "release-legacy-auditory.json",
+        "release-orin-restoration.json",
+        "release-qwen-a100-video-fix.json",
+        "release-ornith-orin-video-fix.json",
+        "release-staging-verification.json"
+      ]
+    },
+    {
+      "id": "F",
+      "objective": "After full validation, publish both releases on Hugging Face and Ollama and verify remote artifacts/digests",
+      "status": "complete_weight_packages_staged_public_promotion_gated_by_failed_semantic_qualification",
+      "evidence": [
+        "release-qualification-20261030.json"
+      ]
+    }
+  ],
+  "completed_whole_objective": false,
+  "constraints": [
+    "Do not label source tests as live model acceptance.",
+    "Do not label untrained heads as compatible or useful.",
+    "Do not restart existing target services without applicable authorization.",
+    "Keep credentials out of source and receipts."
+  ]
+}

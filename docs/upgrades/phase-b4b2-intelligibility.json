@@ -1,0 +1,80 @@
+{
+  "schema": "robit.omni.tts-reference-prompt-intelligibility.v1",
+  "source": "Eight isolated public-fixture requests to the already resident primary; no hosted or second ASR model",
+  "cache_prompt": false,
+  "observations": [
+    {
+      "reference": "female_voice-1-0.wav",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 1.3915743650868535,
+      "source": "isolated fixture request to resident primary, never user dialogue",
+      "cache_prompt": false,
+      "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "wav_sha256": "556917a5e02031f07695f82737a4e3c7e4594c76ccdf09c01d9a4dda510dbefe"
+    },
+    {
+      "reference": "female_voice-1-1.wav",
+      "transcript": "Seven small birds are sitting on the wooden fence.",
+      "elapsed_s": 1.0772690051235259,
+      "source": "isolated fixture request to resident primary, never user dialogue",
+      "cache_prompt": false,
+      "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "wav_sha256": "313c1eb89ebe4a13c85b682b42d7058175f539a73eead67ef7190e7a14dab9a7"
+    },
+    {
+      "reference": "a100-long-0",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 1.3078256850130856,
+      "source": "isolated fixture request to resident primary, never user dialogue",
+      "cache_prompt": false,
+      "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "wav_sha256": "1d346add12bbc1a5bf59b9d154664393ac9531cdf49ebfe88bd2074814971a0c"
+    },
+    {
+      "reference": "a100-long-1",
+      "transcript": "Seven small birds are sitting on the wooden fence.",
+      "elapsed_s": 1.0528135600034148,
+      "source": "isolated fixture request to resident primary, never user dialogue",
+      "cache_prompt": false,
+      "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "wav_sha256": "2b3b02bb90931543697e84ee157397cbe6ba8ab1ef6b2fea546c0805f2028bcb"
+    },
+    {
+      "reference": "orin-short-0",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 1.125676441937685,
+      "source": "isolated fixture request to resident primary, never user dialogue",
+      "cache_prompt": false,
+      "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "wav_sha256": "8bc2a07d70b425c6a5b135b62c28d639738e9361ab9405c3098d60a9db7fff07"
+    },
+    {
+      "reference": "orin-short-1",
+      "transcript": "Seven small birds are sitting on the wooden fence.",
+      "elapsed_s": 1.0829420911613852,
+      "source": "isolated fixture request to resident primary, never user dialogue",
+      "cache_prompt": false,
+      "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "wav_sha256": "12a3ecc8f6cc86778b2a17243651fe9679e66a0b410b612f479a9390c55d9d21"
+    },
+    {
+      "reference": "orin-long-0",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 1.0566505528986454,
+      "source": "isolated fixture request to resident primary, never user dialogue",
+      "cache_prompt": false,
+      "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "wav_sha256": "edf45ff3d268ca971afda23abae05177c91fb3a145111c58bafde880cc8729ab"
+    },
+    {
+      "reference": "orin-long-1",
+      "transcript": "Seven small birds are sitting on the wooden fence.",
+      "elapsed_s": 1.0623798430897295,
+      "source": "isolated fixture request to resident primary, never user dialogue",
+      "cache_prompt": false,
+      "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "wav_sha256": "c86faaa0b25f3b52ac615c0b3bc78cf8f5a7c609106d0e6cbd6199649edc7cc2"
+    }
+  ],
+  "speaker_similarity_qualified": false
+}
