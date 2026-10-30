@@ -1,0 +1,398 @@
+{
+  "schema": "robit.omni.audio-window-tail-qualification.v1",
+  "before": [
+    {
+      "duration_s": 0.25,
+      "frames": 25,
+      "reference_tokens": 4,
+      "native_tokens": 4,
+      "cosine": 0.9999499917030334,
+      "relative_rmse": 0.010357137769460678,
+      "minimum_token_cosine": 0.9999091625213623
+    },
+    {
+      "duration_s": 0.5,
+      "frames": 50,
+      "reference_tokens": 7,
+      "native_tokens": 7,
+      "cosine": 0.9999335408210754,
+      "relative_rmse": 0.011576896533370018,
+      "minimum_token_cosine": 0.9998827576637268
+    },
+    {
+      "duration_s": 0.99,
+      "frames": 99,
+      "reference_tokens": 13,
+      "native_tokens": 13,
+      "cosine": 0.999911904335022,
+      "relative_rmse": 0.013365820981562138,
+      "minimum_token_cosine": 0.9998708963394165
+    },
+    {
+      "duration_s": 1.0,
+      "frames": 100,
+      "reference_tokens": 13,
+      "native_tokens": 13,
+      "cosine": 0.9999042749404907,
+      "relative_rmse": 0.013983250595629215,
+      "minimum_token_cosine": 0.9998193979263306
+    },
+    {
+      "duration_s": 1.01,
+      "frames": 101,
+      "reference_tokens": 14,
+      "native_tokens": 14,
+      "cosine": 0.9999092221260071,
+      "relative_rmse": 0.013546820729970932,
+      "minimum_token_cosine": 0.9997952580451965
+    },
+    {
+      "duration_s": 7.99,
+      "frames": 799,
+      "reference_tokens": 104,
+      "native_tokens": 104,
+      "cosine": 0.9998849034309387,
+      "relative_rmse": 0.015372405759990215,
+      "minimum_token_cosine": 0.9996880888938904
+    },
+    {
+      "duration_s": 8.0,
+      "frames": 800,
+      "reference_tokens": 104,
+      "native_tokens": 104,
+      "cosine": 0.9997830390930176,
+      "relative_rmse": 0.021031798794865608,
+      "minimum_token_cosine": 0.9975467920303345
+    },
+    {
+      "duration_s": 8.01,
+      "frames": 801,
+      "reference_tokens": 105,
+      "native_tokens": 105,
+      "cosine": 0.9995735287666321,
+      "relative_rmse": 0.029297789558768272,
+      "minimum_token_cosine": 0.8648167252540588
+    },
+    {
+      "duration_s": 8.5,
+      "frames": 850,
+      "reference_tokens": 111,
+      "native_tokens": 111,
+      "cosine": 0.9963722825050354,
+      "relative_rmse": 0.08522707223892212,
+      "minimum_token_cosine": 0.7809922099113464
+    },
+    {
+      "duration_s": 9.0,
+      "frames": 900,
+      "reference_tokens": 117,
+      "native_tokens": 117,
+      "cosine": 0.9995622634887695,
+      "relative_rmse": 0.030133908614516258,
+      "minimum_token_cosine": 0.9855607748031616
+    },
+    {
+      "duration_s": 12.05,
+      "frames": 1205,
+      "reference_tokens": 157,
+      "native_tokens": 157,
+      "cosine": 0.9997211694717407,
+      "relative_rmse": 0.023630255833268166,
+      "minimum_token_cosine": 0.9961869120597839
+    },
+    {
+      "duration_s": 16.1,
+      "frames": 1610,
+      "reference_tokens": 210,
+      "native_tokens": 210,
+      "cosine": 0.998725175857544,
+      "relative_rmse": 0.050478190183639526,
+      "minimum_token_cosine": 0.8261386156082153
+    },
+    {
+      "duration_s": 24.1,
+      "frames": 2410,
+      "reference_tokens": 314,
+      "native_tokens": 314,
+      "cosine": 0.9988917708396912,
+      "relative_rmse": 0.04698938876390457,
+      "minimum_token_cosine": 0.8023886680603027
+    }
+  ],
+  "after_bf16_reference": [
+    {
+      "duration_s": 0.25,
+      "frames": 25,
+      "reference_tokens": 4,
+      "native_tokens": 4,
+      "cosine": 0.9999499917030334,
+      "relative_rmse": 0.010357137769460678,
+      "minimum_token_cosine": 0.9999091625213623
+    },
+    {
+      "duration_s": 0.5,
+      "frames": 50,
+      "reference_tokens": 7,
+      "native_tokens": 7,
+      "cosine": 0.9999335408210754,
+      "relative_rmse": 0.011576896533370018,
+      "minimum_token_cosine": 0.9998827576637268
+    },
+    {
+      "duration_s": 0.99,
+      "frames": 99,
+      "reference_tokens": 13,
+      "native_tokens": 13,
+      "cosine": 0.999911904335022,
+      "relative_rmse": 0.013365820981562138,
+      "minimum_token_cosine": 0.9998708963394165
+    },
+    {
+      "duration_s": 1.0,
+      "frames": 100,
+      "reference_tokens": 13,
+      "native_tokens": 13,
+      "cosine": 0.9999042749404907,
+      "relative_rmse": 0.013983250595629215,
+      "minimum_token_cosine": 0.9998193979263306
+    },
+    {
+      "duration_s": 1.01,
+      "frames": 101,
+      "reference_tokens": 14,
+      "native_tokens": 14,
+      "cosine": 0.9999092221260071,
+      "relative_rmse": 0.013546820729970932,
+      "minimum_token_cosine": 0.9997952580451965
+    },
+    {
+      "duration_s": 7.99,
+      "frames": 799,
+      "reference_tokens": 104,
+      "native_tokens": 104,
+      "cosine": 0.9998849034309387,
+      "relative_rmse": 0.015372405759990215,
+      "minimum_token_cosine": 0.9996880888938904
+    },
+    {
+      "duration_s": 8.0,
+      "frames": 800,
+      "reference_tokens": 104,
+      "native_tokens": 104,
+      "cosine": 0.9997830390930176,
+      "relative_rmse": 0.021031798794865608,
+      "minimum_token_cosine": 0.9975467920303345
+    },
+    {
+      "duration_s": 8.01,
+      "frames": 801,
+      "reference_tokens": 105,
+      "native_tokens": 105,
+      "cosine": 0.999800443649292,
+      "relative_rmse": 0.020115816965699196,
+      "minimum_token_cosine": 0.9975486993789673
+    },
+    {
+      "duration_s": 8.5,
+      "frames": 850,
+      "reference_tokens": 111,
+      "native_tokens": 111,
+      "cosine": 0.9998406767845154,
+      "relative_rmse": 0.018011825159192085,
+      "minimum_token_cosine": 0.9991270303726196
+    },
+    {
+      "duration_s": 9.0,
+      "frames": 900,
+      "reference_tokens": 117,
+      "native_tokens": 117,
+      "cosine": 0.9995622634887695,
+      "relative_rmse": 0.030133908614516258,
+      "minimum_token_cosine": 0.9855607748031616
+    },
+    {
+      "duration_s": 12.05,
+      "frames": 1205,
+      "reference_tokens": 157,
+      "native_tokens": 157,
+      "cosine": 0.9997211694717407,
+      "relative_rmse": 0.023630255833268166,
+      "minimum_token_cosine": 0.9961869120597839
+    },
+    {
+      "duration_s": 16.1,
+      "frames": 1610,
+      "reference_tokens": 210,
+      "native_tokens": 210,
+      "cosine": 0.9997382760047913,
+      "relative_rmse": 0.022991176694631577,
+      "minimum_token_cosine": 0.9923515319824219
+    },
+    {
+      "duration_s": 24.1,
+      "frames": 2410,
+      "reference_tokens": 314,
+      "native_tokens": 314,
+      "cosine": 0.999745786190033,
+      "relative_rmse": 0.02244209498167038,
+      "minimum_token_cosine": 0.9946600198745728
+    }
+  ],
+  "after_f32_reference": [
+    {
+      "duration_s": 0.25,
+      "frames": 25,
+      "reference_tokens": 4,
+      "native_tokens": 4,
+      "cosine": 0.9999729990959167,
+      "relative_rmse": 0.007793180178850889,
+      "minimum_token_cosine": 0.9999454617500305
+    },
+    {
+      "duration_s": 0.5,
+      "frames": 50,
+      "reference_tokens": 7,
+      "native_tokens": 7,
+      "cosine": 0.9999632239341736,
+      "relative_rmse": 0.008678198792040348,
+      "minimum_token_cosine": 0.9999377131462097
+    },
+    {
+      "duration_s": 0.99,
+      "frames": 99,
+      "reference_tokens": 13,
+      "native_tokens": 13,
+      "cosine": 0.9999537467956543,
+      "relative_rmse": 0.00970980990678072,
+      "minimum_token_cosine": 0.99988853931427
+    },
+    {
+      "duration_s": 1.0,
+      "frames": 100,
+      "reference_tokens": 13,
+      "native_tokens": 13,
+      "cosine": 0.9999529123306274,
+      "relative_rmse": 0.01040133647620678,
+      "minimum_token_cosine": 0.9999036192893982
+    },
+    {
+      "duration_s": 1.01,
+      "frames": 101,
+      "reference_tokens": 14,
+      "native_tokens": 14,
+      "cosine": 0.9999620318412781,
+      "relative_rmse": 0.008819712325930595,
+      "minimum_token_cosine": 0.9999392032623291
+    },
+    {
+      "duration_s": 7.99,
+      "frames": 799,
+      "reference_tokens": 104,
+      "native_tokens": 104,
+      "cosine": 0.9999366402626038,
+      "relative_rmse": 0.011300944723188877,
+      "minimum_token_cosine": 0.9994778037071228
+    },
+    {
+      "duration_s": 8.0,
+      "frames": 800,
+      "reference_tokens": 104,
+      "native_tokens": 104,
+      "cosine": 0.9999055862426758,
+      "relative_rmse": 0.013781068846583366,
+      "minimum_token_cosine": 0.9989070892333984
+    },
+    {
+      "duration_s": 8.01,
+      "frames": 801,
+      "reference_tokens": 105,
+      "native_tokens": 105,
+      "cosine": 0.9999164938926697,
+      "relative_rmse": 0.013111886568367481,
+      "minimum_token_cosine": 0.9994243383407593
+    },
+    {
+      "duration_s": 8.5,
+      "frames": 850,
+      "reference_tokens": 111,
+      "native_tokens": 111,
+      "cosine": 0.9999194741249084,
+      "relative_rmse": 0.012716412544250488,
+      "minimum_token_cosine": 0.9991216063499451
+    },
+    {
+      "duration_s": 9.0,
+      "frames": 900,
+      "reference_tokens": 117,
+      "native_tokens": 117,
+      "cosine": 0.9999250173568726,
+      "relative_rmse": 0.01227398868650198,
+      "minimum_token_cosine": 0.9995425939559937
+    },
+    {
+      "duration_s": 12.05,
+      "frames": 1205,
+      "reference_tokens": 157,
+      "native_tokens": 157,
+      "cosine": 0.999909520149231,
+      "relative_rmse": 0.013513491488993168,
+      "minimum_token_cosine": 0.9986460208892822
+    },
+    {
+      "duration_s": 16.1,
+      "frames": 1610,
+      "reference_tokens": 210,
+      "native_tokens": 210,
+      "cosine": 0.9998937249183655,
+      "relative_rmse": 0.014589210972189903,
+      "minimum_token_cosine": 0.998680830001831
+    },
+    {
+      "duration_s": 24.1,
+      "frames": 2410,
+      "reference_tokens": 314,
+      "native_tokens": 314,
+      "cosine": 0.9999120831489563,
+      "relative_rmse": 0.013271898962557316,
+      "minimum_token_cosine": 0.9985060095787048
+    }
+  ],
+  "all_13_native_token_counts_exact": true,
+  "patch_sha256": "98d162c353b3af5835c96f7426415a34253ff7619eb013736d97f8963833c4f2",
+  "fourteen_patches_apply_in_order_and_changed_sources_match_compiled": true,
+  "weights_changed": false,
+  "full_model_semantic_parity_qualified": false,
+  "source_tests_passed": 6272,
+  "source_gate_elapsed_s": 292.13,
+  "native_library_sha256": "32787522d006fc1613c50d9146d3f92cebc7e20b4fd86d8ab208e2d440f7c8a2",
+  "tts_regression": {
+    "all_pcm_exact": true,
+    "reference_conditioning_reused": true,
+    "runs": [
+      {
+        "pcm_sha256": "25ebd61ca4ad6df6d838630239c7a9595373d50a986499671102dd33603bb61b",
+        "continuity": true
+      },
+      {
+        "pcm_sha256": "de7b791b1ddbd92bcd142ef996a084b06a954ee2a97607f69dec9f34c38c4c77",
+        "continuity": true
+      },
+      {
+        "pcm_sha256": "25ebd61ca4ad6df6d838630239c7a9595373d50a986499671102dd33603bb61b",
+        "continuity": true
+      },
+      {
+        "pcm_sha256": "25ebd61ca4ad6df6d838630239c7a9595373d50a986499671102dd33603bb61b",
+        "continuity": true
+      },
+      {
+        "pcm_sha256": "de7b791b1ddbd92bcd142ef996a084b06a954ee2a97607f69dec9f34c38c4c77",
+        "continuity": true
+      },
+      {
+        "pcm_sha256": "25ebd61ca4ad6df6d838630239c7a9595373d50a986499671102dd33603bb61b",
+        "continuity": true
+      }
+    ]
+  }
+}

@@ -257,6 +257,15 @@
       ]
     },
     {
+      "id": "E2",
+      "objective": "Preserve the original CNN chunk width across short final inference windows",
+      "status": "13_duration_token_counts_exact_tail_features_improved_and_full_reference_PCM_preserved_semantic_qualification_pending",
+      "evidence": [
+        "audio-window-tail-20261030.md",
+        "audio-window-tail-20261030.json"
+      ]
+    },
+    {
       "id": "E",
       "objective": "Qualify Ornith on Orin and Qwen3.8 on the current A100 host, preserving complete parity and safe memory",
       "status": "operational_cloning_and_video_speech_passed_Ornith_Orin_Qwen_A100_semantic_environmental_parity_failed",
