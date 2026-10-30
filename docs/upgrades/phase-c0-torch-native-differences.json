@@ -1,0 +1,41 @@
+{
+  "schema": "robit.omni.audio-feature-native-comparison.v1",
+  "native_frames": [
+    "39 39",
+    "104 104",
+    "195 195",
+    "39 39"
+  ],
+  "rows": [
+    {
+      "id": "base-speech-0010-0",
+      "frames": 35,
+      "minimum_row_cosine": 0.32687678933143616,
+      "mean_row_cosine": 0.9607688784599304,
+      "relative_rms_error": 0.330904483795166
+    },
+    {
+      "id": "librispeech-3853-163249-0041",
+      "frames": 93,
+      "minimum_row_cosine": 0.5266234874725342,
+      "mean_row_cosine": 0.9855622053146362,
+      "relative_rms_error": 0.35481876134872437
+    },
+    {
+      "id": "tts-recovery-00000-r0",
+      "frames": 191,
+      "minimum_row_cosine": 0.9414259195327759,
+      "mean_row_cosine": 0.9973565340042114,
+      "relative_rms_error": 0.08007156848907471
+    },
+    {
+      "id": "base-nonspeech-0000-silence",
+      "frames": 34,
+      "minimum_row_cosine": 0.4430273473262787,
+      "mean_row_cosine": 0.6326025724411011,
+      "relative_rms_error": 0.8089395761489868
+    }
+  ],
+  "language_weights_loaded": false,
+  "language_forward_passes": 0
+}

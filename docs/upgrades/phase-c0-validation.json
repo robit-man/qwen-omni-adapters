@@ -1,0 +1,29 @@
+{
+  "schema": "robit.omni.source-validation.v1",
+  "baseline_commit": "36ef381fee18cca13a35d741cdd4e2422e2aa377",
+  "before": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6242,
+    "duration_s": 277.14
+  },
+  "after": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6246,
+    "duration_s": 277.15,
+    "additional_gates": "compileall, Ruff, contract, VAD, call queue, playback, session cache, npm installer and shell syntax passed"
+  },
+  "source_sha256": {
+    "runtime/audio_feature_probe.cpp": "6ae31ba579c10fce3e8130c0eef40eba9872e9dfdb29ca4ba44daf82ca1b3415",
+    "runtime/prepare_audio_features.py": "19cdfd8fc86e36c21f6669805b67defc73ecac0257dd0e46dbf494fbca19d204",
+    "runtime/train_audio_ctc_head.py": "915019865be39e05d9bea9d9fb94d31dc53e7e9438d0ac1cc6e7ae446cd0341d",
+    "tests/test_audio_ctc_training.py": "f12c4ae897562e062610ad51e8684315b33149d18f6455e4303cc993a2e2e894"
+  },
+  "native_probe_compile_passed": true,
+  "actual_source_and_two_installed_projector_feature_outputs_byte_identical": true,
+  "candidate_head_quality_gate_passed": false,
+  "native_head_runtime_integrated": false,
+  "whole_model_release_qualified": false,
+  "registry_publication_complete": false
+}

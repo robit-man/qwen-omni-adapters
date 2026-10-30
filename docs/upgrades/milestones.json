@@ -166,10 +166,30 @@
       ]
     },
     {
+      "id": "C0",
+      "objective": "Train attached audio heads from verified shared native features with no additional reasoning model and explicit rejection gates",
+      "status": "native_feature_parity_and_guarded_training_verified_7_quality_rejections_no_runtime_head_activation",
+      "evidence": [
+        "phase-c0-native-training.md",
+        "phase-c0-native-features.json",
+        "phase-c0-training-progress.json",
+        "phase-c0-data.json",
+        "phase-c0-validation.json"
+      ]
+    },
+    {
       "id": "C",
       "objective": "Train, package and qualify exact-trunk decision, retrieval and streaming-audio heads",
-      "status": "pending_training_and_backend_integration",
-      "evidence": []
+      "status": "native_shared_encoder_training_pipeline_verified_7_real_CTC_pilots_rejected_for_quality_decision_retrieval_and_native_head_integration_pending",
+      "evidence": [
+        "phase-c0-native-training.md",
+        "phase-c0-input-audit.json",
+        "phase-c0-audio-metadata.json",
+        "phase-c0-native-features.json",
+        "phase-c0-data.json",
+        "phase-c0-training-progress.json",
+        "phase-c0-validation.json"
+      ]
     },
     {
       "id": "D",
