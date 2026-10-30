@@ -1,0 +1,526 @@
+{
+  "source_revision": "633959e",
+  "device": "Tegra234 Orin",
+  "sampler_and_tokenizer_only": true,
+  "primary_forward_pass_performed": false,
+  "projector_integrated_GPU_residency_verified_before_execution": true,
+  "all_controls_passed": true,
+  "existing_production_service_before": "active",
+  "existing_production_service_after": "active",
+  "memory_guard": {
+    "minimum_available_mib": 5015.87109375,
+    "floor_crossed": false
+  },
+  "cases": [
+    {
+      "case": "legacy_default",
+      "input_tokens": 1103,
+      "sampling_by_file": {},
+      "videos": [
+        {
+          "fps": 4.0,
+          "frames_rgb_mean": [
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]",
+            "[0m5.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "cap_1_1",
+      "input_tokens": 110,
+      "sampling_by_file": {
+        "0": {
+          "fps": 1.0,
+          "max_frames": 1
+        }
+      },
+      "videos": [
+        {
+          "fps": 0.1666666716337204,
+          "frames_rgb_mean": [
+            [
+              254.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "cap_3_2",
+      "input_tokens": 292,
+      "sampling_by_file": {
+        "0": {
+          "fps": 1.0,
+          "max_frames": 3
+        }
+      },
+      "videos": [
+        {
+          "fps": 0.5,
+          "frames_rgb_mean": [
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]",
+            "[0m2.00s]",
+            "[0m4.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "cap_16_3",
+      "input_tokens": 565,
+      "sampling_by_file": {
+        "0": {
+          "fps": 1.0,
+          "max_frames": 16
+        }
+      },
+      "videos": [
+        {
+          "fps": 1.0,
+          "frames_rgb_mean": [
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]",
+            "[0m1.00s]",
+            "[0m2.00s]",
+            "[0m3.00s]",
+            "[0m4.00s]",
+            "[0m5.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "cap_1_4",
+      "input_tokens": 110,
+      "sampling_by_file": {
+        "0": {
+          "fps": 1.0,
+          "max_frames": 1
+        }
+      },
+      "videos": [
+        {
+          "fps": 0.1666666716337204,
+          "frames_rgb_mean": [
+            [
+              254.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "independent_clips",
+      "input_tokens": 385,
+      "sampling_by_file": {
+        "0": {
+          "fps": 1.0,
+          "max_frames": 1
+        },
+        "1": {
+          "fps": 1.0,
+          "max_frames": 3
+        }
+      },
+      "videos": [
+        {
+          "fps": 0.1666666716337204,
+          "frames_rgb_mean": [
+            [
+              254.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]"
+          ]
+        },
+        {
+          "fps": 0.5,
+          "frames_rgb_mean": [
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]",
+            "[0m2.00s]",
+            "[0m4.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "bad_fps",
+      "accepted": false,
+      "error": "video sampling fps must be in (0, 240]"
+    },
+    {
+      "case": "bad_limit",
+      "accepted": false,
+      "error": "video sampling max_frames must be in [1, 4096]"
+    },
+    {
+      "case": "fraction_limit",
+      "accepted": false,
+      "error": "video sampling max_frames must be an integer"
+    },
+    {
+      "case": "bool_fps",
+      "accepted": false,
+      "error": "video sampling fps must be numeric"
+    },
+    {
+      "case": "bad_sampling",
+      "accepted": false,
+      "error": "video sampling must be an object"
+    },
+    {
+      "case": "untrusted_table_ignored",
+      "input_tokens": 1103,
+      "sampling_by_file": {},
+      "videos": [
+        {
+          "fps": 4.0,
+          "frames_rgb_mean": [
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              254.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              0.0,
+              255.0
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ],
+            [
+              0.0,
+              255.0,
+              0.03333333333333333
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]",
+            "[0m5.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    }
+  ],
+  "release_qualified": false,
+  "fixture_correction": "Initial attempt stopped before CUDA initialization because the fixture pointed to an absent FFmpeg bundle; repeated with the existing production bundle, unchanged native source."
+}

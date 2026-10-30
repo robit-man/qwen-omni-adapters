@@ -278,10 +278,12 @@
     {
       "id": "E4",
       "objective": "Make actual per-clip frame sampling honor adapter context limits and retain source timestamps",
-      "status": "A100_native_frame_token_color_controls_and_actual_Ornith_video_speech_PCM_regression_passed_Orin_build_pending",
+      "status": "A100_and_Orin_native_frame_token_color_controls_A100_primary_video_speech_and_cloning_PCM_regression_passed",
       "evidence": [
         "video-sampling-20261030.md",
-        "video-sampling-20261030.json"
+        "video-sampling-20261030.json",
+        "orin-native-repair-build-20261030.json",
+        "orin-video-sampling-20261030.json"
       ]
     },
     {
