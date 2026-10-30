@@ -20,7 +20,8 @@ PIN = "458681e1d5d4a29a1463c4732e03226cf384b997"
 PATCH = "llama.cpp-json-pattern-safety.patch"
 BOUNDS_PATCH = "llama.cpp-json-string-bounds.patch"
 CONDITIONING_PATCH = "llama.cpp-qwen3tts-conditioning-cache.patch"
-INDEPENDENT_PATCHES = (PATCH, BOUNDS_PATCH, CONDITIONING_PATCH)
+TOKEN_ROWS_PATCH = "llama.cpp-qwen3tts-token-rows.patch"
+INDEPENDENT_PATCHES = (PATCH, BOUNDS_PATCH, CONDITIONING_PATCH, TOKEN_ROWS_PATCH)
 
 
 def _patch_preimage(text: str, source: Path) -> None:
@@ -76,7 +77,7 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
     cmake.chmod(0o755)
     target = tmp_path / "build/bin/llama-tts"
     target.parent.mkdir(parents=True)
-    target.write_text('#!/bin/sh\nprintf "%s\\n" "--tts-stream-frames --tts-persistent --tts-no-conditioning-cache"\n')
+    target.write_text('#!/bin/sh\nprintf "%s\\n" "--tts-stream-frames --tts-persistent --tts-no-conditioning-cache --tts-conditioning-cache-rows"\n')
     target.chmod(0o755)
     env = {**os.environ, "PATH": str(commands) + os.pathsep + os.environ["PATH"],
            "BUILD_CALLS": str(tmp_path / "cmake-calls"), "LLAMA_CPP_BUILD_DIR": str(target.parent.parent),
@@ -86,7 +87,8 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
 
 @pytest.mark.parametrize("patch_name,label", [(PATCH, "JSON pattern string safety"),
                                               (BOUNDS_PATCH, "JSON string length bounds"),
-                                              (CONDITIONING_PATCH, "Qwen3-TTS immutable conditioning cache")])
+                                              (CONDITIONING_PATCH, "Qwen3-TTS immutable conditioning cache"),
+                                              (TOKEN_ROWS_PATCH, "Qwen3-TTS bounded token rows")])
 def test_linux_builder_applies_each_independent_patch_once_and_keeps_pin(tmp_path, patch_name, label):
     repo, source, env = _build_fixture(tmp_path, patch_name=patch_name)
     command = ["bash", str(repo / "scripts/build_llama_cpp.sh"), str(source)]

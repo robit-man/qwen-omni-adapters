@@ -13,6 +13,7 @@ $StreamStatePatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-stream-s
 $JsonPatternPatchFile = Join-Path $RepoRoot "patches\llama.cpp-json-pattern-safety.patch"
 $JsonStringBoundsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-json-string-bounds.patch"
 $ConditioningCachePatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-conditioning-cache.patch"
+$TokenRowsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-token-rows.patch"
 $BuildDir = Join-Path $SourceDir "build"
 
 if (-not (Test-Path (Join-Path $SourceDir ".git"))) {
@@ -24,20 +25,41 @@ if ($Current -ne $PinnedCommit) {
   throw "llama.cpp must be at pinned commit $PinnedCommit; found $Current"
 }
 
-foreach ($Patch in @(
-  @{ File = $PatchFile; Label = "Qwen3-TTS PCM stream" },
-  @{ File = $PersistentPatchFile; Label = "Qwen3-TTS persistent worker" },
-  @{ File = $StreamStatePatchFile; Label = "Qwen3-TTS streaming decoder state" },
-  @{ File = $JsonPatternPatchFile; Label = "JSON pattern string safety" },
-  @{ File = $JsonStringBoundsPatchFile; Label = "JSON string length bounds" },
-  @{ File = $ConditioningCachePatchFile; Label = "Qwen3-TTS immutable conditioning cache" }
-)) {
-  git -C $SourceDir apply --reverse --check $Patch.File 2>$null
+function Test-PatchMarker([string]$File, [string]$Marker) {
+  $Path = Join-Path $SourceDir $File
+  return (Test-Path $Path) -and [bool](Select-String -Path $Path -SimpleMatch -Pattern $Marker -Quiet)
+}
+
+function Apply-NativePatch([string]$File, [string]$Label) {
+  git -C $SourceDir apply --reverse --check $File 2>$null
   if ($LASTEXITCODE -ne 0) {
-    git -C $SourceDir apply --check $Patch.File
-    if ($LASTEXITCODE -ne 0) { throw "$($Patch.Label) patch does not apply cleanly" }
-    git -C $SourceDir apply $Patch.File
+    git -C $SourceDir apply --check $File
+    if ($LASTEXITCODE -ne 0) { throw "$Label patch does not apply cleanly" }
+    git -C $SourceDir apply $File
+    if ($LASTEXITCODE -ne 0) { throw "$Label patch failed" }
   }
+}
+
+# Overlapping incremental patches cannot individually reverse-apply once their
+# successors change the same context. Match each composed feature before apply.
+if (-not ((Test-PatchMarker "common/arg.cpp" '"--tts-stream-frames"') -and
+          (Test-PatchMarker "common/arg.cpp" '"--tts-persistent"') -and
+          (Test-PatchMarker "tools/mtmd/clip.cpp" 'state_out describes this exact output boundary'))) {
+  Apply-NativePatch $PatchFile "Qwen3-TTS PCM stream"
+  Apply-NativePatch $PersistentPatchFile "Qwen3-TTS persistent worker"
+  Apply-NativePatch $StreamStatePatchFile "Qwen3-TTS streaming decoder state"
+}
+Apply-NativePatch $JsonPatternPatchFile "JSON pattern string safety"
+Apply-NativePatch $JsonStringBoundsPatchFile "JSON string length bounds"
+if (-not ((Test-PatchMarker "common/arg.cpp" '"--tts-no-conditioning-cache"') -and
+          (Test-PatchMarker "tools/mtmd/mtmd-helper-gen.cpp" 'mtmd_helper_gen_audio_cache_init(') -and
+          (Test-PatchMarker "tools/tts/tts.cpp" 'conditioning_cache.get()'))) {
+  Apply-NativePatch $ConditioningCachePatchFile "Qwen3-TTS immutable conditioning cache"
+}
+if (-not ((Test-PatchMarker "common/arg.cpp" '"--tts-conditioning-cache-rows"') -and
+          (Test-PatchMarker "src/llama-model.cpp" 'uint32_t llama_model_get_tok_embd_row(') -and
+          (Test-PatchMarker "tools/mtmd/mtmd-helper-gen.cpp" 'conditioning->token_rows.find(t)'))) {
+  Apply-NativePatch $TokenRowsPatchFile "Qwen3-TTS bounded token rows"
 }
 
 cmake -S $SourceDir -B $BuildDir -DGGML_CUDA=ON -DLLAMA_CURL=OFF
@@ -48,4 +70,5 @@ if (-not (Test-Path $Tts)) { throw "llama-tts.exe was not built" }
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-stream-frames" | Out-Null
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-persistent" | Out-Null
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-no-conditioning-cache" | Out-Null
+& $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-conditioning-cache-rows" | Out-Null
 Write-Host "Built patched llama-server and llama-tts in $BuildDir"

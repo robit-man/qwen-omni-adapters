@@ -1,0 +1,261 @@
+diff --git a/common/arg.cpp b/common/arg.cpp
+index 868ceabbb..14e88643f 100644
+--- a/common/arg.cpp
++++ b/common/arg.cpp
+@@ -4466,6 +4466,16 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
+         "disable model-bound immutable speaker/token conditioning reuse (comparison baseline)",
+         [](common_params & params) { params.tts_conditioning_cache = false; }
+     ).set_examples({LLAMA_EXAMPLE_TTS}));
++    add_opt(common_arg(
++        {"--tts-conditioning-cache-rows"}, "N",
++        "maximum immutable token rows to cache (0-4096, also capped at 8 MiB)",
++        [](common_params & params, int value) {
++            if (value < 0 || value > 4096) {
++                throw std::invalid_argument("TTS row cache must be between 0 and 4096");
++            }
++            params.tts_conditioning_cache_rows = value;
++        }
++    ).set_examples({LLAMA_EXAMPLE_TTS}));
+ 
+     //
+     // diffusion params
+diff --git a/common/common.h b/common/common.h
+index 4050477e0..289e63ac2 100644
+--- a/common/common.h
++++ b/common/common.h
+@@ -757,6 +757,7 @@ struct common_params {
+     int32_t tts_stream_frames = 72;
+     bool tts_persistent = false;
+     bool tts_conditioning_cache = true;
++    int32_t tts_conditioning_cache_rows = 512;
+ 
+     bool is_gen_docs = false; // whether we are running inside llama-gen-docs
+ };
+diff --git a/src/llama-ext.h b/src/llama-ext.h
+index 92a759b7a..1d01aafa7 100644
+--- a/src/llama-ext.h
++++ b/src/llama-ext.h
+@@ -132,3 +132,8 @@ LLAMA_API uint32_t        llama_model_target_layer_ids_n(const struct llama_mode
+ // if out is nullptr, returns the number of tokens without writing to out
+ // caller must allocate enough memory for out before calling
+ LLAMA_API uint32_t llama_model_get_tok_embd(const struct llama_model * model, float * out);
++
++// Read one row from the existing checkpoint without expanding the whole table.
++// With out == nullptr, query the row width; return 0 for invalid ids/capacity.
++LLAMA_API uint32_t llama_model_get_tok_embd_row(const struct llama_model * model,
++    llama_token token, float * out, size_t capacity);
+diff --git a/src/llama-model.cpp b/src/llama-model.cpp
+index e679b24e8..d08f462a2 100644
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -3223,3 +3223,37 @@ uint32_t llama_model_get_tok_embd(const struct llama_model * model, float * out)
+ 
+     return (uint32_t) nelements;
+ }
++
++uint32_t llama_model_get_tok_embd_row(const struct llama_model * model,
++        llama_token token, float * out, size_t capacity) {
++    if (!model || !model->tok_embd || token < 0 || token >= model->tok_embd->ne[1]) {
++        return 0;
++    }
++    const ggml_tensor * tensor = model->tok_embd;
++    const size_t width = (size_t) tensor->ne[0];
++    if (width > UINT32_MAX || (out && capacity < width)) {
++        return 0;
++    }
++    if (!out) {
++        return (uint32_t) width;
++    }
++    const size_t offset = (size_t) token * tensor->nb[1];
++    if (tensor->type == GGML_TYPE_F32) {
++        ggml_backend_tensor_get(tensor, out, offset, width * sizeof(float));
++        return (uint32_t) width;
++    }
++    std::vector<uint8_t> bytes(ggml_row_size(tensor->type, width));
++    ggml_backend_tensor_get(tensor, bytes.data(), offset, bytes.size());
++    if (tensor->type == GGML_TYPE_F16) {
++        ggml_fp16_to_fp32_row((const ggml_fp16_t *) bytes.data(), out, width);
++    } else if (tensor->type == GGML_TYPE_BF16) {
++        ggml_bf16_to_fp32_row((const ggml_bf16_t *) bytes.data(), out, width);
++    } else {
++        const auto * traits = ggml_get_type_traits(tensor->type);
++        if (!ggml_is_quantized(tensor->type) || !traits->to_float) {
++            return 0;
++        }
++        traits->to_float(bytes.data(), out, width);
++    }
++    return (uint32_t) width;
++}
+diff --git a/tools/mtmd/mtmd-helper-gen.cpp b/tools/mtmd/mtmd-helper-gen.cpp
+index 9b867ef4c..5b4752dcc 100644
+--- a/tools/mtmd/mtmd-helper-gen.cpp
++++ b/tools/mtmd/mtmd-helper-gen.cpp
+@@ -8,8 +8,10 @@
+ #include <cctype>
+ #include <cmath>
+ #include <cstring>
++#include <deque>
+ #include <memory>
+ #include <string>
++#include <stdexcept>
+ #include <unordered_map>
+ #include <vector>
+ 
+@@ -79,7 +81,12 @@ static bool write_wav16(std::vector<char> & buf, const std::vector<float> & pcm,
+ struct mtmd_helper_gen_audio_cache {
+     const llama_model * model = nullptr;
+     const mtmd_context * mctx = nullptr;
+-    std::vector<float> token_embeddings;
++    // Checkpoint rows only: bounded by both row count and 8 MiB, independent
++    // of vocabulary size. No full F32 table or duplicated neural weights.
++    std::unordered_map<llama_token, std::vector<float>> token_rows;
++    std::deque<llama_token> row_order;
++    size_t max_rows = 512;
++    mtmd_helper_gen_audio_row_stats row_stats{};
+     std::vector<llama_token> special_tokens;
+     // One reference, bounded to 16 MiB of normalized input. Exact content
+     // comparison also detects in-place mutation and bitmap-address reuse.
+@@ -108,6 +115,20 @@ mtmd_helper_gen_audio_cache_stats mtmd_helper_gen_audio_cache_get_stats(
+     return cache ? cache->stats : mtmd_helper_gen_audio_cache_stats{};
+ }
+ 
++mtmd_helper_gen_audio_row_stats mtmd_helper_gen_audio_cache_get_row_stats(
++        const mtmd_helper_gen_audio_cache * cache) {
++    return cache ? cache->row_stats : mtmd_helper_gen_audio_row_stats{};
++}
++
++void mtmd_helper_gen_audio_cache_set_row_limit(mtmd_helper_gen_audio_cache * cache, uint32_t rows) {
++    if (cache) {
++        cache->max_rows = std::min<size_t>(rows, 4096);
++        cache->token_rows.clear();
++        cache->row_order.clear();
++        cache->row_stats.cached_bytes = 0;
++    }
++}
++
+ class mtmd_gen_audio_pipeline {
+ public:
+     mtmd_gen_audio_pipeline(llama_context * lctx, mtmd_context * mctx)
+@@ -140,8 +161,7 @@ class qwen3tts_gen_audio_pipeline : public mtmd_gen_audio_pipeline {
+ public:
+     qwen3tts_gen_audio_pipeline(llama_context * lctx, mtmd_context * mctx,
+                                mtmd_helper_gen_audio_cache * cache)
+-        : mtmd_gen_audio_pipeline(lctx, mctx), conditioning(cache ? cache : &local_cache),
+-          tok_embd(conditioning->token_embeddings) {}
++        : mtmd_gen_audio_pipeline(lctx, mctx), conditioning(cache ? cache : &local_cache) {}
+ 
+     void reset() override {
+         seq_id = 0;
+@@ -209,8 +229,30 @@ public:
+ 
+         const int n_e = n_embd;
+         auto row = [&](llama_token t) {
+-            return std::vector<float>(tok_embd.begin() + (size_t) t * n_e,
+-                                       tok_embd.begin() + (size_t) (t + 1) * n_e);
++            auto cached = conditioning->token_rows.find(t);
++            if (cached != conditioning->token_rows.end()) {
++                conditioning->row_stats.row_hits++;
++                return cached->second;
++            }
++            std::vector<float> value(n_e);
++            if (llama_model_get_tok_embd_row(model, t, value.data(), value.size()) != (uint32_t) n_e) {
++                throw std::runtime_error("model-bound TTS token row is unavailable");
++            }
++            conditioning->row_stats.row_reads++;
++            const size_t bytes = value.size() * sizeof(float);
++            const size_t limit = std::min<size_t>(conditioning->max_rows, (8 * 1024 * 1024) / bytes);
++            if (limit > 0) {
++                if (conditioning->token_rows.size() >= limit) {
++                    const auto oldest = conditioning->row_order.front();
++                    conditioning->row_stats.cached_bytes -= conditioning->token_rows.at(oldest).size() * sizeof(float);
++                    conditioning->token_rows.erase(oldest);
++                    conditioning->row_order.pop_front();
++                }
++                conditioning->token_rows.emplace(t, value);
++                conditioning->row_order.push_back(t);
++                conditioning->row_stats.cached_bytes += bytes;
++            }
++            return value;
+         };
+         auto sum_row = [&](llama_token a, llama_token b) {
+             std::vector<float> va = row(a), vb = row(b);
+@@ -394,7 +436,7 @@ private:
+         if (specials_ok) {
+             return true;
+         }
+-        if (conditioning->special_tokens.size() == 10 && !tok_embd.empty()) {
++        if (conditioning->special_tokens.size() == 10) {
+             llama_token * targets[] = { &codec_0, &codec_bos, &codec_eos, &codec_pad,
+                 &c_think, &c_think_b, &c_think_e, &tts_pad, &tts_bos, &tts_eos };
+             for (size_t i = 0; i < 10; ++i) {
+@@ -421,17 +463,10 @@ private:
+                 return false;
+             }
+         }
+-        const uint32_t n_tok_embd = llama_model_get_tok_embd(model, nullptr);
+-        if (n_tok_embd == 0) {
+-            LOG_ERR("mtmd_helper_gen_audio: model has no token embeddings\n");
+-            return false;
+-        }
+-        tok_embd.resize(n_tok_embd);
+-        if (llama_model_get_tok_embd(model, tok_embd.data()) != n_tok_embd) {
+-            LOG_ERR("mtmd_helper_gen_audio: token embedding copy failed\n");
++        if (llama_model_get_tok_embd_row(model, 0, nullptr, 0) != (uint32_t) n_embd) {
++            LOG_ERR("mtmd_helper_gen_audio: token row width does not match the TTS model\n");
+             return false;
+         }
+-        conditioning->stats.token_table_loads++;
+         conditioning->special_tokens = { codec_0, codec_bos, codec_eos, codec_pad,
+             c_think, c_think_b, c_think_e, tts_pad, tts_bos, tts_eos };
+         specials_ok = true;
+@@ -508,7 +543,6 @@ private:
+     llama_token tts_eos    = LLAMA_TOKEN_NULL;
+     mtmd_helper_gen_audio_cache local_cache;
+     mtmd_helper_gen_audio_cache * conditioning;
+-    std::vector<float> & tok_embd; // immutable table shared only by matching model contexts
+ 
+     // must match hparams.wav_tfm_swa hardcoded in clip.cpp
+     size_t window_frames = 72;
+diff --git a/tools/mtmd/mtmd-helper.h b/tools/mtmd/mtmd-helper.h
+index feb49cfd4..cfea7ac7d 100644
+--- a/tools/mtmd/mtmd-helper.h
++++ b/tools/mtmd/mtmd-helper.h
+@@ -203,6 +203,15 @@ MTMD_API mtmd_helper_gen_audio_cache * mtmd_helper_gen_audio_cache_init(
+ MTMD_API void mtmd_helper_gen_audio_cache_free(mtmd_helper_gen_audio_cache * cache);
+ MTMD_API struct mtmd_helper_gen_audio_cache_stats mtmd_helper_gen_audio_cache_get_stats(
+     const mtmd_helper_gen_audio_cache * cache);
++struct mtmd_helper_gen_audio_row_stats {
++    uint64_t row_reads;
++    uint64_t row_hits;
++    uint64_t cached_bytes;
++};
++MTMD_API struct mtmd_helper_gen_audio_row_stats mtmd_helper_gen_audio_cache_get_row_stats(
++    const mtmd_helper_gen_audio_cache * cache);
++MTMD_API void mtmd_helper_gen_audio_cache_set_row_limit(
++    mtmd_helper_gen_audio_cache * cache, uint32_t rows);
+ MTMD_API mtmd_helper_gen_audio * mtmd_helper_gen_audio_init_cached(
+     struct llama_context * lctx, struct mtmd_context * mctx,
+     mtmd_helper_gen_audio_cache * cache);
+diff --git a/tools/tts/tts.cpp b/tools/tts/tts.cpp
+index 8c70401ad..8778e400d 100644
+--- a/tools/tts/tts.cpp
++++ b/tools/tts/tts.cpp
+@@ -156,6 +156,7 @@ int main(int argc, char ** argv) {
+         conditioning_cache(params.tts_conditioning_cache
+             ? mtmd_helper_gen_audio_cache_init(lctx, mctx.get()) : nullptr,
+             mtmd_helper_gen_audio_cache_free);
++    mtmd_helper_gen_audio_cache_set_row_limit(conditioning_cache.get(), params.tts_conditioning_cache_rows);
+ 
+     auto generate = [&](const std::string & prompt, bool framed) -> bool {
+         mtmd_helper::gen_audio gen(lctx, mctx.get(), conditioning_cache.get());
+@@ -321,6 +322,10 @@ int main(int argc, char ** argv) {
+                         (unsigned long long) stats.token_table_loads,
+                         (unsigned long long) stats.speaker_encodes,
+                         (unsigned long long) stats.speaker_hits);
++                    const auto rows = mtmd_helper_gen_audio_cache_get_row_stats(conditioning_cache.get());
++                    LOG_INF("tts token rows: reads=%llu hits=%llu cached_bytes=%llu\n",
++                        (unsigned long long) rows.row_reads, (unsigned long long) rows.row_hits,
++                        (unsigned long long) rows.cached_bytes);
+                 }
+                 if (!generated) {
+                     const std::string error = "persistent TTS generation failed";

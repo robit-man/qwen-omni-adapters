@@ -27,13 +27,18 @@
         "phase-b-conditioning.json",
         "phase-b-conditioning.md",
         "phase-b-validation.json"
-      ]
+      ],
+      "commit": "0d24e48"
     },
     {
       "id": "B2",
       "objective": "Lower TTS loading and memory cost through bounded token-row reads",
-      "status": "pending",
-      "evidence": []
+      "status": "verified_on_scoped_A100_same_checkpoint",
+      "evidence": [
+        "phase-b-token-rows.json",
+        "phase-b-token-rows.md",
+        "phase-b-token-rows-validation.json"
+      ]
     },
     {
       "id": "B3",

@@ -11,6 +11,7 @@ STREAM_STATE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-stream-state.patch
 JSON_PATTERN_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-json-pattern-safety.patch
 JSON_STRING_BOUNDS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-json-string-bounds.patch
 CONDITIONING_CACHE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-conditioning-cache.patch
+TOKEN_ROWS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-token-rows.patch
 BUILD_DIR=${LLAMA_CPP_BUILD_DIR:-$SOURCE_DIR/build}
 if command -v nproc >/dev/null 2>&1; then
   default_jobs=$(nproc)
@@ -128,7 +129,20 @@ fi
 # Independent common-code fix; do not fold it into the overlapping TTS markers.
 apply_patch_file "$JSON_PATTERN_PATCH_FILE" "JSON pattern string safety"
 apply_patch_file "$JSON_STRING_BOUNDS_PATCH_FILE" "JSON string length bounds"
-apply_patch_file "$CONDITIONING_CACHE_PATCH_FILE" "Qwen3-TTS immutable conditioning cache"
+if patch_marker_present common/arg.cpp '"--tts-no-conditioning-cache"' \
+  && patch_marker_present tools/mtmd/mtmd-helper-gen.cpp 'mtmd_helper_gen_audio_cache_init(' \
+  && patch_marker_present tools/tts/tts.cpp 'conditioning_cache.get()'; then
+  printf 'Qwen3-TTS immutable conditioning cache patch is already applied\n'
+else
+  apply_patch_file "$CONDITIONING_CACHE_PATCH_FILE" "Qwen3-TTS immutable conditioning cache"
+fi
+if patch_marker_present common/arg.cpp '"--tts-conditioning-cache-rows"' \
+  && patch_marker_present src/llama-model.cpp 'uint32_t llama_model_get_tok_embd_row(' \
+  && patch_marker_present tools/mtmd/mtmd-helper-gen.cpp 'conditioning->token_rows.find(t)'; then
+  printf 'Qwen3-TTS bounded token rows patch is already applied\n'
+else
+  apply_patch_file "$TOKEN_ROWS_PATCH_FILE" "Qwen3-TTS bounded token rows"
+fi
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in
@@ -166,4 +180,5 @@ cmake --build "$BUILD_DIR" --target llama-server llama-tts --parallel "$BUILD_JO
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-stream-frames'
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-persistent'
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-no-conditioning-cache'
+"$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-conditioning-cache-rows'
 printf 'Built patched llama-server and llama-tts in %s\n' "$BUILD_DIR/bin"

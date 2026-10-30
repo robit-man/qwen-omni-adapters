@@ -31,6 +31,39 @@ PROMPTS = (
 )
 
 
+def ensure_with_matching_libraries(worker: PersistentTTSWorker, spec) -> dict[str, str]:
+    """A copied ELF must use its matching libraries rather than build RUNPATH."""
+    directory = worker.config.binary.parent.resolve()
+    previous = os.environ.get("LD_LIBRARY_PATH")
+    try:
+        os.environ["LD_LIBRARY_PATH"] = str(directory)
+        worker.ensure(spec)
+    finally:
+        if previous is None:
+            os.environ.pop("LD_LIBRARY_PATH", None)
+        else:
+            os.environ["LD_LIBRARY_PATH"] = previous
+    paths = {}
+    for line in Path(f"/proc/{worker.pid}/maps").read_text().splitlines():
+        fields = line.split(maxsplit=5)
+        if len(fields) != 6 or not fields[5].startswith("/"):
+            continue
+        path = Path(fields[5])
+        if path.name.startswith(("libllama.so", "libllama-common.so", "libmtmd.so")):
+            assert path.parent.resolve() == directory, f"wrong native library for comparison: {path}"
+            paths[path.name] = str(path)
+    assert any(name.startswith("libllama.so") for name in paths)
+    assert any(name.startswith("libmtmd.so") for name in paths)
+    return paths
+
+
+def counter_log(worker: PersistentTTSWorker) -> str:
+    # pread does not move the descriptor shared with the native stderr writer.
+    handle = worker.stderr_log
+    size = os.fstat(handle.fileno()).st_size
+    return os.pread(handle.fileno(), min(size, 8192), max(0, size - 8192)).decode(errors="replace")
+
+
 def wait_for_broker_ready(token: str) -> None:
     deadline = time.monotonic() + 90
     while time.monotonic() < deadline:
@@ -46,6 +79,9 @@ def wait_for_broker_ready(token: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
+    parser.add_argument("--baseline-binary", type=Path)
+    parser.add_argument("--baseline-keep-cache", action="store_true")
+    parser.add_argument("--expected-full-table-loads", type=int, choices=(0, 1), default=0)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--projector", type=Path, required=True)
     parser.add_argument("--reference", action="append", type=Path, required=True)
@@ -66,20 +102,25 @@ def main() -> None:
                     projector=args.projector.resolve(), gpu_uuid=uuid, require_gpu=True,
                     timeout_s=120, residency_timeout_s=90, max_frames=96, stream_frames=2)
     report = {"schema": "robit.omni.tts-conditioning-benchmark.v1", "gpu_uuid": uuid,
-              "scope": "same native graph, cache disabled/enabled, seeded PCM equality",
+              "scope": "same checkpoint, baseline/candidate seeded PCM equality",
+              "baseline_binary": str((args.baseline_binary or args.binary).resolve()),
+              "candidate_binary": str(args.binary.resolve()),
+              "baseline_conditioning_cache_enabled": args.baseline_keep_cache,
               "samples": [], "prompts": list(PROMPTS)}
     admitted = False
     for reference in args.reference:
         reference = reference.resolve()
         for enabled in (False, True):
-            worker = PersistentTTSWorker(replace(config, conditioning_cache=enabled))
+            active_binary = args.binary if enabled else (args.baseline_binary or args.binary)
+            worker = PersistentTTSWorker(replace(config, binary=active_binary.resolve(),
+                conditioning_cache=enabled or args.baseline_keep_cache))
             pcm_results = []
             samples = []
             try:
                 first = _synthesis_spec(config, {"text": PROMPTS[0], "speaker_file": str(reference),
                                                 "seed": 42, "stream_frames": 2})
                 load_started = time.monotonic()
-                worker.ensure(first)
+                libraries = ensure_with_matching_libraries(worker, first)
                 load_seconds = time.monotonic() - load_started
                 if not admitted:
                     args.ready_file.touch()
@@ -104,7 +145,8 @@ def main() -> None:
                     (work / (filename + ".wav")).write_bytes(_pcm_wav(raw))
                     time.sleep(.02)  # allow redacted native counter logs to flush after D
                     counters = re.findall(r"token_tables=(\d+) speaker_encodes=(\d+) speaker_hits=(\d+)",
-                                          worker._diagnostic())
+                                          counter_log(worker))
+                    rows = re.findall(r"reads=(\d+) hits=(\d+) cached_bytes=(\d+)", counter_log(worker))
                     hwm = next((line.split()[1] for line in Path(f"/proc/{pid}/status").read_text().splitlines()
                                 if line.startswith("VmHWM:")), None)
                     sample = {"index": index, "first_pcm_s": first_pcm, "total_s": elapsed,
@@ -112,12 +154,16 @@ def main() -> None:
                               "audio_s": len(raw) / 48000, "worker_pid": pid,
                               "cpu_peak_rss_kib": int(hwm) if hwm else None,
                               "conditioning_counters": list(map(int, counters[-1])) if counters else None,
+                              "row_counters": list(map(int, rows[-1])) if rows else None,
                               "pcm_continuity": analyze_pcm(raw, stream_frames=2)}
+                    assert sample["pcm_continuity"]["ok"], "raw PCM continuity gate failed"
                     samples.append(sample)
                 assert pcm_results[0] == pcm_results[2], "A/B/A retained decoded request state"
                 report["samples"].append({"reference_sha256": hashlib.sha256(reference.read_bytes()).hexdigest(),
                     "reference_name": reference.name, "cache_enabled": enabled, "load_s": load_seconds,
-                    "a_b_a_identical": True, "runs": samples})
+                    "native_libraries": libraries,
+                    "a_b_a_identical": True, "cold_request_first_pcm_s": load_seconds + samples[0]["first_pcm_s"],
+                    "runs": samples})
                 print(json.dumps({"reference": reference.name, "cache": enabled,
                                   "first_pcm_s": [x["first_pcm_s"] for x in samples]}), flush=True)
             finally:
@@ -126,7 +172,9 @@ def main() -> None:
         baseline, cached = report["samples"][offset:offset + 2]
         assert [x["pcm_sha256"] for x in baseline["runs"]] == [x["pcm_sha256"] for x in cached["runs"]], \
             "conditioning cache changed synthesized PCM"
-        assert cached["runs"][-1]["conditioning_counters"] == [1, 1, 2]
+        assert cached["runs"][-1]["conditioning_counters"] == [args.expected_full_table_loads, 1, 2]
+        if args.expected_full_table_loads == 0:
+            assert cached["runs"][-1]["row_counters"][2] <= 8 * 1024 * 1024
         before = statistics.median(x["first_pcm_s"] for x in baseline["runs"][1:])
         after = statistics.median(x["first_pcm_s"] for x in cached["runs"][1:])
         cached["warm_first_pcm_reduction_percent"] = (1 - after / before) * 100

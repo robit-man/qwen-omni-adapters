@@ -1,0 +1,27 @@
+{
+  "schema": "robit.omni.upgrade-validation.v1",
+  "milestone": "B2",
+  "source_gate": {
+    "tests": "5019",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "269.691"
+  },
+  "validate_exit_code": 0,
+  "native_build_exit_code": 0,
+  "native_pcm_comparisons": 12,
+  "all_pcm_continuity_gates_passed": true,
+  "all_control_candidate_pcm_identical": true,
+  "baseline_libraries_verified_from_process_maps": true,
+  "gpu_lease_released": true,
+  "whole_phase_b_complete": false,
+  "artifact_sha256": {
+    "patches/llama.cpp-qwen3tts-token-rows.patch": "6b7b389b433d7fd6494f3016b6c89686c8911062763bd5772d2bb40cd2e4cc6f",
+    "runtime/benchmark_tts_conditioning.py": "1f5c959ee6db757a18a7e008c3592b893703034f592635f21b9a9f334a36c12f",
+    "scripts/build_llama_cpp.sh": "b7a5eab6f0fe2c765edbd69f7e0deaea878957da1e7238083c24a120d6eeacc7",
+    "scripts/build_llama_cpp.ps1": "ef4e18fee312554cd7f05c753fb3479b566580e307cd65bd1127a29ea5ed3c71",
+    "docs/upgrades/phase-b-token-rows.json": "b31b2b55d394841b344be566fc7332adef995e612cf3e52594cd805dbc0f7402",
+    "runtime-data/upgrade-evidence/phase-b-token-rows-source.log": "31ab8a49ef8b103b74c190cd7f6dd79d9af4213a5e4220e8af74f5aec150bcb0"
+  }
+}
