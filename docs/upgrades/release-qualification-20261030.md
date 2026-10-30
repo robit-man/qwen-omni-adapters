@@ -4,7 +4,8 @@
 The complete corresponding weight packages, manifests, component licenses and
 model cards are staged locally; their cards explicitly say qualification is
 incomplete. Publication remains conditional on the user's parity requirement.
-An experimental-preview exception was requested and has not been granted.
+The user explicitly chose repair before publication; experimental previews of
+these failed candidates are not authorized.
 
 The user assigned Ornith 1.5 to the 32 GB Tegra234 Orin and Qwen3.8 to the
 current A100 host. The Qwen3.8 32 GB Orin attempt is diagnostic evidence, not

@@ -1,0 +1,112 @@
+{
+  "schema": "robit.omni.environmental-perception-evaluation.v1",
+  "family": "ornith",
+  "split": "validation",
+  "context_tokens": 4096,
+  "kv": "f16",
+  "input_manifest_sha256": "b4d82fa330ec886fbeb4348ef39c99366f7cad9bee9c08f56baafd61eaaee87c",
+  "rows": [
+    {
+      "id": "probe-speech",
+      "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "labels": [
+        "speech"
+      ],
+      "mids": [],
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>No discernible sounds beyond the spoken words; no music, ambient noise, or background effects detected.</audio_observation>",
+      "audio_observation": "No discernible sounds beyond the spoken words; no music, ambient noise, or background effects detected.",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 0.6310785380192101
+    },
+    {
+      "id": "probe-silence",
+      "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "labels": [
+        "silence"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Short burst of soft electronic beeps, each with a faint high-pitched ring, followed by a low rumbling hum.</audio_observation>",
+      "audio_observation": "Short burst of soft electronic beeps, each with a faint high-pitched ring, followed by a low rumbling hum.",
+      "transcript": null,
+      "elapsed_s": 0.6171761069563217
+    },
+    {
+      "id": "probe-alarm",
+      "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+      "labels": [
+        "alarm"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A single continuous synthetic voice, likely AI-generated, speaking in English with a calm, measured tone and no background music or ambient sound.</audio_observation>",
+      "audio_observation": "A single continuous synthetic voice, likely AI-generated, speaking in English with a calm, measured tone and no background music or ambient sound.",
+      "transcript": null,
+      "elapsed_s": 0.613523914013058
+    },
+    {
+      "id": "probe-noise",
+      "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+      "labels": [
+        "noise"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Continuous low-level broadband hiss throughout, resembling tape or digital noise floor. No speech, no tonal content, no distinct transient events.</audio_observation>",
+      "audio_observation": "Continuous low-level broadband hiss throughout, resembling tape or digital noise floor. No speech, no tonal content, no distinct transient events.",
+      "transcript": null,
+      "elapsed_s": 0.6404252270003781
+    },
+    {
+      "id": "probe-music",
+      "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+      "labels": [
+        "music"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A short, quiet recording with no discernible speech. A faint low hum persists throughout the background. Around 0:02 to 0:03 there is a soft indistinct vocal murmur or breathy sound that fades quickly. The remainder of the clip is near silence with only subtle ambient noise.</audio_observation>",
+      "audio_observation": "A short, quiet recording with no discernible speech. A faint low hum persists throughout the background. Around 0:02 to 0:03 there is a soft indistinct vocal murmur or breathy sound that fades quickly. The remainder of the clip is near silence with only subtle ambient noise.",
+      "transcript": null,
+      "elapsed_s": 0.9230418410152197
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+      "labels": [
+        "esc50-clock_alarm"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A single sustained low-frequency rumble, likely an engine or machinery sound, with no other discernible acoustic events.</audio_observation>",
+      "audio_observation": "A single sustained low-frequency rumble, likely an engine or machinery sound, with no other discernible acoustic events.",
+      "transcript": null,
+      "elapsed_s": 0.5935322049772367
+    },
+    {
+      "id": "probe-esc50-dog",
+      "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+      "labels": [
+        "esc50-dog"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Female voice speaking in English, describing the process of making a cake from scratch, mentioning gathering ingredients like flour and sugar, mixing them together, adding eggs, baking it in an oven, and finally cutting into slices to eat. The speech is conversational and instructional in tone.</audio_observation>",
+      "audio_observation": "Female voice speaking in English, describing the process of making a cake from scratch, mentioning gathering ingredients like flour and sugar, mixing them together, adding eggs, baking it in an oven, and finally cutting into slices to eat. The speech is conversational and instructional in tone.",
+      "transcript": null,
+      "elapsed_s": 0.8628829179797322
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+      "labels": [
+        "esc50-church_bells"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible musical performance consisting of an electric guitar riff played with a distorted, overdriven tone and heavy reverb/delay effects creating a shimmering, echoing texture. The melody is fast and melodic, moving in quick ascending and descending runs typical of rock or metal guitar work. Underneath the lead guitar there are faint percussive elements suggesting drum hits, including what sounds like kick and snare strikes providing rhythmic grounding. No intelligible speech is present throughout the clip.</audio_observation>",
+      "audio_observation": "Audible musical performance consisting of an electric guitar riff played with a distorted, overdriven tone and heavy reverb/delay effects creating a shimmering, echoing texture. The melody is fast and melodic, moving in quick ascending and descending runs typical of rock or metal guitar work. Underneath the lead guitar there are faint percussive elements suggesting drum hits, including what sounds like kick and snare strikes providing rhythmic grounding. No intelligible speech is present throughout the clip.",
+      "transcript": null,
+      "elapsed_s": 1.2212557379971258
+    }
+  ],
+  "complete": true,
+  "quality_gate_passed": false,
+  "model_path": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+  "projector_path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-repair1-projector.gguf",
+  "elapsed_s": 6.109692936995998,
+  "primary_gpu_resident": true
+}

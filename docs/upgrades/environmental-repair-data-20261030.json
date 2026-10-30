@@ -1,0 +1,32 @@
+{
+  "schema": "robit.omni.environmental-repair-data.v1",
+  "seed": 20261030,
+  "only_CC0_audio_added": true,
+  "dataset_entity_license": "CC-BY-4.0",
+  "dataset_source": "https://zenodo.org/records/4060432",
+  "excluded_ESC50_source_ids": 1524,
+  "source_ids_overlap_ESC50": 0,
+  "uploader_disjoint_environmental_splits": true,
+  "speech_like_ontology_classes_excluded": true,
+  "source_hash_split_overlap": false,
+  "counts": {
+    "train": 5521,
+    "test": 555,
+    "validation": 400
+  },
+  "new_environmental_counts": {
+    "test": 400,
+    "train": 2200,
+    "validation": 240
+  },
+  "new_leaf_mid_count": 180,
+  "replay_records": 3636,
+  "manifest_sha256": "ce07f73c91464aa2ac8e6969e43a3460db11ceb8200ebf0a76dcef077452ca61",
+  "replay_manifest_sha256": "65384f60557f0339782f5c3cde39561b89f6a7feb42ff5878f890df109f91802",
+  "audio_normalization": "scipy-resample-poly-160-441-rint-pcm16-v1",
+  "normalization_numpy_version": "2.5.3",
+  "feature_or_model_training_performed": false,
+  "full_archive_md5_verified": false,
+  "per_entry_CRC32_and_source_SHA256_recorded": true,
+  "elapsed_s": 4.238709959026892
+}

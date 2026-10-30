@@ -1,0 +1,187 @@
+{
+  "all_pcm_exact": true,
+  "pcm_stream_verifier": "runtime/verify_pcm_stream.py:analyze_pcm",
+  "cases": [
+    {
+      "file": "reference-0-0.wav",
+      "ok": true,
+      "sample_rate": 24000,
+      "samples": 96000,
+      "duration_seconds": 4.0,
+      "stream_frames": 2,
+      "window_samples": 3840,
+      "complete_windows": 25,
+      "tail_samples": 0,
+      "start_sample": {
+        "median": 0.0,
+        "minimum": -0.437957763671875,
+        "maximum": 0.341278076171875,
+        "standard_deviation": 0.15744972121562614
+      },
+      "shared_prefix_rms_ratio": {
+        "1": 0.2938766169725385,
+        "10": 0.44187769771537055,
+        "20": 0.497134906632648
+      },
+      "boundary_jump_over_local_rms": {
+        "median": 0.07551078441341377,
+        "maximum": 0.7690790905580205
+      },
+      "limits": {
+        "median_boundary_jump_over_local_rms": 0.35,
+        "shared_prefix_1ms_rms_ratio": 0.85
+      }
+    },
+    {
+      "file": "reference-0-1.wav",
+      "ok": true,
+      "sample_rate": 24000,
+      "samples": 74880,
+      "duration_seconds": 3.12,
+      "stream_frames": 2,
+      "window_samples": 3840,
+      "complete_windows": 19,
+      "tail_samples": 1920,
+      "start_sample": {
+        "median": 0.011688232421875,
+        "minimum": -0.234344482421875,
+        "maximum": 0.429412841796875,
+        "standard_deviation": 0.16390230865952615
+      },
+      "shared_prefix_rms_ratio": {
+        "1": 0.2212812384812748,
+        "10": 0.18285992766574688,
+        "20": 0.261712854739977
+      },
+      "boundary_jump_over_local_rms": {
+        "median": 0.13732197967653154,
+        "maximum": 1.7816380571166277
+      },
+      "limits": {
+        "median_boundary_jump_over_local_rms": 0.35,
+        "shared_prefix_1ms_rms_ratio": 0.85
+      }
+    },
+    {
+      "file": "reference-0-2.wav",
+      "ok": true,
+      "sample_rate": 24000,
+      "samples": 96000,
+      "duration_seconds": 4.0,
+      "stream_frames": 2,
+      "window_samples": 3840,
+      "complete_windows": 25,
+      "tail_samples": 0,
+      "start_sample": {
+        "median": 0.0,
+        "minimum": -0.437957763671875,
+        "maximum": 0.341278076171875,
+        "standard_deviation": 0.15744972121562614
+      },
+      "shared_prefix_rms_ratio": {
+        "1": 0.2938766169725385,
+        "10": 0.44187769771537055,
+        "20": 0.497134906632648
+      },
+      "boundary_jump_over_local_rms": {
+        "median": 0.07551078441341377,
+        "maximum": 0.7690790905580205
+      },
+      "limits": {
+        "median_boundary_jump_over_local_rms": 0.35,
+        "shared_prefix_1ms_rms_ratio": 0.85
+      }
+    },
+    {
+      "file": "reference-1-0.wav",
+      "ok": true,
+      "sample_rate": 24000,
+      "samples": 96000,
+      "duration_seconds": 4.0,
+      "stream_frames": 2,
+      "window_samples": 3840,
+      "complete_windows": 25,
+      "tail_samples": 0,
+      "start_sample": {
+        "median": 0.0,
+        "minimum": -0.437957763671875,
+        "maximum": 0.341278076171875,
+        "standard_deviation": 0.15744972121562614
+      },
+      "shared_prefix_rms_ratio": {
+        "1": 0.2938766169725385,
+        "10": 0.44187769771537055,
+        "20": 0.497134906632648
+      },
+      "boundary_jump_over_local_rms": {
+        "median": 0.07551078441341377,
+        "maximum": 0.7690790905580205
+      },
+      "limits": {
+        "median_boundary_jump_over_local_rms": 0.35,
+        "shared_prefix_1ms_rms_ratio": 0.85
+      }
+    },
+    {
+      "file": "reference-1-1.wav",
+      "ok": true,
+      "sample_rate": 24000,
+      "samples": 74880,
+      "duration_seconds": 3.12,
+      "stream_frames": 2,
+      "window_samples": 3840,
+      "complete_windows": 19,
+      "tail_samples": 1920,
+      "start_sample": {
+        "median": 0.011688232421875,
+        "minimum": -0.234344482421875,
+        "maximum": 0.429412841796875,
+        "standard_deviation": 0.16390230865952615
+      },
+      "shared_prefix_rms_ratio": {
+        "1": 0.2212812384812748,
+        "10": 0.18285992766574688,
+        "20": 0.261712854739977
+      },
+      "boundary_jump_over_local_rms": {
+        "median": 0.13732197967653154,
+        "maximum": 1.7816380571166277
+      },
+      "limits": {
+        "median_boundary_jump_over_local_rms": 0.35,
+        "shared_prefix_1ms_rms_ratio": 0.85
+      }
+    },
+    {
+      "file": "reference-1-2.wav",
+      "ok": true,
+      "sample_rate": 24000,
+      "samples": 96000,
+      "duration_seconds": 4.0,
+      "stream_frames": 2,
+      "window_samples": 3840,
+      "complete_windows": 25,
+      "tail_samples": 0,
+      "start_sample": {
+        "median": 0.0,
+        "minimum": -0.437957763671875,
+        "maximum": 0.341278076171875,
+        "standard_deviation": 0.15744972121562614
+      },
+      "shared_prefix_rms_ratio": {
+        "1": 0.2938766169725385,
+        "10": 0.44187769771537055,
+        "20": 0.497134906632648
+      },
+      "boundary_jump_over_local_rms": {
+        "median": 0.07551078441341377,
+        "maximum": 0.7690790905580205
+      },
+      "limits": {
+        "median_boundary_jump_over_local_rms": 0.35,
+        "shared_prefix_1ms_rms_ratio": 0.85
+      }
+    }
+  ],
+  "full_voice_quality_claimed": false
+}

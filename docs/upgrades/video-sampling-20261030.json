@@ -1,0 +1,574 @@
+{
+  "sampler_and_tokenizer_only": true,
+  "gpu_projector_residency_proven_before_sampling": true,
+  "full_model_video_quality_qualified": false,
+  "all_controls_passed": true,
+  "tts_all_pcm_exact": true,
+  "tts_continuity_cases": 6,
+  "cases": [
+    {
+      "case": "legacy_default",
+      "input_tokens": 1101,
+      "sampling_by_file": {},
+      "videos": [
+        {
+          "fps": 4.0,
+          "frames_rgb_mean": [
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]",
+            "[0m5.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "cap_1_1",
+      "input_tokens": 108,
+      "sampling_by_file": {
+        "0": {
+          "fps": 1.0,
+          "max_frames": 1
+        }
+      },
+      "videos": [
+        {
+          "fps": 0.1666666716337204,
+          "frames_rgb_mean": [
+            [
+              253.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "cap_3_2",
+      "input_tokens": 290,
+      "sampling_by_file": {
+        "0": {
+          "fps": 1.0,
+          "max_frames": 3
+        }
+      },
+      "videos": [
+        {
+          "fps": 0.5,
+          "frames_rgb_mean": [
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]",
+            "[0m2.00s]",
+            "[0m4.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "cap_16_3",
+      "input_tokens": 563,
+      "sampling_by_file": {
+        "0": {
+          "fps": 1.0,
+          "max_frames": 16
+        }
+      },
+      "videos": [
+        {
+          "fps": 1.0,
+          "frames_rgb_mean": [
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]",
+            "[0m1.00s]",
+            "[0m2.00s]",
+            "[0m3.00s]",
+            "[0m4.00s]",
+            "[0m5.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "cap_1_4",
+      "input_tokens": 108,
+      "sampling_by_file": {
+        "0": {
+          "fps": 1.0,
+          "max_frames": 1
+        }
+      },
+      "videos": [
+        {
+          "fps": 0.1666666716337204,
+          "frames_rgb_mean": [
+            [
+              253.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "independent_clips",
+      "input_tokens": 383,
+      "sampling_by_file": {
+        "0": {
+          "fps": 1.0,
+          "max_frames": 1
+        },
+        "1": {
+          "fps": 1.0,
+          "max_frames": 3
+        }
+      },
+      "videos": [
+        {
+          "fps": 0.1666666716337204,
+          "frames_rgb_mean": [
+            [
+              253.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]"
+          ]
+        },
+        {
+          "fps": 0.5,
+          "frames_rgb_mean": [
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]",
+            "[0m2.00s]",
+            "[0m4.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "case": "bad_fps",
+      "accepted": false,
+      "error": "video sampling fps must be in (0, 240]"
+    },
+    {
+      "case": "bad_limit",
+      "accepted": false,
+      "error": "video sampling max_frames must be in [1, 4096]"
+    },
+    {
+      "case": "fraction_limit",
+      "accepted": false,
+      "error": "video sampling max_frames must be an integer"
+    },
+    {
+      "case": "bool_fps",
+      "accepted": false,
+      "error": "video sampling fps must be numeric"
+    },
+    {
+      "case": "bad_sampling",
+      "accepted": false,
+      "error": "video sampling must be an object"
+    },
+    {
+      "case": "untrusted_table_ignored",
+      "input_tokens": 1101,
+      "sampling_by_file": {},
+      "videos": [
+        {
+          "fps": 4.0,
+          "frames_rgb_mean": [
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              253.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              0.0,
+              254.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ],
+            [
+              0.0,
+              254.96666666666667,
+              0.0
+            ]
+          ],
+          "timestamp_text": [
+            "Video:",
+            "[0m0.00s]",
+            "[0m5.00s]"
+          ]
+        }
+      ],
+      "accepted": true
+    }
+  ],
+  "before": {
+    "native_source_revision": "a1d0db7",
+    "model": "legacy_full_omni",
+    "rows": [
+      {
+        "requested_fps": 1.0,
+        "requested_max_frames": 1,
+        "input_tokens": 1101,
+        "elapsed_s": 0.1672099490533583
+      },
+      {
+        "requested_fps": 1.0,
+        "requested_max_frames": 3,
+        "input_tokens": 1101,
+        "elapsed_s": 0.1473762370296754
+      },
+      {
+        "requested_fps": 1.0,
+        "requested_max_frames": 16,
+        "input_tokens": 1101,
+        "elapsed_s": 0.14849142997991294
+      }
+    ],
+    "all_caps_ignored": true
+  },
+  "native_composition": {
+    "all_sixteen_patches_applied_in_order": true,
+    "changed_sources_match_compiled": true,
+    "changed_source_files": 32,
+    "new_patch_sha256": "12c2942babc659fe424387f2c0c8ee05dc9ee91e9d9978c0ad874e786f3c97ac"
+  },
+  "native_binary_sha256": "11099326f456525393f53b469386b796bc84510cb8fc58116eb2a425df3030ce",
+  "libmtmd_sha256": "50b6dde6551d5c755917d6c71e9e6fdb9ba8a3350fb9f483076ef3520477974e",
+  "actual_primary_regression": {
+    "family": "ornith",
+    "device": "A100_regression_only_Orin_release_pending",
+    "context_tokens": 4096,
+    "single_resident_primary_audio_and_visual_passes": true,
+    "rows": [
+      {
+        "max_frames": 3,
+        "transcript": "The blue bicycle is parked beside the garden gate.",
+        "visual_observation": "The video begins with a solid red screen, which persists for the first two seconds. At the two-second mark, the screen transitions to solid blue, holding for two seconds. At the four-second mark, the screen changes to solid green, remaining green until the end of the clip. The entire video consists of these three color blocks with no other visual elements.",
+        "passed": true
+      },
+      {
+        "max_frames": 16,
+        "transcript": "The blue bicycle is parked beside the garden gate.",
+        "visual_observation": "The video begins with a solid red screen, which persists for the first two seconds. At the two-second mark, the screen transitions to solid blue, holding for two seconds. At the four-second mark, the screen changes to solid green, remaining green until the end of the clip. The entire video consists of these three color blocks with no other visual elements.",
+        "passed": true
+      }
+    ],
+    "all_passed": true
+  },
+  "source_tests_passed": 6281,
+  "source_gate_elapsed_s": 282.87
+}

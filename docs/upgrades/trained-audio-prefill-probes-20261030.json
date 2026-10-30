@@ -1,0 +1,112 @@
+{
+  "schema": "robit.omni.environmental-perception-evaluation.v1",
+  "family": "ornith",
+  "split": "validation",
+  "context_tokens": 4096,
+  "kv": "f16",
+  "input_manifest_sha256": "b4d82fa330ec886fbeb4348ef39c99366f7cad9bee9c08f56baafd61eaaee87c",
+  "rows": [
+    {
+      "id": "probe-speech",
+      "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "labels": [
+        "speech"
+      ],
+      "mids": [],
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One synthetic female voice speaking with no background sound.</audio_observation>",
+      "audio_observation": "One synthetic female voice speaking with no background sound.",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 1.4167787819751538
+    },
+    {
+      "id": "probe-silence",
+      "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "labels": [
+        "silence"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Only ambient room hum; no intelligible speech.</audio_observation>",
+      "audio_observation": "Only ambient room hum; no intelligible speech.",
+      "transcript": null,
+      "elapsed_s": 1.041203293018043
+    },
+    {
+      "id": "probe-alarm",
+      "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+      "labels": [
+        "alarm"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A continuous, rapid series of short electronic beeps at a steady interval.</audio_observation>",
+      "audio_observation": "A continuous, rapid series of short electronic beeps at a steady interval.",
+      "transcript": null,
+      "elapsed_s": 1.1500650909729302
+    },
+    {
+      "id": "probe-noise",
+      "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+      "labels": [
+        "noise"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A faint steady room tone throughout; no intelligible speech.</audio_observation>",
+      "audio_observation": "A faint steady room tone throughout; no intelligible speech.",
+      "transcript": null,
+      "elapsed_s": 1.1476212079869583
+    },
+    {
+      "id": "probe-music",
+      "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+      "labels": [
+        "music"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A single sound event: an alarm clock ringing.</audio_observation>",
+      "audio_observation": "A single sound event: an alarm clock ringing.",
+      "transcript": null,
+      "elapsed_s": 0.9316183549817652
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+      "labels": [
+        "esc50-clock_alarm"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Alarm clock.</audio_observation>",
+      "audio_observation": "Audible sound events: Alarm clock.",
+      "transcript": null,
+      "elapsed_s": 0.929272135021165
+    },
+    {
+      "id": "probe-esc50-dog",
+      "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+      "labels": [
+        "esc50-dog"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Bird sound: bird chirping.</audio_observation>",
+      "audio_observation": "Bird sound: bird chirping.",
+      "transcript": null,
+      "elapsed_s": 0.9447011330048554
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+      "labels": [
+        "esc50-church_bells"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Music.</audio_observation>",
+      "audio_observation": "Audible sound events: Music.",
+      "transcript": null,
+      "elapsed_s": 0.9207658219966106
+    }
+  ],
+  "complete": true,
+  "quality_gate_passed": false,
+  "model_path": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+  "projector_path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-repair1-prefill2-projector.gguf",
+  "elapsed_s": 8.488294244976714,
+  "primary_gpu_resident": true
+}

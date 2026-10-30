@@ -1,0 +1,22 @@
+{
+  "schema": "robit.omni.audio-encoder-alignment-validation.v1",
+  "pinned_backend_commit": "458681e1d5d4a29a1463c4732e03226cf384b997",
+  "before_source_tests": 6270,
+  "before_elapsed_s": 291.78,
+  "after_source_tests": 6271,
+  "after_elapsed_s": 286.25,
+  "source_contract_browser_installer_gate_passed": true,
+  "fixture_token_counts_exact": 8,
+  "minimum_projected_feature_cosine": 0.9998301863670349,
+  "native_model_weights_changed": false,
+  "full_reference_tts_pcm_cases": 6,
+  "all_tts_pcm_exact_and_continuity_passed": true,
+  "full_model_semantic_parity_qualified": false,
+  "source_sha256": {
+    "patches/llama.cpp-qwen3a-valid-audio-frames.patch": "f666cf7a6dcbe6e50707345e480086cf334928d5dd6ca0a9c4ac49c78c59a1ff",
+    "scripts/build_llama_cpp.sh": "98878a25adc3c976e4f2687228e2ecb90766fb9e2b201d5e76642b0071eabebc",
+    "scripts/build_llama_cpp.ps1": "ee76afb23591346efe29dbf6c2a8771b3a56c6babc11900a7f476966d6216f5c",
+    "tests/test_native_json_grammar.py": "6fac5ca8bcbfbb9447ac9373557f73e2fb51fb49884919eebd86b47b30b8f25f"
+  },
+  "native_library_sha256": "35f72b1b169d59ca7898f727e60fb034f91be5a66dcf8e43bf6f4e4c2eac8651"
+}

@@ -17,6 +17,10 @@ REFERENCE_ENCODER_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-enc
 REFERENCE_IGPU_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-integrated-gpu.patch
 REFERENCE_PROMPT_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-prompt.patch
 UTTERANCE_STATE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-utterance-state.patch
+AUDIO_FRAMES_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3a-valid-audio-frames.patch
+AUDIO_TAIL_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3a-window-tail.patch
+AUDIO_PREFILL_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3a-trained-prefill.patch
+VIDEO_SAMPLING_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-video-sampling-contract.patch
 BUILD_DIR=${LLAMA_CPP_BUILD_DIR:-$SOURCE_DIR/build}
 if command -v nproc >/dev/null 2>&1; then
   default_jobs=$(nproc)
@@ -184,6 +188,10 @@ if patch_marker_present common/arg.cpp '"--tts-utterance-controls"' \
 else
   apply_patch_file "$UTTERANCE_STATE_PATCH_FILE" "Qwen3-TTS utterance decoder state"
 fi
+apply_patch_file "$AUDIO_FRAMES_PATCH_FILE" "Qwen3A reference audio frame alignment"
+apply_patch_file "$AUDIO_TAIL_PATCH_FILE" "Qwen3A original CNN window-tail batching"
+apply_patch_file "$AUDIO_PREFILL_PATCH_FILE" "Qwen3A versioned trained audio prefill"
+apply_patch_file "$VIDEO_SAMPLING_PATCH_FILE" "Per-clip bounded video sampling"
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in

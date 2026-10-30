@@ -42,9 +42,10 @@
     "Broad/perceptual voice parity, physical playback and p95/p99 qualification remain unclaimed.",
     "Live streaming CTC and decision/retrieval/recurrent heads remain pending; bundled CTC stays disabled."
   ],
-  "preview_override_requested": true,
+  "preview_override_requested": false,
   "fixed_after_initial_audit": [
     "Perception uses one pinned system policy.",
     "Trained bridge mixed-media perception uses separate audio and visual requests through one resident primary; Qwen video speech WER improves from 1.0 to 0.0."
-  ]
+  ],
+  "user_decision": "Repair parity before publishing; no experimental-preview exception (2026-10-30)"
 }

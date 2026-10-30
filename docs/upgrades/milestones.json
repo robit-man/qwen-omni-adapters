@@ -244,6 +244,58 @@
       "evidence": []
     },
     {
+      "id": "E1",
+      "objective": "Align native frozen audio encoder frame accounting and mel preprocessing with the training reference",
+      "status": "eight_fixture_token_counts_exact_and_features_aligned_full_reference_tts_preserved_long_tail_and_semantic_qualification_pending",
+      "evidence": [
+        "audio-encoder-alignment-20261030.md",
+        "audio-encoder-alignment-20261030.json",
+        "audio-encoder-patch-composition-20261030.json",
+        "audio-encoder-tts-regression-20261030.json",
+        "audio-encoder-validation-20261030.json",
+        "environmental-repair-training-20261030.md"
+      ]
+    },
+    {
+      "id": "E2",
+      "objective": "Preserve the original CNN chunk width across short final inference windows",
+      "status": "13_duration_token_counts_exact_tail_features_improved_and_full_reference_PCM_preserved_semantic_qualification_pending",
+      "evidence": [
+        "audio-window-tail-20261030.md",
+        "audio-window-tail-20261030.json"
+      ]
+    },
+    {
+      "id": "E3",
+      "objective": "Match native audio request framing to training with explicit versioned projector metadata and startup compatibility checks",
+      "status": "A100_exact_native_prefix_suffix_all_three_tasks_legacy_boundary_controls_stale_library_refusal_full_reference_PCM_passed_semantic_training_pending",
+      "evidence": [
+        "trained-audio-prefill-20261030.md",
+        "trained-audio-prefill-20261030.json",
+        "trained-audio-prefill-probes-20261030.json"
+      ]
+    },
+    {
+      "id": "E4",
+      "objective": "Make actual per-clip frame sampling honor adapter context limits and retain source timestamps",
+      "status": "A100_native_frame_token_color_controls_and_actual_Ornith_video_speech_PCM_regression_passed_Orin_build_pending",
+      "evidence": [
+        "video-sampling-20261030.md",
+        "video-sampling-20261030.json"
+      ]
+    },
+    {
+      "id": "E5",
+      "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
+      "status": "completed_Ornith_second_run_recovers_bark_alarm_music_bells_still_fail_Qwen_label_only_run_stopped_at950_both_richer_target_projection_runs_in_progress",
+      "evidence": [
+        "rich-acoustic-targets-20261030.md",
+        "rich-acoustic-targets-20261030.json",
+        "ornith-training2-diagnostics-20261030.json",
+        "qwen-training1-diagnostics-20261030.json"
+      ]
+    },
+    {
       "id": "E",
       "objective": "Qualify Ornith on Orin and Qwen3.8 on the current A100 host, preserving complete parity and safe memory",
       "status": "operational_cloning_and_video_speech_passed_Ornith_Orin_Qwen_A100_semantic_environmental_parity_failed",

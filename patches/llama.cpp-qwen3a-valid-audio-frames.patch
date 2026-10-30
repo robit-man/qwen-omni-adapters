@@ -1,0 +1,146 @@
+--- a/tools/mtmd/mtmd-audio.cpp
++++ b/tools/mtmd/mtmd-audio.cpp
+@@ -625,8 +625,8 @@
+ // Matches the Python WhisperFeatureExtractor called with truncation=False:
+ //   - reflection padding of n_fft/2 samples at each end (center=True)
+ //   - Whisper-style log10 + (max-8)/4 normalization applied to full audio
+-//   - output split into ≤30s (3000 mel frames) windows, each padded to a
+-//     multiple of 200 frames (n_window * 2) for the cgraph batch view
++//   - output split into 800-frame inference windows, retaining real lengths;
++//     CNN batching padding is introduced and removed inside the graph
+ //
+ 
+ void mtmd_audio_preprocessor_qwen3a::initialize() {
+@@ -670,6 +670,7 @@
+     params.sample_rate      = hparams.audio_sample_rate;
+     params.no_padding       = true; // reflection padding already applied above
+     params.use_natural_log  = false; // log10
++    params.mel_floor        = 1e-10f; // WhisperFeatureExtractor clamp, including silence
+ 
+     mtmd_audio_mel mel_full;
+     bool ok = log_mel_spectrogram(padded.data(), (int)padded.size(), 4, params, cache, mel_full);
+@@ -677,11 +678,21 @@
+         return false;
+     }
+ 
++    // Whisper drops the final centered STFT frame. Keep real frame counts;
++    // CNN batching padding must not become additional audio evidence.
++    const int64_t n_eff = std::min(mel_full.n_len,
++                               (int64_t)(n_samples / hparams.audio_hop_len));
++    if (n_eff == 0) {
++        return false;
++    }
++
+     // Whisper-style normalization: clamp to (max - 8), scale to [-1, 1]
+     {
+         double mmax = -1e20;
+-        for (float v : mel_full.data) {
+-            if (v > mmax) mmax = v;
++        for (int64_t m = 0; m < mel_full.n_mel; ++m) {
++            for (int64_t f = 0; f < n_eff; ++f) {
++                mmax = std::max(mmax, (double)mel_full.data[m * mel_full.n_len + f]);
++            }
+         }
+         mmax -= 8.0;
+         for (float & v : mel_full.data) {
+@@ -689,25 +700,18 @@
+         }
+     }
+ 
+-    // The effective frame count: center-padded STFT gives ~n_samples/hop_length frames.
+-    // We take min(mel_full.n_len, n_samples/hop + 1) to avoid including excess frames.
+-    const int64_t n_eff = std::min(mel_full.n_len,
+-                               (int64_t)(n_samples / hparams.audio_hop_len) + 1);
+ 
+     // Split into inference windows matching n_window_infer=800 from model config.
+-    // Each window is padded to the next multiple of chunk_size for the cgraph.
++    // The graph pads only for CNN batching and removes padding before attention.
+     // The mtmd caller loops over output entries, so long audio is handled automatically.
+-    const int chunk_size  = 100; // conv sub-chunk size (n_window * 2, n_window=50)
+     const int window_size = 800; // mel frames per forward pass (n_window_infer=800)
+ 
+     for (int64_t off = 0; off < n_eff; off += window_size) {
+         const int64_t win_eff  = std::min((int64_t)window_size, n_eff - off);
+-        const int64_t n_chunks  = (win_eff + chunk_size - 1) / chunk_size;
+-        const int64_t n_padded  = n_chunks * chunk_size;
+ 
+         mtmd_audio_mel out;
+         out.n_mel     = mel_full.n_mel;
+-        out.n_len     = n_padded;
++        out.n_len     = win_eff;
+         out.n_len_org = win_eff;
+         out.data.assign((size_t)out.n_mel * (size_t)out.n_len, 0.0f);
+         for (int64_t m = 0; m < out.n_mel; m++) {
+--- a/tools/mtmd/clip.cpp
++++ b/tools/mtmd/clip.cpp
+@@ -4255,7 +4255,8 @@
+                 // chunk_size=100 frames --> 3x stride-2 conv2d --> 13 tokens per chunk
+                 const int chunk_size       = 100;
+                 const int tokens_per_chunk = 13;
+-                n_patches = (img->nx() / chunk_size) * tokens_per_chunk;
++                n_patches = (img->nx() / chunk_size) * tokens_per_chunk
++                    + ((img->nx() % chunk_size) + 7) / 8;
+             } break;
+         case PROJECTOR_TYPE_GLMA:
+             {
+--- a/tools/mtmd/models/qwen3a.cpp
++++ b/tools/mtmd/models/qwen3a.cpp
+@@ -6,18 +6,21 @@
+     // inp_raw: [n_frames, n_mel, 1]  (nx=n_frames, ny=n_mel)
+     ggml_tensor * inp = build_inp_raw(1);
+ 
+-    const int64_t n_frames   = inp->ne[0]; // total frames, padded to multiple of chunk_size
+-    const int64_t n_mel      = inp->ne[1]; // 128
+-    const int64_t chunk_size = 100;        // n_window * 2 (n_window=50 from model config)
+-    const int64_t n_chunks   = n_frames / chunk_size;
+-
+-    GGML_ASSERT(n_frames % chunk_size == 0); // preprocessor should already pad the input
++    const int64_t n_frames = inp->ne[0]; // real frames, without CNN batching padding
++    const int64_t n_mel = inp->ne[1];
++    GGML_ASSERT(n_frames > 0);
++    const int64_t chunk_size = std::min<int64_t>(100, n_frames);
++    const int64_t n_chunks = (n_frames + chunk_size - 1) / chunk_size;
++    const int64_t n_padded = n_chunks * chunk_size;
+     GGML_ASSERT(inp->type == GGML_TYPE_F32);
++    if (n_padded != n_frames) {
++        inp = ggml_pad(ctx0, inp, n_padded - n_frames, 0, 0, 0);
++    }
+ 
+     // View mel spectrogram as batched 100-frame chunks: [chunk_size, n_mel, 1, n_chunks]
+     inp = ggml_view_4d(ctx0, inp,
+         chunk_size, n_mel, 1, n_chunks,
+-        n_frames   * (int64_t)sizeof(float), // nb[1]: stride over mel bins
++        n_padded   * (int64_t)sizeof(float), // nb[1]: stride over mel bins
+         chunk_size * (int64_t)sizeof(float), // nb[2]: stride for C=1 (unused)
+         chunk_size * (int64_t)sizeof(float), // nb[3]: stride over chunks
+         0);
+@@ -55,18 +58,26 @@
+     }
+     cb(inp, "after_conv_out", -1);
+ 
+-    const int64_t n_pos = inp->ne[1]; // 25 * n_chunks
++    const int64_t n_pos_padded = inp->ne[1];
+ 
+     // Per-chunk positional embeddings: repeat pos[0:13] for each chunk
+     // (position indices reset 0..12 per chunk, not sequential across chunks)
+     {
+-        const int64_t tokens_per_chunk = n_pos / n_chunks; // 13
++        const int64_t tokens_per_chunk = n_pos_padded / n_chunks; // 13
+         ggml_tensor * pos_tmp = ggml_view_2d(ctx0, model.position_embeddings,
+             model.position_embeddings->ne[0], tokens_per_chunk,
+             model.position_embeddings->nb[1], 0);
+         ggml_tensor * tgt = ggml_new_tensor_2d(ctx0, GGML_TYPE_F32,
+-            model.position_embeddings->ne[0], n_pos);
++            model.position_embeddings->ne[0], n_pos_padded);
+         inp = ggml_add(ctx0, inp, ggml_repeat(ctx0, pos_tmp, tgt));
++    }
++
++    // The reference removes padded CNN positions before self-attention.
++    // Trimming after attention would still contaminate real audio features.
++    const int64_t n_pos = (n_frames / 100) * 13 + ((n_frames % 100) + 7) / 8;
++    if (n_pos != n_pos_padded) {
++        inp = ggml_view_2d(ctx0, inp, inp->ne[0], n_pos, inp->nb[1], 0);
++        inp = ggml_cont(ctx0, inp);
+     }
+ 
+     ggml_tensor * cur = build_vit(inp, n_pos,

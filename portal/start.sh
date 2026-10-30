@@ -526,6 +526,10 @@ run_foreground() {
     verify_language_model
   fi
   prepare_cache
+  "$PYTHON_BIN" -m qwen_omni_adapters.audio_prefill verify \
+    --projector "$COMP_PROJECTOR_GGUF" \
+    --binary "$REPO_ROOT/vendor/llama.cpp/build/bin/llama-server" \
+    >"$LOG_DIR/comprehension-prefill.json"
 
   local decision_ready=0
   if [[ "$DECISION_ENABLED" != 0 && -x "$LAYA_PYTHON" ]]; then

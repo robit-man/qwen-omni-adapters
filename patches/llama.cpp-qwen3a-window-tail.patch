@@ -1,0 +1,56 @@
+--- a/tools/mtmd/mtmd-audio.cpp
++++ b/tools/mtmd/mtmd-audio.cpp
+@@ -713,6 +713,7 @@
+         out.n_mel     = mel_full.n_mel;
+         out.n_len     = win_eff;
+         out.n_len_org = win_eff;
++        out.cnn_chunk_size = std::min<int64_t>(100, n_eff);
+         out.data.assign((size_t)out.n_mel * (size_t)out.n_len, 0.0f);
+         for (int64_t m = 0; m < out.n_mel; m++) {
+             const int64_t copy_len = std::min((int64_t)win_eff, mel_full.n_len - off);
+--- a/tools/mtmd/mtmd-audio.h
++++ b/tools/mtmd/mtmd-audio.h
+@@ -13,6 +13,8 @@
+     int64_t n_len;
+     int64_t n_len_org;
+     int64_t n_mel;
++    // Maximum CNN subchunk width of the original recording, before windows.
++    int64_t cnn_chunk_size = 0;
+ 
+     std::vector<float> data;
+ };
+--- a/tools/mtmd/clip-impl.h
++++ b/tools/mtmd/clip-impl.h
+@@ -652,6 +652,9 @@
+ // For audio, only one channel is used, buf.size() == nx*ny
+ //     nx will be n_frames and ny will be n_mel
+ struct clip_image_f32 {
++    // Audio CNN batching context; placeholders are never encoded, so this
++    // execution-only field is excluded from serialization like anyres below.
++    int64_t audio_cnn_chunk_size = 0;
+     // marks the global view in e.g., DeepSeek-OCR Models
+     bool add_viewsep = false;
+     // appends a learned newline (or EOI) token after the image
+--- a/tools/mtmd/mtmd.cpp
++++ b/tools/mtmd/mtmd.cpp
+@@ -1576,6 +1576,7 @@
+                     {(int)mel_spec.n_len, (int)mel_spec.n_mel},
+                     is_placeholder, /* is_audio */ true);
+                 mel_f32.cpy_buf(mel_spec.data);
++                mel_f32.audio_cnn_chunk_size = mel_spec.cnn_chunk_size;
+ 
+                 size_t n_tokens = clip_n_output_tokens(ctx->ctx_a, &mel_f32);
+ 
+--- a/tools/mtmd/models/qwen3a.cpp
++++ b/tools/mtmd/models/qwen3a.cpp
+@@ -9,7 +9,9 @@
+     const int64_t n_frames = inp->ne[0]; // real frames, without CNN batching padding
+     const int64_t n_mel = inp->ne[1];
+     GGML_ASSERT(n_frames > 0);
+-    const int64_t chunk_size = std::min<int64_t>(100, n_frames);
++    const int64_t chunk_size = img.audio_cnn_chunk_size > 0
++        ? img.audio_cnn_chunk_size : std::min<int64_t>(100, n_frames);
++    GGML_ASSERT(chunk_size <= 100);
+     const int64_t n_chunks = (n_frames + chunk_size - 1) / chunk_size;
+     const int64_t n_padded = n_chunks * chunk_size;
+     GGML_ASSERT(inp->type == GGML_TYPE_F32);

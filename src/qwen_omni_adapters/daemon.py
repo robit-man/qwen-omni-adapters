@@ -26,6 +26,7 @@ from qwen_omni_adapters.accelerator import (
     process_is_gpu_resident,
     residency_backend,
 )
+from qwen_omni_adapters.audio_prefill import verify_audio_prefill_runtime
 from qwen_omni_adapters.gpu_broker import probe_gpu_broker
 from qwen_omni_adapters.model_catalog import MODEL_BY_TAG
 from qwen_omni_adapters.ollama_sidecar import (
@@ -1010,6 +1011,9 @@ class OmniDaemon:
         comprehension_model, comprehension_projector = self._comprehension_artifacts()
         comprehension: Child | None = None
         if self.config.enable_comprehension:
+            verify_audio_prefill_runtime(
+                comprehension_projector, _binary(self.config.repo_root, "llama-server")
+            )
             server_command = [
                 str(_binary(self.config.repo_root, "llama-server")),
                 "-m",

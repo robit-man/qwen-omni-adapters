@@ -25,8 +25,23 @@ transcription failure was repaired and verified on A100, with an Orin
 regression check. See `docs/upgrades/release-qualification-20261030.json`. Nonempty
 audio observations are contract checks, never sound-identification acceptance.
 Complete weight packages are staged locally. Public publication remains gated;
-an explicitly disclosed experimental-preview exception was requested but has
-not been granted. Do not infer approval from elapsed time or user silence.
+the user explicitly chose **repair parity before publishing** on 2026-10-30.
+Do not publish these failed candidates as experimental previews. Repair and
+rerun the semantic gates before either registry is promoted.
+
+The repair audit also found native encoder and prompt mismatches. The runtime
+now carries valid audio frame counts through CNN padding, matches the Whisper
+mel floor, preserves short-tail CNN batching context and supports the explicit
+`robit.qwen3a.trained-prefill.v2` projector ABI. See
+`docs/upgrades/trained-audio-prefill-20261030.md`. Use all 16 pinned native patches
+and the startup ABI guard when evaluating newly exported projections. Exact
+framing and passing PCM/source checks do not clear the remaining semantic gate.
+
+Per-clip native video limits now control actual decoded frames and token counts;
+see `docs/upgrades/video-sampling-20261030.md`. Completed Ornith training recovers
+bark/alarm but still fails music/bells. The richer-target experiment is recorded
+in `docs/upgrades/rich-acoustic-targets-20261030.md`; pseudo-captions, loss changes
+and repair diagnostics do not substitute for independent release qualification.
 
 ## Purpose and non-negotiable constraints
 
