@@ -47,7 +47,8 @@ editing the controller during every difficult trajectory.
 - Stock Ollama executes the standard Qwen3.8 model/projector layers. It does
   not execute the custom audio/video/TTS sidecar layer.
 - The sidecar is one valid namespaced GGUF container, but it is not a valid
-  `FROM` target for stock Ollama. The runtime materializes executable views.
+  `FROM` target for stock Ollama. Legacy payloads use materialized executable
+  views; indexed v2 TTS payloads support validated native filtered reads.
 - Qwen3.8, Qwen3-Omni, and Qwen3-TTS meet at a semantic-text boundary. Do not
   splice incompatible hidden states or claim a native monolithic graph.
 - Adapter v1 is `robit.ollama.omni-adapter.v1`; its portable route requires

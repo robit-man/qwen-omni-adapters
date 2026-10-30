@@ -71,6 +71,7 @@ class Config:
     conditioning_cache: bool = True
     idle_keepalive_s: float = 0
     idle_min_available_mib: int = 6144
+    adaptive_context: bool = False
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -146,6 +147,7 @@ class Config:
             ).strip(),
             idle_keepalive_s=float(os.environ.get("OMNI_TTS_IDLE_KEEPALIVE_S", "0")),
             idle_min_available_mib=int(os.environ.get("OMNI_TTS_IDLE_MIN_AVAILABLE_MIB", "6144")),
+            adaptive_context=os.environ.get("OMNI_TTS_ADAPTIVE_CONTEXT", "0") == "1",
         )
 
 
@@ -166,6 +168,27 @@ class SynthesisSpec:
     top_p: float
     seed: int
     stream_frames: int
+    context_size: int = 0
+
+
+def _context_size(config: Config, spec: SynthesisSpec) -> int:
+    """Bound Qwen3-TTS text BPE positions plus the complete generation budget.
+
+    The pinned helper adds fewer than 256 wrapper/control positions. Byte-level
+    BPE cannot produce more text tokens than UTF-8 bytes. Each generated codec
+    frame adds one backbone position. No text or acoustic frames are dropped.
+    A batch may reserve the largest member's tier for every block.
+    """
+    if not config.adaptive_context:
+        return 0
+    required = len(spec.text.encode("utf-8")) + (spec.frames if spec.frames > 0 else 512) + 256
+    for tier in (4096, 8192, 16384, 32768):
+        if tier >= required:
+            if spec.context_size and (spec.context_size not in (4096, 8192, 16384, 32768)
+                                      or spec.context_size < tier):
+                raise TTSError("TTS batch context does not cover the complete input and frame budget")
+            return spec.context_size or tier
+    raise TTSError("TTS input and frame budget exceed the supported 32768-position context")
 
 
 def _broker_transition(action: str, token: str, timeout_s: float = 330) -> None:
@@ -338,6 +361,9 @@ def _command(
         str(spec.seed),
     ]
     selected_speaker = speaker_file if speaker_file is not None else spec.speaker
+    context_size = _context_size(config, spec)
+    if context_size:
+        command.extend(["--ctx-size", str(context_size)])
     if selected_speaker:
         command.extend(["--tts-speaker-file", selected_speaker])
     if stream:
@@ -600,6 +626,9 @@ def _batch_specs(config: Config, body: dict[str, Any]) -> list[SynthesisSpec]:
         if not isinstance(block, str):
             raise TTSError("every TTS block must be text")
         specs.append(_synthesis_spec(config, {**common, "text": block}))
+    if config.adaptive_context:
+        batch_context = max(_context_size(config, spec) for spec in specs)
+        specs = [replace(spec, context_size=batch_context) for spec in specs]
     return specs
 
 
@@ -756,7 +785,7 @@ class PersistentTTSWorker:
 
     def ensure(self, spec: SynthesisSpec) -> None:
         wanted = (*self._profile(spec), self._weight_identity(self.config.model),
-                  self._weight_identity(self.config.projector))
+                  self._weight_identity(self.config.projector), _context_size(self.config, spec))
         if self.ready and self.profile == wanted:
             return
         self.close()
@@ -983,6 +1012,7 @@ def create_app(config: Config | None = None) -> Flask:
                 "residency_policy": "bounded-idle" if persistent is not None and runtime.idle_keepalive_s else "request",
                 "idle_keepalive_s": runtime.idle_keepalive_s,
                 "idle_residency_state": idle.last_transition,
+                "context_policy": "adaptive" if runtime.adaptive_context else "native",
                 "persistent_ready": bool(persistent and persistent.ready),
                 "persistent_pid": persistent.pid if persistent else None,
                 "speaker_reference_configured": warm_spec is not None,

@@ -59,6 +59,18 @@
       ]
     },
     {
+      "id": "B5",
+      "objective": "Bound TTS context by full UTF-8 input and generation budget without truncation",
+      "status": "verified_28_exact_PCM_comparisons_per_device_A100_and_Orin_opt_in_full_profile_peak_memory_pending",
+      "evidence": [
+        "phase-b5-context.md",
+        "phase-b5-context-a100.json",
+        "phase-b5-context-orin.json",
+        "phase-b5-context-probe.json",
+        "phase-b5-validation.json"
+      ]
+    },
+    {
       "id": "B3",
       "objective": "Committed speech handoff and adaptive initial/steady acoustic windows",
       "status": "pending",
@@ -96,7 +108,9 @@
         "phase-e-orin-preparation.json",
         "phase-e-orin-tts-repeat.json",
         "phase-e-orin-token-rows.json",
-        "phase-b4-idle-orin-pressure.json"
+        "phase-b4-idle-orin-pressure.json",
+        "production-integration.json",
+        "phase-b5-context-orin.json"
       ]
     },
     {

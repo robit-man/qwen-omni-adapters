@@ -423,6 +423,30 @@ The option does not change the Qwen3.8 request-scoped default or automatically
 qualify warm residency for either backbone; measure the selected profile's
 actual peak memory and concurrent work before enabling it.
 
+### Bounded TTS context
+
+`OMNI_TTS_ADAPTIVE_CONTEXT=1` opts into per-request TTS KV sizing. The default
+preserves the native context configuration. This setting affects only the speech
+worker; the reasoning trunk keeps its existing qualified context policy.
+
+The pinned Qwen3-TTS helper needs one position per generated codec frame, plus
+text and a small fixed wrapper. The adaptive policy reserves the complete UTF-8
+byte count, the requested frame budget and 256 control positions, then rounds
+up to 4096, 8192, 16384 or 32768. It never truncates text or generation frames.
+A batch reserves its largest member's tier for every block so it can share one
+worker. Changing tier replaces only the TTS worker. Custom inputs that exceed
+the 32768-position bound fail explicitly. With this option enabled, the explicit
+`--ctx-size` argument takes precedence over generic `LLAMA_ARG_CTX_SIZE`.
+
+On the scoped A100 qualification, both references preserved exact PCM across
+all ten supported languages and two bounded-generation long-input cases. Short
+speech used 3106 MiB of resident GPU memory versus 6266 MiB at 32K; long English
+and Chinese input selected 8K and 16K. These are context-preservation and memory
+measurements, not perceptual language/voice scoring or long-utterance quality
+qualification. See `docs/upgrades/phase-b5-context.md` and its receipts.
+
+### Native streaming state
+
 The patched code2wav graph consumes and persists exactly the real codec-frame
 count rather than advancing retained state through rear padding to 72 frames.
 Run `python runtime/verify_pcm_stream.py` against raw `/synthesize/stream` PCM

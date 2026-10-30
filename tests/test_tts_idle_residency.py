@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 
 import pytest
 
 from qwen_omni_adapters import tts_residency
-from runtime.tts_server import Config, create_app
+from runtime.tts_server import (
+    Config,
+    TTSError,
+    _batch_specs,
+    _command,
+    _context_size,
+    _synthesis_spec,
+    create_app,
+)
 
 
 @pytest.fixture
@@ -31,10 +40,10 @@ for line in sys.stdin.buffer:
     return binary, model
 
 
-def application(native_protocol, seconds):
+def application(native_protocol, seconds, **options):
     binary, model = native_protocol
     app = create_app(Config(binary=binary, model=model, projector=model, gpu_layers=0,
-                            require_gpu=False, idle_keepalive_s=seconds, timeout_s=3))
+                            require_gpu=False, idle_keepalive_s=seconds, timeout_s=3, **options))
     return app, app.test_client(), app.extensions["tts_idle_residency"]
 
 
@@ -105,6 +114,56 @@ def test_idle_weights_are_released_when_unified_headroom_becomes_unsafe(native_p
         monkeypatch.setattr(tts_residency, "gpu_facts", changed)
         wait_for_release(controller)
         assert controller.last_transition == "released:headroom"
+    finally:
+        controller.stop()
+        controller.worker.close()
+
+
+@pytest.mark.parametrize("text,tier", [("Hello", 4096), ("a" * 4096, 8192),
+                                    ("你" * 4096, 16384), ("𐍈" * 4096, 32768)])
+def test_context_covers_complete_utf8_input_and_frame_budget(native_protocol, text, tier, tmp_path):
+    binary, model = native_protocol
+    config = Config(binary=binary, model=model, projector=model, adaptive_context=True)
+    spec = _synthesis_spec(config, {"text": text})
+    assert _context_size(config, spec) == tier
+    command = _command(config, spec, tmp_path / "speech.wav")
+    assert command[command.index("--ctx-size") + 1] == str(tier)
+    assert command[command.index("--prompt") + 1] == text
+    assert command[command.index("--n-predict") + 1] == "512"
+    assert _context_size(config, spec) >= len(text.encode()) + spec.frames + 256
+    with pytest.raises(TTSError, match="frame budget"):
+        _context_size(config, replace(spec, frames=32768))
+    if tier > 4096:
+        with pytest.raises(TTSError, match="does not cover"):
+            _context_size(config, replace(spec, context_size=4096))
+    native = replace(config, adaptive_context=False)
+    assert _context_size(native, spec) == 0
+    assert "--ctx-size" not in _command(native, spec, tmp_path / "native.wav")
+
+
+def test_context_tiers_reload_only_when_needed_and_batch_reserves_all_members(native_protocol, monkeypatch):
+    app, client, controller = application(native_protocol, 30, adaptive_context=True)
+    try:
+        assert client.post("/synthesize", json={"text": "first"}).status_code == 200
+        small = controller.worker.pid
+        assert client.post("/synthesize", json={"text": "second"}).status_code == 200
+        assert controller.worker.pid == small
+        long_text = "𐍈" * 4096
+        before = controller.worker.ensure
+        observed = []
+        def ensure(spec):
+            before(spec)
+            observed.append(controller.worker.pid)
+        monkeypatch.setattr(controller.worker, "ensure", ensure)
+        blocks = ["first", long_text, "second"]
+        specs = _batch_specs(controller.worker.config, {"blocks": blocks})
+        assert [spec.text for spec in specs] == blocks
+        assert {spec.context_size for spec in specs} == {32768}
+        response = client.post("/synthesize/stream/batch", json={"blocks": blocks})
+        assert response.status_code == 200 and response.data
+        assert len(observed) == 3 and len(set(observed)) == 1 and observed[0] != small
+        command = controller.worker.process.args
+        assert command[command.index("--ctx-size") + 1] == "32768"
     finally:
         controller.stop()
         controller.worker.close()
