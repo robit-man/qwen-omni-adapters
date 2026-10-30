@@ -12,6 +12,12 @@ robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km
 robit/ornith-1.5-omni-audio-bridge:q4km
 ```
 
+Edge v2 installer/desktop profiles are prepared as `ornith15-v2` and
+`qwen38-v2`. Their model tags are **not published**: the Orin/A100 audit found
+failed environmental-sound parity. Complete weight packages are staged, and
+the mixed-video speech defect is repaired, but publication remains gated.
+See the [live qualification result](docs/upgrades/release-qualification-20261030.md).
+
 The repository turns that one Ollama tag into one authenticated, Ollama-shaped
 API for text, tools, optional thinking, images, audio/ASR, environmental sound
 analysis, video understanding, and Qwen3-TTS speech. It also includes the
