@@ -26,14 +26,27 @@ def _run(*arguments: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_guided_deployer_lists_only_the_two_release_audio_bridges() -> None:
+def test_guided_deployer_lists_original_bridges_and_edge_v2() -> None:
     completed = _run("--list-models")
 
     assert completed.returncode == 0
     assert "robit/ornith-1.5-omni-audio-bridge:q4km" in completed.stdout
     assert "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km" in completed.stdout
     assert "ornith-1.5-obliterated" not in completed.stdout
-    assert len(completed.stdout.strip().splitlines()) == 2
+    assert "robit/ornith-1.5-omni:edge-v2" in completed.stdout
+    assert "robit/qwen3.8-27b-e03-omni:edge-v2" in completed.stdout
+    assert len(completed.stdout.strip().splitlines()) == 4
+
+
+@pytest.mark.parametrize(("profile", "tag"), [
+    ("ornith15-v2", "robit/ornith-1.5-omni:edge-v2"),
+    ("qwen38-v2", "robit/qwen3.8-27b-e03-omni:edge-v2"),
+])
+def test_v2_deployment_resolves_one_tag(profile: str, tag: str) -> None:
+    completed = _run("--profile", profile, "--action", "deploy", "--yes", "--dry-run")
+    assert completed.returncode == 0, completed.stderr
+    assert f"OMNI_MODEL={tag}" in completed.stdout
+    assert f"OMNI_LANGUAGE_MODEL={tag}" in completed.stdout
 
 
 def test_noninteractive_dry_run_uses_one_bridge_tag_for_both_stages() -> None:
@@ -346,7 +359,7 @@ def test_guided_deploy_prints_broker_proof_without_direct_daemon_control() -> No
 
 @pytest.mark.parametrize("current_model,keys", [
     ("", b"\x1b[B\r"),
-    ("robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km", b"\x1b[B\x1b[B\r"),
+    ("robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km", b"\x1b[B\x1b[B\x1b[B\x1b[B\r"),
 ])
 def test_arrow_key_menu_selects_qwen_bridge(tmp_path: Path, current_model: str, keys: bytes) -> None:
     # Isolate saved configuration; exercising zero-index wrap catches errexit

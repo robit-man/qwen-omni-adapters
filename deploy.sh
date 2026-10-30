@@ -63,6 +63,8 @@ Run without arguments for the arrow-key guided Jetson installer.
 Profiles:
   ornith15             Standard Ornith 1.5 9B audio bridge (about 8.15 GiB)
   qwen38               Qwen3.8 27B E03 Obliterated audio bridge (about 18.33 GiB)
+  ornith15-v2          Ornith 1.5 Omni Edge v2 (about 8.34 GiB)
+  qwen38-v2            Qwen3.8 E03 Omni Edge v2 (about 18.52 GiB)
 
 Options:
   --profile NAME       Select a profile without opening the model menu
@@ -78,7 +80,7 @@ Options:
   --help               Show this help
 
 The old full-Omni tags remain usable through explicit OMNI_MODEL settings, but
-the guided installer deliberately offers only the two reduced audio bridges.
+the guided installer offers the reduced audio bridges and indexed Edge v2 bundles.
 EOF
 }
 
@@ -86,6 +88,8 @@ list_models() {
   cat <<'EOF'
 ornith15|robit/ornith-1.5-omni-audio-bridge:q4km|8.15 GiB|Standard Ornith 1.5 9B; recommended on 32 GB Jetson
 qwen38|robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km|18.33 GiB|Qwen3.8 27B E03 Obliterated; higher memory requirement
+ornith15-v2|robit/ornith-1.5-omni:edge-v2|8.34 GiB|Ornith 1.5 Omni Edge v2; indexed weights and full-reference cloning
+qwen38-v2|robit/qwen3.8-27b-e03-omni:edge-v2|18.52 GiB|Qwen3.8 E03 Omni Edge v2; conservative speech residency
 EOF
 }
 
@@ -227,8 +231,20 @@ resolve_profile() {
       PROFILE_TITLE='Qwen3.8 27B E03 Obliterated audio bridge'
       PROFILE_SIZE='18.33 GiB'
       ;;
+    ornith15-v2|ornith15_v2)
+      PROFILE=ornith15-v2
+      OMNI_MODEL=robit/ornith-1.5-omni:edge-v2
+      PROFILE_TITLE='Ornith 1.5 Omni Edge v2'
+      PROFILE_SIZE='8.34 GiB'
+      ;;
+    qwen38-v2|qwen38_v2)
+      PROFILE=qwen38-v2
+      OMNI_MODEL=robit/qwen3.8-27b-e03-omni:edge-v2
+      PROFILE_TITLE='Qwen3.8 E03 Omni Edge v2'
+      PROFILE_SIZE='18.52 GiB'
+      ;;
     *)
-      die "unknown profile '$PROFILE' (expected ornith15 or qwen38)"
+      die "unknown profile '$PROFILE' (expected ornith15, qwen38, ornith15-v2 or qwen38-v2)"
       ;;
   esac
 
@@ -271,12 +287,18 @@ choose_profile() {
   current=$(configured_model)
   local default_index=0
   [[ $current == *qwen3.8-27b-e03-obliterated-omni-audio-bridge* ]] && default_index=1
+  [[ $current == robit/ornith-1.5-omni:edge-v2 ]] && default_index=2
+  [[ $current == robit/qwen3.8-27b-e03-omni:edge-v2 ]] && default_index=3
   select_menu selected 'Select the logical Omni model (↑/↓, Enter):' "$default_index" \
     'Standard Ornith 1.5 9B bridge — 8.15 GiB (recommended for 32 GB)' \
-    'Qwen3.8 27B E03 Obliterated bridge — 18.33 GiB (more capability, less headroom)'
+    'Qwen3.8 27B E03 Obliterated bridge — 18.33 GiB (more capability, less headroom)' \
+    'Ornith 1.5 Omni Edge v2 — 8.34 GiB (indexed bundle, full-reference cloning)' \
+    'Qwen3.8 E03 Omni Edge v2 — 18.52 GiB (indexed bundle, full-reference cloning)'
   case $selected in
     0) PROFILE=ornith15 ;;
     1) PROFILE=qwen38 ;;
+    2) PROFILE=ornith15-v2 ;;
+    3) PROFILE=qwen38-v2 ;;
   esac
 }
 
@@ -579,6 +601,10 @@ install_environment() {
     background_residency_mode=action
     context_tokens=65536
   fi
+  if [[ $PROFILE == ornith15-v2 ]] && is_tegra; then
+    cache_type=q8_0
+    background_residency_mode=action
+  fi
   temporary=$(mktemp "$REPO_ROOT/.env.deploy.XXXXXX")
   if [[ -f "$REPO_ROOT/.env" ]]; then
     awk '!/^OMNI_PROFILE=/ && !/^OMNI_MODEL=/ && !/^OMNI_LANGUAGE_MODEL=/ \
@@ -620,6 +646,14 @@ install_environment() {
     printf 'OMNI_STARTUP_SMOKE=0\n'
     printf 'OMNI_TTS_PERSISTENT=1\n'
   } >>"$temporary"
+  if [[ $PROFILE == ornith15-v2 || $PROFILE == qwen38-v2 ]]; then
+    sed -i '/^OMNI_TTS_ADAPTIVE_CONTEXT=/d; /^OMNI_TTS_PREPARE_REFERENCE=/d; /^OMNI_TTS_IDLE_KEEPALIVE_S=/d' "$temporary"
+    {
+      printf 'OMNI_TTS_ADAPTIVE_CONTEXT=1\n'
+      printf 'OMNI_TTS_PREPARE_REFERENCE=1\n'
+      printf 'OMNI_TTS_IDLE_KEEPALIVE_S=0\n'
+    } >>"$temporary"
+  fi
   chmod 600 "$temporary"
   mv -- "$temporary" "$REPO_ROOT/.env"
   CONFIG_INSTALLED=1

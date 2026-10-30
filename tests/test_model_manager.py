@@ -6,6 +6,8 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
+
 from harness.indicator import model_views
 from harness.models import IndicatorModelManager, _replace_env, _table_tags
 from qwen_omni_adapters.model_catalog import MANAGED_MODELS
@@ -31,6 +33,8 @@ def test_catalog_contains_compact_and_legacy_models_but_not_rejected_ornith() ->
         "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
         "robit/ornith-1.5-omni:q4km",
         "robit/qwen3.8-27b-e03-obliterated-omni:q4km",
+        "robit/ornith-1.5-omni:edge-v2",
+        "robit/qwen3.8-27b-e03-omni:edge-v2",
     ]
     assert not any("ornith-1.5-obliterated" in tag for tag in tags)
     assert [model.max_context_tokens for model in MANAGED_MODELS[:2]] == [
@@ -42,7 +46,36 @@ def test_catalog_contains_compact_and_legacy_models_but_not_rejected_ornith() ->
         False,
         True,
         False,
+        True,
+        False,
     ]
+
+
+@pytest.mark.parametrize(("key", "tegra", "cache"), [
+    ("ornith15_v2", True, "q8_0"),
+    ("ornith15_v2", False, "f16"),
+    ("qwen38_v2", True, "f16"),
+])
+def test_v2_activation_replaces_incompatible_residency_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str, tegra: bool, cache: str,
+) -> None:
+    monkeypatch.setattr("harness.models.is_tegra", lambda: tegra)
+    selected = next(model for model in MANAGED_MODELS if model.key == key)
+    manager = _manager(tmp_path, MANAGED_MODELS[0].tag, {selected.tag})
+    (tmp_path / ".env").write_text(
+        "OMNI_TTS_ADAPTIVE_CONTEXT=0\nOMNI_TTS_IDLE_KEEPALIVE_S=300\n"
+        "OMNI_COMPREHENSION_CACHE_TYPE_K=q8_0\nUSER_SETTING=keep\n"
+    )
+    assert manager.activate(selected.tag)[0]
+    values = dict(line.split("=", 1) for line in (tmp_path / ".env").read_text().splitlines())
+    assert values["OMNI_MODEL"] == values["OMNI_LANGUAGE_MODEL"] == selected.tag
+    assert values["OMNI_COMPREHENSION_CONTEXT_TOKENS"] == "16384"
+    assert values["OMNI_COMPREHENSION_CACHE_TYPE_K"] == cache
+    assert values["OMNI_COMPREHENSION_CACHE_TYPE_V"] == cache
+    assert values["OMNI_TTS_ADAPTIVE_CONTEXT"] == "1"
+    assert values["OMNI_TTS_PREPARE_REFERENCE"] == "1"
+    assert values["OMNI_TTS_IDLE_KEEPALIVE_S"] == "0"
+    assert values["USER_SETTING"] == "keep"
 
 
 def test_ollama_tables_are_parsed_as_exact_tags() -> None:
