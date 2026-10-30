@@ -130,7 +130,9 @@ def compare(args):
                     worker.process = process
                     try:
                         if not select.select([process.stdout], [], [], 60)[0] or process.stdout.readline() != b"R\n":
-                            raise RuntimeError("reference encoder did not become ready")
+                            size = os.fstat(log.fileno()).st_size
+                            detail = os.pread(log.fileno(), min(size, 1500), max(0, size - 1500))
+                            raise RuntimeError("reference encoder did not become ready: " + detail.decode(errors="replace"))
                         if not process_is_gpu_resident(process.pid, uuid):
                             raise RuntimeError("reference encoder has no proven GPU residency")
                         if not admitted:

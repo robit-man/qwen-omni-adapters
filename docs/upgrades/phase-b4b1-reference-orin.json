@@ -1,0 +1,41 @@
+{
+  "schema": "robit.omni.reference-encoder-qualification.v1",
+  "complete": true,
+  "native_encoder_qualified": true,
+  "full_voice_cloning_qualified": false,
+  "accelerator": {
+    "system": "Linux",
+    "machine": "aarch64",
+    "tegra": true,
+    "residency_backend": "tegra-device-handles",
+    "gpu_memory_model": "unified",
+    "tegra_soc": "tegra234",
+    "l4t_release": "R36.3.0",
+    "cuda_architectures": "87"
+  },
+  "model_sha256": "7838f27ad60ed5181c60e9b6e7263df944933f07099602aa70a5e96c8640f388",
+  "binary_sha256": "40346764096cd8306eb5fd9595c3eeedf109ed93aaf31b1344f81a2d2c4ed694",
+  "fixtures_sha256": "86bcd94211e27d34475d27cb36552f9d446643e3e54e9004b6d54c4c7de58d12",
+  "samples": [
+    {
+      "reference_sha256": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+      "frames": 19,
+      "codes": 304,
+      "codes_identical": true,
+      "encode_and_exit_s": 0.23105417820625007
+    },
+    {
+      "reference_sha256": "79f6cd76dfe2f5cb6e2f217d1e03020cb8d75b8b49a3dc617e6bfa41ea49f61e",
+      "frames": 163,
+      "codes": 2608,
+      "codes_identical": true,
+      "encode_and_exit_s": 0.5284666290972382
+    }
+  ],
+  "system_headroom": {
+    "minimum_available_mib": 10408.7578125,
+    "floor_mib": 2048,
+    "floor_crossed": false,
+    "sampling_interval_s": 0.1
+  }
+}

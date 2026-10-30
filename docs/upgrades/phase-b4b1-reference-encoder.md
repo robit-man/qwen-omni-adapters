@@ -88,5 +88,20 @@ Windows build integration is present; no Windows execution is claimed.
 installed payload, native comparison and existing-TTS receipts accompany this
 document. Orin builds use a private additive GGUF-base library with the existing
 same-pin CUDA kernels; that device's encoder comparison is tracked separately.
+The Orin follow-up passed all **2912 codes** against the same frozen fixtures,
+using the exact same installed-sidecar digest. Its CUDA backend reports `IGPU`;
+an incremental native patch accepts both GPU types while still rejecting CPU
+weights. The Python caller additionally required `nvgpu` and `nvmap` handles.
+Available system memory stayed above 10408 MiB against a 2048 MiB guard. The
+existing primary and call harness stayed healthy. The discrete CUDA comparison
+also passed again after that admission change.
+
+The final follow-up source gate passed **6218 tests**. One earlier run passed
+6217 and hit the inherited process-group timing test in
+`tests/test_passive_focus_guard.py`; all 60 tests in that file passed unchanged
+on rerun, followed by the complete successful gate. No cleanup assertion or
+unrelated controller code was changed. Encoder startup failures now retain a
+bounded native diagnostic in the comparison receipt.
+
 Full voice conditioning, trained heads, complete release qualification and
 Hugging Face/Ollama publication remain pending.

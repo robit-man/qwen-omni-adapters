@@ -92,14 +92,17 @@
     {
       "id": "B4b1",
       "objective": "Add frozen native reference acoustic encoder under the same indexed model identity",
-      "status": "A100_2912_codes_exact_from_installed_shared_sidecar_existing_TTS_preserved_Orin_build_in_progress",
+      "status": "A100_and_Orin_2912_codes_each_exact_from_shared_sidecar_existing_TTS_preserved_full_conditioning_pending",
       "evidence": [
         "phase-b4b1-reference-encoder.md",
         "phase-b4b1-export.json",
         "phase-b4b1-installed.json",
         "phase-b4b1-native-indexed.json",
         "phase-b4b1-tts-regression.json",
-        "phase-b4b1-validation.json"
+        "phase-b4b1-validation.json",
+        "phase-b4b1-reference-orin.json",
+        "phase-b4b1-igpu-a100.json",
+        "phase-b4b1-igpu-validation.json"
       ]
     },
     {
@@ -125,7 +128,8 @@
         "phase-b4-idle-orin-pressure.json",
         "production-integration.json",
         "phase-b5-context-orin.json",
-        "phase-b4-idle-orin-adaptive.json"
+        "phase-b4-idle-orin-adaptive.json",
+        "phase-b4b1-reference-orin.json"
       ]
     },
     {

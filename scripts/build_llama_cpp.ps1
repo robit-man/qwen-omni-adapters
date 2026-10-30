@@ -16,6 +16,7 @@ $ConditioningCachePatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-co
 $TokenRowsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-token-rows.patch"
 $IndexedViewsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-indexed-tts-views.patch"
 $ReferenceEncoderPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-encoder.patch"
+$ReferenceIgpuPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-integrated-gpu.patch"
 $BuildDir = Join-Path $SourceDir "build"
 
 if (-not (Test-Path (Join-Path $SourceDir ".git"))) {
@@ -70,7 +71,14 @@ if ((Test-PatchMarker "ggml/include/gguf.h" 'gguf_select_tensor_view(') -and
 } else {
     Apply-NativePatch $IndexedViewsPatchFile "Indexed TTS source views"
 }
-Apply-NativePatch $ReferenceEncoderPatchFile "Qwen3-TTS reference acoustic encoder"
+if ((Test-PatchMarker "tools/tts/reference-encode.cpp" 'params.reference_encoder = true;') -and
+    (Test-PatchMarker "tools/mtmd/clip-model.h" 'ref_semantic_book') -and
+    (Test-PatchMarker "tools/mtmd/models/qwen3tts-refenc.cpp" 'reference_downsample')) {
+    Write-Host "Qwen3-TTS reference acoustic encoder patch is already applied"
+} else {
+    Apply-NativePatch $ReferenceEncoderPatchFile "Qwen3-TTS reference acoustic encoder"
+}
+Apply-NativePatch $ReferenceIgpuPatchFile "Qwen3-TTS integrated GPU residency"
 
 cmake -S $SourceDir -B $BuildDir -DGGML_CUDA=ON -DLLAMA_CURL=OFF
 cmake --build $BuildDir --config Release --target llama-server llama-tts llama-tts-reference-encode --parallel $BuildJobs

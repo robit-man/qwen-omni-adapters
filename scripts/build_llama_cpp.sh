@@ -14,6 +14,7 @@ CONDITIONING_CACHE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-conditioning
 TOKEN_ROWS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-token-rows.patch
 INDEXED_VIEWS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-indexed-tts-views.patch
 REFERENCE_ENCODER_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-encoder.patch
+REFERENCE_IGPU_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-integrated-gpu.patch
 BUILD_DIR=${LLAMA_CPP_BUILD_DIR:-$SOURCE_DIR/build}
 if command -v nproc >/dev/null 2>&1; then
   default_jobs=$(nproc)
@@ -160,7 +161,14 @@ if patch_marker_present ggml/include/gguf.h 'gguf_select_tensor_view(' \
 else
   apply_patch_file "$INDEXED_VIEWS_PATCH_FILE" "Indexed TTS source views"
 fi
-apply_patch_file "$REFERENCE_ENCODER_PATCH_FILE" "Qwen3-TTS reference acoustic encoder"
+if patch_marker_present tools/tts/reference-encode.cpp 'params.reference_encoder = true;' \
+  && patch_marker_present tools/mtmd/clip-model.h 'ref_semantic_book' \
+  && patch_marker_present tools/mtmd/models/qwen3tts-refenc.cpp 'reference_downsample'; then
+  printf 'Qwen3-TTS reference acoustic encoder patch is already applied\n'
+else
+  apply_patch_file "$REFERENCE_ENCODER_PATCH_FILE" "Qwen3-TTS reference acoustic encoder"
+fi
+apply_patch_file "$REFERENCE_IGPU_PATCH_FILE" "Qwen3-TTS integrated GPU residency"
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in

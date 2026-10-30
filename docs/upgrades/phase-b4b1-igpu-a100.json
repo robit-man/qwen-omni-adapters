@@ -1,0 +1,38 @@
+{
+  "schema": "robit.omni.reference-encoder-qualification.v1",
+  "complete": true,
+  "native_encoder_qualified": true,
+  "full_voice_cloning_qualified": false,
+  "accelerator": {
+    "system": "Linux",
+    "machine": "x86_64",
+    "tegra": false,
+    "residency_backend": "nvidia-smi-compute-apps",
+    "gpu_memory_model": "discrete"
+  },
+  "model_sha256": "7838f27ad60ed5181c60e9b6e7263df944933f07099602aa70a5e96c8640f388",
+  "binary_sha256": "ade107de410a54b9149e645af711b9de60089e49c0ecb25f30e0280ed186cac8",
+  "fixtures_sha256": "86bcd94211e27d34475d27cb36552f9d446643e3e54e9004b6d54c4c7de58d12",
+  "samples": [
+    {
+      "reference_sha256": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+      "frames": 19,
+      "codes": 304,
+      "codes_identical": true,
+      "encode_and_exit_s": 0.1525551289669238
+    },
+    {
+      "reference_sha256": "79f6cd76dfe2f5cb6e2f217d1e03020cb8d75b8b49a3dc617e6bfa41ea49f61e",
+      "frames": 163,
+      "codes": 2608,
+      "codes_identical": true,
+      "encode_and_exit_s": 0.1714271159726195
+    }
+  ],
+  "system_headroom": {
+    "minimum_available_mib": 338666.25390625,
+    "floor_mib": 0,
+    "floor_crossed": false,
+    "sampling_interval_s": 0.1
+  }
+}
