@@ -39,6 +39,15 @@ struct head {
         gguf_init_params params{true, &weights};
         file = gguf_init_from_file(path, params);
         require(file != nullptr, "cannot load head metadata");
+        auto schema = gguf_find_key(file,"robit.audio_bundle.schema");
+        if (schema >= 0) {
+            require(gguf_get_kv_type(file,schema) == GGUF_TYPE_STRING &&
+                std::strcmp(gguf_get_val_str(file,schema),"robit.ollama-audio-bridge.v2") == 0,
+                "unsupported indexed bundle");
+            require(gguf_select_tensor_view(file,"a.h.c.",
+                "robit.audio_bundle.component.audio_ctc_head.kv.",&weights),
+                "bundle has no valid audio CTC head view");
+        }
         auto key = gguf_find_key(file, "general.architecture");
         require(key >= 0 && gguf_get_kv_type(file, key) == GGUF_TYPE_STRING, "missing architecture");
         require(std::strcmp(gguf_get_val_str(file, key), "robit_audio_ctc") == 0, "wrong head architecture");

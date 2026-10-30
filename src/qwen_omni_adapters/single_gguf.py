@@ -97,6 +97,16 @@ TTS_REFERENCE_ENCODER_COMPONENT = EmbeddedComponent(
     output_modalities=("codec_tokens",),
 )
 
+AUDIO_CTC_COMPONENT = EmbeddedComponent(
+    name="audio_ctc_head",
+    role="optional-english-audio-ctc-head",
+    tensor_prefix="a.h.c.",
+    metadata_prefix=f"{BUNDLE_NAMESPACE}.component.audio_ctc_head.kv.",
+    source="",
+    input_modalities=("audio_features",),
+    output_modalities=("ctc_logits",),
+)
+
 EMBEDDED_COMPONENTS = (
     BASE_PROJECTOR_COMPONENT,
     COMPREHENSION_COMPONENT,
@@ -104,7 +114,7 @@ EMBEDDED_COMPONENTS = (
     TTS_COMPONENT,
     TTS_PROJECTOR_COMPONENT,
 )
-ALL_EMBEDDED_COMPONENTS = (*EMBEDDED_COMPONENTS, TTS_REFERENCE_ENCODER_COMPONENT)
+ALL_EMBEDDED_COMPONENTS = (*EMBEDDED_COMPONENTS, TTS_REFERENCE_ENCODER_COMPONENT, AUDIO_CTC_COMPONENT)
 COMPONENT_BY_NAME = {component.name: component for component in ALL_EMBEDDED_COMPONENTS}
 RESERVED_TENSOR_PREFIXES = tuple(component.tensor_prefix for component in ALL_EMBEDDED_COMPONENTS)
 
@@ -498,6 +508,8 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
         ),
         "tts": view_counts["tts_model"] + view_counts["tts_projector"] + view_counts.get("tts_reference_encoder", 0),
     }
+    if view_counts.get("audio_ctc_head"):
+        counts["audio_heads"] = view_counts["audio_ctc_head"]
     required_groups = (
         ("tts",)
         if schema in AUDIO_BRIDGE_SCHEMAS
@@ -522,7 +534,7 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
         index = (manifest or {}).get("component_index", {})
         entries = index.get("components", {}) if isinstance(index, dict) else {}
         required = {"tts_model", "tts_projector"}
-        allowed = required | {"tts_reference_encoder"}
+        allowed = required | {"tts_reference_encoder", "audio_ctc_head"}
         if (not isinstance(index, dict) or index.get("schema") != "robit.gguf-component-index.v2"
                 or not isinstance(entries, dict) or not required <= set(entries) <= allowed
                 or declared != set(entries)):
@@ -546,11 +558,20 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
                         metadata.get(component.metadata_prefix + "clip.audio.projector_type") != "qwen3tts_refenc"
                         or metadata.get(component.metadata_prefix + "robit.reference_encoder.abi") != "robit.qwen3tts.reference-encoder.v1"):
                     errors.append("invalid indexed reference encoder ABI")
+                if name == "audio_ctc_head" and (
+                        not isinstance(entry, dict) or entry.get("architecture") != "robit_audio_ctc"
+                        or view_counts[name] != 8
+                        or metadata.get(component.metadata_prefix + "robit.audio_ctc.schema") != "robit.omni.audio-ctc-head.v1"
+                        or not isinstance(metadata.get(component.metadata_prefix + "robit.audio_ctc.encoder_sha256"), str)
+                        or len(metadata[component.metadata_prefix + "robit.audio_ctc.encoder_sha256"]) != 64):
+                    errors.append("invalid indexed audio CTC head ABI")
         indexed_names = entries if isinstance(entries, dict) else required
         if sum(view_counts.get(name, 0) for name in indexed_names) != len(reader.tensors):
             errors.append("indexed TTS sidecar contains tensors outside its declared views")
     elif view_counts.get("tts_reference_encoder"):
         errors.append("reference acoustic encoder requires indexed sidecar v2")
+    elif view_counts.get("audio_ctc_head"):
+        errors.append("audio CTC head requires indexed sidecar v2")
     return {
         "valid": not errors,
         "path": str(resolved),

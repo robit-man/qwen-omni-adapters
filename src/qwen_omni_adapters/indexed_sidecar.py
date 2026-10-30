@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from qwen_omni_adapters.single_gguf import (
+    AUDIO_CTC_COMPONENT,
     BUNDLE_NAMESPACE,
     INDEXED_AUDIO_BRIDGE_SCHEMA,
     TTS_COMPONENT,
@@ -27,7 +28,8 @@ from qwen_omni_adapters.single_gguf import (
 
 def pack_indexed_tts_sidecar(*, tts_gguf: Path, tts_projector_gguf: Path,
                              out_gguf: Path, overwrite: bool = False,
-                             tts_reference_encoder_gguf: Path | None = None) -> dict[str, Any]:
+                             tts_reference_encoder_gguf: Path | None = None,
+                             audio_ctc_head_gguf: Path | None = None) -> dict[str, Any]:
     """Identical checkpoints produce one blob regardless of paths or backbone.
 
     Exact language/projector bindings belong to each tag's layer descriptor;
@@ -40,6 +42,9 @@ def pack_indexed_tts_sidecar(*, tts_gguf: Path, tts_projector_gguf: Path,
     if tts_reference_encoder_gguf is not None:
         definitions.append(TTS_REFERENCE_ENCODER_COMPONENT)
         sources.append(tts_reference_encoder_gguf)
+    if audio_ctc_head_gguf is not None:
+        definitions.append(AUDIO_CTC_COMPONENT)
+        sources.append(audio_ctc_head_gguf)
     inputs = [path.expanduser().resolve() for path in sources]
     for path in inputs:
         if not path.is_file():
@@ -64,6 +69,13 @@ def pack_indexed_tts_sidecar(*, tts_gguf: Path, tts_projector_gguf: Path,
                     or metadata.get("clip.audio.projector_type") != "qwen3tts_refenc"
                     or metadata.get("robit.reference_encoder.abi") != "robit.qwen3tts.reference-encoder.v1"):
                 raise SingleGGUFError("reference encoder requires the qualified Qwen3-TTS reference-encoder ABI")
+        if component is AUDIO_CTC_COMPONENT:
+            metadata = _reader_metadata(reader)
+            if (_architecture(reader) != "robit_audio_ctc" or len(reader.tensors) != 8
+                    or metadata.get("robit.audio_ctc.schema") != "robit.omni.audio-ctc-head.v1"
+                    or not isinstance(metadata.get("robit.audio_ctc.encoder_sha256"), str)
+                    or len(metadata["robit.audio_ctc.encoder_sha256"]) != 64):
+                raise SingleGGUFError("audio CTC head requires the qualified native head ABI")
         digest = _sha256(path)
         components.append(replace(component, source="sha256:" + digest).to_dict())
         index[component.name] = {
@@ -80,13 +92,16 @@ def pack_indexed_tts_sidecar(*, tts_gguf: Path, tts_projector_gguf: Path,
                     "materialized_views": [component.name for component in definitions],
                     "combined_projector_is_standard_ollama_layer": True},
     }
+    if audio_ctc_head_gguf is not None:
+        manifest["runtime"]["disabled_components"] = ["audio_ctc_head"]
     out.parent.mkdir(parents=True, exist_ok=True)
     fd, filename = tempfile.mkstemp(prefix=out.name + ".", suffix=".partial", dir=out.parent)
     os.close(fd)
     partial = Path(filename)
     writer = gguf.GGUFWriter(str(partial), arch="clip")
     try:
-        writer.add_name("Robit Omni shared TTS sidecar v2")
+        writer.add_name("Robit Omni shared audio sidecar v2" if audio_ctc_head_gguf is not None
+                        else "Robit Omni shared TTS sidecar v2")
         for component, _, reader in readers:
             _, skipped = _copy_metadata(reader=reader, writer=writer, prefix=component.metadata_prefix)
             unexpected = set(skipped) - {"GGUF.version", "GGUF.tensor_count", "GGUF.kv_count"}

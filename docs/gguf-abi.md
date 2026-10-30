@@ -70,6 +70,27 @@ roles. The encoder emits 16 acoustic codes per 12.5 Hz frame from bounded
 cloning to the speech request protocol. See
 [`phase-b4b1-reference-encoder.md`](upgrades/phase-b4b1-reference-encoder.md).
 
+The optional English `audio_ctc_head` component uses tensor prefix `a.h.c.*`
+and metadata prefix `robit.audio_bundle.component.audio_ctc_head.kv.*`. Its ABI is
+`robit.omni.audio-ctc-head.v1`, architecture `robit_audio_ctc`, with eight F32
+tensors and an exact frozen-encoder identity. The exported component also carries
+its training-only lexicon, tokenizer and qualification identities. Include it
+with `pack-tts --audio-ctc-head FILE`. It remains listed in
+`runtime.disabled_components`; ordinary runtime preparation selects the existing
+TTS components only. Explicit `prepare --view audio_ctc_head --direct-views`
+creates one source alias. Materialization remains available and reproduces the
+original head GGUF exactly.
+
+The matching `runtime/audio_ctc_probe.cpp` selects the head's metadata and tensor
+namespace while preserving the container offsets. It executes the small head
+without reconstructing a separate file or loading the sibling speech weights.
+The model/tag binding still preserves each backbone's own language weights and
+trained projector. The shared frozen audio-feature interface was qualified for
+both corresponding backbones; other feature interfaces require new evaluation.
+This component does not enable an ASR route or establish streaming/multilingual
+capability. See [head qualification](upgrades/phase-c1-native-head.md) and
+[single-tag attachment](upgrades/phase-c1b-indexed-head.md).
+
 The runtime's `llama.cpp-indexed-tts-views.patch` adds
 `robit.indexed-tts-views.v1`: role-aware native loading of the v2 TTS envelope.
 The model loader selects `s.t.m.*`; the codec loader selects `s.t.p.*`. Both

@@ -44,7 +44,8 @@ head/lexicon/tokenizer identities and tensor layout before exporting eight F32
 tensors plus the tokenizer, lexicon and provenance metadata. The component is
 10,518,848 bytes, architecture `robit_audio_ctc`, SHA-256
 `e939e15685138903f1c49701ccba830dcac058c780d116b5319532bd892bca15`.
-It is currently a local candidate artifact; sidecar attachment is unfinished.
+Its single-tag attachment is separately qualified in
+[C1b](phase-c1b-indexed-head.md); neither complete release is qualified.
 
 `runtime/audio_ctc_probe.cpp` executes LayerNorm, affine/GELU, a causal
 three-frame convolution and the CTC output projection entirely on one visible
@@ -93,7 +94,7 @@ unchanged 3072/2048 MiB admission/active headroom floors. The A100/Torch parity
 receipt records the private numerical-reference pilot; the Tegra receipt used
 the maintained qualifier.
 
-Next work is versioned sidecar attachment, native execution on newly encoded
-audio, shared encoder integration, streaming and independently broadened quality
+Next work is native execution on newly encoded audio, shared encoder
+integration, streaming and independently broadened quality
 tests. Decision/retrieval heads and recurrent sensory state remain separate
 training milestones. Neither complete backbone release is qualified or published.

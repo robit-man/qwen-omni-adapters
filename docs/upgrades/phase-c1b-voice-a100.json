@@ -1,0 +1,521 @@
+{
+  "schema": "robit.omni.tts-reference-http.v1",
+  "observations": [
+    {
+      "label": "saved-0",
+      "first_pcm_s": 2.6194428550079465,
+      "total_s": 3.6449582880013622,
+      "pcm_sha256": "cd70e485c910d66270f56516ed02d69b2cf3643d2e25f653bc0287e8e4ea454d",
+      "pcm_bytes": 180480,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 90240,
+        "duration_seconds": 3.76,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 11,
+        "tail_samples": 5760,
+        "start_sample": {
+          "median": -0.022857666015625,
+          "minimum": -0.269989013671875,
+          "maximum": 0.181121826171875,
+          "standard_deviation": 0.11944134375941129
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4899253441971917,
+          "10": 0.2602855477663835,
+          "20": 0.2762427459096388
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.04893804993747128,
+          "maximum": 1.069545917087606
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 695563,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 1,
+      "worker_pid": 695563,
+      "gpu_resident": true,
+      "idle_residency_state": "retained"
+    },
+    {
+      "label": "saved-1",
+      "first_pcm_s": 0.10743591701611876,
+      "total_s": 0.8540058200014755,
+      "pcm_sha256": "6d698c24160acfe7d479e2e568975a5c8a84fd2b0bf280a4ba45ecf20810de26",
+      "pcm_bytes": 138240,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 69120,
+        "duration_seconds": 2.88,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 9,
+        "tail_samples": 0,
+        "start_sample": {
+          "median": -0.06146240234375,
+          "minimum": -0.314910888671875,
+          "maximum": 0.428192138671875,
+          "standard_deviation": 0.2394248763218636
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4070695291921252,
+          "10": 0.291115137017872,
+          "20": 0.29710815556900017
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.03703678258677969,
+          "maximum": 0.35806021763999146
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 695563,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 1,
+      "worker_pid": 695563,
+      "gpu_resident": true,
+      "idle_residency_state": "retained"
+    },
+    {
+      "label": "saved-2",
+      "first_pcm_s": 0.10113806696608663,
+      "total_s": 1.078067487978842,
+      "pcm_sha256": "cd70e485c910d66270f56516ed02d69b2cf3643d2e25f653bc0287e8e4ea454d",
+      "pcm_bytes": 180480,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 90240,
+        "duration_seconds": 3.76,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 11,
+        "tail_samples": 5760,
+        "start_sample": {
+          "median": -0.022857666015625,
+          "minimum": -0.269989013671875,
+          "maximum": 0.181121826171875,
+          "standard_deviation": 0.11944134375941129
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4899253441971917,
+          "10": 0.2602855477663835,
+          "20": 0.2762427459096388
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.04893804993747128,
+          "maximum": 1.069545917087606
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 695563,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 1,
+      "worker_pid": 695563,
+      "gpu_resident": true,
+      "idle_residency_state": "retained"
+    },
+    {
+      "label": "saved-reloaded",
+      "first_pcm_s": 2.575497325975448,
+      "total_s": 3.5479287279886194,
+      "pcm_sha256": "cd70e485c910d66270f56516ed02d69b2cf3643d2e25f653bc0287e8e4ea454d",
+      "pcm_bytes": 180480,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 90240,
+        "duration_seconds": 3.76,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 11,
+        "tail_samples": 5760,
+        "start_sample": {
+          "median": -0.022857666015625,
+          "minimum": -0.269989013671875,
+          "maximum": 0.181121826171875,
+          "standard_deviation": 0.11944134375941129
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4899253441971917,
+          "10": 0.2602855477663835,
+          "20": 0.2762427459096388
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.04893804993747128,
+          "maximum": 1.069545917087606
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 697202,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 2,
+      "worker_pid": 697202,
+      "gpu_resident": true,
+      "idle_residency_state": "retained"
+    },
+    {
+      "label": "inline",
+      "first_pcm_s": 5.381942977022845,
+      "total_s": 6.510965554974973,
+      "pcm_sha256": "cd70e485c910d66270f56516ed02d69b2cf3643d2e25f653bc0287e8e4ea454d",
+      "pcm_bytes": 180480,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 90240,
+        "duration_seconds": 3.76,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 11,
+        "tail_samples": 5760,
+        "start_sample": {
+          "median": -0.022857666015625,
+          "minimum": -0.269989013671875,
+          "maximum": 0.181121826171875,
+          "standard_deviation": 0.11944134375941129
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4899253441971917,
+          "10": 0.2602855477663835,
+          "20": 0.2762427459096388
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.04893804993747128,
+          "maximum": 1.069545917087606
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 699679,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 2,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:not-ready"
+    },
+    {
+      "label": "inline-batch",
+      "first_pcm_s": 5.183408951968886,
+      "total_s": 7.084679096995387,
+      "pcm_sha256": "9638ee46df295f28efcd925a6619de59d359e14d184a513a521c8d7a85bbed2e",
+      "pcm_bytes": 318720,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 159360,
+        "duration_seconds": 6.64,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 20,
+        "tail_samples": 5760,
+        "start_sample": {
+          "median": -0.027862548828125,
+          "minimum": -0.269989013671875,
+          "maximum": 0.401824951171875,
+          "standard_deviation": 0.16969070661701774
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.10989558653177803,
+          "10": 0.24285820426745736,
+          "20": 0.2611711639875397
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.12956816919078037,
+          "maximum": 1.069545917087606
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 705565,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 2,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:explicit"
+    },
+    {
+      "label": "inline-batch-repeat",
+      "first_pcm_s": 5.076824247022159,
+      "total_s": 6.974115738994442,
+      "pcm_sha256": "9638ee46df295f28efcd925a6619de59d359e14d184a513a521c8d7a85bbed2e",
+      "pcm_bytes": 318720,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 159360,
+        "duration_seconds": 6.64,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 20,
+        "tail_samples": 5760,
+        "start_sample": {
+          "median": -0.027862548828125,
+          "minimum": -0.269989013671875,
+          "maximum": 0.401824951171875,
+          "standard_deviation": 0.16969070661701774
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.10989558653177803,
+          "10": 0.24285820426745736,
+          "20": 0.2611711639875397
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.12956816919078037,
+          "maximum": 1.069545917087606
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 707837,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 2,
+      "worker_pid": null,
+      "gpu_resident": null,
+      "idle_residency_state": "released:explicit"
+    },
+    {
+      "label": "saved-after-inline",
+      "first_pcm_s": 2.667149272048846,
+      "total_s": 3.6879492590087466,
+      "pcm_sha256": "cd70e485c910d66270f56516ed02d69b2cf3643d2e25f653bc0287e8e4ea454d",
+      "pcm_bytes": 180480,
+      "continuity": {
+        "ok": true,
+        "sample_rate": 24000,
+        "samples": 90240,
+        "duration_seconds": 3.76,
+        "stream_frames": 4,
+        "window_samples": 7680,
+        "complete_windows": 11,
+        "tail_samples": 5760,
+        "start_sample": {
+          "median": -0.022857666015625,
+          "minimum": -0.269989013671875,
+          "maximum": 0.181121826171875,
+          "standard_deviation": 0.11944134375941129
+        },
+        "shared_prefix_rms_ratio": {
+          "1": 0.4899253441971917,
+          "10": 0.2602855477663835,
+          "20": 0.2762427459096388
+        },
+        "boundary_jump_over_local_rms": {
+          "median": 0.04893804993747128,
+          "maximum": 1.069545917087606
+        },
+        "limits": {
+          "median_boundary_jump_over_local_rms": 0.35,
+          "shared_prefix_1ms_rms_ratio": 0.85
+        }
+      },
+      "stream_frames": 4,
+      "producer_pid": 710653,
+      "producer_gpu_resident": true,
+      "native_libraries": {
+        "libggml-cuda.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-cpu.so.0.22.0",
+        "libllama.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama.so.0.3.0",
+        "libggml.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml.so.0.22.0",
+        "libmtmd.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libllama-common.so.0.3.0",
+        "libggml-base.so.0.22.0": "/home/roko/Documents/qwen-omni-upgrade/vendor/llama.cpp/build/bin/libggml-base.so.0.22.0"
+      },
+      "reference_encodes": 1,
+      "reference_cache_hits": 3,
+      "worker_pid": 710653,
+      "gpu_resident": true,
+      "idle_residency_state": "retained"
+    }
+  ],
+  "transitions": [
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready",
+    "prepare",
+    "ready"
+  ],
+  "public_voice_contract_qualified": false,
+  "perceptual_cloning_quality_qualified": false,
+  "checkpoint_sha256": "d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+  "reference_sha256": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+  "transcript_sha256": "ed748b88f9e465a541d61702d89aaa45633d51f59c4ff3630038e9353834de04",
+  "automatic_packets": true,
+  "continuous_batch": true,
+  "prepare_reference": true,
+  "preparation_s": 1.9375511350226589,
+  "no_tts_worker_loaded_during_preparation": true,
+  "all_saved_a_b_a_exact": true,
+  "inline_matches_saved": true,
+  "complete_wav_matches_stream": true,
+  "cancel_cleans_request": true,
+  "inline_batch_exact": false,
+  "continuous_batch_repeat_exact": true,
+  "temporary_reference_files_remaining": 0,
+  "native_state_transfers": [
+    [
+      1,
+      0,
+      5218948,
+      66,
+      47
+    ],
+    [
+      2,
+      5218948,
+      5218948,
+      102,
+      36
+    ],
+    [
+      1,
+      0,
+      5218948,
+      66,
+      47
+    ],
+    [
+      2,
+      5218948,
+      5218948,
+      102,
+      36
+    ]
+  ],
+  "baseline_receipt": "phase-b3b-http-a100.json",
+  "baseline_PCM_exact_labels": [
+    "saved-0",
+    "saved-1",
+    "saved-2",
+    "saved-reloaded",
+    "inline",
+    "inline-batch",
+    "inline-batch-repeat",
+    "saved-after-inline"
+  ]
+}

@@ -203,9 +203,25 @@
       ]
     },
     {
+      "id": "C1b",
+      "objective": "Package the qualified English head in the single indexed model identity and prove direct execution without voice regression",
+      "status": "two_installed_candidate_tags_exact_components_and_A100_Orin_head_voice_regression_verified_head_disabled_live_encoder_and_streaming_pending",
+      "evidence": [
+        "phase-c1b-indexed-head.md",
+        "phase-c1b-ctc-sidecar-pack.json",
+        "phase-c1b-ctc-indexed-components.json",
+        "phase-c1b-ctc-tag-bindings.json",
+        "phase-c1b-indexed-ctc-a100.json",
+        "phase-c1b-indexed-ctc-orin.json",
+        "phase-c1b-voice-a100.json",
+        "phase-c1b-voice-orin.json",
+        "phase-c1b-validation.json"
+      ]
+    },
+    {
       "id": "C",
       "objective": "Train, package and qualify exact-trunk decision, retrieval and streaming-audio heads",
-      "status": "English_head_and_training_lexicon_pass_fixed_quality_and_A100_Orin_native_cached_feature_gates_bundle_live_encoder_streaming_decision_retrieval_integration_pending",
+      "status": "English_head_trained_qualified_packaged_in_both_single_tag_candidates_native_A100_Orin_verified_live_encoder_streaming_decision_retrieval_pending",
       "evidence": [
         "phase-c0-native-training.md",
         "phase-c0-input-audit.json",
@@ -217,7 +233,8 @@
         "phase-c1-native-head.md",
         "phase-c1-quality.json",
         "phase-c1-native-a100.json",
-        "phase-c1-native-orin.json"
+        "phase-c1-native-orin.json",
+        "phase-c1b-indexed-head.md"
       ]
     },
     {

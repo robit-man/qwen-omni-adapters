@@ -192,6 +192,55 @@ def test_unqualified_reference_architecture_and_unpinned_source_are_rejected(tmp
     assert not out.exists()
 
 
+@pytest.mark.parametrize("direct", [False, True])
+def test_optional_ctc_weights_share_tag_without_entering_default_runtime_views(tmp_path, direct):
+    if direct and os.name == "nt":
+        pytest.skip("Windows uses materialized files")
+    _, model, projector = sidecar(tmp_path)
+    source = tmp_path / "ctc.gguf"
+    writer = gguf.GGUFWriter(str(source), arch="robit_audio_ctc")
+    writer.add_string("robit.audio_ctc.schema", "robit.omni.audio-ctc-head.v1")
+    writer.add_string("robit.audio_ctc.encoder_sha256", "a" * 64)
+    for i in range(8):
+        writer.add_tensor(f"fixture_{i}.weight", np.arange(32, dtype=np.float32))
+    writer.write_header_to_file()
+    writer.write_kv_data_to_file()
+    writer.write_tensors_to_file()
+    writer.close()
+    bundle = tmp_path / "with-head.gguf"
+    pack_indexed_tts_sidecar(tts_gguf=model, tts_projector_gguf=projector,
+                             audio_ctc_head_gguf=source, out_gguf=bundle)
+    inspection = inspect_monolithic_gguf(bundle)
+    assert inspection["valid"]
+    assert inspection["manifest"]["runtime"]["disabled_components"] == ["audio_ctc_head"]
+    root, name = tmp_path / "store", "robit/head-fixture:edge-v2"
+    standard_tag(root, name)
+    attach_ollama_sidecar(model=name, bundle_gguf=bundle, models_dir=root)
+    prepared = prepare_ollama_sidecar(model=name, output_dir=tmp_path / "default", models_dir=root)
+    assert set(prepared["views"]) == {"tts_model", "tts_projector"}
+    requested = prepare_ollama_sidecar(model=name, output_dir=tmp_path / "explicit",
+                                      models_dir=root, views=("audio_ctc_head",), prefer_direct=direct)
+    view = Path(requested["views"]["audio_ctc_head"]["output"])
+    if direct:
+        assert view.is_symlink() and view.resolve() == Path(resolve_ollama_sidecar(model=name, models_dir=root)["bundle"])
+        view = tmp_path / "materialized-head.gguf"
+        materialize_component_view(bundle_gguf=bundle, view="audio_ctc_head", out_gguf=view)
+    assert view.read_bytes() == source.read_bytes()
+    bundle.write_bytes(bundle.read_bytes().replace(b"robit.omni.audio-ctc-head.v1", b"robit.omni.audio-ctc-head.v9"))
+    inspection = inspect_monolithic_gguf(bundle)
+    assert not inspection["valid"] and "invalid indexed audio CTC head ABI" in inspection["errors"]
+
+
+def test_optional_head_rejects_generic_wrong_architecture_before_packing(tmp_path):
+    _, model, projector = sidecar(tmp_path)
+    wrong = checkpoint(tmp_path / "wrong-head.gguf", "llama")
+    output = tmp_path / "invalid-head-bundle.gguf"
+    with pytest.raises(SingleGGUFError, match="head.*ABI"):
+        pack_indexed_tts_sidecar(tts_gguf=model, tts_projector_gguf=projector,
+                                 audio_ctc_head_gguf=wrong, out_gguf=output)
+    assert not output.exists()
+
+
 def test_index_does_not_accept_tensors_outside_its_declared_views(tmp_path):
     bundle, _, _ = sidecar(tmp_path)
     raw = bundle.read_bytes()
