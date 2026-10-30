@@ -3,6 +3,13 @@
 The reference runtime presents one Ollama-compatible API while coordinating
 three independently executable graphs from one logical model tag.
 
+New repaired audio projectors can require `robit.qwen3a.trained-prefill.v2`.
+Build all pinned native patches before selecting them. Startup verifies their
+training-prompt signature and the matching native library's ABI 2 capability;
+an unsupported binary is rejected before loading the primary. The explicit
+projector metadata controls audio boundary tokens. See
+[the measured encoder/prefill repair](upgrades/trained-audio-prefill-20261030.md).
+
 ## Bounded virtual context
 
 Compact audio-bridge profiles default to a 16,384-token physical context. The

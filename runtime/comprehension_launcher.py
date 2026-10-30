@@ -27,6 +27,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from qwen_omni_adapters.accelerator import is_tegra
+from qwen_omni_adapters.audio_prefill import verify_audio_prefill_runtime
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 
 GIB_IN_KIB = 1024 * 1024
@@ -812,6 +813,7 @@ def main(argv: list[str] | None = None) -> int:
         command.pop(0)
     if not command:
         raise SystemExit("a llama-server command is required after --")
+    verify_audio_prefill_runtime(Path(_command_value(command, "--mmproj")), Path(command[0]))
 
     available = sampled_available_memory_gib()
     memory_policy = MemoryPolicy.from_environment()

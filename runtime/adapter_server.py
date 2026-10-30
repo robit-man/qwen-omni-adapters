@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import base64
 import copy
-import hashlib
 import io
 import json
 import logging
@@ -40,6 +39,16 @@ from qwen_omni_adapters.audio import (
     AudioContractError,
     decode_wav_payload,
     encode_audio_response,
+)
+from qwen_omni_adapters.audio_prefill import (
+    TRAINED_AUDIO_EXTRACTION_PROMPT,
+    TRAINED_AUDIO_SYSTEM_PROMPT,
+)
+from qwen_omni_adapters.audio_prefill import (
+    TRAINED_AUDIO_PROMPT_SHA256 as TRAINED_AUDIO_PROMPT_SHA256,
+)
+from qwen_omni_adapters.audio_prefill import (
+    TRAINED_AUDIO_SUFFIX_PROMPT as TRAINED_AUDIO_SUFFIX_PROMPT,
 )
 from qwen_omni_adapters.context import (
     configured_tool_families,
@@ -306,16 +315,6 @@ def _active_context_tokens(config: Config) -> int:
 
 MEDIA_CHAT_SYSTEM_PROMPT = context_text("prompts", "media_encoder_system")
 DEFAULT_LANGUAGE_SYSTEM_PROMPT = context_text("prompts", "default_language_system")
-TRAINED_AUDIO_SYSTEM_PROMPT = context_text("prompts", "transcribe_system")
-TRAINED_AUDIO_SUFFIX_PROMPT = context_text("directives", "media_extract_audio")
-TRAINED_AUDIO_TEMPLATE_SUFFIX = (
-    "\n"
-    + TRAINED_AUDIO_SUFFIX_PROMPT
-    + "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-)
-TRAINED_AUDIO_PROMPT_SHA256 = hashlib.sha256(
-    (TRAINED_AUDIO_SYSTEM_PROMPT + "\0" + TRAINED_AUDIO_TEMPLATE_SUFFIX).encode("utf-8")
-).hexdigest()
 
 
 def _json_response(response: httpx.Response, stage: str) -> dict[str, Any]:
@@ -1123,6 +1122,9 @@ def build_comprehension_payload(
     *,
     max_video_frames: int = MAX_VIDEO_FRAMES,
 ) -> dict[str, Any]:
+    media_modalities = set(parsed.input_modalities) - {"text"}
+    audio_only = media_modalities == {"audio"}
+    trained_audio_only = config.comprehension_disable_thinking and audio_only
     media_messages: list[dict[str, Any]] = []
     for message in parsed.messages:
         # Perception has one server-pinned extraction policy. Caller/portal
@@ -1145,7 +1147,7 @@ def build_comprehension_payload(
             include_audio_from_video=parsed.include_audio_from_video,
             max_video_frames=max_video_frames,
         )
-        if parsed.task in {"chat", "transcribe"}:
+        if parsed.task in {"chat", "transcribe"} or trained_audio_only:
             # The user's conversational text belongs exclusively to the language
             # model. Giving it to the media graph can turn the perception stage
             # into a second assistant and invert roles in downstream clients. A
@@ -1158,6 +1160,8 @@ def build_comprehension_payload(
             gui_grounding=gui_grounding,
             gui_prior_orientation=gui_prior_orientation,
         )
+        if trained_audio_only and parts:
+            extraction = TRAINED_AUDIO_EXTRACTION_PROMPT
         if extraction and parts:
             parts.append({"type": "text", "text": extraction})
         if parts:
@@ -1168,8 +1172,6 @@ def build_comprehension_payload(
     # enable_thinking=false prefill. Keep mixed audio/visual requests on the
     # general modality policy so native target vision can still emit visual
     # evidence, but never ask an audio-only trained bridge for untagged prose.
-    media_modalities = set(parsed.input_modalities) - {"text"}
-    audio_only = media_modalities == {"audio"}
     if parsed.task == "transcribe" or (
         config.comprehension_disable_thinking and audio_only
     ):
@@ -1636,7 +1638,7 @@ def _separate_bridge_perception(
         acoustic = [part for part in source["content"] if part["type"] == "input_audio"]
         if acoustic:
             audio["messages"].append({"role": source["role"], "content": [
-                *acoustic, {"type": "text", "text": TRAINED_AUDIO_SUFFIX_PROMPT},
+                *acoustic, {"type": "text", "text": TRAINED_AUDIO_EXTRACTION_PROMPT},
             ]})
     visual["mm_processor_kwargs"] = {"use_audio_in_video": False}
     audio["mm_processor_kwargs"] = {"use_audio_in_video": False}

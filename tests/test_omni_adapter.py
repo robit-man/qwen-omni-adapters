@@ -1255,7 +1255,8 @@ def test_gui_refinement_reuses_target_identity_without_parent_coordinates() -> N
     assert "Current crop" not in prompt
 
 
-def test_trained_audio_bridge_uses_the_release_gated_prompt_contract() -> None:
+@pytest.mark.parametrize("task", ["chat", "describe", "transcribe"])
+def test_trained_audio_bridge_uses_the_release_gated_prompt_contract(task: str) -> None:
     parsed = parse_adapter_request(
         _base_request(
             messages=[
@@ -1265,7 +1266,7 @@ def test_trained_audio_bridge_uses_the_release_gated_prompt_contract() -> None:
                     "audios": [{"data": _encoded(_wav(16000))}],
                 }
             ],
-            omni={"schema": ADAPTER_SCHEMA, "task": "transcribe"},
+            omni={"schema": ADAPTER_SCHEMA, "task": task},
         )
     )
     payload = build_comprehension_payload(
@@ -1292,7 +1293,7 @@ def test_trained_audio_bridge_uses_the_release_gated_prompt_contract() -> None:
         "input_audio",
         "text",
     ]
-    assert payload["messages"][1]["content"][-1]["text"] == TRAINED_AUDIO_SUFFIX_PROMPT
+    assert payload["messages"][1]["content"][-1]["text"] == "\n" + TRAINED_AUDIO_SUFFIX_PROMPT
     assert "This caller text" not in json.dumps(payload["messages"])
     assert payload["chat_template_kwargs"] == {"enable_thinking": False}
     assert payload["repeat_penalty"] == 1.1
@@ -1325,7 +1326,7 @@ def test_trained_audio_chat_uses_the_same_asr_prompt_as_training() -> None:
     )
 
     assert payload["messages"][0]["content"] == TRAINED_AUDIO_SYSTEM_PROMPT
-    assert payload["messages"][-1]["content"][-1]["text"] == TRAINED_AUDIO_SUFFIX_PROMPT
+    assert payload["messages"][-1]["content"][-1]["text"] == "\n" + TRAINED_AUDIO_SUFFIX_PROMPT
 
 
 def test_stream_exposes_only_tagged_input_transcript_to_clients() -> None:

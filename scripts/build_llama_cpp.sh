@@ -19,6 +19,7 @@ REFERENCE_PROMPT_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-prom
 UTTERANCE_STATE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-utterance-state.patch
 AUDIO_FRAMES_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3a-valid-audio-frames.patch
 AUDIO_TAIL_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3a-window-tail.patch
+AUDIO_PREFILL_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3a-trained-prefill.patch
 BUILD_DIR=${LLAMA_CPP_BUILD_DIR:-$SOURCE_DIR/build}
 if command -v nproc >/dev/null 2>&1; then
   default_jobs=$(nproc)
@@ -188,6 +189,7 @@ else
 fi
 apply_patch_file "$AUDIO_FRAMES_PATCH_FILE" "Qwen3A reference audio frame alignment"
 apply_patch_file "$AUDIO_TAIL_PATCH_FILE" "Qwen3A original CNN window-tail batching"
+apply_patch_file "$AUDIO_PREFILL_PATCH_FILE" "Qwen3A versioned trained audio prefill"
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in

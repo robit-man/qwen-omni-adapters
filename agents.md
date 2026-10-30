@@ -29,6 +29,14 @@ the user explicitly chose **repair parity before publishing** on 2026-10-30.
 Do not publish these failed candidates as experimental previews. Repair and
 rerun the semantic gates before either registry is promoted.
 
+The repair audit also found native encoder and prompt mismatches. The runtime
+now carries valid audio frame counts through CNN padding, matches the Whisper
+mel floor, preserves short-tail CNN batching context and supports the explicit
+`robit.qwen3a.trained-prefill.v2` projector ABI. See
+`docs/upgrades/trained-audio-prefill-20261030.md`. Use all 15 pinned native patches
+and the startup ABI guard when evaluating newly exported projections. Exact
+framing and passing PCM/source checks do not clear the remaining semantic gate.
+
 ## Purpose and non-negotiable constraints
 
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
