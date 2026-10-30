@@ -81,6 +81,12 @@
       "evidence": [
         "phase-e-orin-preparation.json"
       ]
+    },
+    {
+      "id": "F",
+      "objective": "After full validation, publish both releases on Hugging Face and Ollama and verify remote artifacts/digests",
+      "status": "authorized_pending_release_qualification",
+      "evidence": []
     }
   ],
   "completed_whole_objective": false,

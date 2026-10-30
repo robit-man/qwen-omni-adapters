@@ -5,6 +5,16 @@ Read this file together with `AGENTS.md` before making changes. Preserve these
 requirements across context renewal. Targets and proposed designs below are not
 claims of implemented capability, compatible weights, or measured improvement.
 
+## Publication requirement
+
+The user explicitly requires publishing both new backbone releases to Hugging
+Face and Ollama after validation. Publication is authorized once the release
+qualification gates pass. Preserve checkpoint identities, licenses, manifests,
+digests and validation receipts; upload the complete corresponding weight
+umbrella to each registry and verify the remote artifacts and digests. Candidate
+labels, source tests and partial speech benchmarks do not satisfy qualification.
+Keep publication in the milestone ledger until both registries are verified.
+
 ## Purpose and non-negotiable constraints
 
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
