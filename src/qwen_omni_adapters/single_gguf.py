@@ -547,6 +547,41 @@ def _copy_view_metadata(
     return copied, skipped
 
 
+class ComponentViewIndex:
+    """Parse a sidecar once and retain its ordered, architecture-specific views."""
+
+    def __init__(self, bundle_gguf: Path) -> None:
+        gguf, self.numpy = _require_gguf()
+        self.source = bundle_gguf.expanduser().resolve()
+        if not self.source.is_file():
+            raise SingleGGUFError(f"bundle GGUF does not exist: {self.source}")
+        self.reader = gguf.GGUFReader(str(self.source))
+        self.metadata = _reader_metadata(self.reader)
+        if self.metadata.get(f"{BUNDLE_NAMESPACE}.schema") not in {
+            BUNDLE_SCHEMA, LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA,
+        }:
+            raise SingleGGUFError(f"unsupported or missing bundle schema in {self.source}")
+        self.views: dict[str, list[tuple[Any, str]]] = {
+            name: [] for name in ("base", *COMPONENT_BY_NAME)
+        }
+        for tensor in self.reader.tensors:
+            for component in EMBEDDED_COMPONENTS:
+                if tensor.name.startswith(component.tensor_prefix):
+                    self.views[component.name].append(
+                        (tensor, tensor.name.removeprefix(component.tensor_prefix))
+                    )
+                    break
+            else:
+                self.views["base"].append((tensor, tensor.name))
+
+    def materialize(
+        self, *, view: str, out_gguf: Path, overwrite: bool = False,
+    ) -> dict[str, Any]:
+        return _materialize_indexed_view(
+            index=self, view=view, out_gguf=out_gguf, overwrite=overwrite,
+        )
+
+
 def materialize_component_view(
     *,
     bundle_gguf: Path,
@@ -555,11 +590,17 @@ def materialize_component_view(
     overwrite: bool = False,
 ) -> dict[str, Any]:
     """Materialize one byte-preserving executable GGUF view from a sidecar."""
+    return ComponentViewIndex(bundle_gguf).materialize(
+        view=view, out_gguf=out_gguf, overwrite=overwrite,
+    )
+
+
+def _materialize_indexed_view(
+    *, index: ComponentViewIndex, view: str, out_gguf: Path, overwrite: bool,
+) -> dict[str, Any]:
     gguf, np = _require_gguf()
-    source = bundle_gguf.expanduser().resolve()
+    source = index.source
     out = out_gguf.expanduser().resolve()
-    if not source.is_file():
-        raise SingleGGUFError(f"bundle GGUF does not exist: {source}")
     if source == out:
         raise SingleGGUFError("materialized output must not overwrite the bundle")
     if out.exists() and not overwrite:
@@ -569,29 +610,16 @@ def materialize_component_view(
         allowed = ", ".join(["base", *COMPONENT_BY_NAME])
         raise SingleGGUFError(f"unknown component view {view!r}; expected one of: {allowed}")
 
-    reader = gguf.GGUFReader(str(source))
-    metadata = _reader_metadata(reader)
-    if metadata.get(f"{BUNDLE_NAMESPACE}.schema") not in {
-        BUNDLE_SCHEMA,
-        LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA,
-    }:
-        raise SingleGGUFError(f"unsupported or missing bundle schema in {source}")
+    reader = index.reader
+    metadata = index.metadata
     if component:
         architecture = str(metadata.get(component.metadata_prefix + "general.architecture") or "")
-        tensor_prefix = component.tensor_prefix
     else:
-        architecture = _architecture(reader)
-        tensor_prefix = ""
+        architecture = str(metadata.get("general.architecture") or "")
     if not architecture:
         raise SingleGGUFError(f"view {view!r} has no general.architecture metadata")
 
-    selected: list[tuple[Any, str]] = []
-    for tensor in reader.tensors:
-        if component:
-            if tensor.name.startswith(tensor_prefix):
-                selected.append((tensor, tensor.name.removeprefix(tensor_prefix)))
-        elif not tensor.name.startswith(RESERVED_TENSOR_PREFIXES):
-            selected.append((tensor, tensor.name))
+    selected = index.views[view]
     if not selected:
         raise SingleGGUFError(f"view {view!r} has no tensors")
 

@@ -7,10 +7,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from qwen_omni_adapters.component_views import prepare_component_views
 from qwen_omni_adapters.single_gguf import (
     LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA,
     inspect_monolithic_gguf,
-    materialize_component_view,
 )
 
 OMNI_LAYER_MEDIA_TYPE = "application/vnd.robit.ollama.omni.bundle.v1+gguf"
@@ -289,6 +289,7 @@ def prepare_ollama_sidecar(
     views: tuple[str, ...] | None = None,
     models_dir: Path | None = None,
     overwrite: bool = False,
+    reuse: bool = False,
 ) -> dict[str, Any]:
     """Materialize disposable runtime views directly from an installed Ollama tag."""
     resolved = resolve_ollama_sidecar(model=model, models_dir=models_dir)
@@ -318,15 +319,10 @@ def prepare_ollama_sidecar(
         )
     destination = output_dir.expanduser().resolve()
     destination.mkdir(parents=True, exist_ok=True)
-    outputs: dict[str, dict[str, Any]] = {}
-    for view in selected_views:
-        output = destination / (view.replace("_", "-") + ".gguf")
-        outputs[view] = materialize_component_view(
-            bundle_gguf=Path(resolved["bundle"]),
-            view=view,
-            out_gguf=output,
-            overwrite=overwrite,
-        )
+    outputs, component_index = prepare_component_views(
+        bundle=Path(resolved["bundle"]), bundle_digest=resolved["layer"]["digest"],
+        output_dir=destination, views=selected_views, overwrite=overwrite, reuse=reuse,
+    )
     return {
         "model": model,
         "bundle": resolved["bundle"],
@@ -336,4 +332,5 @@ def prepare_ollama_sidecar(
         "profile": resolved["profile"],
         "standard_layers": resolved["standard_layers"],
         "views": outputs,
+        "component_index": component_index,
     }

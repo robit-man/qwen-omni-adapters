@@ -219,6 +219,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     prepare.add_argument("--models-dir", type=Path)
     prepare.add_argument("--overwrite", action="store_true")
+    prepare.add_argument(
+        "--reuse", action="store_true",
+        help="Reuse source-bound views after verifying their SHA-256; rebuild only misses",
+    )
 
     doctor = sub.add_parser("doctor", help="Check the host before deployment")
     doctor.add_argument(
@@ -294,6 +298,7 @@ def main(argv: list[str] | None = None) -> int:
                 views=views,
                 models_dir=args.models_dir,
                 overwrite=args.overwrite,
+                reuse=args.reuse,
             )
         elif args.command == "doctor":
             return _doctor(args)

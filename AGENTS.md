@@ -1,5 +1,13 @@
 # AGENTS.md — Qwen Omni runtime instructions
 
+## Upgrade mandate
+
+This is the `qwen-omni-upgrade` fork. Read [agents.md](agents.md), the durable
+user ground truth for single-tag packaging, full reference voice cloning,
+feature parity and measured improvements, before changing this repository.
+The inherited instructions below still apply. Proposed neural heads and Edge v2
+releases are future work until actual training and qualification prove them.
+
 This repository is a standalone runtime baseline. An agent receiving only this
 checkout must be able to install, validate, deploy, diagnose, and safely stop
 the logical Omni model without relying on `fine_tuning_suite`.

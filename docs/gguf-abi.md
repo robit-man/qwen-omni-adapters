@@ -150,6 +150,37 @@ Equivalent single-view extraction is available through `omni-unpack`. The
 runtime cache is not a release artifact and must be removed after workers stop.
 The tag retains the source sidecar and can recreate it at any time.
 
+### Indexed preparation in the upgrade fork
+
+`prepare --reuse --overwrite` reuses verified component files and repairs only
+missing, changed or unverified views. Bootstrap uses this path. Preparation
+without `--reuse` retains the previous overwrite/refusal behavior. All misses
+share one parsed sidecar tensor inventory; the existing resolver still performs
+its own schema inspection. The standalone `unpack` operation remains explicit.
+
+The generated `component-view-index.json` uses schema
+`robit.omni.component-view-index.v1`. It binds the extractor version, installed
+Ollama layer descriptor, source path and source inode/size/timestamps to each
+output filename, SHA-256 and materialization report. Every reuse reads and hashes
+the complete output; same-size corruption cannot be accepted merely because a
+file exists. A changed source, unsupported index or malformed bounded receipt
+invalidates reuse. Source changes during preparation prevent publication of a
+new receipt. Output symlinks are rejected. This receipt inherits the resolver's
+trust in the installed Ollama descriptor; it is not an authenticity signature.
+
+The preparation result adds `component_index` with reused/materialized view
+lists and byte totals, and `reused` on each view. `--overwrite` permits repair;
+with `--reuse`, valid views are retained. Reused reports retain the original
+extraction timing, so use external wall timing to measure preparation latency.
+A warm hit leaves the component files and index unchanged. Receipts are
+disposable alongside their views; delete them only after their workers stop.
+
+This is validated materialization reuse, not direct filtered mmap, tensor-content
+deduplication or reduced GPU residency. Both existing sidecar schemas and their
+matching model/codec tensors remain unchanged. The benchmark
+`runtime/benchmark_component_views.py` compares an original checkout with this
+path using installed weights, fresh CPU processes and an explicitly new cache.
+
 ## Why direct stock loading is rejected
 
 Stock llama.cpp chooses one graph from `general.architecture` and then checks
