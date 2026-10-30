@@ -84,9 +84,10 @@
     {
       "id": "E",
       "objective": "Orin concurrency, complete parity, latency and safe memory qualification of both versioned releases",
-      "status": "isolated_candidate_built_live_qualification_pending_safe_window",
+      "status": "Orin_candidate_TTS_repeatability_verified_full_matrix_pending",
       "evidence": [
-        "phase-e-orin-preparation.json"
+        "phase-e-orin-preparation.json",
+        "phase-e-orin-tts-repeat.json"
       ]
     },
     {
