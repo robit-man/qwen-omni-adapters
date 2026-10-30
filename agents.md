@@ -25,8 +25,9 @@ transcription failure was repaired and verified on A100, with an Orin
 regression check. See `docs/upgrades/release-qualification-20261030.json`. Nonempty
 audio observations are contract checks, never sound-identification acceptance.
 Complete weight packages are staged locally. Public publication remains gated;
-an explicitly disclosed experimental-preview exception was requested but has
-not been granted. Do not infer approval from elapsed time or user silence.
+the user explicitly chose **repair parity before publishing** on 2026-10-30.
+Do not publish these failed candidates as experimental previews. Repair and
+rerun the semantic gates before either registry is promoted.
 
 ## Purpose and non-negotiable constraints
 
