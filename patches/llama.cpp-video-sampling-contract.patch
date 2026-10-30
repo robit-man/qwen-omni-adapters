@@ -1,0 +1,228 @@
+--- a/tools/mtmd/mtmd-helper.cpp
++++ b/tools/mtmd/mtmd-helper.cpp
+@@ -526,6 +526,8 @@
+     std::string ffmpeg_bin;
+     std::string ffprobe_bin;
+     float fps_target = 0.0f;
++    int32_t frame_limit = 0;
++    bool align_timestamps = false;
+     mtmd_helper_video_info info = {};
+ 
+     // RAII wrapper for managing subprocess
+@@ -679,19 +681,26 @@
+         }
+ 
+         fps_target = fps_target_arg > 0.0f ? fps_target_arg : orig_fps;
++        if (frame_limit > 0 && duration > 0.0f) {
++            fps_target = std::min(fps_target, (float)frame_limit / duration);
++        }
+         info.width    = width;
+         info.height   = height;
+         info.fps      = fps_target;
+         LOG_DBG("%s: %ux%u fps=%.2f duration=%.2fs n_frames=%d\n",
+                 __func__, width, height, fps_target, duration, info.n_frames);
+         info.n_frames = duration > 0.0f ? (int32_t)(duration * fps_target + 0.5f) : -1;
++        if (frame_limit > 0) {
++            info.n_frames = info.n_frames > 0 ? std::min(info.n_frames, frame_limit) : frame_limit;
++        }
+         frame_buf.resize((size_t)width * height * 3);
+         return true;
+     }
+ 
+     bool start_ffmpeg(float seek_seconds) {
+         char seek_buf[64];
+-        char fps_buf[64];
++        char fps_buf[128];
++        char limit_buf[32];
+ 
+         std::vector<const char *> cmd;
+         cmd.push_back(ffmpeg_bin.c_str());
+@@ -722,9 +731,16 @@
+         }
+ 
+         if (fps_target > 0.0f) {
+-            snprintf(fps_buf, sizeof(fps_buf), "fps=%.6f", fps_target);
++            snprintf(fps_buf, sizeof(fps_buf),
++                    align_timestamps ? "fps=%.6f:start_time=0:round=up" : "fps=%.6f", fps_target);
+             cmd.push_back("-vf");
+             cmd.push_back(fps_buf);
++        }
++
++        if (frame_limit > 0) {
++            snprintf(limit_buf, sizeof(limit_buf), "%d", frame_limit);
++            cmd.push_back("-frames:v");
++            cmd.push_back(limit_buf);
+         }
+ 
+         cmd.push_back("-f");
+@@ -765,6 +781,10 @@
+ 
+     mtmd_bitmap * read_next_frame() {
+         if (!sp.alive) return nullptr;
++        if (frame_limit > 0 && current_frame >= frame_limit) {
++            sp.stop();
++            return nullptr;
++        }
+ 
+         FILE * fp = sp.stdout_pipe();
+         const size_t frame_size = (size_t)info.width * info.height * 3;
+@@ -856,6 +876,8 @@
+         /* fps_target             */ 4.0f,
+         /* ffmpeg_bin_dir         */ nullptr,
+         /* timestamp_interval_ms  */ 5000,
++        /* max_frames             */ 0,
++        /* align_timestamps       */ false,
+     };
+ }
+ 
+@@ -924,6 +946,8 @@
+     ctx->ffmpeg_bin           = video_resolve_bin(params.ffmpeg_bin_dir, "ffmpeg");
+     ctx->ffprobe_bin          = video_resolve_bin(params.ffmpeg_bin_dir, "ffprobe");
+     ctx->timestamp_interval_ms = params.timestamp_interval_ms;
++    ctx->frame_limit           = params.max_frames;
++    ctx->align_timestamps      = params.align_timestamps;
+ 
+     if (!ctx->probe(params.fps_target)) {
+         LOG_ERR("%s: ffprobe failed for '%s' (is ffprobe in PATH?)\n", __func__, path);
+@@ -959,6 +983,8 @@
+     ctx->ffmpeg_bin            = video_resolve_bin(params.ffmpeg_bin_dir, "ffmpeg");
+     ctx->ffprobe_bin           = video_resolve_bin(params.ffmpeg_bin_dir, "ffprobe");
+     ctx->timestamp_interval_ms = params.timestamp_interval_ms;
++    ctx->frame_limit           = params.max_frames;
++    ctx->align_timestamps      = params.align_timestamps;
+ 
+     if (!ctx->probe(params.fps_target)) {
+         LOG_ERR("%s: ffprobe failed on buffer (is ffprobe in PATH?)\n", __func__);
+--- a/tools/mtmd/mtmd-helper.h
++++ b/tools/mtmd/mtmd-helper.h
+@@ -27,6 +27,8 @@
+     float fps_target;            // desired output fps; <= 0 means use the video's native fps, defaulted to 4.0f
+     const char * ffmpeg_bin_dir; // directory containing ffmpeg/ffprobe binaries; NULL means search PATH
+     int64_t timestamp_interval_ms; // interval for adding timestamp as text chunk (example: "[10m50.5s]"); <= 0 means no timestamp, defaulted to 5000ms
++    int32_t max_frames;         // 0 keeps the unbounded legacy behavior
++    bool align_timestamps;      // sample at the declared source-time grid
+     // TODO @ngxson : allow "placeholder" bitmap output for counting tokens
+ };
+ 
+--- a/tools/server/server-common.cpp
++++ b/tools/server/server-common.cpp
+@@ -14,6 +14,7 @@
+ #include <fstream>
+ #include <limits>
+ #include <cstring>
++#include <cmath>
+ #include <type_traits>
+ 
+ json format_error_response(const std::string & message, const enum error_type type) {
+@@ -915,12 +916,24 @@
+         const std::string & prompt,
+         const std::vector<raw_buffer> & files,
+         const mtmd_helper_init_opt & init_opt,
+-        bool is_placeholder) {
++        bool is_placeholder,
++        const json & video_sampling) {
+     // these will be freed upon going out of scope
+     mtmd::bitmaps bitmaps;
+     std::vector<mtmd_helper::video_ptr> videos;
+-    for (auto & file : files) {
+-        auto out = mtmd_helper_bitmap_init_from_buf(mctx, file.data(), file.size(), is_placeholder, init_opt);
++    for (size_t index = 0; index < files.size(); ++index) {
++        const auto & file = files[index];
++        auto file_opt = init_opt;
++        const auto key = std::to_string(index);
++        if (video_sampling.contains(key)) {
++            const auto & sampling = video_sampling.at(key);
++            file_opt.video_params.fps_target = json_value(sampling, "fps", file_opt.video_params.fps_target);
++            file_opt.video_params.max_frames = json_value(sampling, "max_frames", 0);
++            file_opt.video_params.align_timestamps = true;
++            // Bounded sampled clips retain the source time of every selected frame.
++            file_opt.video_params.timestamp_interval_ms = 1;
++        }
++        auto out = mtmd_helper_bitmap_init_from_buf(mctx, file.data(), file.size(), is_placeholder, file_opt);
+         if (!out.bitmap) {
+             throw std::runtime_error("Failed to load image or audio file");
+         }
+@@ -1136,6 +1149,8 @@
+     std::vector<raw_buffer> & out_files)
+ {
+     json llama_params;
++    // Generated from validated media parts, never from a caller-supplied table.
++    llama_params["media_video_sampling"] = json::object();
+ 
+     auto tools = json_value(body, "tools", json());
+     auto has_tools = tools.is_array() && !tools.empty();
+@@ -1248,11 +1263,40 @@
+                 json input_video = json_value(p, "input_video", json::object());
+                 std::string url  = json_value(input_video, "data",
+                                         json_value(input_video, "url", std::string()));
++                json requested = json_value(p, "sampling", json::object());
++                if (!requested.is_object()) {
++                    throw std::invalid_argument("video sampling must be an object");
++                }
++                json sampling = json::object();
++                if (requested.contains("fps")) {
++                    if (!requested.at("fps").is_number()) {
++                        throw std::invalid_argument("video sampling fps must be numeric");
++                    }
++                    double fps = requested.at("fps").get<double>();
++                    if (!std::isfinite(fps) || fps <= 0 || fps > 240) {
++                        throw std::invalid_argument("video sampling fps must be in (0, 240]");
++                    }
++                    sampling["fps"] = fps;
++                }
++                if (requested.contains("max_frames")) {
++                    if (!requested.at("max_frames").is_number_integer()) {
++                        throw std::invalid_argument("video sampling max_frames must be an integer");
++                    }
++                    int64_t limit = requested.at("max_frames").get<int64_t>();
++                    if (limit <= 0 || limit > 4096) {
++                        throw std::invalid_argument("video sampling max_frames must be in [1, 4096]");
++                    }
++                    sampling["max_frames"] = limit;
++                }
+                 handle_media(out_files, url, opt.media_path, false);
++                if (!sampling.empty()) {
++                    llama_params["media_video_sampling"][std::to_string(out_files.size() - 1)] = sampling;
++                }
+ 
+                 p["type"] = "media_marker";
+                 p["text"] = get_media_marker();
+                 p.erase("input_video");
++                p.erase("sampling");
+ 
+             } else if (type != "text") {
+                 throw std::invalid_argument("unsupported content[].type");
+--- a/tools/server/server-common.h
++++ b/tools/server/server-common.h
+@@ -275,7 +275,8 @@
+                                         const std::string & prompt,
+                                         const std::vector<raw_buffer> & files,
+                                         const mtmd_helper_init_opt & init_opt,
+-                                        bool is_placeholder = false);
++                                        bool is_placeholder = false,
++                                        const json & video_sampling = json::object());
+ 
+ /**
+  * break the input "prompt" object into multiple prompt if needed, then tokenize them
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -4266,7 +4266,8 @@
+ 
+         if (res_type != TASK_RESPONSE_TYPE_NONE && ctx_server.mctx != nullptr) {
+             // This is the case used by OAI compatible chat path with MTMD. TODO It can be moved to the path below.
+-            inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt.get<std::string>(), files, ctx_server.init_opt));
++            inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt.get<std::string>(), files, ctx_server.init_opt,
++                false, json_value(data, "media_video_sampling", json::object())));
+         } else {
+             // Everything else, including multimodal completions.
+             inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true, ctx_server.init_opt);
+@@ -5496,7 +5497,8 @@
+         if (!prompt.is_string()) {
+             throw std::runtime_error("for mtmd, input prompt must be a string.");
+         }
+-        n_tokens = process_mtmd_prompt(mctx, prompt.get<std::string>(), files, init_opt, true).size();
++        n_tokens = process_mtmd_prompt(mctx, prompt.get<std::string>(), files, init_opt,
++            true, json_value(body_parsed, "media_video_sampling", json::object())).size();
+     } else {
+         n_tokens = tokenize_mixed(vocab, prompt, true, true).size();
+     }

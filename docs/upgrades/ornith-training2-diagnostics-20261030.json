@@ -1,0 +1,123 @@
+{
+  "schema": "robit.omni.environmental-perception-evaluation.v1",
+  "family": "ornith",
+  "split": "validation",
+  "context_tokens": 4096,
+  "kv": "f16",
+  "input_manifest_sha256": "b4d82fa330ec886fbeb4348ef39c99366f7cad9bee9c08f56baafd61eaaee87c",
+  "rows": [
+    {
+      "id": "probe-speech",
+      "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "labels": [
+        "speech"
+      ],
+      "mids": [],
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One synthetic speaker with no notable background sound.</audio_observation>",
+      "audio_observation": "One synthetic speaker with no notable background sound.",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 0.537837052019313
+    },
+    {
+      "id": "probe-silence",
+      "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "labels": [
+        "silence"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Silence; no intelligible speech or distinct sound event.</audio_observation>",
+      "audio_observation": "Silence; no intelligible speech or distinct sound event.",
+      "transcript": null,
+      "elapsed_s": 0.48633059998974204
+    },
+    {
+      "id": "probe-alarm",
+      "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+      "labels": [
+        "alarm"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>An intermittent electronic alarm; no intelligible speech.</audio_observation>",
+      "audio_observation": "An intermittent electronic alarm; no intelligible speech.",
+      "transcript": null,
+      "elapsed_s": 0.46327597100753337
+    },
+    {
+      "id": "probe-noise",
+      "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+      "labels": [
+        "noise"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Faint steady room tone with no intelligible speech.</audio_observation>",
+      "audio_observation": "Faint steady room tone with no intelligible speech.",
+      "transcript": null,
+      "elapsed_s": 0.46164525201311335
+    },
+    {
+      "id": "probe-music",
+      "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+      "labels": [
+        "music"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Rain.</audio_observation>",
+      "audio_observation": "Audible sound events: Rain.",
+      "transcript": null,
+      "elapsed_s": 0.44154760998208076
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+      "labels": [
+        "esc50-clock_alarm"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Alarm.</audio_observation>",
+      "audio_observation": "Audible sound events: Alarm.",
+      "transcript": null,
+      "elapsed_s": 0.44078593800077215
+    },
+    {
+      "id": "probe-esc50-dog",
+      "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+      "labels": [
+        "esc50-dog"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound event: Bark.</audio_observation>",
+      "audio_observation": "Audible sound event: Bark.",
+      "transcript": null,
+      "elapsed_s": 0.44423063105205074
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+      "labels": [
+        "esc50-church_bells"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Hammond organ.</audio_observation>",
+      "audio_observation": "Audible sound events: Hammond organ.",
+      "transcript": null,
+      "elapsed_s": 0.4514547570142895
+    }
+  ],
+  "complete": true,
+  "quality_gate_passed": false,
+  "model_path": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+  "projector_path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-repair2-best1450-projector.gguf",
+  "elapsed_s": 3.7331415630178526,
+  "primary_gpu_resident": true,
+  "evaluation_kind": "eight_fixed_repair_diagnostics_not_independent_release_acceptance",
+  "human_semantic_assessment": {
+    "speech": "exact",
+    "silence": "correct",
+    "synthetic_alarm": "correct",
+    "noise": "underdescribed_as_faint_room_tone",
+    "music": "incorrect_rain",
+    "real_clock_alarm": "correct",
+    "real_dog": "correct_bark",
+    "real_church_bells": "incorrect_hammond_organ"
+  }
+}

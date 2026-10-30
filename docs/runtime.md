@@ -10,6 +10,12 @@ an unsupported binary is rejected before loading the primary. The explicit
 projector metadata controls audio boundary tokens. See
 [the measured encoder/prefill repair](upgrades/trained-audio-prefill-20261030.md).
 
+Per-video `sampling.fps` and `sampling.max_frames` now pass through the pinned
+native decoder and input-token counter. Known-duration clips spread a reduced
+frame budget across source time, with selected-frame timestamps; unknown-duration
+clips retain a bounded prefix. Rebuild native helpers against the matching
+headers. See [measured video controls](upgrades/video-sampling-20261030.md).
+
 ## Bounded virtual context
 
 Compact audio-bridge profiles default to a 16,384-token physical context. The

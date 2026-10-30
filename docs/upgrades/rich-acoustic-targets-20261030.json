@@ -1,0 +1,642 @@
+{
+  "schema": "robit.omni.rich-acoustic-targets.v1",
+  "input_manifest_sha256": "ce07f73c91464aa2ac8e6969e43a3460db11ceb8200ebf0a76dcef077452ca61",
+  "manifest_sha256": "6a9269f65c061f1589042350e1e8cdcdbf495c1258d099d5d347d2d37a2d3186",
+  "teacher": {
+    "source_revision": "a1d0db7",
+    "binary_sha256": "11099326f456525393f53b469386b796bc84510cb8fc58116eb2a425df3030ce",
+    "libmtmd_sha256": "be1a582efcd39a86091a3b14097f01b3e50ab6098df7a1a34e9bce48a5ae478d",
+    "encoder_projector_sha256": "1104376db833f1e89c84834144ac3863340c2cd1ddaeddb39cb0247fb5c20c8d",
+    "teacher_model_sha256": "d9e2876556e7873e02c0359f832432ee2d67ab7dd0cee3efe0f77fd7a1f4dd85"
+  },
+  "teacher_report_sha256": "a89f092e971af5adde2948fe2f5640d9142924ef1a4ee1f6418e60b093625b7e",
+  "teacher_generated_test_captions": 0,
+  "total": 6355,
+  "splits": {
+    "train": 5415,
+    "test": 555,
+    "validation": 385
+  },
+  "richer_targets": 2319,
+  "original_replay_unchanged": 3636,
+  "test_rows_byte_identical": 555,
+  "rejections": {
+    "teacher_speech_unverified_against_human_transcript": 45,
+    "violates_acoustic_only_no_camera_inference_policy": 66,
+    "malformed_or_extra_markup": 10
+  },
+  "rejected_rows": [
+    {
+      "id": "fsd50k-102302",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-102551",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-105069",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-107121",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-108842",
+      "split": "validation",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-113185",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-113192",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-113521",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-11587",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-119903",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-119917",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-125846",
+      "split": "train",
+      "reason": "malformed_or_extra_markup"
+    },
+    {
+      "id": "fsd50k-127543",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-127824",
+      "split": "validation",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-130327",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-130977",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-134791",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-146962",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-151792",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-151795",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-155905",
+      "split": "train",
+      "reason": "malformed_or_extra_markup"
+    },
+    {
+      "id": "fsd50k-156200",
+      "split": "validation",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-157812",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-160531",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-171822",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-179725",
+      "split": "validation",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-180135",
+      "split": "validation",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-180208",
+      "split": "validation",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-180211",
+      "split": "validation",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-185065",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-187265",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-208855",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-215328",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-215370",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-215849",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-216005",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-219768",
+      "split": "train",
+      "reason": "malformed_or_extra_markup"
+    },
+    {
+      "id": "fsd50k-222603",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-223375",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-238573",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-238697",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-239070",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-245681",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-250133",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-252260",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-252296",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-252298",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-263030",
+      "split": "validation",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-267910",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-270875",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-271010",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-272017",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-274510",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-276310",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-321934",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-32416",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-32940",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-329611",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-333398",
+      "split": "validation",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-333399",
+      "split": "validation",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-333408",
+      "split": "validation",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-333411",
+      "split": "validation",
+      "reason": "malformed_or_extra_markup"
+    },
+    {
+      "id": "fsd50k-333418",
+      "split": "validation",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-336200",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-337079",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-339069",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-340968",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-341198",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-341199",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-341329",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-349275",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-352389",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-368203",
+      "split": "validation",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-370244",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-378270",
+      "split": "validation",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-378830",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-378831",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-379100",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-379382",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-38245",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-386202",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-386205",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-386206",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-386207",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-386208",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-386243",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-386269",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-386293",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-386445",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-390620",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-391326",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-391869",
+      "split": "train",
+      "reason": "malformed_or_extra_markup"
+    },
+    {
+      "id": "fsd50k-392236",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-392237",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-394383",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-395423",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-397608",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-398406",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-398509",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-399619",
+      "split": "train",
+      "reason": "malformed_or_extra_markup"
+    },
+    {
+      "id": "fsd50k-401595",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-405755",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-409094",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-409095",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-410137",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-412036",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-422727",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-423906",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-426818",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-432193",
+      "split": "train",
+      "reason": "malformed_or_extra_markup"
+    },
+    {
+      "id": "fsd50k-434145",
+      "split": "train",
+      "reason": "malformed_or_extra_markup"
+    },
+    {
+      "id": "fsd50k-47988",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-52004",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-55052",
+      "split": "train",
+      "reason": "malformed_or_extra_markup"
+    },
+    {
+      "id": "fsd50k-67605",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-79015",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    },
+    {
+      "id": "fsd50k-82686",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-82687",
+      "split": "train",
+      "reason": "malformed_or_extra_markup"
+    },
+    {
+      "id": "fsd50k-82800",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-89496",
+      "split": "train",
+      "reason": "teacher_speech_unverified_against_human_transcript"
+    },
+    {
+      "id": "fsd50k-91486",
+      "split": "train",
+      "reason": "violates_acoustic_only_no_camera_inference_policy"
+    }
+  ],
+  "semantic_quality_gate_passed": false,
+  "limitations": [
+    "Pseudo captions are not human ground truth; may contain false sound claims.",
+    "No independently transcribed teacher speech used.",
+    "400 new test clips remain untouched for final evaluation.",
+    "Filter enforces format and the explicit camera-inference prohibition, not semantic accuracy."
+  ]
+}
