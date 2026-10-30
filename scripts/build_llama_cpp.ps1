@@ -12,6 +12,7 @@ $PersistentPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-persisten
 $StreamStatePatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-stream-state.patch"
 $JsonPatternPatchFile = Join-Path $RepoRoot "patches\llama.cpp-json-pattern-safety.patch"
 $JsonStringBoundsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-json-string-bounds.patch"
+$ConditioningCachePatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-conditioning-cache.patch"
 $BuildDir = Join-Path $SourceDir "build"
 
 if (-not (Test-Path (Join-Path $SourceDir ".git"))) {
@@ -28,7 +29,8 @@ foreach ($Patch in @(
   @{ File = $PersistentPatchFile; Label = "Qwen3-TTS persistent worker" },
   @{ File = $StreamStatePatchFile; Label = "Qwen3-TTS streaming decoder state" },
   @{ File = $JsonPatternPatchFile; Label = "JSON pattern string safety" },
-  @{ File = $JsonStringBoundsPatchFile; Label = "JSON string length bounds" }
+  @{ File = $JsonStringBoundsPatchFile; Label = "JSON string length bounds" },
+  @{ File = $ConditioningCachePatchFile; Label = "Qwen3-TTS immutable conditioning cache" }
 )) {
   git -C $SourceDir apply --reverse --check $Patch.File 2>$null
   if ($LASTEXITCODE -ne 0) {
@@ -45,4 +47,5 @@ if (-not (Test-Path $Tts)) { $Tts = Join-Path $BuildDir "bin\llama-tts.exe" }
 if (-not (Test-Path $Tts)) { throw "llama-tts.exe was not built" }
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-stream-frames" | Out-Null
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-persistent" | Out-Null
+& $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-no-conditioning-cache" | Out-Null
 Write-Host "Built patched llama-server and llama-tts in $BuildDir"

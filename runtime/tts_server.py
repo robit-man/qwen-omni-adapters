@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import atexit
 import base64
+import hashlib
 import io
 import os
 import queue
@@ -66,6 +67,7 @@ class Config:
     broker_transition_timeout_s: float = 330
     persistent: bool = True
     warm_speaker_file: str = ""
+    conditioning_cache: bool = True
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -132,6 +134,8 @@ class Config:
             broker_transition_timeout_s=float(
                 os.environ.get("OMNI_TTS_BROKER_TRANSITION_TIMEOUT_S", "330")
             ),
+            conditioning_cache=os.environ.get("OMNI_TTS_CONDITIONING_CACHE", "1").strip().lower()
+            not in {"0", "false", "no", "off"},
             persistent=os.environ.get("OMNI_TTS_PERSISTENT", "1").strip().lower()
             not in {"0", "false", "no"},
             warm_speaker_file=os.environ.get(
@@ -335,6 +339,8 @@ def _command(
         command.extend(["--tts-stream", "--tts-stream-frames", str(spec.stream_frames)])
     if persistent:
         command.append("--tts-persistent")
+    if not config.conditioning_cache:
+        command.append("--tts-no-conditioning-cache")
     return command
 
 
@@ -592,6 +598,18 @@ def _batch_specs(config: Config, body: dict[str, Any]) -> list[SynthesisSpec]:
     return specs
 
 
+def _reference_digest(path: Path) -> str:
+    """Content identity only; never persist or log a request-local reference."""
+    digest = hashlib.sha256()
+    try:
+        with path.expanduser().open("rb") as handle:
+            while chunk := handle.read(1024 * 1024):
+                digest.update(chunk)
+    except OSError as exc:
+        raise TTSError("cannot read TTS reference or checkpoint identity") from exc
+    return digest.hexdigest()
+
+
 class PersistentTTSWorker:
     """Keep one llama.cpp TTS graph resident and exchange framed PCM over pipes."""
 
@@ -602,6 +620,27 @@ class PersistentTTSWorker:
         self.stderr_log: Any = None
         self.stdout_queue: queue.Queue[bytes | None] | None = None
         self.stdout_buffer = bytearray()
+        self._weight_fingerprints: dict[Path, tuple[tuple[int, ...], str]] = {}
+
+    def _weight_identity(self, path: Path) -> str:
+        """Hash each immutable checkpoint once, invalidating on file replacement."""
+        try:
+            info = path.stat()
+        except FileNotFoundError:
+            # Preserve the binary's existing missing-model error, including the
+            # CPU protocol fixtures whose fake binary does not open weights.
+            return "missing"
+        identity = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        cached = self._weight_fingerprints.get(path)
+        if cached is not None and cached[0] == identity:
+            return cached[1]
+        digest = _reference_digest(path)
+        after = path.stat()
+        if (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns,
+                after.st_ctime_ns) != identity:
+            raise TTSError("TTS checkpoint changed while computing its identity")
+        self._weight_fingerprints[path] = identity, digest
+        return digest
 
     @staticmethod
     def _profile(spec: SynthesisSpec) -> tuple[Any, ...]:
@@ -614,6 +653,8 @@ class PersistentTTSWorker:
             spec.top_p,
             spec.seed,
             spec.stream_frames,
+            "qwen3tts-base-reference-normalization-v1",
+            _reference_digest(Path(spec.speaker)) if spec.speaker else "",
         )
 
     @property
@@ -709,7 +750,8 @@ class PersistentTTSWorker:
             self.config.active_pid_file.unlink(missing_ok=True)
 
     def ensure(self, spec: SynthesisSpec) -> None:
-        wanted = self._profile(spec)
+        wanted = (*self._profile(spec), self._weight_identity(self.config.model),
+                  self._weight_identity(self.config.projector))
         if self.ready and self.profile == wanted:
             return
         self.close()

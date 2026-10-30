@@ -1,0 +1,76 @@
+{
+  "schema": "robit.omni.upgrade-milestones.v1",
+  "user_objective": "Finish the remaining milestones under agents.md, preserving one tag, one reasoning trunk and arbitrary reference cloning.",
+  "authorization": "User requested all remaining milestones; continue sequential, measured changes without treating intermediate checkpoints as completion of the whole objective.",
+  "milestones": [
+    {
+      "id": "A1",
+      "objective": "Indexed verified component reuse",
+      "status": "verified",
+      "commit": "00b36f1864f717e882c73898e6e8d88b8b511eb0",
+      "evidence": [
+        "phase-a-component-index.json",
+        "phase-a-validation.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "objective": "Canonical component packaging and proven storage deduplication",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": "B1",
+      "objective": "Reuse immutable current-backend voice conditioning without carrying decoded request state",
+      "status": "verified_for_current_gguf_conditioning_path",
+      "evidence": [
+        "phase-b-conditioning.json",
+        "phase-b-conditioning.md",
+        "phase-b-validation.json"
+      ]
+    },
+    {
+      "id": "B2",
+      "objective": "Lower TTS loading and memory cost through bounded token-row reads",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": "B3",
+      "objective": "Committed speech handoff and adaptive initial/steady acoustic windows",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": "B4",
+      "objective": "Qualify reference transcripts/acoustic prompts and profile-specific warm residency without reducing cloning fidelity",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": "C",
+      "objective": "Train, package and qualify exact-trunk decision, retrieval and streaming-audio heads",
+      "status": "pending_training_and_backend_integration",
+      "evidence": []
+    },
+    {
+      "id": "D",
+      "objective": "Train and qualify small recurrent sensory/task state without continuously running the full trunk",
+      "status": "pending_training_and_backend_integration",
+      "evidence": []
+    },
+    {
+      "id": "E",
+      "objective": "Orin concurrency, complete parity, latency and safe memory qualification of both versioned releases",
+      "status": "baseline_observed_candidate_pending",
+      "evidence": []
+    }
+  ],
+  "completed_whole_objective": false,
+  "constraints": [
+    "Do not label source tests as live model acceptance.",
+    "Do not label untrained heads as compatible or useful.",
+    "Do not restart existing target services without applicable authorization.",
+    "Keep credentials out of source and receipts."
+  ]
+}

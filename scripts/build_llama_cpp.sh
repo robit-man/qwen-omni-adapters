@@ -10,6 +10,7 @@ PERSISTENT_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-persistent.patch
 STREAM_STATE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-stream-state.patch
 JSON_PATTERN_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-json-pattern-safety.patch
 JSON_STRING_BOUNDS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-json-string-bounds.patch
+CONDITIONING_CACHE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-conditioning-cache.patch
 BUILD_DIR=${LLAMA_CPP_BUILD_DIR:-$SOURCE_DIR/build}
 if command -v nproc >/dev/null 2>&1; then
   default_jobs=$(nproc)
@@ -127,6 +128,7 @@ fi
 # Independent common-code fix; do not fold it into the overlapping TTS markers.
 apply_patch_file "$JSON_PATTERN_PATCH_FILE" "JSON pattern string safety"
 apply_patch_file "$JSON_STRING_BOUNDS_PATCH_FILE" "JSON string length bounds"
+apply_patch_file "$CONDITIONING_CACHE_PATCH_FILE" "Qwen3-TTS immutable conditioning cache"
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in
@@ -163,4 +165,5 @@ cmake --build "$BUILD_DIR" --target llama-server llama-tts --parallel "$BUILD_JO
 
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-stream-frames'
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-persistent'
+"$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-no-conditioning-cache'
 printf 'Built patched llama-server and llama-tts in %s\n' "$BUILD_DIR/bin"
