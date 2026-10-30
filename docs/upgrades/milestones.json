@@ -79,13 +79,14 @@
     {
       "id": "B4",
       "objective": "Qualify reference transcripts/acoustic prompts and profile-specific warm residency without reducing cloning fidelity",
-      "status": "bounded_idle_policy_verified_A100_and_initial_Orin_cases_current_Orin_load_declines_retention_full_reference_prompts_pending",
+      "status": "bounded_idle_policy_verified_A100_and_Orin_adaptive_short_speech_with_safe_pressure_release_full_reference_prompts_pending",
       "evidence": [
         "phase-b4-idle.md",
         "phase-b4-idle-a100.json",
         "phase-b4-idle-orin-initial.json",
         "phase-b4-idle-orin-pressure.json",
-        "phase-b4-validation.json"
+        "phase-b4-validation.json",
+        "phase-b4-idle-orin-adaptive.json"
       ]
     },
     {
@@ -110,7 +111,8 @@
         "phase-e-orin-token-rows.json",
         "phase-b4-idle-orin-pressure.json",
         "production-integration.json",
-        "phase-b5-context-orin.json"
+        "phase-b5-context-orin.json",
+        "phase-b4-idle-orin-adaptive.json"
       ]
     },
     {

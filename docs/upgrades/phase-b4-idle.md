@@ -40,6 +40,18 @@ failed receipt is retained as `phase-b4-idle-orin-pressure.json`; it is not a
 passed warm qualification. The 2048 MiB active-run guard was never crossed.
 Production services remained active; no extra restart was used to make this pass.
 
+After B5, a matched 4K/adaptive-context comparison passed the broader real-route
+controls on Orin (`phase-b4-idle-orin-adaptive.json`). Its three-request median
+first PCM fell from 3.338 to 0.253 seconds (92.43%); median route completion fell
+57.96%. The first cold request remained approximately 3.1 seconds. A/B/A PCM was
+identical, expiry occurred, alternate-reference WAV matched its baseline, inline
+conditioning stayed ephemeral and cancellation killed the active TTS worker.
+After the later controls, availability briefly fell below the 6144 MiB retention
+threshold, and retention was correctly declined. The active-run minimum was
+6083 MiB, safely above the separate 2048 MiB cancellation guard. The setup
+constructs the production Config with `adaptive_context=True` in both policies;
+its private qualification wrapper hash is recorded. No primary restart occurred.
+
 Consequently this option is not enabled automatically for either backbone.
 Ornith needs complete concurrency qualification before a warm default is chosen;
 Qwen3.8 remains request-scoped. Full reference-transcript/acoustic-code prompt
