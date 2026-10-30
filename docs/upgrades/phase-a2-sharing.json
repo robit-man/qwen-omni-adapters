@@ -1,0 +1,61 @@
+{
+  "schema": "robit.omni.shared-sidecar-qualification.v2",
+  "pairs": [
+    {
+      "source": "robit/ornith-1.5-omni-audio-bridge:q4km",
+      "target": "robit/ornith-1.5-omni:edge-v2-candidate-20261029",
+      "source_sidecar": "sha256:56b58150b06c9ee1b915f6a545638b1e7d7b0ba6e360b69711cb7abbde3e8a01",
+      "candidate_sidecar": "sha256:5f39fca31532abfb5c162b3c258e26bc7ab959a94708ab32000185301d35ebf7",
+      "primary_weights_unchanged": true,
+      "standard_layers": {
+        "language_model": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+        "projector": "sha256:7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c"
+      },
+      "extracted_components_sha256": {
+        "tts_model": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129",
+        "tts_projector": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2"
+      },
+      "materialized_views": [
+        "tts_model",
+        "tts_projector"
+      ],
+      "reused_views": [],
+      "ollama_metadata_tag_digest": "a3f689faa7fdd03aa625ae276b060eae747d7ec3f475b70b3e1f443bc5923952"
+    },
+    {
+      "source": "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+      "target": "robit/qwen3.8-27b-e03-omni:edge-v2-candidate-20261029",
+      "source_sidecar": "sha256:2aa20f23abf2044b269d432e06f29f050dbbcd89b036c908a4903092d4437294",
+      "candidate_sidecar": "sha256:5f39fca31532abfb5c162b3c258e26bc7ab959a94708ab32000185301d35ebf7",
+      "primary_weights_unchanged": true,
+      "standard_layers": {
+        "language_model": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+        "projector": "sha256:554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03"
+      },
+      "extracted_components_sha256": {
+        "tts_model": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129",
+        "tts_projector": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2"
+      },
+      "materialized_views": [],
+      "reused_views": [
+        "tts_model",
+        "tts_projector"
+      ],
+      "ollama_metadata_tag_digest": "4e9e2372fcf32c9b1cca3ee9e39f4b1791c3b47453151eddabd13fe905c30e3d"
+    }
+  ],
+  "source_sidecar_bytes": 2964792672,
+  "candidate_sidecar_bytes": 1482396544,
+  "sidecar_bytes_avoided_in_new_pair_install": 1482396128,
+  "old_unique_weight_layer_bytes": 28433847712,
+  "new_unique_weight_layer_bytes": 26951451584,
+  "shared_installed_blob_sha256": "5f39fca31532abfb5c162b3c258e26bc7ab959a94708ab32000185301d35ebf7",
+  "limits": [
+    "Existing legacy blobs and tags retained; no current disk-space reclamation claimed",
+    "CPU packaging and exact checkpoint identity only; no new neural quality or GPU memory claim",
+    "Executable views still materialized; direct filtered loader remains pending",
+    "Candidate tags are not qualified Edge v2 releases"
+  ],
+  "sidecar_reduction_percent": 49.999992984332366,
+  "pair_weight_layer_reduction_percent": 5.213491128653613
+}

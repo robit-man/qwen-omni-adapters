@@ -9,7 +9,8 @@ from typing import Any
 
 from qwen_omni_adapters.component_views import prepare_component_views
 from qwen_omni_adapters.single_gguf import (
-    LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA,
+    AUDIO_BRIDGE_SCHEMAS,
+    INDEXED_AUDIO_BRIDGE_SCHEMA,
     inspect_monolithic_gguf,
 )
 
@@ -17,6 +18,7 @@ OMNI_LAYER_MEDIA_TYPE = "application/vnd.robit.ollama.omni.bundle.v1+gguf"
 OLLAMA_MODEL_MEDIA_TYPE = "application/vnd.ollama.image.model"
 OLLAMA_PROJECTOR_MEDIA_TYPE = "application/vnd.ollama.image.projector"
 DEFAULT_REGISTRY = "registry.ollama.ai"
+INDEXED_BINDING_ANNOTATION = "io.robit.omni.binding.v2"
 RUNTIME_VIEWS = (
     "comprehension_model",
     "comprehension_projector",
@@ -68,7 +70,7 @@ def resolve_models_dir(explicit: Path | None = None) -> Path:
             continue
         resolved = resolved.resolve()
         existing.append(resolved)
-        if (resolved / "manifests").is_dir():
+        if any((resolved / name).is_dir() for name in ("manifests-v2", "manifests")):
             populated.append(resolved)
     for choice in (populated, existing):
         if choice:
@@ -98,6 +100,20 @@ def manifest_path(model: str, models_dir: Path) -> Path:
         parts.insert(0, "library")
     if len(parts) < 2 or not all(parts) or not tag:
         raise OllamaSidecarError(f"invalid Ollama model reference: {model!r}")
+    # Ollama 0.40 resolves the canonical v2 name before its legacy aliases.
+    # Preserve the legacy creation path for older stores and existing callers.
+    public_hosts = {DEFAULT_REGISTRY, "ollama.com"}
+    v2_host = "ollama.com" if registry.lower() in public_hosts else registry
+    modern = models_dir / "manifests-v2" / v2_host.replace(":", "%3A") / Path(*parts) / tag
+    if modern.is_file():
+        return modern
+    registries = [registry]
+    if registry.lower() in public_hosts:
+        registries.append("ollama.com" if registry.lower() == DEFAULT_REGISTRY else DEFAULT_REGISTRY)
+    for host in registries:
+        legacy = models_dir / "manifests" / host / Path(*parts) / tag
+        if legacy.is_file():
+            return legacy
     return models_dir / "manifests" / registry / Path(*parts) / tag
 
 
@@ -172,6 +188,18 @@ def _install_blob(source: Path, destination: Path) -> str:
     return digest
 
 
+def _indexed_binding(standard_layers: dict[str, dict[str, Any]], digest: str) -> dict[str, Any]:
+    required = {"language_model", "projector"}
+    if set(standard_layers) != required or any(
+        not entry["available"] for entry in standard_layers.values()
+    ):
+        raise OllamaSidecarError("indexed TTS sidecar requires available language and trained projector layers")
+    return {"schema": "robit.omni.layer-binding.v2", "sidecar": digest,
+            "standard_layers": {name: {key: standard_layers[name]["layer"][key]
+                                       for key in ("digest", "size")}
+                                for name in sorted(required)}}
+
+
 def attach_ollama_sidecar(
     *,
     model: str,
@@ -186,6 +214,11 @@ def attach_ollama_sidecar(
     root = resolve_models_dir(models_dir)
     path = manifest_path(model, root)
     manifest = _read_manifest(path)
+    binding = None
+    if inspection["manifest"]["schema"] == INDEXED_AUDIO_BRIDGE_SCHEMA:
+        # Validate the tag before installing any payload. This records identity,
+        # not evidence that an arbitrary projector was trained for this trunk.
+        binding = _indexed_binding(_resolve_standard_layers(manifest, root), "")
     digest = _install_blob(bundle, root / "blobs")
     layer = {
         "mediaType": OMNI_LAYER_MEDIA_TYPE,
@@ -196,6 +229,11 @@ def attach_ollama_sidecar(
             "io.robit.omni.schema": inspection["manifest"]["schema"],
         },
     }
+    if binding is not None:
+        binding["sidecar"] = layer["digest"]
+        layer["annotations"][INDEXED_BINDING_ANNOTATION] = json.dumps(
+            binding, sort_keys=True, separators=(",", ":")
+        )
     previous_sidecars = sum(
         existing.get("mediaType") == OMNI_LAYER_MEDIA_TYPE for existing in manifest["layers"]
     )
@@ -255,10 +293,18 @@ def resolve_ollama_sidecar(
     schema = (inspection.get("manifest") or {}).get("schema")
     profile = (
         "trained-audio-bridge"
-        if schema == LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA
+        if schema in AUDIO_BRIDGE_SCHEMAS
         else "legacy-cascade"
     )
     standard_layers = _resolve_standard_layers(manifest, root)
+    if schema == INDEXED_AUDIO_BRIDGE_SCHEMA:
+        expected = _indexed_binding(standard_layers, digest)
+        try:
+            binding = json.loads(layer.get("annotations", {}).get(INDEXED_BINDING_ANNOTATION, ""))
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise OllamaSidecarError("indexed sidecar is missing its exact tag layer binding") from exc
+        if binding != expected:
+            raise OllamaSidecarError("indexed sidecar binding does not match this language/projector pair")
     if profile == "trained-audio-bridge":
         required = {"language_model", "projector"}
         missing = sorted(

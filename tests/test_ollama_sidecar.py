@@ -225,3 +225,39 @@ def test_the_linux_service_store_is_a_known_candidate():
     source = Path(resolve_models_dir.__globals__["__file__"]).read_text()
 
     assert "/usr/share/ollama/.ollama/models" in source
+
+
+@pytest.mark.parametrize("reference", ["robit/example:tag", "ollama.com/robit/example:tag",
+                                       "registry.ollama.ai/robit/example:tag"])
+def test_manifest_lookup_prefers_v2_and_preserves_legacy_public_aliases(tmp_path, reference):
+    modern = tmp_path / "manifests-v2/ollama.com/robit/example/tag"
+    legacy = tmp_path / "manifests/registry.ollama.ai/robit/example/tag"
+    modern.parent.mkdir(parents=True)
+    legacy.parent.mkdir(parents=True)
+    modern.write_text("modern")
+    legacy.write_text("legacy")
+    assert manifest_path(reference, tmp_path) == modern
+    modern.unlink()
+    assert manifest_path(reference, tmp_path) == legacy
+
+
+def test_manifest_lookup_encodes_custom_registry_port_and_falls_back_from_dangling_link(tmp_path):
+    modern = tmp_path / "manifests-v2/localhost%3A5000/team/example/tag"
+    legacy = tmp_path / "manifests/localhost:5000/team/example/tag"
+    modern.parent.mkdir(parents=True)
+    legacy.parent.mkdir(parents=True)
+    modern.symlink_to(tmp_path / "missing")
+    legacy.write_text("legacy")
+    reference = "localhost:5000/team/example:tag"
+    assert manifest_path(reference, tmp_path) == legacy
+    modern.unlink()
+    modern.write_text("modern")
+    assert manifest_path(reference, tmp_path) == modern
+
+
+def test_v2_only_populated_store_is_preferred_to_empty_store(monkeypatch, tmp_path):
+    empty, populated = tmp_path / "empty", tmp_path / "populated"
+    empty.mkdir()
+    (populated / "manifests-v2").mkdir(parents=True)
+    monkeypatch.setenv("OLLAMA_MODELS", str(populated))
+    assert resolve_models_dir(empty) == populated

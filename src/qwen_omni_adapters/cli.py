@@ -12,6 +12,7 @@ from typing import Any
 from qwen_omni_adapters.accelerator import accelerator_profile, is_tegra
 from qwen_omni_adapters.applications import discover_applications
 from qwen_omni_adapters.contract import adapter_contract
+from qwen_omni_adapters.indexed_sidecar import pack_indexed_tts_sidecar
 from qwen_omni_adapters.ollama_sidecar import (
     OllamaSidecarError,
     attach_ollama_sidecar,
@@ -184,6 +185,12 @@ def build_parser() -> argparse.ArgumentParser:
     pack.add_argument("--tts-projector-source")
     pack.add_argument("--overwrite", action="store_true")
 
+    pack_tts = sub.add_parser("pack-tts", help="Pack deterministic, shared indexed TTS sidecar v2")
+    pack_tts.add_argument("--tts", type=Path, required=True)
+    pack_tts.add_argument("--tts-projector", type=Path, required=True)
+    pack_tts.add_argument("--out", type=Path, required=True)
+    pack_tts.add_argument("--overwrite", action="store_true")
+
     inspect = sub.add_parser("inspect", help="Validate and describe a sidecar GGUF")
     inspect.add_argument("bundle", type=Path)
 
@@ -256,6 +263,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "contract":
             result = adapter_contract()
+        elif args.command == "pack-tts":
+            result = pack_indexed_tts_sidecar(tts_gguf=args.tts, tts_projector_gguf=args.tts_projector,
+                                             out_gguf=args.out, overwrite=args.overwrite)
         elif args.command == "pack":
             result = pack_monolithic_gguf(
                 base_gguf=args.base,

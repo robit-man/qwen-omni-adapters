@@ -16,7 +16,17 @@
     {
       "id": "A2",
       "objective": "Canonical component packaging and proven storage deduplication",
-      "status": "pending",
+      "status": "verified_canonical_payload_shared_by_both_installed_candidate_tags",
+      "evidence": [
+        "phase-a2-sharing.json",
+        "phase-a2-sharing.md",
+        "phase-a2-validation.json"
+      ]
+    },
+    {
+      "id": "A3",
+      "objective": "Native filtered component reads without materialized executable copies",
+      "status": "pending_native_loader_implementation",
       "evidence": []
     },
     {

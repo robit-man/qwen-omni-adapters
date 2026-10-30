@@ -4,6 +4,50 @@ This document defines artifact schema `robit.ollama-monolithic-omni.v3` and
 its delivery as a custom layer in one Ollama model manifest. The public HTTP
 schema is independently versioned as `robit.ollama.omni-adapter.v1`.
 
+## Indexed trained-bridge sidecar v2
+
+`robit.ollama-audio-bridge.v2` is an additional, backward-compatible artifact
+schema for reduced trained-bridge profiles. It contains the two existing TTS
+graphs. The language trunk and matching trained vision/audio projector remain
+standard Ollama layers. Existing v1 and legacy full-Omni bundles still resolve.
+
+The v2 manifest has a `robit.gguf-component-index.v2` inventory with each
+component's architecture, tensor and metadata prefixes, tensor count, original
+GGUF size and SHA-256. Its sources are content digests; input paths, filenames
+and backbone names do not change the payload. Thus identical TTS checkpoints
+share one content-addressed Ollama blob across independently versioned backbones.
+This does not combine their trained language/audio projections.
+
+Each tag's custom-layer annotation `io.robit.omni.binding.v2` records a
+`robit.omni.layer-binding.v2` object containing the sidecar digest and exact
+language/projector layer digests and sizes. Resolution rejects a changed pair,
+changed sidecar or missing binding. Attachment records the selected identities;
+it does not prove that an arbitrary projector was trained for that trunk. Begin
+with the corresponding qualified baseline tag, then retain its standard layers.
+
+```bash
+.venv/bin/qwen-omni pack-tts \
+  --tts components/tts-model.gguf \
+  --tts-projector components/tts-projector.gguf \
+  --out release/shared-tts-sidecar-v2.gguf
+
+ollama cp robit/ornith-1.5-omni-audio-bridge:q4km robit/ornith-1.5-omni:edge-v2-candidate
+.venv/bin/qwen-omni attach robit/ornith-1.5-omni:edge-v2-candidate release/shared-tts-sidecar-v2.gguf
+.venv/bin/qwen-omni prepare robit/ornith-1.5-omni:edge-v2-candidate --out runtime-data/components --reuse
+```
+
+The resolver follows Ollama 0.40's v2-first lookup, including its canonical
+public host and encoded custom-registry ports, with legacy fallback. Existing
+flat GGUF manifests remain the supported tag shape. This follows the
+[pinned Ollama path implementation](https://github.com/ollama/ollama/blob/v0.40.11/manifest/paths.go).
+
+[Qualification evidence](upgrades/phase-a2-sharing.json) records both installed
+candidate identities, unchanged backbone layers, byte-identical extracted TTS
+checkpoints and reuse across tags. The pair avoids 1,482,396,128 payload bytes
+on a new installation. Existing legacy blobs remain; this is not a claim of
+current disk reclamation or lower GPU allocation. Direct filtered native loading
+remains a separate implementation milestone; v2 currently materializes views.
+
 ## Invariants
 
 - The sidecar is one valid GGUF v3 file with a contiguous tensor index.

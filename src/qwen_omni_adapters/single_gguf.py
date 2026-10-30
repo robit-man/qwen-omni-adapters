@@ -13,6 +13,8 @@ from qwen_omni_adapters.contract import adapter_contract
 
 BUNDLE_SCHEMA = "robit.ollama-monolithic-omni.v3"
 LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA = "robit.ollama-audio-bridge.v1"
+INDEXED_AUDIO_BRIDGE_SCHEMA = "robit.ollama-audio-bridge.v2"
+AUDIO_BRIDGE_SCHEMAS = {LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA, INDEXED_AUDIO_BRIDGE_SCHEMA}
 BUNDLE_NAMESPACE = "robit.audio_bundle"
 CONTAINER_FORMAT = "robit-namespaced-multigraph-gguf-v1"
 MAX_GGML_TENSOR_NAME_BYTES = 127
@@ -464,8 +466,11 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         manifest = None
         errors.append(f"invalid bundle manifest JSON: {exc}")
+    if manifest is not None and not isinstance(manifest, dict):
+        manifest = None
+        errors.append("bundle manifest must be a JSON object")
     schema = metadata.get(f"{BUNDLE_NAMESPACE}.schema")
-    if schema not in {BUNDLE_SCHEMA, LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA}:
+    if schema not in {BUNDLE_SCHEMA, *AUDIO_BRIDGE_SCHEMAS}:
         errors.append("missing or unsupported bundle schema")
     view_counts = {"base": 0, **{component.name: 0 for component in EMBEDDED_COMPONENTS}}
     for tensor in reader.tensors:
@@ -484,7 +489,7 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
     }
     required_groups = (
         ("tts",)
-        if schema == LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA
+        if schema in AUDIO_BRIDGE_SCHEMAS
         else ("base", "comprehension", "tts")
     )
     for component in required_groups:
@@ -500,6 +505,32 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
             errors.append(f"bundle manifest declares unknown component {component_name}")
         elif view_counts[component_name] == 0:
             errors.append(f"bundle has no {component_name} tensors")
+    if schema == INDEXED_AUDIO_BRIDGE_SCHEMA:
+        if not isinstance(manifest, dict) or manifest.get("schema") != schema:
+            errors.append("indexed sidecar manifest schema does not match GGUF schema")
+        index = (manifest or {}).get("component_index", {})
+        entries = index.get("components", {}) if isinstance(index, dict) else {}
+        required = {"tts_model", "tts_projector"}
+        if (not isinstance(index, dict) or index.get("schema") != "robit.gguf-component-index.v2"
+                or not isinstance(entries, dict) or set(entries) != required or declared != required):
+            errors.append("indexed sidecar requires exactly the two indexed TTS components")
+        else:
+            for name, entry in entries.items():
+                component = COMPONENT_BY_NAME[name]
+                if (not isinstance(entry, dict)
+                        or entry.get("tensor_prefix") != component.tensor_prefix
+                        or entry.get("metadata_prefix") != component.metadata_prefix
+                        or entry.get("tensor_count") != view_counts[name]
+                        or not isinstance(entry.get("gguf_sha256"), str)
+                        or len(entry["gguf_sha256"]) != 64
+                        or any(char not in "0123456789abcdef" for char in entry["gguf_sha256"])
+                        or type(entry.get("gguf_size_bytes")) is not int
+                        or entry["gguf_size_bytes"] <= 0
+                        or entry.get("architecture") != metadata.get(
+                            component.metadata_prefix + "general.architecture")):
+                    errors.append(f"invalid indexed component descriptor: {name}")
+        if sum(view_counts[name] for name in required) != len(reader.tensors):
+            errors.append("indexed TTS sidecar contains tensors outside its declared views")
     return {
         "valid": not errors,
         "path": str(resolved),
@@ -558,7 +589,7 @@ class ComponentViewIndex:
         self.reader = gguf.GGUFReader(str(self.source))
         self.metadata = _reader_metadata(self.reader)
         if self.metadata.get(f"{BUNDLE_NAMESPACE}.schema") not in {
-            BUNDLE_SCHEMA, LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA,
+            BUNDLE_SCHEMA, *AUDIO_BRIDGE_SCHEMAS,
         }:
             raise SingleGGUFError(f"unsupported or missing bundle schema in {self.source}")
         self.views: dict[str, list[tuple[Any, str]]] = {
