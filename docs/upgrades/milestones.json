@@ -79,7 +79,7 @@
     {
       "id": "B4",
       "objective": "Qualify reference transcripts/acoustic prompts and profile-specific warm residency without reducing cloning fidelity",
-      "status": "bounded_idle_policy_verified_A100_and_Orin_adaptive_short_speech_with_safe_pressure_release_full_reference_prompts_pending",
+      "status": "bounded_idle_native_full_reference_and_synthesis_API_verified_A100_Orin_full_clone_quality_release_gates_pending",
       "evidence": [
         "phase-b4-idle.md",
         "phase-b4-idle-a100.json",
@@ -118,6 +118,18 @@
         "phase-b4b2-legacy-regression.json",
         "phase-b4b2-intelligibility.json",
         "phase-b4b2-validation.json"
+      ]
+    },
+    {
+      "id": "B4b3",
+      "objective": "Expose bounded full-reference conditioning in speech requests, portal and saved profiles with ephemeral inline state",
+      "status": "actual_A100_and_Orin_synthesis_routes_exact_saved_inline_WAV_batch_cancellation_verified_full_perceptual_and_release_parity_pending",
+      "evidence": [
+        "phase-b4b3-reference-api.md",
+        "phase-b4b3-http-a100.json",
+        "phase-b4b3-http-orin.json",
+        "phase-b4b3-normalization.json",
+        "phase-b4b3-validation.json"
       ]
     },
     {

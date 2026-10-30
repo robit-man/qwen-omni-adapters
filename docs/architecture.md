@@ -129,6 +129,7 @@ The custom GGUF uses namespaces for byte-preserving component views:
 | `a.c.p.*` | comprehension projector |
 | `s.t.m.*` | TTS model |
 | `s.t.p.*` | TTS codec/projector |
+| `s.t.e.*` | optional frozen TTS reference acoustic encoder in indexed v2 |
 
 `qwen-omni prepare` reconstructs only the runtime views. They are disposable;
 the attached sidecar remains the source of truth.
@@ -138,6 +139,15 @@ directly executable and the custom sidecar contains only `s.t.m.*` and
 `s.t.p.*`. Preparation therefore materializes only the two TTS views. The
 resolver validates the standard model and combined vision/audio projector
 blobs before startup.
+
+Indexed v2 sidecars may also declare the frozen reference encoder. Preparation
+selects that third view when present. Supported POSIX loaders read the indexed
+source offsets directly; other paths retain byte-preserving materialization.
+The reference encoder runs lazily before TTS loading, then exits. A supplied
+reference transcript selects Base's full text/acoustic prompt and reference-only
+decoder priming. Its immutable conditioning cache is separate from fresh target
+KV, samplers and decoder state. These remain distinct executable architectures
+under one Ollama identity; no additional reasoning trunk is introduced.
 
 ## State and concurrency
 

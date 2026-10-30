@@ -2281,6 +2281,12 @@ def _finish_response(
         result["adapter"]["tts_blocks"] = tts_blocks
     if parsed.speech.get("locale"):
         result["adapter"]["speech_locale"] = str(parsed.speech["locale"])
+    if "tts" in executed:
+        result["adapter"]["voice_conditioning"] = (
+            "reference_prompt" if parsed.speech.get("reference_text") else
+            "speaker_embedding" if parsed.speech.get("speaker_file") or parsed.speech.get("speaker_audio") else
+            "unconditioned"
+        )
     if observation is not None:
         result["adapter"]["observation"] = observation
         transcript = _observation_transcript(observation)

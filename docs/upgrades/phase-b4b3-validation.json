@@ -1,0 +1,57 @@
+{
+  "schema": "robit.omni.upgrade-validation.v1",
+  "milestone": "B4b3",
+  "base_commit": "693a38f",
+  "source_gate": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "tests_passed": 6231,
+    "pytest_seconds": 280.65
+  },
+  "source_sha256": {
+    "clients/javascript_client.mjs": "2ed55b0b2c8a20a94c00a6fb30c79a141270507fa91ad3d67349e83de01b1f3e",
+    "clients/python_client.py": "476a0fe2b1ab5fadfcae854278991d10647e81668b852c79723b15ebe9deb660",
+    "docs/schema/request-v1.schema.json": "8b3c029a0ed81b290140ee990f5c56c6525e3ce620deef12ab0a651d1de83066",
+    "docs/schema/response-v1.schema.json": "9b394cfc90f87734fa639ed47ac20c18ffd909d35e94c34240aa7c79a226a8e2",
+    "docs/schema/voice-profile-v1.schema.json": "19d77241a0bbb914d8b2df487e17abbbf5a484a200c2d16f32e47d13e5e1efd6",
+    "harness/__main__.py": "fa5782160922dc6d7580e0b2f110e2b4ab7afb3e75b58f08eba431407a8732a7",
+    "harness/indicator.py": "b0cc583cc9fa829b774a893eb806a63a794d422da8dc066b72d420414c1a78ec",
+    "portal/app.py": "8ebbe3a6c767cda21248d92a1c07e508869357c0bda0434606ff858e7203bc7c",
+    "portal/smoke.py": "20a0bc3511059d9a5ef2079f455688488ddf991915ef31962a6c69c09ddcb98a",
+    "portal/start.sh": "596bba6badd2c5150c792200e6eb07cb39ddde0bb15e3f3155edf4450e275b46",
+    "portal/static/portal.css": "e0f2fc08348a57a347afc978622b64a5d1c11c9d12310c35a3cf562ed6c05b2f",
+    "portal/static/portal.js": "7b45ead04d516c386fc56d7acf63a60016caece9eb6429d887520dd9ecd15215",
+    "portal/templates/index.html": "7cd12f215f7138da3ffc897297a5b6cee885ef6abbd8efb612cbf6cf3f65cfc6",
+    "portal/voice-profile.json": "b0bddd5089a2dff2b18f610163dd8deb8d8865693a31817c4791a3c65bf281b1",
+    "runtime/adapter_server.py": "fad6e63e5436da6a270b60fbc1453667ab01c64b3704b99c1b7c301c036f64b2",
+    "runtime/qualify_tts_reference_http.py": "8e9d6e78706b66533e17c3ec526e8b58f1717741d808f3556296727dd77c449e",
+    "runtime/tts_server.py": "cf24339e18872beda3bd122970763769ce48cedf17ebd3b3ed6d001b2f11c7cf",
+    "src/qwen_omni_adapters/contract.py": "19ffb79354a6a8b9c3c30825b859992de8851e9bc54c04e9bdd2740cd41d563c",
+    "src/qwen_omni_adapters/daemon.py": "f475b267b8001fc837226b7ae38ff3106e2562cbb4a53522a577fd95626bea06",
+    "src/qwen_omni_adapters/voice_profiles.py": "11d6df2321449226aae8dcfbf867a52c719d8476f6e3de156d20e2919fd5ebec",
+    "src/qwen_omni_adapters/voice_reference.py": "6392b9d32e48eef3e8c5dea984495000cc09feaee1005bad26bff05f6aafabb1",
+    "tests/test_omni_adapter.py": "cf854cef70c1238d07b63e48903c0bf7cca781519a4e61d96dbc216bebca3f7b",
+    "tests/test_omni_portal.py": "cca65880b02dd36ea3acf9e79edd9bd0195788d04ffd0b422a874f39fc927350",
+    "tests/test_reference_conditioning.py": "b1f7c2ea6f38e0912fb70293ae8eca1dd425fb608d9953fee926811130d37e5e",
+    "tests/test_voice_profiles.py": "2dddd6a4dfe7ec8fe40d02fea515ec65433caab61f2717d51d7a62a6b436ca86"
+  },
+  "earlier_source_gate": {
+    "passed": 6230,
+    "failed": 1,
+    "failure": "unchanged inherited passive-focus process-group cancellation timing assertion",
+    "scoped_unchanged_rerun_passed": 60,
+    "full_unchanged_rerun_passed": true
+  },
+  "live_route_evidence": [
+    "phase-b4b3-http-a100.json",
+    "phase-b4b3-http-orin.json"
+  ],
+  "normalization_investigation": "phase-b4b3-normalization.json",
+  "native_pin": "458681e1d5d4a29a1463c4732e03226cf384b997",
+  "sidecar_sha256": "7838f27ad60ed5181c60e9b6e7263df944933f07099602aa70a5e96c8640f388",
+  "primary_restarted": false,
+  "source_and_bounded_synthesis_routes_qualified": true,
+  "complete_public_contract_release_qualified": false,
+  "perceptual_cloning_quality_qualified": false,
+  "publication_qualified": false
+}

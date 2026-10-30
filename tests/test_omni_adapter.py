@@ -377,6 +377,9 @@ def test_tts_residency_endpoint_sheds_and_rewarms_the_separate_graph(
     reference.write_bytes(_wav(16000))
 
     class FakePersistentWorker:
+        reference_encodes = 0
+        reference_cache_hits = 0
+
         def __init__(self, _config) -> None:
             self.ready = False
 
@@ -424,6 +427,9 @@ def test_tts_starts_cold_and_sheds_after_each_completed_synthesis(
     events: list[str] = []
 
     class FakePersistentWorker:
+        reference_encodes = 0
+        reference_cache_hits = 0
+
         def __init__(self, _config) -> None:
             self.ready = False
 

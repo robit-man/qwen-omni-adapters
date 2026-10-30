@@ -4726,6 +4726,39 @@ def test_portal_resolves_only_allowlisted_voice_presets() -> None:
     assert "unknown voice preset" in rejected.json["error"]
 
 
+def test_portal_reference_transcript_cannot_follow_a_different_voice() -> None:
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": "Hello."}})
+
+    profile = {"language": "en", "speaker_file": "/female.wav", "reference_text": "Female reference.",
+               "presets": [{"id": "female", "label": "Female", "speaker_file": "/female.wav",
+                            "reference_text": "Female reference.", "default": True},
+                           {"id": "male", "label": "Male", "speaker_file": "/male.wav", "default": False}]}
+    app = create_app(_config(voice_profile=profile), httpx.Client(transport=httpx.MockTransport(handler)))
+    client = app.test_client()
+    raw = io.BytesIO()
+    with wave.open(raw, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16000)
+        wav.writeframes(b"\0\0" * 16000)
+    reference = {"mime_type": "audio/wav", "encoding": "base64",
+                 "data": base64.b64encode(raw.getvalue()).decode()}
+    for voice in [{"clone_enabled": True, "preset": "female"},
+                  {"clone_enabled": True, "preset": "male"},
+                  {"clone_enabled": True, "speaker_audio": reference},
+                  {"clone_enabled": True, "speaker_audio": reference, "reference_text": "Uploaded reference."},
+                  {"clone_enabled": False}]:
+        result = client.post("/api/chat", headers={"Authorization": f"Bearer {TOKEN}"},
+                             json=_request(portal_voice=voice))
+        assert result.status_code == 200
+    assert [s["speech"].get("reference_text") for s in seen] == [
+        "Female reference.", None, None, "Uploaded reference.", None]
+
+
 def test_portal_rejects_invalid_voice_clone_before_proxy() -> None:
     calls = 0
 

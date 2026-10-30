@@ -60,6 +60,7 @@ from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, Deci
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 from qwen_omni_adapters.virtual_memory import ContextOverflow, LlamaCppTokenCounter
 from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
+from qwen_omni_adapters.voice_reference import reference_transcript
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,7 @@ VOICE_SPEECH_FIELDS = {
     "language",
     "locale",
     "speaker_file",
+    "reference_text",
     "temperature",
     "top_k",
     "top_p",
@@ -138,6 +140,7 @@ VOICE_CLIENT_FIELDS = {
     "clone_enabled",
     "preset",
     "speaker_audio",
+    "reference_text",
     "language",
     "locale",
     "temperature",
@@ -258,7 +261,7 @@ def load_voice_profile(path: Path) -> dict[str, Any]:
     for index, raw_preset in enumerate(raw_presets):
         if not isinstance(raw_preset, Mapping):
             raise TypeError(f"voice profile preset {index} must be an object")
-        unknown_preset = set(raw_preset) - {"id", "label", "speaker_file", "default"}
+        unknown_preset = set(raw_preset) - {"id", "label", "speaker_file", "reference_text", "default"}
         if unknown_preset:
             raise RuntimeError(f"unknown voice preset fields: {sorted(unknown_preset)}")
         preset_id = str(raw_preset.get("id") or "").strip()
@@ -288,14 +291,25 @@ def load_voice_profile(path: Path) -> dict[str, Any]:
                 "default": is_default,
             }
         )
+        if "reference_text" in raw_preset:
+            presets[-1]["reference_text"] = reference_transcript(raw_preset["reference_text"])
     if presets:
         defaults = [preset for preset in presets if preset["default"]]
         if len(defaults) != 1:
             raise RuntimeError("voice profile presets require exactly one default")
+        prior_speaker = profile.get("speaker_file")
         profile["presets"] = presets
         profile["speaker_file"] = defaults[0]["speaker_file"]
+        if "reference_text" in defaults[0]:
+            profile["reference_text"] = defaults[0]["reference_text"]
+        elif profile["speaker_file"] != prior_speaker:
+            profile.pop("reference_text", None)
     else:
         profile.pop("presets", None)
+    if "reference_text" in profile:
+        profile["reference_text"] = reference_transcript(profile["reference_text"])
+        if profile["reference_text"] and not profile.get("speaker_file"):
+            raise RuntimeError("voice profile reference_text requires speaker_file")
     numeric_ranges = {
         "temperature": (0.0, 2.0),
         "top_k": (0, 1000),
@@ -1055,6 +1069,14 @@ def _voice_override(raw: Any) -> dict[str, Any]:
     if not isinstance(clone_enabled, bool):
         raise PortalRequestError("portal_voice.clone_enabled must be a boolean")
     result: dict[str, Any] = {"clone_enabled": clone_enabled}
+    if "reference_text" in raw:
+        try:
+            transcript = reference_transcript(raw["reference_text"])
+        except ValueError as exc:
+            raise PortalRequestError(str(exc)) from exc
+        if transcript and not clone_enabled:
+            raise PortalRequestError("portal_voice.reference_text requires clone_enabled=true")
+        result["reference_text"] = transcript
 
     raw_language = raw.get("language")
     raw_locale = raw.get("locale")
@@ -2873,13 +2895,14 @@ def create_app(
         speech = {
             key: copy.deepcopy(value)
             for key, value in voice_profile.items()
-            if key in VOICE_SPEECH_FIELDS
+            if key in VOICE_SPEECH_FIELDS and (key != "reference_text" or value)
         }
         clone_enabled = client_voice.pop("clone_enabled", None)
         speaker_audio = client_voice.pop("speaker_audio", None)
         preset_id = client_voice.pop("preset", None)
         if clone_enabled is False:
             speech.pop("speaker_file", None)
+            speech.pop("reference_text", None)
         elif clone_enabled is True:
             if speaker_audio is None and not speech.get("speaker_file"):
                 raise PortalRequestError(
@@ -2887,6 +2910,7 @@ def create_app(
                 )
             if speaker_audio is not None:
                 speech.pop("speaker_file", None)
+                speech.pop("reference_text", None)
                 speech["speaker_audio"] = speaker_audio
             elif preset_id is not None:
                 presets = {
@@ -2896,6 +2920,9 @@ def create_app(
                 if selected is None:
                     raise PortalRequestError(f"unknown voice preset: {preset_id}")
                 speech["speaker_file"] = str(selected["speaker_file"])
+                speech.pop("reference_text", None)
+                if selected.get("reference_text"):
+                    speech["reference_text"] = selected["reference_text"]
         speech.update(client_voice)
         payload.pop("speech", None)
         if speech:
@@ -3383,7 +3410,7 @@ def create_app(
                     "top_p": float(voice_profile.get("top_p", 0.9)),
                     "seed": int(voice_profile.get("seed", 42)),
                     "max_frames": int(voice_profile.get("max_frames", 512)),
-                    "clone_mode": "speaker_embedding",
+                    "clone_mode": "reference_prompt" if voice_profile.get("reference_text") else "speaker_embedding",
                     "client_reference_wav": True,
                     "presets": [
                         {

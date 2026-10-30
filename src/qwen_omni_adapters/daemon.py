@@ -892,6 +892,7 @@ class OmniDaemon:
             "LLAMA_TTS_BIN": str(_binary(self.config.repo_root, "llama-tts")),
             "OMNI_TTS_MODEL_GGUF": str(self.cache_dir / "tts-model.gguf"),
             "OMNI_TTS_PROJECTOR_GGUF": str(self.cache_dir / "tts-projector.gguf"),
+            "OMNI_TTS_REFERENCE_ENCODER_GGUF": str(self.cache_dir / "tts-reference-encoder.gguf"),
             "OMNI_COMPONENT_CACHE": str(self.cache_dir),
             "OMNI_TTS_GPU_LAYERS": "-1",
             "OMNI_TTS_REQUIRE_GPU": "0" if platform.system() == "Darwin" else "1",

@@ -67,12 +67,17 @@
         "style": {"type": "string"},
         "speaker_file": {"type": "string"},
         "speaker_audio": {"$ref": "#/$defs/audio"},
+        "reference_text": {"type": "string", "maxLength": 2048, "pattern": "^[^\\u0000]*$", "description": "Transcript of the supplied reference. A nonblank value requires reference audio and the bundled full-reference encoder."},
         "temperature": {"type": "number", "minimum": 0, "maximum": 2},
         "top_k": {"type": "integer", "minimum": 0, "maximum": 1000},
         "top_p": {"type": "number", "minimum": 0, "maximum": 1},
         "seed": {"type": "integer"},
         "max_frames": {"type": "integer", "minimum": 1, "maximum": 2048}
       },
+      "allOf": [{
+        "if": {"required": ["reference_text"], "properties": {"reference_text": {"pattern": "\\S"}}},
+        "then": {"anyOf": [{"required": ["speaker_file"]}, {"required": ["speaker_audio"]}]}
+      }],
       "additionalProperties": true
     },
     "tools": {"type": "array"},

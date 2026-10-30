@@ -445,6 +445,24 @@ and Chinese input selected 8K and 16K. These are context-preservation and memory
 measurements, not perceptual language/voice scoring or long-utterance quality
 qualification. See `docs/upgrades/phase-b5-context.md` and its receipts.
 
+When `reference_text` selects full Base cloning, context admission also reserves
+the complete reference UTF-8 byte count and up to 375 reference acoustic frames.
+The transcript is optional, bounded to 2048 characters, and must belong to the
+supplied reference. Omission/blank text preserves the existing speaker-embedding
+path. The component must be installed under the same model tag. Normal startup
+prepares `tts-reference-encoder.gguf` when the sidecar declares it; the supervisor
+passes that view through `OMNI_TTS_REFERENCE_ENCODER_GGUF`.
+
+The same-bundle encoder runs in a private child before speech weights load,
+with actual GPU-residency proof and scoped prepare/ready transitions. On Tegra,
+encoding requires at least 3072 MiB available before admission and stops only its
+own child if headroom falls below 2048 MiB. Audio normalization uses float soxr
+output and explicit PCM16 rounding to avoid platform-dependent integer dither.
+Original reference snapshots, normalized audio, codes and native prompt files
+are temporary. One bounded RAM entry reuses encoded conditioning for a saved
+reference; inline references use an utterance-local worker. No Torch inference,
+independent model download, new service or reasoning restart is required.
+
 ### Native streaming state
 
 The patched code2wav graph consumes and persists exactly the real codec-frame

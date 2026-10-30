@@ -19,6 +19,8 @@ import wave
 from pathlib import Path
 from typing import Any
 
+from qwen_omni_adapters.voice_reference import reference_transcript
+
 MANAGED_VOICE_PROFILE = Path("runtime-data/state/voice-profile.json")
 MANAGED_VOICE_DIRECTORY = Path("runtime-data/voices")
 MAX_SOURCE_BYTES = 50 * 1024 * 1024
@@ -137,6 +139,8 @@ class IndicatorVoiceManager:
                     "custom": preset_id.startswith("custom-"),
                 }
             )
+            if "reference_text" in preset:
+                views[-1]["reference_text"] = reference_transcript(preset["reference_text"])
         return views
 
     def select(self, preset_id: str) -> tuple[bool, str]:
@@ -156,9 +160,31 @@ class IndicatorVoiceManager:
             if not speaker.is_file():
                 return False, "Voice reference is missing"
             profile["speaker_file"] = str(speaker)
+            profile.pop("reference_text", None)
+            if selected.get("reference_text"):
+                profile["reference_text"] = reference_transcript(selected["reference_text"])
             profile["name"] = preset_id
             _atomic_json(self.profile_path, profile)
         return True, f"Selected {_display_label(selected)} for the next reply"
+
+    def set_reference_text(self, preset_id: str, text: str) -> tuple[bool, str]:
+        try:
+            text = reference_transcript(text)
+        except ValueError as exc:
+            return False, str(exc)
+        with self._lock:
+            profile = _read_profile(self.profile_path)
+            selected = next((p for p in profile["presets"]
+                             if isinstance(p, dict) and p.get("id") == preset_id), None)
+            if selected is None:
+                return False, "Voice is no longer in the managed list"
+            selected["reference_text"] = text
+            if selected.get("default"):
+                profile.pop("reference_text", None)
+                if text:
+                    profile["reference_text"] = text
+            _atomic_json(self.profile_path, profile)
+        return True, "Saved reference transcript for the next reply"
 
     def import_clip(self, source: Path) -> tuple[bool, str]:
         """Normalize an owned audio clip, add it to the list, and select it."""
@@ -253,6 +279,9 @@ class IndicatorVoiceManager:
                     if isinstance(preset, dict):
                         preset["default"] = preset is selected
                 profile["speaker_file"] = str(destination.resolve())
+                profile.pop("reference_text", None)
+                if selected.get("reference_text"):
+                    profile["reference_text"] = reference_transcript(selected["reference_text"])
                 profile["name"] = preset_id
                 _atomic_json(self.profile_path, profile)
             return True, f"Added and selected {_display_label(selected)}"

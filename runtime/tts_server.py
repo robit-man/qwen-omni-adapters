@@ -9,13 +9,16 @@ libmtmd worker while preserving these HTTP contracts.
 
 from __future__ import annotations
 
+import array
 import atexit
 import base64
 import hashlib
 import io
+import json
 import os
 import queue
 import select
+import shutil
 import signal
 import subprocess
 import sys
@@ -35,6 +38,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from qwen_omni_adapters.accelerator import (
+    gpu_facts,
     is_tegra,
     process_is_gpu_resident,
     residency_backend,
@@ -45,9 +49,10 @@ from qwen_omni_adapters.audio import (
     decode_wav_payload,
 )
 from qwen_omni_adapters.ollama_sidecar import resolve_ollama_sidecar
-from qwen_omni_adapters.single_gguf import materialize_component_view
+from qwen_omni_adapters.single_gguf import ComponentViewIndex, materialize_component_view
 from qwen_omni_adapters.tts_residency import IdleTTSResidency
 from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
+from qwen_omni_adapters.voice_reference import reference_transcript
 
 
 @dataclass(frozen=True)
@@ -72,6 +77,7 @@ class Config:
     idle_keepalive_s: float = 0
     idle_min_available_mib: int = 6144
     adaptive_context: bool = False
+    reference_encoder: Path | None = None
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -88,6 +94,7 @@ class Config:
         cache_dir = Path(
             os.environ.get("OMNI_COMPONENT_CACHE", "runtime-data/components")
         ).expanduser()
+        reference_encoder = None
         if ollama_model and not bundle_value and not (model_value or projector_value):
             bundle_value = resolve_ollama_sidecar(model=ollama_model)["bundle"]
         if bundle_value and not (model_value and projector_value):
@@ -115,6 +122,20 @@ class Config:
                 "set OMNI_OLLAMA_MODEL, OMNI_BUNDLE_GGUF, or both "
                 "OMNI_TTS_MODEL_GGUF and OMNI_TTS_PROJECTOR_GGUF"
             )
+        reference_value = os.environ.get("OMNI_TTS_REFERENCE_ENCODER_GGUF")
+        if reference_value:
+            reference_encoder = Path(reference_value).expanduser()
+        elif (cache_dir / "tts-reference-encoder.gguf").is_file():
+            reference_encoder = cache_dir / "tts-reference-encoder.gguf"
+        elif bundle_value:
+            index = ComponentViewIndex(Path(bundle_value))
+            if index.views.get("tts_reference_encoder"):
+                reference_encoder = cache_dir / "tts-reference-encoder.gguf"
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                if os.name != "nt" and index.metadata.get("robit.audio_bundle.schema") == "robit.ollama-audio-bridge.v2":
+                    reference_encoder.symlink_to(Path(bundle_value).resolve())
+                else:
+                    index.materialize(view="tts_reference_encoder", out_gguf=reference_encoder)
         return cls(
             binary=binary,
             model=model,
@@ -148,6 +169,7 @@ class Config:
             idle_keepalive_s=float(os.environ.get("OMNI_TTS_IDLE_KEEPALIVE_S", "0")),
             idle_min_available_mib=int(os.environ.get("OMNI_TTS_IDLE_MIN_AVAILABLE_MIB", "6144")),
             adaptive_context=os.environ.get("OMNI_TTS_ADAPTIVE_CONTEXT", "0") == "1",
+            reference_encoder=reference_encoder,
         )
 
 
@@ -169,6 +191,7 @@ class SynthesisSpec:
     seed: int
     stream_frames: int
     context_size: int = 0
+    reference_text: str = ""
 
 
 def _context_size(config: Config, spec: SynthesisSpec) -> int:
@@ -182,6 +205,9 @@ def _context_size(config: Config, spec: SynthesisSpec) -> int:
     if not config.adaptive_context:
         return 0
     required = len(spec.text.encode("utf-8")) + (spec.frames if spec.frames > 0 else 512) + 256
+    if spec.reference_text:
+        # Bound the entire reference transcript and the maximum 30-second code stream.
+        required += len(spec.reference_text.encode("utf-8")) + 375
     for tier in (4096, 8192, 16384, 32768):
         if tier >= required:
             if spec.context_size and (spec.context_size not in (4096, 8192, 16384, 32768)
@@ -277,6 +303,12 @@ def _synthesis_spec(config: Config, body: dict[str, Any]) -> SynthesisSpec:
     except VoiceLocaleError as exc:
         raise TTSError(f"invalid speech locale: {exc}") from exc
     speaker = str(body.get("speaker_file") or "").strip()
+    try:
+        reference_text = reference_transcript(body.get("reference_text", ""))
+    except ValueError as exc:
+        raise TTSError(str(exc)) from exc
+    if reference_text and (not config.reference_encoder or not config.reference_encoder.is_file()):
+        raise TTSError("full reference conditioning requires the bundled reference encoder")
     speaker_audio: bytes | None = None
     if body.get("speaker_audio") is not None:
         if speaker:
@@ -292,6 +324,8 @@ def _synthesis_spec(config: Config, body: dict[str, Any]) -> SynthesisSpec:
         if decoded_speaker.duration_ms > 30_000:
             raise TTSError("speaker_audio must be no longer than 30 seconds")
         speaker_audio = decoded_speaker.data
+    if reference_text and not (speaker or speaker_audio):
+        raise TTSError("reference_text requires speaker_file or speaker_audio")
     frames = min(int(body.get("max_frames") or config.max_frames), config.max_frames)
     temperature = float(body.get("temperature", 0.7))
     top_k = int(body.get("top_k", 40))
@@ -323,6 +357,7 @@ def _synthesis_spec(config: Config, body: dict[str, Any]) -> SynthesisSpec:
         top_p=top_p,
         seed=seed,
         stream_frames=stream_frames,
+        reference_text=reference_text,
     )
 
 
@@ -415,6 +450,12 @@ def _pcm_wav(pcm: bytes) -> bytes:
 
 def synthesize(config: Config, body: dict[str, Any]) -> bytes:
     spec = _synthesis_spec(config, body)
+    if spec.reference_text:
+        worker = PersistentTTSWorker(config)
+        try:
+            return _pcm_wav(b"".join(_stream_worker_batch(worker, [spec])))
+        finally:
+            worker.close()
 
     with tempfile.TemporaryDirectory(prefix="robit-omni-tts-") as temp_dir:
         output = Path(temp_dir) / "speech.wav"
@@ -489,6 +530,13 @@ def synthesize(config: Config, body: dict[str, Any]) -> bytes:
 
 
 def _stream_synthesize(config: Config, spec: SynthesisSpec) -> Iterator[bytes]:
+    if spec.reference_text:
+        worker = PersistentTTSWorker(config)
+        try:
+            yield from _stream_worker_batch(worker, [spec])
+        finally:
+            worker.close()
+        return
     with tempfile.TemporaryDirectory(prefix="robit-omni-tts-stream-") as temp_dir:
         output = Path(temp_dir) / "speech.wav"
         command = _command(
@@ -644,6 +692,134 @@ def _reference_digest(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _normalize_reference(source: Path, directory: Path) -> tuple[Path, int]:
+    if not source.is_file() or not 0 < source.stat().st_size <= 50 * 1024 * 1024:
+        raise TTSError("reference audio must be a local file of at most 50 MiB")
+    bundled = Path(__file__).resolve().parents[1] / "vendor/ffmpeg/bin/ffmpeg"
+    ffmpeg = os.environ.get("FFMPEG_BIN") or (str(bundled) if bundled.is_file() else shutil.which("ffmpeg"))
+    if not ffmpeg:
+        raise TTSError("reference normalization requires the installed FFmpeg")
+    result = subprocess.run([ffmpeg, "-v", "error", "-nostdin", "-threads", "1",
+        "-protocol_whitelist", "file,pipe", "-i", str(source), "-vn", "-t", "31",
+        "-af", "aresample=24000:resampler=soxr:precision=20:osf=flt", "-ac", "1", "-ar", "24000",
+        "-f", "f32le", "pipe:1"], capture_output=True, timeout=60, check=False)
+    if result.returncode or len(result.stdout) % 4:
+        raise TTSError("reference normalization failed")
+    samples = len(result.stdout) // 4
+    if not 12000 <= samples <= 720000:
+        raise TTSError("reference audio must be between 0.5 and 30 seconds")
+    floats = array.array("f")
+    floats.frombytes(result.stdout)
+    if sys.byteorder != "little":
+        floats.byteswap()
+    # Keep quantization explicit: older FFmpeg/soxr integer output can dither.
+    values = array.array("f", (round(max(-1.0, min(32767 / 32768, value)) * 32768) / 32768
+                               for value in floats))
+    if sys.byteorder != "little":
+        values.byteswap()
+    output = directory / "reference.f32"
+    output.write_bytes(values.tobytes())
+    return output, samples
+
+
+def _encode_reference(config: Config, source: Path) -> list[list[int]]:
+    """Run only the same-bundle frozen encoder, releasing it before TTS loading."""
+    encoder = config.reference_encoder
+    binary = config.binary.with_name("llama-tts-reference-encode" + config.binary.suffix)
+    if encoder is None or not encoder.is_file() or not binary.is_file():
+        raise TTSError("the installed bundle/runtime does not provide full reference encoding")
+    if config.lease_token and not config.gpu_uuid:
+        raise TTSError("OMNI_TTS_GPU_UUID is required with a scoped GPU lease")
+    with tempfile.TemporaryDirectory(prefix="robit-omni-reference-encode-") as temporary:
+        directory = Path(temporary)
+        normalized, samples = _normalize_reference(source, directory)
+        output = directory / "codes.i32"
+        if config.lease_token:
+            try:
+                _broker_transition("prepare", config.lease_token, config.broker_transition_timeout_s)
+            except (TTSError, subprocess.TimeoutExpired):
+                try:
+                    _broker_transition("ready", config.lease_token, 60)
+                except (TTSError, subprocess.TimeoutExpired):
+                    print("warning: reference-encoder admission rollback failed", file=sys.stderr)
+                raise
+        with tempfile.TemporaryFile(mode="w+b") as diagnostic:
+            process = None
+            stop = threading.Event()
+            low_memory = threading.Event()
+            broker_ready = False
+            observer = None
+            try:
+                if is_tegra():
+                    available = _reference_headroom()
+                    if available is None or available < 3072:
+                        raise TTSError("insufficient available memory for reference encoding")
+                process = subprocess.Popen([str(binary), str(encoder), str(normalized), str(output)],
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=diagnostic, start_new_session=True)
+                if config.active_pid_file:
+                    config.active_pid_file.parent.mkdir(parents=True, exist_ok=True)
+                    config.active_pid_file.write_text(f"{process.pid}\n")
+
+                def guard():
+                    while not stop.wait(.1):
+                        available = _reference_headroom()
+                        if available is None or available < 2048:
+                            low_memory.set()
+                            try:
+                                process.kill()
+                            except ProcessLookupError:
+                                pass
+                            return
+
+                if is_tegra():
+                    observer = threading.Thread(target=guard, daemon=True)
+                    observer.start()
+                _wait_for_cuda_residency(process, config.gpu_uuid, config.residency_timeout_s)
+                ready: queue.Queue[bytes] = queue.Queue()
+                reader = threading.Thread(target=lambda: ready.put(process.stdout.read(2)), daemon=True)
+                reader.start()
+                if ready.get(timeout=config.residency_timeout_s) != b"R\n":
+                    raise TTSError("reference encoder did not become ready")
+                if config.lease_token:
+                    _broker_transition("ready", config.lease_token, config.broker_transition_timeout_s)
+                    broker_ready = True
+                process.communicate(input=b"GO\n", timeout=config.timeout_s)
+                if process.returncode or low_memory.is_set() or not output.is_file():
+                    raise TTSError("reference acoustic encoding failed")
+                codes = array.array("i")
+                data = output.read_bytes()
+                if len(data) != ((samples + 1919) // 1920) * 16 * 4:
+                    raise TTSError("reference encoder returned invalid code dimensions")
+                codes.frombytes(data)
+                if sys.byteorder != "little":
+                    codes.byteswap()
+                if any(code < 0 or code >= 2048 for code in codes):
+                    raise TTSError("reference encoder returned invalid acoustic codes")
+                return [list(codes[offset:offset + 16]) for offset in range(0, len(codes), 16)]
+            except queue.Empty as exc:
+                raise TTSError("reference encoder readiness timed out") from exc
+            finally:
+                stop.set()
+                if process is not None:
+                    _stop_process_group(process)
+                if observer is not None:
+                    observer.join(timeout=1)
+                if config.active_pid_file:
+                    config.active_pid_file.unlink(missing_ok=True)
+                if config.lease_token and not broker_ready:
+                    _broker_transition("ready", config.lease_token, 60)
+
+
+def _reference_headroom() -> float | None:
+    facts = gpu_facts()
+    if not facts:
+        return None
+    total, used = facts[0].get("vram_total_mib"), facts[0].get("vram_used_mib")
+    if isinstance(total, (int, float)) and isinstance(used, (int, float)):
+        return total - used
+    return None
+
+
 class PersistentTTSWorker:
     """Keep one llama.cpp TTS graph resident and exchange framed PCM over pipes."""
 
@@ -655,6 +831,11 @@ class PersistentTTSWorker:
         self.stdout_queue: queue.Queue[bytes | None] | None = None
         self.stdout_buffer = bytearray()
         self._weight_fingerprints: dict[Path, tuple[tuple[int, ...], str]] = {}
+        self._reference_key: tuple[Any, ...] | None = None
+        self._reference_json: bytes | None = None
+        self._reference_directory: tempfile.TemporaryDirectory | None = None
+        self.reference_encodes = 0
+        self.reference_cache_hits = 0
 
     def _weight_identity(self, path: Path) -> str:
         """Hash each immutable checkpoint once, invalidating on file replacement."""
@@ -689,7 +870,28 @@ class PersistentTTSWorker:
             spec.stream_frames,
             "qwen3tts-base-reference-normalization-v1",
             _reference_digest(Path(spec.speaker)) if spec.speaker else "",
+            spec.reference_text,
         )
+
+    def _reference_material(self, spec: SynthesisSpec) -> bytes:
+        encoder = self.config.reference_encoder
+        if encoder is None or not encoder.is_file() or not spec.speaker:
+            raise TTSError("full reference conditioning requires an installed encoder and reference audio")
+        key = (_reference_digest(Path(spec.speaker)), spec.reference_text, spec.language,
+               self._weight_identity(self.config.model), self._weight_identity(self.config.projector),
+               self._weight_identity(encoder), "24khz-soxr-precision20-float-pcm16-v2", "qwen3tts-native-icl-v1")
+        if key == self._reference_key and self._reference_json is not None:
+            self.reference_cache_hits += 1
+            return self._reference_json
+        data = _encode_reference(self.config, Path(spec.speaker))
+        value = json.dumps({"schema": "robit.qwen3tts.reference-prompt.v1",
+                            "reference_text": spec.reference_text, "codes": data},
+                           ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        if len(value) > 128 * 1024:
+            raise TTSError("reference conditioning exceeds the bounded cache entry")
+        self._reference_key, self._reference_json = key, value
+        self.reference_encodes += 1
+        return value
 
     @property
     def ready(self) -> bool:
@@ -780,42 +982,70 @@ class PersistentTTSWorker:
         if self.stderr_log is not None:
             self.stderr_log.close()
             self.stderr_log = None
+        if self._reference_directory is not None:
+            self._reference_directory.cleanup()
+            self._reference_directory = None
         if self.config.active_pid_file:
             self.config.active_pid_file.unlink(missing_ok=True)
 
     def ensure(self, spec: SynthesisSpec) -> None:
-        wanted = (*self._profile(spec), self._weight_identity(self.config.model),
-                  self._weight_identity(self.config.projector), _context_size(self.config, spec))
+        profile = self._profile(spec)
+        wanted = (*profile, self._weight_identity(self.config.model),
+                  self._weight_identity(self.config.projector), _context_size(self.config, spec),
+                  self._weight_identity(self.config.reference_encoder)
+                  if spec.reference_text and self.config.reference_encoder else "")
         if self.ready and self.profile == wanted:
             return
         self.close()
         if spec.speaker_audio is not None:
             raise TTSError("inline speaker audio requires the single-shot TTS path")
+        reference_path = None
+        speaker_snapshot = None
+        if spec.reference_text:
+            self._reference_directory = tempfile.TemporaryDirectory(prefix="robit-omni-reference-prompt-")
+            try:
+                with Path(spec.speaker).open("rb") as reference_input:
+                    original = reference_input.read(50 * 1024 * 1024 + 1)
+                if len(original) > 50 * 1024 * 1024 or hashlib.sha256(original).hexdigest() != profile[-2]:
+                    raise TTSError("reference audio changed or exceeded its size bound during preparation")
+                speaker_snapshot = Path(self._reference_directory.name) / ("speaker" + Path(spec.speaker).suffix)
+                speaker_snapshot.write_bytes(original)
+                material = self._reference_material(replace(spec, speaker=str(speaker_snapshot)))
+                reference_path = Path(self._reference_directory.name) / "reference.json"
+                reference_path.write_bytes(material)
+                reference_path.chmod(0o600)
+            except Exception:
+                self.close()
+                raise
         if self.config.lease_token and not self.config.gpu_uuid:
             raise TTSError("OMNI_TTS_GPU_UUID is required with a scoped GPU lease")
         if self.config.lease_token:
-            _broker_transition(
-                "prepare",
-                self.config.lease_token,
-                self.config.broker_transition_timeout_s,
-            )
+            try:
+                _broker_transition("prepare", self.config.lease_token, self.config.broker_transition_timeout_s)
+            except Exception:
+                self.close()
+                raise
         command = _command(
             self.config,
             spec,
             Path(os.devnull),
             stream=True,
             persistent=True,
+            speaker_file=str(speaker_snapshot) if speaker_snapshot is not None else None,
         )
+        if reference_path is not None:
+            command.extend(["--tts-reference-prompt-file", str(reference_path)])
         self.stderr_log = tempfile.TemporaryFile(  # noqa: SIM115 - worker lifetime owns it
             mode="w+t", encoding="utf-8"
         )
-        process = subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=self.stderr_log,
-            start_new_session=True,
-        )
+        try:
+            process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                       stderr=self.stderr_log, start_new_session=True)
+        except Exception:
+            self.close()
+            if self.config.lease_token:
+                _broker_transition("ready", self.config.lease_token, 60)
+            raise
         self.process = process
         if os.name == "nt":
             self.stdout_queue = queue.Queue()
@@ -865,6 +1095,10 @@ class PersistentTTSWorker:
             if diagnostic:
                 print(diagnostic, file=sys.stderr)
             raise
+        finally:
+            if self._reference_directory is not None:
+                self._reference_directory.cleanup()
+                self._reference_directory = None
 
     def stream(self, spec: SynthesisSpec) -> Iterator[bytes]:
         self.ensure(spec)
@@ -1013,6 +1247,10 @@ def create_app(config: Config | None = None) -> Flask:
                 "idle_keepalive_s": runtime.idle_keepalive_s,
                 "idle_residency_state": idle.last_transition,
                 "context_policy": "adaptive" if runtime.adaptive_context else "native",
+                "reference_prompt_available": bool(runtime.reference_encoder and runtime.reference_encoder.is_file()
+                    and runtime.binary.with_name("llama-tts-reference-encode" + runtime.binary.suffix).is_file()),
+                "reference_encodes": persistent.reference_encodes if persistent else 0,
+                "reference_cache_hits": persistent.reference_cache_hits if persistent else 0,
                 "persistent_ready": bool(persistent and persistent.ready),
                 "persistent_pid": persistent.pid if persistent else None,
                 "speaker_reference_configured": warm_spec is not None,

@@ -11,6 +11,20 @@ from portal.app import VoiceProfileReader, load_voice_profile
 from qwen_omni_adapters.voice_profiles import IndicatorVoiceManager
 
 
+def test_saved_reference_transcript_follows_only_its_selected_voice(tmp_path):
+    root = _repo(tmp_path)
+    manager = IndicatorVoiceManager(root)
+    assert manager.set_reference_text("female", "Entering phase nine.")[0]
+    profile = load_voice_profile(manager.profile_path)
+    assert profile["reference_text"] == "Entering phase nine."
+    assert manager.select("male")[0]
+    assert not load_voice_profile(manager.profile_path).get("reference_text")
+    assert manager.select("female")[0]
+    assert load_voice_profile(manager.profile_path)["reference_text"] == "Entering phase nine."
+    assert manager.set_reference_text("female", "")[0]
+    assert not load_voice_profile(manager.profile_path).get("reference_text")
+
+
 def _write_wav(path: Path, *, seconds: float = 1.0, rate: int = 16000) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with wave.open(str(path), "wb") as output:

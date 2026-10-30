@@ -8,6 +8,7 @@ from typing import Any
 
 from qwen_omni_adapters.audio import DEFAULT_AUDIO_CONTRACT, validate_audio_input
 from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
+from qwen_omni_adapters.voice_reference import reference_transcript
 
 ADAPTER_SCHEMA = "robit.ollama.omni-adapter.v1"
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
@@ -183,6 +184,7 @@ def adapter_contract() -> dict[str, Any]:
                 "speaker_audio": (
                     "optional base64 WAV reference for backends that support cloning"
                 ),
+                "reference_text": "optional reference transcript, at most 2048 characters; selects full Base conditioning",
             },
             "messages": {
                 "content": "normal Ollama string content",
@@ -254,6 +256,7 @@ def adapter_contract() -> dict[str, Any]:
                     "tagged visual evidence from current image or video input when available"
                 ),
                 "speech_locale": "normalized BCP 47 locale when supplied",
+                "voice_conditioning": "reference_prompt | speaker_embedding | unconditioned; reported after synthesis",
                 "speech_addressee": "self | other | ambiguous when the live gate ran",
                 "tts_skipped_reason": (
                     "required_speech_not_found | speech_addressed_elsewhere | "
@@ -529,6 +532,13 @@ def parse_adapter_request(payload: Mapping[str, Any]) -> ParsedAdapterRequest:
     if not isinstance(raw_speech, Mapping):
         raise OmniAdapterError("speech must be an object")
     speech = dict(raw_speech)
+    if "reference_text" in speech:
+        try:
+            speech["reference_text"] = reference_transcript(speech["reference_text"])
+        except ValueError as exc:
+            raise OmniAdapterError(str(exc)) from exc
+        if speech["reference_text"] and not (speech.get("speaker_file") or speech.get("speaker_audio")):
+            raise OmniAdapterError("reference_text requires speaker_file or speaker_audio")
     raw_language = speech.get("language")
     raw_locale = speech.get("locale")
     try:

@@ -799,6 +799,8 @@ textarea::placeholder { color: var(--quiet); }
 .voice-preset-option small { color: var(--quiet); font: 9px var(--mono); text-transform: uppercase; }
 .voice-reference { margin-top: 10px; padding: 13px; border: 1px solid var(--line); border-radius: 12px; }
 .voice-reference.disabled { opacity: .45; pointer-events: none; }
+.voice-reference label { display: block; margin-top: 10px; color: var(--muted); font-size: 12px; }
+.voice-reference textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #080808; color: var(--text); resize: vertical; }
 .voice-reference-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .voice-action {
   min-height: 36px;

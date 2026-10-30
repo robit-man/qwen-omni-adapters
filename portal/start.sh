@@ -642,6 +642,7 @@ run_foreground() {
   OMNI_COMPONENT_CACHE="$CACHE_DIR" \
   OMNI_TTS_MODEL_GGUF="$CACHE_DIR/tts-model.gguf" \
   OMNI_TTS_PROJECTOR_GGUF="$CACHE_DIR/tts-projector.gguf" \
+  OMNI_TTS_REFERENCE_ENCODER_GGUF="$CACHE_DIR/tts-reference-encoder.gguf" \
   LLAMA_TTS_BIN="$REPO_ROOT/vendor/llama.cpp/build/bin/llama-tts" \
   OMNI_TTS_GPU_LAYERS=-1 \
   OMNI_TTS_STREAM_FRAMES="${OMNI_TTS_STREAM_FRAMES:-2}" \
