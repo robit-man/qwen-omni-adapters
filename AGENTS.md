@@ -110,7 +110,10 @@ editing the controller during every difficult trajectory.
   spoken turn.
 - The Qwen3-TTS resident protocol must reset generation memory and samplers and
   create a fresh audio-generation helper between prompts. Matching profiles may
-  reuse one PID and loaded weights; decoded request state may not.
+  reuse one PID and loaded weights. Explicit full-reference batch utterances
+  may carry only bounded causal waveform state between blocks; end, abort,
+  cancellation and any profile change must discard it. Decoded target state
+  must never enter the immutable reference cache or cross utterances.
 - The Qwen3-TTS code2wav graph must retain state at the last real codec frame,
   never after rear padding. Run `runtime/verify_pcm_stream.py` against raw PCM
   after rebuilding; browser smoothing cannot satisfy this source-level gate.

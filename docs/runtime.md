@@ -392,6 +392,15 @@ reference is active. The bundled female default and male alternate are real
 clone references; synthesis cannot silently degrade to an unconditioned
 generic voice during startup validation.
 
+`OMNI_TTS_CONTINUOUS_BATCH=1` opts into causal waveform continuity within a
+full-reference `/synthesize/stream/batch` utterance (maximum 64 blocks). The
+default remains off pending broad voice/language qualification. Language KV,
+samplers and helpers still reset for every block. Only bounded decoder state
+crosses a block boundary; end, abort, cancellation, errors and profile changes
+discard it. Single blocks and speaker-embedding requests stay independent.
+No target state enters the immutable reference cache. See
+[the native and HTTP qualification](upgrades/phase-b3b-utterance-state.md).
+
 The default packet policy is `OMNI_TTS_STREAM_FRAMES=auto` (also selected when
 unset). Full-reference synthesis using an adaptive 4096-position context selects
 four codec frames, approximately 320 ms per decode window. Other profiles retain

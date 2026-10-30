@@ -1,0 +1,32 @@
+{
+  "schema": "robit.omni.utterance-projected-speaker-comparison.v1",
+  "scope": "Same-bundle speaker conditioning on one matched A100 backend, not independent or calibrated speaker verification.",
+  "perceptual_cloning_quality_qualified": false,
+  "tolerance_absolute_cosine": 0.001,
+  "inputs": {
+    "reference": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+    "a100-reset": "313c1eb89ebe4a13c85b682b42d7058175f539a73eead67ef7190e7a14dab9a7",
+    "a100-continuous": "3daa8c11e61f7503e1901e21affd84c287ede4eb969cddf5f2c4893ac5fb475c",
+    "orin-reset": "12a3ecc8f6cc86778b2a17243651fe9679e66a0b410b612f479a9390c55d9d21",
+    "orin-continuous": "d71bddfea14a441113abbd3658c467df943267a65a406f19761101f2184f3d28"
+  },
+  "pairs": [
+    {
+      "device": "a100",
+      "continuous_vs_reset_cosine": 0.9991397857666016,
+      "reset_vs_reference_cosine": 0.9733935594558716,
+      "continuous_vs_reference_cosine": 0.9731410145759583,
+      "delta_reference_cosine": -0.0002525448799133301,
+      "no_material_regression": true
+    },
+    {
+      "device": "orin",
+      "continuous_vs_reset_cosine": 0.9984956383705139,
+      "reset_vs_reference_cosine": 0.9768380522727966,
+      "continuous_vs_reference_cosine": 0.976590633392334,
+      "delta_reference_cosine": -0.0002474188804626465,
+      "no_material_regression": true
+    }
+  ],
+  "qualifier_sha256": "1b7095f84f7c96d379285f6984827195553395b8d96c1f9ea8d1f8b067cf6026"
+}

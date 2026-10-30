@@ -14,6 +14,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -44,6 +45,7 @@ def main():
     ):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--automatic-packets", action="store_true")
+    parser.add_argument("--continuous-batch", action="store_true")
     args = parser.parse_args()
     uuid = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     token = os.environ.get("OLLAMA_UNIFY_GPU_LEASE", "")
@@ -106,7 +108,20 @@ def main():
         max_frames=96,
         stream_frames=None if args.automatic_packets else 2,
         timeout_s=120,
+        continuous_batch=args.continuous_batch,
     )
+    native_states = []
+    original_close = tts.PersistentTTSWorker.close
+
+    def record_close(worker):
+        if worker.stderr_log is not None:
+            log = os.pread(worker.stderr_log.fileno(), os.fstat(worker.stderr_log.fileno()).st_size, 0).decode(errors="replace")
+            native_states.extend([list(map(int, row)) for row in re.findall(
+                r"tts utterance: block=(\d+) prior_bytes=(\d+) bytes=(\d+) position=(\d+) frames=(\d+)", log)])
+        original_close(worker)
+
+    if args.continuous_batch:
+        tts.PersistentTTSWorker.close = record_close
     app = tts.create_app(config)
     client = app.test_client()
     body = {
@@ -129,6 +144,7 @@ def main():
         "reference_sha256": tts._reference_digest(args.reference),
         "transcript_sha256": tts._reference_digest(args.transcript_file),
         "automatic_packets": args.automatic_packets,
+        "continuous_batch": args.continuous_batch,
     }
     outputs = []
 
@@ -223,19 +239,38 @@ def main():
         assert not list((work / "temporary").iterdir())
         batch = {**inline, "blocks": list(PROMPTS[:2])}
         batch.pop("text")
-        assert stream(batch, "inline-batch", "/synthesize/stream/batch") == outputs[0] + outputs[1]
+        joined = stream(batch, "inline-batch", "/synthesize/stream/batch")
+        if args.continuous_batch:
+            assert joined[:len(outputs[0])] == outputs[0]
+            assert joined != outputs[0] + outputs[1]
+            assert analyze_pcm(joined[len(outputs[0]):], stream_frames=4 if args.automatic_packets else 2)["ok"]
+            assert stream(batch, "inline-batch-repeat", "/synthesize/stream/batch") == joined
+            response = client.post("/synthesize/stream/batch", json=batch, buffered=False)
+            assert response.status_code == 200 and next(iter(response.response))
+            response.close()
+            assert not list((work / "temporary").iterdir())
+        else:
+            assert joined == outputs[0] + outputs[1]
         assert stream(body, "saved-after-inline") == outputs[0]
         report.update(
             all_saved_a_b_a_exact=True,
             inline_matches_saved=True,
             complete_wav_matches_stream=True,
             cancel_cleans_request=True,
-            inline_batch_exact=True,
+            inline_batch_exact=not args.continuous_batch,
+            continuous_batch_repeat_exact=args.continuous_batch,
             temporary_reference_files_remaining=0,
         )
     finally:
         app.extensions["tts_idle_residency"].stop()
         client.post("/residency", json={"action": "shed"})
+    if args.continuous_batch:
+        assert len(native_states) == 4, native_states
+        for first, second in ((native_states[0], native_states[1]), (native_states[2], native_states[3])):
+            assert first[0] == 1 and first[1] == 0
+            assert second[0] == 2 and second[1] == first[2] == second[2] > 0
+            assert second[3] == first[3] + second[4]
+        report["native_state_transfers"] = native_states
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2) + "\n")
     print(

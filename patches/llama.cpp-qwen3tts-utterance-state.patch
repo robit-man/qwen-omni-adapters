@@ -1,0 +1,199 @@
+diff --git a/common/arg.cpp b/common/arg.cpp
+index 6a4519d00..7bd4a3afd 100644
+--- a/common/arg.cpp
++++ b/common/arg.cpp
+@@ -4473,6 +4473,11 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
+         "disable model-bound immutable speaker/token conditioning reuse (comparison baseline)",
+         [](common_params & params) { params.tts_conditioning_cache = false; }
+     ).set_examples({LLAMA_EXAMPLE_TTS}));
++    add_opt(common_arg(
++        {"--tts-utterance-controls"},
++        "accept explicit bounded full-reference utterance controls in persistent mode",
++        [](common_params & params) { params.tts_utterance_controls = true; }
++    ).set_examples({LLAMA_EXAMPLE_TTS}));
+     add_opt(common_arg(
+         {"--tts-conditioning-cache-rows"}, "N",
+         "maximum immutable token rows to cache (0-4096, also capped at 8 MiB)",
+diff --git a/common/common.h b/common/common.h
+index f49e3d076..265953e5d 100644
+--- a/common/common.h
++++ b/common/common.h
+@@ -757,6 +757,7 @@ struct common_params {
+     bool tts_stream = false;
+     int32_t tts_stream_frames = 72;
+     bool tts_persistent = false;
++    bool tts_utterance_controls = false;
+     bool tts_conditioning_cache = true;
+     int32_t tts_conditioning_cache_rows = 512;
+ 
+diff --git a/tools/mtmd/mtmd-helper-gen.cpp b/tools/mtmd/mtmd-helper-gen.cpp
+index 189c996c9..1c4f95cc9 100644
+--- a/tools/mtmd/mtmd-helper-gen.cpp
++++ b/tools/mtmd/mtmd-helper-gen.cpp
+@@ -148,6 +148,8 @@ public:
+     virtual ~mtmd_gen_audio_pipeline() = default;
+ 
+     virtual void reset() = 0;
++    virtual size_t waveform_state(const uint8_t **) const { return 0; }
++    virtual bool set_waveform_state(const uint8_t *, size_t) { return false; }
+     virtual int32_t set_reference_prompt(const int32_t *, size_t, const char *, size_t) { return 1; }
+     virtual int32_t set_input(const mtmd_helper_gen_audio_inp * inp) = 0;
+     // decodes at most n_batch prompt tokens; returns remaining count (0 = done), <0 on error
+@@ -202,6 +204,21 @@ public:
+         prompt_pos = 0;
+     }
+ 
++    size_t waveform_state(const uint8_t ** data) const override {
++        if (data) { *data = c2w_state.data(); }
++        return c2w_state.size();
++    }
++
++    bool set_waveform_state(const uint8_t * data, size_t size) override {
++        // Full-reference initialization supplies the exact decoder state layout.
++        if (!data || reference_codes.empty() || size == 0 || size > 16 * 1024 * 1024 ||
++                size != c2w_state.size() || !codes_buf.empty() || !audio_pcm.empty()) {
++            return false;
++        }
++        c2w_state.assign(data, data + size);
++        return true;
++    }
++
+     int32_t set_input(const mtmd_helper_gen_audio_inp * inp) override {
+         reset();
+         seq_id = inp->seq_id;
+@@ -1267,6 +1284,15 @@ int32_t mtmd_helper_gen_audio_set_reference_prompt(mtmd_helper_gen_audio * ctx,
+     return ctx && ctx->pipeline ? ctx->pipeline->set_reference_prompt(codes, n_codes, text, text_len) : 1;
+ }
+ 
++size_t mtmd_helper_gen_audio_waveform_state(const mtmd_helper_gen_audio * ctx, const uint8_t ** data) {
++    if (data) { *data = nullptr; }
++    return ctx && ctx->pipeline ? ctx->pipeline->waveform_state(data) : 0;
++}
++
++bool mtmd_helper_gen_audio_set_waveform_state(mtmd_helper_gen_audio * ctx, const uint8_t * data, size_t size) {
++    return ctx && ctx->pipeline && ctx->pipeline->set_waveform_state(data, size);
++}
++
+ int32_t mtmd_helper_gen_audio_step_prompt(mtmd_helper_gen_audio * ctx, int32_t n_batch) {
+     if (!ctx->pipeline) {
+         return -1;
+diff --git a/tools/mtmd/mtmd-helper.h b/tools/mtmd/mtmd-helper.h
+index b8e4162c6..80c139b54 100644
+--- a/tools/mtmd/mtmd-helper.h
++++ b/tools/mtmd/mtmd-helper.h
+@@ -252,6 +252,11 @@ MTMD_API void mtmd_helper_gen_audio_free(mtmd_helper_gen_audio * ctx);
+ 
+ MTMD_API void mtmd_helper_gen_audio_reset(mtmd_helper_gen_audio * ctx);
+ 
++// Opaque decoder state, valid only within one full-reference utterance on this context.
++// Read after final output; write after set_input and before generation. Never cache it.
++MTMD_API size_t mtmd_helper_gen_audio_waveform_state(const mtmd_helper_gen_audio * ctx, const uint8_t ** data);
++MTMD_API bool mtmd_helper_gen_audio_set_waveform_state(mtmd_helper_gen_audio * ctx, const uint8_t * data, size_t size);
++
+ MTMD_API int32_t mtmd_helper_gen_audio_set_reference_prompt(
+     mtmd_helper_gen_audio * ctx, const int32_t * codes, size_t n_codes,
+     const char * reference_text, size_t reference_text_len);
+diff --git a/tools/tts/tts.cpp b/tools/tts/tts.cpp
+index f7535640a..fb343866f 100644
+--- a/tools/tts/tts.cpp
++++ b/tools/tts/tts.cpp
+@@ -198,6 +198,19 @@ int main(int argc, char ** argv) {
+             mtmd_helper_gen_audio_cache_free);
+     mtmd_helper_gen_audio_cache_set_row_limit(conditioning_cache.get(), params.tts_conditioning_cache_rows);
+ 
++    if (params.tts_utterance_controls && (!params.tts_persistent || reference_codes.empty())) {
++        LOG_ERR("utterance controls require persistent full-reference synthesis\n");
++        return 1;
++    }
++    std::string utterance_id;
++    std::vector<uint8_t> utterance_state;
++    size_t utterance_blocks = 0;
++    auto clear_utterance = [&]() {
++        utterance_id.clear();
++        std::vector<uint8_t>().swap(utterance_state);
++        utterance_blocks = 0;
++    };
++
+     auto generate = [&](const std::string & prompt, bool framed) -> bool {
+         mtmd_helper::gen_audio gen(lctx, mctx.get(), conditioning_cache.get());
+         llama_memory_clear(llama_get_memory(lctx), true);
+@@ -229,6 +242,11 @@ int main(int argc, char ** argv) {
+             LOG_ERR("set_input failed\n");
+             return false;
+         }
++        if (!utterance_id.empty() && !utterance_state.empty() &&
++                !mtmd_helper_gen_audio_set_waveform_state(gen.ctx.get(), utterance_state.data(), utterance_state.size())) {
++            LOG_ERR("utterance decoder state import failed\n");
++            return false;
++        }
+ 
+         const int64_t t_prompt_start_us = ggml_time_us();
+         for (;;) {
+@@ -318,6 +336,20 @@ int main(int argc, char ** argv) {
+             LOG_ERR("get_output failed\n");
+             return false;
+         }
++        if (!utterance_id.empty()) {
++            const uint8_t * state = nullptr;
++            const size_t size = mtmd_helper_gen_audio_waveform_state(gen.ctx.get(), &state);
++            if (!state || size < sizeof(float) || size > 16 * 1024 * 1024) {
++                LOG_ERR("invalid utterance decoder state export\n");
++                return false;
++            }
++            float position = 0;
++            memcpy(&position, state, sizeof(position));
++            LOG_INF("tts utterance: block=%zu prior_bytes=%zu bytes=%zu position=%.0f frames=%d\n",
++                utterance_blocks + 1, utterance_state.size(), size, position, n_frames);
++            utterance_state.assign(state, state + size);
++            utterance_blocks++;
++        }
+         const double t_wav_s = (ggml_time_us() - t_wav_start_us) / 1e6;
+         LOG_INF("generated %d frames, %zu bytes of WAV audio (%d Hz)\n", n_frames, data_len, sample_rate);
+         const double t_prompt_s = (t_gen_start_us - t_prompt_start_us) / 1e6;
+@@ -356,10 +388,33 @@ int main(int argc, char ** argv) {
+                 if (encoded_prompt.size() > 32768) {
+                     throw base64_error("prompt frame is too large");
+                 }
++                if (params.tts_utterance_controls && !encoded_prompt.empty() && encoded_prompt[0] == '{') {
++                    const auto control = nlohmann::json::parse(encoded_prompt);
++                    const auto id = control.at("id").get<std::string>();
++                    const auto kind = control.at("kind").get<std::string>();
++                    if (control.size() != 3 || control.at("schema") != "robit.qwen3tts.utterance-control.v1" ||
++                            id.size() != 32 || id.find_first_not_of("0123456789abcdef") != std::string::npos) {
++                        throw std::runtime_error("invalid utterance control");
++                    }
++                    if (kind == "begin" && utterance_id.empty()) {
++                        utterance_id = id;
++                    } else if ((kind == "end" || kind == "abort") && id == utterance_id) {
++                        clear_utterance();
++                    } else {
++                        throw std::runtime_error("invalid utterance transition");
++                    }
++                    if (!tts_write_frame('C', encoded_prompt.data(), encoded_prompt.size())) {
++                        break;
++                    }
++                    continue;
++                }
+                 const std::string prompt = base64::decode(encoded_prompt);
+                 if (prompt.empty()) {
+                     throw base64_error("prompt is empty");
+                 }
++                if (!utterance_id.empty() && utterance_blocks >= 64) {
++                    throw std::runtime_error("utterance block limit exceeded");
++                }
+                 const bool generated = generate(prompt, true);
+                 if (conditioning_cache) {
+                     const auto stats = mtmd_helper_gen_audio_cache_get_stats(conditioning_cache.get());
+@@ -379,10 +434,12 @@ int main(int argc, char ** argv) {
+                     }
+                 }
+                 if (!generated) {
++                    clear_utterance();
+                     const std::string error = "persistent TTS generation failed";
+                     tts_write_frame('E', error.data(), error.size());
+                 }
+             } catch (const std::exception & error) {
++                clear_utterance();
+                 const std::string message = error.what();
+                 if (!tts_write_frame('E', message.data(), message.size())) {
+                     break;

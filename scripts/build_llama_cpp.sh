@@ -16,6 +16,7 @@ INDEXED_VIEWS_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-indexed-tts-views.patch
 REFERENCE_ENCODER_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-encoder.patch
 REFERENCE_IGPU_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-integrated-gpu.patch
 REFERENCE_PROMPT_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-reference-prompt.patch
+UTTERANCE_STATE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-utterance-state.patch
 BUILD_DIR=${LLAMA_CPP_BUILD_DIR:-$SOURCE_DIR/build}
 if command -v nproc >/dev/null 2>&1; then
   default_jobs=$(nproc)
@@ -170,7 +171,19 @@ else
   apply_patch_file "$REFERENCE_ENCODER_PATCH_FILE" "Qwen3-TTS reference acoustic encoder"
 fi
 apply_patch_file "$REFERENCE_IGPU_PATCH_FILE" "Qwen3-TTS integrated GPU residency"
-apply_patch_file "$REFERENCE_PROMPT_PATCH_FILE" "Qwen3-TTS full reference prompt"
+if patch_marker_present tools/mtmd/mtmd-helper-gen.cpp 'reference_decoder_state' \
+  && patch_marker_present tools/tts/tts.cpp 'robit.qwen3tts.reference-prompt.v1'; then
+  printf 'Qwen3-TTS full reference prompt patch is already applied\n'
+else
+  apply_patch_file "$REFERENCE_PROMPT_PATCH_FILE" "Qwen3-TTS full reference prompt"
+fi
+if patch_marker_present common/arg.cpp '"--tts-utterance-controls"' \
+  && patch_marker_present tools/tts/tts.cpp 'robit.qwen3tts.utterance-control.v1' \
+  && patch_marker_present tools/mtmd/mtmd-helper-gen.cpp 'set_waveform_state'; then
+  printf 'Qwen3-TTS utterance decoder state patch is already applied\n'
+else
+  apply_patch_file "$UTTERANCE_STATE_PATCH_FILE" "Qwen3-TTS utterance decoder state"
+fi
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in
@@ -229,5 +242,6 @@ fi
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-no-conditioning-cache'
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-conditioning-cache-rows'
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-reference-prompt-file'
+"$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-utterance-controls'
 [[ -x "$BUILD_DIR/bin/llama-tts-reference-encode" ]] || { printf 'Reference encoder was not built\n' >&2; exit 1; }
 printf 'Built patched llama-server and llama-tts in %s\n' "$BUILD_DIR/bin"

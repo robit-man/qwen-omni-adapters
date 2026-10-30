@@ -18,6 +18,7 @@ $IndexedViewsPatchFile = Join-Path $RepoRoot "patches\llama.cpp-indexed-tts-view
 $ReferenceEncoderPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-encoder.patch"
 $ReferenceIgpuPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-integrated-gpu.patch"
 $ReferencePromptPatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-reference-prompt.patch"
+$UtteranceStatePatchFile = Join-Path $RepoRoot "patches\llama.cpp-qwen3tts-utterance-state.patch"
 $BuildDir = Join-Path $SourceDir "build"
 
 if (-not (Test-Path (Join-Path $SourceDir ".git"))) {
@@ -80,7 +81,19 @@ if ((Test-PatchMarker "tools/tts/reference-encode.cpp" 'params.reference_encoder
     Apply-NativePatch $ReferenceEncoderPatchFile "Qwen3-TTS reference acoustic encoder"
 }
 Apply-NativePatch $ReferenceIgpuPatchFile "Qwen3-TTS integrated GPU residency"
-Apply-NativePatch $ReferencePromptPatchFile "Qwen3-TTS full reference prompt"
+if ((Test-PatchMarker "tools/mtmd/mtmd-helper-gen.cpp" 'reference_decoder_state') -and
+    (Test-PatchMarker "tools/tts/tts.cpp" 'robit.qwen3tts.reference-prompt.v1')) {
+    Write-Host "Qwen3-TTS full reference prompt patch is already applied"
+} else {
+    Apply-NativePatch $ReferencePromptPatchFile "Qwen3-TTS full reference prompt"
+}
+if ((Test-PatchMarker "common/arg.cpp" '"--tts-utterance-controls"') -and
+    (Test-PatchMarker "tools/tts/tts.cpp" 'robit.qwen3tts.utterance-control.v1') -and
+    (Test-PatchMarker "tools/mtmd/mtmd-helper-gen.cpp" 'set_waveform_state')) {
+    Write-Host "Qwen3-TTS utterance decoder state patch is already applied"
+} else {
+    Apply-NativePatch $UtteranceStatePatchFile "Qwen3-TTS utterance decoder state"
+}
 
 cmake -S $SourceDir -B $BuildDir -DGGML_CUDA=ON -DLLAMA_CURL=OFF
 cmake --build $BuildDir --config Release --target llama-server llama-tts llama-tts-reference-encode --parallel $BuildJobs
@@ -92,4 +105,5 @@ if (-not (Test-Path $Tts)) { throw "llama-tts.exe was not built" }
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-no-conditioning-cache" | Out-Null
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-conditioning-cache-rows" | Out-Null
 & $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-reference-prompt-file" | Out-Null
+& $Tts --help 2>&1 | Select-String -SimpleMatch "--tts-utterance-controls" | Out-Null
 Write-Host "Built patched llama-server and llama-tts in $BuildDir"

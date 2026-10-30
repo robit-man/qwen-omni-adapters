@@ -25,6 +25,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 import wave
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
@@ -79,6 +80,7 @@ class Config:
     idle_min_available_mib: int = 6144
     adaptive_context: bool = False
     reference_encoder: Path | None = None
+    continuous_batch: bool = False
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -171,6 +173,7 @@ class Config:
             idle_min_available_mib=int(os.environ.get("OMNI_TTS_IDLE_MIN_AVAILABLE_MIB", "6144")),
             adaptive_context=os.environ.get("OMNI_TTS_ADAPTIVE_CONTEXT", "0") == "1",
             reference_encoder=reference_encoder,
+            continuous_batch=os.environ.get("OMNI_TTS_CONTINUOUS_BATCH", "0") == "1",
         )
 
 
@@ -409,6 +412,8 @@ def _command(
         command.extend(["--tts-stream", "--tts-stream-frames", str(spec.stream_frames)])
     if persistent:
         command.append("--tts-persistent")
+        if config.continuous_batch and spec.reference_text:
+            command.append("--tts-utterance-controls")
     if not config.conditioning_cache:
         command.append("--tts-no-conditioning-cache")
     return command
@@ -670,6 +675,8 @@ def _batch_specs(config: Config, body: dict[str, Any]) -> list[SynthesisSpec]:
     blocks = body.get("blocks")
     if not isinstance(blocks, list) or not blocks:
         raise TTSError("blocks must be a non-empty array of text")
+    if config.continuous_batch and body.get("reference_text") and len(blocks) > 64:
+        raise TTSError("continuous TTS utterances support at most 64 blocks")
     common = dict(body)
     common.pop("blocks", None)
     common.pop("text", None)
@@ -843,6 +850,7 @@ class PersistentTTSWorker:
         self._reference_directory: tempfile.TemporaryDirectory | None = None
         self.reference_encodes = 0
         self.reference_cache_hits = 0
+        self.utterance_id: str | None = None
 
     def _weight_identity(self, path: Path) -> str:
         """Hash each immutable checkpoint once, invalidating on file replacement."""
@@ -982,6 +990,7 @@ class PersistentTTSWorker:
         process = self.process
         self.process = None
         self.profile = None
+        self.utterance_id = None
         self.stdout_queue = None
         self.stdout_buffer.clear()
         if process is not None:
@@ -1003,6 +1012,9 @@ class PersistentTTSWorker:
                   if spec.reference_text and self.config.reference_encoder else "")
         if self.ready and self.profile == wanted:
             return
+        if self.utterance_id is not None:
+            self.close()
+            raise TTSError("TTS profile changed during an active utterance")
         self.close()
         if spec.speaker_audio is not None:
             raise TTSError("inline speaker audio requires the single-shot TTS path")
@@ -1107,6 +1119,36 @@ class PersistentTTSWorker:
                 self._reference_directory.cleanup()
                 self._reference_directory = None
 
+    def _utterance_control(self, kind: str, identifier: str) -> None:
+        process = self.process
+        if process is None or process.stdin is None or not self.ready:
+            self.close()
+            raise TTSError("utterance worker is unavailable")
+        payload = json.dumps({"schema": "robit.qwen3tts.utterance-control.v1", "kind": kind,
+                              "id": identifier}, separators=(",", ":")).encode("ascii")
+        try:
+            process.stdin.write(payload + b"\n")
+            process.stdin.flush()
+            if self._read_frame(process, time.monotonic() + self.config.timeout_s) != ("C", payload):
+                raise TTSError("invalid TTS utterance control acknowledgement")
+        except BaseException:
+            self.close()
+            raise
+
+    def begin_utterance(self, spec: SynthesisSpec) -> None:
+        if not self.config.continuous_batch or not spec.reference_text or self.utterance_id is not None:
+            raise TTSError("continuous utterances require an idle full-reference worker")
+        self.ensure(spec)
+        identifier = uuid.uuid4().hex
+        self._utterance_control("begin", identifier)
+        self.utterance_id = identifier
+
+    def end_utterance(self) -> None:
+        if self.utterance_id is None:
+            raise TTSError("there is no active TTS utterance")
+        self._utterance_control("end", self.utterance_id)
+        self.utterance_id = None
+
     def stream(self, spec: SynthesisSpec) -> Iterator[bytes]:
         self.ensure(spec)
         process = self.process
@@ -1156,6 +1198,20 @@ def _stream_worker_batch(
         raise TTSError("all TTS blocks must use the same speaker reference")
 
     def stream(normalized: list[SynthesisSpec]) -> Iterator[bytes]:
+        continuous = worker.config.continuous_batch and len(normalized) > 1 and bool(normalized[0].reference_text)
+        if continuous:
+            worker.begin_utterance(normalized[0])
+        try:
+            yield from stream_blocks(normalized)
+        except BaseException:
+            if continuous:
+                worker.close()
+            raise
+        finally:
+            if continuous and worker.utterance_id is not None:
+                worker.end_utterance()
+
+    def stream_blocks(normalized: list[SynthesisSpec]) -> Iterator[bytes]:
         batch_started = time.monotonic()
         total_bytes = 0
         for index, spec in enumerate(normalized, start=1):

@@ -73,7 +73,7 @@
     {
       "id": "B3",
       "objective": "Committed speech handoff and adaptive initial/steady acoustic windows",
-      "status": "automatic_small_full_reference_packet_cadence_verified_committed_handoff_and_dynamic_window_ramp_pending",
+      "status": "automatic_cadence_and_opt_in_full_reference_utterance_decoder_state_verified_committed_handoff_and_dynamic_window_ramp_pending",
       "evidence": []
     },
     {
@@ -91,6 +91,22 @@
         "phase-b3a-auto-a100.json",
         "phase-b3a-auto-orin.json",
         "phase-b3a-validation.json"
+      ]
+    },
+    {
+      "id": "B3b",
+      "objective": "Retain bounded causal waveform state only within one committed full-reference batch utterance",
+      "status": "opt_in_A100_Orin_native_and_actual_HTTP_continuation_isolation_verified_broad_voice_quality_pending",
+      "evidence": [
+        "phase-b3b-utterance-state.md",
+        "phase-b3b-native-a100.json",
+        "phase-b3b-native-orin.json",
+        "phase-b3b-http-a100.json",
+        "phase-b3b-http-orin.json",
+        "phase-b3b-native-apply.json",
+        "phase-b3b-speaker.json",
+        "phase-b3b-intelligibility.json",
+        "phase-b3b-validation.json"
       ]
     },
     {

@@ -1,0 +1,42 @@
+{
+  "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+  "rows": [
+    {
+      "id": "a100-reset",
+      "wav_sha256": "313c1eb89ebe4a13c85b682b42d7058175f539a73eead67ef7190e7a14dab9a7",
+      "transcript": "Seven small birds are sitting on the wooden fence.",
+      "expected": "Seven small birds are sitting on the wooden fence.",
+      "exact": true,
+      "elapsed_s": 1.4396015321835876,
+      "cache_prompt": false
+    },
+    {
+      "id": "a100-continuous",
+      "wav_sha256": "3daa8c11e61f7503e1901e21affd84c287ede4eb969cddf5f2c4893ac5fb475c",
+      "transcript": "Seven small birds are sitting on the wooden fence.",
+      "expected": "Seven small birds are sitting on the wooden fence.",
+      "exact": true,
+      "elapsed_s": 1.182962479069829,
+      "cache_prompt": false
+    },
+    {
+      "id": "orin-reset",
+      "wav_sha256": "12a3ecc8f6cc86778b2a17243651fe9679e66a0b410b612f479a9390c55d9d21",
+      "transcript": "Seven small birds are sitting on the wooden fence.",
+      "expected": "Seven small birds are sitting on the wooden fence.",
+      "exact": true,
+      "elapsed_s": 1.0614432629663497,
+      "cache_prompt": false
+    },
+    {
+      "id": "orin-continuous",
+      "wav_sha256": "d71bddfea14a441113abbd3658c467df943267a65a406f19761101f2184f3d28",
+      "transcript": "Seven small birds are sitting on the wooden fence.",
+      "expected": "Seven small birds are sitting on the wooden fence.",
+      "exact": true,
+      "elapsed_s": 1.051362067926675,
+      "cache_prompt": false
+    }
+  ],
+  "all_exact": true
+}
