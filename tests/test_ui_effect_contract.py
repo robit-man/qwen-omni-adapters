@@ -192,12 +192,21 @@ def test_compiled_exact_write_still_requires_observed_value_not_focus_or_dispatc
     assert not predicate_satisfied({"kind": "value", "node_id": "field", "value": "requested"}, result["after"])
 
 
-def test_valid_application_specific_drag_and_selection_effects_are_not_guessed():
-    for proposal in (step("drag_drop", {"to_node_id": "folder"}), step("select", {"option": "draft"})):
-        effect = compile_immediate_transition(proposal)
-        assert effect.mode == "requires_replan"
-        with pytest.raises(ComputerUseError):
-            effect.bind(proposal)
+def test_valid_application_specific_drag_is_observed_without_guessed_effect():
+    proposal = step("drag_drop", {"to_node_id": "folder"})
+    effect = compile_immediate_transition(proposal)
+    assert effect.mode == "observation_boundary"
+    assert effect.as_dict()["predicates"] == []
+    bound = effect.bind(proposal)
+    assert bound["args"] == {"to_node_id": "folder"} and "expect" not in bound
+
+
+def test_valid_application_specific_selection_effect_is_not_guessed():
+    proposal = step("select", {"option": "draft"})
+    effect = compile_immediate_transition(proposal)
+    assert effect.mode == "requires_replan"
+    with pytest.raises(ComputerUseError):
+        effect.bind(proposal)
 
 
 @pytest.mark.parametrize("proposal", [

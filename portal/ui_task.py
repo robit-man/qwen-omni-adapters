@@ -30,7 +30,7 @@ from qwen_omni_adapters.computer_use import (
     parse_predicates,
     parse_step,
 )
-from qwen_omni_adapters.ui_effects import transition_descriptor_schema
+from qwen_omni_adapters.ui_effects import compile_immediate_transition, transition_descriptor_schema
 
 
 def phase_response_schema(allowed_tools: Iterable[str]) -> dict[str, Any]:
@@ -214,7 +214,8 @@ def _grounded_phase_schema(allowed_tools: Iterable[str], observation: Mapping[st
                 branch["properties"]["expect"] = copy.deepcopy(switch_effect)
                 branch["properties"]["expect"]["items"]["properties"]["kind"] = {"const": "focused"}
             if (verb in {"invoke", "click", "double_click", "right_click"}
-                    or (intent_choice or effect_contracts) and verb in {"key_chord", "scroll"}):
+                    or (intent_choice or effect_contracts) and verb in {"key_chord", "scroll"}
+                    or effect_contracts and verb == "drag_drop"):
                 branch["properties"].pop("expect")
                 branch["required"].remove("expect")
                 boundaries.append(branch)
@@ -337,6 +338,7 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
               "action_handoff", "action_handoff_revalidation", "immediate_effect_contract",
               "immediate_transition_receipt", "planner_workflow_claim", "strategy_filter_receipts", "transition",
               "verified_prefix_receipt", "verification_only_receipt", "recalled_plan", "plan_recall_receipt")
+    fields = (*fields, "control_catalogue", "control_expansion_receipt")
     compact = {key: copy.deepcopy(result[key]) for key in fields if key in result}
     if not _accepted_visual_reading(result):
         compact.pop("reading", None)
@@ -351,7 +353,8 @@ def _compact_result(result: Mapping[str, Any]) -> dict[str, Any]:
         after = item.get("after", {})
         wanted = {action.get("node_id")} | {predicate.get("node_id") for predicate in action.get("expect", [])}
         outcome["observed_effects"] = [{key: copy.deepcopy(node[key]) for key in
-            ("id", "generation", "scope_id", "role", "name", "value", "checked", "selected", "focused", "text_selection", "text_observation")
+            ("id", "generation", "scope_id", "role", "name", "value", "checked", "selected", "focused", "text_selection",
+             "text_observation", "text_insertion")
             if key in node} for node in after.get("nodes", []) if node.get("id") in wanted and not node.get("sensitive")][:21]
         outcomes.append(outcome)
     if outcomes:
@@ -518,6 +521,117 @@ def _zero_effect_ui_phase_key(result: Mapping[str, Any], observed: Mapping[str, 
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _fresh_prefix_continuation(result, *, plan, observed, working, phase):
+    """A current host no-input boundary can request planning, never authorize input.
+
+    Internal readbacks legitimately renew revisions after the outer observation.
+    Freshness is joined through the accepted current-phase handoff and the
+    executor's own source references, not whole-window revision equality.
+    """
+    try:
+        prefix = result["verified_prefix_receipt"]
+        continuation = prefix["continuation"]
+        contract = result["immediate_effect_contract"]
+        source = continuation["source_ref"]
+        state = observed["state"]
+        handoff = working.action_handoff
+        count = prefix["attempted_step_count"]
+        planned = len(plan["steps"])
+        if (result.get("status") != "needs_replan" or result.get("error")
+                or result.get("dispatch_status") != "not_dispatched"
+                or result.get("input_attempted") is not False or result.get("task_progress") is not False
+                or type(result.get("new_effect_count")) is not int or result["new_effect_count"] != 0
+                or any(result.get(key) != [] for key in
+                    ("outcomes", "policy_receipts", "selection_receipts", "point_receipts"))
+                or any(result.get(key) for key in ("dispatch_record", "receipt", "pointer_recovery"))
+                or result.get("effect_receipt", {}).get("schema") != "robit.omni.ui-effect-receipt.v1"
+                or result["effect_receipt"].get("effect_state") != "absent"
+                or result["effect_receipt"].get("environment_may_have_changed") is not False
+                or prefix.get("schema") != "robit.omni.native-verified-prefix.v1"
+                or prefix.get("stop") != "unannotated_observation_boundary"
+                or any(prefix.get(key) is not False for key in
+                    ("input_authority", "task_progress", "goal_verified", "model_terminal_predicates_verified",
+                     "all_immediate_readbacks_verified"))
+                or any(type(prefix.get(key)) is not int for key in
+                    ("attempted_step_count", "verified_prefix_count", "planned_step_count", "unattempted_step_count"))
+                or not 0 < count == prefix["verified_prefix_count"] < planned <= 25
+                or prefix["planned_step_count"] != planned
+                or prefix["unattempted_step_count"] != planned - count
+                or type(continuation.get("step_index")) is not int or continuation["step_index"] != count
+                or continuation.get("schema") != "robit.omni.native-prefix-continuation.v1"
+                or continuation.get("input_authority") is not False
+                or continuation.get("step") != plan["steps"][count]
+                or continuation.get("goal_sha256") != working.goal_sha256
+                or continuation.get("objective") != working.commitment["objective"]
+                or not isinstance(handoff, dict)
+                or source != contract.get("source_ref")
+                or set(source) != {"session_id", "scope_id", "revision"}
+                or any(not isinstance(value, str) or not 1 <= len(value) <= 512 for value in source.values())
+                or source["session_id"] != state["session_id"] or source["scope_id"] != state["scope"]["id"]):
+            return False
+        # Revalidate the already accepted claim; this does not refresh it.
+        ui_decision.validate_action_handoff(handoff, goal=working.goal,
+            source_epoch=working.epoch, source_phase=phase, state=state,
+            objective=working.commitment["objective"])
+        contexts = prefix["step_contexts"]
+        if (not isinstance(contexts, list) or len(contexts) != count
+                or contexts[0].get("action_handoff") != handoff):
+            return False
+        expected = compile_immediate_transition(continuation["step"],
+            {"session_id": source["session_id"], "scope": {"id": source["scope_id"],
+             "kind": state["scope"]["kind"]}, "revision": source["revision"]}).as_dict()
+        if contract != expected or expected["mode"] != "observation_boundary":
+            return False
+        for index, context in enumerate(contexts):
+            receipt = context["verification_only_receipt"]
+            effect = context["immediate_effect_contract"]
+            target = receipt["target"]
+            references = [effect["source_ref"], receipt["original_source_ref"], receipt["fresh_source_ref"]]
+            issued = plan["steps"][index]
+            nodes = [node for node in state["nodes"] if node.get("id") == target.get("node_id")]
+            if (len(nodes) != 1 or ui_decision._target_binding(nodes[0]) != target
+                    or any(nodes[0].get("id" if key == "node_id" else key) != value
+                           for key, value in issued["target"].items())
+                    or index == 0 and target != handoff["target"]):
+                return False
+            before = {**state, "revision": effect["source_ref"]["revision"]}
+            if effect != compile_immediate_transition(issued, before).as_dict():
+                return False
+            if (type(context.get("step_index")) is not int or context["step_index"] != index
+                    or context.get("status") != "complete"
+                    or type(context.get("outcome_count")) is not int or context["outcome_count"] != 0
+                    or receipt.get("schema") != "robit.omni.native-verification-only.v1"
+                    or receipt.get("status") != "verified"
+                    or any(receipt.get(key) is not False for key in ("input_authority", "input_attempted", "task_progress"))
+                    or effect.get("schema") != "robit.omni.ui-immediate-effect.v1"
+                    or effect.get("mode") != "verified_step" or effect.get("non_authorizing") is not True
+                    or effect.get("task_progress") is not False
+                    or effect.get("operation") != plan["steps"][index]["verb"]
+                    or receipt.get("operation") != effect["operation"]
+                    or effect["source_ref"] != receipt["original_source_ref"]
+                    or any(not isinstance(ref, dict) or set(ref) != set(source)
+                        or any(not isinstance(value, str) or not 1 <= len(value) <= 512 for value in ref.values())
+                        or any(ref[key] != source[key] for key in ("session_id", "scope_id")) for ref in references)
+                    or any(not isinstance(target.get(key), str) or not target[key]
+                           for key in ("node_id", "generation", "scope_id"))
+                    or target["scope_id"] != source["scope_id"]
+                    or not effect.get("predicates")
+                    or receipt.get("predicates") != [{**predicate, "node_id": target["node_id"]}
+                                                     for predicate in effect["predicates"]]
+                    or receipt.get("predicates_sha256") != working.digest(receipt["predicates"])
+                    or receipt.get("args_sha256") != working.digest(plan["steps"][index].get("args", {}))):
+                return False
+        phase_handoff = result["phase_handoff"]
+        return (phase_handoff.get("schema") == "robit.omni.ui-phase-handoff.v1"
+            and phase_handoff.get("executor") == "host_verified_prefix"
+            and all(phase_handoff.get(key) is False for key in
+                    ("terminal_verified", "goal_verified", "immediate_prefix_verified"))
+            and type(phase_handoff.get("new_effect_count")) is int and phase_handoff["new_effect_count"] == 0
+            and phase_handoff.get("next") == "replan")
+    except (KeyError, TypeError, ValueError, AttributeError, ComputerUseError):
+        return False
+
+
 class NativePhaseCompilationError(Exception):
     """Trusted compiler JSON-decode failure; never carries the model's reply."""
 
@@ -596,6 +710,17 @@ def _working_phase_schema(allowed, phase_schema, state, *, pointer_recovery=None
     """Wrap, without changing, canonical phase contracts and root-relative refs."""
     def wrap(inner):
         inner = copy.deepcopy(inner)
+        catalogue = (observed_state or {}).get("model_projection", {}).get("control_catalogue", {})
+        discovery_refs = [row["reference"] for row in catalogue.get("entries", [])
+                          if isinstance(row, dict) and isinstance(row.get("reference"), str)]
+        if ("native_ui" in allowed and catalogue.get("schema") == "robit.omni.native-control-catalogue.v1"
+                and catalogue.get("input_authority") is False and discovery_refs):
+            inner["oneOf"].append({"type": "object", "additionalProperties": False,
+                "properties": {"kind": {"const": "inspect_controls"},
+                    "reference": {"enum": discovery_refs}, "remaining_criteria": {
+                        "type": "array", "maxItems": 25,
+                        "items": {"type": "string", "minLength": 1, "maxLength": 240}}},
+                "required": ["kind", "reference"]})
         if pointer_recovery is not None and "native_ui" in allowed:
             offer = pointer_recovery
             if (offer.get("schema") != "robit.omni.pointer-recovery-proposal.v1"
@@ -882,6 +1007,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
     applied_ui_transitions: set[str] = set()
     boundary_observations: set[str] = set()
     pointer_resolution_pending = False
+    prefix_continuation_pending = False
     working = _NativeWorkingState(goal, strategy_ledger=strategy_ledger) if working_state else None
 
     def boundary():
@@ -1001,7 +1127,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 yield finish("planner_claim" if normal else "blocked", plan.get("message", plan.get("reason", "")))
                 return
             retained_plan = working.plans.remember(phases, plan) if kind == "ui" and effect_contracts else None
-            name = "native_ui" if kind in {"ui", "ui_boundary", "ui_subgoal", "ui_pointer_recovery", "visual_inspection", "recall_observation", "recall_plan"} else kind
+            name = "native_ui" if kind in {"ui", "ui_boundary", "ui_subgoal", "ui_pointer_recovery", "visual_inspection", "recall_observation", "recall_plan", "inspect_controls"} else kind
             arguments = ({"operation": "verified_prefix", "steps": plan["steps"],
                           "objective": working.commitment["objective"], "source_phase": phases}
                          if kind == "ui" and effect_contracts else
@@ -1016,6 +1142,7 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                          if kind == "ui_subgoal" else {"operation": "inspect_visual"} if kind == "visual_inspection"
                          else {"operation": "recall_observation", "reference": plan["reference"]} if kind == "recall_observation"
                          else {"operation": "recall_plan", "reference": plan["reference"], "offset": plan["offset"]} if kind == "recall_plan"
+                         else {"operation": "inspect_controls", "reference": plan["reference"]} if kind == "inspect_controls"
                          else {key: value for key, value in plan.items()
                                                 if key not in {"kind", "remaining_criteria"}})
             if kind == "ui_boundary" and (intent_choice or effect_contracts):
@@ -1089,6 +1216,19 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 ok = ok and result.get("observation_recall_receipt", {}).get("first_expansion_in_task") is True
             if kind == "recall_plan":
                 ok = ok and result.get("plan_recall_receipt", {}).get("first_expansion_in_task") is True
+            if kind == "inspect_controls":
+                ok = ok and result.get("control_expansion_receipt", {}).get("first_expansion_in_task") is True
+            # An unresolved host continuation gets one planner opportunity,
+            # independent of fresh tokens, observations or rewritten claims.
+            # Only a new producer-bound verified input effect resolves it.
+            if recoverable_prefix:
+                prefix_continuation_pending = False
+            deferred_prefix = (kind == "ui" and effect_contracts and working is not None
+                and not prefix_continuation_pending
+                and _fresh_prefix_continuation(result, plan=plan, observed=current,
+                    working=working, phase=phases))
+            if deferred_prefix:
+                prefix_continuation_pending = True
             novel_boundary = False
             is_boundary = (kind in {"ui_boundary", "ui_pointer_recovery"}
                 or kind == "ui_subgoal" and plan["subgoal"]["family"] != "text_entry"
@@ -1114,14 +1254,14 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
             traces.append(copy.deepcopy(tool))
             last_result = _compact_result(result)
             ledger.append({"phase": phases, "kind": kind, "ok": ok,
-                           "deferred_to_planner": deferred_pointer and not pointer_resolution_pending,
+                           "deferred_to_planner": deferred_prefix or deferred_pointer and not pointer_resolution_pending,
                            "remaining_criteria": copy.deepcopy(plan.get("remaining_criteria", [])),
                            "criteria_authority": "planner_claim", "result": {
                                key: copy.deepcopy(last_result[key]) for key in
                                ("status", "error", "reason", "phase_handoff", "ui_state_receipt",
                                 "verification_receipt", "effect_receipt", "stored", "updated", "unchanged", "visual_inspection_receipt",
                                 "ui_boundary_receipt", "observed_changes", "intent_selection_receipt", "text_entry_receipt",
-                                "observation_recall_receipt", "pointer_recovery_receipt")
+                                "observation_recall_receipt", "pointer_recovery_receipt", "control_expansion_receipt")
                                if key in last_result}})
             if working is not None:
                 ledger[-1].update(planner_assessment=copy.deepcopy(working.assessment),
@@ -1134,7 +1274,11 @@ def run_native_goal(goal: str, *, observe: Callable[[], dict], compile_phase: Ca
                 # failure budget, even if each mints a different proposal token.
                 if recoverable_prefix:
                     failed = 0
-                failed += not novel_boundary and not (deferred_pointer and not pointer_resolution_pending)
+                failed += (not novel_boundary and not deferred_prefix
+                           and not (deferred_pointer and not pointer_resolution_pending))
+            elif kind == "inspect_controls":
+                # New knowledge permits reasoning, never erases action failures.
+                failed += not ok
             else:
                 no_input_prefix = (result.get("verified_prefix_receipt", {}).get("all_immediate_readbacks_verified") is True
                     and not result.get("outcomes"))

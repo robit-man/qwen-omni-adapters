@@ -84,7 +84,17 @@ def _run(command: list[str], *, limit: int = MAX_FILE, timeout: int = 90) -> byt
     return result.stdout
 
 
+def _media_tool(name: str) -> str:
+    """Match managed-service defaults without replacing an explicit tool path."""
+    if name in {'ffmpeg', 'ffprobe'}:
+        bundled = Path(__file__).resolve().parents[1] / 'vendor' / 'ffmpeg' / 'bin' / name
+        if bundled.is_file() and os.access(bundled, os.X_OK):
+            return str(bundled)
+    return name
+
+
 def _tool(name: str) -> dict:
+    name = _media_tool(name)
     found = shutil.which(name)
     if found is None:
         raise ValueError('Missing CPU media tool: ' + name)
@@ -96,6 +106,10 @@ def _tool(name: str) -> dict:
 
 def _toolchain(ffmpeg: str, ffprobe: str) -> dict:
     tools = {'ffmpeg': _tool(ffmpeg), 'ffprobe': _tool(ffprobe)}
+    encoders = _run([tools['ffmpeg']['path'], '-hide_banner', '-encoders'], limit=1024 * 1024)
+    if not any(len(fields := line.split()) >= 2 and fields[1] == 'libx264'
+               for line in encoders.decode().splitlines()):
+        raise ValueError('Selected ffmpeg lacks the libx264 CPU encoder')
     output = _run(['ldd', tools['ffmpeg']['path']], limit=1024 * 1024).decode()
     selected = ('libavcodec.', 'libavformat.', 'libavutil.', 'libswscale.', 'libswresample.', 'libx264.')
     libraries = {}
@@ -104,9 +118,14 @@ def _toolchain(ffmpeg: str, ffprobe: str) -> dict:
         if len(parts) >= 3 and parts[1] == '=>' and parts[0].startswith(selected):
             path = Path(parts[2]).resolve(strict=True)
             libraries[path.name] = {'path': str(path), 'sha256': sha(path.read_bytes())}
-    if not any(name.startswith('libx264.') for name in libraries):
-        raise ValueError('The CPU H.264 encoder library could not be pinned')
-    return {**tools, 'codec_libraries': libraries}
+    encoder = [value for name, value in libraries.items() if name.startswith('libx264.')]
+    containers = encoder or [value for name, value in libraries.items() if name.startswith('libavcodec.')]
+    if not containers:
+        containers = [{key: tools['ffmpeg'][key] for key in ('path', 'sha256')}]
+    return {**tools, 'codec_libraries': libraries, 'cpu_encoder': {
+        'name': 'libx264', 'capability_sha256': sha(encoders),
+        'linkage': 'shared_library' if encoder else 'embedded_in_pinned_container',
+        'containers': containers}}
 
 
 def _frame(spec: dict) -> bytes:
@@ -153,6 +172,7 @@ def _identity(frame: bytes) -> str:
 
 def inspect_media(path: Path, spec: dict, *, ffmpeg: str = 'ffmpeg', ffprobe: str = 'ffprobe') -> dict:
     """Independent decoder readback of actual streams, color, glyphs and silence."""
+    ffmpeg, ffprobe = _media_tool(ffmpeg), _media_tool(ffprobe)
     before = bounded_bytes(path)
     probe = json.loads(_run([ffprobe, '-v', 'error', '-count_frames', '-show_streams',
                             '-show_format', '-of', 'json', str(path)], limit=1024 * 1024))

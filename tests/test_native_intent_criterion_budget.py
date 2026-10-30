@@ -86,7 +86,7 @@ def test_editable_content_is_shared_once_with_explicit_coverage(value):
     assert len(compact['nodes']) == 1
     shared = compact['nodes']['n0']
     assert shared['observed']['id'] == observed['id']
-    assert shared['projection']['source_sha256'] == _digest(observed)
+    assert 'source_sha256' not in shared['projection']
     assert shared['projection']['input_authority'] is False
     if len(json.dumps(value, ensure_ascii=False, separators=(',', ':'))) <= 2048:
         assert shared['observed']['value'] == value
@@ -431,4 +431,116 @@ _HISTORICAL_SOURCE_CONTEXT = (
     'eNo1j0GOAyEMBP/CeQ8GYxvPZ1aAQUKRMqMhSg5R/r5ko1zb5VL3080259ivv8Pc5qhwpYyG6hVNKnhC37rUkkEgRJGYYqXeOwKi'
     '6oL6uiD0aKlUcT/ubPfxFi4ba7YcYsbkczIg9V0gWwBFX3pRhgI5FQJjAGEMBLUoahRiA4zLNut+NLc93X+9fJvH2NAbV6CcfIAW'
     'PDIXqskEuCOb2Hq7jOubtzYvt/1YwXHu92Ht/ErCyh4L2h+f4clLUgV1r9cf7WNOjA=='
+)
+
+
+@pytest.mark.parametrize('objective', [
+    'Open the second Save control without using the first',
+    'Inspect the selected row; do not activate the similarly named popup',
+    '查看所选文件，不要选择同名的其他行 🧭',
+])
+def test_private_audit_removal_preserves_controls_relationships_and_decision_semantics(objective):
+    ancestor = {'id': 'row-opaque-identity', 'generation': 'parent-generation',
+        'role': 'table_row', 'name': 'Observed row', 'visible': True, 'enabled': True}
+    first = node('first-control', name='Save', generation='generation-a',
+        structure={'parent_id': ancestor['id'], 'child_index': 0, 'ancestors': [ancestor]})
+    second = node('second-control', name='Save', generation='generation-b',
+        structure={'parent_id': ancestor['id'], 'child_index': 1, 'ancestors': [ancestor]})
+    observation = state(first, second)
+    preference = {'authority': 'planner_preference', 'input_authority': False, 'effect': 'unknown',
+        'intent': {'id': 'step', 'target': {'node_id': second['id']}, 'verb': 'double_click', 'args': {}},
+        'semantic_sha256': 's' * 64}
+    context = {'goal': 'Exact original task', 'active_objective': objective,
+        'needed_evidence': ['Selected row contents', 'Popup remains unmodified'],
+        'planner_preference': preference,
+        'transition': {'kind': 'popup_opened', 'source_ref': {'session_id': observation['session_id'],
+            'scope_id': observation['scope']['id'], 'revision': observation['revision']}},
+        'previous_result': {'facts': {'status': 'abstained', 'effect_receipt': {'effect_state': 'unknown'}}}}
+    original = copy.deepcopy((observation, context))
+    result, requests, bank = request_for(observation, context=context)
+    compact = json.loads(requests[0]['state'])
+    expected_context = copy.deepcopy(context)
+    expected_context['planner_preference'].pop('semantic_sha256')
+    assert compact['task'] == expected_context
+    assert 'state_revision' not in compact
+    assert [entry['observed'] for entry in compact['nodes'].values()] == [first, second]
+    assert all('source_sha256' not in entry['projection'] for entry in compact['nodes'].values())
+    assert {json.loads(value)['node']['id'] for value in requests[0]['questions']['action']['criteria'].values()
+            if json.loads(value)['kind'] == 'intent'} == {first['id'], second['id']}
+    assert len([item for item in bank if item['kind'] == 'intent']) == 6
+    assert result['receipt']['state_revision'] == observation['revision']
+    assert result['receipt']['context_sha256'] == _digest(context)
+    assert result['receipt']['intent_bank_sha256'] == _digest(bank)
+    assert (observation, context) == original
+
+
+def test_exact_ornith_088_projection_removes_only_redundant_audit_fields():
+    # Exact source-derived request from both actual088 HTTP-error receipts.
+    # These inputs exercise projection only; they do not reconstruct an input
+    # authorization or claim the original complete native observation.
+    original = json.loads(zlib.decompress(base64.b64decode(_ORNITH088_REQUEST)))
+    assert _digest(original) == 'f49b0b64e93fb5575195a5e9eb3792705c451310d0079ada5219fe7e20bd16b5'
+    old = json.loads(original['state'])
+    nodes = [entry['observed'] for entry in old['nodes'].values()]
+    observation = {'session_id': 'projection-only-source', 'revision': old['state_revision'],
+        'scope': {'kind': 'desktop', 'id': nodes[0]['scope_id']},
+        'truncated': old['task']['observation_truncated'], 'nodes': nodes}
+    context = old['task']
+    bank = _intent_candidates(observation, context['planner_preference']['intent']['target'])
+    assert _digest(bank) == '8b18504bb9ab1d06919d0d511893a572ea157a15c2987bd5a884da08dfcd20b1'
+    assert _digest(context) == 'b5759d54dfb94910638e9fe68ceb978bff7849bbca344e37440f90e218d2a243'
+    expected = copy.deepcopy(old)
+    expected.pop('state_revision')
+    for entry in expected['nodes'].values():
+        entry['projection'].pop('source_sha256')
+    expected['task']['planner_preference'].pop('semantic_sha256')
+    result, requests, _ = request_for(observation, bank, context)
+    assert result['receipt']['status'] == 'accepted' and len(requests) == 1
+    actual = requests[0]
+    assert json.loads(actual['state']) == expected
+    assert actual['questions'] == original['questions']
+    assert _digest(actual) == 'f6255179593cc69e31c77198a64118da1c333c844a74d87eb0a04106bf66adca'
+    assert result['receipt']['context_sha256'] == _digest(context)
+    assert result['receipt']['intent_bank_sha256'] == _digest(bank)
+
+
+_ORNITH088_REQUEST = (
+    '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'
+    'QUXy/wBO+MYu'
 )

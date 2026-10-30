@@ -246,3 +246,213 @@ def test_worker_scope_is_fixed_on_first_private_protocol_request(monkeypatch):
     responses = [json.loads(line) for line in output.getvalue().splitlines()]
     assert [response["ok"] for response in responses] == [True, False, True]
     assert responses[1]["error"] == "native_task_scope_mismatch"
+
+
+# Closed observability only: these providers never call host X11 or GI.
+def _scope_diagnostic_case(monkeypatch, case):
+    events, counts = [], {'owner': 0, 'birth': 0}
+    identity = {'window_id': '17', 'process_id': 42}
+    if case.startswith('transient') or case == 'same_pid_old':
+        identity['window_id'] = '18'
+    if case == 'foreign':
+        identity['process_id'] = 99
+    if case == 'invalid_identity':
+        identity['process_id'] = False
+
+    def birth(pid):
+        events.append(('birth', pid))
+        counts['birth'] += 1
+        if case == 'birth_error':
+            raise NativeUiUnavailable('native_window_process_identity_unavailable', 'PRIVATE_ERROR_TEXT')
+        if pid == 99:
+            return '9901'
+        if case == 'birth_mismatch' or counts['birth'] == 2 and case in {'base_birth', 'transient_birth'}:
+            return '4202'
+        return '4201'
+
+    def owner(xid, _env, *, deadline):
+        events.append(('owner', xid, deadline))
+        counts['owner'] += 1
+        if case == 'owner_error':
+            raise NativeUiUnavailable('native_foreground_unavailable', 'PRIVATE_ERROR_TEXT')
+        if case == 'budget_owner':
+            raise NativeUiUnavailable('native_observation_budget_exceeded')
+        at = {'owner_mismatch': 1, 'base_owner': 2, 'transient_parent_owner': 2,
+              'transient_owner': 3}.get(case)
+        return {'process_id': 99 if counts['owner'] == at else 42}
+
+    def query(argv, **kwargs):
+        events.append(('transient', argv, kwargs['timeout']))
+        if case == 'transient_timeout':
+            raise native.subprocess.TimeoutExpired('PRIVATE_COMMAND', 1)
+        if case == 'transient_oserror':
+            raise OSError('PRIVATE_ERROR_TEXT')
+        parent = 102 if case == 'transient_wrong_parent' else 17
+        return SimpleNamespace(returncode=3 if case == 'transient_nonzero' else 0,
+            stdout='PRIVATE_STDOUT' if case == 'same_pid_old' else f'WM_TRANSIENT_FOR(WINDOW): window id # {hex(parent)}\n')
+
+    monkeypatch.setattr(native, '_process_start', birth)
+    monkeypatch.setattr(native, '_x11_window_owner', owner)
+    monkeypatch.setattr(native.subprocess, 'run', query)
+    monkeypatch.setattr(native.time, 'monotonic', lambda: 2 if case == 'transient_budget' else 0)
+    return identity, events
+
+
+@pytest.mark.parametrize('case,branch,stage,code', [
+    ('foreign', 'process_not_allowed', 'process_start_initial', None),
+    ('same_pid_old', 'transient_property_unproven', 'transient_query', None),
+    ('birth_mismatch', 'process_start_mismatch', 'process_start_initial', None),
+    ('owner_mismatch', 'owner_initial_mismatch', 'owner_initial', None),
+    ('base_owner', 'owner_base_changed', 'owner_base_recheck', None),
+    ('base_birth', 'process_start_base_changed', 'process_start_base_recheck', None),
+    ('owner_error', 'read_failed', 'owner_initial', 'native_foreground_unavailable'),
+    ('birth_error', 'read_failed', 'process_start_initial', 'native_window_process_identity_unavailable'),
+    ('invalid_identity', 'identity_invalid', 'identity', None),
+    ('transient_nonzero', 'transient_query_nonzero', 'transient_query', None),
+    ('transient_timeout', 'read_failed', 'transient_query', 'timeout'),
+    ('transient_oserror', 'read_failed', 'transient_query', 'os_error'),
+    ('transient_wrong_parent', 'transient_parent_not_allowed', 'transient_parent_match', None),
+    ('transient_parent_owner', 'transient_parent_owner_mismatch', 'owner_transient_parent', None),
+    ('transient_owner', 'transient_owner_changed', 'owner_transient_recheck', None),
+    ('transient_birth', 'transient_process_start_changed', 'process_start_transient_recheck', None),
+])
+def test_scope_diagnostic_exact_failed_branch_without_added_queries(monkeypatch, case, branch, stage, code):
+    identity, events = _scope_diagnostic_case(monkeypatch, case)
+    diagnostic = {}
+    assert native._window_scope_allows(SCOPE, identity, deadline=1, diagnostic=diagnostic) is False
+    first = copy.deepcopy(events)
+    _plain_identity, plain_events = _scope_diagnostic_case(monkeypatch, case)
+    assert native._window_scope_allows(SCOPE, identity, deadline=1) is False
+    assert events == plain_events == first
+    assert diagnostic['guard_branch'] == branch and diagnostic['read_stage'] == stage
+    assert diagnostic['failure_code'] == code
+    assert diagnostic['allowed_scope_sha256'] == native_task_scope_sha256(SCOPE)
+    assert diagnostic['allowed_scope_count'] == 1
+    error = NativeUiUnavailable('native_task_window_out_of_scope')
+    native._attach_scope_diagnostic(error, diagnostic, 'worker_foreground', SCOPE)
+    assert native._scope_diagnostic_from_exception(error, scope=SCOPE) == diagnostic
+    assert 'PRIVATE' not in json.dumps(diagnostic) and 'observed_identity' not in str(error)
+
+
+@pytest.mark.parametrize('case', ['base', 'transient_allowed'])
+def test_scope_positive_diagnostics_empty_and_original_query_order(monkeypatch, case):
+    identity, events = _scope_diagnostic_case(monkeypatch, case)
+    diagnostic = {}
+    assert native._window_scope_allows(SCOPE, identity, deadline=1, diagnostic=diagnostic) is True
+    assert diagnostic == {}
+    expected = [('birth', 42), ('owner', identity['window_id'], 1)]
+    if case == 'base':
+        expected += [('owner', '17', 1), ('birth', 42)]
+    else:
+        expected += [('transient', ['xprop', '-id', '18', 'WM_TRANSIENT_FOR'], 1),
+                     ('owner', '17', 1), ('owner', '18', 1), ('birth', 42)]
+    assert events == expected
+
+
+def test_scope_none_and_malformed_input_keep_original_exceptions(monkeypatch):
+    monkeypatch.setattr(native.time, 'monotonic', lambda: pytest.fail('No clock for scope None'))
+    assert native._window_scope_allows(None, None, diagnostic={}) is True
+    monkeypatch.setattr(native.time, 'monotonic', lambda: 0)
+    with pytest.raises(TypeError):
+        native._window_scope_allows(SCOPE, None, diagnostic={})
+    class BrokenOutput(dict):
+        def update(self, _value):
+            raise OSError('Private diagnostic sink failed')
+    identity, _events = _scope_diagnostic_case(monkeypatch, 'foreign')
+    assert native._window_scope_allows(SCOPE, identity, diagnostic=BrokenOutput()) is False
+
+
+@pytest.mark.parametrize('case', ['budget_owner', 'transient_budget'])
+def test_scope_budget_stays_same_exception_and_retains_failure_locals(monkeypatch, case):
+    identity, _events = _scope_diagnostic_case(monkeypatch, case)
+    diagnostic = {}
+    with pytest.raises(NativeUiUnavailable) as error:
+        native._window_scope_allows(SCOPE, identity, deadline=1, diagnostic=diagnostic)
+    assert error.value.code == 'native_observation_budget_exceeded'
+    assert diagnostic['guard_branch'] == 'deadline_exceeded'
+
+
+def _scope_error(monkeypatch, boundary='worker_foreground'):
+    identity, _events = _scope_diagnostic_case(monkeypatch, 'foreign')
+    if boundary == 'adapter_foreground':
+        monkeypatch.setattr(native, '_x11_foreground', lambda *_args, **_kw: identity)
+        adapter = native.NativeUiAdapter('scope-diagnostic')
+        adapter.set_window_scope(SCOPE)
+        action = adapter._scoped_foreground
+    else:
+        bridge = native._AtspiBridge.__new__(native._AtspiBridge)
+        bridge._foreground_provider = lambda: identity
+        bridge._host_owner_bound, bridge._host_owner_binding = False, None
+        bridge.window_scope, bridge.deadline = SCOPE, 1
+        action = bridge.foreground
+    with pytest.raises(NativeUiUnavailable) as error:
+        action()
+    return error.value
+
+
+@pytest.mark.parametrize('boundary', ['worker_foreground', 'adapter_foreground'])
+def test_both_foreground_boundaries_keep_code_and_private_observed_identity(monkeypatch, boundary):
+    error = _scope_error(monkeypatch, boundary)
+    diagnostic = native._scope_diagnostic_from_exception(error, scope=SCOPE)
+    assert diagnostic['boundary'] == boundary
+    assert diagnostic['observed_identity'] == {'window_id': '17', 'process_id': 99, 'process_start': '9901'}
+    assert str(error) == str(NativeUiUnavailable('native_task_window_out_of_scope'))
+    assert error.args == NativeUiUnavailable('native_task_window_out_of_scope').args
+
+
+@pytest.mark.parametrize('fault', ['extra', 'bool', 'float', 'stage', 'scope', 'identity', 'huge'])
+def test_scope_diagnostic_malformed_fields_never_leak_or_change_error(monkeypatch, fault):
+    error = _scope_error(monkeypatch)
+    value = error._scope_diagnostic
+    if fault == 'extra':
+        value['secret'] = 'PRIVATE_SECRET'
+    elif fault in {'bool', 'float'}:
+        value['observed_identity']['process_id'] = True if fault == 'bool' else 99.0
+    elif fault == 'stage':
+        value['read_stage'] = 'unknown_stage'
+    elif fault == 'scope':
+        value['allowed_scope_sha256'] = 'f' * 64
+    elif fault == 'identity':
+        value['observed_identity']['process_start'] = 'PRIVATE_SECRET'
+    else:
+        value['observed_identity']['window_id'] = '1' * 5000
+    assert native._scope_diagnostic_from_exception(error, scope=SCOPE) is None
+    assert error.code == 'native_task_window_out_of_scope' and 'PRIVATE' not in str(error)
+
+
+def _scope_worker_responses(monkeypatch):
+    identity, _events = _scope_diagnostic_case(monkeypatch, 'foreign')
+    class Bridge(native._AtspiBridge):
+        def __init__(self, _atspi, _glib, session_id, process_id, *, window_scope):
+            self.session_id, self.process_id, self.window_scope = session_id, process_id, window_scope
+            self._foreground_provider = lambda: identity
+            self._host_owner_bound, self._host_owner_binding = False, None
+            self.deadline, self.calls = 1, 0
+        def observe(self, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                self.foreground()
+            return {'observed': True}
+    envelope = {'schema': native._PROTOCOL, 'session_id': 'scope-diagnostic', 'process_id': None,
+                'window_scope': SCOPE, 'op': 'observe'}
+    incoming = [{**envelope, 'id': 'one', '_scope_diagnostic': {'secret': 'PRIVATE_INCOMING'}},
+                {**envelope, 'id': 'two'}]
+    output = io.StringIO()
+    with monkeypatch.context() as context:
+        context.setitem(sys.modules, 'gi', SimpleNamespace(require_version=lambda *_: None))
+        context.setitem(sys.modules, 'gi.repository', SimpleNamespace(Atspi=None, GLib=None))
+        context.setattr(native, '_AtspiBridge', Bridge)
+        context.setattr('signal.signal', lambda *_: None)
+        context.setattr(sys, 'stdin', io.TextIOWrapper(io.BytesIO(('\n'.join(map(json.dumps, incoming))+'\n').encode())))
+        context.setattr(sys, 'stdout', output)
+        native._bridge_main()
+    return [json.loads(line) for line in output.getvalue().splitlines()]
+
+
+def test_scope_worker_error_metadata_and_following_success_are_synchronized(monkeypatch):
+    failed, succeeded = _scope_worker_responses(monkeypatch)
+    assert failed['ok'] is False and failed['error'] == 'native_task_window_out_of_scope'
+    assert failed['_scope_diagnostic']['observed_identity']['process_id'] == 99
+    assert set(failed) == {'schema', 'id', 'ok', 'error', '_scope_diagnostic'}
+    assert succeeded == {'schema': native._PROTOCOL, 'id': 'two', 'ok': True, 'result': {'observed': True}}
+    assert 'PRIVATE' not in json.dumps([failed, succeeded])

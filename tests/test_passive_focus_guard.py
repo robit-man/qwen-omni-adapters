@@ -202,7 +202,9 @@ def test_private_helper_kills_its_cpu_process_group_on_deadline_or_cancel(monkey
         process = original([__import__("sys").executable, "-c", script], **options)
         processes.append(process)
         return process
-    monkeypatch.setattr(focus.subprocess, "Popen", popen)
+    monkeypatch.setattr(focus, "subprocess", SimpleNamespace(
+        Popen=popen, PIPE=subprocess.PIPE, TimeoutExpired=subprocess.TimeoutExpired))
+    assert subprocess.Popen is original
     stop = threading.Event()
     reader = focus.X11FocusReader({"DISPLAY": ":fixture"}, stop_requested=stop.is_set)
     timer = threading.Timer(.15, stop.set) if cancel else None

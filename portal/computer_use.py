@@ -357,7 +357,7 @@ def _intent_policy_projection(state: dict, candidates: list[dict], context: dict
     masquerading as complete values. Existing whole-request limits fail closed.
     """
     compact = {"schema": "robit.omni.ui-intent-projection.v2", "non_authorizing": True,
-               "task": copy.deepcopy(context), "state_revision": state["revision"], "nodes": {}}
+               "task": copy.deepcopy(context), "nodes": {}}
     aliases, legal = {}, {}
     for item in candidates:
         projected = {key: copy.deepcopy(value) for key, value in item.items() if key != "id"}
@@ -380,7 +380,7 @@ def _intent_policy_projection(state: dict, candidates: list[dict], context: dict
                             omitted[key]["preview"] = value[:256]
                             omitted[key]["source_characters"] = len(value)
                 projection = {"kind": "bounded_observed_node_description",
-                    "source_sha256": fingerprint, "all_source_fields_included": not omitted,
+                    "all_source_fields_included": not omitted,
                     "omitted_fields": omitted, "omission_is_absence": False,
                     "input_authority": False}
                 compact["nodes"][alias] = {"observed": description, "projection": projection}
@@ -399,6 +399,9 @@ def _intent_policy_projection(state: dict, candidates: list[dict], context: dict
 def _intent_task_projection(state: dict, context: dict, aliases: dict) -> dict:
     """Keep decision semantics in model context and exact audit bindings private."""
     task = copy.deepcopy(context)
+    preference = task.get('planner_preference')
+    if isinstance(preference, dict):
+        preference.pop('semantic_sha256', None)
     handoff = context.get('action_handoff')
     if isinstance(handoff, dict):
         try:
@@ -1259,7 +1262,7 @@ class ComputerUseStore:
             return _retain_handoff(result, handoff, revalidation)
 
     def immediate_transition(self, session_id: str, step: dict, *, goal: str, objective: str,
-                             transition=None, action_handoff=None) -> dict:
+                             transition=None, action_handoff=None, defer_unannotated_boundary=False) -> dict:
         """One private host-compiled operation, never a whole-task completion.
 
         Canonical client workflows retain their own explicit verification
@@ -1299,6 +1302,17 @@ class ComputerUseStore:
                 return _stale_handoff(exc)
             contract = compile_immediate_transition(step, before, transition=selected_transition)
             compiled = contract.as_dict()
+            if defer_unannotated_boundary and handoff is None and contract.mode == 'observation_boundary':
+                return {'status': 'needs_replan', 'dispatch_status': 'not_dispatched',
+                    'reason': 'The later opaque operation needs its own fresh first-operation intent.',
+                    'input_attempted': False, 'task_progress': False, 'new_effect_count': 0,
+                    'immediate_effect_contract': compiled,
+                    'effect_receipt': {'schema': 'robit.omni.ui-effect-receipt.v1',
+                        'effect_state': 'absent', 'environment_may_have_changed': False},
+                    'prefix_continuation': {'schema': 'robit.omni.native-prefix-continuation.v1',
+                        'input_authority': False, 'objective': objective,
+                        'goal_sha256': hashlib.sha256(goal.encode()).hexdigest(),
+                        'source_ref': compiled['source_ref']}}
             verification_only = self._verify_immediate_predicates(owned, before, step, contract)
             if verification_only is not None:
                 _attach_native_transition(verification_only, contract=contract, before=before, step=step, requested=transition)

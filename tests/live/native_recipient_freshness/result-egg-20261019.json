@@ -1,0 +1,285 @@
+{
+ "all_arms_as_expected": true,
+ "arms": [
+  {
+   "app_after": [
+    "alpha[x",
+    7,
+    1
+   ],
+   "app_before": [
+    "alpha",
+    5,
+    0
+   ],
+   "args": {
+    "text": "[x"
+   },
+   "arm": "drift_type",
+   "atspi_readback": "alpha[x",
+   "drift_cmds": [
+    "drift"
+   ],
+   "expected_status": "dispatched",
+   "issued_revision": "91e91159ccc14807c581139773b37b7038a5c8c0c47f96094d97803325ade0f4",
+   "public_node_diff": {
+    "text_observation": [
+     {
+      "captured_range": {
+       "end": 5,
+       "start": 0
+      },
+      "character_count": 5,
+      "selection_count": 0,
+      "truncated": false
+     },
+     {
+      "captured_range": {
+       "end": 7,
+       "start": 0
+      },
+      "character_count": 7,
+      "selection_count": 0,
+      "truncated": false
+     }
+    ],
+    "value": [
+     "alpha",
+     "alpha[x"
+    ]
+   },
+   "result": {
+    "backend": "x11_guarded_xtest",
+    "freshness_exception": {
+     "dispatch_revision": "c8f7334b56c3a3c1fe6298e3cb645961922f6ca2d90f8979e4ee9018daf166de",
+     "issued_revision": "91e91159ccc14807c581139773b37b7038a5c8c0c47f96094d97803325ade0f4",
+     "kind": "focused_recipient_context_unchanged",
+     "recipient_sha256": "d209b5205d8209a5ac2b93af1c68ef35c64e7102cf77cf7541296c49d8cf6604"
+    },
+    "reason": "native_text_input_invoked",
+    "status": "dispatched"
+   },
+   "status_ok": true,
+   "verb": "type_text"
+  },
+  {
+   "app_after": [
+    "alpha\n",
+    6,
+    1
+   ],
+   "app_before": [
+    "alpha",
+    5,
+    0
+   ],
+   "args": {
+    "keys": [
+     "shift",
+     "Return"
+    ]
+   },
+   "arm": "drift_shift_return",
+   "atspi_readback": "alpha\n",
+   "drift_cmds": [
+    "drift"
+   ],
+   "expected_status": "dispatched",
+   "issued_revision": "d025a5931232920b3c8aa43c166d794d9e0c20c88ba8b8e1327d39c146b6831d",
+   "public_node_diff": {
+    "text_observation": [
+     {
+      "captured_range": {
+       "end": 5,
+       "start": 0
+      },
+      "character_count": 5,
+      "selection_count": 0,
+      "truncated": false
+     },
+     {
+      "captured_range": {
+       "end": 6,
+       "start": 0
+      },
+      "character_count": 6,
+      "selection_count": 0,
+      "truncated": false
+     }
+    ],
+    "value": [
+     "alpha",
+     "alpha\n"
+    ]
+   },
+   "result": {
+    "backend": "x11_guarded_xtest",
+    "freshness_exception": {
+     "dispatch_revision": "6c0c6c3110da8c35d855d8bff555c3fa3dac091c5ef27366994976b86a84903c",
+     "issued_revision": "d025a5931232920b3c8aa43c166d794d9e0c20c88ba8b8e1327d39c146b6831d",
+     "kind": "focused_recipient_context_unchanged",
+     "recipient_sha256": "f9f83989e219ddf6ff4ca9689791850cdbfb05e5a00f3a26a21cbafa11e51ce1"
+    },
+    "reason": "native_key_input_invoked",
+    "status": "dispatched"
+   },
+   "status_ok": true,
+   "verb": "key_chord"
+  },
+  {
+   "app_after": [
+    "alpha",
+    0,
+    1
+   ],
+   "app_before": [
+    "alpha",
+    5,
+    0
+   ],
+   "args": {
+    "text": "[x"
+   },
+   "arm": "drift_caret_changed",
+   "atspi_readback": "alpha",
+   "drift_cmds": [
+    "drift",
+    "caret0"
+   ],
+   "expected_status": "rejected",
+   "issued_revision": "ebae408f7f0902a5b250660aa926316bc3f12e5475dc51c870d445ba015131bc",
+   "public_node_diff": {},
+   "result": {
+    "reason": "stale_native_revision_or_scope",
+    "status": "rejected"
+   },
+   "status_ok": true,
+   "verb": "type_text"
+  },
+  {
+   "app_after": [
+    "alpha",
+    5,
+    1
+   ],
+   "app_before": [
+    "alpha",
+    5,
+    0
+   ],
+   "args": {
+    "text": "[x"
+   },
+   "arm": "drift_recipient_resized",
+   "atspi_readback": "alpha",
+   "drift_cmds": [
+    "drift_resize"
+   ],
+   "expected_status": "rejected",
+   "issued_revision": "e14c62ed7d2fe43dc7af23f0a5462c3d0691467250d34a7d80d6dabd00277509",
+   "public_node_diff": {
+    "bounds": [
+     {
+      "height": 400,
+      "width": 600,
+      "x": 120,
+      "y": 114
+     },
+     {
+      "height": 396,
+      "width": 600,
+      "x": 120,
+      "y": 114
+     }
+    ]
+   },
+   "result": {
+    "reason": "stale_native_revision_or_scope",
+    "status": "rejected"
+   },
+   "status_ok": true,
+   "verb": "type_text"
+  },
+  {
+   "app_after": [
+    "alpha[x",
+    7,
+    0
+   ],
+   "app_before": [
+    "alpha",
+    5,
+    0
+   ],
+   "args": {
+    "text": "[x"
+   },
+   "arm": "no_drift_control",
+   "atspi_readback": "alpha[x",
+   "drift_cmds": [],
+   "expected_status": "dispatched",
+   "issued_revision": "741747cd787c9804a8fac5af61dc38736eff9578140f07f68de45e2c2c5e9ffc",
+   "public_node_diff": {
+    "text_observation": [
+     {
+      "captured_range": {
+       "end": 5,
+       "start": 0
+      },
+      "character_count": 5,
+      "selection_count": 0,
+      "truncated": false
+     },
+     {
+      "captured_range": {
+       "end": 7,
+       "start": 0
+      },
+      "character_count": 7,
+      "selection_count": 0,
+      "truncated": false
+     }
+    ],
+    "value": [
+     "alpha",
+     "alpha[x"
+    ]
+   },
+   "result": {
+    "backend": "x11_guarded_xtest",
+    "reason": "native_text_input_invoked",
+    "status": "dispatched"
+   },
+   "status_ok": true,
+   "verb": "type_text"
+  }
+ ],
+ "base_commit": "fd92fdedd4b3998607ccbdce1e83630eea8a64d9",
+ "date": "2026-10-19",
+ "host": "Ornith Egg (Jetson, X11 :0)",
+ "issue": 3,
+ "note": "Base commit plus the #3 worker patch. Real NativeUiAdapter -> AT-SPI worker -> XTEST against an owned GTK3 TextView. app_* are independent in-process buffer readbacks (text, caret, drift widgets). Fixture-level comparison, not model-selected or whole-task acceptance.",
+ "owned_cleanup": [
+  {
+   "cleanup_window_absent": true,
+   "pid": 2683029
+  },
+  {
+   "cleanup_window_absent": true,
+   "pid": 2683143
+  },
+  {
+   "cleanup_window_absent": true,
+   "pid": 2683243
+  },
+  {
+   "cleanup_window_absent": true,
+   "pid": 2683330
+  },
+  {
+   "cleanup_window_absent": true,
+   "pid": 2683400
+  }
+ ],
+ "schema": "robit.omni.native-recipient-freshness-live.v1"
+}

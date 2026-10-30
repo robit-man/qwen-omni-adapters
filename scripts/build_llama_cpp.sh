@@ -64,6 +64,14 @@ if [[ -n "$TEGRA_SOC" ]] && command -v free >/dev/null 2>&1; then
 fi
 BUILD_JOBS=${LLAMA_CPP_BUILD_JOBS:-$default_jobs}
 
+# Check before cloning or patching: runtime libraries and Torch wheels can be
+# installed without the native compiler. The helper repairs APT installations
+# and verifies nvcc after installation; it never initializes a CUDA device.
+CUDA_COMPILER=""
+if [[ $(uname -s) == Linux ]]; then
+  CUDA_COMPILER=$("${PYTHON:-python3}" "$REPO_ROOT/runtime/cuda_toolchain.py" --build-dir "$BUILD_DIR")
+fi
+
 cloned=0
 if [[ ! -d "$SOURCE_DIR/.git" ]]; then
   git clone https://github.com/ggml-org/llama.cpp.git "$SOURCE_DIR"
@@ -176,8 +184,27 @@ case $(uname -s) in
     exit 1
     ;;
 esac
-cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" "${cmake_options[@]}"
-cmake --build "$BUILD_DIR" --target llama-server llama-tts --parallel "$BUILD_JOBS"
+build_options=()
+if [[ $(uname -s) == Linux ]]; then
+  compiler_configuration=$("${PYTHON:-python3}" "$REPO_ROOT/runtime/cuda_toolchain.py" \
+    --build-dir "$BUILD_DIR" --configure "$SOURCE_DIR" --compiler "$CUDA_COMPILER" \
+    -- "${cmake_options[@]}")
+  if [[ "$compiler_configuration" == changed ]]; then
+    # Make may retain objects after required compiler arguments change. Only
+    # an actual toolchain change needs a clean build; ordinary redeploys do not.
+    build_options+=(--clean-first)
+  elif [[ "$compiler_configuration" != unchanged ]]; then
+    printf 'Unexpected CUDA compiler configuration result\n' >&2
+    exit 1
+  fi
+else
+  cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" "${cmake_options[@]}"
+fi
+printf 'Checking patched llama.cpp targets incrementally in %s\n' "$BUILD_DIR"
+cmake --build "$BUILD_DIR" "${build_options[@]}" --target llama-server llama-tts --parallel "$BUILD_JOBS"
+if [[ $(uname -s) == Linux ]]; then
+  "${PYTHON:-python3}" "$REPO_ROOT/runtime/cuda_toolchain.py" --build-dir "$BUILD_DIR" --build-complete
+fi
 
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-stream-frames'
 "$BUILD_DIR/bin/llama-tts" --help 2>&1 | grep -q -- '--tts-persistent'

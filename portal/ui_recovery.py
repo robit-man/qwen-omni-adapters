@@ -24,7 +24,7 @@ from qwen_omni_adapters.ui_effects import compile_immediate_transition
 
 _TARGET_FIELDS = ("id", "generation", "scope_id", "role", "name", "visible", "enabled", "sensitive",
                   "operations", "bounds", "value", "focused", "checked", "selected", "text_selection",
-                  "text_observation", "structure")
+                  "text_observation", "text_insertion", "structure")
 _SCOPE_FIELDS = ("kind", "id", "window_id", "process_id")
 
 

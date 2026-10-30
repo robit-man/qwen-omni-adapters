@@ -40,7 +40,8 @@ def test_positive_legacy_boundary_delegates_actual_objective_not_raw_primitive()
     assert preference["intent"] == original == step
     assert preference["authority"] == "planner_preference" and preference["input_authority"] is False
     assert preference["effect"] == "unknown"
-    assert task["planner_preference"] == preference
+    assert preference["semantic_sha256"] == _digest(original)
+    assert task["planner_preference"] == {key: value for key, value in preference.items() if key != "semantic_sha256"}
     assert result["task_progress"] is False and result["new_effect_count"] == 0
 
 

@@ -1,5 +1,6 @@
 """Verified prefixes preserve chaining without executing uncertain suffixes."""
 import copy
+import hashlib
 
 import pytest
 from test_native_effect_pipeline import NativeAdapter
@@ -11,7 +12,7 @@ from portal.ui_recovery import NativeStrategyLedger
 from qwen_omni_adapters.computer_use import ComputerUseError
 
 
-def run(steps, *, hook=None):
+def run(steps, *, hook=None, defer=False):
     adapter = NativeAdapter()
     store = ComputerUseStore(None, adapter_factory=lambda *_: adapter)
     cancel = store.begin_task("session", private_boundaries=True)
@@ -24,7 +25,8 @@ def run(steps, *, hook=None):
                 assert ledger.view()["retained_entry_count"] or not adapter.calls
             if hook is not None:
                 hook(adapter, cancel, index)
-            return store.immediate_transition("session", step, goal=GOAL, objective="Write the requested exact values")
+            return store.immediate_transition("session", step, goal=GOAL, objective="Write the requested exact values",
+                defer_unannotated_boundary=defer and index > 0)
         result = run_verified_prefix(steps, execute_step=execute_step, cancelled=cancel.is_set,
             strategy_ledger=ledger, source_phase=1)
     return adapter, callbacks, ledger, result
@@ -61,6 +63,99 @@ def test_opaque_operation_executes_once_then_suffix_is_untouched():
     assert receipt["stop"] == "opaque_input_boundary"
     ledger.record(result, source_phase=1)
     assert ledger.view()["facts"][-1]["classification"] == "input_effect_uncertain"
+
+
+@pytest.mark.parametrize("verb,args", [
+    ("click", {}), ("double_click", {}), ("right_click", {}), ("invoke", {}),
+    ("key_chord", {"keys": ["Control_L", "a"]}), ("scroll", {"direction": "down"}),
+    ("drag_drop", {"to_node_id": "draft"}),
+])
+def test_later_unannotated_opaque_step_yields_unattempted_without_a_failed_strategy(verb, args):
+    current = {"id": "fresh-claim-needed", "verb": verb, "target": {"node_id": "commit"},
+               "args": args, "expect": [{"kind": "text", "text": "An unverified model prediction"}]}
+    steps = [writes("first")[0], current, writes("forbidden suffix")[0]]
+    original = copy.deepcopy(steps)
+    adapter, callbacks, ledger, result = run(steps, defer=True)
+    assert steps == original and len(callbacks) == 2
+    assert len(adapter.calls) == 1 and adapter.value == "first" and adapter.saved == ""
+    assert not result.get("pointer_recovery") and not result["policy_receipts"] and not result["point_receipts"]
+    receipt = result["verified_prefix_receipt"]
+    assert receipt["stop"] == "unannotated_observation_boundary"
+    assert (receipt["attempted_step_count"], receipt["verified_prefix_count"], receipt["unattempted_step_count"]) == (1, 1, 2)
+    continuation = receipt["continuation"]
+    assert continuation["step"] == current and continuation["step_index"] == 1
+    assert continuation["objective"] == "Write the requested exact values"
+    assert continuation["goal_sha256"] == hashlib.sha256(GOAL.encode()).hexdigest()
+    assert continuation["input_authority"] is False and result["input_attempted"] is False
+    assert result["effect_receipt"]["effect_state"] == "absent" and result["task_progress"] is False
+    assert result["phase_handoff"]["new_effect_count"] == 1  # Only the preceding verified write.
+    ledger.record(result, source_phase=1)
+    assert [fact["classification"] for fact in ledger.view()["facts"]] == ["applied"]
+    assert ledger.capacity_exhausted is False
+
+
+def test_verified_suffixes_and_first_opaque_operation_keep_existing_behavior():
+    adapter, _, _, result = run(writes("first", "second", "third"), defer=True)
+    assert len(adapter.calls) == 3 and adapter.value == "third"
+    assert result["verified_prefix_receipt"]["all_immediate_readbacks_verified"] is True
+    assert "continuation" not in result["verified_prefix_receipt"]
+    adapter, _, _, result = run([phase()["steps"][1], writes("suffix")[0]], defer=True)
+    assert len(adapter.calls) == 1 and result["verified_prefix_receipt"]["attempted_step_count"] == 1
+    assert result["verified_prefix_receipt"]["stop"] == "opaque_input_boundary"
+
+
+def test_current_window_noop_then_opaque_yield_reaches_no_policy_grounding_or_input(monkeypatch):
+    adapter = NativeAdapter()
+    observe = adapter.observe
+    def with_window():
+        state = observe()
+        state["nodes"].append({"id": "form", "generation": "1", "scope_id": "form", "role": "window",
+            "name": "Owned workspace", "operations": ["switch_window"],
+            "visible": True, "enabled": True, "sensitive": False})
+        return state
+    monkeypatch.setattr(adapter, "observe", with_window)
+    def forbidden(*args, **kwargs):
+        pytest.fail("An unattempted suffix cannot reach policy, grounding or input")
+    monkeypatch.setattr(adapter, "prepare_intent", forbidden)
+    monkeypatch.setattr(adapter, "perform", forbidden)
+    store = ComputerUseStore(None, adapter_factory=lambda *_: adapter)
+    monkeypatch.setattr(store, "observation_boundary", forbidden)
+    cancel = store.begin_task("session", private_boundaries=True)
+    ledger = NativeStrategyLedger()
+    steps = [{"id": "already-active", "verb": "switch_window", "target": {"node_id": "form"},
+              "expect": [{"kind": "active_window", "node_id": "$target"}]}, phase()["steps"][1]]
+    with store.task_scope("session", "desktop", cancel, strategy_ledger=ledger):
+        result = run_verified_prefix(steps, execute_step=lambda step, index: store.immediate_transition(
+            "session", step, goal=GOAL, objective="Read the supplied source", defer_unannotated_boundary=index > 0),
+            strategy_ledger=ledger, source_phase=1)
+    assert not adapter.calls and not result["outcomes"]
+    receipt = result["verified_prefix_receipt"]
+    assert receipt["attempted_step_count"] == 1 and receipt["continuation"]["step"] == steps[1]
+    assert receipt["continuation"]["step_index"] == 1 and result["phase_handoff"]["new_effect_count"] == 0
+    assert not ledger.capacity_exhausted and ledger.view()["retained_entry_count"] == 0
+
+
+@pytest.mark.parametrize("contradiction", [
+    {"input_attempted": True}, {"new_effect_count": False}, {"new_effect_count": 1},
+    {"dispatch_record": {"dispatch_attempted": True}}, {"outcomes": [{"status": "verified"}]},
+    {"policy_receipts": [{"status": "accepted"}]}, {"point_receipts": [{"status": "observed"}]},
+])
+def test_contradictory_callback_cannot_hide_an_attempt_as_unattempted(contradiction):
+    _, _, _, deferred = run([writes("first")[0], phase()["steps"][1]], defer=True)
+    deferred.pop("outcomes")
+    continuation = deferred["verified_prefix_receipt"].pop("continuation")
+    deferred["prefix_continuation"] = continuation
+    deferred.update(copy.deepcopy(contradiction))
+    def execute_step(step, index):
+        if index == 0:
+            return {"status": "complete", "immediate_effect_contract": {"mode": "verified_step"},
+                "verification_only_receipt": {"status": "verified", "input_attempted": False},
+                "phase_handoff": {"terminal_verified": True}}
+        return deferred
+    result = run_verified_prefix(writes("first", "second"), execute_step=execute_step)
+    receipt = result["verified_prefix_receipt"]
+    assert receipt["attempted_step_count"] == 2 and receipt["stop"] == "opaque_input_boundary"
+    assert "continuation" not in receipt
 
 
 def test_cancellation_between_operations_stops_remaining_input():

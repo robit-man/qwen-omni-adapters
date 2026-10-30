@@ -1,0 +1,137 @@
+{
+ "all_arms_verified": true,
+ "arms": [
+  {
+   "arm": "gedit_autoindent_empty",
+   "atspi_after": "def f(x):\n    if x:\n        return 1\n    return 2\n\nclass A:\n    pass\n",
+   "backend": "atspi_editable_text_literal",
+   "compiled_predicates": [
+    {
+     "kind": "value",
+     "node_id": "$target",
+     "value": "def f(x):\n    if x:\n        return 1\n    return 2\n\nclass A:\n    pass\n"
+    }
+   ],
+   "expected": "def f(x):\n    if x:\n        return 1\n    return 2\n\nclass A:\n    pass\n",
+   "initial": "",
+   "inserted": "def f(x):\n    if x:\n        return 1\n    return 2\n\nclass A:\n    pass\n",
+   "observed_insertion": {
+    "caret": 0
+   },
+   "ok": true,
+   "outcome_status": "verified",
+   "saved": "def f(x):\n    if x:\n        return 1\n    return 2\n\nclass A:\n    pass\n\n",
+   "status": "complete"
+  },
+  {
+   "arm": "gedit_autoindent_prefix",
+   "atspi_after": "    a = [\n        1,\n    ]\n# header",
+   "backend": "atspi_editable_text_literal",
+   "compiled_predicates": [
+    {
+     "kind": "value",
+     "node_id": "$target",
+     "value": "    a = [\n        1,\n    ]\n# header"
+    }
+   ],
+   "expected": "    a = [\n        1,\n    ]\n# header",
+   "initial": "# header",
+   "inserted": "    a = [\n        1,\n    ]\n",
+   "observed_insertion": {
+    "caret": 0
+   },
+   "ok": true,
+   "outcome_status": "verified",
+   "saved": "    a = [\n        1,\n    ]\n# header\n",
+   "status": "complete"
+  },
+  {
+   "arm": "gedit_unicode",
+   "atspi_after": "café:\n    中 → é\n\tx\n",
+   "backend": "atspi_editable_text_literal",
+   "compiled_predicates": [
+    {
+     "kind": "value",
+     "node_id": "$target",
+     "value": "café:\n    中 → é\n\tx\n"
+    }
+   ],
+   "expected": "café:\n    中 → é\n\tx\n",
+   "initial": "",
+   "inserted": "café:\n    中 → é\n\tx\n",
+   "observed_insertion": {
+    "caret": 0
+   },
+   "ok": true,
+   "outcome_status": "verified",
+   "saved": "café:\n    中 → é\n\tx\n\n",
+   "status": "complete"
+  },
+  {
+   "arm": "gtk3_textview_end",
+   "atspi_after": "alpha\n  beta\n    γ",
+   "backend": "atspi_editable_text_literal",
+   "compiled_predicates": [
+    {
+     "kind": "value",
+     "node_id": "$target",
+     "value": "alpha\n  beta\n    γ"
+    }
+   ],
+   "expected": "alpha\n  beta\n    γ",
+   "initial": "alpha",
+   "inserted": "\n  beta\n    γ",
+   "observed_insertion": {
+    "caret": 5
+   },
+   "ok": true,
+   "outcome_status": "verified",
+   "saved": null,
+   "status": "complete"
+  }
+ ],
+ "base_commit": "7b7103ee2fedd4821c4e436e9f00edcf2aa8e804",
+ "date": "2026-10-19",
+ "host": "Ornith Egg (Jetson, X11 :0), gedit 41 / GtkSourceView 4, user auto-indent=true",
+ "issue": 5,
+ "note": "Generated ComputerUseStore -> compiler -> controller -> NativeUiAdapter -> AT-SPI worker -> EditableText literal insertion. GTK4 TextView exposes EditableText but its CSD window is refused at observation on this WM (native_window_frame_extents_unavailable), so GTK4/GNOME Text Editor 4x remains unverified live here.",
+ "owned_cleanup": [
+  {
+   "cleanup_window_absent": true,
+   "pid": 2745684
+  },
+  {
+   "cleanup_window_absent": true,
+   "pid": 2745906
+  },
+  {
+   "cleanup_window_absent": true,
+   "pid": 2746125
+  },
+  {
+   "cleanup_window_absent": true,
+   "pid": 2746346
+  }
+ ],
+ "reproduction_after_fix": {
+  "atspi_exact": true,
+  "atspi_len": 69,
+  "harness": "repro.py",
+  "intended_len": 69,
+  "result": {
+   "backend": "atspi_editable_text_literal",
+   "reason": "native_text_input_invoked",
+   "status": "dispatched"
+  },
+  "saved_len": 70,
+  "saved_note": "gedit ensure-trailing-newline appends one final newline on save"
+ },
+ "reproduction_before_fix": {
+  "atspi_len": 153,
+  "exact": false,
+  "harness": "repro.py (direct worker type_text, XTEST Return)",
+  "intended_len": 69,
+  "saved_len": 154
+ },
+ "schema": "robit.omni.native-multiline-literal-live.v1"
+}

@@ -182,3 +182,126 @@ def test_media_source_does_not_consume_goal_programme_order_or_evaluator_answers
     minimal = {'fixture': {'input_files': [next(i for i in case['fixture']['input_files']
         if i['path'] == 'Input/clip-manifest.json')]}}
     assert media.specifications(minimal) == media.specifications(case)
+
+
+@pytest.fixture
+def portable_tools(tmp_path, monkeypatch):
+    """Filesystem identities are real; fake listings never confer media readiness."""
+    source = tmp_path / 'checkout/runtime/long_horizon_media.py'
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b'fixture module location')
+    monkeypatch.setattr(media, '__file__', str(source))
+    bundled = source.parents[1] / 'vendor/ffmpeg/bin'
+    path_bin = tmp_path / 'path-bin'
+    explicit = tmp_path / 'explicit-bin'
+    for folder in (bundled, path_bin, explicit):
+        folder.mkdir(parents=True)
+        for name in ('ffmpeg', 'ffprobe'):
+            target = folder / name
+            target.write_bytes((str(folder) + '/' + name).encode())
+            target.chmod(0o700)
+    monkeypatch.setenv('PATH', str(path_bin))
+    state = {'encoders': b'Encoders:\n V....D libx264 CPU H.264 encoder\n',
+             'ldd': b'libc.so.6 => /not-a-codec/libc.so.6 (0x1)\n', 'calls': []}
+
+    def run(command, **kwargs):
+        state['calls'].append(command)
+        if command[0] == 'ldd':
+            return state['ldd']
+        if command[1:] == ['-version']:
+            return (Path(command[0]).name + ' fixture-version\nconfiguration: CPU test').encode()
+        if command[1:] == ['-hide_banner', '-encoders']:
+            return state['encoders']
+        raise AssertionError('Unexpected command; fake tools must never generate assets')
+
+    monkeypatch.setattr(media, '_run', run)
+    return bundled, path_bin, explicit, state
+
+
+def test_default_media_pair_prefers_bundle_over_path_but_preserves_explicit_pair(portable_tools):
+    bundled, path_bin, explicit, _ = portable_tools
+    default = media._toolchain('ffmpeg', 'ffprobe')
+    chosen = media._toolchain(str(explicit / 'ffmpeg'), str(explicit / 'ffprobe'))
+    for name in ('ffmpeg', 'ffprobe'):
+        assert default[name]['path'] == str(bundled / name)
+        assert default[name]['sha256'] == media.sha((bundled / name).read_bytes())
+        assert chosen[name]['path'] == str(explicit / name)
+        assert chosen[name]['path'] != str(path_bin / name)
+
+
+@pytest.mark.parametrize('availability', ['absent', 'not_executable'])
+def test_unavailable_bundled_tool_uses_path_without_hiding_explicit_failure(portable_tools, availability):
+    bundled, path_bin, explicit, _ = portable_tools
+    for name in ('ffmpeg', 'ffprobe'):
+        if availability == 'absent':
+            (bundled / name).unlink()
+        else:
+            (bundled / name).chmod(0o600)
+        assert media._tool(name)['path'] == str(path_bin / name)
+    missing = explicit / 'missing-ffmpeg'
+    assert media._media_tool(str(missing)) == str(missing)
+    with pytest.raises(ValueError, match='Missing CPU media tool'):
+        media._tool(str(missing))
+
+
+@pytest.mark.parametrize('encoders', [b' V....D h264_nvenc GPU encoder\n',
+    b' V....D libx264rgb RGB encoder\n', b' V....D h264 encoder description mentions libx264\n'])
+def test_missing_exact_cpu_libx264_rejects_before_generation(portable_tools, tmp_path, encoders):
+    _, _, _, state = portable_tools
+    state['encoders'] = encoders
+    cache = tmp_path / 'cache'
+    with pytest.raises(ValueError, match='libx264 CPU encoder'):
+        media.build_media_cache(cases.load_case('LHN-083'), cache)
+    assert not cache.exists()
+    assert not any(command[0] == 'ldd' for command in state['calls'])
+    assert all(command[1:] in (['-version'], ['-hide_banner', '-encoders']) for command in state['calls'])
+
+
+@pytest.mark.parametrize('linkage', ['shared_x264', 'embedded_avcodec', 'embedded_ffmpeg'])
+def test_encoder_provenance_pins_actual_shared_or_embedding_container(portable_tools, tmp_path, linkage):
+    bundled, _, _, state = portable_tools
+    codec = tmp_path / 'libavcodec.so.60'
+    codec.write_bytes(b'actual codec fixture identity')
+    x264 = tmp_path / 'libx264.so.164'
+    x264.write_bytes(b'actual encoder fixture identity')
+    lines = []
+    if linkage != 'embedded_ffmpeg':
+        lines.append(f'libavcodec.so.60 => {codec} (0x1)')
+    if linkage == 'shared_x264':
+        lines.append(f'libx264.so.164 => {x264} (0x2)')
+    # Successful ldd with codecs embedded, as in the Egg bundle. This does not
+    # simulate fully static ELF binaries, whose ldd may instead fail.
+    state['ldd'] = ('\n'.join(lines) + '\n').encode()
+    chain = media._toolchain('ffmpeg', 'ffprobe')
+    encoder = chain['cpu_encoder']
+    expected = x264 if linkage == 'shared_x264' else codec if linkage == 'embedded_avcodec' else bundled / 'ffmpeg'
+    assert encoder['name'] == 'libx264'
+    assert encoder['capability_sha256'] == media.sha(state['encoders'])
+    assert encoder['containers'] == [{'path': str(expected), 'sha256': media.sha(expected.read_bytes())}]
+    assert encoder['linkage'] == ('shared_library' if linkage == 'shared_x264' else 'embedded_in_pinned_container')
+    before = encoder['containers'][0]['sha256']
+    expected.write_bytes(expected.read_bytes() + b' changed binary')
+    again = media._toolchain('ffmpeg', 'ffprobe')
+    assert again['cpu_encoder']['containers'][0]['sha256'] != before
+    assert again['cpu_encoder']['capability_sha256'] == encoder['capability_sha256']
+
+
+def test_actual_generation_provenance_and_readback_use_same_resolved_pair(generated, monkeypatch):
+    case, cache, _ = generated
+    manifest = json.loads((cache / 'media-cache.json').read_bytes())
+    expected = {name: Path(tool['path']).resolve() for name, tool in manifest['toolchain'].items()
+                if name in {'ffmpeg', 'ffprobe'}}
+    calls = []
+    actual_run = media._run
+
+    def record(command, **kwargs):
+        calls.append(command)
+        return actual_run(command, **kwargs)
+
+    monkeypatch.setattr(media, '_run', record)
+    spec = media.specifications(case)[0]
+    readback = media.inspect_media(cache / 'clip-1.mp4', spec)
+    assert readback['sha256'] == manifest['assets'][0]['readback']['sha256']
+    assert Path(calls[0][0]).resolve() == expected['ffprobe']
+    assert len(calls) == 3 and all(Path(command[0]).resolve() == expected['ffmpeg'] for command in calls[1:])
+    assert manifest['toolchain']['cpu_encoder']['name'] == 'libx264'

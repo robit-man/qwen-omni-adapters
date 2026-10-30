@@ -45,6 +45,7 @@ from runtime.long_horizon_cases import (
     independent_verdict,
     load_case,
     materialize,
+    progress_milestones,
     read_json,
     readiness,
     readiness_requirements,
@@ -67,6 +68,7 @@ from runtime.long_horizon_owned_close import (
 from runtime.long_horizon_owned_close import (
     verified_event as verified_owned_close_event,
 )
+from runtime.native_run_ledger import NativeRunLedger, RunLedgerError
 from runtime.owned_window_close import request_owned_window_close
 from runtime.passive_focus_guard import FocusStopped, FocusUnavailable, sample_owned_focus
 from runtime.verify_real_desktop import (
@@ -174,6 +176,9 @@ def cancel_owned(client, base: str) -> dict:
         return {"attempted": True, "error_type": type(exc).__name__}
 
 
+MAX_CONSECUTIVE_GUARD_READ_TIMEOUTS = 3
+
+
 class Guard:
     def __init__(self, desktop, deadline, root):
         self.desktop, self.deadline, self.root = desktop, deadline, root
@@ -181,6 +186,7 @@ class Guard:
         self.failure = None
         self.shutdown = {"requested": False, "joined": None}
         self.focus_samples, self.focus_sample_count, self.focus_samples_omitted = [], 0, 0
+        self.read_timeouts, self.consecutive_read_timeouts = 0, 0
         self.thread = threading.Thread(target=self.run, daemon=True)
 
     def _remember_focus(self, receipt):
@@ -214,6 +220,7 @@ class Guard:
                     identity = self.inspect()
                     if self.stop.is_set():
                         return
+                    self.consecutive_read_timeouts = 0
                     if identity is None:
                         self.stop.wait(.25)
                         continue  # An owned transition grants no pointer sample.
@@ -230,6 +237,22 @@ class Guard:
                         journal.flush()
                 except FocusStopped:
                     return  # Normal shutdown is not a foreign-focus failure.
+                except FocusUnavailable as exc:
+                    # A read that timed out observed nothing (a saturated host can
+                    # exceed the 1 s query cap). It stays a recorded unavailable
+                    # sample with no credit; only a bounded run of them is
+                    # tolerated. Any observed owner change remains fatal.
+                    if (exc.code == "guard_focus_observation_unavailable"
+                            and exc.evidence.get("error_type") == "TimeoutExpired"
+                            and self.consecutive_read_timeouts < MAX_CONSECUTIVE_GUARD_READ_TIMEOUTS):
+                        self.read_timeouts += 1
+                        self.consecutive_read_timeouts += 1
+                        self.stop.wait(.25)
+                        continue
+                    self.failure = {**safe_error(exc, stage="owned_foreground_guard"),
+                                    "reason": "owned_foreground_read_or_identity_unavailable"}
+                    self.deadline._expire()
+                    return
                 except Exception as exc:
                     self.failure = {**safe_error(exc, stage="owned_foreground_guard"),
                                     "reason": "owned_foreground_read_or_identity_unavailable"}
@@ -253,6 +276,7 @@ def guard_evidence(guard):
         "focus_samples": getattr(guard, "focus_samples", []),
         "focus_sample_count": getattr(guard, "focus_sample_count", None),
         "focus_samples_omitted": getattr(guard, "focus_samples_omitted", None),
+        "focus_read_timeouts_tolerated": getattr(guard, "read_timeouts", None),
         "shutdown": getattr(guard, "shutdown", None)})
 
 
@@ -443,7 +467,8 @@ def source_state() -> dict:
     names = ["portal/app.py", "portal/ui_task.py", "portal/computer_use.py", "portal/native_ui.py",
              "src/qwen_omni_adapters/computer_use.py", "runtime/adapter_server.py",
              "runtime/verify_long_horizon_native.py", "runtime/long_horizon_cases.py",
-             "runtime/long_horizon_desktop.py", "tests/live/native_long_horizon/manifest.json"]
+             "runtime/long_horizon_desktop.py", "runtime/native_run_ledger.py",
+             "tests/live/native_long_horizon/manifest.json"]
     return {"revision": revision, "hashes": {name: sha((REPO / name).read_bytes()) for name in names}}
 
 
@@ -544,7 +569,8 @@ def safe_error(exc, *, stage):
     return result
 
 
-def finalize_run(report, root, case, *, desktop, observer, guard, client, request_started, settled, started):
+def finalize_run(report, root, case, *, desktop, observer, guard, client, request_started, settled, started,
+                 ledger=None):
     errors = []
     def attempt(stage, fn):
         try:
@@ -574,6 +600,11 @@ def finalize_run(report, root, case, *, desktop, observer, guard, client, reques
         report["unrelated_windows_after"] = after if ok else {"available": False}
         report["unrelated_window_preservation"] = unrelated_preservation(report.get("unrelated_windows_before", {}),
                                                                       report["unrelated_windows_after"])
+    if ledger:
+        ok, outcome = attempt("native_run_ledger_finalize", lambda: ledger.finish(
+            report.get("unrelated_windows_after", {"available": False}), cleanup=report,
+            settled=stop_ok and (settled or not request_started)))
+        report["native_run_ledger_outcome"] = outcome if ok else {"state": "pending", "finalization_failed": True}
     if client:
         attempt("client_shutdown", client.close)
     ok, after = attempt("source_snapshot", source_state)
@@ -658,7 +689,7 @@ def run(args) -> int:
               "owned_windows_closed": True, "status": "blocked_precondition"}
     report.update(task_deadline_seconds=args.timeout, drain_deadline_seconds=args.drain_timeout,
                   native_input_ceiling_enforced=False, whole_task_verification="independent_review_required")
-    desktop = observer = client = guard = None
+    desktop = observer = client = guard = ledger = None
     request_started, settled = False, False
     started = time.monotonic()
     try:
@@ -700,10 +731,19 @@ def run(args) -> int:
         if args.token_file.is_symlink() or not 0 < args.token_file.stat().st_size <= 4096:
             raise ValueError("Invalid access-token file")
         environment = desktop_subprocess_environment()
+        ledger = NativeRunLedger.open(environment, state_root=getattr(args, "run_ledger_root", None))
         report["unrelated_windows_before"] = managed_inventory(environment)
+        migrations = []
+        for reference in getattr(args, "run_ledger_migration", []):
+            digest, separator, path = reference.partition(":")
+            if not separator:
+                raise RunLedgerError("native_run_migration_invalid")
+            migrations.append({"path": path, "sha256": digest})
+        report["native_run_admission"] = ledger.reconcile(report["unrelated_windows_before"], migration_refs=migrations)
+        report["native_run_registration"] = ledger.begin(root, case["case_id"])
         report["host_fixture_condition"] = host_editor_condition(
             case, args.editor, args.include_default_text_editor, environment)
-        desktop = TaskDesktop(environment, editor=args.editor)
+        desktop = TaskDesktop(environment, editor=args.editor, lifecycle=ledger)
         client = httpx.Client(headers={"Authorization": "Bearer " + args.token_file.read_text().strip()},
             cookies={"omni_portal_session": secrets.token_hex(32)}, trust_env=False, timeout=10)
         health = client.get(base + "/healthz")
@@ -811,6 +851,7 @@ def run(args) -> int:
         save(root / "native-outcomes-index.json", native_outcome_index(result["events"]))
         save(root / "final-native.json", observer.fresh())
         report["final_file_evidence"] = file_evidence(work, initial, case)
+        report["progress_milestones"] = progress_milestones(case, root, report["final_file_evidence"])
         report["independent_result"] = independent_verdict(case, report["final_file_evidence"],
             method_verified=report["method"]["verified"] and verified_owned_close_event(case, root, report)
             and verified_amendment_event(case, root, report))
@@ -842,8 +883,12 @@ def run(args) -> int:
                                            report["error"].get("code", type(exc).__name__)]
         return 3 if request_started and not settled else 1 if request_started else 2
     finally:
-        finalize_run(report, root, case, desktop=desktop, observer=observer, guard=guard, client=client,
-            request_started=request_started, settled=settled, started=started)
+        try:
+            finalize_run(report, root, case, desktop=desktop, observer=observer, guard=guard, client=client,
+                request_started=request_started, settled=settled, started=started, ledger=ledger)
+        finally:
+            if ledger:
+                ledger.close()
 
 
 def parser():
@@ -865,6 +910,10 @@ def parser():
     result.add_argument("--editor", choices=["gedit", "gnome-text-editor"], default="gedit")
     result.add_argument("--include-default-text-editor", action="store_true",
                         help="Own one blank selected text/plain handler when the fixture has no editor slot")
+    result.add_argument("--run-ledger-root", type=Path,
+                        help="Trusted private cross-run state root; the default ledger is mandatory for live runs")
+    result.add_argument("--run-ledger-migration", action="append", default=[], metavar="SHA256:PATH",
+                        help="Explicit pinned host-normalized prior ownership document (at most eight)")
     result.add_argument("--prepare-only", action="store_true")
     result.add_argument("--evaluate", action="store_true")
     result.add_argument("--review-file", type=Path)

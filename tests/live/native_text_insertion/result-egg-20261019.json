@@ -1,0 +1,166 @@
+{
+ "all_arms_verified": true,
+ "arms": [
+  {
+   "app_after": [
+    "Hello brave world",
+    12,
+    0
+   ],
+   "app_before": [
+    "Hello world",
+    6,
+    0
+   ],
+   "arm": "middle",
+   "compiled_mode": "verified_step",
+   "compiled_predicates": [
+    {
+     "kind": "value",
+     "node_id": "$target",
+     "value": "Hello brave world"
+    }
+   ],
+   "expected": "Hello brave world",
+   "initial": "Hello world",
+   "inserted": "brave ",
+   "observed_insertion": {
+    "caret": 6
+   },
+   "observed_selection": null,
+   "ok": true,
+   "outcome_status": "verified",
+   "setup": [
+    "caret6"
+   ],
+   "status": "complete"
+  },
+  {
+   "app_after": [
+    "Hello world!",
+    12,
+    0
+   ],
+   "app_before": [
+    "Hello world",
+    11,
+    0
+   ],
+   "arm": "end",
+   "compiled_mode": "verified_step",
+   "compiled_predicates": [
+    {
+     "kind": "value",
+     "node_id": "$target",
+     "value": "Hello world!"
+    }
+   ],
+   "expected": "Hello world!",
+   "initial": "Hello world",
+   "inserted": "!",
+   "observed_insertion": {
+    "caret": 11
+   },
+   "observed_selection": null,
+   "ok": true,
+   "outcome_status": "verified",
+   "setup": [
+    "caret11"
+   ],
+   "status": "complete"
+  },
+  {
+   "app_after": [
+    "café Ελ中 é",
+    7,
+    0
+   ],
+   "app_before": [
+    "café 中 é",
+    5,
+    0
+   ],
+   "arm": "unicode_middle",
+   "compiled_mode": "verified_step",
+   "compiled_predicates": [
+    {
+     "kind": "value",
+     "node_id": "$target",
+     "value": "café Ελ中 é"
+    }
+   ],
+   "expected": "café Ελ中 é",
+   "initial": "café 中 é",
+   "inserted": "Ελ",
+   "observed_insertion": {
+    "caret": 5
+   },
+   "observed_selection": null,
+   "ok": true,
+   "outcome_status": "verified",
+   "setup": [
+    "caret5"
+   ],
+   "status": "complete"
+  },
+  {
+   "app_after": [
+    "Hello there",
+    11,
+    0
+   ],
+   "app_before": [
+    "Hello world",
+    6,
+    0
+   ],
+   "arm": "selection_replace",
+   "compiled_mode": "verified_step",
+   "compiled_predicates": [
+    {
+     "kind": "value",
+     "node_id": "$target",
+     "value": "Hello there"
+    }
+   ],
+   "expected": "Hello there",
+   "initial": "Hello world",
+   "inserted": "there",
+   "observed_insertion": null,
+   "observed_selection": {
+    "end": 11,
+    "start": 6
+   },
+   "ok": true,
+   "outcome_status": "verified",
+   "setup": [
+    "select:6:11"
+   ],
+   "status": "complete"
+  }
+ ],
+ "base_commit": "74f5c699262e2739b8987c3652cec1ec218c7951",
+ "date": "2026-10-19",
+ "host": "Ornith Egg (Jetson, X11 :0)",
+ "issue": 4,
+ "note": "Base commit plus the #4 patch. ComputerUseStore.task_scope -> immediate_transition -> compiler -> controller -> NativeUiAdapter -> AT-SPI worker -> XTEST on an owned GTK3 TextView; predicates are compiler-derived, app_* are independent in-process readbacks (text, caret, drift widgets). Fixture component, not loaded-model or whole-task acceptance.",
+ "owned_cleanup": [
+  {
+   "cleanup_window_absent": true,
+   "pid": 2713566
+  },
+  {
+   "cleanup_window_absent": true,
+   "pid": 2713676
+  },
+  {
+   "cleanup_window_absent": true,
+   "pid": 2713808
+  },
+  {
+   "cleanup_window_absent": true,
+   "pid": 2713958
+  }
+ ],
+ "schema": "robit.omni.native-text-insertion-live.v1"
+}

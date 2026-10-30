@@ -18,6 +18,7 @@ import math
 import os
 import re
 import secrets
+import stat
 import sys
 import threading
 import time
@@ -83,6 +84,7 @@ try:
         tool_schemas,
         tool_use_instructions,
     )
+    from portal.ui_control_catalogue import NativeControlCatalogue
     from portal.ui_history import ServerUiHistory
     from portal.ui_planner import planner_call_error, planner_tool_schemas
     from portal.ui_prefix import run_verified_prefix
@@ -110,6 +112,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
         tool_schemas,
         tool_use_instructions,
     )
+    from ui_control_catalogue import NativeControlCatalogue
     from ui_history import ServerUiHistory
     from ui_planner import planner_call_error, planner_tool_schemas
     from ui_prefix import run_verified_prefix
@@ -1401,7 +1404,7 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
     # Give each observed table row an actionable representative before repeated
     # columns exhaust the control budget. Keep the complete retained node: its
     # structure participates in the executor's independent target binding.
-    row_representatives: dict[str, tuple[int, int, str]] = {}
+    row_representatives: dict[str, tuple[bool, int, int, str]] = {}
     for index, node in enumerate(visible):
         structure = node.get("structure")
         if (node.get("role") != "table_cell" or node.get("sensitive") is True
@@ -1410,15 +1413,20 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
             continue
         parent, column = structure.get("parent_id"), structure.get("child_index")
         ancestors = structure.get("ancestors")
-        if (not isinstance(parent, str) or type(column) is not int or column < 0
-                or not isinstance(ancestors, list) or not any(
-                    isinstance(ancestor, Mapping) and ancestor.get("id") == parent
-                    and ancestor.get("role") == "table_row" for ancestor in ancestors)):
+        if not isinstance(parent, str) or type(column) is not int or column < 0 or not isinstance(ancestors, list):
             continue
-        candidate = (column, index, node["id"])
+        roles = [ancestor.get("role") for ancestor in ancestors if isinstance(ancestor, Mapping)]
+        bound = [ancestor for ancestor in ancestors if isinstance(ancestor, Mapping) and ancestor.get("id") == parent]
+        # A row is an observed table_row, or (GTK tree views expose no rows) the
+        # composite first-column table_cell that contains a row's cell renderers.
+        if not bound or not (bound[0].get("role") == "table_row" or bound[0].get("role") == "table_cell"
+                             and any(role in {"table", "tree_table"} for role in roles)):
+            continue
+        named = isinstance(node.get("name"), str) and bool(node["name"].strip())
+        candidate = (not named, column, index, node["id"])
         if parent not in row_representatives or candidate < row_representatives[parent]:
             row_representatives[parent] = candidate
-    representative_ids = {candidate[2] for candidate in row_representatives.values()}
+    representative_ids = {candidate[-1] for candidate in row_representatives.values()}
     def presentation_rank(node: Mapping[str, Any]) -> tuple[int, int]:
         if node.get("id") in priority:
             return 0, priority[node["id"]]
@@ -1440,11 +1448,12 @@ def _model_ui_observation(value: Any, references: tuple[str, ...] = ()) -> Any:
         compact = {key: copy.deepcopy(node[key]) for key in (
             "id", "generation", "scope_id", "role", "name", "visible", "enabled",
             "sensitive", "operations", "value", "description", "checked", "focused",
-            "selected", "text_selection", "bounds", "structure",
+            "selected", "text_selection", "text_insertion", "bounds", "structure",
         ) if key in node}
         if node.get("sensitive") is True:
             compact.update(name="[protected]", operations=[])
-            for key in ("value", "description", "selected", "text_selection", "text_observation", "structure"):
+            for key in ("value", "description", "selected", "text_selection", "text_insertion",
+                        "text_observation", "structure"):
                 compact.pop(key, None)
         size = len(json.dumps(compact, ensure_ascii=False))
         if len(projected_nodes) >= 80 or size > remaining:
@@ -2098,6 +2107,32 @@ def _retryable_stream_error(value: Any) -> bool:
     }
 
 
+def _planner_trace(state_root: Path, request: Mapping[str, Any], message: Any,
+                   packet: Mapping[str, Any] | None = None) -> None:
+    """Opt-in diagnostic: record the exact planner prompt and reply.
+
+    Enabled only while ``<state>/planner-trace`` exists as an owner-only
+    directory. Records stay on this host, are never read back by the planner
+    and never affect a decision; failures to record are ignored.
+    """
+    directory = Path(state_root) / "planner-trace"
+    try:
+        info = directory.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            return
+        # The raw planner packet (pre-projection) allows exact offline replay of
+        # either planner interface; the request alone holds only one projection.
+        record = {"time": time.time(), "request": request, "reply": message, "packet": packet,
+                  "prompt_characters": sum(len(str(item.get("content") or "")) for item in request.get("messages", [])),
+                  "schema_characters": len(json.dumps(request.get("response_format"), ensure_ascii=False))}
+        path = directory / time.strftime("%Y%m%d.jsonl")
+        descriptor = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+    except (OSError, TypeError, ValueError):
+        return
+
+
 def create_app(
     config: PortalConfig | None = None,
     client: httpx.Client | None = None,
@@ -2372,11 +2407,22 @@ def create_app(
                                                      private_boundaries=True)
         intent_choice = tool_harness.computer_use.intent_choice_enabled
         strategy_ledger = NativeStrategyLedger()
+        catalogue = NativeControlCatalogue(secrets.token_hex(16))
+        catalogue_lock = threading.RLock()
+        pending_pointer = None
+        planner_rejections = []
 
         def cancel():
+            nonlocal pending_pointer
             stopped.set()
+            with catalogue_lock:
+                catalogue.clear()
+                if pending_pointer is not None:
+                    pending_pointer.clear()
+                    pending_pointer = None
 
         def observe():
+            nonlocal pending_pointer
             with tool_harness.computer_use.task_scope(session_id, "desktop", stopped):
                 receipt = tool_harness.computer_use.planning_observation(session_id)
             if stopped.is_set():
@@ -2385,13 +2431,32 @@ def create_app(
                 if node.get("role") == "window" and "switch_window" in node.get("operations", [])
                 and node.get("visible") is True and node.get("enabled") is True
                 and not node.get("sensitive"))
-            return _model_ui_observation(receipt, references=window_ids)
+            with catalogue_lock:
+                if stopped.is_set():
+                    return {"status": "cancelled"}
+                discovery, priority, expansion = catalogue.capture(receipt["state"])
+                pending, pending_pointer = pending_pointer, None
+                recovery_priority, recovery_expansion = (pending.consume(goal=goal, state=receipt["state"])
+                    if pending is not None else ((), None))
+                projected = _model_ui_observation(receipt,
+                    references=(*window_ids, *priority, *recovery_priority))
+                projected["state"]["model_projection"]["control_catalogue"] = discovery
+                if expansion is not None:
+                    retained = {node["id"] for node in projected["state"]["nodes"]}
+                    expansion["full_binding_retained"] = bool(priority) and priority[0] in retained
+                    projected["control_expansion_receipt"] = expansion
+                if recovery_expansion is not None:
+                    retained = {node["id"] for node in projected["state"]["nodes"]}
+                    recovery_expansion["full_binding_retained"] = bool(recovery_priority) and recovery_priority[0] in retained
+                    projected["pending_recovery_projection_receipt"] = recovery_expansion
+                return projected
 
         def compile_phase(packet):
             if stopped.is_set():
                 raise PortalError("Native task cancelled")
             phase_deadline = time.monotonic() + packet["remaining_seconds"]
             compact_binding = None
+            generation_calls, rejection_record = 0, None
             system = (
                 "You are the Omni task planner in a layered native computer-use system. "
                 "Return exactly one JSON phase matching the supplied schema, without tools or code. "
@@ -2459,20 +2524,28 @@ def create_app(
                 "measured obstruction. working_state.plan_claims retains complete original plans; "
                 "recall_plan returns bounded serialized fragments of those unverified claims, with "
                 "no current UI or input authority. Native executor guards remain authoritative.")
-            compact = intent_choice and os.environ.get("OMNI_NATIVE_COMPACT_PLANNER", "0") == "1"
+            # The compact interface no longer requires a delegated selector: without
+            # one it offers exact-control activation; with one it keeps delegation.
+            compact = os.environ.get("OMNI_NATIVE_COMPACT_PLANNER", "0") == "1"
+            family = os.environ.get("OMNI_NATIVE_FAMILY_PLANNER", "0") == "1"
+            if family and any(os.environ.get(flag, "0") == "1" for flag in
+                    ("OMNI_NATIVE_COMPACT_PLANNER", "OMNI_NATIVE_PREREQUISITE_PLANNER")):
+                error = PortalError("native_planner_modes_conflict: select one native planner mode")
+                error.code = "native_planner_modes_conflict"
+                raise error
             if compact:
                 compact_packet, compact_binding = ui_decision.project(packet)
                 system = ui_decision.SYSTEM
+            else:
+                direct_packet, direct_binding = ui_decision.project_direct(packet)
+                system += ui_decision.DIRECT_HANDOFF_SYSTEM
             caller_policy = "\n\n".join(str(message.get("content") or "")
                 for message in raw_messages if isinstance(message, Mapping) and message.get("role") == "system")
             if caller_policy:
                 system += "\n\nCaller task policy:\n" + caller_policy
             # This backend uses response_format for its decoder grammar only;
-            # the planner must also see the canonical phase contract in context.
-            planning_state = {key: value for key, value in packet.items()
-                              if key != "remaining_seconds"}
-            if compact:
-                planning_state = compact_packet
+            # the planner must also see its actual reply contract in context.
+            planning_state = compact_packet if compact else direct_packet
             request_payload = {
                 "model": runtime.model, "stream": False, "think": payload.get("think", False),
                 "messages": [{"role": "system", "content": system},
@@ -2481,27 +2554,102 @@ def create_app(
                 "response_modalities": ["text"], "speech_mode": "never",
                 "response_format": {"type": "json_schema", "json_schema": {
                     "name": "native_ui_phase", "schema": compact_packet["decision_schema"] if compact
-                    else packet["response_schema"], "strict": True}},
+                    else direct_packet["response_schema"], "strict": True}},
             }
             if isinstance(payload.get("options"), Mapping):
                 request_payload["options"] = copy.deepcopy(payload["options"])
             def ask(request):
+                nonlocal generation_calls
                 if stopped.is_set():
                     raise PortalError("Native task cancelled")
                 remaining = phase_deadline - time.monotonic()
                 if remaining <= 0:
                     raise PortalError("Native task deadline exceeded")
+                generation_calls += 1
+                if rejection_record is not None:
+                    rejection_record["generation_calls"] = generation_calls
                 upstream = session.post(runtime.adapter_url, json=request,
                                         timeout=max(0.1, min(runtime.timeout_s, remaining)))
                 data = _json_object(upstream, "native phase planner")
                 if upstream.status_code >= 400:
                     raise PortalError(str(data.get("error") or "native phase planner failed")[:500])
                 message = data.get("message")
+                _planner_trace(state_root, request, message, packet)
                 if not isinstance(message, Mapping) or not isinstance(message.get("content"), str):
                     raise PortalError("native phase planner returned no JSON content")
                 return json.loads(message["content"])
 
             try:
+                if family:
+                    source_nodes = packet["current_state"]["state"].get("nodes")
+                    if not isinstance(source_nodes, list) or len(source_nodes) > 80:
+                        return ui_decision.expand_direct(ask(request_payload), packet, direct_binding)
+                    family_packet, family_binding = ui_decision.project(packet)
+                    resolution = ui_decision.pointer_resolution_context(family_packet, family_binding)
+                    if resolution is not None:
+                        context, resolution_schema, _ = resolution
+                        resolution_request = copy.deepcopy(request_payload)
+                        resolution_request["messages"] = [
+                            {"role": "system", "content": ui_decision.POINTER_RESOLUTION_SYSTEM + (
+                                "\n\nCaller task policy:\n" + caller_policy if caller_policy else "")},
+                            {"role": "user", "content": json.dumps(
+                                {**context, "response_schema": resolution_schema}, ensure_ascii=False)}]
+                        resolution_request["response_format"]["json_schema"].update(
+                            name="native_pointer_resolution", schema=resolution_schema)
+                        resolved, family_packet, family_binding = ui_decision.resolve_pointer_proposal(
+                            family_packet, family_binding, packet, ask(resolution_request))
+                        if resolved is not None:
+                            return resolved
+                        rejection_record = {"authority": "untrusted_planner_claim",
+                            "source_epoch": packet["working_state"]["source_epoch"],
+                            "source_phase": packet["working_state"]["source_phase"],
+                            "reason": "pending_pointer_resolution_replan", "input_attempted": False,
+                            "task_progress": False, "verified": False,
+                            "next_route": "full_direct", "generation_calls": generation_calls}
+                        planner_rejections.append(rejection_record)
+                        del planner_rejections[:-40]
+                        direct_request = copy.deepcopy(request_payload)
+                        direct_request["messages"].insert(1, {"role": "user", "content": json.dumps({
+                            "authority": "untrusted_planner_claim", "slow_pointer_resolution":
+                            family_packet["last_result"]["slow_pointer_resolution"]}, ensure_ascii=False)})
+                        return ui_decision.expand_direct(ask(direct_request), packet, direct_binding)
+                    context, selector_schema = ui_decision.family_context(packet, family_packet)
+                    selector_request = copy.deepcopy(request_payload)
+                    selector_request["messages"] = [
+                        {"role": "system", "content": ui_decision.FAMILY_SYSTEM + (
+                            "\n\nCaller task policy:\n" + caller_policy if caller_policy else "")},
+                        {"role": "user", "content": json.dumps(context, ensure_ascii=False)}]
+                    selector_request["response_format"]["json_schema"].update(
+                        name="native_ui_family_select", schema=selector_schema)
+                    try:
+                        selection = ask(selector_request)
+                    except json.JSONDecodeError:
+                        selection = None
+                    bound = ui_decision.bind_family(packet, family_packet, family_binding, selection)
+                    if bound is not None:
+                        family_packet, family_binding = bound
+                        arguments_request = copy.deepcopy(request_payload)
+                        arguments_request["messages"] = [
+                            {"role": "system", "content": ui_decision.SYSTEM + ui_decision.ATOMIC_SUBGOAL_HANDOFF + (
+                                "\n\nCaller task policy:\n" + caller_policy if caller_policy else "")},
+                            {"role": "user", "content": json.dumps(family_packet, ensure_ascii=False)}]
+                        arguments_request["response_format"]["json_schema"].update(
+                            name="native_ui_family_arguments", schema=family_packet["decision_schema"])
+                        argument_reply = ask(arguments_request)
+                        try:
+                            return ui_decision.expand(argument_reply, packet, family_binding)
+                        except ui_decision.DecisionReplan as error:
+                            if argument_reply.get("action", {}).get("family") != "replan":
+                                raise
+                            rejection_record = {"authority": "untrusted_planner_claim",
+                                "source_epoch": packet["working_state"]["source_epoch"],
+                                "source_phase": packet["working_state"]["source_phase"],
+                                "reason": error.reason, "input_attempted": False,
+                                "task_progress": False, "verified": False,
+                                "next_route": "full_direct", "generation_calls": generation_calls}
+                            planner_rejections.append(rejection_record)
+                            del planner_rejections[:-40]
+                    return ui_decision.expand_direct(ask(request_payload), packet, direct_binding)
                 if compact:
                     resolution = ui_decision.pointer_resolution_context(compact_packet, compact_binding)
                     if resolution is not None:
@@ -2533,7 +2681,8 @@ def create_app(
                     request_payload["messages"][1]["content"] = json.dumps(compact_packet, ensure_ascii=False)
                     request_payload["response_format"]["json_schema"]["schema"] = compact_packet["decision_schema"]
                 result = ask(request_payload)
-                return ui_decision.expand(result, packet, compact_binding) if compact else result
+                return (ui_decision.expand(result, packet, compact_binding) if compact else
+                        ui_decision.expand_direct(result, packet, direct_binding))
             except ui_decision.DecisionReplan as error:
                 raise NativePhaseReplan(error.reason) from None
             except (json.JSONDecodeError, ui_decision.DecisionError):
@@ -2544,6 +2693,11 @@ def create_app(
         def dispatch(name, arguments):
             if stopped.is_set():
                 return {"status": "cancelled", "error": "native_task_cancelled"}
+            if name == "native_ui" and arguments.get("operation") == "inspect_controls":
+                with catalogue_lock:
+                    if stopped.is_set():
+                        return {"status": "cancelled", "error": "native_task_cancelled"}
+                    return catalogue.inspect(arguments["reference"])
             if name == "native_ui" and arguments.get("operation") == "observation_boundary":
                 policy = {key: arguments[key] for key in ("objective", "feedback", "action_handoff", "transition") if key in arguments}
                 return tool_harness.computer_use.observation_boundary(session_id, arguments["intent"], goal=goal, **policy)
@@ -2552,7 +2706,8 @@ def create_app(
                     return tool_harness.computer_use.immediate_transition(session_id, step,
                         goal=goal, objective=arguments["objective"],
                         transition=arguments.get("transition") if index == 0 else None,
-                        action_handoff=arguments.get("action_handoff") if index == 0 else None)
+                        action_handoff=arguments.get("action_handoff") if index == 0 else None,
+                        defer_unannotated_boundary=index > 0)
                 return run_verified_prefix(arguments["steps"], execute_step=execute_step,
                     cancelled=stopped.is_set, strategy_ledger=strategy_ledger,
                     source_phase=arguments["source_phase"])
@@ -2571,11 +2726,20 @@ def create_app(
             return tool_harness.execute(session_id, name, arguments)
 
         def execute(name, arguments):
+            nonlocal pending_pointer
             with tool_harness.computer_use.task_scope(session_id, "desktop", stopped,
                     strategy_ledger=strategy_ledger) as filter_receipts, scoped_tool_user_context(goal):
                 result = dispatch(name, arguments)
                 if filter_receipts:
                     result["strategy_filter_receipts"] = copy.deepcopy(filter_receipts)
+                with catalogue_lock:
+                    if pending_pointer is not None:
+                        pending_pointer.clear()
+                    pending_pointer = (ui_decision.retain_pointer_recovery(result,
+                        goal=goal, action_handoff=arguments.get("action_handoff"))
+                        if not stopped.is_set() and name == "native_ui" and arguments.get("operation") in {
+                            "intent_boundary", "immediate_transition", "observation_boundary", "verified_prefix"}
+                        else None)
                 return result
 
         budget = min(runtime.timeout_s, 1800)
@@ -2588,6 +2752,8 @@ def create_app(
                 max_phases=40, max_seconds=budget, model=runtime.model, intent_choice=intent_choice,
                 working_state=True, effect_contracts=True, strategy_ledger=strategy_ledger)
             for event in events:
+                if planner_rejections and event.get("type") == "final":
+                    event["response"]["portal"]["native_task"]["planner_rejections"] = copy.deepcopy(planner_rejections)
                 if window_scope is not None and event.get("type") == "final":
                     event["response"]["portal"]["native_task"].update(
                         window_scope_sha256=native_task_scope_sha256(window_scope),
@@ -2595,6 +2761,11 @@ def create_app(
                 yield event
         finally:
             timer.cancel()
+            with catalogue_lock:
+                catalogue.clear()
+                if pending_pointer is not None:
+                    pending_pointer.clear()
+                    pending_pointer = None
             if window_scope is not None:
                 tool_harness.computer_use.end_task(session_id, "desktop", stopped)
 

@@ -79,6 +79,29 @@ drive the cursor with model-authored coordinates.
 | Input and effect verification | Host executor and fresh observer | Revalidate before input, retain uncertain attempts, verify actual application effects. |
 | Ambiguity, unavailable capability or failed effect | Omni phase planner | Receive typed failure/readback evidence and replan within the same authority. |
 
+The direct planner's schema contains semantic operation intent. The host binds
+that proposal to its captured source and selected referent, then validates the
+unchanged canonical envelope before execution. The compact planner uses its
+own bounded reference expansion. Neither representation makes model-authored
+text an observed fact or input permission. Immediate operation and prerequisite
+text remain planner claims throughout recovery.
+
+Native row relationships, bounded control catalogues, retained observations
+and unexecuted plan fragments support inspection at the planning layer. The
+finite policy receives aliases for repeated observed nodes while exact audit
+bindings remain with the host. It can only select a supplied candidate or
+abstain. A generated plan advances only through independently verified prefix
+effects; an opaque pointer/drag outcome yields to planning without completion
+credit. One next-phase exclusion prevents unchanged fast delegation from
+silently repeating an evidenced abstention. Explicit recovery still uses the
+same native executor and freshness guards.
+
+The evaluated local direct route used `OMNI_NATIVE_COMPACT_PLANNER=0` with the
+actual Kev service. Publishing this code does not enable an inactive policy or
+turn a general CPU Laya decision service into Kev. Each Egg needs its own
+adopted-source, configuration and actual auxiliary-model identity/call proof
+before claiming that the full delegation stack was exercised there.
+
 The caller's optional exact window scope restricts both planning and execution;
 its private authorization tuples are never model instructions. A verified phase
 is not a verified whole user task. Native task phases can explicitly request

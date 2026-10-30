@@ -303,14 +303,46 @@ An explicit foreground text task can set
 `portal_auto_tools:true` and permission for `native_ui`. This portal-owned field
 is consumed before adapter transport. The server runs a mandatory phase compiler
 instead of the general discovery loop: fresh native state plus mapped inactive
-window identities → one Omni JSON-schema response → whole-phase validation →
-the existing rapid controller → observed result/replanning. Compiler requests
+window identities → an Omni JSON-schema proposal → host source binding and
+whole-phase validation → the existing rapid controller → observed
+result/replanning. Compiler requests
 contain no tools or tool choice; they use `response_format` on the deployed
 OpenAI-compatible language backend, preserving the caller's native `think` and
-sampling options. The identical phase schema is also present in model-visible
-context; a decoder grammar alone does not teach the planner its contract.
+sampling options. The model-facing reply schema is also present in model-visible
+context; a decoder grammar alone does not teach the planner its contract. The
+direct planner returns semantic operation fields and a local
+`immediate_intent`, where applicable. The host preserves the model's
+`next_operation` and `needed_evidence`, resolves the exact captured referent and
+constructs the canonical action handoff. Opaque source fingerprints, task
+bindings and recovery references are host data, not values the model must
+invent. The full canonical validator still rejects stale, missing, ambiguous or
+incompatible bindings. Legacy operations without a semantic handoff keep their
+existing route; supplied inapplicable intent or transition fields are rejected
+rather than discarded. Recovery transition kinds are restricted by the
+retained predecessor. The optional compact planner keeps its separate
+source-bound subgoal/action expansion; it is not an automatic fallback for a
+rejected direct reply.
 Only authorized `memory_write`/`memory_search` phases may use
 session memory; a planner JSON value cannot enlarge the request scope.
+
+The planner can inspect bounded role/control catalogue pages, recall retained
+observations or recall an unexecuted plan fragment. These are knowledge
+operations. Labels, partial name previews and recalled text do not bind a
+current target, establish absence or count as task progress. Exact control
+expansion must survive a fresh observation before normal input resolution.
+Current row/parent relationships come from the native traversal, not inferred
+file types or title heuristics. Catalogue references are not action IDs.
+
+Supported first operations in a generated plan use host-derived immediate
+effects. The executor verifies a bounded prefix and stops at its first failed
+readback or opaque input. A generated drag has no promised effect: it returns
+an observation with unknown effect and zero task-progress credit. Physical
+gesture acknowledgements and independent filesystem/UI effects remain separate
+evidence. Remaining plan steps stay unexecuted claims. After an evidenced fast
+policy abstention, the next phase excludes unchanged fast delegation to that
+same target; inspection, another target and explicit pointer recovery remain
+available. This bounded exclusion does not relax fresh input, cancellation or
+uncertain-input replay guards.
 
 The profile rejects media, detached turns and background-worker requests. It
 holds the normal inference-queue ticket, has a 40-phase ceiling and a wall bound

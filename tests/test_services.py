@@ -14,7 +14,7 @@ def test_linux_service_template_uses_broker_or_explicit_direct_launcher() -> Non
     assert "portal/start.sh --foreground" in installer
     assert "qwen-omni-daemon serve --allow-direct-gpu" in installer
     assert "docker gpu discover" in installer
-    assert "Refusing --direct" in installer
+    assert "qwen_omni_adapters.gpu_broker --mode" in installer
 
 
 def test_linux_desktop_harness_requires_a_real_indicator_and_audio_stack() -> None:

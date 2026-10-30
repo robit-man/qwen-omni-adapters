@@ -44,6 +44,17 @@ excluded at the task boundary. Cancellation and deadlines retain precedence.
 This improves failure evidence without retrying input, accepting a failed
 observation as state or changing executor guards.
 
+At the worker's pre-input stale-revision gate, an explicitly window-scoped
+session can retain the exact bounded observation used by that comparison.
+`NativeUiAdapter.take_freshness_rejection()` exports this private evidence once
+to a host diagnostic capture; the public rejection and planner feedback remain
+unchanged. The artifact binds the action, session, scope and revisions and
+attests no attempted input or progress. A different current scope, unavailable
+host scope, invalid evidence or a snapshot that cannot fit the existing 2 MiB
+IPC bound yields explicit unavailable metadata. Native observation truncation
+remains visible in any retained snapshot. This capture does not refresh an
+action, retry input or establish that the refusal was incorrect.
+
 ## Host-owned execution
 
 An action ID binds the session, scope, document/control generation, semantic
@@ -249,6 +260,27 @@ counts. Protected text exposes none of this metadata. Bounded planner views
 preserve it with the node; an omitted node remains unknown. Historical views
 retain only permitted control evidence with their existing historical labels.
 
+A focused, completely captured, unselected editable text node may also carry
+`text_insertion: {caret: N}`: the provider's Unicode-character caret offset,
+read only when `selection_count` is an actually read zero and `truncated` is
+false. Unlike coverage metadata it is part of the node and therefore of the
+revision and of the handoff target fingerprint, so a caret-only move is a state
+change even when the predicted typed value is identical. The immediate-effect
+compiler derives `value[:N] + text + value[N:]` from it; an observed selection
+still means replacement, and an absent, malformed or contradictory caret yields
+`typing_insertion_range_not_observed` rather than an inferred position.
+
+Focused-text input is otherwise bound to the exact issued revision. The worker
+privately records a one-use witness of each focused, completely captured text
+recipient (full node plus caret, scope, foreground, coordinate, provider,
+popup and activation context) with every observation. A `type_text` or focused
+`key_chord` naming a superseded revision proceeds only when that witness and
+the fresh recipient are exactly equal, e.g. an editor overlay progress bar
+appeared elsewhere; its dispatch receipt carries `freshness_exception` with
+both revisions and a recipient digest. Any recipient or context change, an
+unknown caret, a newer issuance or a replay keeps
+`stale_native_revision_or_scope` before input.
+
 This object is observation knowledge, not a predicate or input capability.
 It is excluded from the existing native revision and idempotency payload, so
 clarification alone cannot create mutation credit, retry authority or failure
@@ -290,15 +322,24 @@ semantics. A failed setter never automatically triggers typing. Both operations
 need fresh observed effects and independent verification. The explicit Chromium
 adapter does not advertise this native keyboard verb.
 
-Literal line feeds use fixed Return events between literal text chunks, in the
-same bounded XTEST subprocess. This route requires a freshly read positive
-native `MULTI_LINE` state; single-line or unknown controls reject before input,
-so text cannot turn into a submit command. Each chunk is limited to one literal
-argument with `type --args 1 --`; command-looking text remains text. The five
-second timeout, focus/ownership/geometry checks and exact observed-effect
-verification still apply. This route is selected before any input and has no
-setter, clipboard or retry fallback. Actual private GTK/XTEST read-back tests
-cover line breaks, empty lines, leading/trailing breaks and literal arguments.
+`type_text` means literal insertion at the issued insertion point, or literal
+replacement of the issued selection. A keyboard Return is not a literal line
+feed: source editors autoindent (gedit/GtkSourceView turned a 69-character
+insertion into 153), complete brackets or submit. Text containing a line feed
+therefore never uses XTEST. It requires a freshly read positive native
+`MULTI_LINE` state, complete captured text with an observed `text_insertion`
+caret or exactly one observed `text_selection`, and a provider `EditableText`
+interface; otherwise it rejects before input
+(`native_multiline_text_target_not_multiline`,
+`native_multiline_insertion_point_not_observed`,
+`native_multiline_literal_transport_unavailable`). Immediately before input the
+worker re-reads focus, editability, value, caret/selection, foreground,
+geometry and provider identity, then makes one `EditableText` delete (selection
+only) and one `insert_text` at that offset. The receipt names
+`backend: atspi_editable_text_literal`. A failed or uncertain call stays an
+unresolved dispatch with no keyboard, clipboard, setter or retry fallback.
+Editor preferences are never changed. Single-line text keeps the guarded XTEST
+route. Exact observed-value verification is unchanged.
 
 ## Portal tool
 
@@ -354,6 +395,17 @@ or changed expectation wording. Three consecutive unsuccessful phases without
 such a new transition still stop the task; cancellation, the deadline and the
 40-phase ceiling remain in force. Existing successful knowledge phases keep
 their separate behavior.
+
+A host prefix can also stop before a later opaque operation that needs its own
+fresh planner claim. When all preceding steps were independently verified
+without input, one strictly bound continuation may reach the next planner call
+without spending another failure. Earlier failures remain counted. The controller
+joins the continuation to the issued steps, current accepted handoff, native
+sources and exact verification predicates; it never executes the retained suffix
+automatically. This allowance stays consumed across observations, recalls,
+no-ops, changed identifiers and rewritten plans. Only a genuinely new verified
+applied prefix effect can renew it. Repeated, stale, foreign or uncertain-input
+continuations retain ordinary failure accounting and all execution guards.
 
 Foreground text API callers can explicitly select
 `portal_execution_profile:"native_task"` for mandatory phase compilation.
@@ -431,8 +483,18 @@ added. The planner must inspect the new state before deciding the next input.
 Unique controls use deterministic resolution; ambiguous controls retain the
 existing finite-choice policy. Public workflows still require effect predicates.
 
-`OMNI_NATIVE_COMPACT_PLANNER=1` enables an experimental private planner interface
-when intent selection is active. The default remains the canonical planner.
+`OMNI_NATIVE_COMPACT_PLANNER=1` enables an experimental private planner interface.
+The default remains the canonical planner. With active intent selection (Kev),
+pointer work is delegated through `pointer_or_activation`. Without a selector,
+compact mode offers `activate`: the planner names one listed control reference
+and one primitive the control actually supports (invoke, double_click, click,
+right_click), never the active window itself. It expands to a single guarded
+`ui_boundary` input on that exact observed node with unknown effect and no
+completion credit. On frozen Egg states (LHN-001 runs 006/007) the portal's
+two-pass compact flow opened the Input folder in 6/9 replays versus 0/9 for the
+direct planner, at roughly a third of the prompt size; see
+[the gap plan](native-planner-gap-plan.md). This is decision-interface evidence,
+not whole-task success.
 The compact interface sends short references, relevant control state and typed
 families instead of the full primitive-workflow schema. It preserves the exact
 goal, historical ledger, latest result, working state and omission metadata.
@@ -586,6 +648,13 @@ are included in both canonical predicate schemas and the native-task planner's
 model-visible response schema; predicate evaluation and input authority are
 unchanged. An already-active verification gives no mutation or task-progress
 credit.
+Immediate `type_text` compilation also distinguishes missing complete text from
+an unknown insertion range. A field can expose its full existing value while
+its caret or selection remains unknown; that case returns
+`typing_insertion_range_not_observed` with `requires_replan`, no value predicate
+and no input binding. Missing or ineligible text evidence keeps its existing
+rejection behavior.
+
 A terminal predicate cannot use `$target`.
 File creation still requires the existing filesystem receipt/readback path;
 clicking Save alone does not prove a file exists. Session Trash/TTL removes
@@ -791,6 +860,42 @@ Live target selection and pointer escalation improved. The whole-task test
 remains failed at control and primitive interpretation; this opt-in path is not a
 completion claim.
 
+### Family-first planner with complete direct escape
+
+`OMNI_NATIVE_FAMILY_PLANNER=1` offers the current source-bound recipe families
+and an always-available `full_direct` or `defer` choice before binding. The first
+selector receives the original goal, observation, ledger and complete working
+state. A recipe fixes only its proposed objective, family and observed reference;
+one argument pass expands it through the existing canonical validator and host
+executor. The capability catalogue is descriptive and grants no input authority.
+
+`full_direct`, `defer` and unusable selector syntax run the unchanged full direct
+planner in the same phase, retaining every original operation, optional field,
+limit, causal suffix and final predicate. If a valid anchored argument reply
+explicitly chooses `replan`, one charged third generation uses that same full
+direct request, without the rejected recipe's objective or target constraints.
+The final native-task metadata records the rejection as an untrusted planner
+claim with its actual generation count and no input, progress or verification
+credit. Invalid expansion, changed private binding, upstream failure,
+cancellation or deadline cannot trigger this third request. Normal phases use two generations, with at
+most three under the original shared deadline and unchanged task/failure limits.
+If the source observation cannot use the compact projection because its nodes
+are unknown or exceed 80, the original admitted non-UI direct path runs once.
+The flag conflicts with either compact or prerequisite planner flags; defaults
+and the legacy compact path remain unchanged. This interface does not establish
+classifier quality, live navigation or whole-task success.
+
+A valid pending pointer offer uses the existing narrow resolution question
+before family selection. An accepted choice returns its canonical recovery in
+one generation. An explicit valid `replan` goes straight to one full direct
+generation, retaining all original capabilities and bindings. Its bounded
+feedback is a separate untrusted planner message before the original source
+message; the rejection audit records the actual two-call count with no progress
+credit. Invalid resolution, changed binding, upstream failure, cancellation and
+deadline do not trigger this escape. The pending route has at most two calls;
+ordinary family routes and all task limits remain unchanged. Predictions remain
+unverified, and this routing grants no input or completion authority.
+
 ### Resolving fast pointer-policy abstention
 
 After a valid model-confirmed Kev abstention, the private working-state planner
@@ -807,6 +912,16 @@ private to the task controller and is not accepted by the public native UI tool.
 Its resulting observation retains unknown effect and cannot verify the goal.
 
 A working-state fast-policy deferral grants one pending slow-resolution attempt.
+The immediately following planner phase retains that negative routing evidence
+when the exact target and finite primitive bank still match, even if planning
+adds inactive-window metadata and changes the whole observation revision. The
+historical policy revision remains historical; a separate fresh observation
+binding identifies the current read. Both full and family planning exclude
+another fast delegation for that target while leaving concrete recovery,
+inspection and other targets available. Concrete family recovery carries the
+same predecessor claim as full recovery; changed intent or predecessor fails
+validation. These checks grant no input authority and do not relax execution
+freshness, policy thresholds or failure budgets.
 Repeating fast decisions while that attempt is pending still consumes the
 failure budget; failed recovery and cached/unchanged boundaries retain their
 existing limits. The execution ledger records `deferred_to_planner` separately

@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -50,10 +51,12 @@ def _patch_preimage(text: str, source: Path) -> None:
 def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -> tuple[Path, Path, dict[str, str]]:
     repo, source, commands = tmp_path / "repo", tmp_path / "source", tmp_path / "commands"
     (repo / "scripts").mkdir(parents=True)
+    (repo / "runtime").mkdir()
     (repo / "patches").mkdir()
     source.mkdir()
     commands.mkdir()
     shutil.copyfile(ROOT / "scripts/build_llama_cpp.sh", repo / "scripts/build_llama_cpp.sh")
+    shutil.copyfile(ROOT / "runtime/cuda_toolchain.py", repo / "runtime/cuda_toolchain.py")
     for name in INDEPENDENT_PATCHES:
         shutil.copyfile(ROOT / "patches" / name, repo / "patches" / name)
     _patch_preimage((ROOT / "patches" / patch_name).read_text(), source)
@@ -73,15 +76,32 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
                   f'if [ "$3" = apply ] && [ "$4" = --reverse ]; then case "$6" in '
                   f'{other_patches}) exit 0;; esac; fi\nexec {shutil.which("git")} "$@"\n')
     cmake = commands / "cmake"
-    cmake.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$BUILD_CALLS"\n')
+    # This patch-control fixture models configuration, not compilation. Let
+    # real CMake read generated compiler metadata, as the builder now does.
+    cmake.write_text(
+        f"#!{sys.executable}\nimport os, shlex, subprocess, sys\nfrom pathlib import Path\n"
+        f"real_cmake = {shutil.which('cmake')!r}\n"
+        "if sys.argv[1] == '-P':\n    os.execv(real_cmake, [real_cmake, *sys.argv[1:]])\n"
+        "with open(os.environ['BUILD_CALLS'], 'a') as out:\n    out.write(' '.join(sys.argv[1:]) + '\\n')\n"
+        "if sys.argv[1] == '-S':\n"
+        "    version = subprocess.check_output([real_cmake, '--version'], text=True).split()[2]\n"
+        "    info = Path(sys.argv[4]) / 'CMakeFiles' / version / 'CMakeCUDACompiler.cmake'\n"
+        "    info.parent.mkdir(parents=True, exist_ok=True)\n"
+        "    compiler = shlex.split(os.environ['CUDACXX'])[0]\n"
+        "    info.write_text('set(CMAKE_CUDA_COMPILER [==[' + compiler + ']==])\\n')\n"
+    )
     git.chmod(0o755)
     cmake.chmod(0o755)
+    nvcc = commands / "nvcc"
+    nvcc.write_text('#!/bin/sh\nprintf "%s\\n" "CUDA compiler fixture"\n')
+    nvcc.chmod(0o755)
     target = tmp_path / "build/bin/llama-tts"
     target.parent.mkdir(parents=True)
     target.write_text('#!/bin/sh\nprintf "%s\\n" "--tts-stream-frames --tts-persistent --tts-no-conditioning-cache --tts-conditioning-cache-rows"\n')
     target.chmod(0o755)
     env = {**os.environ, "PATH": str(commands) + os.pathsep + os.environ["PATH"],
            "BUILD_CALLS": str(tmp_path / "cmake-calls"), "LLAMA_CPP_BUILD_DIR": str(target.parent.parent),
+           "CUDACXX": str(nvcc),
            "LLAMA_CPP_BUILD_JOBS": "1"}
     return repo, source, env
 

@@ -21,7 +21,7 @@ from .text_entry import complete_text
 
 _SCHEMA = "robit.omni.ui-immediate-effect.v1"
 _TRANSITIONS = ("focus_changed_within_scope", "popup_opened", "document_changed")
-_BOUNDARY = frozenset({"click", "double_click", "right_click", "invoke", "key_chord", "scroll"})
+_BOUNDARY = frozenset({"click", "double_click", "right_click", "invoke", "key_chord", "scroll", "drag_drop"})
 
 
 def _json(value: Any) -> str:
@@ -101,13 +101,14 @@ def immediate_effect_schema() -> dict:
                    "else": {"properties": {"predicates": {"maxItems": 0}}}}]}
 
 
-def _typed_text_result(operation: dict, before: Any) -> str | None:
+def _typed_text_result(operation: dict, before: Any) -> tuple[str | None, str | None]:
+    """Derive the same exact value, preserving why insertion remains unknown."""
     if not isinstance(before, Mapping) or not isinstance(before.get("nodes"), list):
-        return None
+        return None, None
     matches = [node for node in before["nodes"] if isinstance(node, dict) and all(
         node.get("id" if key == "node_id" else key) == value for key, value in operation["target"].items())]
     if len(matches) != 1:
-        return None
+        return None, None
     node = matches[0]
     coverage = node.get("text_observation")
     if (node.get("visible") is not True or node.get("enabled") is not True
@@ -120,17 +121,25 @@ def _typed_text_result(operation: dict, before: Any) -> str | None:
             or not isinstance(coverage.get("captured_range"), dict)
             or any(type(coverage["captured_range"].get(key)) is not int for key in ("start", "end"))
             or not complete_text(node)):
-        return None
+        return None, None
     value = node["value"]
     count = node["text_observation"]["selection_count"]
     if count == 0 and not value and "text_selection" not in node:
-        return operation["args"]["text"]
+        return operation["args"]["text"], None
+    insertion = node.get("text_insertion")
+    if count == 0 and "text_selection" not in node and insertion is not None:
+        # Executor-observed Unicode character offset of an unselected caret.
+        if (not isinstance(insertion, dict) or set(insertion) != {"caret"} or type(insertion["caret"]) is not int
+                or not 0 <= insertion["caret"] <= len(value)):
+            return None, "typing_insertion_range_not_observed"
+        caret = insertion["caret"]
+        return value[:caret] + operation["args"]["text"] + value[caret:], None
     selection = node.get("text_selection")
     if (count != 1 or not isinstance(selection, dict) or set(selection) != {"start", "end"}
             or any(type(selection.get(key)) is not int for key in ("start", "end"))
             or not 0 <= selection["start"] < selection["end"] <= len(value)):
-        return None
-    return value[:selection["start"]] + operation["args"]["text"] + value[selection["end"]:]
+        return None, "typing_insertion_range_not_observed"
+    return value[:selection["start"]] + operation["args"]["text"] + value[selection["end"]:], None
 
 
 @dataclass(frozen=True)
@@ -245,9 +254,9 @@ def compile_immediate_transition(step: Mapping[str, Any], before: Mapping[str, A
         else:
             predicates.append({"kind": "value", "node_id": "$target", "value": value})
     elif verb == "type_text":
-        value = _typed_text_result(operation, before)
+        value, typing_reason = _typed_text_result(operation, before)
         if value is None or len(value) > 4096:
-            mode, reason = "requires_replan", "typing_complete_value_not_observed"
+            mode, reason = "requires_replan", typing_reason or "typing_complete_value_not_observed"
         else:
             predicates = [{"kind": "value", "node_id": "$target", "value": value}]
     elif verb in _BOUNDARY:

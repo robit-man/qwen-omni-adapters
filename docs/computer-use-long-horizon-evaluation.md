@@ -1,6 +1,6 @@
 # Long-horizon native computer-use evaluation
 
-Status on 2026-10-16: live evaluation in progress; no full long-suite pass or
+Status on 2026-10-18: live evaluation in progress; no full long-suite pass or
 SOTA parity established.
 The user's current direction is **text goals into live Qwen/Ornith weights**,
 followed by real desktop work. Speech admission is outside this track. Earlier
@@ -12,7 +12,22 @@ The target is reliable task completion with the complete local agent system:
 Omni planning, native observation/execution, Kev selection, Moondream grounding,
 memory and independent verification. Parameter counts alone do not define this
 target. Report auxiliary models separately and do not infer undisclosed closed
-model sizes.
+model sizes. The integrated native layer adds source-bound semantic handoffs,
+control discovery/recall, immediate-effect prefixes and bounded recovery.
+These source capabilities do not establish whole-task success. Retained Qwen
+and Ornith long-task attempts remain failed or unresolved; neither source/unit
+gates nor an isolated auxiliary-model response can promote them to passed.
+Current-layer Egg results require their own source/adoption and actual-task
+evidence. The original task specifications and matrix denominators remain
+unchanged.
+
+The recent local native-layer cohort uses direct planning
+(`OMNI_NATIVE_COMPACT_PLANNER=0`) and actual Kev on loopback port 8950. It is not
+evidence for an Egg's configured policy or vision worker. Report actual loaded
+model identities and invocations there; a general CPU Laya service is a
+different component. The [original work order](research/native-execution-work-order-2026-10-17.txt)
+is retained verbatim as frozen acceptance provenance, not a live run ledger or
+evidence that any requested cell passed.
 
 ## What the current research changes
 
@@ -57,8 +72,13 @@ grounding, guarded input and observed effects. The first delegation acceptance
 criterion requires a model-authored phase to execute multiple unique inputs
 without another Omni call between them. Whole-task artifact checks remain
 separate. Direct tool clients retain their canonical per-action interface.
-The runner imposes a 30-minute wall deadline and an 80-round pilot ceiling;
-these are our limits, not an official benchmark protocol.
+The compiled native-task route has a 40-phase ceiling, at most 1,800 seconds of
+action time, at most 300 seconds of downstream drain and the existing
+three-consecutive-failure stop. The earlier 80-round pilot was a separate
+historical condition. These are local limits, not an official benchmark
+protocol. Caller-requested and actually applied model context/output limits
+must be recorded separately; source integration does not change those limits
+or the reviewed 0.95 active policy threshold.
 
 All solver interactions occur in real desktop applications and the ordinary
 browser profile. No shell, direct file tool, CDP, developer console, application

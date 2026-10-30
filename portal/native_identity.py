@@ -234,6 +234,66 @@ def _xres(window_id: str) -> dict:
         library.XCloseDisplay(display)
 
 
+def _xres_client_range(window_id: str) -> dict:
+    """The connected X client's resource-ID range that contains this XID.
+
+    XIDs are allocated only from a client's own base/mask range and that range
+    is not reassigned while the client stays connected, so the range proves
+    which connection created any XID inside it, including destroyed windows.
+    """
+    if not isinstance(window_id, str) or not window_id.isascii() or not window_id.isdecimal() or not 0 < int(window_id) < 2**32:
+        raise IdentityUnavailable("native_xres_window_invalid")
+
+    class Client(ctypes.Structure):
+        _fields_ = [("resource_base", ctypes.c_ulong), ("resource_mask", ctypes.c_ulong)]
+
+    library, extension = ctypes.CDLL("libX11.so.6"), ctypes.CDLL("libXRes.so.1")
+    library.XOpenDisplay.argtypes, library.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
+    library.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    library.XFree.argtypes = [ctypes.c_void_p]
+    extension.XResQueryExtension.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+    extension.XResQueryClients.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.POINTER(Client))]
+    display = library.XOpenDisplay(None)
+    if not display:
+        raise IdentityUnavailable("native_xres_display_unavailable")
+    try:
+        major, minor = ctypes.c_int(), ctypes.c_int()
+        if not extension.XResQueryExtension(display, ctypes.byref(major), ctypes.byref(minor)):
+            raise IdentityUnavailable("native_xres_extension_unavailable")
+        count, clients = ctypes.c_int(), ctypes.POINTER(Client)()
+        if not extension.XResQueryClients(display, ctypes.byref(count), ctypes.byref(clients)) or not clients:
+            raise IdentityUnavailable("native_xres_clients_unavailable")
+        try:
+            xid = int(window_id)
+            matches = [(clients[index].resource_base, clients[index].resource_mask) for index in range(count.value)
+                       if clients[index].resource_mask and xid & ~clients[index].resource_mask == clients[index].resource_base]
+        finally:
+            library.XFree(clients)
+        if len(matches) != 1:
+            raise IdentityUnavailable("native_xres_client_range_ambiguous")
+        return {"base": matches[0][0], "mask": matches[0][1]}
+    finally:
+        library.XCloseDisplay(display)
+
+
+def xres_client_range(window_id: str, environment: Mapping[str, str], *, timeout_s: float = 1) -> dict:
+    result = subprocess.run(  # noqa: S603 - one fixed read-only helper, no global env mutation.
+        [sys.executable, "-I", str(Path(__file__).resolve()), "--xres-client-range", window_id],
+        env=dict(environment), stdin=subprocess.DEVNULL, capture_output=True, text=True,
+        timeout=max(.05, min(1, timeout_s)), check=False)
+    if result.returncode or len(result.stdout) > 4096:
+        raise IdentityUnavailable("native_xres_client_range_unavailable")
+    try:
+        value = json.loads(result.stdout)
+    except ValueError:
+        raise IdentityUnavailable("native_xres_client_range_invalid") from None
+    if (not isinstance(value, dict) or set(value) != {"base", "mask"}
+            or any(type(value[key]) is not int or not 0 <= value[key] < 2**32 for key in ("base", "mask"))
+            or not value["mask"] or value["base"] & value["mask"]):
+        raise IdentityUnavailable("native_xres_client_range_invalid")
+    return value
+
+
 def xres_owner(window_id: str, environment: Mapping[str, str], *, timeout_s: float = 1) -> dict:
     result = subprocess.run(  # noqa: S603 - one fixed read-only helper, no global env mutation.
         [sys.executable, "-I", str(Path(__file__).resolve()), "--xres-owner", window_id],
@@ -505,6 +565,9 @@ if __name__ == "__main__":
             if not time.monotonic() < deadline <= time.monotonic() + 3:
                 raise IdentityUnavailable("native_namespace_owner_invalid")
             print(json.dumps(_namespace_owner(sys.argv[2], int(sys.argv[3]), deadline)))
+            raise SystemExit(0)
+        if len(sys.argv) == 3 and sys.argv[1] == "--xres-client-range":
+            print(json.dumps(_xres_client_range(sys.argv[2])))
             raise SystemExit(0)
         if len(sys.argv) != 3 or sys.argv[1] != "--xres-owner":
             raise IdentityUnavailable("native_identity_operation_invalid")

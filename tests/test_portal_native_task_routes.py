@@ -57,11 +57,24 @@ def _working_reply(request, plan):
     decision = ("blocked" if plan["kind"] == "blocked" else "verify" if plan["kind"] == "complete" else
                 "start" if state["source_phase"] == 1 else "recover" if state["recovery_mode"] else "continue")
     objective = plan.get("objective", plan.get("subgoal", {}).get("objective", "Write and commit the reference note"))
-    return {"assessment": {"source_epoch": state["source_epoch"], "source_phase": state["source_phase"],
+    result = {"assessment": {"source_epoch": state["source_epoch"], "source_phase": state["source_phase"],
                             "decision": decision, "summary": "Assess the latest host result; this is a fixture claim."},
             "commitment": {**({} if "objective" in plan or plan["kind"] == "ui_subgoal" else {"objective": objective}),
                            "intended_resource": "owned fixture resource", "unmet_constraints": []},
             "phase": copy.deepcopy(plan)}
+    if "direct_native_intent" in packet["response_schema"].get("$defs", {}):
+        operation = (plan["subgoal"] if plan["kind"] == "ui_subgoal" else plan["step"]
+                     if plan["kind"] in {"ui_boundary", "ui_pointer_recovery"} else
+                     plan["steps"][0] if plan["kind"] == "ui" else None)
+        supported = operation is not None and ("family" in operation or operation.get("verb") in {
+            "click", "double_click", "right_click", "invoke", "set_value", "type_text",
+            "switch_window", "key_chord", "scroll", "select_text"})
+        if operation is not None:
+            current = (result["phase"]["subgoal"] if plan["kind"] == "ui_subgoal" else result["phase"]["step"]
+                       if plan["kind"] in {"ui_boundary", "ui_pointer_recovery"} else result["phase"]["steps"][0])
+            current["immediate_intent"] = ({"next_operation": "Perform the exact fixture operation",
+                                           "needed_evidence": ["Its independent host readback"]} if supported else None)
+    return result
 
 
 class Adapter:
@@ -238,7 +251,7 @@ def test_metadata_only_changes_do_not_renew_zero_effect_budget_through_actual_ro
 
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("think", [False, True])
-def test_native_profile_compiles_strict_phase_and_executes_two_inputs_internally(tmp_path, monkeypatch, stream, think):
+def test_native_profile_replans_opaque_suffix_then_executes_its_fresh_first_operation(tmp_path, monkeypatch, stream, think):
     store, adapters = _install_store(monkeypatch)
     requests = []
     body = _request(stream, think)
@@ -267,18 +280,34 @@ def test_native_profile_compiles_strict_phase_and_executes_two_inputs_internally
         if len(requests) == 1:
             assert adapters[0].planning_calls == 1 and adapters[0].calls == []
             plan = _phase()
+        elif len(requests) == 2:
+            assert [action["verb"] for action in adapters[0].calls] == ["set_value"]
+            feedback = packet["last_result"]
+            assert feedback["status"] == "needs_replan" and feedback["effect_receipt"]["effect_state"] == "absent"
+            assert feedback["phase_handoff"]["new_effect_count"] == 1
+            receipt = feedback["verified_prefix_receipt"]
+            assert receipt["stop"] == "unannotated_observation_boundary"
+            assert receipt["attempted_step_count"] == receipt["verified_prefix_count"] == 1
+            assert receipt["continuation"]["step_index"] == 1
+            assert receipt["continuation"]["step"] == _phase()["steps"][1]
+            assert feedback["planner_workflow_claim"]["remaining_steps"] == _phase()["steps"][1:]
+            assert not feedback["policy_receipts"] and not feedback["point_receipts"]
+            assert not adapters[0].prepared_intents and not feedback.get("pointer_recovery")
+            assert adapters[0].value == "Reference note" and adapters[0].saved == ""
+            plan = {"kind": "ui_boundary", "objective": "Write and commit the reference note",
+                "step": {key: value for key, value in _phase()["steps"][1].items() if key != "expect"}}
         else:
-            assert len(requests) == 2
-            assert [action["verb"] for action in adapters[0].calls] == ["set_value", "invoke"]
+            assert len(requests) == 3
+            assert [action["verb"] for action in adapters[0].calls] == ["set_value", "invoke"], packet["last_result"]
             feedback = packet["last_result"]
             assert feedback["status"] == "observed_unverified"
-            assert feedback["phase_handoff"]["new_effect_count"] == 1
-            assert feedback["phase_handoff"]["terminal_verified"] is False
-            assert feedback["phase_handoff"]["goal_verified"] is False
+            assert feedback["immediate_effect_contract"]["mode"] == "observation_boundary"
             assert feedback["effect_receipt"]["effect_state"] == "unknown"
             assert feedback["ui_boundary_receipt"]["task_progress"] is False
+            assert feedback["ui_boundary_receipt"]["new_effect_count"] == 0
+            assert feedback["ui_boundary_receipt"]["verified"] is False
             assert adapters[0].value == adapters[0].saved == "Reference note"
-            assert not any("before" in outcome or "after" in outcome for outcome in packet["last_result"]["outcomes"])
+            assert not any("before" in outcome or "after" in outcome for outcome in feedback.get("outcomes", []))
             plan = {"kind": "blocked", "reason": "Commit observed; independent task verification is still needed."}
         return httpx.Response(200, json={"model": DEFAULT_MODEL, "message": {"role": "assistant", "content": json.dumps(_working_reply(request, plan))}})
 
@@ -293,31 +322,37 @@ def test_native_profile_compiles_strict_phase_and_executes_two_inputs_internally
     client = app.test_client()
     client.set_cookie(SESSION_COOKIE_NAME, "native-phase-owned-session-12345")
     result, events = _post(client, body, stream)
-    assert len(requests) == 2 and adapters[0].planning_calls == 2
+    assert len(requests) == 3 and adapters[0].planning_calls == 3
     assert adapters[0].ordinary_calls >= 5
     assert result["message"]["content"] == "Commit observed; independent task verification is still needed."
     assert result["portal"]["native_task"]["status"] == "blocked"
     assert result["portal"]["native_task"]["task_verified"] is False
     assert result["portal"]["tool_allowlist"] == ["native_ui"]
     traces = result["portal"]["safe_tools_executed"]
-    assert len(traces) == 1 and traces[0]["name"] == "native_ui"
+    assert len(traces) == 2 and all(trace["name"] == "native_ui" for trace in traces)
     raw = json.loads(traces[0]["result"])
     assert traces[0]["arguments"]["operation"] == "verified_prefix"
-    assert len(raw["outcomes"]) == 2
-    assert [outcome["status"] for outcome in raw["outcomes"]] == ["verified", "observed_unverified"]
+    assert len(raw["outcomes"]) == 1 and raw["outcomes"][0]["status"] == "verified"
     assert raw["phase_handoff"]["terminal_verified"] is False
     assert raw["phase_handoff"]["goal_verified"] is False
     assert raw["verified_prefix_receipt"]["verified_prefix_count"] == 1
-    assert raw["verified_prefix_receipt"]["attempted_step_count"] == 2
-    assert raw["verified_prefix_receipt"]["stop"] == "opaque_input_boundary"
+    assert raw["verified_prefix_receipt"]["attempted_step_count"] == 1
+    assert raw["verified_prefix_receipt"]["stop"] == "unannotated_observation_boundary"
     assert raw["verified_prefix_receipt"]["model_terminal_predicates_verified"] is False
     assert raw["task_progress"] is False
     assert adapters[0].value == adapters[0].saved == "Reference note"
     assert [intent["verb"] for intent in adapters[0].prepared_intents] == ["invoke"]
     assert all("before" in outcome and "after" in outcome for outcome in raw["outcomes"])
+    fresh = json.loads(traces[1]["result"])
+    assert traces[1]["arguments"]["operation"] == "immediate_transition"
+    assert fresh["immediate_effect_contract"]["mode"] == "observation_boundary"
+    assert fresh["action_handoff"]["operation_family"] == "pointer_or_activation"
+    assert fresh["action_handoff"]["source_phase"] == 2
+    assert fresh["action_handoff"]["target"]["node_id"] == "commit"
+    assert fresh["action_handoff"]["objective"] == "Write and commit the reference note"
     assert store._owned("native-phase-owned-session-12345", "desktop").cancel.is_set() is True
     if stream:
-        assert [event["phase"] for event in events if event["type"] == "tool"] == ["start", "complete"]
+        assert [event["phase"] for event in events if event["type"] == "tool"] == ["start", "complete"] * 2
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -478,8 +513,15 @@ def test_malformed_compiler_content_recovers_with_fresh_observation_and_real_wor
             assert packet["last_result"]["error"] == "invalid_native_phase_json"
             assert "private-partial-canary" not in json.dumps(packet)
             content = json.dumps(_working_reply(request, _phase()))
+        elif len(requests) == 3:
+            assert len(adapters[0].calls) == 1
+            assert packet["last_result"]["verified_prefix_receipt"]["stop"] == "unannotated_observation_boundary"
+            assert packet["last_result"]["planner_workflow_claim"]["remaining_steps"] == _phase()["steps"][1:]
+            content = json.dumps(_working_reply(request, {"kind": "ui_boundary",
+                "objective": "Write and commit the reference note",
+                "step": {key: value for key, value in _phase()["steps"][1].items() if key != "expect"}}))
         else:
-            assert len(requests) == 3 and len(adapters[0].calls) == 2
+            assert len(requests) == 4 and len(adapters[0].calls) == 2
             assert packet["last_result"]["status"] == "observed_unverified"
             content = json.dumps(_working_reply(request, {"kind": "blocked",
                 "reason": "Compiler recovered and commit observed; task verification remains incomplete."}))
@@ -491,7 +533,7 @@ def test_malformed_compiler_content_recovers_with_fresh_observation_and_real_wor
     assert result["portal"]["native_task"]["task_verified"] is False
     assert [action["verb"] for action in adapters[0].calls] == ["set_value", "invoke"]
     assert adapters[0].value == adapters[0].saved == "Reference note"
-    assert len(result["portal"]["safe_tools_executed"]) == 1
+    assert len(result["portal"]["safe_tools_executed"]) == 2
     assert result["portal"]["tool_allowlist"] == ["native_ui"]
 
 

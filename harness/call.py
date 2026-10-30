@@ -35,6 +35,7 @@ from harness.audio import (
     PLAYBACK_RATE_HZ,
     MicrophoneStream,
     SpeakerStream,
+    normalize_speech,
     to_wav,
 )
 from harness.background_agent import BackgroundAgent
@@ -693,7 +694,7 @@ class CallSession:
                         {
                             "mime_type": "audio/wav",
                             "encoding": "base64",
-                            "data": base64.b64encode(to_wav(samples)).decode("ascii"),
+                            "data": base64.b64encode(to_wav(normalize_speech(samples))).decode("ascii"),
                         }
                     ],
                 }
@@ -798,7 +799,7 @@ class CallSession:
             except Exception as error:  # noqa: BLE001 - one turn is not the call
                 return TurnResult(error=f"comprehension is not ready: {error}")
 
-        audio = to_wav(samples)
+        audio = to_wav(normalize_speech(samples))
         if self.config.evidence_trace is not None:
             self.config.evidence_trace("turn_audio", {"wav": audio, "segments": segments,
                 "sample_rate_hz": CAPTURE_RATE_HZ, "wav_sha256": hashlib.sha256(audio).hexdigest()})

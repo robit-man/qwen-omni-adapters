@@ -1,0 +1,29 @@
+{
+  "schema": "robit.omni.production-baseline-integration.v1",
+  "upstream_commit": "7554ae0118a2b1527ab537a1cd11e4cd7251770c",
+  "original_upgrade_parent": "9adbf5c3108261521604a1580488453e7384e742",
+  "full_source_gate": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "tests_passed": 6208,
+    "pytest_seconds": 281.79
+  },
+  "native_incremental_builder_passed": true,
+  "both_local_indexed_candidate_tags_resolve": true,
+  "controller_conflict_policy": "Use newer production controller/recovery/effect code and corresponding tests; preserve archive in history; combine independent P0 CLI and native builder work.",
+  "first_run": {
+    "tests_passed": 6207,
+    "failed": 1,
+    "cause": "Missing ignored bundled FFmpeg in fresh worktree; same source passed with equivalent production tool bundle, no assertion or media source changes."
+  },
+  "ffmpeg_sha256": "00550c65fc35d8e21acae12c4262bdbf74df9b79fa996eb71c85a014571d8542",
+  "ffprobe_sha256": "effc9977f8dcb67e8f459822138b0663c44434aafaf4fef058b5c67dfb6dd8c4",
+  "tested_artifacts_sha256": {
+    "scripts/build_llama_cpp.sh": "479987e0394d8999ec846aa6399d8406928c59ff2ed6bd2315637253e8fa6d60",
+    "tests/test_native_json_grammar.py": "ec7e431f4684c5c8910d33cf31c71c199f46d299d0c954a4e988e63ad6972897",
+    "src/qwen_omni_adapters/cli.py": "7eadfe86466a6f18170b394f1a1a7f298caf9b76c54c8991c3ea5e00250e4a75",
+    "runtime/tts_server.py": "baa7194192c12d794827ce3df473b500f21071255d11751f9926dafe5f3dc602"
+  },
+  "production_services_restarted": false,
+  "release_qualified": false
+}

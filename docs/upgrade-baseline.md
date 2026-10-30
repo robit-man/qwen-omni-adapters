@@ -88,3 +88,27 @@ The official [Qwen3-TTS documentation](https://github.com/QwenLM/Qwen3-TTS)
 describes reusable reference conditioning and distinguishes Base, CustomVoice
 and VoiceDesign. Its Python API is not proof that the pinned GGUF backend already
 supports all those controls. Preserve and qualify the shipped Base path first.
+
+## Production baseline integration — 2026-10-30
+
+The initial exact-copy fork deliberately preserved the older local tree. Before
+release qualification it must also contain the refreshed production baseline
+`7554ae0118a2b1527ab537a1cd11e4cd7251770c`: 31 commits add caret-verified typing,
+foreground/freshness handling, planner state, GPU relocation/ingress identity,
+incremental CUDA builds and quieter speech-onset handling.
+
+Integration is tested in an isolated worktree. Overlapping controller, recovery,
+media and contract fixtures use the newer production versions. The archived
+local work remains reachable through `cf0183d`, its pushed archive branch and the
+merge's original parent; nothing is force-pushed or erased. Nonconflicting source
+and all measured P0 upgrades are retained. The CLI combines exact-bound indexed
+packing with production broker probing; native grammar fixtures combine every
+P0 patch with production compiler/incremental-build coverage.
+
+The first integrated run passed 6207 tests and failed one media provenance check
+because this fresh worktree had no bundled FFmpeg and readback used a PATH name.
+The original production validation had its ignored bundled tools available. An
+independent copy of that exact CPU tool bundle was provisioned in the upgrade
+checkout for equivalent validation. No assertion or unrelated media behavior
+was changed to hide the failure. The final gate result is recorded separately
+in `docs/upgrades/production-integration.json`.
