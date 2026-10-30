@@ -54,6 +54,14 @@ width. One local llama.cpp server then performs media comprehension and the
 language/tool pass; the Omni Thinker is absent and a second Ollama language
 runner is not started.
 
+For mixed audio/visual inputs, trained bridges run native vision and the
+speech-trained audio prefill as two bounded perception requests through that
+same resident trunk. Only the audio pass supplies transcript/acoustic tags;
+only the visual pass supplies visual evidence. This prevents native visual
+prefill from suppressing the audio bridge's transcript. It adds no second
+reasoner and does not establish environmental-sound accuracy or sample-accurate
+audio/video alignment.
+
 Static model-facing policy is not duplicated across Python and JavaScript.
 `src/qwen_omni_adapters/context.json` is the packaged source for prompts, tool
 descriptions/discovery hints, structured control tools, and durable-task phase

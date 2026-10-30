@@ -1144,6 +1144,56 @@ def test_chat_comprehension_payload_forbids_conversational_media_reply() -> None
     assert "nothing else" in media_parts[-1]["text"]
 
 
+@pytest.mark.parametrize("stream", [False, True])
+def test_trained_bridge_keeps_audio_and_visual_evidence_in_their_own_pass(
+    monkeypatch, stream: bool,
+) -> None:
+    from runtime import adapter_server
+
+    monkeypatch.setattr(adapter_server, "_video_is_pipe_readable", lambda _data: True)
+    monkeypatch.setattr(adapter_server, "_video_audio", lambda _media: _encoded(_wav(16000)))
+    parsed = parse_adapter_request(_base_request(
+        omni={"task": "describe"},
+        messages=[{"role": "user", "content": "Describe.", "videos": [
+            {"mime_type": "video/mp4", "data": _encoded(_mp4())},
+        ]}],
+    ))
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        seen.append(payload)
+        types = {part["type"] for message in payload["messages"][1:]
+                 for part in message["content"]}
+        assert not {"input_audio", "input_video"} <= types
+        assert payload["cache_prompt"] is False
+        if "input_audio" in types:
+            assert payload["messages"][0]["content"] == TRAINED_AUDIO_SYSTEM_PROMPT
+            text = ("<speech_transcript>Copper lighthouse seven.</speech_transcript>"
+                    "<audio_observation>A bell.</audio_observation>"
+                    "<visual_observation>FALSE_AUDIO_VISUAL</visual_observation>")
+        else:
+            text = ("<speech_transcript>FALSE_VISUAL_SPEECH</speech_transcript>"
+                    "<audio_observation>FALSE_VISUAL_SOUND</audio_observation>"
+                    "<visual_observation>Red, blue, green.</visual_observation>")
+        return httpx.Response(200, json={"choices": [{"message": {"content": text}}]})
+
+    config = Config("http://comp", "one-primary", "http://language", "http://tts", 30,
+                    comprehension_disable_thinking=True)
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = (list(execute_stream(parsed, config, client))[-1] if stream
+              else execute(parsed, config, client))
+    if stream:
+        result = json.loads(result)["response"]
+    assert len(seen) == 2
+    assert {payload["model"] for payload in seen} == {"one-primary"}
+    assert result["adapter"]["input_transcript"] == "Copper lighthouse seven."
+    assert result["adapter"]["audio_observation"] == "A bell."
+    assert result["adapter"]["evidence_provenance"]["current_visual_input"] is True
+    assert "Red, blue, green." in result["message"]["content"]
+    assert "FALSE_" not in json.dumps(result)
+
+
 def test_computer_visual_evidence_uses_normalized_gui_grounding_prompt() -> None:
     parsed = parse_adapter_request(
         _base_request(

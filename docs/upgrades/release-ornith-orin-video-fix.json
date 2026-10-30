@@ -1,0 +1,17 @@
+{
+  "schema": "robit.omni.semantic-auditory-gates.v1",
+  "family": "ornith",
+  "checks": [
+    {
+      "fixture": "colors-speech.mp4",
+      "status": 200,
+      "elapsed_s": 59.944652125937864,
+      "passed": true,
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>No non-speech sounds detected.</audio_observation><visual_observation>The video consists of a series of static, full-frame solid color fields with thin black borders around each frame. There is no camera movement, no objects, and no change in content within each color block; the only variation is the color itself. In temporal order:\n- From roughly 0s to about 4.5s, the screen displays a uniform, saturated bright red field filling the entire frame with no gradients or texture.\n- At approximately 4.5s, the color abruptly changes to a uniform, saturated pure blue (a strong primary blue) that fills the whole frame; this blue block persists from about 4.5s through roughly 9s.\n- At around 9s, the color switches again, this time to a uniform, highly saturated bright green field filling the entire frame; this green block continues from about 9s to the end of the clip at 10s.\nThroughout the whole clip there is no motion within any single color block and no text or graphics appear on screen.</visual_observation>",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "audio_observation": "No non-speech sounds detected.",
+      "wer": 0.0
+    }
+  ],
+  "passed": true
+}

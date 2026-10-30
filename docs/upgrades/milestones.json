@@ -246,7 +246,7 @@
     {
       "id": "E",
       "objective": "Qualify Ornith on Orin and Qwen3.8 on the current A100 host, preserving complete parity and safe memory",
-      "status": "operational_and_cloning_passed_Ornith_Orin_Qwen_A100_semantic_environmental_parity_failed_Qwen_audiovisual_transcription_failed",
+      "status": "operational_cloning_and_video_speech_passed_Ornith_Orin_Qwen_A100_semantic_environmental_parity_failed",
       "evidence": [
         "phase-e-orin-preparation.json",
         "phase-e-orin-tts-repeat.json",
@@ -263,7 +263,10 @@
         "release-ornith-semantic.json",
         "release-qwen-a100-semantic.json",
         "release-legacy-auditory.json",
-        "release-orin-restoration.json"
+        "release-orin-restoration.json",
+        "release-qwen-a100-video-fix.json",
+        "release-ornith-orin-video-fix.json",
+        "release-staging-verification.json"
       ]
     },
     {

@@ -1,0 +1,100 @@
+{
+  "schema": "robit.omni.staging-verification.v1",
+  "packages": [
+    {
+      "family": "ornith",
+      "files": [
+        {
+          "path": "config.json",
+          "sha256": "851aa5dd4893f98ebbeca3df76e7cfa3751546287cbddb524fc8fdbe1beedb35",
+          "size_bytes": 193,
+          "verified": true
+        },
+        {
+          "path": "model-Q4_K_M.gguf",
+          "sha256": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+          "size_bytes": 5629109056,
+          "verified": true
+        },
+        {
+          "path": "mmproj-audio-vision.gguf",
+          "sha256": "7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+          "size_bytes": 1640239200,
+          "verified": true
+        },
+        {
+          "path": "template.gotmpl",
+          "sha256": "b507b9c2f6ca642bffcd06665ea7c91f235fd32daeefdf875a0f938db05fb315",
+          "size_bytes": 13,
+          "verified": true
+        },
+        {
+          "path": "LICENSE-backbone.txt",
+          "sha256": "cabcb42eac22e27c8fe2cd6101e2edda407bec25aeed6f1b4fa42dc0e17e8e6a",
+          "size_bytes": 1068,
+          "verified": true
+        },
+        {
+          "path": "parameters.json",
+          "sha256": "2cd81ddea37520104665f8f60517a68925632e978f32e34ac2a64363991750fc",
+          "size_bytes": 163,
+          "verified": true
+        },
+        {
+          "path": "omni-sidecar-v2.gguf",
+          "sha256": "d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+          "size_bytes": 1682999584,
+          "verified": true
+        }
+      ]
+    },
+    {
+      "family": "qwen",
+      "files": [
+        {
+          "path": "config.json",
+          "sha256": "7b385ccbaefc51400dea71f1fe322828db36be7776cfa5be077d72978493bca8",
+          "size_bytes": 273,
+          "verified": true
+        },
+        {
+          "path": "model-Q4_K_M.gguf",
+          "sha256": "91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+          "size_bytes": 16547400480,
+          "verified": true
+        },
+        {
+          "path": "mmproj-audio-vision.gguf",
+          "sha256": "554a8fa98e967c90e9c9e08ba8a8403e79ba23a9c8054456a9013c24c845ff03",
+          "size_bytes": 1652306304,
+          "verified": true
+        },
+        {
+          "path": "template.gotmpl",
+          "sha256": "b507b9c2f6ca642bffcd06665ea7c91f235fd32daeefdf875a0f938db05fb315",
+          "size_bytes": 13,
+          "verified": true
+        },
+        {
+          "path": "LICENSE-backbone.txt",
+          "sha256": "bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a",
+          "size_bytes": 11544,
+          "verified": true
+        },
+        {
+          "path": "parameters.json",
+          "sha256": "ef498ab97953d42d25b891bcb77c0a32d20c1f789527ed970bd988539954350c",
+          "size_bytes": 109,
+          "verified": true
+        },
+        {
+          "path": "omni-sidecar-v2.gguf",
+          "sha256": "d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+          "size_bytes": 1682999584,
+          "verified": true
+        }
+      ]
+    }
+  ],
+  "passed": true
+}

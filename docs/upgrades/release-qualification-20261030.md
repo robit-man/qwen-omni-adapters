@@ -22,9 +22,9 @@ its release qualification target.
 | Concurrent session markers | Isolated | Isolated |
 | Actual primary GPU residency | Proven through accelerator module | Proven on leased exact GPU UUID |
 | Environmental sound semantics | FAIL | FAIL |
-| Speech within video | Exact fixture transcript | FAIL, empty transcript / WER 1.0 |
+| Speech within video after bounded routing repair | Exact fixture transcript | Exact fixture transcript / WER 0.0 |
 
-The source/contract/browser/installer gate passes **6,268 tests** in 335.70 s.
+The source/contract/browser/installer gate passes **6,270 tests** in 287.93 s.
 These tests and the 14 operational checks do not establish semantic parity.
 The original operational alarm/music checks accepted nonempty descriptions;
 that criterion was insufficient. The separate semantic gate retains actual
@@ -35,8 +35,9 @@ outputs and rejects wrong descriptions even when HTTP and tag formatting pass.
 On real ESC-50 clock-alarm, dog and church-bell fixtures, the trained bridges
 omit or misidentify the events. Qwen3.8 predominantly calls them broadband hiss;
 Ornith omits the barking and bells. A clean speech/video fixture contains the
-sentence “The blue bicycle is parked beside the garden gate.” Qwen3.8 reports
-no audio, whereas Ornith transcribes it exactly.
+sentence “The blue bicycle is parked beside the garden gate.” Qwen3.8 initially
+reported no audio. The repair below recovers its exact transcript; both devices
+now pass that fixture. Environmental identification still fails.
 
 The original full-Omni audio model/projector was independently materialized
 from the installed original sidecar and run on a separate scoped A100 lease.
@@ -60,6 +61,17 @@ stage and uses exactly one pinned perception system message. The actual
 patched authenticated HTTP route passes fresh-image checks on the unchanged
 loaded Qwen worker; regression tests cover chat, describe and transcribe.
 
+The subsequent mixed-video defect was repaired structurally: trained bridges
+submit separate audio and visual perception requests through the same resident
+primary. The audio pass uses the bridge's trained prefill. Evidence is combined
+by modality, discarding speech/acoustic claims from the visual pass and visual
+claims from the audio pass. No keyword routing or additional neural model is
+introduced. The actual A100 video-speech gate improves WER from 1.0 to 0.0 while
+retaining red → blue → green. One run takes 6.31 s versus the failed 6.63 s
+control; the Orin regression takes 59.94 s versus 51.05 s before splitting.
+These are single observations, not a claimed latency improvement. The source
+tests cover both complete and streaming paths and channel authority.
+
 The first Ornith audio-fixture attempt used an unsupported sample rate. The
 fixtures were normalized to the documented 16 kHz PCM16 input and only those
 failed contract checks were rerun. Original failed receipts remain in ignored
@@ -80,8 +92,8 @@ workers were stopped. All task-owned A100 leases were released; peer leases
 were preserved.
 
 Before a qualified release can be promoted, repair and evaluate the matching
-trained projections' non-speech understanding and Qwen's mixed audiovisual
-path. Rerun the same semantic fixtures, retain held-out generalization and ASR
+trained projections' non-speech understanding. Rerun the same semantic fixtures,
+retain held-out generalization and ASR
 regression checks, and keep arbitrary full-reference cloning intact. Do not
 substitute successful requests, keyword routing, another reasoning model, or
 new packaging labels for those gates.

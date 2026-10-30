@@ -1,0 +1,17 @@
+{
+  "schema": "robit.omni.semantic-auditory-gates.v1",
+  "family": "qwen",
+  "checks": [
+    {
+      "fixture": "colors-speech.mp4",
+      "status": 200,
+      "elapsed_s": 6.313736228970811,
+      "passed": true,
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>A single speaker voice with steady pacing and clear articulation, no background music or prominent non-speech sounds.</audio_observation><visual_observation>The video consists of a sequence of solid color frames, each bordered by black bars at the top and bottom. The first four frames are filled with a uniform red color. The next three frames display a uniform blue color. The final three frames show a uniform green color. There is no movement, text, or other visual elements within the colored areas.</visual_observation>",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "audio_observation": "A single speaker voice with steady pacing and clear articulation, no background music or prominent non-speech sounds.",
+      "wer": 0.0
+    }
+  ],
+  "passed": true
+}

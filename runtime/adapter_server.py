@@ -1613,6 +1613,36 @@ def _require_comprehension(config: Config) -> None:
         )
 
 
+def _separate_bridge_perception(
+    payload: dict[str, Any], config: Config,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Keep the speech-trained bridge's prefill separate from native vision.
+
+    Both requests use the same resident primary model. This is a structural
+    modality decision, independent of generated words or inferred intent.
+    """
+    if not config.comprehension_disable_thinking:
+        return payload, None
+    media = [part for message in payload["messages"][1:]
+             for part in message["content"]]
+    if not (any(part["type"] == "input_audio" for part in media)
+            and any(part["type"] in {"image_url", "input_video"} for part in media)):
+        return payload, None
+    visual = copy.deepcopy(payload)
+    audio = copy.deepcopy(payload)
+    audio["messages"] = [{"role": "system", "content": TRAINED_AUDIO_SYSTEM_PROMPT}]
+    for source, target in zip(payload["messages"][1:], visual["messages"][1:], strict=True):
+        target["content"] = [part for part in target["content"] if part["type"] != "input_audio"]
+        acoustic = [part for part in source["content"] if part["type"] == "input_audio"]
+        if acoustic:
+            audio["messages"].append({"role": source["role"], "content": [
+                *acoustic, {"type": "text", "text": TRAINED_AUDIO_SUFFIX_PROMPT},
+            ]})
+    visual["mm_processor_kwargs"] = {"use_audio_in_video": False}
+    audio["mm_processor_kwargs"] = {"use_audio_in_video": False}
+    return visual, audio
+
+
 def _comprehend(
     parsed: ParsedAdapterRequest,
     config: Config,
@@ -1637,16 +1667,28 @@ def _comprehend(
         if frame_cap in attempted:
             continue
         attempted.add(frame_cap)
+        payload, audio_payload = _separate_bridge_perception(
+            build_comprehension_payload(parsed, config, max_video_frames=frame_cap), config,
+        )
         response = client.post(
             config.comprehension_url,
-            json=build_comprehension_payload(parsed, config, max_video_frames=frame_cap),
+            json=payload,
         )
         last_response = response
         if _context_overflow(response) and frame_cap > 1:
             continue
-        return _assistant_text(
+        visual_text = _assistant_text(
             _json_response(response, "comprehension"),
             "comprehension",
+        )
+        if audio_payload is None:
+            return visual_text
+        audio_response = client.post(config.comprehension_url, json=audio_payload)
+        audio_text = _assistant_text(_json_response(audio_response, "comprehension"), "comprehension")
+        return (
+            f"<speech_transcript>{_observation_transcript(audio_text) or ''}</speech_transcript>"
+            f"<audio_observation>{_observation_audio(audio_text) or ''}</audio_observation>"
+            f"<visual_observation>{_observation_visual(visual_text) or ''}</visual_observation>"
         )
     if last_response is None:  # pragma: no cover - frame_caps is never empty
         raise AdapterStageError("comprehension was not attempted")
