@@ -645,7 +645,7 @@ run_foreground() {
   OMNI_TTS_REFERENCE_ENCODER_GGUF="$CACHE_DIR/tts-reference-encoder.gguf" \
   LLAMA_TTS_BIN="$REPO_ROOT/vendor/llama.cpp/build/bin/llama-tts" \
   OMNI_TTS_GPU_LAYERS=-1 \
-  OMNI_TTS_STREAM_FRAMES="${OMNI_TTS_STREAM_FRAMES:-2}" \
+  OMNI_TTS_STREAM_FRAMES="${OMNI_TTS_STREAM_FRAMES:-auto}" \
   OMNI_TTS_PERSISTENT="${OMNI_TTS_PERSISTENT:-1}" \
   OMNI_TTS_WARM_SPEAKER_FILE="${OMNI_TTS_WARM_SPEAKER_FILE:-$SCRIPT_DIR/voices/female_voice.wav}" \
   OMNI_TTS_GPU_UUID="$gpu_uuid" \

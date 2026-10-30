@@ -58,6 +58,7 @@ from qwen_omni_adapters.contract import (
     parse_adapter_request,
 )
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState
+from qwen_omni_adapters.tts_packets import stream_frame_setting
 
 
 @dataclass(frozen=True)
@@ -90,7 +91,7 @@ class Config:
     # is known to degenerate, so this stays opt-in per deployment profile.
     comprehension_disable_thinking: bool = False
     comprehension_repeat_penalty: float = 1.0
-    tts_stream_frames: int = 8
+    tts_stream_frames: int | None = None
     spoken_max_sentences: int = 2
     spoken_max_tts_blocks: int = 4
     spoken_max_audio_seconds: float = 24.0
@@ -148,7 +149,7 @@ class Config:
             comprehension_repeat_penalty=float(
                 os.environ.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.0")
             ),
-            tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
+            tts_stream_frames=stream_frame_setting(os.environ.get("OMNI_TTS_STREAM_FRAMES")),
             spoken_max_sentences=int(
                 os.environ.get("OMNI_SPOKEN_MAX_SENTENCES", "2")
             ),
@@ -2703,7 +2704,7 @@ def execute_stream(
         tts_payload = {
             "blocks": text_blocks,
             "output": DEFAULT_AUDIO_CONTRACT.output.to_dict(),
-            "stream_frames": config.tts_stream_frames,
+            **({"stream_frames": config.tts_stream_frames} if config.tts_stream_frames is not None else {}),
             **dict(parsed.speech),
         }
         pending = b""

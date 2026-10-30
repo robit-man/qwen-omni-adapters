@@ -176,6 +176,15 @@ are split at natural text boundaries, PCM sequence numbering remains continuous,
 and the complete final WAV concatenates every block. The adapter trace reports
 the number as `tts_blocks`.
 
+Packet cadence is owned by the speech backend when no override is supplied.
+The coordinated runtime defaults `OMNI_TTS_STREAM_FRAMES` to `auto`: full-reference
+requests with an adaptive 4K context select four frames, while other profiles
+retain eight. An explicit server setting or direct `speech.stream_frames` value
+from 1 to 72 is preserved. Automatic batches use one cadence for all blocks,
+selected against the largest context requirement. These are real acoustic decode
+windows, not slices cut from an already completed WAV. The public PCM events,
+sequence numbering, sample format and final-WAV behavior remain unchanged.
+
 ## Message media fields
 
 Media is attached to a message alongside Ollama's string `content`:

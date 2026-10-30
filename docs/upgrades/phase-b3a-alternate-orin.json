@@ -1,0 +1,31 @@
+{
+  "schema": "robit.omni.cadence-partial-receipt.v1",
+  "complete": false,
+  "source": "bounded private unit stdout and retained WAV",
+  "four_frame_first_pcm_s": [
+    2.0777,
+    0.417,
+    0.4373,
+    0.3949,
+    0.3743
+  ],
+  "four_frame_total_s": [
+    4.7424,
+    2.4376,
+    2.7458,
+    2.2148,
+    2.7503
+  ],
+  "four_frame_continuity_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+  ],
+  "baseline_eight_frame_scored": false,
+  "baseline_eight_frame_audio_s": 2.88,
+  "failure": "at least four complete decoder windows are required",
+  "baseline_wav_sha256": "26edbfa28f0cbd87cb243d54c2fc0229bb8f2bc171d0ff0d7dc5b663a5e7cd3f",
+  "threshold_relaxed": false
+}

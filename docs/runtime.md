@@ -392,16 +392,23 @@ reference is active. The bundled female default and male alternate are real
 clone references; synthesis cannot silently degrade to an unconditioned
 generic voice during startup validation.
 
-The interactive wrapper default is `OMNI_TTS_STREAM_FRAMES=8`, approximately
-640 ms of codec audio per state-carrying decode window. The phone keeps an 80 ms
+The default packet policy is `OMNI_TTS_STREAM_FRAMES=auto` (also selected when
+unset). Full-reference synthesis using an adaptive 4096-position context selects
+four codec frames, approximately 320 ms per decode window. Other profiles retain
+eight frames, approximately 640 ms. An explicit value from 1 to 72 overrides the
+automatic choice; the adapter defers to the speech worker unless configured
+explicitly. A batch selects one cadence using its largest context tier so the
+worker is not replaced between blocks. The phone keeps an 80 ms
 initial playout lead, uses a 3 ms late-arrival scheduling floor, and applies a
 guarded 3 ms crossfade between sufficiently large contiguous buffers. In a
 post-isolation Tegra reference probe, two-frame decoding ran at 1.33x real time,
 four-frame decoding at 1.06x, and eight-frame decoding at 0.91x. Only the
 eight-frame window kept the measured source cadence ahead of playback (2 ms
 worst predicted underrun versus 155 ms with two frames). Treat these
-host-specific values as tuning evidence, not a universal benchmark. A
-voice-profile change intentionally replaces the worker.
+host-specific values as historical tuning evidence, not a universal benchmark.
+The newer full-reference/4K pilot and unmodified browser playback replay favor
+four frames; see `docs/upgrades/phase-b3a-cadence.md`. A voice-profile change
+intentionally replaces the worker.
 
 ### Bounded idle TTS residency
 

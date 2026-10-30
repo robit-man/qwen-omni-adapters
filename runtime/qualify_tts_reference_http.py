@@ -43,6 +43,7 @@ def main():
         "out",
     ):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--automatic-packets", action="store_true")
     args = parser.parse_args()
     uuid = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     token = os.environ.get("OLLAMA_UNIFY_GPU_LEASE", "")
@@ -103,7 +104,7 @@ def main():
         adaptive_context=True,
         idle_keepalive_s=30,
         max_frames=96,
-        stream_frames=2,
+        stream_frames=None if args.automatic_packets else 2,
         timeout_s=120,
     )
     app = tts.create_app(config)
@@ -116,6 +117,8 @@ def main():
         "stream_frames": 2,
         "max_frames": 96,
     }
+    if args.automatic_packets:
+        body.pop("stream_frames")
     report = {
         "schema": "robit.omni.tts-reference-http.v1",
         "observations": [],
@@ -125,6 +128,7 @@ def main():
         "checkpoint_sha256": tts._reference_digest(args.encoder.resolve()),
         "reference_sha256": tts._reference_digest(args.reference),
         "transcript_sha256": tts._reference_digest(args.transcript_file),
+        "automatic_packets": args.automatic_packets,
     }
     outputs = []
 
@@ -159,7 +163,10 @@ def main():
         pcm = bytes(result)
         assert pcm and len(pcm) % 2 == 0
         (work / (label + ".wav")).write_bytes(tts._pcm_wav(pcm))
-        continuity = analyze_pcm(pcm, stream_frames=2)
+        selected_frames = int(response.headers["X-Audio-Stream-Frames"])
+        if args.automatic_packets:
+            assert selected_frames == 4, "small-context automatic packet policy was not exercised"
+        continuity = analyze_pcm(pcm, stream_frames=selected_frames)
         assert continuity["ok"], json.dumps({"label": label, "continuity": continuity})
         health = client.get("/healthz").json
         report["observations"].append(
@@ -170,6 +177,7 @@ def main():
                 "pcm_sha256": hashlib.sha256(pcm).hexdigest(),
                 "pcm_bytes": len(pcm),
                 "continuity": continuity,
+                "stream_frames": selected_frames,
                 "producer_pid": pcm_pid,
                 "producer_gpu_resident": True,
                 "native_libraries": native_libraries,

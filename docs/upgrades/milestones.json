@@ -73,8 +73,25 @@
     {
       "id": "B3",
       "objective": "Committed speech handoff and adaptive initial/steady acoustic windows",
-      "status": "pending",
+      "status": "automatic_small_full_reference_packet_cadence_verified_committed_handoff_and_dynamic_window_ramp_pending",
       "evidence": []
+    },
+    {
+      "id": "B3a",
+      "objective": "Choose the measured packet cadence for adaptive 4K full-reference speech while preserving explicit overrides",
+      "status": "A100_Orin_actual_auto_routes_verified_scheduled_browser_start_improved_negative_voice_cases_retained_full_perceptual_release_gates_pending",
+      "evidence": [
+        "phase-b3a-cadence.md",
+        "phase-b3a-native-a100.json",
+        "phase-b3a-native-orin.json",
+        "phase-b3a-alternate-a100.json",
+        "phase-b3a-alternate-orin.json",
+        "phase-b3a-speaker.json",
+        "phase-b3a-intelligibility.json",
+        "phase-b3a-auto-a100.json",
+        "phase-b3a-auto-orin.json",
+        "phase-b3a-validation.json"
+      ]
     },
     {
       "id": "B4",

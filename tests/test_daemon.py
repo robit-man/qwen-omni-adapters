@@ -86,7 +86,7 @@ def test_tts_stream_window_has_measured_default_and_environment_override(
     monkeypatch.delenv("OMNI_TTS_STREAM_FRAMES", raising=False)
     monkeypatch.setattr(daemon, "_load_env_file", lambda _root: None)
 
-    assert daemon.DaemonConfig.from_environment(cloudflare=False).tts_stream_frames == 8
+    assert daemon.DaemonConfig.from_environment(cloudflare=False).tts_stream_frames is None
 
     monkeypatch.setenv("OMNI_TTS_STREAM_FRAMES", "12")
     assert daemon.DaemonConfig.from_environment(cloudflare=False).tts_stream_frames == 12

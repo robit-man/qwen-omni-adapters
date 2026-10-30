@@ -50,6 +50,7 @@ from qwen_omni_adapters.audio import (
 )
 from qwen_omni_adapters.ollama_sidecar import resolve_ollama_sidecar
 from qwen_omni_adapters.single_gguf import ComponentViewIndex, materialize_component_view
+from qwen_omni_adapters.tts_packets import stream_frame_setting
 from qwen_omni_adapters.tts_residency import IdleTTSResidency
 from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
 from qwen_omni_adapters.voice_reference import reference_transcript
@@ -63,7 +64,7 @@ class Config:
     timeout_s: float = 900
     max_text_chars: int = 4096
     max_frames: int = 512
-    stream_frames: int = 8
+    stream_frames: int | None = None
     gpu_layers: int = -1
     require_gpu: bool = False
     lease_token: str = ""
@@ -143,7 +144,7 @@ class Config:
             timeout_s=float(os.environ.get("OMNI_TTS_TIMEOUT_S", "900")),
             max_text_chars=int(os.environ.get("OMNI_TTS_MAX_TEXT_CHARS", "4096")),
             max_frames=int(os.environ.get("OMNI_TTS_MAX_FRAMES", "512")),
-            stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
+            stream_frames=stream_frame_setting(os.environ.get("OMNI_TTS_STREAM_FRAMES")),
             gpu_layers=int(os.environ.get("OMNI_TTS_GPU_LAYERS", "-1")),
             require_gpu=os.environ.get("OMNI_TTS_REQUIRE_GPU", "0") == "1",
             lease_token=os.environ.get("OLLAMA_UNIFY_GPU_LEASE", "").strip(),
@@ -332,9 +333,8 @@ def _synthesis_spec(config: Config, body: dict[str, Any]) -> SynthesisSpec:
     top_p = float(body.get("top_p", 0.9))
     seed = int(body.get("seed", 42))
     stream_frames_value = body.get("stream_frames")
-    stream_frames = int(
-        config.stream_frames if stream_frames_value is None else stream_frames_value
-    )
+    selected_frames = config.stream_frames if stream_frames_value is None else int(stream_frames_value)
+    stream_frames = 8 if selected_frames is None else selected_frames
     if not 0 <= temperature <= 2:
         raise TTSError("temperature must be between 0 and 2")
     if not 0 <= top_k <= 1000:
@@ -345,7 +345,7 @@ def _synthesis_spec(config: Config, body: dict[str, Any]) -> SynthesisSpec:
         raise TTSError("seed must be -1 or a 32-bit non-negative integer")
     if not 1 <= stream_frames <= 72:
         raise TTSError("stream_frames must be between 1 and 72")
-    return SynthesisSpec(
+    spec = SynthesisSpec(
         text=text,
         language=language,
         locale=locale,
@@ -359,6 +359,10 @@ def _synthesis_spec(config: Config, body: dict[str, Any]) -> SynthesisSpec:
         stream_frames=stream_frames,
         reference_text=reference_text,
     )
+    if (selected_frames is None and config.adaptive_context and spec.reference_text
+            and _context_size(config, spec) == 4096):
+        spec = replace(spec, stream_frames=4)
+    return spec
 
 
 def _command(
@@ -677,6 +681,9 @@ def _batch_specs(config: Config, body: dict[str, Any]) -> list[SynthesisSpec]:
     if config.adaptive_context:
         batch_context = max(_context_size(config, spec) for spec in specs)
         specs = [replace(spec, context_size=batch_context) for spec in specs]
+        if body.get("stream_frames") is None and config.stream_frames is None:
+            frames = 4 if batch_context == 4096 and specs[0].reference_text else 8
+            specs = [replace(spec, stream_frames=frames) for spec in specs]
     return specs
 
 
@@ -1202,19 +1209,7 @@ def _warm_spec(config: Config) -> SynthesisSpec | None:
     speaker = str(Path(config.warm_speaker_file).expanduser().resolve())
     if not Path(speaker).is_file():
         return None
-    return SynthesisSpec(
-        text="warmup",
-        language="en",
-        locale="en",
-        speaker=speaker,
-        speaker_audio=None,
-        frames=config.max_frames,
-        temperature=0.7,
-        top_k=40,
-        top_p=0.9,
-        seed=42,
-        stream_frames=config.stream_frames,
-    )
+    return _synthesis_spec(config, {"text": "warmup", "language": "en", "speaker_file": speaker})
 
 
 def create_app(config: Config | None = None) -> Flask:

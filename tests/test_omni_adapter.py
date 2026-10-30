@@ -108,7 +108,8 @@ def test_adapter_contract_separates_wire_schema_from_bundle_schema() -> None:
 
 def test_tts_stream_window_validation_and_cli_arguments(tmp_path: Path) -> None:
     config = _tts_config(tmp_path)
-    assert config.stream_frames == 8
+    assert config.stream_frames is None
+    assert _synthesis_spec(config, {"text": "Hello"}).stream_frames == 8
     spec = _synthesis_spec(
         config,
         {"text": "Hello", "locale": "en-gb", "stream_frames": 12},
@@ -2052,7 +2053,7 @@ def test_reference_server_streams_pcm_and_keeps_final_wav_envelope() -> None:
         "/api/chat",
         "/synthesize/stream/batch",
     ]
-    assert seen[1][1]["stream_frames"] == 8
+    assert "stream_frames" not in seen[1][1]
     assert seen[1][1]["blocks"] == ["Speak."]
     assert [event["type"] for event in events] == [
         "stage",
@@ -2173,7 +2174,7 @@ def test_live_stream_stops_runaway_decoded_audio_without_changing_codec_window()
             )
         )
 
-    assert seen_tts_payload["stream_frames"] == 8
+    assert "stream_frames" not in seen_tts_payload
 
 
 def test_long_tts_stream_uses_multiple_blocks_and_one_complete_wav(

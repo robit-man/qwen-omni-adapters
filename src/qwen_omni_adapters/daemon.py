@@ -32,6 +32,7 @@ from qwen_omni_adapters.ollama_sidecar import (
     prepare_ollama_sidecar,
     resolve_ollama_sidecar,
 )
+from qwen_omni_adapters.tts_packets import stream_frame_setting
 from qwen_omni_adapters.voice_profiles import ensure_managed_voice_profile
 
 
@@ -144,7 +145,7 @@ class DaemonConfig:
     comprehension_parallel_slots: int = 1
     comprehension_cache_type_k: str = "f16"
     comprehension_cache_type_v: str = "f16"
-    tts_stream_frames: int = 8
+    tts_stream_frames: int | None = None
     portal_token: str = ""
     cloudflare: bool = True
     keep_cache: bool = False
@@ -234,7 +235,7 @@ class DaemonConfig:
             comprehension_cache_type_v=_kv_cache_type_from_environment(
                 "OMNI_COMPREHENSION_CACHE_TYPE_V"
             ),
-            tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
+            tts_stream_frames=stream_frame_setting(os.environ.get("OMNI_TTS_STREAM_FRAMES")),
             portal_token=os.environ.get("OMNI_PORTAL_TOKEN", "").strip(),
             cloudflare=(
                 os.environ.get("OMNI_ENABLE_CLOUDFLARED", "1") != "0"
@@ -899,7 +900,7 @@ class OmniDaemon:
             "OMNI_TTS_PERSISTENT": "1",
             "OMNI_TTS_WARM_SPEAKER_FILE": str(self._voice_reference()),
             "OMNI_TTS_ACTIVE_PID_FILE": str(self.state_dir / "tts-worker.pid"),
-            "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames),
+            "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames) if self.config.tts_stream_frames is not None else "auto",
             "OMNI_TTS_HOST": "127.0.0.1",
             "OMNI_TTS_PORT": str(self.config.tts_port),
         }
@@ -1123,7 +1124,7 @@ class OmniDaemon:
                 "1" if bridge_profile and self.config.enable_comprehension else "0",
             ),
             "OMNI_TTS_URL": f"http://127.0.0.1:{self.config.tts_port}/synthesize",
-            "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames),
+            "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames) if self.config.tts_stream_frames is not None else "auto",
             "OMNI_ADAPTER_HOST": "127.0.0.1",
             "OMNI_ADAPTER_PORT": str(self.config.adapter_port),
         }

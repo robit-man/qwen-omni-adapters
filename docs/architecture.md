@@ -237,5 +237,5 @@ Media chat likewise keeps prior textual conversation and bounded historical
 visual observations, but only the newest attachment is labelled as current
 perceptual evidence. Qwen3-TTS uses a
 persistent framed subprocess protocol so matching-profile requests reuse the
-resident model and the browser can schedule the first two-frame PCM window as
+resident model and the browser can schedule the selected PCM windows as
 soon as it arrives.

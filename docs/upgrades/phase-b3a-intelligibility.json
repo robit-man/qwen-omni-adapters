@@ -1,0 +1,78 @@
+{
+  "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+  "rows": [
+    {
+      "id": "a100-female-4",
+      "wav_sha256": "413d63330a4e7f7522c234218ca1b6428e33134253eea7a8ef1eb2b6f49ba4d6",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "expected": "The blue bicycle is parked beside the garden gate.",
+      "exact": true,
+      "elapsed_s": 1.3608789648860693,
+      "cache_prompt": false
+    },
+    {
+      "id": "a100-female-8",
+      "wav_sha256": "d377958cdc33f817f6434fe9e93473c2ef1e710b4ed3f3f0973bcb05a88ee8b3",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "expected": "The blue bicycle is parked beside the garden gate.",
+      "exact": true,
+      "elapsed_s": 1.0894513218663633,
+      "cache_prompt": false
+    },
+    {
+      "id": "a100-male-4",
+      "wav_sha256": "6d4eaf60470e6fed21851f5b9ac822b001e68185bac53102631b31bc096d66c8",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "expected": "The blue bicycle is parked beside the garden gate.",
+      "exact": true,
+      "elapsed_s": 1.0404718960635364,
+      "cache_prompt": false
+    },
+    {
+      "id": "a100-male-8",
+      "wav_sha256": "254147d36dca2fa61c344feb634477bae9f8c93d845579f085957a85d9a69124",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "expected": "The blue bicycle is parked beside the garden gate.",
+      "exact": true,
+      "elapsed_s": 1.0523837369401008,
+      "cache_prompt": false
+    },
+    {
+      "id": "orin-female-4",
+      "wav_sha256": "4ddf3a9bd9f607b749b6510011bbe5a3b573a71d831addfcc39b8c85432ecbfa",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "expected": "The blue bicycle is parked beside the garden gate.",
+      "exact": true,
+      "elapsed_s": 1.1145289649721235,
+      "cache_prompt": false
+    },
+    {
+      "id": "orin-female-8",
+      "wav_sha256": "9f21231379dc5ee45f1ee544530fecf9955ae7d0ab8ec54fd039bfb5931b1e40",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "expected": "The blue bicycle is parked beside the garden gate.",
+      "exact": true,
+      "elapsed_s": 1.0805828631855547,
+      "cache_prompt": false
+    },
+    {
+      "id": "orin-male-4",
+      "wav_sha256": "5eca350b24ed05a620a1528428acb5bccdeb4874a539a996e125b84c031bdba5",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "expected": "The blue bicycle is parked beside the garden gate.",
+      "exact": true,
+      "elapsed_s": 1.0468343917746097,
+      "cache_prompt": false
+    },
+    {
+      "id": "orin-male-8",
+      "wav_sha256": "26edbfa28f0cbd87cb243d54c2fc0229bb8f2bc171d0ff0d7dc5b663a5e7cd3f",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "expected": "The blue bicycle is parked beside the garden gate.",
+      "exact": true,
+      "elapsed_s": 1.030994014116004,
+      "cache_prompt": false
+    }
+  ],
+  "all_exact": true
+}

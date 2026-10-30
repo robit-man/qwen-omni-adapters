@@ -1,0 +1,4169 @@
+{
+  "schema": "robit.omni.native-cadence-pilot.v1",
+  "accelerator": {
+    "system": "Linux",
+    "machine": "aarch64",
+    "tegra": true,
+    "residency_backend": "tegra-device-handles",
+    "gpu_memory_model": "unified",
+    "tegra_soc": "tegra234",
+    "l4t_release": "R36.3.0",
+    "cuda_architectures": "87"
+  },
+  "cases": [
+    {
+      "frames": 1,
+      "runs": [
+        {
+          "index": 0,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.7324395580217242,
+          "total_s": 6.23102139797993,
+          "audio_s": 4.32,
+          "pcm_sha256": "d432479c66f2feead4173ecb771e1bf79809281ac16646ccea7fd63fdea4876c",
+          "arrivals": [
+            {
+              "time_s": 0.7324395580217242,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.9254737629089504,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.1360602399799973,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.276047688908875,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.3866331349126995,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.5409247709903866,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.70325888809748,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.8231326648965478,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.9196639249566942,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.0415245241019875,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.177221422083676,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.286849142983556,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.375397206051275,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.4834771340247244,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.6050015359651297,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.7261024189647287,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.831195408012718,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.9211646309122443,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.008336588041857,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.1080948929302394,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.2157341269776225,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.309167586034164,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.3933228941168636,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.4748693390283734,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.5675082749221474,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.6665112930350006,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.7699855829123408,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.874883688054979,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.9777562050148845,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.085030046990141,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.181949116988108,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.271853340091184,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.354467493947595,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.442078877007589,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.534938738914207,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.627156859030947,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.7263416619971395,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.826386431930587,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.927845384925604,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.023418589029461,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.1142074330709875,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.19203466293402,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.275084032909945,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.363249134970829,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.456222522072494,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.544025870040059,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.626525054918602,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.707181707024574,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.788278903113678,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.872472420101985,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 5.958731847116724,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 6.047508276067674,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 6.139930404955521,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 6.230383848072961,
+              "audio_s": 0.08,
+              "bytes": 3840
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 1,
+            "window_samples": 1920,
+            "complete_windows": 54,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0,
+              "minimum": -0.765594482421875,
+              "maximum": 0.436004638671875,
+              "standard_deviation": 0.18716842265611566
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.6415248059827074,
+              "10": 0.1549896191815898,
+              "20": 0.15201429413644935
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08394934700031002,
+              "maximum": 1.3254487830290669
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 3.1880948929302395,
+              "scheduled_completion_s": 7.349094892930237,
+              "underruns": 0,
+              "required_lead_s": 1.1208991694904689
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 2.5634771340247244,
+              "scheduled_completion_s": 6.724477134024722,
+              "underruns": 0,
+              "required_lead_s": 0.5305592999588197
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 1.356047688908875,
+              "scheduled_completion_s": 6.356853340091183,
+              "underruns": 2,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "text_chars": 50,
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "first_pcm_s": 0.14702321006916463,
+          "total_s": 3.406980742001906,
+          "audio_s": 3.12,
+          "pcm_sha256": "6a940d86c1b73d7dba6cdd1dbe2226b903bc1df43e50a4dba4bf14810a4a15da",
+          "arrivals": [
+            {
+              "time_s": 0.14702321006916463,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.2422891929745674,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.33587716706097126,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.4259384849574417,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.5192630151286721,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.6075684931129217,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.6896164619829506,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.7688084349501878,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.8487644279375672,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.9330226520542055,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.0192066789604723,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.106791831087321,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.1952480231411755,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.2825094400905073,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.3685691379942,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.4545153880026191,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.5411401831079274,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.629618071950972,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.7168376930058002,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.802416796097532,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.8870395729318261,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.9737184350378811,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.062314235139638,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.1499603979755193,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.2359027590136975,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.320583684137091,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.4023351499345154,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.48882497404702,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.5770508269779384,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.6607324809301645,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.738354236120358,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.817702473141253,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.8990036179311574,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.98251285799779,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.0661859191022813,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.151700999122113,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.237175340997055,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.321146277943626,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.4065558151341975,
+              "audio_s": 0.08,
+              "bytes": 3840
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 74880,
+            "duration_seconds": 3.12,
+            "stream_frames": 1,
+            "window_samples": 1920,
+            "complete_windows": 39,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.008819580078125,
+              "minimum": -0.307098388671875,
+              "maximum": 0.639617919921875,
+              "standard_deviation": 0.20175446357298074
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.25955275487343893,
+              "10": 0.2737902138162342,
+              "20": 0.2792790693442361
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.10246201735067124,
+              "maximum": 1.2755882970575552
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.9287644279375672,
+              "scheduled_completion_s": 3.9347644279375684,
+              "underruns": 0,
+              "required_lead_s": 0.6337397215819742
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.5059384849574416,
+              "scheduled_completion_s": 3.511938484957443,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.5059384849574416,
+              "scheduled_completion_s": 3.511938484957443,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.1385589928831905,
+          "total_s": 4.664605808909982,
+          "audio_s": 4.32,
+          "pcm_sha256": "d432479c66f2feead4173ecb771e1bf79809281ac16646ccea7fd63fdea4876c",
+          "arrivals": [
+            {
+              "time_s": 0.1385589928831905,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.23001875705085695,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.3182121980935335,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.4147661009337753,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.5028952721040696,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.5925953080877662,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.679453891934827,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.7693634470924735,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.8582843549083918,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.9428865530062467,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.0252335180994123,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.1044055339880288,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.1825924878939986,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.2632077119778842,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.345808600075543,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.429949436103925,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.5139503260143101,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.599789652042091,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.6878853950183839,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.7728374260477722,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.8531593969091773,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.930234608007595,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.0089507999364287,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.0907227948773652,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.1743463780730963,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.2582511329092085,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.342780014965683,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.4262634119950235,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.5119713190943003,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.5972226820886135,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.685874480055645,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.7771676499396563,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.86220568488352,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.9473445920739323,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.032147506950423,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.118066244991496,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.2070064800791442,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.2969108410179615,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.386341268895194,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.4715859899297357,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.556777555961162,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.638747069053352,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.715294658904895,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.794817246031016,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.8765670619904995,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.959691376890987,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.045324445934966,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.130543469917029,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.220214297994971,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.310510091949254,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.399251299910247,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.486853772075847,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.577637878013775,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.6639565150253475,
+              "audio_s": 0.08,
+              "bytes": 3840
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 1,
+            "window_samples": 1920,
+            "complete_windows": 54,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0,
+              "minimum": -0.765594482421875,
+              "maximum": 0.436004638671875,
+              "standard_deviation": 0.18716842265611566
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.6415248059827074,
+              "10": 0.1549896191815898,
+              "20": 0.15201429413644935
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08394934700031002,
+              "maximum": 1.3254487830290669
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 1.0228865530062468,
+              "scheduled_completion_s": 5.183886553006247,
+              "underruns": 0,
+              "required_lead_s": 0.6220434345344983
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.4947661009337753,
+              "scheduled_completion_s": 5.009510091949254,
+              "underruns": 1,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.4947661009337753,
+              "scheduled_completion_s": 5.009510091949254,
+              "underruns": 1,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "text_chars": 50,
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "first_pcm_s": 0.13205276196822524,
+          "total_s": 3.4863514280878007,
+          "audio_s": 3.12,
+          "pcm_sha256": "6a940d86c1b73d7dba6cdd1dbe2226b903bc1df43e50a4dba4bf14810a4a15da",
+          "arrivals": [
+            {
+              "time_s": 0.13205276196822524,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.22129784594289958,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.3064229590818286,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.3962761180009693,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.48400771990418434,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.5755681339651346,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.6676146469544619,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.7680987489875406,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.8609157169703394,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.9524446888826787,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.04328330908902,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.134813881944865,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.2243065498769283,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.3158318740315735,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.4074491090141237,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.4996368798892945,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.5871511639561504,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.671632420970127,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.7535409529227763,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.8358885559719056,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.9193304108921438,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.0042111850343645,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.0910179500933737,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.1820762478746474,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.2692692480050027,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.3545637470670044,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.4442108089569956,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.5329316288698465,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.6215454540215433,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.7127135330811143,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.8001590468920767,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.883354244986549,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.965962457936257,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.0491967310663313,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.1330996588803828,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.2171716860029846,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.3046516340691596,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.3976301450747997,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.48586659389548,
+              "audio_s": 0.08,
+              "bytes": 3840
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 74880,
+            "duration_seconds": 3.12,
+            "stream_frames": 1,
+            "window_samples": 1920,
+            "complete_windows": 39,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.008819580078125,
+              "minimum": -0.307098388671875,
+              "maximum": 0.639617919921875,
+              "standard_deviation": 0.20175446357298074
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.25955275487343893,
+              "10": 0.2737902138162342,
+              "20": 0.2792790693442361
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.10246201735067124,
+              "maximum": 1.2755882970575552
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 1.0324446888826788,
+              "scheduled_completion_s": 4.03844468888268,
+              "underruns": 0,
+              "required_lead_s": 0.7065805803162448
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.4762761180009693,
+              "scheduled_completion_s": 3.818962457936257,
+              "underruns": 1,
+              "required_lead_s": 0.2519775896188677
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.4762761180009693,
+              "scheduled_completion_s": 3.818962457936257,
+              "underruns": 1,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.14353247988037765,
+          "total_s": 4.8471847388427705,
+          "audio_s": 4.32,
+          "pcm_sha256": "d432479c66f2feead4173ecb771e1bf79809281ac16646ccea7fd63fdea4876c",
+          "arrivals": [
+            {
+              "time_s": 0.14353247988037765,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.24334463593550026,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.33735334500670433,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.4323566509410739,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.5267990219872445,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.6193031128495932,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.70722441887483,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.7998859288636595,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.895838197786361,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 0.9917396157979965,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.0844207347836345,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.178512022830546,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.2733818928245455,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.367500030901283,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.4621108118444681,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.5558717087842524,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.6510696338955313,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.7480567728634924,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.8445810948032886,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 1.93865734199062,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.033664725953713,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.123919921927154,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.20858714194037,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.2894242708571255,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.3736709819640964,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.4604436608497053,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.549086229875684,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.640114821959287,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.7284221998415887,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.8170672019477934,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.906331798993051,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 2.99520452786237,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.0837794688995928,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.171683889813721,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.2614207898732275,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.34909453894943,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.43287886492908,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.511832454940304,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.594320531003177,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.676917190896347,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.7628884848672897,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.8505736268125474,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 3.934961642837152,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.022805898915976,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.111086749006063,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.19563597580418,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.27640484389849,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.359623258933425,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.4451662509236485,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.529812444932759,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.6124102720059454,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.692491572815925,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.76773109799251,
+              "audio_s": 0.08,
+              "bytes": 3840
+            },
+            {
+              "time_s": 4.846602523000911,
+              "audio_s": 0.08,
+              "bytes": 3840
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 1,
+            "window_samples": 1920,
+            "complete_windows": 54,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0,
+              "minimum": -0.765594482421875,
+              "maximum": 0.436004638671875,
+              "standard_deviation": 0.18716842265611566
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.6415248059827074,
+              "10": 0.1549896191815898,
+              "20": 0.15201429413644935
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08394934700031002,
+              "maximum": 1.3254487830290669
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 1.1644207347836346,
+              "scheduled_completion_s": 5.325420734783634,
+              "underruns": 0,
+              "required_lead_s": 0.7204201937450709
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.6067990219872444,
+              "scheduled_completion_s": 5.209878864929079,
+              "underruns": 1,
+              "required_lead_s": 0.2658336022737456
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.5123566509410739,
+              "scheduled_completion_s": 5.033114821959286,
+              "underruns": 1,
+              "required_lead_s": 0.25
+            }
+          ]
+        }
+      ],
+      "memory": {
+        "minimum_available_mib": 5222.3203125,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      }
+    },
+    {
+      "frames": 2,
+      "runs": [
+        {
+          "index": 0,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.9444383780937642,
+          "total_s": 6.3660472391638905,
+          "audio_s": 4.32,
+          "pcm_sha256": "11b5ab22c8d6b837534ab02ec1f5c78c22d9acfab7fb1d418d876f10ba2ebd3f",
+          "arrivals": [
+            {
+              "time_s": 0.9444383780937642,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.2846143620554358,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.525296641048044,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.7749244892038405,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.943136447109282,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.179141566157341,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.3775769560597837,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.5842080709990114,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.842295616166666,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.0952040560077876,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.2797470171935856,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.496931929141283,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.7290283811744303,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.962100323056802,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.133177530020475,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.320426968159154,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.52570456918329,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.69595778407529,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.883533739019185,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 5.081662088166922,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 5.283511205110699,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 5.464388336986303,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 5.644300059182569,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 5.844223116058856,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 6.023330528056249,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 6.185436560073867,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 6.3649016581475735,
+              "audio_s": 0.16,
+              "bytes": 7680
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 27,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.004547119140625,
+              "minimum": -0.448944091796875,
+              "maximum": 0.323211669921875,
+              "standard_deviation": 0.16260369627850543
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.5892237704140062,
+              "10": 0.2601480356546921,
+              "20": 0.2301659947469341
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08572058733709167,
+              "maximum": 1.1903522257615524
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 3.1752040560077877,
+              "scheduled_completion_s": 7.4172040560077885,
+              "underruns": 0,
+              "required_lead_s": 1.133357593738921
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 2.259141566157341,
+              "scheduled_completion_s": 6.606047239163891,
+              "underruns": 1,
+              "required_lead_s": 0.6754504722310746
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 1.3646143620554358,
+              "scheduled_completion_s": 6.739436560073868,
+              "underruns": 4,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "text_chars": 50,
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "first_pcm_s": 0.2691962548997253,
+          "total_s": 3.647813929943368,
+          "audio_s": 3.12,
+          "pcm_sha256": "5b673c661b23b0d0d12546bc29217b70c58c427ffca921cdbe71361422394ac5",
+          "arrivals": [
+            {
+              "time_s": 0.2691962548997253,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.462522478075698,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.6602445479948074,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.8580626980401576,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.049728323938325,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.209486210020259,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.3640817010309547,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.541271636961028,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.7212614079471678,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.9093333850614727,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.110811023041606,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.2827962890733033,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.4408964968752116,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.625164601020515,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.812554305884987,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.003555207978934,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.2016086438670754,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.3726238280069083,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.5503308188635856,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.6476460469421,
+              "audio_s": 0.08,
+              "bytes": 3840
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 74880,
+            "duration_seconds": 3.12,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 19,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.084869384765625,
+              "minimum": -0.308319091796875,
+              "maximum": 0.196990966796875,
+              "standard_deviation": 0.1722511239386754
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.26874054120144636,
+              "10": 0.29574133045837336,
+              "20": 0.29016226022243813
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.12771497377736696,
+              "maximum": 1.272884765069859
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 1.289486210020259,
+              "scheduled_completion_s": 4.35248621002026,
+              "underruns": 0,
+              "required_lead_s": 0.7935685765957198
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.7402445479948073,
+              "scheduled_completion_s": 3.803244547994808,
+              "underruns": 0,
+              "required_lead_s": 0.27114407005596397
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.542522478075698,
+              "scheduled_completion_s": 3.856896496875212,
+              "underruns": 1,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.2483437650371343,
+          "total_s": 4.659953667083755,
+          "audio_s": 4.32,
+          "pcm_sha256": "11b5ab22c8d6b837534ab02ec1f5c78c22d9acfab7fb1d418d876f10ba2ebd3f",
+          "arrivals": [
+            {
+              "time_s": 0.2483437650371343,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.42514202115125954,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.5688025860581547,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.7287227599881589,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.9063451671972871,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.0770756260026246,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.2285719790961593,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.3942521209828556,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.5693747771438211,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.740564821055159,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.9231453160755336,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.106000285129994,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.28523732512258,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.439943493111059,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.5976603261660784,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.7617933261208236,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.9347968010697514,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.111862360034138,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.2902073711156845,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.4437317370902747,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.592301696073264,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.7608277881518006,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.9400744261220098,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.119884419022128,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.296473280992359,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.485346375033259,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.658839226001874,
+              "audio_s": 0.16,
+              "bytes": 7680
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 27,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.004547119140625,
+              "minimum": -0.448944091796875,
+              "maximum": 0.323211669921875,
+              "standard_deviation": 0.16260369627850543
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.5892237704140062,
+              "10": 0.2601480356546921,
+              "20": 0.2301659947469341
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08572058733709167,
+              "maximum": 1.1903522257615524
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.6488025860581547,
+              "scheduled_completion_s": 4.890802586058156,
+              "underruns": 0,
+              "required_lead_s": 0.6050322337613301
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.5051420211512595,
+              "scheduled_completion_s": 5.007473280992359,
+              "underruns": 1,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.5051420211512595,
+              "scheduled_completion_s": 5.007473280992359,
+              "underruns": 1,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "text_chars": 50,
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "first_pcm_s": 0.21123053203336895,
+          "total_s": 3.3686444249469787,
+          "audio_s": 3.12,
+          "pcm_sha256": "5b673c661b23b0d0d12546bc29217b70c58c427ffca921cdbe71361422394ac5",
+          "arrivals": [
+            {
+              "time_s": 0.21123053203336895,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.38004502304829657,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.5566495980601758,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.7297384531702846,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.9108145521022379,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.0811729889828712,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.2357010750565678,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.3850285280495882,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.5555286379531026,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.7272566680330783,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.9057467081584036,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.081921718083322,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.262459859950468,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.43334628501907,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.6118898310232908,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.795254684984684,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.9593946360982955,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.1079182729590684,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.2714232390280813,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.3685164800845087,
+              "audio_s": 0.08,
+              "bytes": 3840
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 74880,
+            "duration_seconds": 3.12,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 19,
+            "tail_samples": 1920,
+            "start_sample": {
+              "median": -0.084869384765625,
+              "minimum": -0.308319091796875,
+              "maximum": 0.196990966796875,
+              "standard_deviation": 0.1722511239386754
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.26874054120144636,
+              "10": 0.29574133045837336,
+              "20": 0.29016226022243813
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.12771497377736696,
+              "maximum": 1.272884765069859
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.9908145521022379,
+              "scheduled_completion_s": 4.053814552102239,
+              "underruns": 0,
+              "required_lead_s": 0.6204653131060187
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.4600450230482966,
+              "scheduled_completion_s": 3.5230450230482973,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.4600450230482966,
+              "scheduled_completion_s": 3.5230450230482973,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.23886727588251233,
+          "total_s": 4.629175428068265,
+          "audio_s": 4.32,
+          "pcm_sha256": "11b5ab22c8d6b837534ab02ec1f5c78c22d9acfab7fb1d418d876f10ba2ebd3f",
+          "arrivals": [
+            {
+              "time_s": 0.23886727588251233,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.4219339319970459,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.5971219630446285,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.7522404650226235,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 0.9058618459384888,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.074930866016075,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.2506216170731932,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.4114451329223812,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.5661338500212878,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.7285652779974043,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 1.9049672759138048,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.083970889914781,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.2644680000375956,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.450000955024734,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.637365100905299,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.8129608060698956,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 2.9681056179106236,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.1212161930743605,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.291294357040897,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.4685333359520882,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.6363002790603787,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.8115470649208874,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 3.9827718269079924,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.135952234035358,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.289547259919345,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.4538755510002375,
+              "audio_s": 0.16,
+              "bytes": 7680
+            },
+            {
+              "time_s": 4.628360335947946,
+              "audio_s": 0.16,
+              "bytes": 7680
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 2,
+            "window_samples": 3840,
+            "complete_windows": 27,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": -0.004547119140625,
+              "minimum": -0.448944091796875,
+              "maximum": 0.323211669921875,
+              "standard_deviation": 0.16260369627850543
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.5892237704140062,
+              "10": 0.2601480356546921,
+              "20": 0.2301659947469341
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.08572058733709167,
+              "maximum": 1.1903522257615524
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.8322404650226235,
+              "scheduled_completion_s": 5.0742404650226245,
+              "underruns": 0,
+              "required_lead_s": 0.5928644725467035
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.5019339319970458,
+              "scheduled_completion_s": 5.007771826907993,
+              "underruns": 1,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.5019339319970458,
+              "scheduled_completion_s": 5.007771826907993,
+              "underruns": 1,
+              "required_lead_s": 0.25
+            }
+          ]
+        }
+      ],
+      "memory": {
+        "minimum_available_mib": 4887.078125,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      }
+    },
+    {
+      "frames": 4,
+      "runs": [
+        {
+          "index": 0,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 1.321848857915029,
+          "total_s": 5.765644063940272,
+          "audio_s": 4.32,
+          "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+          "arrivals": [
+            {
+              "time_s": 1.321848857915029,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.7917145788669586,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.207924200920388,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.629556301049888,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.017156081041321,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.407293515978381,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.7677812830079347,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 4.138558208011091,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 4.430656544864178,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 4.734306349884719,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 4.996743876952678,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 5.305948119843379,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 5.6016315799206495,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 5.76513715297915,
+              "audio_s": 0.16,
+              "bytes": 7680
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 4,
+            "window_samples": 7680,
+            "complete_windows": 13,
+            "tail_samples": 3840,
+            "start_sample": {
+              "median": -0.0104827880859375,
+              "minimum": -0.410614013671875,
+              "maximum": 0.323211669921875,
+              "standard_deviation": 0.17868889038324645
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.4872653671592807,
+              "10": 0.2796083748066254,
+              "20": 0.35049888496784387
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.21632654231352355,
+              "maximum": 1.1884966799296262
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 2.709556301049888,
+              "scheduled_completion_s": 6.990556301049889,
+              "underruns": 0,
+              "required_lead_s": 0.7241243913741907
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 1.401848857915029,
+              "scheduled_completion_s": 6.673556301049889,
+              "underruns": 1,
+              "required_lead_s": 0.26954077177963653
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 1.401848857915029,
+              "scheduled_completion_s": 6.280558208011092,
+              "underruns": 5,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "text_chars": 50,
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "first_pcm_s": 0.3508287600707263,
+          "total_s": 2.757190249161795,
+          "audio_s": 3.12,
+          "pcm_sha256": "27338f29ca6b86a9c6be6e069f6d9eff7a4ea5e48adfba6ef7beafbdfe7dd14e",
+          "arrivals": [
+            {
+              "time_s": 0.3508287600707263,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 0.623892939183861,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 0.8951171590015292,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.165595956146717,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.430994971189648,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.7110859961248934,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.9921435131691396,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.241194947157055,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.506759255193174,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.7570653141010553,
+              "audio_s": 0.24,
+              "bytes": 11520
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 74880,
+            "duration_seconds": 3.12,
+            "stream_frames": 4,
+            "window_samples": 7680,
+            "complete_windows": 9,
+            "tail_samples": 5760,
+            "start_sample": {
+              "median": -0.0933685302734375,
+              "minimum": -0.269989013671875,
+              "maximum": 0.198822021484375,
+              "standard_deviation": 0.18374593617012525
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.4370505008502015,
+              "10": 0.42091331167797275,
+              "20": 0.4448117652962676
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.13616660451709797,
+              "maximum": 1.2729628797465224
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.703892939183861,
+              "scheduled_completion_s": 3.79689293918386,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.4308287600707263,
+              "scheduled_completion_s": 3.5238287600707254,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.4308287600707263,
+              "scheduled_completion_s": 3.5238287600707254,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.34011449897661805,
+          "total_s": 3.890571682015434,
+          "audio_s": 4.32,
+          "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+          "arrivals": [
+            {
+              "time_s": 0.34011449897661805,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 0.623633970040828,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 0.912173927994445,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.1967512101400644,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.4681985930074006,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.725357840070501,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.0179377391468734,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.3082972781267017,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.592340555973351,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.869082920020446,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.150167790008709,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.4402014000806957,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.715325628174469,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.8904811800457537,
+              "audio_s": 0.16,
+              "bytes": 7680
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 4,
+            "window_samples": 7680,
+            "complete_windows": 13,
+            "tail_samples": 3840,
+            "start_sample": {
+              "median": -0.0104827880859375,
+              "minimum": -0.410614013671875,
+              "maximum": 0.323211669921875,
+              "standard_deviation": 0.17868889038324645
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.4872653671592807,
+              "10": 0.2796083748066254,
+              "20": 0.35049888496784387
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.21632654231352355,
+              "maximum": 1.1884966799296262
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.703633970040828,
+              "scheduled_completion_s": 4.984633970040828,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.42011449897661807,
+              "scheduled_completion_s": 4.701114498976617,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.42011449897661807,
+              "scheduled_completion_s": 4.701114498976617,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "text_chars": 50,
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "first_pcm_s": 0.34678103285841644,
+          "total_s": 2.8374187059234828,
+          "audio_s": 3.12,
+          "pcm_sha256": "27338f29ca6b86a9c6be6e069f6d9eff7a4ea5e48adfba6ef7beafbdfe7dd14e",
+          "arrivals": [
+            {
+              "time_s": 0.34678103285841644,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 0.649349567014724,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 0.9187695328146219,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.1896091338712722,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.4827784488443285,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.7563403767999262,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.0387980439700186,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.314213265897706,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.601157126016915,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.8370558039750904,
+              "audio_s": 0.24,
+              "bytes": 11520
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 74880,
+            "duration_seconds": 3.12,
+            "stream_frames": 4,
+            "window_samples": 7680,
+            "complete_windows": 9,
+            "tail_samples": 5760,
+            "start_sample": {
+              "median": -0.0933685302734375,
+              "minimum": -0.269989013671875,
+              "maximum": 0.198822021484375,
+              "standard_deviation": 0.18374593617012525
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.4370505008502015,
+              "10": 0.42091331167797275,
+              "20": 0.4448117652962676
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.13616660451709797,
+              "maximum": 1.2729628797465224
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.729349567014724,
+              "scheduled_completion_s": 3.822349567014723,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.42678103285841645,
+              "scheduled_completion_s": 3.5197810328584156,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.42678103285841645,
+              "scheduled_completion_s": 3.5197810328584156,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.35865075094625354,
+          "total_s": 4.1330170531291515,
+          "audio_s": 4.32,
+          "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+          "arrivals": [
+            {
+              "time_s": 0.35865075094625354,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 0.6657515270635486,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 0.9294066079892218,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.249159615021199,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.5793175071012229,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 1.9058689901139587,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.2001321790739894,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.485288835130632,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 2.789118521148339,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.1035842220298946,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.4026934430003166,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.683595904149115,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 3.952802598942071,
+              "audio_s": 0.32,
+              "bytes": 15360
+            },
+            {
+              "time_s": 4.132783183129504,
+              "audio_s": 0.16,
+              "bytes": 7680
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 4,
+            "window_samples": 7680,
+            "complete_windows": 13,
+            "tail_samples": 3840,
+            "start_sample": {
+              "median": -0.0104827880859375,
+              "minimum": -0.410614013671875,
+              "maximum": 0.323211669921875,
+              "standard_deviation": 0.17868889038324645
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.4872653671592807,
+              "10": 0.2796083748066254,
+              "20": 0.35049888496784387
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.21632654231352355,
+              "maximum": 1.1884966799296262
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.7457515270635485,
+              "scheduled_completion_s": 5.026751527063547,
+              "underruns": 0,
+              "required_lead_s": 0.3095049369728908
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.43865075094625355,
+              "scheduled_completion_s": 4.719650750946252,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.43865075094625355,
+              "scheduled_completion_s": 4.719650750946252,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        }
+      ],
+      "memory": {
+        "minimum_available_mib": 4725.5390625,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      }
+    },
+    {
+      "frames": 6,
+      "runs": [
+        {
+          "index": 0,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 1.4742088119965047,
+          "total_s": 5.4201247959863394,
+          "audio_s": 4.32,
+          "pcm_sha256": "f148b48e404ad12999cb65a7266394039db9825c45edb13578553f156826e3f7",
+          "arrivals": [
+            {
+              "time_s": 1.4742088119965047,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 2.1082974830642343,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 2.6605952559038997,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 3.1624376310501248,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 3.68569023697637,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 4.126316620968282,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 4.554174832068384,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 4.964835009071976,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 5.41981223388575,
+              "audio_s": 0.48,
+              "bytes": 23040
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 6,
+            "window_samples": 11520,
+            "complete_windows": 9,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.000030517578125,
+              "minimum": -0.449676513671875,
+              "maximum": 0.322235107421875,
+              "standard_deviation": 0.2508032571256945
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.38811427223651024,
+              "10": 0.3526326213064686,
+              "20": 0.34690519194303454
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.0767897200489443,
+              "maximum": 0.34363925132046713
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 2.7405952559038997,
+              "scheduled_completion_s": 7.036595255903901,
+              "underruns": 0,
+              "required_lead_s": 0.5252295846406262
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 1.5542088119965047,
+              "scheduled_completion_s": 6.559595255903901,
+              "underruns": 1,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 1.5542088119965047,
+              "scheduled_completion_s": 6.107437631050125,
+              "underruns": 2,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "text_chars": 50,
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "first_pcm_s": 0.44767552707344294,
+          "total_s": 2.5782436011359096,
+          "audio_s": 3.12,
+          "pcm_sha256": "540c820d7123156e670f284f2cef39c7c3ed6fa1135586727444df5c411b9168",
+          "arrivals": [
+            {
+              "time_s": 0.44767552707344294,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 0.8552668110933155,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.2361117501277477,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.610131029970944,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.9977772461716086,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 2.3594604739919305,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 2.577846746193245,
+              "audio_s": 0.24,
+              "bytes": 11520
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 74880,
+            "duration_seconds": 3.12,
+            "stream_frames": 6,
+            "window_samples": 11520,
+            "complete_windows": 6,
+            "tail_samples": 5760,
+            "start_sample": {
+              "median": -0.097259521484375,
+              "minimum": -0.216033935546875,
+              "maximum": 0.085235595703125,
+              "standard_deviation": 0.1133230355904373
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.7380497227690036,
+              "10": 0.6969882712606854,
+              "20": 0.7679498824524729
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.254982490173981,
+              "maximum": 1.1461393814656837
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.9352668110933154,
+              "scheduled_completion_s": 4.037266811093315,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.5276755270734429,
+              "scheduled_completion_s": 3.6296755270734433,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.5276755270734429,
+              "scheduled_completion_s": 3.6296755270734433,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.4303892629686743,
+          "total_s": 3.421342747984454,
+          "audio_s": 4.32,
+          "pcm_sha256": "f148b48e404ad12999cb65a7266394039db9825c45edb13578553f156826e3f7",
+          "arrivals": [
+            {
+              "time_s": 0.4303892629686743,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 0.8084616891574115,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.195175077067688,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.5806471360847354,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.9610201581381261,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 2.335438341135159,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 2.686579957138747,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 3.0521225910633802,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 3.419907849980518,
+              "audio_s": 0.48,
+              "bytes": 23040
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 6,
+            "window_samples": 11520,
+            "complete_windows": 9,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.000030517578125,
+              "minimum": -0.449676513671875,
+              "maximum": 0.322235107421875,
+              "standard_deviation": 0.2508032571256945
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.38811427223651024,
+              "10": 0.3526326213064686,
+              "20": 0.34690519194303454
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.0767897200489443,
+              "maximum": 0.34363925132046713
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.8884616891574114,
+              "scheduled_completion_s": 5.184461689157411,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.5103892629686743,
+              "scheduled_completion_s": 4.806389262968674,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.5103892629686743,
+              "scheduled_completion_s": 4.806389262968674,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "text_chars": 50,
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "first_pcm_s": 0.41058903094381094,
+          "total_s": 2.5822036110330373,
+          "audio_s": 3.12,
+          "pcm_sha256": "540c820d7123156e670f284f2cef39c7c3ed6fa1135586727444df5c411b9168",
+          "arrivals": [
+            {
+              "time_s": 0.41058903094381094,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 0.8005832089111209,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.185771106975153,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.5795681548770517,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.9641131558455527,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 2.3515197429805994,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 2.5820811400189996,
+              "audio_s": 0.24,
+              "bytes": 11520
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 74880,
+            "duration_seconds": 3.12,
+            "stream_frames": 6,
+            "window_samples": 11520,
+            "complete_windows": 6,
+            "tail_samples": 5760,
+            "start_sample": {
+              "median": -0.097259521484375,
+              "minimum": -0.216033935546875,
+              "maximum": 0.085235595703125,
+              "standard_deviation": 0.1133230355904373
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.7380497227690036,
+              "10": 0.6969882712606854,
+              "20": 0.7679498824524729
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.254982490173981,
+              "maximum": 1.1461393814656837
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.8805832089111209,
+              "scheduled_completion_s": 3.9825832089111204,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.49058903094381096,
+              "scheduled_completion_s": 3.5925890309438104,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.49058903094381096,
+              "scheduled_completion_s": 3.5925890309438104,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.4529060700442642,
+          "total_s": 3.4752757269889116,
+          "audio_s": 4.32,
+          "pcm_sha256": "f148b48e404ad12999cb65a7266394039db9825c45edb13578553f156826e3f7",
+          "arrivals": [
+            {
+              "time_s": 0.4529060700442642,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 0.8194655370898545,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.1997898160479963,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.586626986041665,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 1.9618235509842634,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 2.3244022829458117,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 2.7063657799735665,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 3.0938521260395646,
+              "audio_s": 0.48,
+              "bytes": 23040
+            },
+            {
+              "time_s": 3.474845750955865,
+              "audio_s": 0.48,
+              "bytes": 23040
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 6,
+            "window_samples": 11520,
+            "complete_windows": 9,
+            "tail_samples": 0,
+            "start_sample": {
+              "median": 0.000030517578125,
+              "minimum": -0.449676513671875,
+              "maximum": 0.322235107421875,
+              "standard_deviation": 0.2508032571256945
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.38811427223651024,
+              "10": 0.3526326213064686,
+              "20": 0.34690519194303454
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.0767897200489443,
+              "maximum": 0.34363925132046713
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 0.8994655370898544,
+              "scheduled_completion_s": 5.195465537089854,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.5329060700442642,
+              "scheduled_completion_s": 4.828906070044264,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.5329060700442642,
+              "scheduled_completion_s": 4.828906070044264,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        }
+      ],
+      "memory": {
+        "minimum_available_mib": 4645.07421875,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      }
+    },
+    {
+      "frames": 8,
+      "runs": [
+        {
+          "index": 0,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 1.6108719920739532,
+          "total_s": 5.194849580060691,
+          "audio_s": 4.32,
+          "pcm_sha256": "2fe90c5fee8398280e3e0d90f2c3e68a1cfce5734bff53ae52c4cab3be851435",
+          "arrivals": [
+            {
+              "time_s": 1.6108719920739532,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 2.3222754581365734,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 2.9354825711343437,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 3.572679383214563,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 4.2043504382018,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 4.750914683099836,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 5.19444354204461,
+              "audio_s": 0.48,
+              "bytes": 23040
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 8,
+            "window_samples": 15360,
+            "complete_windows": 6,
+            "tail_samples": 11520,
+            "start_sample": {
+              "median": -0.189910888671875,
+              "minimum": -0.412322998046875,
+              "maximum": 0,
+              "standard_deviation": 0.1529471693119623
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.5228221500706015,
+              "10": 0.34140665749630605,
+              "20": 0.3862717666881889
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.22519150092065873,
+              "maximum": 0.4112861982930099
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 2.4022754581365735,
+              "scheduled_completion_s": 6.704275458136571,
+              "underruns": 0,
+              "required_lead_s": 0.38913367830672757
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 1.6908719920739532,
+              "scheduled_completion_s": 5.992871992073953,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 1.6908719920739532,
+              "scheduled_completion_s": 5.992871992073953,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "text_chars": 50,
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "first_pcm_s": 0.639858101028949,
+          "total_s": 2.601001166040078,
+          "audio_s": 3.12,
+          "pcm_sha256": "172baf2dbdde2f3f6f4067d1c01afc3bbdebcf4ee50b3c8b5eef28424b4c7dda",
+          "arrivals": [
+            {
+              "time_s": 0.639858101028949,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 1.137860800139606,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 1.6501140780746937,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 2.138064661063254,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 2.6007140141446143,
+              "audio_s": 0.56,
+              "bytes": 26880
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 74880,
+            "duration_seconds": 3.12,
+            "stream_frames": 8,
+            "window_samples": 15360,
+            "complete_windows": 4,
+            "tail_samples": 13440,
+            "start_sample": {
+              "median": 0.083160400390625,
+              "minimum": -0.212249755859375,
+              "maximum": 0.197357177734375,
+              "standard_deviation": 0.1725900423352087
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.6479531452347809,
+              "10": 0.5903033133719743,
+              "20": 0.610838753953519
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.26032612526907967,
+              "maximum": 1.2571739904246177
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 1.217860800139606,
+              "scheduled_completion_s": 4.325860800139607,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.719858101028949,
+              "scheduled_completion_s": 3.827858101028949,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.719858101028949,
+              "scheduled_completion_s": 3.827858101028949,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.5696312799118459,
+          "total_s": 3.269010843941942,
+          "audio_s": 4.32,
+          "pcm_sha256": "2fe90c5fee8398280e3e0d90f2c3e68a1cfce5734bff53ae52c4cab3be851435",
+          "arrivals": [
+            {
+              "time_s": 0.5696312799118459,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 1.0536549829412252,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 1.5235478219110519,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 1.9805707018822432,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 2.4749416790436953,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 2.9174338879529387,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 3.2687589589040726,
+              "audio_s": 0.48,
+              "bytes": 23040
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 8,
+            "window_samples": 15360,
+            "complete_windows": 6,
+            "tail_samples": 11520,
+            "start_sample": {
+              "median": -0.189910888671875,
+              "minimum": -0.412322998046875,
+              "maximum": 0,
+              "standard_deviation": 0.1529471693119623
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.5228221500706015,
+              "10": 0.34140665749630605,
+              "20": 0.3862717666881889
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.22519150092065873,
+              "maximum": 0.4112861982930099
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 1.1336549829412252,
+              "scheduled_completion_s": 5.435654982941225,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.6496312799118459,
+              "scheduled_completion_s": 4.951631279911846,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.6496312799118459,
+              "scheduled_completion_s": 4.951631279911846,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "text_chars": 50,
+          "text": "Seven small birds are sitting on the wooden fence.",
+          "first_pcm_s": 0.48795842309482396,
+          "total_s": 2.474705572007224,
+          "audio_s": 3.12,
+          "pcm_sha256": "172baf2dbdde2f3f6f4067d1c01afc3bbdebcf4ee50b3c8b5eef28424b4c7dda",
+          "arrivals": [
+            {
+              "time_s": 0.48795842309482396,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 0.9919266970828176,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 1.5088743041269481,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 2.026375567074865,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 2.474060097010806,
+              "audio_s": 0.56,
+              "bytes": 26880
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 74880,
+            "duration_seconds": 3.12,
+            "stream_frames": 8,
+            "window_samples": 15360,
+            "complete_windows": 4,
+            "tail_samples": 13440,
+            "start_sample": {
+              "median": 0.083160400390625,
+              "minimum": -0.212249755859375,
+              "maximum": 0.197357177734375,
+              "standard_deviation": 0.1725900423352087
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.6479531452347809,
+              "10": 0.5903033133719743,
+              "20": 0.610838753953519
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.26032612526907967,
+              "maximum": 1.2571739904246177
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 1.0719266970828176,
+              "scheduled_completion_s": 4.179926697082818,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.5679584230948239,
+              "scheduled_completion_s": 3.675958423094824,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.5679584230948239,
+              "scheduled_completion_s": 3.675958423094824,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "text_chars": 50,
+          "text": "The blue bicycle is parked beside the garden gate.",
+          "first_pcm_s": 0.572304188972339,
+          "total_s": 3.5660126279108226,
+          "audio_s": 4.32,
+          "pcm_sha256": "2fe90c5fee8398280e3e0d90f2c3e68a1cfce5734bff53ae52c4cab3be851435",
+          "arrivals": [
+            {
+              "time_s": 0.572304188972339,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 1.108805688098073,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 1.652552321087569,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 2.1989896369632334,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 2.652373899007216,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 3.152799356961623,
+              "audio_s": 0.64,
+              "bytes": 30720
+            },
+            {
+              "time_s": 3.565326000098139,
+              "audio_s": 0.48,
+              "bytes": 23040
+            }
+          ],
+          "continuity": {
+            "ok": true,
+            "sample_rate": 24000,
+            "samples": 103680,
+            "duration_seconds": 4.32,
+            "stream_frames": 8,
+            "window_samples": 15360,
+            "complete_windows": 6,
+            "tail_samples": 11520,
+            "start_sample": {
+              "median": -0.189910888671875,
+              "minimum": -0.412322998046875,
+              "maximum": 0,
+              "standard_deviation": 0.1529471693119623
+            },
+            "shared_prefix_rms_ratio": {
+              "1": 0.5228221500706015,
+              "10": 0.34140665749630605,
+              "20": 0.3862717666881889
+            },
+            "boundary_jump_over_local_rms": {
+              "median": 0.22519150092065873,
+              "maximum": 0.4112861982930099
+            },
+            "limits": {
+              "median_boundary_jump_over_local_rms": 0.35,
+              "shared_prefix_1ms_rms_ratio": 0.85
+            }
+          },
+          "browser_replay": [
+            {
+              "prior_rate": 0.8,
+              "first_scheduled_audio_s": 1.188805688098073,
+              "scheduled_completion_s": 5.490805688098073,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1,
+              "first_scheduled_audio_s": 0.652304188972339,
+              "scheduled_completion_s": 4.954304188972339,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            },
+            {
+              "prior_rate": 1.6,
+              "first_scheduled_audio_s": 0.652304188972339,
+              "scheduled_completion_s": 4.954304188972339,
+              "underruns": 0,
+              "required_lead_s": 0.25
+            }
+          ]
+        }
+      ],
+      "memory": {
+        "minimum_available_mib": 4508.75,
+        "floor_mib": 2048,
+        "floor_crossed": false,
+        "sampling_interval_s": 0.1
+      },
+      "libraries": {
+        "libggml-cuda.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cuda.so.0.22.0",
+        "libggml-cpu.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-cpu.so.0.22.0",
+        "libggml.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml.so.0.22.0",
+        "libggml-base.so.0.22.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/ggml-runtime/lib/libggml-base.so.0.22.0",
+        "libllama.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama.so.0.3.0",
+        "libmtmd.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libmtmd.so.0.3.0",
+        "libllama-common.so.0.3.0": "/home/egg/qwen-omni-upgrade/runtime-data/reference-native/llama.cpp/build-reference/bin/libllama-common.so.0.3.0"
+      }
+    }
+  ],
+  "scope": "Full-reference native chunk timing and raw continuity; no product change.",
+  "playback_source_sha256": "7b45ead04d516c386fc56d7acf63a60016caece9eb6429d887520dd9ecd15215",
+  "playback_pacer_sha256": "de3027bb0b9a7037f66fc650b50811bf9ef04b427c07ad4d971c6fabb998e9b7",
+  "replay_scope": "Unmodified browser scheduling/pacer functions with recorded native arrivals, no network delay or physical speaker latency; zero buffers stand in for sample amplitudes only."
+}
