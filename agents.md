@@ -15,6 +15,18 @@ umbrella to each registry and verify the remote artifacts and digests. Candidate
 labels, source tests and partial speech benchmarks do not satisfy qualification.
 Keep publication in the milestone ledger until both registries are verified.
 
+Hardware assignment, clarified by the user on 2026-10-30: qualify Qwen3.8 on
+the current A100 host and Ornith 1.5 on the Orin. Do not force Qwen3.8 onto the
+32 GB Orin or treat that host's memory-limited attempt as its release target.
+
+The 2026-10-30 live audit passes operational/cloning checks but fails semantic
+environmental-audio parity for both bridges and mixed-video transcription for
+Qwen3.8. See `docs/upgrades/release-qualification-20261030.json`. Nonempty
+audio observations are contract checks, never sound-identification acceptance.
+Complete weight packages are staged locally. Public publication remains gated;
+an explicitly disclosed experimental-preview exception was requested but has
+not been granted. Do not infer approval from elapsed time or user silence.
+
 ## Purpose and non-negotiable constraints
 
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni

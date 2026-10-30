@@ -1,0 +1,53 @@
+{
+  "schema": "robit.omni.semantic-auditory-gates.v1",
+  "family": "ornith",
+  "checks": [
+    {
+      "fixture": "alarm.wav",
+      "status": 200,
+      "elapsed_s": 6.042702171951532,
+      "passed": true,
+      "content": "<speech_transcript></speech_transcript>\n<audio_observation>A single continuous tone begins at a low pitch around 150 hertz and rises steadily over roughly four seconds to about 670 hertz, then holds steady on that upper note for the remainder of the recording. The tone is smooth and even with no wavering in amplitude or frequency, suggesting a sustained electronic or synthesized sound rather than an acoustic instrument.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "A single continuous tone begins at a low pitch around 150 hertz and rises steadily over roughly four seconds to about 670 hertz, then holds steady on that upper note for the remainder of the recording. The tone is smooth and even with no wavering in amplitude or frequency, suggesting a sustained electronic or synthesized sound rather than an acoustic instrument."
+    },
+    {
+      "fixture": "esc50-clock_alarm.wav",
+      "status": 200,
+      "elapsed_s": 3.5146516440436244,
+      "passed": false,
+      "content": "<speech_transcript></speech_transcript>\n<audio_observation>A single soft electronic chime, resembling a notification sound, occurs once near the beginning of the recording. This is followed by sustained silence for the remainder of the audio.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "A single soft electronic chime, resembling a notification sound, occurs once near the beginning of the recording. This is followed by sustained silence for the remainder of the audio."
+    },
+    {
+      "fixture": "esc50-dog.wav",
+      "status": 200,
+      "elapsed_s": 3.495431453920901,
+      "passed": false,
+      "content": "<speech_transcript></speech_transcript>\n<audio_observation>No intelligible speech is present. The recording contains only faint, low-level ambient background noise with no discernible sounds, music, or other identifiable audio events.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "No intelligible speech is present. The recording contains only faint, low-level ambient background noise with no discernible sounds, music, or other identifiable audio events."
+    },
+    {
+      "fixture": "esc50-church_bells.wav",
+      "status": 200,
+      "elapsed_s": 3.4136688970029354,
+      "passed": false,
+      "content": "<speech_transcript></speech_transcript>\n<audio_observation>The audio contains no intelligible speech. There is no discernible sound, tone, music, noise, or other audible event present in the recording.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "The audio contains no intelligible speech. There is no discernible sound, tone, music, noise, or other audible event present in the recording."
+    },
+    {
+      "fixture": "colors-speech.mp4",
+      "status": 200,
+      "elapsed_s": 51.0545848000329,
+      "passed": true,
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript>\n<audio_observation>A single clear declarative sentence with no discernible background ambience, music, or other speaker activity; confidence high that only this one utterance is present.</audio_observation>\n<visual_observation>The media consists of a sequence of solid-color frames shown in temporal order: the first five frames are uniformly bright red with thin black borders, followed by four frames of uniform blue (also bordered), then three frames of uniform green. Each frame is featureless and static; there is no visible bicycle, gate, garden, or any other object, motion, text, or change within the frames themselves.</visual_observation>",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "audio_observation": "A single clear declarative sentence with no discernible background ambience, music, or other speaker activity; confidence high that only this one utterance is present.",
+      "wer": 0.0
+    }
+  ],
+  "passed": false
+}

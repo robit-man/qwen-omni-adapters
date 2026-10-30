@@ -1125,6 +1125,11 @@ def build_comprehension_payload(
 ) -> dict[str, Any]:
     media_messages: list[dict[str, Any]] = []
     for message in parsed.messages:
+        # Perception has one server-pinned extraction policy. Caller/portal
+        # system instructions belong to the language stage; forwarding them
+        # here also violates templates that require a single initial system.
+        if message.role == "system":
+            continue
         # This marker is emitted only by the internal computer-use loop. It
         # requests a coordinate-bearing perception summary without forwarding
         # arbitrary task text into the untrusted media encoder. Ordinary photos,

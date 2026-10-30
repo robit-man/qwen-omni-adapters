@@ -1094,6 +1094,24 @@ def test_comprehension_payload_tags_video_for_qwen_style_server(monkeypatch) -> 
     assert payload["max_tokens"] == 2048
 
 
+@pytest.mark.parametrize("task", ["chat", "describe", "transcribe"])
+def test_media_perception_uses_only_its_pinned_system_policy(task: str) -> None:
+    parsed = parse_adapter_request(_base_request(
+        omni={"task": task},
+        messages=[
+            {"role": "system", "content": "CALLER_POLICY_SENTINEL"},
+            {"role": "user", "content": "Describe.",
+             "audios": [{"data": _encoded(_wav(16000))}]},
+        ],
+    ))
+    config = Config("http://comp", "omni", "http://ollama", "http://tts", 30)
+    perception = build_comprehension_payload(parsed, config)
+    assert [message["role"] for message in perception["messages"]] == ["system", "user"]
+    assert "CALLER_POLICY_SENTINEL" not in json.dumps(perception)
+    language = build_language_payload(parsed, None, config=config)
+    assert "CALLER_POLICY_SENTINEL" in json.dumps(language)
+
+
 def test_chat_comprehension_payload_forbids_conversational_media_reply() -> None:
     parsed = parse_adapter_request(
         _base_request(

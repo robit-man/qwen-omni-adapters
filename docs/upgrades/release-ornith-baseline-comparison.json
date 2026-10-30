@@ -1,0 +1,117 @@
+{
+  "schema": "robit.omni.perception-baseline-comparison.v1",
+  "same_primary_weights": true,
+  "backends_share_primary_process": true,
+  "cases": [
+    {
+      "fixture": "speech.wav",
+      "sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "outputs": {
+        "original": {
+          "status": 200,
+          "elapsed_s": 3.519965006969869,
+          "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>no non-speech sound evidence</audio_observation>",
+          "audio_observation": "no non-speech sound evidence",
+          "transcript": "The blue bicycle is parked beside the garden gate.",
+          "current_visual_input": false
+        },
+        "pinned_policy_fix": {
+          "status": 200,
+          "elapsed_s": 2.6498808790929615,
+          "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>no non-speech sound evidence</audio_observation>",
+          "audio_observation": "no non-speech sound evidence",
+          "transcript": "The blue bicycle is parked beside the garden gate.",
+          "current_visual_input": false
+        }
+      }
+    },
+    {
+      "fixture": "alarm.wav",
+      "sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+      "outputs": {
+        "original": {
+          "status": 200,
+          "elapsed_s": 4.201636858051643,
+          "content": "<speech_transcript></speech_transcript>\n<audio_observation>No audible content detected. The audio contains only silence throughout the recording, with no speech, music, environmental sounds, mechanical noise, or other identifiable acoustic events.</audio_observation>",
+          "audio_observation": "No audible content detected. The audio contains only silence throughout the recording, with no speech, music, environmental sounds, mechanical noise, or other identifiable acoustic events.",
+          "transcript": null,
+          "current_visual_input": false
+        },
+        "pinned_policy_fix": {
+          "status": 200,
+          "elapsed_s": 5.620552077889442,
+          "content": "<speech_transcript></speech_transcript>\n<audio_observation>A single continuous tone begins at a low pitch around 150 hertz and rises steadily over roughly four seconds to about 670 hertz, then holds steady on that upper note for the remainder of the recording. The tone is smooth and even with no wavering in amplitude or frequency, suggesting a sustained electronic or synthesized sound rather than an acoustic instrument.</audio_observation>",
+          "audio_observation": "A single continuous tone begins at a low pitch around 150 hertz and rises steadily over roughly four seconds to about 670 hertz, then holds steady on that upper note for the remainder of the recording. The tone is smooth and even with no wavering in amplitude or frequency, suggesting a sustained electronic or synthesized sound rather than an acoustic instrument.",
+          "transcript": null,
+          "current_visual_input": false
+        }
+      }
+    },
+    {
+      "fixture": "noise.wav",
+      "sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+      "outputs": {
+        "original": {
+          "status": 200,
+          "elapsed_s": 4.885144368046895,
+          "content": "<speech_transcript></speech_transcript>\n<audio_observation>A single soft heartbeat-like thump is heard, resembling the sound of a small drum being tapped once. The tone is low and resonant with a quick decay, suggesting a light tap on a hollow surface or an object struck briefly.</audio_observation>",
+          "audio_observation": "A single soft heartbeat-like thump is heard, resembling the sound of a small drum being tapped once. The tone is low and resonant with a quick decay, suggesting a light tap on a hollow surface or an object struck briefly.",
+          "transcript": null,
+          "current_visual_input": false
+        },
+        "pinned_policy_fix": {
+          "status": 200,
+          "elapsed_s": 2.500068070134148,
+          "content": "<speech_transcript></speech_transcript>\n<audio_observation>A single soft bird chirp, then silence.</audio_observation>",
+          "audio_observation": "A single soft bird chirp, then silence.",
+          "transcript": null,
+          "current_visual_input": false
+        }
+      }
+    },
+    {
+      "fixture": "music.wav",
+      "sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+      "outputs": {
+        "original": {
+          "status": 200,
+          "elapsed_s": 3.8756520729511976,
+          "content": "<speech_transcript></speech_transcript>\n<audio_observation>No audible content detected. The audio contains no intelligible speech and no discernible background sounds, music, or environmental noise.</audio_observation>",
+          "audio_observation": "No audible content detected. The audio contains no intelligible speech and no discernible background sounds, music, or environmental noise.",
+          "transcript": null,
+          "current_visual_input": false
+        },
+        "pinned_policy_fix": {
+          "status": 200,
+          "elapsed_s": 5.160128199961036,
+          "content": "<speech_transcript></speech_transcript>\n<audio_observation>No intelligible speech is present. The audio contains only faint, low-level electronic noise with no discernible tonal content, rhythmic pattern, or recurring signal. There are no musical notes, vocalizations, environmental sounds, mechanical noises, or other identifiable acoustic events. The recording appears to be essentially silent or near-silent background hiss.</audio_observation>",
+          "audio_observation": "No intelligible speech is present. The audio contains only faint, low-level electronic noise with no discernible tonal content, rhythmic pattern, or recurring signal. There are no musical notes, vocalizations, environmental sounds, mechanical noises, or other identifiable acoustic events. The recording appears to be essentially silent or near-silent background hiss.",
+          "transcript": null,
+          "current_visual_input": false
+        }
+      }
+    },
+    {
+      "fixture": "colors-audio.mp4",
+      "sha256": "ef50ac4805dd0c890d876ca836cd64737d57924c64d468ad346df37643b7b23d",
+      "outputs": {
+        "original": {
+          "status": 200,
+          "elapsed_s": 52.07538903411478,
+          "content": "<speech_transcript></speech_transcript>\n<audio_observation>No audio is present; the video contains no sound track, so there are no acoustic events, music, or speaker activity to report.</audio_observation>\n<visual_observation>A full-screen solid red field fills the frame from 0.0 seconds through about 5.0 seconds with no change in color, texture, or detail. At roughly 5.0 seconds the entire screen shifts instantly and uniformly to a solid blue field that holds without variation until the end of the clip at around 10.0 seconds. Every frame is a flat, uniform single-color fill with no gradients, shapes, text, objects, or movement.</visual_observation>",
+          "audio_observation": "No audio is present; the video contains no sound track, so there are no acoustic events, music, or speaker activity to report.",
+          "transcript": null,
+          "current_visual_input": true
+        },
+        "pinned_policy_fix": {
+          "status": 200,
+          "elapsed_s": 53.76332371705212,
+          "content": "<speech_transcript>\nNo speech detected.\n</speech_transcript>\n\n<audio_observation>\nNo audible audio content detected across the 5-second clip. No music, ambient sound, or speaker activity is present. The audio track appears silent throughout.\n</audio_observation>\n\n<visual_observation>\nThe video displays a solid color field that changes over time:\n- From approximately 0 to 4 seconds, the screen shows a uniform bright red fill covering the entire frame.\n- At around the 5-second mark, the display transitions to a solid blue fill covering the entire frame.\n- From approximately 5 to 10 seconds, the screen remains a uniform bright green fill covering the entire frame.\n\nEach color state is static with no visible movement, texture, or gradient within the field. The transitions between colors appear abrupt rather than gradual. No text, objects, or other visual elements are present in any segment.\n</visual_observation>",
+          "audio_observation": "No audible audio content detected across the 5-second clip. No music, ambient sound, or speaker activity is present. The audio track appears silent throughout.",
+          "transcript": "No speech detected.",
+          "current_visual_input": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "schema": "robit.omni.release-qualification.v1",
+  "date": "2026-10-30",
+  "source_base_revision": "83a939b",
+  "adapter_policy_patch_sha256": "b608c8e2e5e461e44012d233ed1e83a3fcbd2dc6061b8bb7654f3626163c89fb",
+  "source_gate": {
+    "passed": true,
+    "tests": 6268,
+    "elapsed_s": 335.7
+  },
+  "targets": {
+    "ornith": {
+      "device": "Tegra234 Orin 32 GB",
+      "kv": "q8_0",
+      "context_tokens": 16384,
+      "operational_passed": true,
+      "semantic_passed": false,
+      "operational_report": "release-ornith-orin-operational.json",
+      "semantic_report": "release-ornith-semantic.json"
+    },
+    "qwen": {
+      "device": "NVIDIA A100 80 GB",
+      "kv": "f16",
+      "context_tokens": 16384,
+      "operational_passed": true,
+      "semantic_passed": false,
+      "operational_report": "release-qwen-a100-operational.json",
+      "semantic_report": "release-qwen-a100-semantic.json"
+    }
+  },
+  "legacy_comparison": "release-legacy-auditory.json",
+  "release_qualified": false,
+  "public_registry_publication_permitted": false,
+  "public_registry_publication_performed": false,
+  "blockers": [
+    "Both trained bridges misidentify real environmental audio that legacy full Omni identifies.",
+    "Qwen3.8 drops the spoken transcript when speech is combined with video."
+  ],
+  "restoration": "release-orin-restoration.json",
+  "remaining_scope": [
+    "Broad/perceptual voice parity, physical playback and p95/p99 qualification remain unclaimed.",
+    "Live streaming CTC and decision/retrieval/recurrent heads remain pending; bundled CTC stays disabled."
+  ],
+  "preview_override_requested": true
+}

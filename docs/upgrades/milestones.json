@@ -245,8 +245,8 @@
     },
     {
       "id": "E",
-      "objective": "Orin concurrency, complete parity, latency and safe memory qualification of both versioned releases",
-      "status": "Ornith_TTS_and_head_subgates_verified_Qwen_isolated_host_preparation_unverified_SSH_command_channels_unresponsive_full_matrix_pending",
+      "objective": "Qualify Ornith on Orin and Qwen3.8 on the current A100 host, preserving complete parity and safe memory",
+      "status": "operational_and_cloning_passed_Ornith_Orin_Qwen_A100_semantic_environmental_parity_failed_Qwen_audiovisual_transcription_failed",
       "evidence": [
         "phase-e-orin-preparation.json",
         "phase-e-orin-tts-repeat.json",
@@ -256,14 +256,23 @@
         "phase-b5-context-orin.json",
         "phase-b4-idle-orin-adaptive.json",
         "phase-b4b1-reference-orin.json",
-        "phase-e-qwen-host-preparation.json"
+        "phase-e-qwen-host-preparation.json",
+        "release-qualification-20261030.json",
+        "release-ornith-orin-operational.json",
+        "release-qwen-a100-operational.json",
+        "release-ornith-semantic.json",
+        "release-qwen-a100-semantic.json",
+        "release-legacy-auditory.json",
+        "release-orin-restoration.json"
       ]
     },
     {
       "id": "F",
       "objective": "After full validation, publish both releases on Hugging Face and Ollama and verify remote artifacts/digests",
-      "status": "authorized_pending_release_qualification",
-      "evidence": []
+      "status": "complete_weight_packages_staged_public_promotion_gated_by_failed_semantic_qualification",
+      "evidence": [
+        "release-qualification-20261030.json"
+      ]
     }
   ],
   "completed_whole_objective": false,
