@@ -67,5 +67,14 @@ longest training audio and longest training target; both pass with a 55,352 MiB
 peak reservation. Only A100 qualification can clear this profile. Neither fit
 adapter is published or enabled in production.
 
+The full-corpus Ornith step-1,000 checkpoint also fails its fixed native
+diagnostic. The export preserves every adapter tensor exactly, frozen base,
+encoder and projection versions remain unchanged, and disabled logits match
+exactly. Bark, clapping and the sentence pass, but bells become a struck chord,
+the printer a zipper and the passing siren a car; silence and noise gain false
+sounds. It is rejected. The unchanged trial continues only its preselected
+2,000/3,200 checkpoints. No inference workaround or further neural variant is
+introduced. See the [fixed-checkpoint review](audio-lora-fixed-checkpoints-20261031.json).
+
 The source suite passes all 6,303 tests before and after this investigation.
 The old Orin services remain active and their portal returns HTTP 200.

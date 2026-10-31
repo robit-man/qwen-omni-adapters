@@ -120,6 +120,10 @@ and TTS weights remain frozen. Qwen's own exact-checkpoint compatibility and
 fit gates also pass, but native bells/crowd/printer diagnostics fail. Its matching
 full-corpus trial includes speech/nonspeech replay, the same fixed checkpoints
 and passed memory preflights. Adapter fit is not parity for either profile.
+The full-corpus Ornith 1,000 checkpoint also fails native bells/printer/siren,
+silence and other diagnostics. It is rejected; preserve the unchanged fixed
+checkpoint plan and do not promote it because fit or export checks pass. See
+`docs/upgrades/audio-lora-fixed-checkpoints-20261031.json`.
 
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
 audio bridge, native vision and Qwen3-TTS Base reference-voice cloning. Produce
