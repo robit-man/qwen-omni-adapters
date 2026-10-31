@@ -739,6 +739,86 @@
         }
       ],
       "publication_gate_passed": false
+    },
+    {
+      "family": "ornith",
+      "trial": "event-weighted-fullpass1",
+      "step": 3200,
+      "projector_sha256": "905ae3575072d0473352bd84bfc551cec5dd8abad0d754fd0035d69777453b82",
+      "native_context_tokens": 16384,
+      "native_KV": "f16",
+      "rows": 13,
+      "GPU_residency_verified": true,
+      "source_output_sha256": "204fd6f2f2823b72479b1096c78faa5da8229a5644492e21081d3dd7b36511a1",
+      "source_review_sha256": "1100f32bd61b06c3e77fc907ecf6b818aa924af636e2d356e4707a7bf8f4e521",
+      "native_results": [
+        {
+          "id": "probe-speech",
+          "transcript": "The blue bicycle is parked beside the garden gate.",
+          "observation": "One synthetic speaker breathing normally throughout."
+        },
+        {
+          "id": "probe-silence",
+          "transcript": null,
+          "observation": "A single low clicking sound; no intelligible speech."
+        },
+        {
+          "id": "probe-alarm",
+          "transcript": null,
+          "observation": "An intermittent alarm; no intelligible speech."
+        },
+        {
+          "id": "probe-noise",
+          "transcript": null,
+          "observation": "Faint ambient sound; no intelligible speech detected."
+        },
+        {
+          "id": "probe-music",
+          "transcript": null,
+          "observation": "Audible sound events: Telephone ring."
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "transcript": null,
+          "observation": "Audible sound events: Gear."
+        },
+        {
+          "id": "probe-esc50-dog",
+          "transcript": null,
+          "observation": "Audible sound events: Bark."
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "transcript": null,
+          "observation": "Audible sound events: Piano."
+        },
+        {
+          "id": "fsd50k-156200",
+          "transcript": null,
+          "observation": "Audible sound events: Crowd, children."
+        },
+        {
+          "id": "fsd50k-180765",
+          "transcript": null,
+          "observation": "Audible sound events: Clap."
+        },
+        {
+          "id": "fsd50k-182894",
+          "transcript": null,
+          "observation": "Audible sound events: Truck."
+        },
+        {
+          "id": "fsd50k-166192",
+          "transcript": null,
+          "observation": "Audible sound events: Boom."
+        },
+        {
+          "id": "fsd50k-203720",
+          "transcript": null,
+          "observation": "Audible sound events: Train."
+        }
+      ],
+      "publication_gate_passed": false
     }
   ],
   "read_only_training_fit_before_weighting": {
@@ -777,7 +857,7 @@
     "receipt_sha256": "e75c0ad896ed50c063a016a241ef09710ae859e79b8119c29025e3212dd20680"
   },
   "weighted_full_corpus_pass": {
-    "status": "fixed1600 rejected; unchanged healthy3200 run continues",
+    "status": "complete; fixed1600 and3200 rejected; no more projection-only runs launched",
     "initial_checkpoint": "rejected weighted800 weights; no promotion",
     "max_steps": 3200,
     "gradient_accumulation_steps": 4,
@@ -855,5 +935,702 @@
         "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Car horn. A car horn honks twice, with the second honk being slightly longer and more sustained than the first.</audio_observation><|im_end|>"
       }
     ]
+  },
+  "temporal_event_head_trial": {
+    "complete": true,
+    "selected_epoch": 10,
+    "common_macro_AP": 0.48696797039139633,
+    "all_represented_macro_AP": 0.48711984469409586,
+    "top1_annotated": 0.375,
+    "head_parameters": 1083524,
+    "classes": 194,
+    "predeclared_checks": {
+      "common_AP": false,
+      "full_top1": false,
+      "silence": true,
+      "padding_parity": true,
+      "alarm": true,
+      "bark": true,
+      "bell": false,
+      "printer": true,
+      "gunfire": true,
+      "siren": false,
+      "clapping": true,
+      "group_voices": true
+    },
+    "candidate_for_native_integration": false,
+    "runtime_activated": false,
+    "new_held_out_test_rows": 0,
+    "initial_padding_absolute_delta": 1.9073486328125e-06,
+    "final_padding_absolute_delta": 9.5367431640625e-06,
+    "frame_shuffle_control_common_AP": 0.472919053702686,
+    "peak_reserved_mib": 3078.0,
+    "elapsed_s": 155.7102716100635,
+    "checkpoint_sha256": "da57253702933c03b0133fe31d5fd9fd5892232567f15324c5741c4d32dba7cc",
+    "release_qualified": false,
+    "report_sha256": "d483f02bbc1e7c5701b7715b73f43090e0bed7430f6d04340f5454eab49271e7",
+    "diagnostics": [
+      {
+        "id": "probe-speech",
+        "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+        "top_labels": [
+          {
+            "name": "Speech",
+            "mid": "/m/09x0r",
+            "uncalibrated_sigmoid": 0.8448160886764526
+          },
+          {
+            "name": "Human voice",
+            "mid": "/m/09l8g",
+            "uncalibrated_sigmoid": 0.2861480414867401
+          },
+          {
+            "name": "Speech synthesizer",
+            "mid": "/m/0brhx",
+            "uncalibrated_sigmoid": 0.2234819531440735
+          },
+          {
+            "name": "Liquid",
+            "mid": "/m/04k94",
+            "uncalibrated_sigmoid": 0.03791200369596481
+          },
+          {
+            "name": "Ringtone",
+            "mid": "/m/01hnzm",
+            "uncalibrated_sigmoid": 0.02222970873117447
+          },
+          {
+            "name": "Laughter",
+            "mid": "/m/01j3sz",
+            "uncalibrated_sigmoid": 0.0066904895938932896
+          },
+          {
+            "name": "Chuckle, chortle",
+            "mid": "/m/07rgt08",
+            "uncalibrated_sigmoid": 0.005726541858166456
+          },
+          {
+            "name": "Chink, clink",
+            "mid": "/m/07q7njn",
+            "uncalibrated_sigmoid": 0.0051239184103906155
+          }
+        ]
+      },
+      {
+        "id": "probe-silence",
+        "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+        "top_labels": [
+          {
+            "name": "Gull, seagull",
+            "mid": "/m/01dwxx",
+            "uncalibrated_sigmoid": 0.061603277921676636
+          },
+          {
+            "name": "Wind",
+            "mid": "/m/03m9d0z",
+            "uncalibrated_sigmoid": 0.04581831768155098
+          },
+          {
+            "name": "Tick-tock",
+            "mid": "/m/07qjznl",
+            "uncalibrated_sigmoid": 0.0030716280452907085
+          },
+          {
+            "name": "Chink, clink",
+            "mid": "/m/07q7njn",
+            "uncalibrated_sigmoid": 0.002052098512649536
+          },
+          {
+            "name": "Tick",
+            "mid": "/m/07qjznt",
+            "uncalibrated_sigmoid": 0.0018788118613883853
+          },
+          {
+            "name": "Bird",
+            "mid": "/m/015p6",
+            "uncalibrated_sigmoid": 0.0017159308772534132
+          },
+          {
+            "name": "Percussion",
+            "mid": "/m/0l14md",
+            "uncalibrated_sigmoid": 0.001707757473923266
+          },
+          {
+            "name": "Cricket",
+            "mid": "/m/09xqv",
+            "uncalibrated_sigmoid": 0.0016947969561442733
+          }
+        ]
+      },
+      {
+        "id": "probe-alarm",
+        "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+        "top_labels": [
+          {
+            "name": "Telephone",
+            "mid": "/m/07cx4",
+            "uncalibrated_sigmoid": 0.49099060893058777
+          },
+          {
+            "name": "Alarm",
+            "mid": "/m/07pp_mv",
+            "uncalibrated_sigmoid": 0.478301465511322
+          },
+          {
+            "name": "Keyboard (musical)",
+            "mid": "/m/05148p4",
+            "uncalibrated_sigmoid": 0.18768364191055298
+          },
+          {
+            "name": "Chink, clink",
+            "mid": "/m/07q7njn",
+            "uncalibrated_sigmoid": 0.06680912524461746
+          },
+          {
+            "name": "Tick-tock",
+            "mid": "/m/07qjznl",
+            "uncalibrated_sigmoid": 0.035619162023067474
+          },
+          {
+            "name": "Bass drum",
+            "mid": "/m/0bm02",
+            "uncalibrated_sigmoid": 0.02663063071668148
+          },
+          {
+            "name": "Glass",
+            "mid": "/m/039jq",
+            "uncalibrated_sigmoid": 0.02479870244860649
+          },
+          {
+            "name": "Ringtone",
+            "mid": "/m/01hnzm",
+            "uncalibrated_sigmoid": 0.008327800780534744
+          }
+        ]
+      },
+      {
+        "id": "probe-noise",
+        "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+        "top_labels": [
+          {
+            "name": "Rain",
+            "mid": "/m/06mb1",
+            "uncalibrated_sigmoid": 0.996531069278717
+          },
+          {
+            "name": "Frying (food)",
+            "mid": "/m/0dxrf",
+            "uncalibrated_sigmoid": 0.8862594366073608
+          },
+          {
+            "name": "Bathtub (filling or washing)",
+            "mid": "/m/03dnzn",
+            "uncalibrated_sigmoid": 0.4488133490085602
+          },
+          {
+            "name": "Cricket",
+            "mid": "/m/09xqv",
+            "uncalibrated_sigmoid": 0.19654212892055511
+          },
+          {
+            "name": "Stream",
+            "mid": "/m/0j6m2",
+            "uncalibrated_sigmoid": 0.15569660067558289
+          },
+          {
+            "name": "Wind",
+            "mid": "/m/03m9d0z",
+            "uncalibrated_sigmoid": 0.1270291954278946
+          },
+          {
+            "name": "Hiss",
+            "mid": "/m/07rjwbb",
+            "uncalibrated_sigmoid": 0.10608521848917007
+          },
+          {
+            "name": "Waves, surf",
+            "mid": "/m/034srq",
+            "uncalibrated_sigmoid": 0.0883544459939003
+          }
+        ]
+      },
+      {
+        "id": "probe-music",
+        "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+        "top_labels": [
+          {
+            "name": "Telephone",
+            "mid": "/m/07cx4",
+            "uncalibrated_sigmoid": 0.6422299742698669
+          },
+          {
+            "name": "Doorbell",
+            "mid": "/m/03wwcy",
+            "uncalibrated_sigmoid": 0.059655651450157166
+          },
+          {
+            "name": "Bass guitar",
+            "mid": "/m/018vs",
+            "uncalibrated_sigmoid": 0.04676095023751259
+          },
+          {
+            "name": "Mallet percussion",
+            "mid": "/m/0j45pbj",
+            "uncalibrated_sigmoid": 0.004461250267922878
+          },
+          {
+            "name": "Ringtone",
+            "mid": "/m/01hnzm",
+            "uncalibrated_sigmoid": 0.003906301688402891
+          },
+          {
+            "name": "Alarm",
+            "mid": "/m/07pp_mv",
+            "uncalibrated_sigmoid": 0.0038179163821041584
+          },
+          {
+            "name": "Glass",
+            "mid": "/m/039jq",
+            "uncalibrated_sigmoid": 0.003353698644787073
+          },
+          {
+            "name": "Motor vehicle (road)",
+            "mid": "/m/012f08",
+            "uncalibrated_sigmoid": 0.0032124125864356756
+          }
+        ]
+      },
+      {
+        "id": "probe-esc50-clock_alarm",
+        "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+        "top_labels": [
+          {
+            "name": "Alarm",
+            "mid": "/m/07pp_mv",
+            "uncalibrated_sigmoid": 0.9300006031990051
+          },
+          {
+            "name": "Car",
+            "mid": "/m/0k4j",
+            "uncalibrated_sigmoid": 0.24086931347846985
+          },
+          {
+            "name": "Tools",
+            "mid": "/m/07k1x",
+            "uncalibrated_sigmoid": 0.04378029704093933
+          },
+          {
+            "name": "Idling",
+            "mid": "/m/07pb8fc",
+            "uncalibrated_sigmoid": 0.032023489475250244
+          },
+          {
+            "name": "Engine",
+            "mid": "/m/02mk9",
+            "uncalibrated_sigmoid": 0.018292976543307304
+          },
+          {
+            "name": "Coin (dropping)",
+            "mid": "/m/0242l",
+            "uncalibrated_sigmoid": 0.014663255773484707
+          },
+          {
+            "name": "Vehicle",
+            "mid": "/m/07yv9",
+            "uncalibrated_sigmoid": 0.013055194169282913
+          },
+          {
+            "name": "Electric guitar",
+            "mid": "/m/02sgy",
+            "uncalibrated_sigmoid": 0.005804768763482571
+          }
+        ]
+      },
+      {
+        "id": "probe-esc50-dog",
+        "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+        "top_labels": [
+          {
+            "name": "Bark",
+            "mid": "/m/05tny_",
+            "uncalibrated_sigmoid": 0.2834970951080322
+          },
+          {
+            "name": "Chink, clink",
+            "mid": "/m/07q7njn",
+            "uncalibrated_sigmoid": 0.1656949669122696
+          },
+          {
+            "name": "Whoosh, swoosh, swish",
+            "mid": "/m/07rqsjt",
+            "uncalibrated_sigmoid": 0.09482778608798981
+          },
+          {
+            "name": "Tick",
+            "mid": "/m/07qjznt",
+            "uncalibrated_sigmoid": 0.06052491441369057
+          },
+          {
+            "name": "Gasp",
+            "mid": "/m/07s0dtb",
+            "uncalibrated_sigmoid": 0.057104144245386124
+          },
+          {
+            "name": "Percussion",
+            "mid": "/m/0l14md",
+            "uncalibrated_sigmoid": 0.03684232383966446
+          },
+          {
+            "name": "Cutlery, silverware",
+            "mid": "/m/023pjk",
+            "uncalibrated_sigmoid": 0.020578688010573387
+          },
+          {
+            "name": "Car",
+            "mid": "/m/0k4j",
+            "uncalibrated_sigmoid": 0.015448120422661304
+          }
+        ]
+      },
+      {
+        "id": "probe-esc50-church_bells",
+        "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+        "top_labels": [
+          {
+            "name": "Musical instrument",
+            "mid": "/m/04szw",
+            "uncalibrated_sigmoid": 0.9481092691421509
+          },
+          {
+            "name": "Organ",
+            "mid": "/m/013y1f",
+            "uncalibrated_sigmoid": 0.8465850353240967
+          },
+          {
+            "name": "Piano",
+            "mid": "/m/05r5c",
+            "uncalibrated_sigmoid": 0.5615015625953674
+          },
+          {
+            "name": "Bell",
+            "mid": "/m/0395lw",
+            "uncalibrated_sigmoid": 0.48302310705184937
+          },
+          {
+            "name": "Doorbell",
+            "mid": "/m/03wwcy",
+            "uncalibrated_sigmoid": 0.42194268107414246
+          },
+          {
+            "name": "Mallet percussion",
+            "mid": "/m/0j45pbj",
+            "uncalibrated_sigmoid": 0.37262552976608276
+          },
+          {
+            "name": "Dishes, pots, and pans",
+            "mid": "/m/04brg2",
+            "uncalibrated_sigmoid": 0.18197578191757202
+          },
+          {
+            "name": "Guitar",
+            "mid": "/m/0342h",
+            "uncalibrated_sigmoid": 0.14729538559913635
+          }
+        ]
+      },
+      {
+        "id": "fsd50k-156200",
+        "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+        "top_labels": [
+          {
+            "name": "Human group actions",
+            "mid": "/t/dd00012",
+            "uncalibrated_sigmoid": 0.8292204737663269
+          },
+          {
+            "name": "Cat",
+            "mid": "/m/01yrx",
+            "uncalibrated_sigmoid": 0.634777843952179
+          },
+          {
+            "name": "Crowd",
+            "mid": "/m/03qtwd",
+            "uncalibrated_sigmoid": 0.3530062139034271
+          },
+          {
+            "name": "Shout",
+            "mid": "/m/07p6fty",
+            "uncalibrated_sigmoid": 0.23306474089622498
+          },
+          {
+            "name": "Gull, seagull",
+            "mid": "/m/01dwxx",
+            "uncalibrated_sigmoid": 0.09712603688240051
+          },
+          {
+            "name": "Dog",
+            "mid": "/m/0bt9lr",
+            "uncalibrated_sigmoid": 0.050432100892066956
+          },
+          {
+            "name": "Cheering",
+            "mid": "/m/053hz1",
+            "uncalibrated_sigmoid": 0.04035959392786026
+          },
+          {
+            "name": "Child speech, kid speaking",
+            "mid": "/m/0ytgt",
+            "uncalibrated_sigmoid": 0.03904647007584572
+          }
+        ]
+      },
+      {
+        "id": "fsd50k-180765",
+        "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+        "top_labels": [
+          {
+            "name": "Clapping",
+            "mid": "/m/0l15bq",
+            "uncalibrated_sigmoid": 0.986517071723938
+          },
+          {
+            "name": "Train",
+            "mid": "/m/07jdr",
+            "uncalibrated_sigmoid": 0.4656728208065033
+          },
+          {
+            "name": "Thump, thud",
+            "mid": "/m/07qnq_y",
+            "uncalibrated_sigmoid": 0.22057360410690308
+          },
+          {
+            "name": "Hammer",
+            "mid": "/m/03l9g",
+            "uncalibrated_sigmoid": 0.11089260876178741
+          },
+          {
+            "name": "Tools",
+            "mid": "/m/07k1x",
+            "uncalibrated_sigmoid": 0.10212787240743637
+          },
+          {
+            "name": "Gunshot, gunfire",
+            "mid": "/m/032s66",
+            "uncalibrated_sigmoid": 0.09225434809923172
+          },
+          {
+            "name": "Hands",
+            "mid": "/m/0k65p",
+            "uncalibrated_sigmoid": 0.07681016623973846
+          },
+          {
+            "name": "Door",
+            "mid": "/m/02dgv",
+            "uncalibrated_sigmoid": 0.05402100831270218
+          }
+        ]
+      },
+      {
+        "id": "fsd50k-182894",
+        "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+        "top_labels": [
+          {
+            "name": "Printer",
+            "mid": "/m/01m4t",
+            "uncalibrated_sigmoid": 0.7064834833145142
+          },
+          {
+            "name": "Engine",
+            "mid": "/m/02mk9",
+            "uncalibrated_sigmoid": 0.4884525537490845
+          },
+          {
+            "name": "Car",
+            "mid": "/m/0k4j",
+            "uncalibrated_sigmoid": 0.4665398597717285
+          },
+          {
+            "name": "Mechanisms",
+            "mid": "/t/dd00077",
+            "uncalibrated_sigmoid": 0.39786800742149353
+          },
+          {
+            "name": "Bus",
+            "mid": "/m/01bjv",
+            "uncalibrated_sigmoid": 0.2544650435447693
+          },
+          {
+            "name": "Domestic sounds, home sounds",
+            "mid": "/t/dd00071",
+            "uncalibrated_sigmoid": 0.10408034920692444
+          },
+          {
+            "name": "Engine starting",
+            "mid": "/t/dd00130",
+            "uncalibrated_sigmoid": 0.05994260683655739
+          },
+          {
+            "name": "Wood",
+            "mid": "/m/083vt",
+            "uncalibrated_sigmoid": 0.05719248205423355
+          }
+        ]
+      },
+      {
+        "id": "fsd50k-166192",
+        "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+        "top_labels": [
+          {
+            "name": "Explosion",
+            "mid": "/m/014zdl",
+            "uncalibrated_sigmoid": 0.8881577253341675
+          },
+          {
+            "name": "Gunshot, gunfire",
+            "mid": "/m/032s66",
+            "uncalibrated_sigmoid": 0.844671905040741
+          },
+          {
+            "name": "Boom",
+            "mid": "/m/07qqyl4",
+            "uncalibrated_sigmoid": 0.8434638977050781
+          },
+          {
+            "name": "Thump, thud",
+            "mid": "/m/07qnq_y",
+            "uncalibrated_sigmoid": 0.3095165491104126
+          },
+          {
+            "name": "Fireworks",
+            "mid": "/m/0g6b5",
+            "uncalibrated_sigmoid": 0.21901695430278778
+          },
+          {
+            "name": "Cheering",
+            "mid": "/m/053hz1",
+            "uncalibrated_sigmoid": 0.06864961981773376
+          },
+          {
+            "name": "Fire",
+            "mid": "/m/02_41",
+            "uncalibrated_sigmoid": 0.0649925172328949
+          },
+          {
+            "name": "Thunder",
+            "mid": "/m/0ngt1",
+            "uncalibrated_sigmoid": 0.03582483530044556
+          }
+        ]
+      },
+      {
+        "id": "fsd50k-203720",
+        "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+        "top_labels": [
+          {
+            "name": "Motor vehicle (road)",
+            "mid": "/m/012f08",
+            "uncalibrated_sigmoid": 0.9393870234489441
+          },
+          {
+            "name": "Alarm",
+            "mid": "/m/07pp_mv",
+            "uncalibrated_sigmoid": 0.3165995180606842
+          },
+          {
+            "name": "Car",
+            "mid": "/m/0k4j",
+            "uncalibrated_sigmoid": 0.26570504903793335
+          },
+          {
+            "name": "Car passing by",
+            "mid": "/t/dd00134",
+            "uncalibrated_sigmoid": 0.18469394743442535
+          },
+          {
+            "name": "Screech",
+            "mid": "/m/07q8k13",
+            "uncalibrated_sigmoid": 0.16374915838241577
+          },
+          {
+            "name": "Bicycle",
+            "mid": "/m/0199g",
+            "uncalibrated_sigmoid": 0.1548953801393509
+          },
+          {
+            "name": "Vehicle horn, car horn, honking",
+            "mid": "/m/0912c9",
+            "uncalibrated_sigmoid": 0.11029677838087082
+          },
+          {
+            "name": "Squeak",
+            "mid": "/m/07q6cd_",
+            "uncalibrated_sigmoid": 0.0832824558019638
+          }
+        ]
+      }
+    ]
+  },
+  "ordered_feature_cache": {
+    "rows": 7391,
+    "real_frames": 401330,
+    "minimum_pooled_cosine": 0.9999999999999998,
+    "maximum_pooled_relative_RMSE": 0.0,
+    "maximum_pooled_absolute_delta": 0.0,
+    "all_audio_hashes_and_frame_counts_match": true,
+    "features_sha256": "8a6f952f8f9c7db147f8c45e800b191eac6f904bfe9d9ab012235ef16801526b",
+    "elapsed_s": 91.02356348594185
+  },
+  "CC0_data_only_head_repeat": {
+    "status": "complete; REJECTED; no native integration",
+    "additional_training_recordings": 4587,
+    "total_event_train_rows": 11724,
+    "same_original_240_validation": true,
+    "same_model_architecture_and_training_loop_AST": true,
+    "data_derived_output_classes": 197,
+    "hyperparameters_and_quality_gates_unchanged": true,
+    "new_model_or_archive_downloads": 0,
+    "new_source_license_family": false,
+    "extra_Bell": 35,
+    "extra_Siren": 20,
+    "extra_Bark": 21,
+    "extra_Printer": 8,
+    "head_runtime_activated": false,
+    "selected_epoch": 15,
+    "common_macro_AP": 0.505733146342472,
+    "top1_annotated": 0.3916666805744171,
+    "report_sha256": "b3713da614f3432b6dd38d93bbc265f3e4a3dc8f23d82ee0d73d1f41522927cd",
+    "release_qualified": false,
+    "runtime_activated": false,
+    "head_parameters": 1085066,
+    "classes": 197,
+    "predeclared_checks": {
+      "common_AP": false,
+      "full_top1": false,
+      "silence": true,
+      "padding_parity": true,
+      "alarm": true,
+      "bark": true,
+      "bell": false,
+      "printer": true,
+      "gunfire": true,
+      "siren": false,
+      "clapping": true,
+      "group_voices": true
+    },
+    "peak_reserved_mib": 8664.0,
+    "elapsed_s": 534.2537287600571
+  },
+  "paired_encoder_tap_audit": {
+    "complete": true,
+    "same_forward_control_pooled_delta": 0,
+    "raw_common_macro_AP": 0.4714219273,
+    "projected_common_macro_AP": 0.482955258080587,
+    "raw_top1": 0.325,
+    "projected_top1": 0.35,
+    "required_AP_improvement": 0.03,
+    "required_top1_improvement": 0.025,
+    "gates_passed": false,
+    "raw_head_training_started": false,
+    "report_sha256": "02c2e268647d86c3613262f3dccdfce543c841d77a50347c4ffd986306481e1a"
   }
 }

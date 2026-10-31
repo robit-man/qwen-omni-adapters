@@ -90,12 +90,34 @@ Do not promote by NLL, weaken semantic gates, alter inference prompts to match
 fixtures, or publish these failed candidates. No held-out test data was used.
 The same-64-recording audit after weighting lowers event CE from 2.0889 to
 1.9238, but the printer remains wrong. The partial pass processed only 3,200
-of 12,458 training rows. One complete-corpus pass is now pending with the same
+of 12,458 training rows. One complete-corpus pass completed with the same
 audited helper, architecture and learning rate, fixed 1,600/3,200 semantic
-checks, and no publication. Its 1,600-step checkpoint fails, including a
-reasoning/format failure; the unchanged healthy run continues to 3,200.
-Do not confuse this continuation with a qualified
-repair or introduce more model variants while it runs.
+checks, and no publication. Both completed checkpoints fail: the final still
+calls bells piano, a printer a truck and a siren a train. No further
+projection-only pass was launched.
+
+One 1.08M-parameter temporal acoustic head trained over the same frozen encoder
+repairs several event diagnostics but fails bells, sirens and its broad
+validation gates (AP 0.487; top-one 37.5%). It stays disabled; no native
+integration exists. Ordered features reproduce the prior pooled features
+exactly. One data-only repeat added 4,587 verified local CC0 training clips
+up to 30 seconds, including 35 bells and 20 sirens. The architecture, training
+loop and all stricter gates remain unchanged, with the full original 240-clip
+validation and all held-out test recordings protected. It also failed: AP
+0.50573 and top-one 39.17%, with bell and siren checks still failing. Neither
+head may be integrated. A paired raw-versus-projected encoder-tap audit also
+failed its preregistered improvement gate (AP delta -0.01153; accuracy delta
+-0.025); no raw-tap head was trained. Preserve the existing primary, audio
+encoder and cloning weights; do not add another reasoning stack.
+
+A conditional Ornith primary-trunk FFN adapter passes native zero/nonzero and
+off/on/off compatibility, plus a bounded seen-training fit gate. Its native
+audio diagnostics still fail dog/alarm/printer/silence, so it is private and
+must not be enabled or published. One full-corpus trial with the same small
+adapter and fixed checkpoints is recorded in
+`docs/upgrades/audio-lora-fit-20261031.md`. Existing primary/encoder/projector
+and TTS weights remain frozen. Adapter fit is not parity; Qwen requires its
+own matching-checkpoint proof and training.
 
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
 audio bridge, native vision and Qwen3-TTS Base reference-voice cloning. Produce

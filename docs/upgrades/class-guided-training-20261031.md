@@ -137,8 +137,9 @@ from the completed weighted checkpoint. Its launch makes no quality claim.
 
 The whole-corpus run's 1,600 checkpoint also fails: bells remain piano/organ,
 the printer becomes fireworks, and one response generates a reasoning scratchpad
-instead of completing the required XML. The unchanged healthy job continues to
-the preselected 3,200 checkpoint. No prompt or grammar patch hides these errors.
+instead of completing the required XML. The completed 3,200 checkpoint also
+fails: bells become piano, the printer a truck and siren a train. No prompt or
+grammar patch hides these errors, and no further projection-only pass began.
 
 Qwen's final checkpoint has SHA-256
 `771e57531e290f367817e268a8ba2a65f62b41e5a72767c5ddf79f699f35b848`.
@@ -149,3 +150,44 @@ weights, makes no optimizer updates and peaks at 52,946 MiB of Torch-reserved
 CUDA memory. This rules out treating native export or Q4 quantization as the
 sole cause. The temporary native and full-precision scopes exited normally and
 released their leases. No further Qwen model variant was started.
+
+## Temporal acoustic heads: both rejected
+
+A frozen-encoder sequence cache contains 7,391 recordings and 401,330 real
+frames. Pooling them reproduces every old feature exactly, with zero absolute
+or relative difference. It preserves the full original 240 environmental
+validation recordings, including 15 absent from the caption-filtered language
+manifest. Held-out test audio is not encoded.
+
+One 1,083,524-parameter head uses two temporal convolutions and per-class
+attentive pooling, with no language model. Selected by common-class validation
+AP, it reaches 0.48697 AP and 37.5% top-one annotated accuracy. Alarm, bark,
+printer, gunfire, clap, group voice, silence and padding checks pass, but bell,
+siren, AP (minimum 0.50724) and accuracy (minimum 42.5%) fail. It is rejected
+and remains a private build experiment. No native integration was attempted.
+
+The corpus had 13 sirens and 83 bells. A metadata and hash audit of the existing
+verified DEV archives supplies 4,587 further CC0 training recordings up to 30
+seconds, including 20 sirens and 35 bells. One silent file and four duplicates
+are excluded. Uploader, raw/normalized audio-hash and ESC-source exclusions
+remain in force. No new model, archive download or source-license family is
+introduced. Existing feature shards are reused without copying or re-encoding.
+
+One data-only repeat completed with 11,724 event training recordings and 197
+data-derived classes. Executable training, prediction, padding-audit,
+normalization and optimizer AST checks match the first trial; the model class,
+hyperparameters and every quality gate are unchanged. Its selected epoch 15
+reaches 0.50573 common-class AP and 39.17% top-one annotated accuracy. Bells,
+sirens, AP and accuracy still fail the fixed gates. It remains disabled, with
+no native integration. Peak Torch-reserved memory is 8,664 MiB; elapsed time
+is 534.25 seconds. Both heads are diagnostic experiments, not model upgrades.
+
+A paired feature-tap audit then captures raw post-normalization encoder states
+and the existing projected states in the same frozen forward pass. Its control
+pooled values reproduce the immutable cache exactly. The preregistered fixed
+Ridge probe yields raw AP 0.47142 versus projected 0.48296, and raw top-one
+32.5% versus projected 35%. Both required improvement gates fail; no raw-tap
+neural head is trained. This diagnostic does not establish that the encoder
+lacks event information. All 6,303 source tests pass after the data-only trial
+and before the next private compatibility investigation. Publication remains
+gated on actual end-to-end parity.
