@@ -46,8 +46,26 @@ It processes 3,200 serial-four updates with fixed native checkpoints at
 1,000/2,000/3,200. Unknown FSD transcripts remain unscored. No held-out test
 recording is used. Loss cannot promote a checkpoint; exact transcription,
 acoustic identity and silence gates, full ASR/environmental comparisons and
-final Orin qualification remain required. Qwen needs its own exact-checkpoint
-compatibility, training and A100 qualification.
+final Orin qualification remain required.
+
+Qwen's independently converted adapter uses layers 56–63 and 4,325,376
+parameters. Its own zero/nonzero/off/on/off native compatibility gate passes.
+The same bounded fit test reduces event CE from 5.19510 to 0.34910; speech-control
+CE changes from 0.27481 to 0.27620, within the unchanged limit. Base versions
+remain unchanged and disabled logits match exactly. Peak Torch-reserved memory
+is 56,538 MiB, with a 250.66-second fit/evaluation phase. Its native 16K probe
+also fails: bells and clock alarm receive generic observations, and crowd and
+printer become livestock. These results are retained in the
+[Qwen fit/native receipt](qwen-audio-lora-fit-20261031.json). The first native
+attempt used an absent blob path; the successful evaluation verifies the same
+projector SHA at its actual build path. No weight substitution occurred.
+
+Qwen's matching full-corpus trial uses its own frozen rich750 bridge and starts
+from fresh zero-B parameters, with the same fixed checkpoints and training
+settings. Before any optimizer update, forward/backward preflights cover the
+longest training audio and longest training target; both pass with a 55,352 MiB
+peak reservation. Only A100 qualification can clear this profile. Neither fit
+adapter is published or enabled in production.
 
 The source suite passes all 6,303 tests before and after this investigation.
 The old Orin services remain active and their portal returns HTTP 200.

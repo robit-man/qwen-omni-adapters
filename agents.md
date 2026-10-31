@@ -116,8 +116,10 @@ audio diagnostics still fail dog/alarm/printer/silence, so it is private and
 must not be enabled or published. One full-corpus trial with the same small
 adapter and fixed checkpoints is recorded in
 `docs/upgrades/audio-lora-fit-20261031.md`. Existing primary/encoder/projector
-and TTS weights remain frozen. Adapter fit is not parity; Qwen requires its
-own matching-checkpoint proof and training.
+and TTS weights remain frozen. Qwen's own exact-checkpoint compatibility and
+fit gates also pass, but native bells/crowd/printer diagnostics fail. Its matching
+full-corpus trial includes speech/nonspeech replay, the same fixed checkpoints
+and passed memory preflights. Adapter fit is not parity for either profile.
 
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
 audio bridge, native vision and Qwen3-TTS Base reference-voice cloning. Produce
