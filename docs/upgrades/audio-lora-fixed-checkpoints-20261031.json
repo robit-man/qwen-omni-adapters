@@ -346,7 +346,141 @@
           "transcript": null
         }
       ]
+    },
+    {
+      "schema": "robit.omni.fixed-audio-lora-semantic-review.v1",
+      "utc": "2026-10-31T15:42:34.729221+00:00",
+      "family": "ornith",
+      "step": 3200,
+      "rows": 13,
+      "source_report_sha256": "c843c0f4462ca8999e4f96e9953350772c14a3e40e17d011122f586c824c6612",
+      "context_tokens": 16384,
+      "GPU_residency_verified": true,
+      "only_adapter_trained": true,
+      "source_primary_encoder_bridge_unchanged": true,
+      "adapter_sha256": "51c4c40ee445903fdf8f19599b83cb9489554578fec4b5b7eb2400236e4e089f",
+      "source_adapter_sha256": "764bfc3fc3bda7c748df453efbc7f3e1fb329a1dc34489cd654a199efff51045",
+      "passed": [
+        "exact sentence",
+        "bark"
+      ],
+      "failed": {
+        "silence": "low-frequency buzz hallucinated",
+        "procedural alarm": "Tick",
+        "steady noise": "Cricket",
+        "sustained electronic tone": "Bass drum",
+        "clock alarm": "Idling",
+        "bells": "Guitar chord",
+        "group voices": "Crow, crows",
+        "clapping": "Fireworks",
+        "printer": "Fireworks",
+        "gunfire": "Boom (insufficient identification)",
+        "passing siren": "Boat, Water vehicle"
+      },
+      "release_qualified": false,
+      "held_out_test_used": false,
+      "action": "REJECT; complete bounded trial: all preselected1000/2000/3200 rejected. No new Ornith trainer, runtime integration or publication.",
+      "outputs": [
+        {
+          "id": "probe-speech",
+          "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "audio_observation": "One speaker with no notable background sound.",
+          "transcript": "The blue bicycle is parked beside the garden gate."
+        },
+        {
+          "id": "probe-silence",
+          "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+          "audio_observation": "A single brief low-frequency buzz; no intelligible speech.",
+          "transcript": null
+        },
+        {
+          "id": "probe-alarm",
+          "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+          "audio_observation": "Audible sound events: Tick.",
+          "transcript": null
+        },
+        {
+          "id": "probe-noise",
+          "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+          "audio_observation": "Audible sound events: Cricket.",
+          "transcript": null
+        },
+        {
+          "id": "probe-music",
+          "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+          "audio_observation": "Audible sound events: Bass drum.",
+          "transcript": null
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+          "audio_observation": "Audible sound events: Idling.",
+          "transcript": null
+        },
+        {
+          "id": "probe-esc50-dog",
+          "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+          "audio_observation": "Audible sound events: Bark.",
+          "transcript": null
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+          "audio_observation": "Audible sound events: Guitar chord.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-156200",
+          "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+          "audio_observation": "Audible sound events: Crow, crows.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-180765",
+          "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+          "audio_observation": "Audible sound events: Fireworks.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-182894",
+          "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+          "audio_observation": "Audible sound events: Fireworks.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-166192",
+          "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+          "audio_observation": "Audible sound events: Boom.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-203720",
+          "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+          "audio_observation": "Audible sound events: Boat, Water vehicle.",
+          "transcript": null
+        }
+      ]
     }
   ],
-  "remaining": "preselected later checkpoints continue unchanged; no held-out test data used; full ASR/environmental and target-host gates required for a viable checkpoint"
+  "remaining": "Ornith full-corpus trial completed: every fixed checkpoint rejected. Qwen preselected2000/3200 continue unchanged; no runtime integration or publication. Full ASR/environmental and target-host gates still required for any viable candidate.",
+  "legacy_reference": {
+    "report": "legacy-expanded-audio-20261031.json",
+    "same13_input_IDs_and_hashes": true,
+    "profile": "Existing legacy request defaults, compared with each trained bridge own pinned profile",
+    "identifies": "bells, printer, gunfire, human voices, passing siren",
+    "failure_retained": "silence beep hallucination",
+    "qualification_effect": "Candidates remain rejected; no gate changed",
+    "broader_existing_references": "rich-projection-qualification-20261031.json includes existing full ASR160/environmental240"
+  },
+  "ornith_complete_trial": {
+    "steps": 3200,
+    "unique_training_records": 12458,
+    "elapsed_s": 10196.550677540945,
+    "peak_torch_reserved_mib": 30422.0,
+    "all_fixed_checkpoints_rejected": true,
+    "frozen_primary_encoder_bridge_unchanged": true,
+    "disabled_logits_max_abs_delta": 0,
+    "held_out_test_used": false,
+    "publication": false
+  }
 }

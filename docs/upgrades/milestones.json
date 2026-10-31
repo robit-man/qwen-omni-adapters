@@ -303,7 +303,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Projection-only and acoustic-head trials rejected; conditional trunk adapter fixed full-corpus trials running; Ornith1000/2000 and Qwen1000 fail native semantics; no promotion",
+      "status": "Ornith complete full-corpus conditional-trunk trial: all1000/2000/3200 native checkpoints rejected. Qwen1000 rejected; fixed2000/3200 trial continues. Parity and publication remain gated.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -316,7 +316,9 @@
         "class-guided-trial-review-20261031.json",
         "audio-lora-fit-20261031.json",
         "qwen-audio-lora-fit-20261031.json",
-        "audio-lora-fixed-checkpoints-20261031.json"
+        "audio-lora-fixed-checkpoints-20261031.json",
+        "legacy-expanded-audio-20261031.md",
+        "legacy-expanded-audio-20261031.json"
       ]
     },
     {

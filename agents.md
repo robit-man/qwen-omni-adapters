@@ -125,15 +125,23 @@ silence and other diagnostics. It is rejected; preserve the unchanged fixed
 checkpoint plan and do not promote it because fit or export checks pass. See
 `docs/upgrades/audio-lora-fixed-checkpoints-20261031.json`.
 
-The full-corpus Ornith 2,000 and Qwen 1,000 checkpoints also fail mandatory
-native sound diagnostics and remain rejected. Preserve the remaining fixed
-checkpoints rather than changing healthy trainers or promoting by training
-loss. A separate current-encoder English CTC audit passes its fixed text
+The full-corpus Ornith trial completed all 3,200 steps and processed all 12,458
+training records. Its 1,000/2,000/3,200 checkpoints all fail mandatory native
+sound diagnostics and remain rejected; the final calls bells a guitar chord,
+a printer fireworks and a passing siren a boat. No further Ornith trial was
+launched. Qwen's 1,000 checkpoint also fails. Preserve its remaining fixed
+2,000/3,200 checkpoints rather than changing the healthy trainer or promoting
+by training loss. A separate current-encoder English CTC audit passes its fixed text
 limits on A100 and an Orin downstream diagnostic; Orin numerical feature
 parity still fails. The head remains disabled, with no shared live encoder
 residency or streaming qualification. See
 `docs/upgrades/current-encoder-ctc-20261031.md`. Private precision probes did
 not clear the unchanged numerical gate and must not become production flags.
+The same-13-input legacy comparison identifies bells, printer, gunfire, human
+voices and a passing siren that the rejected adapters miss. Its silence beep
+hallucination is retained; no reference-model words become verified transcripts.
+See `docs/upgrades/legacy-expanded-audio-20261031.md`. The legacy model is a
+benchmark reference only and must not be restored as a second release reasoner.
 
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
 audio bridge, native vision and Qwen3-TTS Base reference-voice cloning. Produce
