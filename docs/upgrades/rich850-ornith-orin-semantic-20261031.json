@@ -1,0 +1,53 @@
+{
+  "schema": "robit.omni.semantic-auditory-gates.v1",
+  "family": "ornith",
+  "checks": [
+    {
+      "fixture": "alarm.wav",
+      "status": 200,
+      "elapsed_s": 2.745175960008055,
+      "passed": true,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Intermittent electronic alarm tones with regular rhythmic beeping.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "Intermittent electronic alarm tones with regular rhythmic beeping."
+    },
+    {
+      "fixture": "esc50-clock_alarm.wav",
+      "status": 200,
+      "elapsed_s": 2.2851788180414587,
+      "passed": true,
+      "content": "<speech_transcript></speech_transcript><audio_observation>A continuous high-pitched electronic tone with slight variations in pitch and volume.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "A continuous high-pitched electronic tone with slight variations in pitch and volume."
+    },
+    {
+      "fixture": "esc50-dog.wav",
+      "status": 200,
+      "elapsed_s": 1.8895633530337363,
+      "passed": true,
+      "content": "<speech_transcript></speech_transcript><audio_observation>A single dog bark is heard.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "A single dog bark is heard."
+    },
+    {
+      "fixture": "esc50-church_bells.wav",
+      "status": 200,
+      "elapsed_s": 2.8691413290798664,
+      "passed": true,
+      "content": "<speech_transcript></speech_transcript><audio_observation>A single, sustained musical note is played on what sounds like a bell or chime instrument, with a clear tone and gradual decay.</audio_observation>",
+      "transcript": "",
+      "audio_observation": "A single, sustained musical note is played on what sounds like a bell or chime instrument, with a clear tone and gradual decay."
+    },
+    {
+      "fixture": "colors-speech.mp4",
+      "status": 200,
+      "elapsed_s": 36.27259694901295,
+      "passed": true,
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One speaker with a calm, steady voice and no notable background sound.</audio_observation><visual_observation>The video displays a series of solid color screens that change over time. From 0.00s to approximately 1.00s, the screen shows a bright red background filling the entire frame. At around 2.00s, the color abruptly changes to a vivid blue, which persists through about 3.00s. Then at roughly 4.00s, the screen transitions to a bright green that remains until the end of the clip. Each color fills the complete frame with no gradients, patterns, or objects visible. The transitions between colors appear instantaneous rather than gradual. There is no text, movement, or additional visual elements present throughout the video.</visual_observation>",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "audio_observation": "One speaker with a calm, steady voice and no notable background sound.",
+      "wer": 0.0
+    }
+  ],
+  "passed": true
+}

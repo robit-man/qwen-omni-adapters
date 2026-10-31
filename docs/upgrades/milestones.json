@@ -291,18 +291,20 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "completed_Ornith_second_run_recovers_bark_alarm_music_bells_still_fail_Qwen_label_only_run_stopped_at950_both_richer_target_projection_runs_in_progress",
+      "status": "Ornith_richer_run_completed_selected850_recovers_bark_bells_Orin_small_gates_pass_broader_environmental_errors_remain_Qwen_richer_run_continues_two_layer_Ornith_trial_running",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
         "ornith-training2-diagnostics-20261030.json",
-        "qwen-training1-diagnostics-20261030.json"
+        "qwen-training1-diagnostics-20261030.json",
+        "rich-projection-qualification-20261031.md",
+        "rich-projection-qualification-20261031.json"
       ]
     },
     {
       "id": "E",
       "objective": "Qualify Ornith on Orin and Qwen3.8 on the current A100 host, preserving complete parity and safe memory",
-      "status": "operational_cloning_and_video_speech_passed_Ornith_Orin_Qwen_A100_semantic_environmental_parity_failed",
+      "status": "repaired_Ornith_Orin14_operational5_small_semantic_raw_PCM_and_concurrency_pass_full_parity_open_Qwen_A100_bells_fail",
       "evidence": [
         "phase-e-orin-preparation.json",
         "phase-e-orin-tts-repeat.json",
@@ -322,7 +324,11 @@
         "release-orin-restoration.json",
         "release-qwen-a100-video-fix.json",
         "release-ornith-orin-video-fix.json",
-        "release-staging-verification.json"
+        "release-staging-verification.json",
+        "rich850-ornith-orin-operational-20261031.json",
+        "rich850-ornith-orin-semantic-20261031.json",
+        "rich850-ornith-orin-concurrency-20261031.json",
+        "rich850-ornith-orin-restoration-20261031.json"
       ]
     },
     {

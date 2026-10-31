@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "sample_rate": 24000,
+  "samples": 78720,
+  "duration_seconds": 3.28,
+  "stream_frames": 2,
+  "window_samples": 3840,
+  "complete_windows": 20,
+  "tail_samples": 1920,
+  "start_sample": {
+    "median": -0.00048828125,
+    "minimum": -0.327117919921875,
+    "maximum": 0.329315185546875,
+    "standard_deviation": 0.1527864636841124
+  },
+  "shared_prefix_rms_ratio": {
+    "1": 0.20484103585026628,
+    "10": 0.18812790683953196,
+    "20": 0.2672639511027125
+  },
+  "boundary_jump_over_local_rms": {
+    "median": 0.08275990027614433,
+    "maximum": 1.4256753349943694
+  },
+  "limits": {
+    "median_boundary_jump_over_local_rms": 0.35,
+    "shared_prefix_1ms_rms_ratio": 0.85
+  }
+}

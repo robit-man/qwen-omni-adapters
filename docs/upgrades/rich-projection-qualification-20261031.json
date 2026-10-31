@@ -1,0 +1,485 @@
+{
+  "schema": "robit.omni.rich-projection-qualification-progress.v1",
+  "source_revision": "731974f",
+  "publication_performed": false,
+  "release_qualified": false,
+  "user_decision": "repair parity before publishing; no experimental preview exception",
+  "ornith": {
+    "training_status": "completed_1600_steps",
+    "selected_by_validation_loss": 850,
+    "projector_sha256": "3ab6b8ce7feda7178092eee36b6c2700dbd256d23ec6f09fa350c9fca055b3f2",
+    "changed_tensors": [
+      "mm.a.mlp.2.weight",
+      "mm.a.mlp.2.bias"
+    ],
+    "frozen_audio_vision_tensors_byte_identical": 858,
+    "primary_checkpoint_unchanged": true,
+    "tts_weights_unchanged": true,
+    "stock_ollama_checks": {
+      "model": "robit/ornith-1.5-omni:edge-v2-rich1-best850-20261031",
+      "stock_ollama_version": {
+        "version": "0.40.11"
+      },
+      "scoped_external_stock_server": true,
+      "shared_global_server_changed": false,
+      "reserved_gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "verified_cuda_worker_pids": [
+        2998575
+      ],
+      "model_residency": {
+        "name": "robit/ornith-1.5-omni:edge-v2-rich1-best850-20261031",
+        "size": 6468067655,
+        "size_vram": 6468067655,
+        "context_length": 16384
+      },
+      "checks": [
+        {
+          "case": "think_false",
+          "http_status": 200,
+          "elapsed_s": 0.17249129799893126,
+          "request_native_think": false,
+          "message": {
+            "role": "assistant",
+            "content": "7 multiplied by 8 equals **56**."
+          },
+          "done": true,
+          "done_reason": "stop",
+          "eval_count": 11,
+          "prompt_eval_count": 21,
+          "passed": true
+        },
+        {
+          "case": "think_true",
+          "http_status": 200,
+          "elapsed_s": 0.43900959799066186,
+          "request_native_think": true,
+          "message": {
+            "role": "assistant",
+            "content": "7 multiplied by 8 equals **56**.",
+            "thinking": "The user is asking a simple multiplication question: 7 multiplied by 8.\n\n7 \u00d7 8 = 56\n\nThis is a basic arithmetic question. I should just answer it directly and clearly."
+          },
+          "done": true,
+          "done_reason": "stop",
+          "eval_count": 56,
+          "prompt_eval_count": 19,
+          "passed": true
+        },
+        {
+          "case": "structured_tool",
+          "http_status": 200,
+          "elapsed_s": 0.3622337519773282,
+          "request_native_think": false,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "id": "call_v097gup8",
+                "function": {
+                  "index": 0,
+                  "name": "mark_integer",
+                  "arguments": {
+                    "value": 73
+                  }
+                }
+              }
+            ]
+          },
+          "done": true,
+          "done_reason": "stop",
+          "eval_count": 27,
+          "prompt_eval_count": 277,
+          "passed": true
+        }
+      ],
+      "all_passed": true,
+      "release_qualified": false
+    },
+    "target_hardware": "Tegra234 Orin",
+    "target_context_tokens": 16384,
+    "target_kv": "q8_0",
+    "operational_checks_passed": true,
+    "operational_check_count": 14,
+    "small_semantic_fixture_gate_passed": true,
+    "small_semantic_fixture_count": 5,
+    "raw_pcm_continuity_passed": true,
+    "concurrent_listening_viewing_cloning": {
+      "primary_pid": 3708293,
+      "primary_residency_before_after": true,
+      "tts_resident_pids": [
+        3710480,
+        3710485
+      ],
+      "concurrent_independent_requests": 3,
+      "minimum_MemAvailable_mib": 10418.02734375,
+      "memory_hard_floor_mib": 2048,
+      "rows": [
+        {
+          "case": "listening",
+          "elapsed_s": 22.343389365822077,
+          "current_visual_input": false,
+          "transcript": "The blue bicycle is parked beside the garden gate.",
+          "passed": true
+        },
+        {
+          "case": "viewing",
+          "elapsed_s": 19.699758691946045,
+          "current_visual_input": true,
+          "content": "<visual_observation>A solid field of uniform bright blue fills the entire frame with no visible texture, gradient, or variation in color intensity. A thin black border frames all four edges of the image. There are no objects, text, people, shapes, or other visual elements present; the composition consists solely of this single flat blue area enclosed by the black outline.</visual_observation>",
+          "passed": true
+        },
+        {
+          "case": "cloning",
+          "elapsed_s": 12.198858457850292,
+          "current_visual_input": false,
+          "wav_bytes": 142124,
+          "wav_sha256": "c88e06794cfc10be7d9363304bd009ced40924da6330ab2d3c30c6d8fc103ee8",
+          "passed": true
+        }
+      ],
+      "all_passed": true,
+      "qualification_scope": "listening + viewing + request-local cloned speech, distinct HTTP clients; no physical speaker/microphone loop or whole-task accuracy claim",
+      "release_qualified": false
+    },
+    "previous_production_restored": {
+      "qwen-omni-adapters.service": {
+        "start_exit": 0,
+        "active": "active"
+      },
+      "omni-call-harness.service": {
+        "start_exit": 0,
+        "active": "active"
+      },
+      "omni-auto-update.timer": {
+        "start_exit": 0,
+        "active": "active"
+      },
+      "egg-runtime-update.timer": {
+        "start_exit": 0,
+        "active": "active"
+      },
+      "original_portal_health": 200
+    },
+    "complete_feature_parity_claimed": false
+  },
+  "speech_validation": {
+    "use": "validation only; not independent release acceptance",
+    "context_tokens": 4096,
+    "kv": "f16",
+    "device": "A100",
+    "same_audio_manifest_sha256": "09f34f1dc34abf8a8054c954bcc45427b1c06befa43029588190a201b7c0cadc",
+    "normalization": "ASCII English letters/digits/apostrophes; lowercase; punctuation removed",
+    "original_v1_source": "7554ae0118a2b1527ab537a1cd11e4cd7251770c",
+    "original_v1_native_sha256": {
+      "llama-server": "9282411ff29dd503e23ad04e7f1efe0b1f53e11ededb0a747b35ebe799aae5ba",
+      "libllama.so": "bb95ff5cfab6c2c64f56b3878ffe1303bb949d56e1ee2c7404419273c3dd647f",
+      "libmtmd.so": "4dc0883161f4b7666faf903ce2390cb99ec2d29ef30094e4670fe1990165dc26"
+    },
+    "original_v1_projector_sha256": "7e2d6fe7e80c4538e961e592d954d1c47d64e087139db03043741a0238af2c1c",
+    "original_v1": {
+      "all": {
+        "clips": 154,
+        "words": 3336,
+        "errors": 622,
+        "exact_clips": 56,
+        "wer": 0.18645083932853718
+      },
+      "espeak-ng plus deterministic procedural ambience": {
+        "clips": 78,
+        "words": 1520,
+        "errors": 347,
+        "exact_clips": 47,
+        "wer": 0.22828947368421051
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "clips": 29,
+        "words": 594,
+        "errors": 43,
+        "exact_clips": 9,
+        "wer": 0.0723905723905724
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "clips": 47,
+        "words": 1222,
+        "errors": 232,
+        "exact_clips": 0,
+        "wer": 0.18985270049099837
+      }
+    },
+    "repaired_ornith850": {
+      "all": {
+        "clips": 154,
+        "words": 3336,
+        "errors": 230,
+        "exact_clips": 79,
+        "wer": 0.06894484412470024
+      },
+      "espeak-ng plus deterministic procedural ambience": {
+        "clips": 78,
+        "words": 1520,
+        "errors": 17,
+        "exact_clips": 67,
+        "wer": 0.01118421052631579
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "clips": 29,
+        "words": 594,
+        "errors": 33,
+        "exact_clips": 12,
+        "wer": 0.05555555555555555
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "clips": 47,
+        "words": 1222,
+        "errors": 180,
+        "exact_clips": 0,
+        "wer": 0.14729950900163666
+      }
+    },
+    "legacy_full_omni": {
+      "all": {
+        "clips": 154,
+        "words": 3336,
+        "errors": 684,
+        "exact_clips": 62,
+        "wer": 0.20503597122302158
+      },
+      "espeak-ng plus deterministic procedural ambience": {
+        "clips": 78,
+        "words": 1520,
+        "errors": 122,
+        "exact_clips": 39,
+        "wer": 0.08026315789473684
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "clips": 29,
+        "words": 594,
+        "errors": 9,
+        "exact_clips": 23,
+        "wer": 0.015151515151515152
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "clips": 47,
+        "words": 1222,
+        "errors": 553,
+        "exact_clips": 0,
+        "wer": 0.4525368248772504
+      }
+    },
+    "nonspeech_transcript_false_positives": {
+      "original_v1": 0,
+      "repaired_ornith850": 0,
+      "legacy_full_omni": 0
+    },
+    "interpretation": "Improvement over actual original v1 in every speech source; natural-speech gap versus full Omni remains. The unreleased label1450 checkpoint is not the original-v1 baseline."
+  },
+  "qwen": {
+    "target_hardware": "current A100 host",
+    "rich_training_state_at_recording": {
+      "best_step": 750,
+      "best_validation_loss": 0.19298836479265447,
+      "initial_validation_loss": 0.3999218922599539,
+      "last_sanity_check": {
+        "elapsed_seconds": 8029.067471265793,
+        "gradient_norm": 5.375,
+        "sanity_check": "pass",
+        "step": 1150,
+        "training_loss": 0.36893671890720725,
+        "validation_loss": 0.20361042287368036
+      },
+      "schema": "robit.qwen3a-audio-bridge-training.v1",
+      "status": "running",
+      "step": 1150
+    },
+    "best750_projector_sha256": "2d9609efef6af1112bc03bf34646cf271deaae9317f17891ec6342380778c3e1",
+    "best750_native_probes": [
+      {
+        "id": "probe-speech",
+        "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+        "labels": [
+          "speech"
+        ],
+        "mids": [],
+        "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One speaker with no notable background sounds.</audio_observation>",
+        "audio_observation": "One speaker with no notable background sounds.",
+        "transcript": "The blue bicycle is parked beside the garden gate.",
+        "elapsed_s": 2.6101609069737606
+      },
+      {
+        "id": "probe-silence",
+        "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+        "labels": [
+          "silence"
+        ],
+        "mids": [],
+        "content": "<speech_transcript></speech_transcript><audio_observation>No speech or distinct non-speech sound is detectable.</audio_observation>",
+        "audio_observation": "No speech or distinct non-speech sound is detectable.",
+        "transcript": null,
+        "elapsed_s": 2.3037411510013044
+      },
+      {
+        "id": "probe-alarm",
+        "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+        "labels": [
+          "alarm"
+        ],
+        "mids": [],
+        "content": "<speech_transcript></speech_transcript><audio_observation>A single, brief electronic alarm tone.</audio_observation>",
+        "audio_observation": "A single, brief electronic alarm tone.",
+        "transcript": null,
+        "elapsed_s": 2.3300051860278472
+      },
+      {
+        "id": "probe-noise",
+        "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+        "labels": [
+          "noise"
+        ],
+        "mids": [],
+        "content": "<speech_transcript></speech_transcript><audio_observation>Steady low-level ambient noise</audio_observation>",
+        "audio_observation": "Steady low-level ambient noise",
+        "transcript": null,
+        "elapsed_s": 2.280838297039736
+      },
+      {
+        "id": "probe-music",
+        "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+        "labels": [
+          "music"
+        ],
+        "mids": [],
+        "content": "<speech_transcript></speech_transcript><audio_observation>A continuous, low-volume electronic tone is present.</audio_observation>",
+        "audio_observation": "A continuous, low-volume electronic tone is present.",
+        "transcript": null,
+        "elapsed_s": 2.3841526139876805
+      },
+      {
+        "id": "probe-esc50-clock_alarm",
+        "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+        "labels": [
+          "esc50-clock_alarm"
+        ],
+        "mids": [],
+        "content": "<speech_transcript></speech_transcript><audio_observation>A continuous, high-pitched electronic hum is present throughout the clip.</audio_observation>",
+        "audio_observation": "A continuous, high-pitched electronic hum is present throughout the clip.",
+        "transcript": null,
+        "elapsed_s": 2.3929088550503366
+      },
+      {
+        "id": "probe-esc50-dog",
+        "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+        "labels": [
+          "esc50-dog"
+        ],
+        "mids": [],
+        "content": "<speech_transcript></speech_transcript><audio_observation>A dog barking</audio_observation>",
+        "audio_observation": "A dog barking",
+        "transcript": null,
+        "elapsed_s": 2.0165306699927896
+      },
+      {
+        "id": "probe-esc50-church_bells",
+        "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+        "labels": [
+          "esc50-church_bells"
+        ],
+        "mids": [],
+        "content": "<speech_transcript></speech_transcript><audio_observation>A high-pitched, sustained electronic tone is heard.</audio_observation>",
+        "audio_observation": "A high-pitched, sustained electronic tone is heard.",
+        "transcript": null,
+        "elapsed_s": 2.534584019042086
+      }
+    ],
+    "semantic_gate_cleared": false,
+    "known_failure": "church bells described as an electronic tone"
+  },
+  "broader_environmental_comparison": {
+    "clips": 240,
+    "split": "uploader-disjoint validation",
+    "no_source_titles_or_labels_in_model_request": true,
+    "trained_output_sha256": "6425655709d0d4b3e202f2707d5e58c2c99ffedc15f092f898d76be23153c251",
+    "legacy_output_sha256": "90672ff81b9a3016a5ea6ab6884cdbad2ce2537a281b79bdf0366414684ce15e",
+    "complete_parity_claimed": false,
+    "confirmed_counterexamples": [
+      {
+        "id": "fsd50k-156200",
+        "labels": [
+          "Human group actions"
+        ],
+        "repaired": "A dog barks, followed by the sound of a person walking on gravel.",
+        "legacy": "Children speaking and playing, followed by a buzzer sound."
+      },
+      {
+        "id": "fsd50k-180765",
+        "labels": [
+          "Clapping"
+        ],
+        "repaired": "A single, sharp gunshot is heard.",
+        "legacy": "A loud, sharp clap is followed by a brief rustling sound."
+      },
+      {
+        "id": "fsd50k-182894",
+        "labels": [
+          "Printer"
+        ],
+        "repaired": "A person is playing a harmonica.",
+        "legacy": "Printer printing"
+      }
+    ],
+    "scoring_limitation": "Weak class labels are not exhaustive captions; these failures are retained with actual raw model outputs, no aggregate semantic accuracy fabricated."
+  },
+  "next_experiment": {
+    "status": "running, not qualified or installed",
+    "family": "ornith",
+    "planned_steps": 400,
+    "hypothesis": "Train both existing native qwen3a projection layers to test nonlinear alignment capacity; same rich manifest, no other training change",
+    "initialization_parity": {
+      "initialization_equivalent": true,
+      "rows": [
+        {
+          "id": "librispeech-3853-163249-0041",
+          "shape": [
+            93,
+            4096
+          ],
+          "cosine": 1.0,
+          "relative_rmse": 0.0,
+          "passed": true
+        },
+        {
+          "id": "fsd50k-328728",
+          "shape": [
+            56,
+            4096
+          ],
+          "cosine": 1.0000001192092896,
+          "relative_rmse": 0.0,
+          "passed": true
+        },
+        {
+          "id": "fsd50k-10450",
+          "shape": [
+            37,
+            4096
+          ],
+          "cosine": 0.9999999403953552,
+          "relative_rmse": 0.0,
+          "passed": true
+        }
+      ],
+      "trainable_tensor_names": [
+        "projection.weight",
+        "projection.bias",
+        "first_projection.weight",
+        "first_projection.bias"
+      ],
+      "trainable_parameters": 6886656,
+      "manifest_sha256": "6a9269f65c061f1589042350e1e8cdcdbf495c1258d099d5d347d2d37a2d3186",
+      "hypothesis": "Train both existing qwen3a projection layers with same dataset and frozen primary/encoder to test nonlinear adaptation capacity",
+      "runtime_or_existing_trainers_changed": false
+    },
+    "native_graph_changed": false,
+    "primary_vision_attention_convolution_and_tts_frozen": true,
+    "production_service_changed": false
+  }
+}
