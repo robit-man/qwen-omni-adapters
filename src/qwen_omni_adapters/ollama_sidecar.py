@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,8 @@ OLLAMA_MODEL_MEDIA_TYPE = "application/vnd.ollama.image.model"
 OLLAMA_PROJECTOR_MEDIA_TYPE = "application/vnd.ollama.image.projector"
 DEFAULT_REGISTRY = "registry.ollama.ai"
 INDEXED_BINDING_ANNOTATION = "io.robit.omni.binding.v2"
+INDEXED_BINDING_MEDIA_TYPE = "application/vnd.robit.ollama.omni.binding.v2+json"
+MAX_BINDING_BYTES = 65_536
 RUNTIME_VIEWS = (
     "comprehension_model",
     "comprehension_projector",
@@ -203,6 +206,67 @@ def _indexed_binding(standard_layers: dict[str, dict[str, Any]], digest: str) ->
                                 for name in sorted(required)}}
 
 
+def _install_binding_layer(binding: dict[str, Any], root: Path) -> dict[str, Any]:
+    # Stock Ollama push serializes layer descriptors without annotations. A
+    # content-addressed layer preserves the exact identity through that path.
+    payload = json.dumps(binding, sort_keys=True, separators=(",", ":")).encode()
+    blobs = root / "blobs"
+    blobs.mkdir(parents=True, exist_ok=True)
+    fd, filename = tempfile.mkstemp(prefix=".omni-binding-", suffix=".partial", dir=blobs)
+    temporary = Path(filename)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        digest = _install_blob(temporary, blobs)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {"mediaType": INDEXED_BINDING_MEDIA_TYPE,
+            "digest": "sha256:" + digest, "size": len(payload)}
+
+
+def _verify_indexed_binding(
+    manifest: dict[str, Any], root: Path, sidecar: dict[str, Any], expected: dict[str, Any],
+) -> None:
+    bindings = []
+    annotations = sidecar.get("annotations", {})
+    if not isinstance(annotations, dict):
+        raise OllamaSidecarError("indexed sidecar binding annotations are invalid")
+    if INDEXED_BINDING_ANNOTATION in annotations:
+        try:
+            bindings.append(json.loads(annotations[INDEXED_BINDING_ANNOTATION]))
+        except (TypeError, ValueError) as exc:
+            raise OllamaSidecarError("indexed sidecar binding annotation is invalid") from exc
+    layers = [layer for layer in manifest["layers"]
+              if layer.get("mediaType") == INDEXED_BINDING_MEDIA_TYPE]
+    if len(layers) > 1:
+        raise OllamaSidecarError("indexed sidecar has duplicate binding layers")
+    if layers:
+        layer = layers[0]
+        digest, size = layer.get("digest"), layer.get("size")
+        if (not isinstance(digest, str) or not digest.startswith("sha256:")
+                or len(digest) != 71 or any(c not in "0123456789abcdef" for c in digest[7:])
+                or type(size) is not int or not 0 < size <= MAX_BINDING_BYTES):
+            raise OllamaSidecarError("indexed sidecar binding layer descriptor is invalid")
+        blob = root / "blobs" / digest.replace(":", "-", 1)
+        try:
+            if blob.stat().st_size != size:
+                raise OllamaSidecarError("indexed sidecar binding blob has the wrong size")
+            with blob.open("rb") as handle:
+                payload = handle.read(MAX_BINDING_BYTES + 1)
+            if len(payload) != size or hashlib.sha256(payload).hexdigest() != digest[7:]:
+                raise OllamaSidecarError("indexed sidecar binding blob failed digest validation")
+            bindings.append(json.loads(payload))
+        except (OSError, ValueError) as exc:
+            raise OllamaSidecarError("indexed sidecar binding blob is unavailable or invalid") from exc
+    if not bindings:
+        raise OllamaSidecarError("indexed sidecar is missing its exact tag layer binding")
+    # Never let a valid copy hide a conflicting annotation or binding layer.
+    if any(binding != expected for binding in bindings):
+        raise OllamaSidecarError("indexed sidecar binding does not match this language/projector pair")
+
+
 def attach_ollama_sidecar(
     *,
     model: str,
@@ -232,20 +296,22 @@ def attach_ollama_sidecar(
             "io.robit.omni.schema": inspection["manifest"]["schema"],
         },
     }
+    binding_layer = None
     if binding is not None:
         binding["sidecar"] = layer["digest"]
         layer["annotations"][INDEXED_BINDING_ANNOTATION] = json.dumps(
             binding, sort_keys=True, separators=(",", ":")
         )
+        binding_layer = _install_binding_layer(binding, root)
     previous_sidecars = sum(
         existing.get("mediaType") == OMNI_LAYER_MEDIA_TYPE for existing in manifest["layers"]
     )
     retained = [
         existing
         for existing in manifest["layers"]
-        if existing.get("mediaType") != OMNI_LAYER_MEDIA_TYPE
+        if existing.get("mediaType") not in {OMNI_LAYER_MEDIA_TYPE, INDEXED_BINDING_MEDIA_TYPE}
     ]
-    manifest["layers"] = [*retained, layer]
+    manifest["layers"] = [*retained, *([binding_layer] if binding_layer else []), layer]
     partial = path.with_name(path.name + ".partial")
     partial.write_text(
         json.dumps(manifest, separators=(",", ":"), sort_keys=True),
@@ -257,6 +323,7 @@ def attach_ollama_sidecar(
         "manifest": str(path),
         "models_dir": str(root),
         "layer": layer,
+        "binding_layer": binding_layer,
         "replaced_existing_sidecar": previous_sidecars > 0,
         "bundle": str(bundle),
         "bundle_inspection": {
@@ -302,12 +369,7 @@ def resolve_ollama_sidecar(
     standard_layers = _resolve_standard_layers(manifest, root)
     if schema == INDEXED_AUDIO_BRIDGE_SCHEMA:
         expected = _indexed_binding(standard_layers, digest)
-        try:
-            binding = json.loads(layer.get("annotations", {}).get(INDEXED_BINDING_ANNOTATION, ""))
-        except (TypeError, json.JSONDecodeError) as exc:
-            raise OllamaSidecarError("indexed sidecar is missing its exact tag layer binding") from exc
-        if binding != expected:
-            raise OllamaSidecarError("indexed sidecar binding does not match this language/projector pair")
+        _verify_indexed_binding(manifest, root, layer, expected)
     if profile == "trained-audio-bridge":
         required = {"language_model", "projector"}
         missing = sorted(

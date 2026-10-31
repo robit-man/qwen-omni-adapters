@@ -13,6 +13,7 @@ import pytest
 from qwen_omni_adapters.indexed_sidecar import pack_indexed_tts_sidecar
 from qwen_omni_adapters.ollama_sidecar import (
     INDEXED_BINDING_ANNOTATION,
+    INDEXED_BINDING_MEDIA_TYPE,
     OMNI_LAYER_MEDIA_TYPE,
     OllamaSidecarError,
     attach_ollama_sidecar,
@@ -87,6 +88,7 @@ def test_paths_do_not_duplicate_sidecar_and_quantized_views_remain_byte_identica
     standard_tag(root, names[1])
     attached = [attach_ollama_sidecar(model=name, bundle_gguf=bundle, models_dir=root) for name in names]
     assert attached[0]["layer"]["digest"] == attached[1]["layer"]["digest"]
+    assert attached[0]["binding_layer"]["digest"] != attached[1]["binding_layer"]["digest"]
     assert attached[0]["layer"]["annotations"][INDEXED_BINDING_ANNOTATION] != \
         attached[1]["layer"]["annotations"][INDEXED_BINDING_ANNOTATION]
     for name in names:
@@ -114,6 +116,8 @@ def test_bound_tag_rejects_changed_trunk_projector_or_sidecar(tmp_path, changed)
     layer = next(x for x in manifest["layers"] if x["mediaType"] == OMNI_LAYER_MEDIA_TYPE)
     if changed == "binding":
         del layer["annotations"][INDEXED_BINDING_ANNOTATION]
+        manifest["layers"] = [item for item in manifest["layers"]
+                              if item["mediaType"] != INDEXED_BINDING_MEDIA_TYPE]
     elif changed == "sidecar":
         layer["annotations"][INDEXED_BINDING_ANNOTATION] = layer["annotations"][INDEXED_BINDING_ANNOTATION].replace(
             layer["digest"], "sha256:" + "0" * 64)
@@ -123,6 +127,101 @@ def test_bound_tag_rejects_changed_trunk_projector_or_sidecar(tmp_path, changed)
     path.write_text(json.dumps(manifest))
     with pytest.raises(OllamaSidecarError, match="binding"):
         resolve_ollama_sidecar(model=name, models_dir=root)
+
+
+@pytest.mark.parametrize("swapped", [None, "model", "projector"])
+def test_stock_descriptor_roundtrip_keeps_exact_binding_without_annotations(tmp_path, swapped):
+    bundle, _, _ = sidecar(tmp_path)
+    root, name = tmp_path / "store", "robit/portable:edge-v2"
+    path = standard_tag(root, name)
+    other = standard_tag(root, "robit/other:edge-v2")
+    attach_ollama_sidecar(model=name, bundle_gguf=bundle, models_dir=root)
+    manifest = json.loads(path.read_text())
+    if swapped:
+        index = 0 if swapped == "model" else 1
+        manifest["layers"][index] = json.loads(other.read_text())["layers"][index]
+    # Actual stock push drops descriptor annotations, but retains unknown
+    # content-addressed layers. Exercise that persisted package, not a mock
+    # success return from the resolver.
+    manifest["layers"] = [{k: v for k, v in item.items() if k != "annotations"}
+                          for item in manifest["layers"]]
+    path.write_text(json.dumps(manifest))
+    if swapped:
+        with pytest.raises(OllamaSidecarError, match="binding"):
+            resolve_ollama_sidecar(model=name, models_dir=root)
+    else:
+        result = prepare_ollama_sidecar(model=name, models_dir=root,
+                                        output_dir=tmp_path / "views")
+        assert set(result["views"]) == {"tts_model", "tts_projector"}
+
+
+def test_existing_annotation_only_v2_tags_remain_supported(tmp_path):
+    bundle, _, _ = sidecar(tmp_path)
+    root, name = tmp_path / "store", "robit/previous:edge-v2"
+    path = standard_tag(root, name)
+    attach_ollama_sidecar(model=name, bundle_gguf=bundle, models_dir=root)
+    manifest = json.loads(path.read_text())
+    manifest["layers"] = [item for item in manifest["layers"]
+                          if item["mediaType"] != INDEXED_BINDING_MEDIA_TYPE]
+    path.write_text(json.dumps(manifest))
+    assert resolve_ollama_sidecar(model=name, models_dir=root)["profile"] == "trained-audio-bridge"
+
+
+@pytest.mark.parametrize("damage", ["missing", "bytes", "size", "digest", "oversized",
+                                     "duplicate", "invalid_json", "other_binding"])
+def test_binding_blob_damage_cannot_fall_back_to_a_valid_annotation(tmp_path, damage):
+    bundle, _, _ = sidecar(tmp_path)
+    root, name = tmp_path / "store", "robit/checked:edge-v2"
+    path = standard_tag(root, name)
+    attached = attach_ollama_sidecar(model=name, bundle_gguf=bundle, models_dir=root)
+    manifest = json.loads(path.read_text())
+    layer = next(item for item in manifest["layers"]
+                 if item["mediaType"] == INDEXED_BINDING_MEDIA_TYPE)
+    blob = root / "blobs" / layer["digest"].replace(":", "-", 1)
+    if damage == "missing":
+        blob.unlink()
+    elif damage == "bytes":
+        before = blob.read_bytes()
+        blob.write_bytes(before.replace(b"language_model", b"language_modex"))
+        assert blob.stat().st_size == layer["size"]
+    elif damage == "size":
+        layer["size"] += 1
+    elif damage == "digest":
+        layer["digest"] = "sha256:../../outside"
+    elif damage == "oversized":
+        layer["size"] = 65_537
+    elif damage == "duplicate":
+        manifest["layers"].append(dict(layer))
+    elif damage == "invalid_json":
+        raw = b"not json"
+        digest = hashlib.sha256(raw).hexdigest()
+        (root / "blobs" / ("sha256-" + digest)).write_bytes(raw)
+        layer.update(digest="sha256:" + digest, size=len(raw))
+    elif damage == "other_binding":
+        other = "robit/other:edge-v2"
+        standard_tag(root, other)
+        wrong = attach_ollama_sidecar(model=other, bundle_gguf=bundle, models_dir=root)
+        layer.update(wrong["binding_layer"])
+        assert layer["digest"] != attached["binding_layer"]["digest"]
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(OllamaSidecarError, match="binding"):
+        resolve_ollama_sidecar(model=name, models_dir=root)
+
+
+def test_reattachment_reuses_one_small_binding_and_one_unchanged_sidecar(tmp_path):
+    bundle, _, _ = sidecar(tmp_path)
+    before = bundle.read_bytes()
+    root, name = tmp_path / "store", "robit/repeated:edge-v2"
+    path = standard_tag(root, name)
+    first = attach_ollama_sidecar(model=name, bundle_gguf=bundle, models_dir=root)
+    second = attach_ollama_sidecar(model=name, bundle_gguf=bundle, models_dir=root)
+    assert first["binding_layer"] == second["binding_layer"]
+    assert second["binding_layer"]["size"] < 1024
+    manifest = json.loads(path.read_text())
+    assert sum(item["mediaType"] == INDEXED_BINDING_MEDIA_TYPE for item in manifest["layers"]) == 1
+    assert sum(item["mediaType"] == OMNI_LAYER_MEDIA_TYPE for item in manifest["layers"]) == 1
+    assert bundle.read_bytes() == before
+    assert not list((root / "blobs").glob(".omni-binding-*.partial"))
 
 
 def test_failed_repack_preserves_previous_output_and_cleans_only_own_partial(tmp_path, monkeypatch):
