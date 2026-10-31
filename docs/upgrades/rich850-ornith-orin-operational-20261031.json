@@ -1,0 +1,150 @@
+{
+  "schema": "robit.omni.release-live-api.v1",
+  "family": "ornith",
+  "model": "robit/ornith-1.5-omni:edge-v2-rich1-best850-20261031",
+  "checks": [
+    {
+      "name": "text_think_false",
+      "passed": true,
+      "elapsed_s": 1.42885024077259,
+      "evidence": {
+        "no_thinking": true,
+        "tag_exact": true
+      }
+    },
+    {
+      "name": "separate_thinking",
+      "passed": true,
+      "elapsed_s": 1.9238056889735162,
+      "evidence": {
+        "thinking_chars": 14,
+        "final_correct": true
+      }
+    },
+    {
+      "name": "structured_tool_speech_deferral",
+      "passed": true,
+      "elapsed_s": 3.2615213729441166,
+      "evidence": {
+        "structured_call": true,
+        "arguments_exact": true,
+        "unresolved_tool_not_spoken": true
+      }
+    },
+    {
+      "name": "fresh_red_blue_red",
+      "passed": true,
+      "elapsed_s": 22.78261464415118,
+      "evidence": {
+        "observed_colors": [
+          "red",
+          "blue",
+          "red"
+        ],
+        "fresh_visual_provenance": true
+      }
+    },
+    {
+      "name": "audio_transcription",
+      "passed": true,
+      "elapsed_s": 2.6987811690196395,
+      "evidence": {
+        "transcript": "The blue bicycle is parked beside the garden gate.",
+        "wer": 0.0,
+        "current_visual_input": false
+      }
+    },
+    {
+      "name": "environment_alarm",
+      "passed": true,
+      "elapsed_s": 2.239912899909541,
+      "evidence": {
+        "audio_observation": "Intermittent electronic alarm tones with regular rhythmic beeping.",
+        "transcript": ""
+      }
+    },
+    {
+      "name": "environment_noise",
+      "passed": true,
+      "elapsed_s": 2.2384534338489175,
+      "evidence": {
+        "audio_observation": "Steady faint static-like hiss with no intelligible speech.",
+        "transcript": ""
+      }
+    },
+    {
+      "name": "environment_music",
+      "passed": true,
+      "elapsed_s": 2.103623233968392,
+      "evidence": {
+        "audio_observation": "A single, high-pitched electronic tone is heard.",
+        "transcript": ""
+      }
+    },
+    {
+      "name": "silence_requires_speech",
+      "passed": true,
+      "elapsed_s": 2.148857830790803,
+      "evidence": {
+        "comprehension_only": true,
+        "no_language_or_tts": true
+      }
+    },
+    {
+      "name": "sampled_video_with_audio",
+      "passed": true,
+      "elapsed_s": 34.611765281064436,
+      "evidence": {
+        "observation": "<speech_transcript></speech_transcript><audio_observation>A continuous, high-pitched electronic tone.</audio_observation><visual_observation>The video consists of a sequence of solid-color frames with thin black borders around each frame, presented in temporal order:\n- From 0.00s to approximately 1.00s: The screen displays a solid red field filling the entire frame.\n- From about 1.00s to roughly 2.00s: The field changes abruptly to a solid blue color covering the whole frame.\n- From around 2.00s to about 3.00s: The field shifts again, this time to a solid green filling the entire frame.\n- From approximately 3.00s onward (through at least 5.00s): The screen remains a steady solid green for the remainder of the clip.\n\nNo objects, text, motion within the fields, or transitions other than these abrupt color changes are visible. Each frame is uniform in its single color with no gradients or patterns.</visual_observation>",
+        "audio_observation": "A continuous, high-pitched electronic tone."
+      }
+    },
+    {
+      "name": "request_local_voice_complete",
+      "passed": true,
+      "elapsed_s": 13.199928312096745,
+      "evidence": {
+        "wav_bytes": 207404,
+        "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+        "first_pcm_s": null,
+        "stream_chunks": 0,
+        "format": "24kHz mono PCM16"
+      }
+    },
+    {
+      "name": "request_local_voice_stream",
+      "passed": true,
+      "elapsed_s": 13.39228551206179,
+      "evidence": {
+        "wav_bytes": 207404,
+        "pcm_sha256": "445949765b845b9bb0e0b724001830a2db733cb31c72c3ea5544cde64328376e",
+        "first_pcm_s": 8.656001504976302,
+        "stream_chunks": 14,
+        "format": "24kHz mono PCM16"
+      }
+    },
+    {
+      "name": "post_tts_audio_transcription",
+      "passed": true,
+      "elapsed_s": 2.6987997230608016,
+      "evidence": {
+        "transcript": "The blue bicycle is parked beside the garden gate.",
+        "wer": 0.0,
+        "current_visual_input": false
+      }
+    },
+    {
+      "name": "concurrent_session_isolation",
+      "passed": true,
+      "elapsed_s": 2.8755072138737887,
+      "evidence": {
+        "isolated_responses": true,
+        "concurrent_sessions": 2
+      }
+    }
+  ],
+  "passed": true,
+  "physical_playback_qualified": false,
+  "primary_gpu_resident": true,
+  "primary_pid": 3708293
+}

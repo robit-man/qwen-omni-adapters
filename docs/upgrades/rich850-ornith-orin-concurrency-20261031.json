@@ -1,0 +1,38 @@
+{
+  "primary_pid": 3708293,
+  "primary_residency_before_after": true,
+  "tts_resident_pids": [
+    3710480,
+    3710485
+  ],
+  "concurrent_independent_requests": 3,
+  "minimum_MemAvailable_mib": 10418.02734375,
+  "memory_hard_floor_mib": 2048,
+  "rows": [
+    {
+      "case": "listening",
+      "elapsed_s": 22.343389365822077,
+      "current_visual_input": false,
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "passed": true
+    },
+    {
+      "case": "viewing",
+      "elapsed_s": 19.699758691946045,
+      "current_visual_input": true,
+      "content": "<visual_observation>A solid field of uniform bright blue fills the entire frame with no visible texture, gradient, or variation in color intensity. A thin black border frames all four edges of the image. There are no objects, text, people, shapes, or other visual elements present; the composition consists solely of this single flat blue area enclosed by the black outline.</visual_observation>",
+      "passed": true
+    },
+    {
+      "case": "cloning",
+      "elapsed_s": 12.198858457850292,
+      "current_visual_input": false,
+      "wav_bytes": 142124,
+      "wav_sha256": "c88e06794cfc10be7d9363304bd009ced40924da6330ab2d3c30c6d8fc103ee8",
+      "passed": true
+    }
+  ],
+  "all_passed": true,
+  "qualification_scope": "listening + viewing + request-local cloned speech, distinct HTTP clients; no physical speaker/microphone loop or whole-task accuracy claim",
+  "release_qualified": false
+}

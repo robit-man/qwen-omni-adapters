@@ -1,0 +1,19 @@
+{
+  "qwen-omni-adapters.service": {
+    "start_exit": 0,
+    "active": "active"
+  },
+  "omni-call-harness.service": {
+    "start_exit": 0,
+    "active": "active"
+  },
+  "omni-auto-update.timer": {
+    "start_exit": 0,
+    "active": "active"
+  },
+  "egg-runtime-update.timer": {
+    "start_exit": 0,
+    "active": "active"
+  },
+  "original_portal_health": 200
+}

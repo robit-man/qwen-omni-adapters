@@ -43,6 +43,15 @@ bark/alarm but still fails music/bells. The richer-target experiment is recorded
 in `docs/upgrades/rich-acoustic-targets-20261030.md`; pseudo-captions, loss changes
 and repair diagnostics do not substitute for independent release qualification.
 
+The 2026-10-31 UTC richer-target qualification recovers bark and bell/chime
+recognition on Ornith/Orin: 14 operational checks, the original five semantic
+fixtures, raw PCM and concurrent listening/viewing/cloning pass. Actual original
+v1 speech WER improves from 18.645% to 6.894% on the same validation inputs.
+Broader environmental errors and Qwen's missing bell recognition still gate
+publication. A five-fixture result is not complete feature parity. See
+`docs/upgrades/rich-projection-qualification-20261031.md`. The old Orin deployment
+was restored and verified healthy after the bounded qualification session.
+
 ## Purpose and non-negotiable constraints
 
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
