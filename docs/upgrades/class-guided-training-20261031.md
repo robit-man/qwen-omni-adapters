@@ -87,9 +87,9 @@ and no extra model variant was started at that checkpoint.
 ## Completed Ornith trial and bounded loss experiment: rejected
 
 All three preselected Ornith checkpoints (1,000/2,000/3,200) fail mandatory
-native semantic diagnostics. Qwen's 1,000/2,000 checkpoints also fail; its
-original run continues unchanged to the preselected final checkpoint. The
-[seven-checkpoint review](class-guided-trial-review-20261031.json) retains exact
+native semantic diagnostics. Qwen's completed run also fails at all three
+preselected checkpoints (1,000/2,000/3,200). The
+[fixed-checkpoint review](class-guided-trial-review-20261031.json) retains exact
 projector identities, output digests and the actual observations. Every export
 changes only the final projection's two tensors; 858 frozen audio/vision tensors
 remain byte-identical. All native checks completed at 16K/F16 with verified
@@ -134,3 +134,18 @@ processes only 3,200 of 12,458 training rows. One further bounded pass now cover
 the whole unchanged corpus: 3,200 serial-four updates, fixed native checkpoints
 1,600/3,200, the same audited loss, architecture and learning rate, initialized
 from the completed weighted checkpoint. Its launch makes no quality claim.
+
+The whole-corpus run's 1,600 checkpoint also fails: bells remain piano/organ,
+the printer becomes fireworks, and one response generates a reasoning scratchpad
+instead of completing the required XML. The unchanged healthy job continues to
+the preselected 3,200 checkpoint. No prompt or grammar patch hides these errors.
+
+Qwen's final checkpoint has SHA-256
+`771e57531e290f367817e268a8ba2a65f62b41e5a72767c5ddf79f699f35b848`.
+A read-only BF16 replay through its unchanged full training trunk completes the
+same 13 input hashes and also fails: alarm becomes drill, bells organ, crowd
+traffic, printer crowd, and siren car horn. It loads without missing/mismatched
+weights, makes no optimizer updates and peaks at 52,946 MiB of Torch-reserved
+CUDA memory. This rules out treating native export or Q4 quantization as the
+sole cause. The temporary native and full-precision scopes exited normally and
+released their leases. No further Qwen model variant was started.

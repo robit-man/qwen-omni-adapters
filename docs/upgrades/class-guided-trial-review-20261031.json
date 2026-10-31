@@ -577,6 +577,168 @@
         }
       ],
       "publication_gate_passed": false
+    },
+    {
+      "family": "ornith",
+      "trial": "event-weighted-fullpass1",
+      "step": 1600,
+      "projector_sha256": "3da5986afe75020638329f9e76eb9db2b9488edac18b19f662b0a16ad07a375f",
+      "native_context_tokens": 16384,
+      "native_KV": "f16",
+      "rows": 13,
+      "GPU_residency_verified": true,
+      "source_output_sha256": "b9b8a409f0b80e939cab22707aae4e0e762c76ab4fecea2dca81cae8561b921a",
+      "source_review_sha256": "f48641eaa356ada819490ac6f5d8c3212acf9fb6669e6e3e5978238e9e673258",
+      "native_results": [
+        {
+          "id": "probe-speech",
+          "transcript": "The blue bicycle is parked beside the garden gate.",
+          "observation": "One synthetic speech synthesizer with a single brief episode of no notable background sound."
+        },
+        {
+          "id": "probe-silence",
+          "transcript": null,
+          "observation": "Silence; no intelligible speech or distinct sound event."
+        },
+        {
+          "id": "probe-alarm",
+          "transcript": null,
+          "observation": "No audible speech; no recognizable sound events."
+        },
+        {
+          "id": "probe-noise",
+          "transcript": null,
+          "observation": "Audible sound events: Rain."
+        },
+        {
+          "id": "probe-music",
+          "transcript": null,
+          "observation": "Audible sound events: Telephone ring."
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "transcript": null,
+          "observation": "Audible sound events: Alarm, siren."
+        },
+        {
+          "id": "probe-esc50-dog",
+          "transcript": null,
+          "observation": "Audible sound events: Bark."
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "transcript": null,
+          "observation": "Audible sound events: Piano, Organ. A single, resonant piano chord is struck and sustains with a rich harmonic decay before the organ begins playing sustained chords that fade out gradually."
+        },
+        {
+          "id": "fsd50k-156200",
+          "transcript": "...",
+          "observation": "..."
+        },
+        {
+          "id": "fsd50k-180765",
+          "transcript": null,
+          "observation": "Audible sound events: Clap."
+        },
+        {
+          "id": "fsd50k-182894",
+          "transcript": null,
+          "observation": "Audible sound events: Fireworks, firecrackers."
+        },
+        {
+          "id": "fsd50k-166192",
+          "transcript": null,
+          "observation": "Audible sound events: Boom, explosion."
+        },
+        {
+          "id": "fsd50k-203720",
+          "transcript": null,
+          "observation": "Audible sound events: Siren, alarm."
+        }
+      ],
+      "publication_gate_passed": false
+    },
+    {
+      "family": "qwen",
+      "trial": "class-guided1",
+      "step": 3200,
+      "projector_sha256": "771e57531e290f367817e268a8ba2a65f62b41e5a72767c5ddf79f699f35b848",
+      "native_context_tokens": 16384,
+      "native_KV": "f16",
+      "rows": 13,
+      "GPU_residency_verified": true,
+      "source_output_sha256": "304c01f8cb195f5be131a727bd92014b2e2f50d1c499534f67731220e694a83c",
+      "source_review_sha256": "8358ff06f8bd90b77177582c6b16a0c6454a3fc51d36d5138262657061cfada5",
+      "native_results": [
+        {
+          "id": "probe-speech",
+          "transcript": "The blue bicycle is parked beside the garden gate.",
+          "observation": "One speaker with no notable background sounds."
+        },
+        {
+          "id": "probe-silence",
+          "transcript": null,
+          "observation": "No intelligible speech; sustained low-level ambient noise."
+        },
+        {
+          "id": "probe-alarm",
+          "transcript": null,
+          "observation": "A recurring electronic alarm tone is audible."
+        },
+        {
+          "id": "probe-noise",
+          "transcript": null,
+          "observation": "No intelligible speech detected."
+        },
+        {
+          "id": "probe-music",
+          "transcript": null,
+          "observation": "Audible sound events: A bell."
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "transcript": null,
+          "observation": "The audio contains the sound of a machine."
+        },
+        {
+          "id": "probe-esc50-dog",
+          "transcript": null,
+          "observation": "Ambient sound of barking."
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "transcript": null,
+          "observation": null,
+          "unparsed_content_prefix": "The audio contains the sound of a bell, specifically a large, resonant gong or temple bell being struck. There is no speech present in the recording.",
+          "unparsed_content_truncated": false
+        },
+        {
+          "id": "fsd50k-156200",
+          "transcript": null,
+          "observation": "Audible sound events include a dog barking, a car horn, and a siren."
+        },
+        {
+          "id": "fsd50k-180765",
+          "transcript": null,
+          "observation": "A single, sharp, percussive sound is heard, characterized by a rapid onset and decay, resembling a hand clap."
+        },
+        {
+          "id": "fsd50k-182894",
+          "transcript": null,
+          "observation": "Audible sounds include the clatter of a machine, the sound of a door opening and closing, and the hum of an engine."
+        },
+        {
+          "id": "fsd50k-166192",
+          "transcript": null,
+          "observation": "Audible sound events: Explosion."
+        },
+        {
+          "id": "fsd50k-203720",
+          "transcript": null,
+          "observation": "A single, sustained electric guitar note is played at a high pitch with a slight vibrato and a clean tone."
+        }
+      ],
+      "publication_gate_passed": false
     }
   ],
   "read_only_training_fit_before_weighting": {
@@ -602,7 +764,7 @@
       800
     ]
   },
-  "Qwen_3200_training": "continues unchanged; final fixed checkpoint pending",
+  "Qwen_3200_training": "complete; all fixed checkpoints rejected; full BF16 reproduces critical semantic failures",
   "automatic_publication": false,
   "read_only_training_fit_after_weighting": {
     "mean_overall_CE": 0.4351147460838547,
@@ -615,7 +777,7 @@
     "receipt_sha256": "e75c0ad896ed50c063a016a241ef09710ae859e79b8119c29025e3212dd20680"
   },
   "weighted_full_corpus_pass": {
-    "status": "started; no quality claim",
+    "status": "fixed1600 rejected; unchanged healthy3200 run continues",
     "initial_checkpoint": "rejected weighted800 weights; no promotion",
     "max_steps": 3200,
     "gradient_accumulation_steps": 4,
@@ -629,5 +791,69 @@
     "same_architecture_and_learning_rate": true,
     "new_neural_architecture": false,
     "publication_authorized": false
+  },
+  "Qwen_final_BF16_comparison": {
+    "complete": true,
+    "rows": 13,
+    "same_input_hashes_as_native": true,
+    "primary_unchanged": true,
+    "optimizer_steps": 0,
+    "peak_cuda_reserved_mib": 52946.0,
+    "report_sha256": "21e92b031bccf12eec35bf8d0e2f6858c814b5972b7f34613e005c231e1cb605",
+    "release_gate_passed": false,
+    "outputs": [
+      {
+        "id": "probe-speech",
+        "full_precision_output": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One speaker with intermittent electronic noise in the background.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "probe-silence",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Silence; no intelligible speech or distinct sound event.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "probe-alarm",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>An intermittent electronic alarm; no intelligible speech.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "probe-noise",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Faint steady low-level ambient noise; no distinct non-speech events.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "probe-music",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Chime. A single, clear chime is heard.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "probe-esc50-clock_alarm",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Drill.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "probe-esc50-dog",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bark.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "probe-esc50-church_bells",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Organ. A sustained, resonant organ chord is played, with a rich harmonic texture and a slow decay.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-156200",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Vehicle (road or air traffic).</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-180765",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Clapping.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-182894",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Crowd.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-166192",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion. A loud, sharp explosion occurs.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-203720",
+        "full_precision_output": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Car horn. A car horn honks twice, with the second honk being slightly longer and more sustained than the first.</audio_observation><|im_end|>"
+      }
+    ]
   }
 }
