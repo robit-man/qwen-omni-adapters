@@ -1,0 +1,190 @@
+{
+  "schema": "robit.omni.class-coverage-repair-checkpoint.v1",
+  "source_revision": "90cc4d2",
+  "release_qualified": false,
+  "publication_performed": false,
+  "acceptance_criterion": "Repair broad environmental-audio parity before publication, with no loss of transcription or cloning.",
+  "observed_cause": "Original environmental corpus builder excluded Human voice/Speech/Singing and descendants before sampling. The prior training split had no Human group actions examples even before pseudo-caption filtering.",
+  "archive_acquisition": {
+    "all_six_MD5_verified": true,
+    "only_dev_archives_downloaded": true,
+    "elapsed_s": 2932.6514993360033
+  },
+  "new_environmental_candidates": {
+    "acquired": 4000,
+    "complete": true,
+    "candidate_manifest_sha256": "a15640ad50f52ca46e672e28fbff1d2451b297836ca3f26e8a47f325d023c028",
+    "only_train_split": true,
+    "CC0_only": true,
+    "per_entry_CRC32_and_source_SHA256_verified": true,
+    "original_validation_and_test_changed": false
+  },
+  "new_human_activity_candidates": {
+    "schema": "robit.omni.human-acoustic-coverage-acquisition.v1",
+    "complete": true,
+    "rows": 937,
+    "all_training_split": true,
+    "all_CC0": true,
+    "protected_uploader_or_hash_overlap": false,
+    "ESC_source_ids_excluded": 1524,
+    "event_label_counts": {
+      "Speech": 148,
+      "Screaming": 73,
+      "Yell": 30,
+      "Laughter": 230,
+      "Human voice": 121,
+      "Whispering": 19,
+      "Clapping": 54,
+      "Shout": 14,
+      "Singing": 35,
+      "Applause": 5,
+      "Cheering": 6,
+      "Cough": 18,
+      "Crying, sobbing": 16,
+      "Sigh": 45,
+      "Chuckle, chortle": 22,
+      "Human group actions": 3,
+      "Female speech, woman speaking": 58,
+      "Child speech, kid speaking": 16,
+      "Wind": 2,
+      "Giggle": 26,
+      "Crowd": 8,
+      "Male speech, man speaking": 55,
+      "Chatter": 2,
+      "Subway, metro, underground": 5,
+      "Hi-hat": 1,
+      "Walk, footsteps": 3,
+      "Sliding door": 1,
+      "Alarm": 1,
+      "Female singing": 3,
+      "Coin (dropping)": 1,
+      "Burping, eructation": 3,
+      "Scratching (performance technique)": 1,
+      "Musical instrument": 5,
+      "Speech synthesizer": 5,
+      "Wood": 1,
+      "Breathing": 27,
+      "Tick": 2,
+      "Conversation": 6,
+      "Gasp": 1,
+      "Sneeze": 1,
+      "Acoustic guitar": 4,
+      "Piano": 3,
+      "Guitar": 1,
+      "Writing": 1,
+      "Chink, clink": 1,
+      "Telephone": 1,
+      "Fart": 1
+    },
+    "manifest_sha256": "520dfc812b8c5dfe639e4488f9b999e2550fadcbf27df1ca264304d2a9680de7",
+    "training_activated": false,
+    "prior_cause": "Original builder excluded Human voice/Speech/Singing and their descendants before sampling.",
+    "transcript_supervision": "unavailable; must mask transcript loss before any training",
+    "elapsed_s": 1.3821528269909322
+  },
+  "partial_transcript_supervision": {
+    "schema": "robit.omni.partial-speech-supervision-audit.v1",
+    "passed": true,
+    "CPU_only": true,
+    "neural_weights_updated": false,
+    "runtime_prompt_changed": false,
+    "helper_sha256": "885b46d682c6a471cbd1c06166b803102d1467337da878864d95415759c0b7f8",
+    "families": {
+      "ornith": {
+        "replay_all_tensors_identical": true,
+        "encoder_inputs_identical": true,
+        "unknown_speech_target_tokens_masked": 9,
+        "cross_boundary_BPE_token_masked": true,
+        "remaining_acoustic_and_stop_targets_identical": true,
+        "scored_acoustic_tokens": 20,
+        "invalid_transcript_rejected": true
+      },
+      "qwen": {
+        "replay_all_tensors_identical": true,
+        "encoder_inputs_identical": true,
+        "unknown_speech_target_tokens_masked": 9,
+        "cross_boundary_BPE_token_masked": true,
+        "remaining_acoustic_and_stop_targets_identical": true,
+        "scored_acoustic_tokens": 20,
+        "invalid_transcript_rejected": true
+      }
+    },
+    "release_qualified": false
+  },
+  "caption_collection": {
+    "status": "in_progress",
+    "original_training_validation_rows": 2440,
+    "additional_environmental_training_rows": 4000,
+    "additional_human_training_rows": 937,
+    "test_rows_processed": 0,
+    "human_verified_captions": false,
+    "transcript_candidates_used_as_verified_labels": false
+  },
+  "planned_training": {
+    "status": "waiting_for_captions",
+    "steps_per_family": 3200,
+    "accumulation": 4,
+    "learning_rate": 3e-05,
+    "FSD_training_rows": 7137,
+    "bounded_additional_natural_speech_rows": 2000,
+    "all_prior_validation_and_test_lines_preserved": true,
+    "trainable_component": "Existing final audio projection only",
+    "frozen_components": [
+      "Primary reasoning trunk",
+      "Omni audio encoder",
+      "Native vision",
+      "Qwen3-TTS Base and codec/reference encoder"
+    ],
+    "neural_training_started": false
+  },
+  "text_grader_rejected": {
+    "correct": 21,
+    "total": 24,
+    "required_accuracy": 1.0,
+    "calibration_passed": false,
+    "used_for_release_scoring": false,
+    "failures": [
+      {
+        "label": "Printer",
+        "description": "A low mechanical hum continues steadily.",
+        "expected": false,
+        "supported": true,
+        "reason": "The description 'A low mechanical hum continues steadily' clearly identifies the sound event as a printer, which typically produces such a hum during operation.",
+        "correct": false
+      },
+      {
+        "label": "Alarm",
+        "description": "An unspecified steady electronic tone is audible.",
+        "expected": false,
+        "supported": true,
+        "reason": "The description specifies an 'unspecified steady electronic tone,' which is a clear acoustic characteristic of an alarm sound.",
+        "correct": false
+      },
+      {
+        "label": "Guitar",
+        "description": "Unspecified plucked string notes are heard.",
+        "expected": false,
+        "supported": true,
+        "reason": "The description explicitly states 'plucked string notes,' which is a characteristic sound of a guitar.",
+        "correct": false
+      }
+    ]
+  },
+  "source_gates": {
+    "before": {
+      "tests": 6295,
+      "elapsed_s": 281.31
+    },
+    "after": {
+      "tests": 6295,
+      "elapsed_s": 282.52
+    },
+    "all_script_harnesses_passed": true,
+    "production_source_changed": false
+  },
+  "limitations": [
+    "New raw recordings and correct loss masking are verified; model quality improvement is not yet established.",
+    "Class-guided descriptions are weak teacher pseudo labels, not ground truth.",
+    "Native parity, assigned-device qualification and remote publication verification remain mandatory."
+  ]
+}

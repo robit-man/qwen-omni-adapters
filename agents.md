@@ -61,6 +61,14 @@ and verify the pulled package. This transport gate does not clear audio parity.
 
 ## Purpose and non-negotiable constraints
 
+The next auditory repair checkpoint is
+`docs/upgrades/class-coverage-repair-20261031.md`: the original dataset builder
+excluded most human voice classes before sampling. Additional CC0 training
+audio and unknown-transcript loss masking are verified, but no new model
+quality is claimed. Preserve held-out lines, retain human weak event labels,
+and never train unverified teacher transcripts as truth. The rejected 21/24
+text grader must not be used to clear the parity gate.
+
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
 audio bridge, native vision and Qwen3-TTS Base reference-voice cloning. Produce
 two independently versioned releases: **Ornith Omni Edge v2** and **Qwen3.8 Omni
