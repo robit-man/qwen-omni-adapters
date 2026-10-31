@@ -62,3 +62,24 @@ The versioned partial-label integration passes all 6,303 source tests and every
 script harness, including eight focused regressions. Its executable AST matches
 the real-tokenizer-audited helper in the active jobs; neither job was modified
 or restarted to publish this build support.
+
+## First checkpoint: rejected
+
+The immutable Ornith 1,000-step projection has SHA-256
+`ad39f8cb8c04c360b454eece0b1a1075186a1280dcce0c435492d1a889fcb776`.
+Only the two intended tensors changed; all 858 frozen audio/vision tensors
+remain exact. Its native 16K/F16 A100 development diagnostic completed all 13
+inputs with verified GPU residency. This is not final Orin qualification.
+
+Clapping is now identified, and exact speech, silence, procedural alarm and dog
+checks remain sound. Recorded clock alarm, bells, group voices, printer,
+gunfire and siren still fail. The same checkpoint's full-precision model
+reproduces the main errors: voices become birds, the printer becomes a vehicle,
+and gunfire becomes an explosion. This evidence does not justify a runtime or
+quantization patch. Both temporary diagnostic scopes were released.
+
+The [semantic review](class-guided-step1000-rejection-20261031.json) rejects
+publication. Larger ASR/environmental suites and unused test data are deferred
+because a mandatory semantic gate already failed. Both existing training jobs
+continue toward the remaining preselected checkpoints; no threshold changed
+and no extra model variant was started.
