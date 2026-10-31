@@ -69,6 +69,14 @@ quality is claimed. Preserve held-out lines, retain human weak event labels,
 and never train unverified teacher transcripts as truth. The rejected 21/24
 text grader must not be used to clear the parity gate.
 
+The completed data audit and ongoing projection jobs are recorded in
+`docs/upgrades/class-guided-training-20261031.md`. Their manifest is immutable;
+all FSD transcript placeholders are unscored. Camera source annotations remain
+in metadata but use acoustic-only device labels in training targets. Compare
+the preselected 1,000/2,000/3,200 checkpoints by native semantics and ASR, not
+wording-sensitive NLL alone. The expanded-data pooled head also failed its
+fixed gates and must remain disabled. Neither job's launch proves parity.
+
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
 audio bridge, native vision and Qwen3-TTS Base reference-voice cloning. Produce
 two independently versioned releases: **Ornith Omni Edge v2** and **Qwen3.8 Omni
