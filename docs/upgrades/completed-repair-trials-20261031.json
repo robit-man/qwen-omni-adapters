@@ -1,0 +1,1094 @@
+{
+  "schema": "robit.omni.completed-repair-trials.v1",
+  "source_revision": "59cedcd",
+  "publication_performed": false,
+  "release_qualified": false,
+  "qwen_rich_training": {
+    "status": "complete",
+    "best_step": 750,
+    "initial_validation_loss": 0.3999218922599539,
+    "best_validation_loss": 0.19298836479265447,
+    "elapsed_seconds": 11189.551429986954,
+    "trainable_parameters": 6558720,
+    "frozen_language_parameters": 26895998464,
+    "frozen_audio_parameters": 647927168
+  },
+  "qwen_final_projector": {
+    "schema": "robit.qwen3a-audio-bridge-projector.v1",
+    "output": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-rich1-step1600-projector.gguf",
+    "size_bytes": 1652306528,
+    "sha256": "ff36810539f12fbad1e21f1fc3508380e97ace510586cc0c1fdb21fecfecac2c",
+    "base_projector": {
+      "path": "/srv/ollama/models/blobs/sha256-ac3714bfdddeca31351f2752bf1a63f266f4df87c0b68c895e44945ca704448e",
+      "size_bytes": 931146016,
+      "sha256": "ac3714bfdddeca31351f2752bf1a63f266f4df87c0b68c895e44945ca704448e",
+      "tensor_count": 334
+    },
+    "omni_audio_donor": {
+      "path": "/srv/fine_tuning_suite/training_suite/outputs/omni_portal_runtime/components/comprehension-projector.gguf",
+      "size_bytes": 1325020128,
+      "sha256": "1104376db833f1e89c84834144ac3863340c2cd1ddaeddb39cb0247fb5c20c8d",
+      "copied_tensor_count": 524,
+      "thinker_included": false,
+      "vision_tensors_included": false
+    },
+    "bridge": {
+      "architecture": "qwen3a-final-projector",
+      "gguf_bias": "mm.a.mlp.2.bias",
+      "gguf_weight": "mm.a.mlp.2.weight",
+      "source_width": 1280,
+      "target_width": 5120,
+      "trainable_bf16_bytes": 13117440,
+      "trainable_parameters": 6558720
+    },
+    "output_tensor_count": 860,
+    "modalities": [
+      "vision",
+      "audio"
+    ],
+    "report": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-rich1-step1600-projector.gguf.report.json",
+    "family": "qwen",
+    "checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-train-rich1/checkpoint-001600",
+    "checkpoint_config_sha256": "fe1edc7fd672f6c3b321b8694d8920b333808fa41f24e4352fcad6496804e3d8",
+    "checkpoint_weight_sha256": "c313977cf32c861a33cb499437069559391a2ba4fe4088c9d7d108b7a2236139",
+    "training_event": {
+      "elapsed_seconds": 11169.094140529633,
+      "gradient_norm": 1.1484375,
+      "sanity_check": "pass",
+      "step": 1600,
+      "training_loss": 0.022940360315260477,
+      "validation_loss": 0.19341175603949523
+    },
+    "changed_tensors": [
+      "mm.a.mlp.2.weight",
+      "mm.a.mlp.2.bias"
+    ],
+    "unchanged_frozen_audio_vision_tensors": 858,
+    "prefill_contract": {
+      "prefill_abi": "robit.qwen3a.trained-prefill.v2",
+      "prompt_sha256": "9f73862652e0226ec3f9690f0a783d1c21dc1113285b4dc18d0edd51f2766758",
+      "native_prefill_version": 2,
+      "native_boundary_policy": "none"
+    },
+    "quality_gate_passed": false
+  },
+  "qwen_final_target_16K_native_outputs": [
+    {
+      "id": "probe-speech",
+      "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "labels": [
+        "speech"
+      ],
+      "mids": [],
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One speaker with no notable background sounds.</audio_observation>",
+      "audio_observation": "One speaker with no notable background sounds.",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 1.264940535009373
+    },
+    {
+      "id": "probe-silence",
+      "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "labels": [
+        "silence"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>No speech is intelligible.</audio_observation>",
+      "audio_observation": "No speech is intelligible.",
+      "transcript": null,
+      "elapsed_s": 1.156818456016481
+    },
+    {
+      "id": "probe-alarm",
+      "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+      "labels": [
+        "alarm"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A repetitive electronic alarm tone.</audio_observation>",
+      "audio_observation": "A repetitive electronic alarm tone.",
+      "transcript": null,
+      "elapsed_s": 1.1553714330075309
+    },
+    {
+      "id": "probe-noise",
+      "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+      "labels": [
+        "noise"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A steady low-level broadband hiss fills the channel with no distinct transient events, tonal sources, or intelligible speech.</audio_observation>",
+      "audio_observation": "A steady low-level broadband hiss fills the channel with no distinct transient events, tonal sources, or intelligible speech.",
+      "transcript": null,
+      "elapsed_s": 1.5415808460093103
+    },
+    {
+      "id": "probe-music",
+      "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+      "labels": [
+        "music"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A continuous, high-pitched electronic tone is present.</audio_observation>",
+      "audio_observation": "A continuous, high-pitched electronic tone is present.",
+      "transcript": null,
+      "elapsed_s": 1.2493764270329848
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+      "labels": [
+        "esc50-clock_alarm"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A continuous, high-pitched electronic buzzing sound is present.</audio_observation>",
+      "audio_observation": "A continuous, high-pitched electronic buzzing sound is present.",
+      "transcript": null,
+      "elapsed_s": 1.298755170952063
+    },
+    {
+      "id": "probe-esc50-dog",
+      "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+      "labels": [
+        "esc50-dog"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A dog barks.</audio_observation>",
+      "audio_observation": "A dog barks.",
+      "transcript": null,
+      "elapsed_s": 1.1337161919800565
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+      "labels": [
+        "esc50-church_bells"
+      ],
+      "mids": [],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A single, sustained, high-pitched electronic tone is played on a synthesizer.</audio_observation>",
+      "audio_observation": "A single, sustained, high-pitched electronic tone is played on a synthesizer.",
+      "transcript": null,
+      "elapsed_s": 1.3961044550524093
+    },
+    {
+      "id": "fsd50k-156200",
+      "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+      "labels": [
+        "Human group actions"
+      ],
+      "mids": [
+        "/t/dd00012"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A dog barks repeatedly, followed by a cat meowing.</audio_observation>",
+      "audio_observation": "A dog barks repeatedly, followed by a cat meowing.",
+      "transcript": null,
+      "elapsed_s": 1.2718220420065336
+    },
+    {
+      "id": "fsd50k-180765",
+      "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+      "labels": [
+        "Clapping"
+      ],
+      "mids": [
+        "/m/0l15bq"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A single, sharp gunshot is heard.</audio_observation>",
+      "audio_observation": "A single, sharp gunshot is heard.",
+      "transcript": null,
+      "elapsed_s": 1.1873001719941385
+    },
+    {
+      "id": "fsd50k-182894",
+      "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+      "labels": [
+        "Printer"
+      ],
+      "mids": [
+        "/m/01m4t"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A loud, rhythmic mechanical grinding sound is heard.</audio_observation>",
+      "audio_observation": "A loud, rhythmic mechanical grinding sound is heard.",
+      "transcript": null,
+      "elapsed_s": 1.295221654989291
+    },
+    {
+      "id": "fsd50k-166192",
+      "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+      "labels": [
+        "Gunshot, gunfire"
+      ],
+      "mids": [
+        "/m/032s66"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A loud, sharp explosion occurs.</audio_observation>",
+      "audio_observation": "A loud, sharp explosion occurs.",
+      "transcript": null,
+      "elapsed_s": 1.1291416949825361
+    },
+    {
+      "id": "fsd50k-203720",
+      "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+      "labels": [
+        "Motor vehicle (road)",
+        "Siren"
+      ],
+      "mids": [
+        "/m/012f08",
+        "/m/03kmc9"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A high-pitched, sustained electronic tone is heard, followed by a lower-pitched, warbling siren sound.</audio_observation>",
+      "audio_observation": "A high-pitched, sustained electronic tone is heard, followed by a lower-pitched, warbling siren sound.",
+      "transcript": null,
+      "elapsed_s": 1.6358453179709613
+    }
+  ],
+  "speech_validation": {
+    "scope": "A100 4096-token F16 KV, original and repaired native/source/projection paths; validation only",
+    "input_manifest_sha256": "09f34f1dc34abf8a8054c954bcc45427b1c06befa43029588190a201b7c0cadc",
+    "speech_clips": 154,
+    "words": 3336,
+    "nonspeech_controls": 6,
+    "original_qwen_v1": {
+      "all": {
+        "clips": 154,
+        "words": 3336,
+        "errors": 626,
+        "exact_clips": 65,
+        "wer": 0.18764988009592326
+      },
+      "espeak-ng plus deterministic procedural ambience": {
+        "clips": 78,
+        "words": 1520,
+        "errors": 51,
+        "exact_clips": 53,
+        "wer": 0.03355263157894737
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "clips": 29,
+        "words": 594,
+        "errors": 40,
+        "exact_clips": 12,
+        "wer": 0.06734006734006734
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "clips": 47,
+        "words": 1222,
+        "errors": 535,
+        "exact_clips": 0,
+        "wer": 0.43780687397708673
+      }
+    },
+    "repaired_qwen750": {
+      "all": {
+        "clips": 154,
+        "words": 3336,
+        "errors": 241,
+        "exact_clips": 73,
+        "wer": 0.07224220623501199
+      },
+      "espeak-ng plus deterministic procedural ambience": {
+        "clips": 78,
+        "words": 1520,
+        "errors": 28,
+        "exact_clips": 61,
+        "wer": 0.018421052631578946
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "clips": 29,
+        "words": 594,
+        "errors": 37,
+        "exact_clips": 10,
+        "wer": 0.06228956228956229
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "clips": 47,
+        "words": 1222,
+        "errors": 176,
+        "exact_clips": 2,
+        "wer": 0.14402618657937807
+      }
+    },
+    "full_omni_comparison": {
+      "all": {
+        "clips": 154,
+        "words": 3336,
+        "errors": 684,
+        "exact_clips": 62,
+        "wer": 0.20503597122302158
+      },
+      "espeak-ng plus deterministic procedural ambience": {
+        "clips": 78,
+        "words": 1520,
+        "errors": 122,
+        "exact_clips": 39,
+        "wer": 0.08026315789473684
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "clips": 29,
+        "words": 594,
+        "errors": 9,
+        "exact_clips": 23,
+        "wer": 0.015151515151515152
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "clips": 47,
+        "words": 1222,
+        "errors": 553,
+        "exact_clips": 0,
+        "wer": 0.4525368248772504
+      }
+    },
+    "false_transcripts": {
+      "original": 0,
+      "repair": 0,
+      "legacy": 0
+    }
+  },
+  "rejected_trials": {
+    "existing_two_projection_layers": {
+      "status": "rejected",
+      "planned_and_completed_steps": 400,
+      "selected_best_step": 0,
+      "initial_validation_loss": 0.19553679973978433,
+      "best_validation_loss": 0.19553679973978433,
+      "elapsed_seconds": 1442.4075498580933,
+      "final_native_outputs": [
+        {
+          "id": "probe-speech",
+          "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "labels": [
+            "speech"
+          ],
+          "mids": [],
+          "content": "<speech_transcript>The blue bicycle is parked beside the gargoon gate.</speech_transcript><audio_observation>One synthetic speaker with no notable background sound.</audio_observation>",
+          "audio_observation": "One synthetic speaker with no notable background sound.",
+          "transcript": "The blue bicycle is parked beside the gargoon gate.",
+          "elapsed_s": 0.6176248269621283
+        },
+        {
+          "id": "probe-silence",
+          "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+          "labels": [
+            "silence"
+          ],
+          "mids": [],
+          "content": "<speech_transcript></speech_transcript><audio_observation>Silence; no intelligible speech or distinct sound event.</audio_observation>",
+          "audio_observation": "Silence; no intelligible speech or distinct sound event.",
+          "transcript": null,
+          "elapsed_s": 0.5025104630040005
+        },
+        {
+          "id": "probe-alarm",
+          "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+          "labels": [
+            "alarm"
+          ],
+          "mids": [],
+          "content": "<speech_transcript></speech_transcript><audio_observation>There is no intelligible speech, only an intermittent electronic alarm sound.</audio_observation>",
+          "audio_observation": "There is no intelligible speech, only an intermittent electronic alarm sound.",
+          "transcript": null,
+          "elapsed_s": 0.503278195974417
+        },
+        {
+          "id": "probe-noise",
+          "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+          "labels": [
+            "noise"
+          ],
+          "mids": [],
+          "content": "<speech_transcript></speech_transcript><audio_observation>Rainy afternoon sounds with steady rainfall and low ambient noise</audio_observation>",
+          "audio_observation": "Rainy afternoon sounds with steady rainfall and low ambient noise",
+          "transcript": null,
+          "elapsed_s": 0.4836513689951971
+        },
+        {
+          "id": "probe-music",
+          "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+          "labels": [
+            "music"
+          ],
+          "mids": [],
+          "content": "<speech_transcript></speech_transcript><audio_observation>A single, sustained electronic tone plays at a steady pitch.</audio_observation>",
+          "audio_observation": "A single, sustained electronic tone plays at a steady pitch.",
+          "transcript": null,
+          "elapsed_s": 0.48429151898017153
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+          "labels": [
+            "esc50-clock_alarm"
+          ],
+          "mids": [],
+          "content": "<speech_transcript></speech_transcript><audio_observation>A continuous, high-pitched electronic beeping sound is heard throughout the recording.</audio_observation>",
+          "audio_observation": "A continuous, high-pitched electronic beeping sound is heard throughout the recording.",
+          "transcript": null,
+          "elapsed_s": 0.5329991549951956
+        },
+        {
+          "id": "probe-esc50-dog",
+          "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+          "labels": [
+            "esc50-dog"
+          ],
+          "mids": [],
+          "content": "<speech_transcript></speech_transcript><audio_observation>A single, sharp gunshot is heard.</audio_observation>",
+          "audio_observation": "A single, sharp gunshot is heard.",
+          "transcript": null,
+          "elapsed_s": 0.4400925159570761
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+          "labels": [
+            "esc50-church_bells"
+          ],
+          "mids": [],
+          "content": "<speech_transcript></speech_transcript><audio_observation>A loud, resonant chord plays on a musical instrument, likely a piano or organ, with a clear and sustained tone.</audio_observation>",
+          "audio_observation": "A loud, resonant chord plays on a musical instrument, likely a piano or organ, with a clear and sustained tone.",
+          "transcript": null,
+          "elapsed_s": 0.5781687169801444
+        },
+        {
+          "id": "fsd50k-156200",
+          "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+          "labels": [
+            "Human group actions"
+          ],
+          "mids": [
+            "/t/dd00012"
+          ],
+          "content": "<speech_transcript></speech_transcript><audio_observation>Two roosters crowing</audio_observation>",
+          "audio_observation": "Two roosters crowing",
+          "transcript": null,
+          "elapsed_s": 0.4383651450043544
+        },
+        {
+          "id": "fsd50k-180765",
+          "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+          "labels": [
+            "Clapping"
+          ],
+          "mids": [
+            "/m/0l15bq"
+          ],
+          "content": "<speech_transcript></speech_transcript><audio_observation>A gunshot is heard, followed by the sound of footsteps.</audio_observation>",
+          "audio_observation": "A gunshot is heard, followed by the sound of footsteps.",
+          "transcript": null,
+          "elapsed_s": 0.47181836498202756
+        },
+        {
+          "id": "fsd50k-182894",
+          "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+          "labels": [
+            "Printer"
+          ],
+          "mids": [
+            "/m/01m4t"
+          ],
+          "content": "<speech_transcript></speech_transcript><audio_observation>A dog barks, then a gunshot is heard.</audio_observation>",
+          "audio_observation": "A dog barks, then a gunshot is heard.",
+          "transcript": null,
+          "elapsed_s": 0.49067835899768397
+        },
+        {
+          "id": "fsd50k-166192",
+          "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+          "labels": [
+            "Gunshot, gunfire"
+          ],
+          "mids": [
+            "/m/032s66"
+          ],
+          "content": "<speech_transcript></speech_transcript><audio_observation>A loud explosion sound is heard.</audio_observation>",
+          "audio_observation": "A loud explosion sound is heard.",
+          "transcript": null,
+          "elapsed_s": 0.4221255079610273
+        },
+        {
+          "id": "fsd50k-203720",
+          "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+          "labels": [
+            "Motor vehicle (road)",
+            "Siren"
+          ],
+          "mids": [
+            "/m/012f08",
+            "/m/03kmc9"
+          ],
+          "content": "<speech_transcript></speech_transcript><audio_observation>A car horn sounds, followed by the sound of an engine revving.</audio_observation>",
+          "audio_observation": "A car horn sounds, followed by the sound of an engine revving.",
+          "transcript": null,
+          "elapsed_s": 0.5477223159978166
+        }
+      ],
+      "export_integrity": {
+        "schema": "robit.qwen3a-two-layer-export-experiment.v1",
+        "family": "ornith",
+        "checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-train-two-layer1/checkpoint-000400",
+        "checkpoint_config_sha256": "b976d26479f900715f7bd51a2315796742b0a4b09e4607bcf50816d8da11cb01",
+        "checkpoint_weight_sha256": "1bcdaca0378250c84db109870a232002c492787db028d68cd1f814bb83fc238b",
+        "sha256": "e2dcdde2fa2d2dfdde020fd5d35faf8c924adc8e14c1ec5cb92023868a6d1180",
+        "size_bytes": 1641775552,
+        "changed_tensors": [
+          "mm.a.mlp.1.bias",
+          "mm.a.mlp.1.weight",
+          "mm.a.mlp.2.weight",
+          "mm.a.mlp.2.bias"
+        ],
+        "unchanged_frozen_tensors": 856,
+        "checkpoint_event": {
+          "elapsed_seconds": 1433.179876089096,
+          "gradient_norm": 2.984375,
+          "sanity_check": "pass",
+          "step": 400,
+          "training_loss": 0.01881848246557638,
+          "validation_loss": 0.21036718485993333
+        },
+        "native_graph_changed": false,
+        "extra_reasoning_stack_added": false,
+        "prefill_contract": {
+          "prefill_abi": "robit.qwen3a.trained-prefill.v2",
+          "prompt_sha256": "9f73862652e0226ec3f9690f0a783d1c21dc1113285b4dc18d0edd51f2766758",
+          "native_prefill_version": 2,
+          "native_boundary_policy": "none"
+        },
+        "quality_gate_passed": false
+      },
+      "runtime_changed": false
+    },
+    "cached_batch4_training": {
+      "schema": "robit.omni.cached-training-batch-parity.v1",
+      "encoder_cache_seconds": 0.2038190809544176,
+      "encoder_individually_encoded_for_both_paths": true,
+      "loss_objective": "mean of per-example target-token means; preserves serial4 accumulation, not length-weighted batch loss",
+      "no_optimizer_steps": true,
+      "primary_encoder_and_projection_weights_unchanged": true,
+      "current_trainers_changed": false,
+      "gradient_cosine": 0.9914526343345642,
+      "gradient_relative_rmse": 0.13064906001091003,
+      "loss_delta": 0.0007324647158384323,
+      "maximum_per_clip_loss_delta": 0.0070157647132873535,
+      "frozen_trunk_step_speedup": 2.7714896518063954,
+      "encoder_and_data_IO_cost_in_speedup": false,
+      "parity_passed": false,
+      "allowed_for_future_training": false,
+      "peak_reserved_mib": 25928.0,
+      "release_qualified": false
+    },
+    "nonlinear_frozen_audio_probe": {
+      "schema": "robit.omni.nonlinear-acoustic-probe-diagnostic.v1",
+      "selected_epoch": 50,
+      "macro_AP": 0.4583875308382498,
+      "top1_annotated": 0.34583333134651184,
+      "classes": 175,
+      "represented_validation_classes": 150,
+      "repair_diagnostics": [
+        {
+          "id": "probe-speech",
+          "top_labels": [
+            {
+              "name": "Burping, eructation",
+              "mid": "/m/03q5_w",
+              "uncalibrated_sigmoid": 0.016741782426834106
+            },
+            {
+              "name": "Insect",
+              "mid": "/m/03vt0",
+              "uncalibrated_sigmoid": 0.0035616946406662464
+            },
+            {
+              "name": "Fart",
+              "mid": "/m/02_nn",
+              "uncalibrated_sigmoid": 0.0021876173559576273
+            },
+            {
+              "name": "Livestock, farm animals, working animals",
+              "mid": "/m/0ch8v",
+              "uncalibrated_sigmoid": 0.0018108641961589456
+            },
+            {
+              "name": "Zipper (clothing)",
+              "mid": "/m/01s0vc",
+              "uncalibrated_sigmoid": 0.0007478269399143755
+            },
+            {
+              "name": "Guitar",
+              "mid": "/m/0342h",
+              "uncalibrated_sigmoid": 0.000639747828245163
+            },
+            {
+              "name": "Dog",
+              "mid": "/m/0bt9lr",
+              "uncalibrated_sigmoid": 0.0005671278340741992
+            },
+            {
+              "name": "Subway, metro, underground",
+              "mid": "/m/0195fx",
+              "uncalibrated_sigmoid": 0.0003510339302010834
+            }
+          ]
+        },
+        {
+          "id": "probe-silence",
+          "top_labels": [
+            {
+              "name": "Wind",
+              "mid": "/m/03m9d0z",
+              "uncalibrated_sigmoid": 0.998088538646698
+            },
+            {
+              "name": "Gull, seagull",
+              "mid": "/m/01dwxx",
+              "uncalibrated_sigmoid": 0.9947405457496643
+            },
+            {
+              "name": "Tick-tock",
+              "mid": "/m/07qjznl",
+              "uncalibrated_sigmoid": 0.000785080308560282
+            },
+            {
+              "name": "Bass drum",
+              "mid": "/m/0bm02",
+              "uncalibrated_sigmoid": 0.0007322562742047012
+            },
+            {
+              "name": "Tick",
+              "mid": "/m/07qjznt",
+              "uncalibrated_sigmoid": 0.00048229473759420216
+            },
+            {
+              "name": "Drip",
+              "mid": "/m/07r5v4s",
+              "uncalibrated_sigmoid": 0.00038120648241601884
+            },
+            {
+              "name": "Percussion",
+              "mid": "/m/0l14md",
+              "uncalibrated_sigmoid": 0.00017666156054474413
+            },
+            {
+              "name": "Cricket",
+              "mid": "/m/09xqv",
+              "uncalibrated_sigmoid": 0.0001547930296510458
+            }
+          ]
+        },
+        {
+          "id": "probe-alarm",
+          "top_labels": [
+            {
+              "name": "Telephone",
+              "mid": "/m/07cx4",
+              "uncalibrated_sigmoid": 0.7166925668716431
+            },
+            {
+              "name": "Keyboard (musical)",
+              "mid": "/m/05148p4",
+              "uncalibrated_sigmoid": 0.27631470561027527
+            },
+            {
+              "name": "Ringtone",
+              "mid": "/m/01hnzm",
+              "uncalibrated_sigmoid": 0.10555565357208252
+            },
+            {
+              "name": "Alarm",
+              "mid": "/m/07pp_mv",
+              "uncalibrated_sigmoid": 0.04457470402121544
+            },
+            {
+              "name": "Chink, clink",
+              "mid": "/m/07q7njn",
+              "uncalibrated_sigmoid": 0.0002754726156126708
+            },
+            {
+              "name": "Scratching (performance technique)",
+              "mid": "/m/01hgjl",
+              "uncalibrated_sigmoid": 2.4415967345703393e-05
+            },
+            {
+              "name": "Drip",
+              "mid": "/m/07r5v4s",
+              "uncalibrated_sigmoid": 1.745112422213424e-05
+            },
+            {
+              "name": "Raindrop",
+              "mid": "/m/07r10fb",
+              "uncalibrated_sigmoid": 1.4807339539402165e-05
+            }
+          ]
+        },
+        {
+          "id": "probe-noise",
+          "top_labels": [
+            {
+              "name": "Cricket",
+              "mid": "/m/09xqv",
+              "uncalibrated_sigmoid": 0.19236335158348083
+            },
+            {
+              "name": "Car",
+              "mid": "/m/0k4j",
+              "uncalibrated_sigmoid": 0.10467074066400528
+            },
+            {
+              "name": "Rain",
+              "mid": "/m/06mb1",
+              "uncalibrated_sigmoid": 0.08629661798477173
+            },
+            {
+              "name": "Stream",
+              "mid": "/m/0j6m2",
+              "uncalibrated_sigmoid": 0.0532684326171875
+            },
+            {
+              "name": "Wind",
+              "mid": "/m/03m9d0z",
+              "uncalibrated_sigmoid": 0.02325657568871975
+            },
+            {
+              "name": "Frying (food)",
+              "mid": "/m/0dxrf",
+              "uncalibrated_sigmoid": 0.005861074663698673
+            },
+            {
+              "name": "Waves, surf",
+              "mid": "/m/034srq",
+              "uncalibrated_sigmoid": 0.0018814783543348312
+            },
+            {
+              "name": "Hiss",
+              "mid": "/m/07rjwbb",
+              "uncalibrated_sigmoid": 0.0008279714384116232
+            }
+          ]
+        },
+        {
+          "id": "probe-music",
+          "top_labels": [
+            {
+              "name": "Telephone",
+              "mid": "/m/07cx4",
+              "uncalibrated_sigmoid": 0.13777785003185272
+            },
+            {
+              "name": "Mallet percussion",
+              "mid": "/m/0j45pbj",
+              "uncalibrated_sigmoid": 0.0016384636983275414
+            },
+            {
+              "name": "Sink (filling or washing)",
+              "mid": "/m/0130jx",
+              "uncalibrated_sigmoid": 0.0016206244472414255
+            },
+            {
+              "name": "Organ",
+              "mid": "/m/013y1f",
+              "uncalibrated_sigmoid": 0.0009941605385392904
+            },
+            {
+              "name": "Bass guitar",
+              "mid": "/m/018vs",
+              "uncalibrated_sigmoid": 0.00032244573230855167
+            },
+            {
+              "name": "Water tap, faucet",
+              "mid": "/m/02jz0l",
+              "uncalibrated_sigmoid": 0.0002508536563254893
+            },
+            {
+              "name": "Chime",
+              "mid": "/m/0f8s22",
+              "uncalibrated_sigmoid": 0.0001803405029932037
+            },
+            {
+              "name": "Snare drum",
+              "mid": "/m/06rvn",
+              "uncalibrated_sigmoid": 0.00016918136680033058
+            }
+          ]
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "top_labels": [
+            {
+              "name": "Engine",
+              "mid": "/m/02mk9",
+              "uncalibrated_sigmoid": 0.07546266913414001
+            },
+            {
+              "name": "Burping, eructation",
+              "mid": "/m/03q5_w",
+              "uncalibrated_sigmoid": 0.016376150771975517
+            },
+            {
+              "name": "Snare drum",
+              "mid": "/m/06rvn",
+              "uncalibrated_sigmoid": 0.009984715841710567
+            },
+            {
+              "name": "Tools",
+              "mid": "/m/07k1x",
+              "uncalibrated_sigmoid": 0.009083427488803864
+            },
+            {
+              "name": "Alarm",
+              "mid": "/m/07pp_mv",
+              "uncalibrated_sigmoid": 0.004185567609965801
+            },
+            {
+              "name": "Idling",
+              "mid": "/m/07pb8fc",
+              "uncalibrated_sigmoid": 0.0031213779002428055
+            },
+            {
+              "name": "Telephone",
+              "mid": "/m/07cx4",
+              "uncalibrated_sigmoid": 0.0011586551554501057
+            },
+            {
+              "name": "Bus",
+              "mid": "/m/01bjv",
+              "uncalibrated_sigmoid": 0.0005927537567913532
+            }
+          ]
+        },
+        {
+          "id": "probe-esc50-dog",
+          "top_labels": [
+            {
+              "name": "Whoosh, swoosh, swish",
+              "mid": "/m/07rqsjt",
+              "uncalibrated_sigmoid": 0.14637218415737152
+            },
+            {
+              "name": "Finger snapping",
+              "mid": "/m/025_jnm",
+              "uncalibrated_sigmoid": 0.005619511473923922
+            },
+            {
+              "name": "Cowbell",
+              "mid": "/m/0239kh",
+              "uncalibrated_sigmoid": 0.00480818934738636
+            },
+            {
+              "name": "Gasp",
+              "mid": "/m/07s0dtb",
+              "uncalibrated_sigmoid": 0.0010777614079415798
+            },
+            {
+              "name": "Vehicle horn, car horn, honking",
+              "mid": "/m/0912c9",
+              "uncalibrated_sigmoid": 0.0005723685026168823
+            },
+            {
+              "name": "Tick",
+              "mid": "/m/07qjznt",
+              "uncalibrated_sigmoid": 0.00021955944248475134
+            },
+            {
+              "name": "Dog",
+              "mid": "/m/0bt9lr",
+              "uncalibrated_sigmoid": 0.0001935037289513275
+            },
+            {
+              "name": "Door",
+              "mid": "/m/02dgv",
+              "uncalibrated_sigmoid": 0.0001454583980375901
+            }
+          ]
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "top_labels": [
+            {
+              "name": "Bowed string instrument",
+              "mid": "/m/0l14_3",
+              "uncalibrated_sigmoid": 0.1387144774198532
+            },
+            {
+              "name": "Doorbell",
+              "mid": "/m/03wwcy",
+              "uncalibrated_sigmoid": 0.007437114138156176
+            },
+            {
+              "name": "Screech",
+              "mid": "/m/07q8k13",
+              "uncalibrated_sigmoid": 0.0045050038024783134
+            },
+            {
+              "name": "Plucked string instrument",
+              "mid": "/m/0fx80y",
+              "uncalibrated_sigmoid": 0.003823564387857914
+            },
+            {
+              "name": "Organ",
+              "mid": "/m/013y1f",
+              "uncalibrated_sigmoid": 0.0036758973728865385
+            },
+            {
+              "name": "Wind instrument, woodwind instrument",
+              "mid": "/m/085jw",
+              "uncalibrated_sigmoid": 0.001752516720443964
+            },
+            {
+              "name": "Dishes, pots, and pans",
+              "mid": "/m/04brg2",
+              "uncalibrated_sigmoid": 0.001109152683056891
+            },
+            {
+              "name": "Guitar",
+              "mid": "/m/0342h",
+              "uncalibrated_sigmoid": 0.0010950758587568998
+            }
+          ]
+        }
+      ],
+      "predeclared_checks": {
+        "broad_AP": false,
+        "broad_top1": false,
+        "alarm": false,
+        "dog": false,
+        "bells": false,
+        "silence": false
+      },
+      "candidate_for_native_integration": false,
+      "elapsed_s": 2.6331717239809223,
+      "peak_reserved_mib": 122.0,
+      "feature_source_sha256": "880b2b46d883e21b5750fd1941dad1e3e8de5974bf66e4d12decb38dd21c67f9",
+      "new_test_rows_processed": 0,
+      "runtime_activated": false,
+      "release_qualified": false
+    }
+  },
+  "full_precision_diagnostic": {
+    "scope": "13 validation repair diagnostics; selected Ornith850 frozen HF trunk versus native Q4",
+    "report": {
+      "schema": "robit.omni.training-native-semantic-diagnostic.v1",
+      "family": "ornith",
+      "checkpoint": 850,
+      "training_trunk_dtype": "bfloat16",
+      "native_trunk_quantization": "Q4_K_M",
+      "prefill_prompt_sha256": "9f73862652e0226ec3f9690f0a783d1c21dc1113285b4dc18d0edd51f2766758",
+      "generation": {
+        "temperature": 0,
+        "repetition_penalty": 1.1,
+        "max_new_tokens": 192
+      },
+      "full_loading": true,
+      "primary_unchanged": true,
+      "rows": [
+        {
+          "id": "probe-speech",
+          "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "audio_tokens": 47,
+          "training_hf_output": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One synthetic speaker with no notable background sound.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One synthetic voice speaks with no notable background sound.</audio_observation>",
+          "hf_elapsed_s": 1.7670943250413984
+        },
+        {
+          "id": "probe-silence",
+          "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+          "audio_tokens": 52,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>Silence; no intelligible speech or distinct sound event.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>Silence; no intelligible speech or distinct sound event.</audio_observation>",
+          "hf_elapsed_s": 1.4459497680072673
+        },
+        {
+          "id": "probe-alarm",
+          "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+          "audio_tokens": 52,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>An intermittent electronic alarm; no intelligible speech.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>Intermittent high-pitched electronic tones with rhythmic repetition.</audio_observation>",
+          "hf_elapsed_s": 1.3906644849921577
+        },
+        {
+          "id": "probe-noise",
+          "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+          "audio_tokens": 52,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>A steady fan-like mechanical hum with no intelligible speech.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>Steady, faint radio static or hiss fills the entire recording.</audio_observation>",
+          "hf_elapsed_s": 1.2708106290083379
+        },
+        {
+          "id": "probe-music",
+          "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+          "audio_tokens": 52,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>A high-pitched, continuous electronic tone.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>A high-pitched electronic tone is heard.</audio_observation>",
+          "hf_elapsed_s": 1.3193561609950848
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+          "audio_tokens": 65,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>A continuous, high-pitched electronic tone with a slightly wavering quality is heard throughout the audio.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>A continuous high-pitched electronic tone with slight variations in pitch and volume.</audio_observation>",
+          "hf_elapsed_s": 1.833934235968627
+        },
+        {
+          "id": "probe-esc50-dog",
+          "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+          "audio_tokens": 65,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>A single dog bark is heard.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>A single dog bark is heard.</audio_observation>",
+          "hf_elapsed_s": 1.105387529998552
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+          "audio_tokens": 65,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>A single, sustained musical note is played on a keyboard instrument. The tone is clear and resonant.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>A single, sustained musical note is played on what sounds like a bell or chime instrument, resonating with a clear tone and gradual decay.</audio_observation>",
+          "hf_elapsed_s": 1.8571459500235505
+        },
+        {
+          "id": "fsd50k-156200",
+          "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+          "audio_tokens": 32,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>A dog barks, followed by the sound of a car door closing.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>A dog barks, followed by the sound of a person walking on gravel.</audio_observation>",
+          "hf_elapsed_s": 1.5007742389570922
+        },
+        {
+          "id": "fsd50k-180765",
+          "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+          "audio_tokens": 56,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>A single, sharp click is heard.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>A single, sharp gunshot is heard.</audio_observation>",
+          "hf_elapsed_s": 1.0873250190052204
+        },
+        {
+          "id": "fsd50k-182894",
+          "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+          "audio_tokens": 103,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>A person is playing a musical instrument, possibly a keyboard or piano. The sound of the keys being pressed and the notes being played can be heard.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>A person is playing a harmonica.</audio_observation>",
+          "hf_elapsed_s": 2.271777393994853
+        },
+        {
+          "id": "fsd50k-166192",
+          "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+          "audio_tokens": 24,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>A loud explosion sound is heard.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>A loud, sharp explosion sound is heard.</audio_observation>",
+          "hf_elapsed_s": 1.2267259390209801
+        },
+        {
+          "id": "fsd50k-203720",
+          "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+          "audio_tokens": 145,
+          "training_hf_output": "<speech_transcript></speech_transcript><audio_observation>A train horn sounds, followed by the sound of a train moving.</audio_observation><|im_end|>",
+          "native_output": "<speech_transcript></speech_transcript><audio_observation>A loud, high-pitched electronic sound is heard repeatedly.</audio_observation>",
+          "hf_elapsed_s": 1.4144153050146997
+        }
+      ],
+      "complete": true,
+      "release_qualified": false,
+      "peak_cuda_reserved_mib": 18780.0
+    },
+    "conclusion": "Several errors already occur with the training trunk; deployment quantization alone cannot repair them."
+  },
+  "next_gate": "Broader sound-event supervision, actual native semantic improvement, and independent release tests; no classifier or optimized trainer activated."
+}

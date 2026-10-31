@@ -42,7 +42,8 @@
       "status": "passed_stock_upload_download_resolution_direct_preparation_thinking_tools_and_16K_default_on_scoped_A100",
       "evidence": [
         "registry-binding-20261031.md",
-        "registry-binding-20261031.json"
+        "registry-binding-20261031.json",
+        "registry-binding-orin-20261031.json"
       ]
     },
     {
@@ -300,14 +301,16 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Ornith_richer_run_completed_selected850_recovers_bark_bells_Orin_small_gates_pass_broader_environmental_errors_remain_Qwen_richer_run_continues_two_layer_Ornith_trial_running",
+      "status": "both_richer_projection_runs_completed_Qwen_final16K_bells_fail_broad_semantics_open_two_layer_batch_and_nonlinear_trials_rejected_new_acoustic_data_preparation_in_progress",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
         "ornith-training2-diagnostics-20261030.json",
         "qwen-training1-diagnostics-20261030.json",
         "rich-projection-qualification-20261031.md",
-        "rich-projection-qualification-20261031.json"
+        "rich-projection-qualification-20261031.json",
+        "completed-repair-trials-20261031.md",
+        "completed-repair-trials-20261031.json"
       ]
     },
     {
