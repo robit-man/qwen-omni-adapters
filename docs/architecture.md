@@ -151,6 +151,10 @@ blobs before startup.
 Indexed v2 sidecars may also declare the frozen reference encoder. Preparation
 selects that third view when present. Supported POSIX loaders read the indexed
 source offsets directly; other paths retain byte-preserving materialization.
+Each tag's small hashed JSON binding layer preserves the exact trunk/projector/
+sidecar identity through stock Ollama push, which drops descriptor annotations.
+The resolver accepts previous annotation-only tags and rejects conflicting or
+damaged bindings. This metadata does not duplicate the shared neural payload.
 The reference encoder runs lazily before TTS loading, then exits. A supplied
 reference transcript selects Base's full text/acoustic prompt and reference-only
 decoder priming. Its immutable conditioning cache is separate from fresh target

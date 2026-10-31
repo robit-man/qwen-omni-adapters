@@ -52,6 +52,13 @@ publication. A five-fixture result is not complete feature parity. See
 `docs/upgrades/rich-projection-qualification-20261031.md`. The old Orin deployment
 was restored and verified healthy after the bounded qualification session.
 
+Indexed v2 publication must include the small hashed binding JSON layer from
+`qwen-omni attach`: stock Ollama push strips descriptor annotations. The actual
+push/download/resolve/inference repair is recorded in
+`docs/upgrades/registry-binding-20261031.md`. Keep annotation-only compatibility,
+reject damaged/conflicting bindings, package the edge 16K default explicitly,
+and verify the pulled package. This transport gate does not clear audio parity.
+
 ## Purpose and non-negotiable constraints
 
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni

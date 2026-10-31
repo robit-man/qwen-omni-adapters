@@ -1,0 +1,262 @@
+{
+  "schema": "robit.omni.registry-binding-qualification.v1",
+  "acceptance_criterion": "Stock push followed by a stock pull must preserve exact model/projector/sidecar binding and permit runtime preparation and stock inference",
+  "before": {
+    "schema": "robit.omni.stock-manifest-push-pull-roundtrip.v1",
+    "stock_version": {
+      "version": "0.40.11"
+    },
+    "source": "robit/ornith-1.5-omni:edge-v2-rich1-best850-16k-20261031",
+    "loopback_registry_alias": "127.0.0.1:42097/robit/ornith-1.5-omni:push-pull-roundtrip-20261031",
+    "stock_copy_preserved_binding": true,
+    "stock_push_preserved_binding": false,
+    "pushed_manifest_sha256": "87e6c517d65b64badadeed00fbca0844f51b7498693d85e104b3fbd86687f2c3",
+    "pulled_manifest_sha256": "87e6c517d65b64badadeed00fbca0844f51b7498693d85e104b3fbd86687f2c3",
+    "pull_persisted_exact_pushed_manifest": true,
+    "runtime_resolved_after_stock_push_pull": false,
+    "runtime_resolution_error": "indexed sidecar is missing its exact tag layer binding",
+    "requests": [
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77"
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:3ab6b8ce7feda7178092eee36b6c2700dbd256d23ec6f09fa350c9fca055b3f2"
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:b507b9c2f6ca642bffcd06665ea7c91f235fd32daeefdf875a0f938db05fb315"
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:cabcb42eac22e27c8fe2cd6101e2edda407bec25aeed6f1b4fa42dc0e17e8e6a"
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:6a20a38010586cfdb4a1ef67c83d5ad16bdbbc32d7a2bed430433143408e7c22"
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3"
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:d19d1849f2b211c560ced321814e718d9c97b8197af322d72b593e652a264c97"
+      },
+      {
+        "method": "PUT",
+        "path": "/v2/robit/ornith-1.5-omni/manifests/push-pull-roundtrip-20261031",
+        "bytes": 1462
+      },
+      {
+        "method": "GET",
+        "path": "/v2/robit/ornith-1.5-omni/manifests/push-pull-roundtrip-20261031"
+      }
+    ],
+    "public_registry_changed": false,
+    "CUDA_workload_started": false,
+    "release_qualified": false
+  },
+  "after": {
+    "schema": "robit.omni.portable-registry-bundle-live.v1",
+    "source": "robit/ornith-1.5-omni:edge-v2-rich1-best850-16k-portable-20261031",
+    "public_registry_changed": false,
+    "release_qualified": false,
+    "neural_blob_transport_scope": "Preexisting immutable neural/config/parameter blobs hardlinked into fresh derived store; new binding JSON must upload and download through stock Ollama",
+    "all_passed": true,
+    "stock_version": {
+      "version": "0.40.11"
+    },
+    "scoped_gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+    "verified_CUDA_pids": [
+      4077073
+    ],
+    "stock_push_dropped_annotation": true,
+    "stock_push_preserved_binding_layer": true,
+    "binding_uploaded_sha256": {
+      "sha256:7376fdf35a69b24f8966efa8f9127f6324e24fbdba0769bef4e488a3ed1062e4": "7376fdf35a69b24f8966efa8f9127f6324e24fbdba0769bef4e488a3ed1062e4"
+    },
+    "binding_downloaded_bytes": 758,
+    "pushed_manifest_sha256": "c9caa86a0cf94aee9007e1049e729c12998de426277781ff7617870750aaee15",
+    "pulled_manifest_exact": true,
+    "resolution_and_direct_component_preparation_passed": true,
+    "component_materialized_bytes": 0,
+    "model_default_context_verified": 16384,
+    "request_context_override_sent": false,
+    "server_context_environment": 4096,
+    "model_vram_bytes": 6468067655,
+    "checks": [
+      {
+        "case": "think_false",
+        "passed": true,
+        "elapsed_s": 0.1926281860214658,
+        "message": {
+          "role": "assistant",
+          "content": "7 multiplied by 8 equals **56**."
+        }
+      },
+      {
+        "case": "think_true",
+        "passed": true,
+        "elapsed_s": 0.49407958204392344,
+        "message": {
+          "role": "assistant",
+          "content": "7 multiplied by 8 equals **56**.",
+          "thinking": "The user is asking a simple multiplication question: 7 multiplied by 8.\n\n7 \u00d7 8 = 56\n\nThis is a basic arithmetic question. I should just answer it directly and clearly."
+        }
+      },
+      {
+        "case": "structured_tool",
+        "passed": true,
+        "elapsed_s": 0.3753320559626445,
+        "message": {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_zwyilab2",
+              "function": {
+                "index": 0,
+                "name": "mark_integer",
+                "arguments": {
+                  "value": 73
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "requests": [
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+        "headers": {}
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:3ab6b8ce7feda7178092eee36b6c2700dbd256d23ec6f09fa350c9fca055b3f2",
+        "headers": {}
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:b507b9c2f6ca642bffcd06665ea7c91f235fd32daeefdf875a0f938db05fb315",
+        "headers": {}
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:cabcb42eac22e27c8fe2cd6101e2edda407bec25aeed6f1b4fa42dc0e17e8e6a",
+        "headers": {}
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:6a20a38010586cfdb4a1ef67c83d5ad16bdbbc32d7a2bed430433143408e7c22",
+        "headers": {}
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:7376fdf35a69b24f8966efa8f9127f6324e24fbdba0769bef4e488a3ed1062e4",
+        "headers": {}
+      },
+      {
+        "method": "POST",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/uploads/",
+        "headers": {
+          "Content-Length": "0"
+        }
+      },
+      {
+        "method": "PATCH",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/uploads/binding",
+        "headers": {
+          "Content-Length": "379",
+          "Content-Range": "0-378",
+          "Content-Type": "application/octet-stream"
+        }
+      },
+      {
+        "method": "PUT",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/uploads/binding?digest=sha256%3A7376fdf35a69b24f8966efa8f9127f6324e24fbdba0769bef4e488a3ed1062e4&etag=f734188f876c022bb422bb35995c1d7f-1",
+        "headers": {
+          "Content-Length": "0",
+          "Content-Type": "application/octet-stream"
+        }
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+        "headers": {}
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:d19d1849f2b211c560ced321814e718d9c97b8197af322d72b593e652a264c97",
+        "headers": {}
+      },
+      {
+        "method": "PUT",
+        "path": "/v2/robit/ornith-1.5-omni/manifests/portable-qualification-20261031",
+        "headers": {
+          "Content-Length": "1622",
+          "Content-Type": "application/vnd.docker.distribution.manifest.v2+json"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/v2/robit/ornith-1.5-omni/manifests/portable-qualification-20261031",
+        "headers": {}
+      },
+      {
+        "method": "HEAD",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:7376fdf35a69b24f8966efa8f9127f6324e24fbdba0769bef4e488a3ed1062e4",
+        "headers": {}
+      },
+      {
+        "method": "GET",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:7376fdf35a69b24f8966efa8f9127f6324e24fbdba0769bef4e488a3ed1062e4",
+        "headers": {}
+      },
+      {
+        "method": "GET",
+        "path": "/v2/robit/ornith-1.5-omni/blobs/sha256:7376fdf35a69b24f8966efa8f9127f6324e24fbdba0769bef4e488a3ed1062e4",
+        "headers": {
+          "Range": "bytes=0-378"
+        }
+      }
+    ]
+  },
+  "binding_payload": {
+    "schema": "robit.omni.layer-binding.v2",
+    "sidecar": "sha256:d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+    "standard_layers": {
+      "language_model": {
+        "digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+        "size": 5629109056
+      },
+      "projector": {
+        "digest": "sha256:3ab6b8ce7feda7178092eee36b6c2700dbd256d23ec6f09fa350c9fca055b3f2",
+        "size": 1640239456
+      }
+    }
+  },
+  "binding_layer_bytes": 379,
+  "neural_weights_changed": false,
+  "existing_annotation_only_tags_supported": true,
+  "corrupt_conflicting_duplicate_oversized_or_retargeted_bindings_rejected": true,
+  "validation": {
+    "before": {
+      "passed": 6282,
+      "elapsed_seconds": 282.41
+    },
+    "after": {
+      "passed": 6295,
+      "elapsed_seconds": 282.68
+    },
+    "targeted_sidecar_tests": 39,
+    "all_script_gates_passed": true
+  },
+  "fixture_scope": "Loopback registry prepopulates neural blobs; new binding blob genuinely uploads and downloads into a fresh derived store. This is not a public weight upload or full release qualification.",
+  "stock_protocol_reference": "https://github.com/ollama/ollama/tree/v0.40.11/server",
+  "release_qualified": false,
+  "publication_performed": false
+}

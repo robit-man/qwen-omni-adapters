@@ -18,12 +18,21 @@ and backbone names do not change the payload. Thus identical TTS checkpoints
 share one content-addressed Ollama blob across independently versioned backbones.
 This does not combine their trained language/audio projections.
 
-Each tag's custom-layer annotation `io.robit.omni.binding.v2` records a
-`robit.omni.layer-binding.v2` object containing the sidecar digest and exact
-language/projector layer digests and sizes. Resolution rejects a changed pair,
-changed sidecar or missing binding. Attachment records the selected identities;
-it does not prove that an arbitrary projector was trained for that trunk. Begin
-with the corresponding qualified baseline tag, then retain its standard layers.
+Each tag carries a small content-addressed JSON layer with media type
+`application/vnd.robit.ollama.omni.binding.v2+json`. Its
+`robit.omni.layer-binding.v2` object binds the sidecar digest to the exact
+language/projector layer digests and sizes. Stock Ollama push drops descriptor
+annotations but preserves this layer. Attachment also writes the existing
+`io.robit.omni.binding.v2` annotation for compatibility. Existing annotation-only
+v2 tags remain readable; new attachments include the portable layer.
+
+Resolution checks the binding blob's digest, size and bounded JSON payload,
+rejects duplicate layers, and rejects any conflicting binding copy. Neither a
+valid annotation nor a valid layer masks a damaged or mismatched counterpart.
+Attachment records selected identities; it does not prove that an arbitrary
+projector was trained for that trunk. Begin with the corresponding qualified
+baseline and preserve its standard layers. The TTS GGUF bytes remain shared;
+the per-backbone binding adds less than one KiB, with no neural weights.
 
 ```bash
 .venv/bin/qwen-omni pack-tts \
@@ -35,6 +44,13 @@ ollama cp robit/ornith-1.5-omni-audio-bridge:q4km robit/ornith-1.5-omni:edge-v2-
 .venv/bin/qwen-omni attach robit/ornith-1.5-omni:edge-v2-candidate release/shared-tts-sidecar-v2.gguf
 .venv/bin/qwen-omni prepare robit/ornith-1.5-omni:edge-v2-candidate --out runtime-data/components --reuse
 ```
+
+After changing parameters with `ollama create`, run `qwen-omni attach` again and
+verify with `qwen-omni resolve`. Creation drops custom-layer annotations and may
+retain a binding for an earlier base/projector pair. For the edge profiles,
+package `PARAMETER num_ctx 16384` rather than inheriting the large backbone
+default; this sets the default resident window without reducing the model's
+native context metadata. Recheck after stock push/pull before publication.
 
 The resolver follows Ollama 0.40's v2-first lookup, including its canonical
 public host and encoded custom-registry ports, with legacy fallback. Existing

@@ -37,6 +37,15 @@
       ]
     },
     {
+      "id": "A4",
+      "objective": "Preserve exact indexed binding through real stock Ollama push/download and retain qualified edge context default",
+      "status": "passed_stock_upload_download_resolution_direct_preparation_thinking_tools_and_16K_default_on_scoped_A100",
+      "evidence": [
+        "registry-binding-20261031.md",
+        "registry-binding-20261031.json"
+      ]
+    },
+    {
       "id": "B1",
       "objective": "Reuse immutable current-backend voice conditioning without carrying decoded request state",
       "status": "verified_for_current_gguf_conditioning_path",
