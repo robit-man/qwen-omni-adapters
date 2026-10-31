@@ -82,4 +82,55 @@ The [semantic review](class-guided-step1000-rejection-20261031.json) rejects
 publication. Larger ASR/environmental suites and unused test data are deferred
 because a mandatory semantic gate already failed. Both existing training jobs
 continue toward the remaining preselected checkpoints; no threshold changed
-and no extra model variant was started.
+and no extra model variant was started at that checkpoint.
+
+## Completed Ornith trial and bounded loss experiment: rejected
+
+All three preselected Ornith checkpoints (1,000/2,000/3,200) fail mandatory
+native semantic diagnostics. Qwen's 1,000/2,000 checkpoints also fail; its
+original run continues unchanged to the preselected final checkpoint. The
+[seven-checkpoint review](class-guided-trial-review-20261031.json) retains exact
+projector identities, output digests and the actual observations. Every export
+changes only the final projection's two tensors; 858 frozen audio/vision tensors
+remain byte-identical. All native checks completed at 16K/F16 with verified
+A100 residency. Ornith checks here are development diagnostics, not final Orin
+qualification. No held-out test data selected a checkpoint.
+
+A read-only audit of 64 seen Ornith training recordings measured mean event-name
+CE 2.0889 versus 0.2238 for the remaining tokens. Teacher-forced and same-prefix
+generation agreed on the first event-token argmax in all 64 cases. This
+motivated one bounded 800-step continuation emphasizing event-name tokens by
+four, using the same corpus, final projection, learning rate and serial-four
+accumulation. Unknown speech stayed masked; transcription replay stayed intact.
+The primary trunk, audio tower, vision and cloning weights did not change.
+
+Before training, both real tokenizers aligned all 7,137 event-training records.
+Actual-model loss/gradient checks passed on event, speech and silence recordings:
+all-ones logit derivatives matched and the derivative of the loss difference
+through the projection was zero. Separate identical BF16 backward passes varied
+by 1.75%; the shared-graph derivative check controls that measurement issue
+without relaxing tolerances. The weighted loss matched independent manual NLL.
+The preflight made no optimizer updates.
+
+Both fixed weighted checkpoints (400/800) are rejected. The final checkpoint
+recognizes the recorded alarm, bark, crowd, applause and siren, but still calls
+bells piano and a printer a siren, and changes "beside" to "behind" in the
+sentence fixture. The loss adjustment is not a qualified repair and remains a
+private build experiment. No new inference prompt, routing workaround or
+production model was introduced. Full ASR/environmental suites remain mandatory
+for a viable candidate; these failed early checkpoints were not advanced.
+
+The complete source and script gates passed again: 6,303 tests before and after
+the private experiment. Passing source tests does not clear model parity.
+Publication and promotion remain blocked, and the old Orin deployment remains
+unchanged.
+
+Repeating the read-only audit on the same 64 training recordings after the
+weighted trial lowers mean event-name CE from 2.0889 to 1.9238. Remaining-token
+CE rises from 0.2238 to 0.2513; overall CE is 0.4351 versus 0.4303. The seen
+printer's event CE falls from 6.2572 to 3.1040 but it is still called an engine.
+This is partial training-fit movement, not a semantic pass. The 800-step trial
+processes only 3,200 of 12,458 training rows. One further bounded pass now covers
+the whole unchanged corpus: 3,200 serial-four updates, fixed native checkpoints
+1,600/3,200, the same audited loss, architecture and learning rate, initialized
+from the completed weighted checkpoint. Its launch makes no quality claim.

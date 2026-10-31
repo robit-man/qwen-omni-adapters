@@ -77,6 +77,22 @@ the preselected 1,000/2,000/3,200 checkpoints by native semantics and ASR, not
 wording-sensitive NLL alone. The expanded-data pooled head also failed its
 fixed gates and must remain disabled. Neither job's launch proves parity.
 
+The completed Ornith 3,200-step trial rejects every preselected checkpoint.
+Qwen's 1,000/2,000 checkpoints also fail; its original final run remains pending.
+A single audited 4x event-name-loss continuation on Ornith completed 800 steps;
+both fixed 400/800 checkpoints still fail bells/printer recognition and the
+final sentence fixture. It is a rejected private experiment, not a runtime
+upgrade or a qualified model. Preserve the
+[actual seven-checkpoint review](docs/upgrades/class-guided-trial-review-20261031.json).
+Do not promote by NLL, weaken semantic gates, alter inference prompts to match
+fixtures, or publish these failed candidates. No held-out test data was used.
+The same-64-recording audit after weighting lowers event CE from 2.0889 to
+1.9238, but the printer remains wrong. The partial pass processed only 3,200
+of 12,458 training rows. One complete-corpus pass is now pending with the same
+audited helper, architecture and learning rate, fixed 1,600/3,200 semantic
+checks, and no publication. Do not confuse this continuation with a qualified
+repair or introduce more model variants while it runs.
+
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
 audio bridge, native vision and Qwen3-TTS Base reference-voice cloning. Produce
 two independently versioned releases: **Ornith Omni Edge v2** and **Qwen3.8 Omni
