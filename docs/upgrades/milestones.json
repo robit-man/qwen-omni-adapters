@@ -202,14 +202,16 @@
     {
       "id": "C1",
       "objective": "Qualify the trained English audio head and training-only decoder, export a native component and reproduce held-out outputs on CUDA",
-      "status": "quality_and_A100_Orin_native_head_cached_feature_gates_passed_sidecar_attachment_live_encoder_and_streaming_pending",
+      "status": "Current raw-audio English text gates pass on A100 and Orin diagnostic; Orin numerical feature parity fails; head disabled; shared live encoder and streaming pending",
       "evidence": [
         "phase-c1-native-head.md",
         "phase-c1-quality.json",
         "phase-c1-rebalance-rejected.json",
         "phase-c1-native-a100.json",
         "phase-c1-native-orin.json",
-        "phase-c1-validation.json"
+        "phase-c1-validation.json",
+        "current-encoder-ctc-20261031.md",
+        "current-encoder-ctc-20261031.json"
       ]
     },
     {
@@ -301,7 +303,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "both_richer_projection_runs_completed_Qwen_final16K_bells_fail_broad_semantics_open_two_layer_batch_and_nonlinear_trials_rejected_new_acoustic_data_preparation_in_progress",
+      "status": "Projection-only and acoustic-head trials rejected; conditional trunk adapter fixed full-corpus trials running; Ornith1000/2000 and Qwen1000 fail native semantics; no promotion",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -310,7 +312,11 @@
         "rich-projection-qualification-20261031.md",
         "rich-projection-qualification-20261031.json",
         "completed-repair-trials-20261031.md",
-        "completed-repair-trials-20261031.json"
+        "completed-repair-trials-20261031.json",
+        "class-guided-trial-review-20261031.json",
+        "audio-lora-fit-20261031.json",
+        "qwen-audio-lora-fit-20261031.json",
+        "audio-lora-fixed-checkpoints-20261031.json"
       ]
     },
     {

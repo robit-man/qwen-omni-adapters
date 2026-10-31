@@ -1,5 +1,11 @@
 # C1 — qualified English CTC head and native GPU graph
 
+The later [current-encoder audit](current-encoder-ctc-20261031.md) re-encodes
+actual raw audio after native framing patches 13/14. It passes fixed English
+text limits on A100 and in an Orin diagnostic, but Orin numerical feature
+parity remains open. The head remains disabled; this original cached-feature
+audit does not establish the current end-to-end route.
+
 Acceptance criterion: an attached-head candidate must pass the fixed 15% mean
 speech WER / 5% empty-audio false-transcript pilot limits, then reproduce its
 qualified outputs in native CUDA execution. C0's best greedy candidate reached

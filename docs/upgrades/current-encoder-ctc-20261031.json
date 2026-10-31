@@ -1,0 +1,209 @@
+{
+  "schema": "robit.omni.current-encoder-ctc-audit.v1",
+  "utc": "2026-10-31T15:27:37.595489+00:00",
+  "purpose": "Revalidate the existing English pilot head against actual native16 raw-audio encoder output, after patches13/14 changed framing.",
+  "native_pin": "458681e1d5d4a29a1463c4732e03226cf384b997",
+  "native_patches": 16,
+  "head_sha256": "e939e15685138903f1c49701ccba830dcac058c780d116b5319532bd892bca15",
+  "sidecar_sha256": "d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+  "head_parameters": 2496000,
+  "head_weight_updates": 0,
+  "optimizer_steps": 0,
+  "encoder_or_language_weight_updates": false,
+  "A100": {
+    "validation": {
+      "clips": 160,
+      "speech": 154,
+      "empty": 6,
+      "metrics": {
+        "mean_speech_WER": 0.13578862464919492,
+        "empty_false_transcript_rate": 0,
+        "strata": {
+          "espeak-ng plus deterministic procedural ambience": 0.059051096797092216,
+          "LibriSpeech dev-clean with deterministic local augmentation": 0.07021489229558815,
+          "Qwen3-TTS large-vocabulary recovery corpus": 0.30360065466448444
+        }
+      },
+      "checks": {
+        "mean_speech_WER": true,
+        "empty_false_rate": true,
+        "espeak-ng plus deterministic procedural ambience": true,
+        "LibriSpeech dev-clean with deterministic local augmentation": true,
+        "Qwen3-TTS large-vocabulary recovery corpus": true
+      },
+      "passed_fixed_text_gates": true,
+      "raw_encode_s": 11.53930423501879,
+      "head_and_decode_s": 12.587363130995072,
+      "feature_producer_sha256": "e9885eafcaffdb57f8fd6961771a75188d2a8e8773ce58a45bd14e85e8b376ae",
+      "head_binary_sha256": "b00d40618ca99b7f3b4adee3354976d96e6d1357fa937f191e58fcb915682c32",
+      "source_report_sha256": "02e14a37e09c0be99f0c9b9cb98e34405323e7328a571e0d2f18869349581df4",
+      "source_manifest_sha256": "09f34f1dc34abf8a8054c954bcc45427b1c06befa43029588190a201b7c0cadc",
+      "fresh_blinded_test": null
+    },
+    "test": {
+      "clips": 155,
+      "speech": 147,
+      "empty": 8,
+      "metrics": {
+        "mean_speech_WER": 0.08842739049221642,
+        "empty_false_transcript_rate": 0,
+        "strata": {
+          "espeak-ng plus deterministic procedural ambience": 0.09314101204377767,
+          "LibriSpeech dev-clean with deterministic local augmentation": 0.08390231380271762
+        }
+      },
+      "checks": {
+        "mean_speech_WER": true,
+        "empty_false_rate": true,
+        "espeak-ng plus deterministic procedural ambience": true,
+        "LibriSpeech dev-clean with deterministic local augmentation": true
+      },
+      "passed_fixed_text_gates": true,
+      "raw_encode_s": 8.389128973940387,
+      "head_and_decode_s": 8.159978862968273,
+      "feature_producer_sha256": "e9885eafcaffdb57f8fd6961771a75188d2a8e8773ce58a45bd14e85e8b376ae",
+      "head_binary_sha256": "b00d40618ca99b7f3b4adee3354976d96e6d1357fa937f191e58fcb915682c32",
+      "source_report_sha256": "9c69b9362a85848d89190a51de52cda8cc4c8106636ab783f4ff8b4a355b66ae",
+      "source_manifest_sha256": "1ab74df33f32ab7494eafa8d5064b636c954de6595a8dd5d790cd377783622fe",
+      "fresh_blinded_test": false
+    }
+  },
+  "Orin": {
+    "base_sha256": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+    "projector_sha256": "3ab6b8ce7feda7178092eee36b6c2700dbd256d23ec6f09fa350c9fca055b3f2",
+    "sidecar_sha256": "d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+    "manifest_sha256": "1721bd48a64ff98b491bf53c7639ca894edb33c9eb3b0cf4621a2c2fbc8106f9",
+    "feature_binary_sha256": "06a5c07b1f159fb3f56f279e0ba72002fef14451119c9a7afe0502fa4fdd9216",
+    "head_binary_sha256": "782a2afbc7d6ee674f6e217dca1636d1b6c0433724fa12b914d14750324a5527",
+    "feature_minimum_cosine": 0.9855926603687857,
+    "feature_maximum_relative_RMSE": 0.16962074948565692,
+    "feature_frames_exact": true,
+    "metrics": {
+      "validation": {
+        "mean_speech_WER": 0.13750998817180068,
+        "empty_false_transcript_rate": 0,
+        "strata": {
+          "espeak-ng plus deterministic procedural ambience": 0.05899800978748347,
+          "LibriSpeech dev-clean with deterministic local augmentation": 0.07021489229558815,
+          "Qwen3-TTS large-vocabulary recovery corpus": 0.309328968903437
+        }
+      },
+      "test": {
+        "mean_speech_WER": 0.09004924558345927,
+        "empty_false_transcript_rate": 0,
+        "strata": {
+          "espeak-ng plus deterministic procedural ambience": 0.09159780216723445,
+          "LibriSpeech dev-clean with deterministic local augmentation": 0.08856263126303508
+        }
+      }
+    },
+    "checks": {
+      "validation": true,
+      "test": true
+    },
+    "all_text_exact_with_A100": false,
+    "minimum_available_mib": 8802.7,
+    "elapsed_s": 43.63720651110634,
+    "text_gates_passed": true,
+    "component_compatibility_passed": false,
+    "old_service_paused": false,
+    "diagnostic_only": true,
+    "clips": 315,
+    "numeric_feature_gate": {
+      "minimum_cosine": 0.999,
+      "maximum_relative_RMSE": 0.01,
+      "passed": false
+    },
+    "source_report_sha256": "17f0ee3a91fd5f90738d0cdbd17c34fa5e63225ae45c70fc9775a0199cde9d54",
+    "shared_live_encoder_head": false,
+    "actual_GPU_residency_verified": true
+  },
+  "stage_diagnostics": {
+    "clips": 2,
+    "selection": "fixed silence and natural speech from the existing315 pilot cases",
+    "tensor_shapes_match": true,
+    "stages": [
+      "inp_chunks",
+      "after_conv_blocks",
+      "after_conv_out",
+      "after_transformer",
+      "ffn_gelu_erf"
+    ],
+    "TF32_override_only": "no effect",
+    "comparisons": {
+      "paired-stage-report.json": {
+        "final_features": [
+          {
+            "stage": "ffn_gelu_erf-0.f32",
+            "exact": false,
+            "cosine": 0.9905455754684596,
+            "relative_RMSE": 0.1377818397765978,
+            "A100_minmax": [
+              -0.16996589303016663,
+              1.0876259803771973
+            ],
+            "Orin_minmax": [
+              -0.1699627786874771,
+              1.065592646598816
+            ]
+          },
+          {
+            "stage": "ffn_gelu_erf-1.f32",
+            "exact": false,
+            "cosine": 0.9855926603688103,
+            "relative_RMSE": 0.1696207494856594,
+            "A100_minmax": [
+              -0.16989056766033173,
+              0.7138764262199402
+            ],
+            "Orin_minmax": [
+              -0.16997097432613373,
+              0.7027119994163513
+            ]
+          }
+        ],
+        "source_report_sha256": "e38a63e3481182bd5b91b16f444fc51d6ca19054c1f858ca8062f38d885bdcd8"
+      },
+      "paired-f32-stage-report.json": {
+        "final_features": [
+          {
+            "stage": "ffn_gelu_erf-0.f32",
+            "cosine": 0.9998464946929061,
+            "relative_RMSE": 0.017523138379830126
+          },
+          {
+            "stage": "ffn_gelu_erf-1.f32",
+            "cosine": 0.9998452308026303,
+            "relative_RMSE": 0.0176057275158419
+          }
+        ],
+        "source_report_sha256": "c678032525a2b336dd0ff78afd7cb244a26c1d33ff1321f3d5b7a1e18600cdf5"
+      },
+      "paired-f32-nofa-stage-report.json": {
+        "final_features": [
+          {
+            "stage": "ffn_gelu_erf-0.f32",
+            "cosine": 0.9996909148308607,
+            "relative_RMSE": 0.025013551519453933
+          },
+          {
+            "stage": "ffn_gelu_erf-1.f32",
+            "cosine": 0.9995244557262173,
+            "relative_RMSE": 0.030838299203907446
+          }
+        ],
+        "source_report_sha256": "72ce690c988d1ab833034d04a5fd55ca11c22123073da63aa9c04e52ded9b607"
+      }
+    },
+    "conclusion": "Matrix F32 accumulation reduces cross-device error but still fails unchanged1% limit; ordinary attention worsens it. No production precision or attention patch; no additional permutations launched."
+  },
+  "limits": [
+    "English pilot only; historical test previously evaluated for this same head, not a new blinded test.",
+    "Old lexicon and16-beam/32-frame-candidate decoder unchanged; no external language model.",
+    "Actual raw audio encoded on each host, then separately resident head reads checked feature matrices.",
+    "No live shared encoder/head residency, partial streaming, broad multilingual/unseen-word or end-to-end performance qualification.",
+    "No runtime activation, no release qualification, no model publication.",
+    "Orin numeric feature gate remains failed even though the downstream fixed text gates pass.",
+    "Existing full audio bridge remains authoritative; environmental parity remains an independent blocker."
+  ]
+}
