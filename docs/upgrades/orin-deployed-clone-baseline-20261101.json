@@ -1,0 +1,140 @@
+{
+  "schema": "robit.omni.deployed-Ornith-clone-baseline-review.v1",
+  "complete_measurement": true,
+  "scope": "Serial direct-cloning stream benchmark on shared live host. Empirical quantiles are not population p95/p99 guarantees; no physical playback, speaker similarity, ASR, or whole-system qualification.",
+  "model": "robit/ornith-1.5-omni-audio-bridge:q4km",
+  "source_revision": "7554ae0118a2b1527ab537a1cd11e4cd7251770c",
+  "rows": 36,
+  "statistics": {
+    "female": {
+      "samples": 18,
+      "first_PCM_s": {
+        "0.5": 5.035315981600434,
+        "0.95": 5.482766761083622,
+        "0.99": 5.529594581129495
+      },
+      "completion_s": {
+        "0.5": 8.078699105069973,
+        "0.95": 8.814784081559628,
+        "0.99": 8.831220404226332
+      },
+      "unique_PCM_hashes_by_position": {
+        "0": 1,
+        "1": 1,
+        "2": 1
+      }
+    },
+    "male": {
+      "samples": 18,
+      "first_PCM_s": {
+        "0.5": 5.060517473611981,
+        "0.95": 5.189252772729378,
+        "0.99": 5.250861364861485
+      },
+      "completion_s": {
+        "0.5": 7.5983713461318985,
+        "0.95": 7.972454503935296,
+        "0.99": 7.973800223099533
+      },
+      "unique_PCM_hashes_by_position": {
+        "0": 1,
+        "1": 1,
+        "2": 1
+      }
+    }
+  },
+  "minimum_MemAvailable_MiB": 3556.83203125,
+  "primary_PID_unchanged_and_resident": true,
+  "unique_TTS_GPU_resident_PIDs": 36,
+  "A_B_A_all_repeat_exact_and_B_distinct": true,
+  "all_streams_match_final_24k_mono_PCM16_WAV": true,
+  "driver_audio_files_created": 0,
+  "core_and_harness_not_restarted": true,
+  "deployment_pins": {
+    "source_revision": "7554ae0118a2b1527ab537a1cd11e4cd7251770c",
+    "tracked_worktree_dirty": false,
+    "critical_source_sha256": {
+      "runtime/tts_server.py": "5bfd551f1e91ff4d4fbe972f29e60a960a3905ddb5a6b1d198cce57e586093c0",
+      "runtime/adapter_server.py": "7267d56511e827091c8b833acb3fa2bf9285e6596f857b705b6045963d627f08",
+      "portal/app.py": "eef10cd765abbda309dc11396161c30951cdcd7be62aa2870efc230638e390b6",
+      "src/qwen_omni_adapters/daemon.py": "030918816a80fcff340178c3cdb3f81236d286450cabbb6fa821002ff5a60988"
+    },
+    "voice_profile_sha256": "944793213b5275deecd59df3af5c86ef1f8ce93bd384f18160edfa5067969b28",
+    "voice_profile_last_write_precedes_plan": true,
+    "deployed_voice_defaults": {
+      "language": "en",
+      "seed": 42,
+      "temperature": 0.7,
+      "top_k": 40,
+      "top_p": 0.9
+    },
+    "service_states": {
+      "qwen-omni-adapters.service": {
+        "MainPID": "584884",
+        "ActiveState": "active"
+      },
+      "omni-call-harness.service": {
+        "MainPID": "584938",
+        "ActiveState": "active"
+      }
+    },
+    "deployed_TTS_settings": [
+      {
+        "PID": 585317,
+        "settings": {
+          "LLAMA_TTS_BIN": "/home/egg/Documents/egg_events/vendor/qwen-omni-adapters/vendor/llama.cpp/build/bin/llama-tts",
+          "OMNI_TTS_MODEL_GGUF": "/home/egg/Documents/egg_events/vendor/qwen-omni-adapters/runtime-data/components/tts-model.gguf",
+          "OMNI_TTS_PROJECTOR_GGUF": "/home/egg/Documents/egg_events/vendor/qwen-omni-adapters/runtime-data/components/tts-projector.gguf",
+          "OMNI_TTS_PERSISTENT": "1",
+          "OMNI_TTS_STREAM_FRAMES": "8"
+        }
+      }
+    ],
+    "deployed_TTS_artifact_sha256": {
+      "LLAMA_TTS_BIN": {
+        "path": "/home/egg/Documents/egg_events/vendor/qwen-omni-adapters/vendor/llama.cpp/build/bin/llama-tts",
+        "bytes": 49096,
+        "sha256": "960972a4d26bf9f1f3f6275ae785c771a12e2f5863cbb6a807ad2ae620e816b4"
+      },
+      "OMNI_TTS_MODEL_GGUF": {
+        "path": "/home/egg/Documents/egg_events/vendor/qwen-omni-adapters/runtime-data/components/tts-model.gguf",
+        "bytes": 1035965280,
+        "sha256": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129"
+      },
+      "OMNI_TTS_PROJECTOR_GGUF": {
+        "path": "/home/egg/Documents/egg_events/vendor/qwen-omni-adapters/runtime-data/components/tts-projector.gguf",
+        "bytes": 446422912,
+        "sha256": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2"
+      }
+    },
+    "deployed_TTS_wrapper_PIDs_in_status": [
+      585317
+    ]
+  },
+  "reference_sha256": {
+    "female": "f799cf200b37704a68f725fb8d72529f0c3c5cafb93d2f6c8c054ac278032b4d",
+    "male": "79f6cd76dfe2f5cb6e2f217d1e03020cb8d75b8b49a3dc617e6bfa41ea49f61e"
+  },
+  "sampling": {
+    "seed": 42,
+    "max_frames": 128,
+    "language": "en",
+    "temperature": 0.7,
+    "top_k": 40,
+    "top_p": 0.9
+  },
+  "deployed_stream_frames": 8,
+  "continuity_diagnostic_window_frames": 2,
+  "continuity_at_actual_packet_cadence_qualified": false,
+  "continuity_scope": "All36rawPCM diagnostic checks pass at2-frame windows; deployed8-frame packet boundaries need explicit confirmation before using this as a cadence qualification. No raw audio was retained.",
+  "source_evidence_sha256": {
+    "deployment-pins.json": "bf16ffacf53d2b20472ffcd4807502a528dbfcef9e1eed41b12bae80c226dc8b",
+    "benchmark-source.py": "0a4901f92fb072f1fec9569f07d74abfcb1e4bb307c4b94f560ffa6e7d5863d9",
+    "plan.json": "862d7863d660aa8fb9d08a98b499abe163ec6816f777cbc8b8b45fdf13cd6d46",
+    "remote-report.json": "d14bf82c5b45fc8511acfe4917814db3c73f1349df737c97fa38b5b1d5e5f42c"
+  },
+  "candidate_comparison_complete": false,
+  "model_quality_qualified": false,
+  "public_model_publication": false,
+  "release_qualified": false
+}

@@ -1,0 +1,358 @@
+{
+  "schema": "robit.omni.qwen8400-scene-review.v1",
+  "complete": true,
+  "family": "qwen",
+  "step": 8400,
+  "status": "rejected",
+  "release_qualified": false,
+  "public_model_publication": false,
+  "source_adapter_sha256": "41a6d81fa915dec2601ce1170169b924c0153420c07ec6229fcb479fb520ab0d",
+  "native_F32_GGUF_sha256": "dcb9aa06413cca149ddbf7836aa45260938c639447fbcd9b715c5803e2db934d",
+  "base_sha256": "91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+  "projector_sha256": "2d9609efef6af1112bc03bf34646cf271deaae9317f17891ec6342380778c3e1",
+  "conversion": {
+    "complete": true,
+    "family": "qwen",
+    "tensors": 48,
+    "all_exported_values_exact": true,
+    "adapter_sha256": "dcb9aa06413cca149ddbf7836aa45260938c639447fbcd9b715c5803e2db934d",
+    "release_qualified": false
+  },
+  "frozen_primary_encoder_bridge_TTS": true,
+  "disabled_logits_max_abs_delta": 0.0,
+  "speech": {
+    "current": {
+      "all": {
+        "clips": 154,
+        "words": 3336,
+        "errors": 215,
+        "wer": 0.0644484412470024
+      },
+      "espeak-ng plus deterministic procedural ambience": {
+        "clips": 78,
+        "words": 1520,
+        "errors": 27,
+        "wer": 0.017763157894736842
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "clips": 29,
+        "words": 594,
+        "errors": 36,
+        "wer": 0.06060606060606061
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "clips": 47,
+        "words": 1222,
+        "errors": 152,
+        "wer": 0.12438625204582651
+      }
+    },
+    "previous7400_errors": 217,
+    "previous7400_natural_errors": 37,
+    "prior6400_errors": 215,
+    "prior6400_natural_errors": 36,
+    "legacy_errors": 684,
+    "legacy_natural_errors": 9,
+    "all_six_nonspeech_transcripts_empty": true
+  },
+  "fixed_native13": [
+    {
+      "id": "probe-speech",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "audio_observation": "One speaker with no notable background sound."
+    },
+    {
+      "id": "probe-silence",
+      "transcript": null,
+      "audio_observation": "No intelligible speech or distinct sound event is evident."
+    },
+    {
+      "id": "probe-alarm",
+      "transcript": null,
+      "audio_observation": "A sustained electronic alarm tone; no intelligible speech."
+    },
+    {
+      "id": "probe-noise",
+      "transcript": null,
+      "audio_observation": "Steady broadband hissing noise; no intelligible speech."
+    },
+    {
+      "id": "probe-music",
+      "transcript": null,
+      "audio_observation": "A simple melody of electronic tones; no intelligible speech."
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Insect."
+    },
+    {
+      "id": "probe-esc50-dog",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Meow."
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Acoustic guitar; Strum."
+    },
+    {
+      "id": "fsd50k-156200",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Vehicle horn, car horn, honking."
+    },
+    {
+      "id": "fsd50k-180765",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Gunshot, gunfire."
+    },
+    {
+      "id": "fsd50k-182894",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Printer."
+    },
+    {
+      "id": "fsd50k-166192",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Boom."
+    },
+    {
+      "id": "fsd50k-203720",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Motor vehicle (road)."
+    }
+  ],
+  "fixed_temporal16": [
+    {
+      "id": "temporal-overlap-validation-00",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Brass instrument."
+    },
+    {
+      "id": "temporal-overlap-validation-01",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Brass instrument."
+    },
+    {
+      "id": "temporal-overlap-validation-02",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Boom."
+    },
+    {
+      "id": "temporal-overlap-validation-03",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Boom."
+    },
+    {
+      "id": "temporal-overlap-validation-04",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Printer."
+    },
+    {
+      "id": "temporal-overlap-validation-05",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Printer."
+    },
+    {
+      "id": "temporal-overlap-validation-06",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "audio_observation": "One speaker with no notable background sound."
+    },
+    {
+      "id": "temporal-overlap-validation-07",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "audio_observation": "One speaker with an intermittent electronic alarm in the background."
+    },
+    {
+      "id": "temporal-overlap-validation-08",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Motor vehicle (road); Squeak."
+    },
+    {
+      "id": "temporal-overlap-validation-09",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Mechanical or electronic device sounds."
+    },
+    {
+      "id": "temporal-overlap-validation-10",
+      "transcript": null,
+      "audio_observation": "First: Steady filtered noise with a low rumbling quality; no intelligible speech."
+    },
+    {
+      "id": "temporal-overlap-validation-11",
+      "transcript": null,
+      "audio_observation": "First: Organ."
+    },
+    {
+      "id": "temporal-overlap-validation-12",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "audio_observation": "One speaker with no notable background sound."
+    },
+    {
+      "id": "temporal-overlap-validation-13",
+      "transcript": "A public bicycle circle is part of the side of the garden gate.",
+      "audio_observation": "Two different sustained broadband noise sources overlap; no intelligible speech beyond the transcript."
+    },
+    {
+      "id": "temporal-overlap-validation-14",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Motor vehicle (road); Siren."
+    },
+    {
+      "id": "temporal-overlap-validation-15",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Shatter."
+    }
+  ],
+  "release_failures": [
+    "Clock alarm is insect; dog is meow; church bells are guitar/strum; voices are vehicle horn; clapping is gunfire. Printer/noise recover but other mandatory identities fail.",
+    "Gunfire is only coarse Boom; siren only motor vehicle.",
+    "Intermittent alarm called sustained; constant three-tone chord called melody.",
+    "Opposite-order dog/bells, clapping/gunfire, printer/siren collapse to same observation; most pairs omit order or a source.",
+    "Speech-plus-printer transcript and observation fail; speech-plus-alarm omits alarm.",
+    "Natural speech36/594word errors remains above legacy9/594, same as prior6400. No convergence claim."
+  ],
+  "evaluation": {
+    "raw_audio_and_prompt_unchanged": true,
+    "labels_or_titles_in_generation": false,
+    "cache_prompt": false,
+    "audio_LoRA_scale": 1,
+    "context_tokens": 16384,
+    "KV": "F16",
+    "full_environment240_skipped_until_basic_semantics_recover": true,
+    "test400_unused": true,
+    "no_lexical_semantic_grader": true
+  },
+  "actual_train_coverage": {
+    "cumulative_unique_IDs": 18279,
+    "new_IDs_this_trial": 2814,
+    "all_draw_unique_IDs_this_trial": 3874,
+    "saved_order_length": 64362,
+    "saved_cursor": 4000,
+    "full_corpus_pass": false
+  },
+  "next_bounded_hypothesis": {
+    "status": "CPU proof and eight zero-update maximum-input checks pass; fixed500updates per arm running onGPU0. Observer performs source58x2 only after actual trainer exit and normal release.",
+    "question": "Does the final audio projection frozen at rich750 limit recovery on expanded data?",
+    "A": "Continue exact8400 tail LoRA+AdamW; original projection frozen.",
+    "B": "Freeze exact8400 tail LoRA; train only existing final linear audio projection from identical BF16 forward, F32 masters, fresh AdamW.",
+    "fixed_updates_per_arm": 500,
+    "same_ordered_microbatches": 2000,
+    "same_saved_order_cursor": [
+      4000,
+      6000
+    ],
+    "order_sha256": "6e48645f54d0d1e799b49f06f757257b4ca14097d5e777e5a1fe84c5e1c0b9a1",
+    "same_data_loss_LR_optimizer_family": true,
+    "fresh_optimizer_B_is_declared": true,
+    "one_loaded_primary_trunk_sequential_arms": true,
+    "no_neural_architecture_or_runtime_graph_change": true,
+    "no_new_audio_feature_cache_or_projector_export": true,
+    "forecast_bytes": 536870912,
+    "resource_preflight": {
+      "complete": true,
+      "optimizer_steps": 0,
+      "initial_audio_loss_bit_exact": true,
+      "initial_audio_logits_bit_exact": true,
+      "checks": [
+        {
+          "arm": "A",
+          "id": "fsd50k-323041",
+          "duration_s": 30.0,
+          "loss": 0.4379802644252777,
+          "peak_reserved_MiB": 55554.0,
+          "peak_allocated_MiB": 54824.951171875
+        },
+        {
+          "arm": "A",
+          "id": "libri100-7859-102521-0017",
+          "duration_s": 24.525,
+          "loss": 0.04335782676935196,
+          "peak_reserved_MiB": 55708.0,
+          "peak_allocated_MiB": 54957.7265625
+        },
+        {
+          "arm": "A",
+          "id": "scene-v1-event-sequence-0336",
+          "duration_s": 11.9729375,
+          "loss": 0.5611780285835266,
+          "peak_reserved_MiB": 54490.0,
+          "peak_allocated_MiB": 54017.2255859375
+        },
+        {
+          "arm": "A",
+          "id": "scene-v1-speech-background-1816",
+          "duration_s": 5.895,
+          "loss": 0.12279316037893295,
+          "peak_reserved_MiB": 54306.0,
+          "peak_allocated_MiB": 53840.876953125
+        },
+        {
+          "arm": "B",
+          "id": "fsd50k-323041",
+          "duration_s": 30.0,
+          "loss": 0.4379802644252777,
+          "peak_reserved_MiB": 55562.0,
+          "peak_allocated_MiB": 54853.46240234375
+        },
+        {
+          "arm": "B",
+          "id": "libri100-7859-102521-0017",
+          "duration_s": 24.525,
+          "loss": 0.04335782676935196,
+          "peak_reserved_MiB": 55712.0,
+          "peak_allocated_MiB": 54986.064453125
+        },
+        {
+          "arm": "B",
+          "id": "scene-v1-event-sequence-0336",
+          "duration_s": 11.9729375,
+          "loss": 0.5611780285835266,
+          "peak_reserved_MiB": 54494.0,
+          "peak_allocated_MiB": 54045.16552734375
+        },
+        {
+          "arm": "B",
+          "id": "scene-v1-speech-background-1816",
+          "duration_s": 5.895,
+          "loss": 0.12279316037893295,
+          "peak_reserved_MiB": 54306.0,
+          "peak_allocated_MiB": 53869.6240234375
+        }
+      ],
+      "maximum_peak_reserved_MiB": 55712.0,
+      "source_script_sha256": "89485474d7eca6b9e62beab175f84b8a76c1ce666e2e59387fc99815c54a29a2",
+      "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+      "one_language_trunk": true,
+      "new_audio_features_or_weights_bytes": 0,
+      "source_weights_unchanged": true,
+      "GPU_residency_verified": true,
+      "lease_MiB": 64512,
+      "Torch_cap_MiB": 62720,
+      "release_qualified": false
+    },
+    "resource_preflight_sha256": "4f06cb894449294a86b6bee573892ee33f85bebaafc9b2f3eab446310bb54f21",
+    "training_source_sha256": "89485474d7eca6b9e62beab175f84b8a76c1ce666e2e59387fc99815c54a29a2",
+    "additional_unique_IDs": 1967,
+    "novel_IDs": 1386,
+    "virtual_scene_draws": 72,
+    "unchanged_gates": "Source58x2 then manual review/native13/full160/full240/media/assigned-target/cloning/concurrency before any release"
+  },
+  "resource_minima": {
+    "minimum_RAM_available_GiB": 317.5523796081543,
+    "minimum_srv_free_GiB": 71.10417938232422,
+    "minimum_checkout_free_GiB": 196.639404296875
+  },
+  "peak_Torch_reserved_MiB": 60912.0,
+  "training_elapsed_s": 6670.03284960601,
+  "evidence_sha256": {
+    "qwen-audio-lora-scene-step8400-native-probes/outputs.json": "99e1e0d861308f38d3a0f3b07df17959e1737c6a50da46490fc80073a46aa4fb",
+    "qwen8400-temporal-validation-1/outputs.json": "e12d9d6e476299dc1587a3e3f9ef5b190da9f5ee67c262897c466d2166588613",
+    "qwen8400-full-replay-validation-1/outputs.json": "a490b674f48e9e8019d9e0149b0ee01b4cd33579f3d65617f3ccddd6c6abed37",
+    "qwen8400-full-replay-validation-1/speech-metrics.json": "2ab400ae87aa375b3fcdbf39ec0adede654f3ee35cb78778dbfa0bfe8d56b2d6",
+    "qwen-scene-captions-pass-1/report.json": "a1ca54740873d9c6a3bbf81e72bf52ab8e31ffb74665b43955b1989261e91fa9",
+    "qwen-scene-captions-pass-1/checkpoint-008400/checkpoint.json": "af8428dddf9fa7f0932b39b8dc3d349597382f88894315ad49c9f15940066daf",
+    "qwen-scene-captions-pass-1/checkpoint-008400/conversion-integrity.json": "1eb8903e192fbe3741450d609a727f6eb6b84c0df1109ca78fac6b5663fa3745"
+  },
+  "preparation_sha256": "3449dc312248a29c758dee7e18ef913e33ccb3ad8d674569b641409b38b61863"
+}

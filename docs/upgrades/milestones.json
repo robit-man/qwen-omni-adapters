@@ -141,7 +141,8 @@
         "phase-b4-idle-orin-initial.json",
         "phase-b4-idle-orin-pressure.json",
         "phase-b4-validation.json",
-        "phase-b4-idle-orin-adaptive.json"
+        "phase-b4-idle-orin-adaptive.json",
+        "orin-deployed-clone-baseline-20261101.json"
       ]
     },
     {
@@ -305,7 +306,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Ornith13162 rejected after native13/temporal16/full160; exact-order2534-update continuation to15696 running onGPU2 after safe zero-update preflight. Qwen7400to8400 continues onGPU0. Full parity/publication remain open.",
+      "status": "Qwen8400 rejected after native13/temporal16/full160; matched projection-only versus LoRA-only500update arms running onGPU0, max55712MiB zero-update preflight passes. Ornith unchanged exact-order run to15696 onGPU2. Full parity/publication remain open.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -336,7 +337,8 @@
         "qwen-sampling-4000-review-20261101.json",
         "virtual-scene-training-20261101.json",
         "qwen7400-source-native-review-20261101.json",
-        "ornith13162-scene-review-20261101.json"
+        "ornith13162-scene-review-20261101.json",
+        "qwen8400-scene-review-20261101.json"
       ]
     },
     {
@@ -366,7 +368,8 @@
         "rich850-ornith-orin-operational-20261031.json",
         "rich850-ornith-orin-semantic-20261031.json",
         "rich850-ornith-orin-concurrency-20261031.json",
-        "rich850-ornith-orin-restoration-20261031.json"
+        "rich850-ornith-orin-restoration-20261031.json",
+        "orin-deployed-clone-baseline-20261101.json"
       ]
     },
     {
@@ -396,7 +399,7 @@
     "forecast_budget_and_retention_required_before_new_jobs": true
   },
   "current_audio_repair": {
-    "status": "Ornith exact-order scene-cycle continuation and Qwen scene-data trial running; all completed candidates remain unqualified.",
+    "status": "Qwen8400 rejected; existing-projection versus LoRA control comparison running after exact initial equivalence and safe zero-update preflight. Ornith15696 training continues.",
     "evidence": [
       "class-uniform-6400-review-20261101.json",
       "paired-training-fit-review-20261101.json",
@@ -404,14 +407,15 @@
       "diversity-and-qwen-sampling-trials-20261101.json",
       "qwen7400-source-native-review-20261101.json",
       "virtual-scene-training-20261101.json",
-      "ornith13162-scene-review-20261101.json"
+      "ornith13162-scene-review-20261101.json",
+      "qwen8400-scene-review-20261101.json"
     ],
     "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
     "latest_native_checkpoint": {
-      "family": "ornith",
-      "step": 13162,
+      "family": "qwen",
+      "step": 8400,
       "status": "rejected",
-      "evidence": "ornith13162-scene-review-20261101.json"
+      "evidence": "qwen8400-scene-review-20261101.json"
     },
     "first_fixed_checkpoints": {
       "ornith7400": "rejected; Siren and Church bell correct but other mandatory identities fail",
@@ -435,9 +439,9 @@
     "latest_native_by_family": {
       "qwen": {
         "family": "qwen",
-        "step": 7400,
+        "step": 8400,
         "status": "rejected",
-        "evidence": "qwen7400-source-native-review-20261101.json"
+        "evidence": "qwen8400-scene-review-20261101.json"
       },
       "ornith": {
         "step": 13162,
@@ -458,12 +462,12 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Qwen scene-data-only7400to8400 running after55684MiB zero-update preflight/exact7400resume; original class-uniform sampler retained.",
+      "GPU0": "One frozen Qwen trunk; sequential matched A tail-LoRA-only and B existing-projection-only500update arms. Initial audio logits/loss exact;8maximum-input checks55712MiB,zero updates; Torch62720/lease64512MiB.",
       "GPU2": "Ornith exact-order13162to15696 continuation running;2534updates to first acoustic replay cycle, source order cursor4000 restored,21GiB Torch.",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "Ornith13162 rejected after native13/temporal16/full160:237/3336speech errors, natural44/594versuslegacy9. Only524/2048virtual recipes exposed; complete first acoustic replay cycle next. Qwen7400previous trial also rejected.",
-    "current_hypothesis": "Continue unchanged scene corpus/order through the first acoustic replay cycle;13162 saw only524/2048recipes and6speech backgrounds. Source TRAIN loss improves but native13/16 and natural ASR remain failed. No architecture/loss/prompt change.",
+    "latest_completed_trials": "Qwen8400:215/3336speech errors, natural36/594versuslegacy9; fixed sound identities/order fail. Ornith13162 also rejected; unchanged continuation to15696 healthy.",
+    "current_hypothesis": "Qwen: compare existing projection-only training against tail-LoRA-only continuation, same500updates/2000saved-orderexamples, initial BF16 logits/loss exact. Ornith: complete existing first acoustic replay cycle unchanged.",
     "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
       "completed-audio-checkpoints-20261101.json",
@@ -474,19 +478,21 @@
       "ornith12162-source-native-review-20261101.json",
       "qwen7400-source-native-review-20261101.json",
       "virtual-scene-training-20261101.json",
-      "ornith13162-scene-review-20261101.json"
+      "ornith13162-scene-review-20261101.json",
+      "qwen8400-scene-review-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
     "additional_parity_suite": {
-      "status": "Legacy16 and Ornith12162paired32 complete; Ornith13162fixed16 complete/rejected. New15696 and Qwen8400 comparisons await completed training.",
+      "status": "Legacy16, Ornith12162paired32, Ornith13162fixed16 and Qwen8400fixed16 complete. Learned candidates fail. Ornith15696 pending.",
       "sequence_cases": 12,
       "overlap_cases": 4,
       "actual_TRAIN_waveforms_rehashed": 59800,
       "new_audio_bytes": 4720948,
-      "evidence": "temporal-overlap-validation-20261101.json"
+      "evidence": "temporal-overlap-validation-20261101.json",
+      "paired_projection_source": "Fixed58clips per arm prepared against exact native8400 raw hashes; observer waits actual train worker exit and normal release."
     },
-    "GPU0_serial_reference": "Qwen7400 source42 and seen16 complete; reference workers exited before new scene training.",
+    "GPU0_serial_reference": "Qwen8400 native13/temporal16/full160 workers exited; new projection comparison starts only after safe zero-update preflight.",
     "attribution_audit": {
       "active_attributed_TRAIN_rows": 17450,
       "exact_ledger_sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",
@@ -499,5 +505,13 @@
     "evidence": "training-release-notices-20261101.json",
     "source_tests_passed": 6394,
     "public_model_publication": false
+  },
+  "deployed_clone_baseline": {
+    "status": "36serial_actual_Orin_requests_complete; candidate_comparison_and_actual8frame_continuity_pending",
+    "evidence": "orin-deployed-clone-baseline-20261101.json",
+    "new_audio_files": 0,
+    "service_restart": false,
+    "release_qualified": false,
+    "minimum_MemAvailable_MiB": 3556.83203125
   }
 }

@@ -114,18 +114,52 @@ final15,696 only after actual trainer exit. See
 `docs/upgrades/ornith13162-scene-review-20261101.json`. Keep all quality gates;
 do not change a healthy trainer or claim convergence from incomplete coverage.
 
-Qwen's scene-data-only7,400→8,400 trial is also RUNNING onGPU0, fixed1,000
-updates. Same64,362 TRAIN rows and unchanged ORIGINAL class-uniform event plus
-once-per-row replay sampler, not Ornith2/1/1. Source7,400 order/RNG/15,465 seen
-IDs reconstruct exactly; all48 tensors and AdamW7,400 are restored. Qwen-specific
-three old-record and six scene collator comparisons are tensor-exact. Forecast:
-2,814 novel IDs and123virtual-scene draws in the first4,000 microbatches; this
-is not a full scene/corpus pass. Zero-update four-backward preflight55,684MiB
-under60GiB Torch/61.75GiB lease passed before training. Its fixed8,400 observer
-waits for actual CUDA trainer exit. Next: assess each completed trial with the
-unchanged native13, full160/240, fixed16temporal/overlap and legacy controls;
-then assigned-target operational/cloning/concurrency gates. Keep publication
-gated and retain both source/adapter recovery states without bulk exports.
+Qwen's scene-data-only7,400→8,400 trial completed and is REJECTED.
+Native13, fixed16temporal and full160 all completed against unchanged raw audio,
+prompt, F16 KV and explicit audio-adapter scale1. Noise/printer recover, but dog
+is meow, bells are guitar/strum, clock alarm is insect, voices are vehicle horn
+and clapping is gunfire. Opposite-order pairs collapse to the same observation
+or omit a source. Speech-plus-printer fails. Full160:215/3,336word errors,
+natural36/594 versus37previous and9legacy; all six nonspeech transcripts empty.
+This equals prior6,400 aggregate/natural error counts, not convergence. All48
+F32 exported values remain exact; frozen source/disabled logits match. Actual
+coverage18,279unique IDs, only4,000draws of64,362saved indices. See
+`docs/upgrades/qwen8400-scene-review-20261101.json`.
+
+The next bounded hypothesis compares tail-LoRA continuation against training the
+existing final audio projection, which has stayed frozen at rich750 throughout
+expanded-data LoRA training. Both arms start from exact8,400 and identical BF16
+audio logits/loss, use the same next2,000 saved-order examples/cursor4,000→6,000,
+500updates, accumulation4, loss4, LR1e-4 and AdamW. A restores AdamW8,400 and trains
+only tail LoRA. B freezes the exact8,400 LoRA and trains only the existing linear
+projection with fresh AdamW and F32 masters cast to BF16 on forward/export.
+This is one changed trainable component, not a new graph, separate reasoning
+model, inference prompt, dataset or sampling policy. One primary trunk serves
+the two arms sequentially. CPU effective-BF16 export/gradient checks pass; exact
+initial source logits/loss match on CUDA. Eight maximum-input four-backward checks pass55,712MiB, zero optimizer updates,
+under61.25GiB Torch/63GiB lease onGPU0. Fixed500updates per arm now RUNNING
+in `qwen-projection-comparison-1`; primary CUDA PID3540635, one trunk. The initial63.75GiB
+lease was refused before starting CUDA; no peer was stopped or reservation
+weakened. Forecast0.5GiB; no new audio, feature cache or combined-projector GGUF.
+The exact preflight script hash is pinned. A finite observer waits actual
+trainer exit and normal lease release, then runs fixed13diagnostic+29natural+
+16temporal raw clips on each source arm, same prompt/backend, no labels in
+generation. No automatic full-projector export or promotion. Neither arm is a
+release candidate until unchanged source/native,
+full audio/media, assigned-target/cloning/concurrency gates pass.
+
+An actual deployed Orin clone baseline completed36 serial requests, two bundled
+reference voices, repeated A→B→A, same seed42. Every streamed PCM matches final
+24kHz mono WAV; all A repeats are exact and B differs. Primary PID/service and
+harness stayed unchanged/resident;36different request-scoped TTS CUDA PIDs.
+Median first PCM is5.035s female/5.061s male. Minimum MemAvailable3,556.8MiB.
+This is a bounded direct-synthesis latency baseline, not speaker similarity,
+ASR, physical playback or overall model parity. Deployed cadence is8frames;
+the raw continuity diagnostic used2frames, so actual-cadence qualification is
+explicitly still open. No audio files were saved. Latest shared-host available
+memory5.5GiB is below safe additional TTS headroom; do not start new Orin loads
+or restart the healthy service merely to repeat the baseline. See
+`docs/upgrades/orin-deployed-clone-baseline-20261101.json`.
 
 The complete Ornith data-only pass ended10,662. Every fixed checkpoint is
 rejected despite recovery of alarm, clock alarm, bark, church bells, printer and
