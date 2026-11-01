@@ -92,6 +92,18 @@ See `docs/upgrades/native-ollama-voice-discovery-20261101.json`.
 
 ## Active convergence goal and GPU assignment — 2026-11-01
 
+Qwen NF4 resource preflight now PASSES on GPU0: the same8400 conditional48,
+AdamW state, rich750 projection and four largest TRAIN inputs require21,306MiB
+peak Torch reserve versus55,708MiB in the matched BF16 control (61.8% lower).
+All four accumulated backwards per input produce finite/nonzero gradients;
+all adapter values/moments remain exact, zero optimizer updates, no CPU offload.
+Its worker exited and25GiB lease released normally; Ornith/peers are preserved.
+The private bitsandbytes0.50.2 prefix adds129MB; shared FTS packages are untouched.
+This enables a possible training continuation under current leases, not a runtime
+memory or quality gain. Deployed Q4_K_M weights are unchanged. Source/native/full
+release gates remain mandatory. The initial wrapper-order failure is retained.
+See `docs/upgrades/qwen-nf4-resource-preflight-20261101.json`.
+
 The completed attention comparison is REJECTED: both valid arms produce
 39 natural-speech errors/594 versus legacy 9. All 13 environmental and 16
 temporal responses are identical; 54/58 total responses match. Four natural
