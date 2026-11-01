@@ -108,6 +108,17 @@
 @@ -81 +88 @@
 -	streamSpeech(c, speaker, llm.SpeechRequest{Input: req.Input, Voice: req.Voice, Prompter: prompter}, format)
 +	omniSpeechResponse(c, speaker, llm.SpeechRequest{Input: req.Input, Voice: req.Voice, Prompter: prompter, Omni: req.Omni}, format, req.Stream)
+@@ -165,0 +173,10 @@
++	if m.Omni != nil {
++		voices := make([]string, 0, len(m.Omni.Voices))
++		for name := range m.Omni.Voices {
++			voices = append(voices, name)
++		}
++		slices.SortFunc(voices, func(a, b string) int {
++			return cmp.Or(cmp.Compare(strings.ToLower(a), strings.ToLower(b)), cmp.Compare(a, b))
++		})
++		return voices
++	}
 --- a/server/transcription.go
 +++ b/server/transcription.go
 @@ -92,0 +93,4 @@

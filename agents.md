@@ -78,6 +78,18 @@ See `docs/upgrades/native-ollama-complete-speech-20261101.json` and the native
 extension contract in `docs/protocol.md`.
 
 
+Native build 0.40.13-robit-omni.5 fixes voice discovery: both family fixtures
+previously returned an empty `/api/show` voice list despite configured references;
+now the API and `ollama show` list female/male without loading a GPU model.
+An actual Qwen/A100 four-request saved → inline → default → saved gate also
+passes. Full-reference clone PCM matches the prior native C++ control exactly;
+the default voice differs, one primary remains resident, and only one reference
+encoding is needed. Actual workers/request files/test-only configuration are
+removed and the lease releases normally with Ornith training/peers preserved.
+This is trusted native-config discovery/selection with request reference text,
+not desktop profile import, perceptual similarity, Orin or final-model parity.
+See `docs/upgrades/native-ollama-voice-discovery-20261101.json`.
+
 ## Active convergence goal and GPU assignment — 2026-11-01
 
 The completed attention comparison is REJECTED: both valid arms produce

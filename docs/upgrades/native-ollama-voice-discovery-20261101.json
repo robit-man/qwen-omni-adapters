@@ -1,0 +1,245 @@
+{
+  "schema": "robit.omni.native-voice-discovery-qualification.v1",
+  "UTC": "2026-11-01T22:55:08.638403+00:00",
+  "complete": true,
+  "criterion": "Both native API/CLI expose configured voices; selecting a saved full-reference clone preserves PCM and primary residency through a default-voice switch.",
+  "baseline": {
+    "results": [
+      {
+        "family": "Ornith",
+        "version": "0.40.13-robit-omni.4",
+        "configured_voices": [
+          "female",
+          "male"
+        ],
+        "advertised_voices": [],
+        "capabilities": [
+          "speech",
+          "audio",
+          "completion",
+          "vision",
+          "tools",
+          "thinking"
+        ],
+        "models_loaded": 0,
+        "CUDA_VISIBLE_DEVICES": "-1",
+        "server_exited": true
+      },
+      {
+        "family": "Qwen",
+        "version": "0.40.13-robit-omni.4",
+        "configured_voices": [
+          "female",
+          "male"
+        ],
+        "advertised_voices": [],
+        "capabilities": [
+          "speech",
+          "audio",
+          "completion",
+          "vision",
+          "tools",
+          "thinking"
+        ],
+        "models_loaded": 0,
+        "CUDA_VISIBLE_DEVICES": "-1",
+        "server_exited": true
+      }
+    ],
+    "CUDA_started": false,
+    "complete": true
+  },
+  "candidate": {
+    "complete": true,
+    "baseline": "runtime-data/native-voice-discovery-baseline-20261101.json",
+    "binary_SHA256": "4864b7c6eaf0512771f7965e117275aed9ebbc89aab66a085c90a59b904327b6",
+    "results": [
+      {
+        "family": "Ornith",
+        "model": "robit/ornith-native-qualification:mechanism-20261101",
+        "version": "0.40.13-robit-omni.5",
+        "advertised_voices": [
+          "female",
+          "male"
+        ],
+        "CLI_show_lists_both_voices": true,
+        "capabilities_unchanged": true,
+        "models_loaded": 0,
+        "CUDA_VISIBLE_DEVICES": "-1",
+        "server_exited": true
+      },
+      {
+        "family": "Qwen",
+        "model": "robit/qwen-native-qualification:mechanism-20261101",
+        "version": "0.40.13-robit-omni.5",
+        "advertised_voices": [
+          "female",
+          "male"
+        ],
+        "CLI_show_lists_both_voices": true,
+        "capabilities_unchanged": true,
+        "models_loaded": 0,
+        "CUDA_VISIBLE_DEVICES": "-1",
+        "server_exited": true
+      }
+    ],
+    "CUDA_started": false,
+    "new_neural_downloads": 0,
+    "public_weight_uploads": 0,
+    "release_qualified": false
+  },
+  "saved_profile_Qwen_A100": {
+    "schema": "robit.omni.native-saved-profile-live.v1",
+    "complete": true,
+    "version": "0.40.13-robit-omni.5",
+    "binary_SHA256": "4864b7c6eaf0512771f7965e117275aed9ebbc89aab66a085c90a59b904327b6",
+    "GPU": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+    "model": "robit/qwen-native-qualification:mechanism-20261101",
+    "cases": [
+      {
+        "name": "saved-A",
+        "voice": "saved-blue",
+        "full_reference_text_and_acoustic_conditioning": true,
+        "PCM_SHA256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+        "PCM_bytes": 38400,
+        "exact_prior_native_CPP_control": true,
+        "elapsed_s": 4.089577790000476
+      },
+      {
+        "name": "inline-A",
+        "voice": "female",
+        "full_reference_text_and_acoustic_conditioning": true,
+        "PCM_SHA256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+        "PCM_bytes": 38400,
+        "exact_prior_native_CPP_control": true,
+        "elapsed_s": 3.356588387978263
+      },
+      {
+        "name": "default-B",
+        "voice": "female",
+        "full_reference_text_and_acoustic_conditioning": false,
+        "PCM_SHA256": "dd49f1a6099b0b44af001a611d52acccc690431f404974d03156f69ade5a2957",
+        "PCM_bytes": 49920,
+        "exact_prior_native_CPP_control": false,
+        "elapsed_s": 2.813972370000556
+      },
+      {
+        "name": "saved-A-repeat",
+        "voice": "saved-blue",
+        "full_reference_text_and_acoustic_conditioning": true,
+        "PCM_SHA256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+        "PCM_bytes": 38400,
+        "exact_prior_native_CPP_control": true,
+        "elapsed_s": 3.235885845962912
+      }
+    ],
+    "public_weight_uploads": 0,
+    "new_neural_downloads": 0,
+    "retained_audio_files": 0,
+    "release_qualified": false,
+    "saved_profile_discoverable_before_loading": true,
+    "primary_PID": 2753280,
+    "A_B_A_exact_and_distinct": true,
+    "saved_matches_inline_and_prior_control": true,
+    "primary_same_across_profiles": true,
+    "full_reference_encoder_launches": 1,
+    "temporary_clone_not_added_to_saved_voice_list": true,
+    "original_configuration_unchanged": true,
+    "residency_receipts": [
+      {
+        "pid": 2753280,
+        "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+        "resident": true,
+        "worker": "llama-server"
+      },
+      {
+        "pid": 2756673,
+        "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+        "resident": true,
+        "worker": "llama-tts-refer"
+      },
+      {
+        "pid": 2757076,
+        "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+        "resident": true,
+        "worker": "llama-tts"
+      },
+      {
+        "pid": 2758809,
+        "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+        "resident": true,
+        "worker": "llama-tts"
+      },
+      {
+        "pid": 2759786,
+        "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+        "resident": true,
+        "worker": "llama-tts"
+      },
+      {
+        "pid": 2760947,
+        "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+        "resident": true,
+        "worker": "llama-tts"
+      }
+    ],
+    "server_exited": true,
+    "all_actual_workers_exited": true,
+    "all_actual_workers_not_resident": true,
+    "temporary_request_files_removed": true,
+    "test_only_saved_profile_configuration_removed": true
+  },
+  "normal_release": {
+    "normal_release_verified": true,
+    "peers_unchanged": true,
+    "Ornith_training_preserved": true,
+    "PID": 2198194
+  },
+  "clean_official_patch": {
+    "complete": true,
+    "official_files": 9,
+    "patch_SHA256": "e04bca6128aa0563f8469c2204464a46fe4d6237f7fa09f3c34e4ae491721142",
+    "applied_output_exact_to_actual_build_source": true,
+    "CUDA_started": false
+  },
+  "source_validation": {
+    "before_passed": 6394,
+    "after_passed": 6394,
+    "warnings": 2,
+    "after_elapsed_s": 285.65,
+    "before_log_SHA256": "3a40545a8dabd100e81771191b74ece06d3983d932593c55e0f1c3be066eb234",
+    "after_log_SHA256": "00bc59feac4679a684447244e346573e36fb913740b7af2c8d64d53882f4c881"
+  },
+  "full_Go_runner_and_server_tests_passed": true,
+  "resource_guard": {
+    "storage_admitted": true,
+    "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release",
+    "free_bytes": 94550691840,
+    "reserve_bytes": 53687091200,
+    "expected_write_bytes": 53687091,
+    "ram_available_bytes": 348061548544,
+    "ram_required_bytes": 36507222016,
+    "owned_allocated_bytes": 120707198976,
+    "owned_limit_bytes": 128849018880
+  },
+  "proofs": {
+    "runtime-data/native-voice-discovery-baseline-20261101.json": "f27bbbbf25785bba8bd46ef57380371f21df19f5ef809ae4207e1949bf9e198f",
+    "runtime-data/native-voice-discovery-candidate-20261101.json": "928bcaa420e29378ce8743f1b70ccd0ccd6246837e9c6f1d0029d2e296873e28",
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/native-qwen-saved-profile-live-1/report.json": "8c8a2fd9b1090e47a2087ebd49154da16c7226d2bde48732adfb59303a6268bd",
+    "runtime-data/qualify_native_qwen_saved_profile.py": "65bec9cfd0acd33381692b96b03c152faa1ec4d65baff70bdf50d1db8db4d615",
+    "scripts/build_native_ollama.py": "c43ebba5a7bbb3a961ee51c64d3caadd7feefcf273b3b89e53d7510701e8a75a",
+    "native/ollama/ollama-0.40.13.patch": "e04bca6128aa0563f8469c2204464a46fe4d6237f7fa09f3c34e4ae491721142",
+    "runtime-data/native-voice-discovery-build-20261101.log": "4105f887658b404f9423e44fa39cb0744dbb54c6295c3542f82546694e71a8c4"
+  },
+  "new_neural_downloads": 0,
+  "retained_audio_files": 0,
+  "global_service_changes": false,
+  "public_weight_uploads": 0,
+  "full_model_release_qualified": false,
+  "limitations": [
+    "Uses pinned patched Ollama0.40.13; unmodified stock compatibility is not proven.",
+    "Saved profile is a trusted local native-config entry with per-request reference text, not a desktop import test.",
+    "PCM conformance does not establish perceptual speaker similarity or multilingual intelligibility.",
+    "Orin, final-weight native and complete model parity gates remain required."
+  ]
+}

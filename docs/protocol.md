@@ -544,6 +544,14 @@ disconnect cancellation stops the request's generator while retaining the
 primary model. Voice, language, sampling and full reference-audio/transcript
 conditioning have the same meaning in both response modes.
 
+For a configured native Omni model, `/api/show` lists its validated saved voice
+names, including the bundled `female` and `male` choices. Select a name using
+native speech's `voice` field. Request-local `omni.speaker_audio` overrides that
+reference for the request without adding a saved voice. Full-reference cloning
+also accepts `omni.reference_text`; voice discovery includes no reference paths,
+audio or transcript content. Native configuration installation remains a trusted
+local operation, separate from desktop profile import.
+
 ## Response
 
 The adapter preserves the normal Ollama response object. It adds an `audio`

@@ -73,6 +73,22 @@ This proves format/control preservation, not multilingual intelligibility,
 speaker similarity or model audio parity. See the
 [complete-speech receipt](../../docs/upgrades/native-ollama-complete-speech-20261101.json).
 
+Build `0.40.13-robit-omni.5` exposes the exact validated configuration's voice
+names through `/api/show` and `ollama show`. Both family fixtures now list
+female/male; the previous build returned an empty voice list. Discovery loads
+no GPU model and leaves capability names unchanged. Reference paths, audio and
+request-local clones are not included in the voice list.
+
+The Qwen/A100 saved-profile gate also passes four complete PCM requests:
+saved clone → the same inline clone → default female → saved clone. The three
+full-reference outputs match each other and the existing C++ control exactly;
+the default voice differs. All requests retain one primary PID, use fresh TTS
+workers and reuse one reference encoding. The test-only saved configuration,
+request files and actual workers are removed; the lease releases normally.
+This covers a trusted configuration entry plus request-supplied reference text,
+not desktop profile import or perceptual speaker similarity. See the
+[voice-discovery/profile receipt](../../docs/upgrades/native-ollama-voice-discovery-20261101.json).
+
 ## Build and prepare
 
 Bootstrap the normal standalone checkout and build its pinned native engines.
