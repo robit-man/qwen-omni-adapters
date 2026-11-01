@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 COMMIT = '04088e7c9d41cba5d33bafbf788d87a465c79d5b'
 ARCHIVE_SHA256 = '17c24d7268a286722d8e02d0f1d940a94922ecb73c20fb4377d2ebd7b1f9640c'
 TOOLCHAIN = 'go1.26.10'
-VERSION = '0.40.13-robit-omni.1'
+VERSION = '0.40.13-robit-omni.2'
 
 def sha(path: Path) -> str:
     with path.open('rb') as stream:
@@ -80,7 +80,7 @@ def main() -> None:
            'GOCACHE': str(work / 'gocache'),
            'GIT_CEILING_DIRECTORIES': str(work)}
     def apply(*args: str, check: bool = True) -> subprocess.CompletedProcess:
-        return subprocess.run(['git', 'apply', *args, str(patch)], cwd=source,
+        return subprocess.run(['git', 'apply', '--unidiff-zero', *args, str(patch)], cwd=source,
                               env=env, check=check, capture_output=True, text=True)
     fresh = apply('--check', check=False)
     if fresh.returncode == 0:
@@ -89,10 +89,16 @@ def main() -> None:
         raise ValueError('source does not match pinned upstream or the exact current overlay')
     for file in (ROOT / 'native/ollama').glob('*/*.go'):
         shutil.copyfile(file, source / file.parent.name / file.name)
+    for file in (ROOT / 'native/ollama').glob('*/testdata/*'):
+        if file.is_file():
+            target = source / file.relative_to(ROOT / 'native/ollama')
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(file, target)
     receipt = {'upstream_commit': COMMIT, 'source_archive_sha256': ARCHIVE_SHA256,
                'patch_sha256': sha(patch), 'native_files': {
                    str(file.relative_to(ROOT)): sha(file)
-                   for file in (ROOT / 'native/ollama').glob('*/*.go')},
+                   for file in [*(ROOT / 'native/ollama').glob('*/*.go'),
+                                *(ROOT / 'native/ollama').glob('*/testdata/*')] if file.is_file()},
                'CUDA_started': False, 'release_qualified': False}
     if not a.prepare_only:
         subprocess.run(['go', 'test', './llm', './server', '-count=1'], cwd=source,

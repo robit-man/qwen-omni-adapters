@@ -28,6 +28,16 @@ This gate does not prove Orin compatibility, complete WAV handling,
 cancellation, language coverage, perception quality, speaker similarity, all
 sampling/profile controls, or performance improvements. Those remain release work.
 
+Build `0.40.13-robit-omni.2` also passes the bounded native sampling gate on
+Ornith/A100. Default controls, explicit zero filters and the maximum supported
+seed produce exactly the existing runtime's PCM; random seed produces valid
+PCM. Invalid controls return HTTP 400 before a model is scheduled. Bounds are
+temperature 0–2, top_k 0–1000, top_p 0–1 and seed −1–2147483647, including explicit
+zeros. Twelve cases derived from the current runtime parser, nonfinite-number
+checks and pre-scheduling handler tests pass. See the
+[sampling receipt](../../docs/upgrades/native-ollama-sampling-parity-20261101.json).
+This does not replace the pending full native or assigned-target matrix.
+
 ## Build and prepare
 
 Bootstrap the normal standalone checkout and build its pinned native engines.

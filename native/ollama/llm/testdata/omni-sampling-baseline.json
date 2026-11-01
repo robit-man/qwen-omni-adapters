@@ -1,0 +1,123 @@
+{
+  "source": "runtime.tts_server._synthesis_spec",
+  "source_sha256": "d85d215268ccfcd9aebe29d01abb0d16d342a098fefe7b5c78f14ed1b7484a71",
+  "CPU_only": true,
+  "cases": [
+    {
+      "name": "defaults",
+      "options": {},
+      "valid": true,
+      "expected": {
+        "temperature": 0.7,
+        "top_k": 40,
+        "top_p": 0.9,
+        "seed": 42,
+        "max_frames": 512
+      }
+    },
+    {
+      "name": "zero-filters",
+      "options": {
+        "temperature": 0,
+        "top_k": 0,
+        "top_p": 0,
+        "seed": -1
+      },
+      "valid": true,
+      "expected": {
+        "temperature": 0.0,
+        "top_k": 0,
+        "top_p": 0.0,
+        "seed": -1,
+        "max_frames": 512
+      }
+    },
+    {
+      "name": "upper-bounds",
+      "options": {
+        "temperature": 2,
+        "top_k": 1000,
+        "top_p": 1,
+        "seed": 2147483647
+      },
+      "valid": true,
+      "expected": {
+        "temperature": 2.0,
+        "top_k": 1000,
+        "top_p": 1.0,
+        "seed": 2147483647,
+        "max_frames": 512
+      }
+    },
+    {
+      "name": "bounded-output",
+      "options": {
+        "max_frames": 96
+      },
+      "valid": true,
+      "expected": {
+        "temperature": 0.7,
+        "top_k": 40,
+        "top_p": 0.9,
+        "seed": 42,
+        "max_frames": 96
+      }
+    },
+    {
+      "name": "negative-seed",
+      "options": {
+        "seed": -2
+      },
+      "valid": false
+    },
+    {
+      "name": "oversized-seed",
+      "options": {
+        "seed": 2147483648
+      },
+      "valid": false
+    },
+    {
+      "name": "negative-top-k",
+      "options": {
+        "top_k": -1
+      },
+      "valid": false
+    },
+    {
+      "name": "large-top-k",
+      "options": {
+        "top_k": 1001
+      },
+      "valid": false
+    },
+    {
+      "name": "negative-top-p",
+      "options": {
+        "top_p": -0.1
+      },
+      "valid": false
+    },
+    {
+      "name": "large-top-p",
+      "options": {
+        "top_p": 1.1
+      },
+      "valid": false
+    },
+    {
+      "name": "negative-temperature",
+      "options": {
+        "temperature": -0.1
+      },
+      "valid": false
+    },
+    {
+      "name": "large-temperature",
+      "options": {
+        "temperature": 2.1
+      },
+      "valid": false
+    }
+  ]
+}

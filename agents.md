@@ -37,6 +37,16 @@ remain release gates. See `native/ollama/README.md` and the exact receipt in
 `docs/upgrades/native-ollama-ornith-mechanism-20261101.json` and
 `docs/upgrades/native-ollama-qwen-mechanism-20261101.json`.
 
+Native build 0.40.13-robit-omni.2 now preserves the existing numeric TTS controls:
+explicit top_k 0/top_p 0, temperature 0, seed −1 and maximum 2147483647 are accepted;
+invalid values return HTTP 400 before scheduling/loading. Actual Ornith/A100
+default, zero-filter and maximum-seed PCM match the existing runtime exactly;
+random seed produces valid PCM. CPU Go checks cover12 parser-derived cases,
+nonfinite values and pre-scheduling rejection; all6394 repository checks pass.
+The private server and CUDA workers exited and the lease released normally.
+See `docs/upgrades/native-ollama-sampling-parity-20261101.json`. This closes only
+the numeric-control criterion, not whole native/voice/model acceptance.
+
 
 ## Active convergence goal and GPU assignment — 2026-11-01
 

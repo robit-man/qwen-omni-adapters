@@ -382,11 +382,12 @@
     {
       "id": "E6",
       "objective": "Native Ollama ASR/TTS with exact bundled weights and full arbitrary-reference cloning, preserving adapter parity",
-      "status": "Patched0.40.13 actual Ornith and Qwen A100 each2ASR+5speech pass; all10PCM exact including full reference, one primary per family. Orin/full native matrix remain pending.",
+      "status": "Both patched-native A100 mechanism gates pass. Native numeric controls pass parser-derived CPU cases and actual Ornith/A100 PCM comparison, including zero filters, seed bounds and rejection before loading. Orin/full native matrix remain pending.",
       "evidence": [
         "native-ollama-audio-20261101.json",
         "native-ollama-ornith-mechanism-20261101.json",
-        "native-ollama-qwen-mechanism-20261101.json"
+        "native-ollama-qwen-mechanism-20261101.json",
+        "native-ollama-sampling-parity-20261101.json"
       ]
     },
     {
@@ -595,6 +596,7 @@
     "verified": false,
     "mechanism_evidence": "native-ollama-ornith-mechanism-20261101.json",
     "stock_unmodified_compatibility_verified": false,
-    "qwen_mechanism_evidence": "native-ollama-qwen-mechanism-20261101.json"
+    "qwen_mechanism_evidence": "native-ollama-qwen-mechanism-20261101.json",
+    "numeric_controls_evidence": "native-ollama-sampling-parity-20261101.json"
   }
 }

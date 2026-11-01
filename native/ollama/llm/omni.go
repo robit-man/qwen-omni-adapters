@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ollama/ollama/api"
 	"io"
 	"math"
 	"net/http"
@@ -379,6 +380,10 @@ func omniReferencePrompt(ctx context.Context, cfg *OmniConfig, speaker, text, di
 
 func (s *llamaServerRunner) omniSpeech(ctx context.Context, req SpeechRequest, fn func([]byte) error) error {
 	cfg := s.launch.config.Omni
+	sampling, err := resolveOmniSampling(req.Omni)
+	if err != nil {
+		return api.StatusError{StatusCode: http.StatusBadRequest, ErrorMessage: err.Error()}
+	}
 	if err := s.sem.Acquire(ctx, 1); err != nil {
 		return err
 	}
@@ -430,25 +435,7 @@ func (s *llamaServerRunner) omniSpeech(ctx context.Context, req SpeechRequest, f
 	if !allowed[language] {
 		return errors.New("unsupported Qwen3-TTS language")
 	}
-	temp, topP, topK, seed, frames := 0.7, 0.9, 40, 42, 512
-	if o.Temperature != nil {
-		temp = *o.Temperature
-	}
-	if o.TopP != nil {
-		topP = *o.TopP
-	}
-	if o.TopK != nil {
-		topK = *o.TopK
-	}
-	if o.Seed != nil {
-		seed = *o.Seed
-	}
-	if o.MaxFrames != nil {
-		frames = *o.MaxFrames
-	}
-	if math.IsNaN(temp) || math.IsInf(temp, 0) || temp < 0 || temp > 2 || math.IsNaN(topP) || math.IsInf(topP, 0) || topP <= 0 || topP > 1 || topK < 1 || topK > 1000 || frames < 1 || frames > 4096 {
-		return errors.New("invalid native speech sampling controls")
-	}
+	temp, topP, topK, seed, frames := sampling.Temperature, sampling.TopP, sampling.TopK, sampling.Seed, sampling.Frames
 	reference := ""
 	if o.ReferenceText != "" {
 		reference, err = omniReferencePrompt(ctx, cfg, speaker, o.ReferenceText, dir)
