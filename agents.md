@@ -5,6 +5,37 @@ Read this file together with `AGENTS.md` before making changes. Preserve these
 requirements across context renewal. Targets and proposed designs below are not
 claims of implemented capability, compatible weights, or measured improvement.
 
+## Resource requirement, clarified 2026-11-01
+
+The user requires completing the upgrades, tracking artifacts and preventing
+their accumulation, then publishing the validated final bundles to Ollama and
+Hugging Face. Maintain a per-experiment inventory, forecast temporary writes
+before starting work, and reclaim completed disposable scratch with receipts.
+Do not treat low Linux `MemFree` as exhausted RAM: admission uses `MemAvailable`.
+
+Before any new build, export, training or qualification job, run
+`scripts/artifact_guard.py check` for every filesystem it writes. On this A100
+host retain at least 10 GiB on the checkout filesystem and 50 GiB on `/srv`,
+in addition to forecast writes; keep the combined upgrade artifact roots below
+120 GiB including the next job's writes. Declare host RAM requirements and retain
+32 GiB of available host RAM. CUDA admission independently requires the existing
+GPU broker. These are host build limits, not new portable-runtime defaults.
+
+Preserve canonical model blobs, selected release candidates, all learned
+checkpoints, raw training audio, licenses, manifests, source revisions and compact
+qualification evidence. Completed rejected experiment exports are disposable
+only when their exact learned checkpoint, reconstruction inputs, exporter and
+hashes are retained and verified. Disposable feature caches and stopped
+materialized views may also be reclaimed. This does not authorize deletion of
+pending release candidates or sole copies of learned weights before verified
+registry uploads. Never recursively prune caches, repositories or Ollama blobs.
+
+Use the explicit-file cleanup ledger in `scripts/artifact_guard.py`: dry-run
+first; require unchanged file identity and SHA-256, retained provenance, no
+shared hardlinks or symlinks, and no observed live file handles/mappings. Retain
+the cleanup plan and deletion receipt. Finish each job by classifying and
+reclaiming its disposable outputs instead of retaining another cache generation.
+
 ## Publication requirement
 
 The user explicitly requires publishing both new backbone releases to Hugging
@@ -129,9 +160,11 @@ The full-corpus Ornith trial completed all 3,200 steps and processed all 12,458
 training records. Its 1,000/2,000/3,200 checkpoints all fail mandatory native
 sound diagnostics and remain rejected; the final calls bells a guitar chord,
 a printer fireworks and a passing siren a boat. No further Ornith trial was
-launched. Qwen's 1,000 checkpoint also fails. Preserve its remaining fixed
-2,000/3,200 checkpoints rather than changing the healthy trainer or promoting
-by training loss. A separate current-encoder English CTC audit passes its fixed text
+launched. Qwen also completed 3,200 steps and processed all 12,458 training
+records; its 1,000/2,000/3,200 checkpoints all fail native bells, voices, printer
+and siren semantics. Both bounded trials are complete and rejected. Diagnose a
+specific runtime-versus-training quality cause before any further training;
+do not promote by training loss. A separate current-encoder English CTC audit passes its fixed text
 limits on A100 and an Orin downstream diagnostic; Orin numerical feature
 parity still fails. The head remains disabled, with no shared live encoder
 residency or streaming qualification. See

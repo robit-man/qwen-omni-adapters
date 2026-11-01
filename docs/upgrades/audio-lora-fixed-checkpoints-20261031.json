@@ -460,9 +460,235 @@
           "transcript": null
         }
       ]
+    },
+    {
+      "schema": "robit.omni.fixed-audio-lora-semantic-review.v1",
+      "utc": "2026-11-01T00:55:20.182991+00:00",
+      "family": "qwen",
+      "step": 2000,
+      "rows": 13,
+      "source_report_sha256": "f1e6506aaf36170cfc3bb051082260abe3ca527fc75cfe3b59a2e72adcf8a73c",
+      "context_tokens": 16384,
+      "GPU_residency_verified": true,
+      "only_adapter_trained": true,
+      "source_primary_encoder_bridge_unchanged": true,
+      "adapter_sha256": "0c47a9fb497a169b11dc9dfddf91ca6bb3995c276252d5cc8ec4eac99be6f050",
+      "source_adapter_sha256": "a901c58ca7d9a268649dd59ecd7edb325f90fb15308450fe98f92133f4afafba",
+      "passed": [
+        "exact sentence",
+        "silence",
+        "procedural alarm",
+        "bark",
+        "clapping"
+      ],
+      "failed": {
+        "clock alarm": "Drill",
+        "bells": "Guitar chord",
+        "group voices": "Bark",
+        "printer": "Drill",
+        "gunfire": "Explosion (insufficient identification)",
+        "passing siren": "Clock",
+        "steady noise": "Male speech hallucinated"
+      },
+      "release_qualified": false,
+      "held_out_test_used": false,
+      "action": "REJECT; completed fixed full-corpus trial, no runtime integration or publication.",
+      "outputs": [
+        {
+          "id": "probe-speech",
+          "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "audio_observation": "One speaker with no notable background sound.",
+          "transcript": "The blue bicycle is parked beside the garden gate."
+        },
+        {
+          "id": "probe-silence",
+          "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+          "audio_observation": "Audible sound events are absent.",
+          "transcript": null
+        },
+        {
+          "id": "probe-alarm",
+          "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+          "audio_observation": "Audible sound events: Alarm.",
+          "transcript": null
+        },
+        {
+          "id": "probe-noise",
+          "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+          "audio_observation": "Audible sound events: Male speech, man speaking.",
+          "transcript": null
+        },
+        {
+          "id": "probe-music",
+          "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+          "audio_observation": "Audible sound events: Electronic beeps.",
+          "transcript": null
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+          "audio_observation": "Audible sound events: Drill.",
+          "transcript": null
+        },
+        {
+          "id": "probe-esc50-dog",
+          "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+          "audio_observation": "Audible sound events: Bark.",
+          "transcript": null
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+          "audio_observation": "Audible sound events: Guitar. A single, clear guitar chord is strummed, followed by a brief silence.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-156200",
+          "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+          "audio_observation": "Audible sound events: Bark.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-180765",
+          "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+          "audio_observation": "Audible sound events: Clapping.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-182894",
+          "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+          "audio_observation": "Audible sound events: Drill.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-166192",
+          "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+          "audio_observation": "Audible sound events: Explosion.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-203720",
+          "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+          "audio_observation": "Audible sound events: Clock.",
+          "transcript": null
+        }
+      ]
+    },
+    {
+      "schema": "robit.omni.fixed-audio-lora-semantic-review.v1",
+      "utc": "2026-11-01T00:55:20.183887+00:00",
+      "family": "qwen",
+      "step": 3200,
+      "rows": 13,
+      "source_report_sha256": "8c672e006cc3b9f1024488c9817db074dd2fc09855da73e5e71ce82c7735d0fd",
+      "context_tokens": 16384,
+      "GPU_residency_verified": true,
+      "only_adapter_trained": true,
+      "source_primary_encoder_bridge_unchanged": true,
+      "adapter_sha256": "ac87577e461d3d3a883d13c4606627009f2fd371ebfea46b8beadbff8324fe3a",
+      "source_adapter_sha256": "d25e35de90f992489993282178fda993b9a18a1c70c44eaf960c1aa03599eebd",
+      "passed": [
+        "exact sentence",
+        "silence",
+        "procedural alarm",
+        "bark",
+        "clapping"
+      ],
+      "failed": {
+        "clock alarm": "Drill",
+        "bells": "Piano chord",
+        "group voices": "Dog",
+        "printer": "Drill",
+        "gunfire": "Explosion (insufficient identification)",
+        "passing siren": "Engine/Car/Vehicle; no siren",
+        "steady noise": "Male speech hallucinated"
+      },
+      "release_qualified": false,
+      "held_out_test_used": false,
+      "action": "REJECT; completed fixed full-corpus trial, no runtime integration or publication.",
+      "outputs": [
+        {
+          "id": "probe-speech",
+          "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "audio_observation": "One speaker with no notable background sound.",
+          "transcript": "The blue bicycle is parked beside the garden gate."
+        },
+        {
+          "id": "probe-silence",
+          "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+          "audio_observation": "Audible silence; no speech or non-speech events.",
+          "transcript": null
+        },
+        {
+          "id": "probe-alarm",
+          "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+          "audio_observation": "Audible sound events: Alarm.",
+          "transcript": null
+        },
+        {
+          "id": "probe-noise",
+          "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+          "audio_observation": "Audible sound events: Male speech, man speaking.",
+          "transcript": null
+        },
+        {
+          "id": "probe-music",
+          "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+          "audio_observation": "Audible sound events: Telephone.",
+          "transcript": null
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+          "audio_observation": "Audible sound events: Drill.",
+          "transcript": null
+        },
+        {
+          "id": "probe-esc50-dog",
+          "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+          "audio_observation": "Audible sound events: Dog.",
+          "transcript": null
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+          "audio_observation": "Audible sound events: Piano. A piano plays a single, sustained chord with a clear, resonant timbre.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-156200",
+          "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+          "audio_observation": "Audible sound events: Dog.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-180765",
+          "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+          "audio_observation": "Audible sound events: Clapping.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-182894",
+          "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+          "audio_observation": "Audible sound events: Drill.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-166192",
+          "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+          "audio_observation": "Audible sound events: Explosion.",
+          "transcript": null
+        },
+        {
+          "id": "fsd50k-203720",
+          "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+          "audio_observation": "Audible sound events: Engine; Car; Vehicle; Mechanisms.",
+          "transcript": null
+        }
+      ]
     }
   ],
-  "remaining": "Ornith full-corpus trial completed: every fixed checkpoint rejected. Qwen preselected2000/3200 continue unchanged; no runtime integration or publication. Full ASR/environmental and target-host gates still required for any viable candidate.",
+  "remaining": "Both full-corpus conditional-trunk trials completed. All preselected1000/2000/3200 checkpoints for each family fail mandatory native semantic diagnostics. No release qualification or publication. Diagnose a concrete training/runtime or generalization cause before any further training.",
   "legacy_reference": {
     "report": "legacy-expanded-audio-20261031.json",
     "same13_input_IDs_and_hashes": true,
@@ -477,6 +703,17 @@
     "unique_training_records": 12458,
     "elapsed_s": 10196.550677540945,
     "peak_torch_reserved_mib": 30422.0,
+    "all_fixed_checkpoints_rejected": true,
+    "frozen_primary_encoder_bridge_unchanged": true,
+    "disabled_logits_max_abs_delta": 0,
+    "held_out_test_used": false,
+    "publication": false
+  },
+  "qwen_complete_trial": {
+    "steps": 3200,
+    "unique_training_records": 12458,
+    "elapsed_s": 19895.931375400978,
+    "peak_torch_reserved_mib": 55388.0,
     "all_fixed_checkpoints_rejected": true,
     "frozen_primary_encoder_bridge_unchanged": true,
     "disabled_logits_max_abs_delta": 0,

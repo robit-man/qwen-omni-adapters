@@ -303,7 +303,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Ornith complete full-corpus conditional-trunk trial: all1000/2000/3200 native checkpoints rejected. Qwen1000 rejected; fixed2000/3200 trial continues. Parity and publication remain gated.",
+      "status": "Both full-corpus conditional-trunk trials completed; every fixed1000/2000/3200 native checkpoint rejected. Diagnose training/runtime mismatch versus learned quality before more training. Publication gated.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -366,5 +366,14 @@
     "Do not label untrained heads as compatible or useful.",
     "Do not restart existing target services without applicable authorization.",
     "Keep credentials out of source and receipts."
-  ]
+  ],
+  "artifact_control": {
+    "status": "verified",
+    "evidence": [
+      "artifact-control-20261101.md",
+      "artifact-control-20261101.json"
+    ],
+    "reclaimed_GiB": 72.1585693359375,
+    "forecast_budget_and_retention_required_before_new_jobs": true
+  }
 }

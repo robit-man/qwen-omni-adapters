@@ -1,0 +1,253 @@
+{
+  "schema": "robit.omni.artifact-control-evidence.v1",
+  "utc": "2026-11-01T01:00:37.535058+00:00",
+  "user_requirement": "Track and bound artifacts; finish and publish final validated bundles; no accumulation of obsolete scratch.",
+  "owner": "qwen-omni-upgrade",
+  "plan_sha256": "cd17cb0ff1f39c681eca04f9e90c371a67a08aedcefbbb3992347e994fed747c",
+  "cleanup_complete": true,
+  "files_removed": 30975,
+  "allocated_bytes_reclaimed": 77479673856,
+  "groups": {
+    "derived_feature_cache": {
+      "files": 30949,
+      "allocated_bytes": 38329769984
+    },
+    "materialized_component_view": {
+      "files": 4,
+      "allocated_bytes": 2964856832
+    },
+    "rejected_projector_export": {
+      "files": 22,
+      "allocated_bytes": 36185047040
+    }
+  },
+  "free_before_bytes": {
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair": 21550780416,
+    "/srv/fine_tuning_suite/training_suite/outputs/qwen-omni-upgrade-audio-head-20261030": 21550780416,
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data": 250277945344
+  },
+  "free_after_bytes": {
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair": 96065069056,
+    "/srv/fine_tuning_suite/training_suite/outputs/qwen-omni-upgrade-audio-head-20261030": 96065069056,
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data": 253196881920
+  },
+  "root_external_recovery": "Substantial root free-space increase happened before cleanup; do not attribute it to this transaction.",
+  "protected_selected_projectors": [
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-rich1-step850-projector.gguf",
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-rich1-step750-projector.gguf"
+  ],
+  "independent_post_cleanup_verification": {
+    "all_targets_absent": true,
+    "retained_provenance_files_hash_checked": 91,
+    "selected_projectors_hash_checked": 2
+  },
+  "retained": [
+    "canonical model blobs",
+    "all learned checkpoints and recovery state",
+    "selected candidate projectors",
+    "raw audio and source datasets",
+    "licenses, source revisions, manifests, hashes and compact quality reports"
+  ],
+  "source_tests": {
+    "before": {
+      "passed": 6303,
+      "seconds": 286.49
+    },
+    "after": {
+      "passed": 6324,
+      "seconds": 291.43
+    },
+    "new_safety_tests": 21,
+    "source_contract_browser_npm_shell_gates_passed": true
+  },
+  "resource_admission": {
+    "before_cleanup_refused": true,
+    "after_cleanup": {
+      "storage_admitted": true,
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release",
+      "free_bytes": 96062554112,
+      "reserve_bytes": 53687091200,
+      "expected_write_bytes": 1073741824,
+      "ram_available_bytes": 350580166656,
+      "ram_required_bytes": 77309411328,
+      "owned_allocated_bytes": 114075545600,
+      "owned_limit_bytes": 128849018880
+    },
+    "checkout_filesystem": {
+      "storage_admitted": true,
+      "path": "/home/roko/Documents/qwen-omni-upgrade",
+      "free_bytes": 253373485056,
+      "reserve_bytes": 10737418240,
+      "expected_write_bytes": 1073741824
+    }
+  },
+  "CUDA_workloads_started_by_cleanup": 0,
+  "Ollama_blobs_deleted": false,
+  "unrelated_caches_or_repositories_pruned": false,
+  "model_publication": false,
+  "auditory_parity_cleared": false,
+  "ledger_locations": {
+    "plan": "runtime-data/disposable-artifacts-20261101.json",
+    "dry_run": "runtime-data/disposable-artifacts-20261101-dry-run.json",
+    "apply": "runtime-data/disposable-artifacts-20261101-applied.json",
+    "journal": "runtime-data/disposable-artifacts-20261101-applied.jsonl"
+  },
+  "exact_nonfeature_removals": [
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-class-guided1-step1000-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "ad39f8cb8c04c360b454eece0b1a1075186a1280dcce0c435492d1a889fcb776",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-class-guided1-step2000-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "bfe2a7f3d26eab76c0ef69f630920a2ca3b0d2b6f72819ed415a35e98002081a",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-class-guided1-step3200-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "41aba290295dcf19ed3672cef9fead4e5358e1ac3fddb2a9d5018fa791711e0c",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-event-weighted-fullpass1-step1600-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "3da5986afe75020638329f9e76eb9db2b9488edac18b19f662b0a16ad07a375f",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-event-weighted-fullpass1-step3200-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "905ae3575072d0473352bd84bfc551cec5dd8abad0d754fd0035d69777453b82",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-event-weighted1-step400-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "53fc29c5d5ee243972d5d62d9f77995addd62c0e07fb164e7c01615f735eee97",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-event-weighted1-step800-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "99caab058a2d07e9d924f2cc3497bd8a6938b03f3b6fa07729678491f1f04038",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-repair2-best1450-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "34a7c728d4defa01fdde993046fe31cfc88cd0c10dff131fbf0d341d3627589d",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-repair2-step400-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "0fdb5727af6568773284dce0455fdff545d2a8baef0c5985a894597a6f277d1e",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-rich1-step1600-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "dbe34dfec94b84f79082c439c5d7db730e725832817ebf4e32ba024f61b945dd",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-rich1-step400-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "af6029d791806cb51807656526c923fdd9ca6a5da569668a1d45bebb9edf8927",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-rich1-step800-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "b4568b2d7606fe2b7c4a608d6f4080965c13b24a2d2422937b73b541fa4cade3",
+      "allocated": 1640247296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-two-layer1-step400-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "e2dcdde2fa2d2dfdde020fd5d35faf8c924adc8e14c1ec5cb92023868a6d1180",
+      "allocated": 1641783296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-two-layer1-step50-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "92c399e5880d459ca702b4cc1d5420da5c1b24cfa220bd79db34174dc5e32907",
+      "allocated": 1641783296
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-class-guided1-step1000-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "fad031f5d1d4ba55bb27b9adaa2cb8df1c141ba10d024329867c76428f36fc24",
+      "allocated": 1652314112
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-class-guided1-step2000-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "0df33b39f7d54a78ab5b1b63207897247c520487570947295ed097972c42fc04",
+      "allocated": 1652314112
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-class-guided1-step3200-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "771e57531e290f367817e268a8ba2a65f62b41e5a72767c5ddf79f699f35b848",
+      "allocated": 1652314112
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-repair1-step200-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "231092ae094774b1ec126b275391745b648dcecc16adf739c7cfc39629f9fad8",
+      "allocated": 1652314112
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-repair1-step900-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "cc9b638ff56885a635fa464cbda678e8481e09891e62ab6b367de04fe5d5f57e",
+      "allocated": 1652314112
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-rich1-step1600-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "ff36810539f12fbad1e21f1fc3508380e97ace510586cc0c1fdb21fecfecac2c",
+      "allocated": 1652314112
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-rich1-step400-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "265c6ea3fecf64686a3220e818d7636dd443cb3b375d385774529eaea56f6bb5",
+      "allocated": 1652314112
+    },
+    {
+      "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-rich1-step800-projector.gguf",
+      "kind": "rejected_projector_export",
+      "sha256": "91db7e1f58d32edad44ef9d4367cd78fce4e4fa20d5b9953998043f173422dc1",
+      "allocated": 1652314112
+    },
+    {
+      "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/phase-b-components/tts-model.gguf",
+      "kind": "materialized_component_view",
+      "sha256": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129",
+      "allocated": 1035993088
+    },
+    {
+      "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/phase-b-components/tts-projector.gguf",
+      "kind": "materialized_component_view",
+      "sha256": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2",
+      "allocated": 446431232
+    },
+    {
+      "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/phase-a2/qualification/views/tts-model.gguf",
+      "kind": "materialized_component_view",
+      "sha256": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129",
+      "allocated": 1035997184
+    },
+    {
+      "path": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/phase-a2/qualification/views/tts-projector.gguf",
+      "kind": "materialized_component_view",
+      "sha256": "6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2",
+      "allocated": 446435328
+    }
+  ]
+}
