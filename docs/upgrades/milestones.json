@@ -233,7 +233,7 @@
     {
       "id": "C",
       "objective": "Train, package and qualify exact-trunk decision, retrieval and streaming-audio heads",
-      "status": "English_head_trained_qualified_packaged_in_both_single_tag_candidates_native_A100_Orin_verified_live_encoder_streaming_decision_retrieval_pending",
+      "status": "Current-encoder English text gates pass in component diagnostics; Orin numerical feature parity fails; head disabled. Shared live encoder, streaming, exact-trunk decisions and retrieval remain pending.",
       "evidence": [
         "phase-c0-native-training.md",
         "phase-c0-input-audit.json",
@@ -246,7 +246,9 @@
         "phase-c1-quality.json",
         "phase-c1-native-a100.json",
         "phase-c1-native-orin.json",
-        "phase-c1b-indexed-head.md"
+        "phase-c1b-indexed-head.md",
+        "current-encoder-ctc-20261031.json",
+        "primary-pointing-feasibility-20261101.json"
       ]
     },
     {
@@ -303,7 +305,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Both full-corpus conditional-trunk trials completed; every fixed1000/2000/3200 native checkpoint rejected. Diagnose training/runtime mismatch versus learned quality before more training. Publication gated.",
+      "status": "Completed source/native seen-training audit identifies underlearned event labels. One sampling-only continuation runs to fixed6400;4000 rejected on A100/HF and Orin. No new architecture, data or loss changes; publication remains gated.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -318,7 +320,10 @@
         "qwen-audio-lora-fit-20261031.json",
         "audio-lora-fixed-checkpoints-20261031.json",
         "legacy-expanded-audio-20261031.md",
-        "legacy-expanded-audio-20261031.json"
+        "legacy-expanded-audio-20261031.json",
+        "audio-lora-seen-training-20261101.json",
+        "class-uniform-continuation-20261101.json",
+        "class-uniform-4000-review-20261101.json"
       ]
     },
     {

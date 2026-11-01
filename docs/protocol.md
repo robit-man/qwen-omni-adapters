@@ -104,6 +104,14 @@ evidence is still returned in the observation/final adapter metadata, but a
 sound-only capture cannot consume the language or TTS stages. Leave it false
 for explicit environmental-audio questions.
 
+For audio-only input, the adapter can prove digital silence when every sample
+in every complete 16 kHz mono PCM16 WAV is exactly zero. It then returns an
+empty transcript and a silence observation without invoking a neural worker.
+This uses no amplitude threshold: any nonzero sample, incomplete container or
+attached image/video retains ordinary comprehension. Voice references are not
+perceptual input. Explicit text questions still reach the language stage;
+`require_speech:true` retains its early completion before language and TTS.
+
 A live turn may intentionally return empty assistant content when the observed
 speech was not addressed to the client. A bounded closed-set semantic preflight
 resolves direct-address evidence before answer generation or tools and records

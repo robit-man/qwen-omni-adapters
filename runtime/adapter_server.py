@@ -39,6 +39,7 @@ from qwen_omni_adapters.audio import (
     AudioContractError,
     decode_wav_payload,
     encode_audio_response,
+    is_digital_silence,
 )
 from qwen_omni_adapters.audio_prefill import (
     TRAINED_AUDIO_EXTRACTION_PROMPT,
@@ -1650,6 +1651,12 @@ def _comprehend(
     config: Config,
     client: httpx.Client,
 ) -> str:
+    media = parsed.media
+    if media and all(item.kind == "audio" and is_digital_silence(item.data) for item in media):
+        return (
+            "<speech_transcript></speech_transcript>"
+            "<audio_observation>Digital silence; all recorded samples are zero.</audio_observation>"
+        )
     videos = [video for message in parsed.messages for video in message.videos]
     requested_cap = min(
         MAX_VIDEO_FRAMES,

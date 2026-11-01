@@ -195,7 +195,8 @@ events, update portal backend, browser parser, smoke test, and protocol docs.
   create parallel requests from the same browser call.
 - camera-enabled nonvisual turns attach no ambient frame and make no visual
   claim; a structured camera request adds only the newly captured evidence.
-- sound-only `require_speech` fixtures call comprehension only, never language
+- sound-only `require_speech` fixtures call comprehension only (complete all-zero
+  PCM input uses deterministic silence detection), never language
   or TTS, and bounded Audio-context fixtures retain at most six entries;
 - location fixtures prove session isolation, Trash cleanup, and removal of raw
   IP/provider fields before any upstream model request;

@@ -185,6 +185,19 @@ Export/quantization alone cannot explain the failure. See
 architecture, new data, sampling and loss changes in response; first test a
 bounded learning hypothesis while preserving the existing frozen components.
 
+That bounded sampling-only continuation is now running to global step6,400,
+with fixed4,000/5,000/6,400 checks. Step4,000 fails the fixed sound identities in
+unquantized HF, native A100 and native Orin inference. The original Orin service
+and harness were restored and verified healthy after the bounded target test.
+See `docs/upgrades/class-uniform-4000-review-20261101.json`. Do not extend this
+trial automatically or pause the Orin again for a similarly failing checkpoint.
+
+Exact digital silence is handled by a deterministic PCM check in the adapter.
+It cannot repair noise or event-recognition errors and must never be used to
+relabel failed native-model silence results as a neural quality pass. Preserve
+all nonzero acoustic input, including one-LSB samples, and do not inspect voice
+references as perceptual input.
+
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
 audio bridge, native vision and Qwen3-TTS Base reference-voice cloning. Produce
 two independently versioned releases: **Ornith Omni Edge v2** and **Qwen3.8 Omni

@@ -62,6 +62,34 @@ class AudioContract:
 DEFAULT_AUDIO_CONTRACT = AudioContract()
 
 
+def is_digital_silence(raw: bytes) -> bool:
+    """Prove exact zero input under the PCM16/mono/16 kHz input contract.
+
+    This is deliberately not a VAD or a quietness threshold. Unsupported,
+    empty and truncated containers cannot establish silence.
+    """
+    if not 12 <= len(raw) <= DEFAULT_MAX_AUDIO_BYTES:
+        return False
+    try:
+        with wave.open(io.BytesIO(raw), "rb") as wav:
+            if (wav.getcomptype(), wav.getnchannels(), wav.getsampwidth(),
+                    wav.getframerate()) != ("NONE", 1, 2, 16000):
+                return False
+            remaining = wav.getnframes()
+            if not 0 < remaining <= len(raw) // 2:
+                return False
+            while remaining:
+                frames = min(remaining, 16384)
+                pcm = wav.readframes(frames)
+                if len(pcm) != frames * 2 or any(pcm):
+                    return False
+                remaining -= frames
+            # Reject a partial sample in an odd-sized data chunk as well.
+            return not wav.readframes(1)
+    except (wave.Error, EOFError, ValueError):
+        return False
+
+
 @dataclass(frozen=True)
 class DecodedAudio:
     data: bytes

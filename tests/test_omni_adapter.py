@@ -50,7 +50,9 @@ def _wav(sample_rate: int) -> bytes:
         wav.setnchannels(1)
         wav.setsampwidth(2)
         wav.setframerate(sample_rate)
-        wav.writeframes(b"\x00\x00" * 160)
+        # A nonzero sample keeps backend-routing fixtures distinct from exact
+        # digital silence, which is handled without neural inference.
+        wav.writeframes(b"\x01\x00" + b"\x00\x00" * 159)
     return out.getvalue()
 
 
