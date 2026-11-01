@@ -74,5 +74,11 @@
   "model_compatibility_verified": false,
   "global_services_changed": false,
   "weights_downloaded": false,
-  "public_model_publication": false
+  "public_model_publication": false,
+  "native_Ornith_A100_mechanism": "Actual native2ASR+5speech calls on patched0.40.13 pass; all5PCM exact including full reference conditioning; one primary, scopedGPU0 and normal exit/release.",
+  "mechanism_evidence": "native-ollama-ornith-mechanism-20261101.json",
+  "stock_unmodified_compatibility_verified": false,
+  "remaining": "Ornith Orin and full native WAV/cancellation/language/sampling/saved-profile/error/latency/parity matrix; service integration; unmodified stock support unverified.",
+  "native_Qwen_A100_mechanism": "Actual2ASR+5speech on patched0.40.13 pass; all5PCM exact including full reference, one primary, exactGPU0, normal exit/release.",
+  "qwen_mechanism_evidence": "native-ollama-qwen-mechanism-20261101.json"
 }

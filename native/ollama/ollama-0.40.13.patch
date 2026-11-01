@@ -1,0 +1,250 @@
+--- a/llm/server.go
++++ b/llm/server.go
+@@ -77,6 +77,7 @@
+ }
+ 
+ type LlamaServerConfig struct {
++	Omni                 *OmniConfig
+ 	DisableJinja         bool
+ 	ContextShift         bool
+ 	EnableMTP            bool
+@@ -104,6 +105,14 @@
+ // NewLlamaServer creates a new llama-server runner for the given model.
+ // All GGUF models are served via the upstream llama-server subprocess.
+ func NewLlamaServer(systemInfo ml.SystemInfo, gpus []ml.DeviceInfo, modelPath string, f *gguf.Model, adapters, projectors []string, opts api.Options, numParallel int, config LlamaServerConfig) (LlamaServer, error) {
++	if config.Omni != nil {
++		if len(gpus) != 1 || opts.NumGPU == 0 {
++			return nil, errors.New("native Omni requires one admitted accelerator and full GPU offload")
++		}
++		if PredictServerVRAM(modelPath, f, opts.NumCtx)+OmniAuxiliaryReserve > gpus[0].FreeMemory {
++			return nil, errors.New("insufficient admitted headroom for native Omni primary plus speech")
++		}
++	}
+ 	slog.Info("using llama-server for model", "model", modelPath)
+ 
+ 	// Verify the requested context size is <= the model training size
+--- a/llm/speech.go
++++ b/llm/speech.go
+@@ -8,8 +8,9 @@
+ 
+ // SpeechRequest asks a speech model to read Input aloud.
+ type SpeechRequest struct {
+-	Input string `json:"input"`
+-	Voice string `json:"voice,omitempty"`
++	Input string             `json:"input"`
++	Omni  *OmniSpeechOptions `json:"omni,omitempty"`
++	Voice string             `json:"voice,omitempty"`
+ 	// Prompter maps the request onto llama-server's /tts; runners with their
+ 	// own speech models ignore it.
+ 	Prompter renderers.SpeechPrompter `json:"-"`
+--- a/llm/llama_server_speech.go
++++ b/llm/llama_server_speech.go
+@@ -25,6 +25,12 @@
+ // chunk. The request's SpeechPrompter, from the model's renderer, names the
+ // voices and splits the input the way the publisher documents.
+ func (s *llamaServerRunner) Speech(ctx context.Context, req SpeechRequest, fn func(pcm []byte) error) error {
++	if s.launch.config.Omni != nil {
++		return s.omniSpeech(ctx, req, fn)
++	}
++	if req.Omni != nil {
++		return errors.New("omni speech options require an Omni bundle")
++	}
+ 	if req.Prompter == nil {
+ 		return api.StatusError{StatusCode: http.StatusNotImplemented, ErrorMessage: "this model does not support speech"}
+ 	}
+--- a/llm/llama_server.go
++++ b/llm/llama_server.go
+@@ -374,6 +374,10 @@
+ // startLlamaServer spawns the upstream llama-server process with appropriate CLI flags.
+ func startLlamaServer(launch llamaServerLaunchConfig, out io.Writer) (cmd *exec.Cmd, port int, err error) {
+ 	exe, err := FindLlamaServer()
++	if launch.config.Omni != nil {
++		exe = launch.config.Omni.Engine.Path
++		err = nil
++	}
+ 	if err != nil {
+ 		return nil, 0, err
+ 	}
+@@ -417,6 +421,15 @@
+ 
+ 	params = append(params, qwenVLServerArgs(launch.modelArch)...)
+ 
++	if launch.config.Omni != nil {
++		if len(launch.adapters) > 0 {
++			return nil, 0, errors.New("native Omni requires exclusive ownership of its conditional adapter slot")
++		}
++		params = append(params, "--gpu-layers", "999")
++		if a := launch.config.Omni.AudioAdapter; a != nil {
++			params = append(params, "--lora-scaled", a.Path+":0")
++		}
++	}
+ 	for _, adapter := range launch.adapters {
+ 		slog.Warn("LoRA adapters are deprecated and will be removed in a future release", "adapter", adapter)
+ 		params = append(params, "--lora", adapter)
+@@ -1448,6 +1461,7 @@
+ 
+ // llamaServerCompletionRequest is the request format for llama-server's POST /completion endpoint.
+ type llamaServerCompletionRequest struct {
++	Lora            []omniLora      `json:"lora,omitempty"`
+ 	Prompt          any             `json:"prompt"`
+ 	Stream          bool            `json:"stream"`
+ 	CachePrompt     bool            `json:"cache_prompt"`
+@@ -1715,6 +1729,10 @@
+ 		PreservedTokens: llamaServerPreservedTokens(req.PreservedTokens, req.ToolCallTag),
+ 	}
+ 
++	if s.launch.config.Omni != nil {
++		lsReq.CachePrompt = false
++		lsReq.Lora = s.omniLoras(false)
++	}
+ 	if req.Logprobs {
+ 		lsReq.NProbs = max(req.TopLogprobs, 1)
+ 	}
+@@ -2306,7 +2324,8 @@
+ 	body := map[string]any{
+ 		"messages":          messages,
+ 		"stream":            stream,
+-		"cache_prompt":      true,
++		"cache_prompt":      s.launch.config.Omni == nil,
++		"lora":              s.omniLoras(false),
+ 		"n_predict":         req.Options.NumPredict,
+ 		"n_keep":            req.Options.NumKeep,
+ 		"temperature":       req.Options.Temperature,
+--- a/server/images.go
++++ b/server/images.go
+@@ -24,6 +24,7 @@
+ 
+ 	"github.com/ollama/ollama/api"
+ 	"github.com/ollama/ollama/envconfig"
++	"github.com/ollama/ollama/llm"
+ 	"github.com/ollama/ollama/manifest"
+ 	"github.com/ollama/ollama/mlx"
+ 	"github.com/ollama/ollama/model/parsers"
+@@ -64,6 +65,7 @@
+ }
+ 
+ type Model struct {
++	Omni               *llm.OmniConfig
+ 	Name               string `json:"name"`
+ 	Config             model.ConfigV2
+ 	ShortName          string
+@@ -201,6 +203,10 @@
+ }
+ 
+ func (m *Model) configCapabilities(capabilities []model.Capability) []model.Capability {
++	if m.Omni != nil {
++		capabilities = appendCapability(capabilities, model.CapabilitySpeech)
++		capabilities = appendCapability(capabilities, model.CapabilityAudio)
++	}
+ 	for _, c := range m.Config.Capabilities {
+ 		capabilities = appendCapability(capabilities, model.Capability(c))
+ 	}
+@@ -896,6 +902,11 @@
+ 		}
+ 	}
+ 
++	omniCfg, err := llm.LoadOmniConfig(m.ManifestDigest, m.ModelPath, m.ProjectorPaths)
++	if err != nil {
++		return nil, err
++	}
++	m.Omni = omniCfg
+ 	ggufCaps := chatTemplateCapabilities(nil, ggufChatTemplate)
+ 	goCaps := goTemplateCapabilities(m.Template)
+ 	usesHarmony := m.Template != nil && shouldUseHarmony(m)
+--- a/server/routes.go
++++ b/server/routes.go
+@@ -2942,6 +2942,7 @@
+ func llamaServerConfigForModel(m *Model) llm.LlamaServerConfig {
+ 	return llm.LlamaServerConfig{
+ 		DisableJinja:         usesOllamaRenderedChat(m),
++		Omni:                 m.Omni,
+ 		ManifestDigest:       m.Digest,
+ 		DraftModelPath:       m.DraftPath,
+ 		DraftModelShardPaths: slices.Clone(m.DraftShardPaths),
+--- a/server/speech.go
++++ b/server/speech.go
+@@ -27,15 +27,16 @@
+ // audio as the model generates it.
+ func (s *Server) SpeechHandler(c *gin.Context) {
+ 	var req struct {
+-		Model          string   `json:"model"`
+-		Input          string   `json:"input"`
+-		Voice          string   `json:"voice"`
+-		ResponseFormat string   `json:"response_format"`
+-		Speed          *float64 `json:"speed"`
+-		Instructions   string   `json:"instructions"`
+-		StreamFormat   string   `json:"stream_format"`
++		Model          string                 `json:"model"`
++		Omni           *llm.OmniSpeechOptions `json:"omni,omitempty"`
++		Input          string                 `json:"input"`
++		Voice          string                 `json:"voice"`
++		ResponseFormat string                 `json:"response_format"`
++		Speed          *float64               `json:"speed"`
++		Instructions   string                 `json:"instructions"`
++		StreamFormat   string                 `json:"stream_format"`
+ 	}
+-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
++	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16<<20)
+ 	if err := c.ShouldBindJSON(&req); err != nil {
+ 		openAIError(c, http.StatusBadRequest, err.Error())
+ 		return
+@@ -78,7 +79,7 @@
+ 	}
+ 
+ 	prompter, _ := renderers.SpeechPrompterForRenderer(resolveRendererName(m))
+-	streamSpeech(c, speaker, llm.SpeechRequest{Input: req.Input, Voice: req.Voice, Prompter: prompter}, format)
++	streamSpeech(c, speaker, llm.SpeechRequest{Input: req.Input, Voice: req.Voice, Prompter: prompter, Omni: req.Omni}, format)
+ }
+ 
+ func streamSpeech(c *gin.Context, speaker llm.Speaker, req llm.SpeechRequest, format string) {
+--- a/server/transcription.go
++++ b/server/transcription.go
+@@ -90,6 +90,10 @@
+ 			rendererName = resolveRendererName(m)
+ 		}
+ 	}
++	if m, err := s.getExistingModelForRunner(ref.Name.String(), ""); err == nil && m.Omni != nil {
++		s.omniTranscription(c, form, task)
++		return
++	}
+ 	prompter := renderers.AudioPrompterForRenderer(rendererName)
+ 
+ 	clips, err := splitAudio(form.audio, prompter.AudioClipLimit())
+--- a/server/sched.go
++++ b/server/sched.go
+@@ -577,6 +577,9 @@
+ 
+ 			predictedCtx := effectiveLlamaServerContext(req.opts.NumCtx, f, numParallel)
+ 			predicted := llm.PredictServerVRAM(req.model.ModelPath, f, predictedCtx)
++			if req.model.Omni != nil {
++				predicted += llm.OmniAuxiliaryReserve
++			}
+ 			loadGpus, launchOpts = selectLlamaServerPlacement(systemInfo, gpus, predicted, req.opts)
+ 			availableForBatch, _, _ := availableMemoryForPlacement(systemInfo, loadGpus, launchOpts)
+ 			flashAttention := llm.LlamaServerFlashAttention(loadGpus)
+@@ -1337,6 +1340,7 @@
+ 		return
+ 	}
+ 	predMap := map[ml.DeviceID]uint64{} // Sum up the total predicted usage per GPU for all runners
++	omniReserve := map[ml.DeviceID]uint64{}
+ 	s.loadedMu.Lock()
+ 	runners := make([]*runnerRef, 0, len(s.loaded))
+ 	for _, r := range s.loaded {
+@@ -1348,6 +1352,9 @@
+ 		if r.llama != nil {
+ 			for _, gpu := range allGpus {
+ 				predMap[gpu.DeviceID] += r.llama.VRAMByGPU(gpu.DeviceID)
++				if m := r.model.Load(); m != nil && m.Omni != nil && slices.Contains(r.gpus, gpu.DeviceID) {
++					omniReserve[gpu.DeviceID] += llm.OmniAuxiliaryReserve
++				}
+ 			}
+ 		} else {
+ 			slog.Warn("unexpected nil runner reference, memory prediction may be incorrect")
+@@ -1371,6 +1378,7 @@
+ 			}
+ 			slog.Info("updated VRAM based on existing loaded models", "gpu", allGpus[i].ID, "library", allGpus[i].Library, "total", format.HumanBytes2(allGpus[i].TotalMemory), "available", format.HumanBytes2(allGpus[i].FreeMemory))
+ 		}
++		allGpus[i].FreeMemory -= min(allGpus[i].FreeMemory, omniReserve[allGpus[i].DeviceID])
+ 	}
+ }
+ 

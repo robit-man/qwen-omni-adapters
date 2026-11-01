@@ -306,7 +306,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Latest native Ornith15696/Qwen8400 rejected. Qwen paired500+500 and source116 complete/rejected (natural A39/B31 vs legacy9 errors/594); Ornith paired comparison running GPU2.",
+      "status": "Both paired500+500 and source116 trials complete/rejected: Ornith A40/B50, Qwen A39/B31 vslegacy9 errors/594; environmental and temporal failures remain.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -341,7 +341,8 @@
         "qwen8400-scene-review-20261101.json",
         "scene-recovery-and-qualification-20261101.json",
         "ornith15696-scene-review-20261101.json",
-        "qwen8900-control-recovery-20261101.json"
+        "qwen8900-control-recovery-20261101.json",
+        "paired-projection-review-20261101.json"
       ]
     },
     {
@@ -378,9 +379,11 @@
     {
       "id": "E6",
       "objective": "Native Ollama ASR/TTS with exact bundled weights and full arbitrary-reference cloning, preserving adapter parity",
-      "status": "Official0.40.13 source pinned; model-specific native runner integration and actual endpoint qualification pending",
+      "status": "Patched0.40.13 actual Ornith and Qwen A100 each2ASR+5speech pass; all10PCM exact including full reference, one primary per family. Orin/full native matrix remain pending.",
       "evidence": [
-        "native-ollama-audio-20261101.json"
+        "native-ollama-audio-20261101.json",
+        "native-ollama-ornith-mechanism-20261101.json",
+        "native-ollama-qwen-mechanism-20261101.json"
       ]
     },
     {
@@ -410,7 +413,7 @@
     "forecast_budget_and_retention_required_before_new_jobs": true
   },
   "current_audio_repair": {
-    "status": "Qwen paired source comparison complete/rejected; Ornith paired training running. Latest native checkpoints remain rejected.",
+    "status": "Both paired training/source trials complete/rejected; no new training currently running.",
     "evidence": [
       "class-uniform-6400-review-20261101.json",
       "paired-training-fit-review-20261101.json",
@@ -476,11 +479,11 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Qwen paired training and source116 complete; no new training launched. GPU1 excluded.",
-      "GPU2": "One frozen Ornith trunk, paired A continued15696tail-LoRA/control and B existing-projection-only500updates each. Exact same next2000saved-order records; preflight21106MiB/zero updates, Torch22016/lease23040MiB. Primary1176009.",
+      "GPU0": "Both paired training/source evaluations finished. Native Ornith ASR/TTS mechanism passed under scopedGPU0; all own CUDA leases released. GPU1 untouched.",
+      "GPU2": "Ornith paired training completed; source admission deferred by peer reservation, evaluated onGPU0. No current own job.",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "Ornith15696 rejected; Qwen A8900 vs Bprojection500 source116 complete/rejected: natural39/31 vs legacy9 errors/594; environmental and temporal parity fail.",
+    "latest_completed_trials": "Both paired source comparisons rejected: Ornith A40/B50 and Qwen A39/B31 natural errors/594 vslegacy9. Patched-native Ollama Ornith actual2ASR+5speech passed with exactPCMcontrols; full native/release gates remain open. Qwen same native2ASR+5speech gate now passes; all5PCMexact, stable primary, exit/release verified.",
     "current_hypothesis": "Compare learning the existing final audio projection against continued tail-LoRA-only training, same fixed500updates/order/LR/loss per arm, exact initial BF16audio logits/loss; no inference graph or primary/encoder/TTS change. Each backbone independently versioned.",
     "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
@@ -496,18 +499,19 @@
       "qwen8400-scene-review-20261101.json",
       "scene-recovery-and-qualification-20261101.json",
       "ornith15696-scene-review-20261101.json",
-      "qwen8900-control-recovery-20261101.json"
+      "qwen8900-control-recovery-20261101.json",
+      "paired-projection-review-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification, native Ollama ASR/TTS and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
     "additional_parity_suite": {
-      "status": "Latest native suites complete/rejected. Qwen source58x2 complete/rejected; Ornith source58x2 queued after healthy paired training.",
+      "status": "Both paired source58x2 comparisons complete/rejected; original evaluator/admission failures retained and recovered without changing training.",
       "sequence_cases": 12,
       "overlap_cases": 4,
       "actual_TRAIN_waveforms_rehashed": 59800,
       "new_audio_bytes": 4720948,
       "evidence": "temporal-overlap-validation-20261101.json",
-      "paired_projection_source": "Qwen A39/B31 vs legacy9 natural errors/594; environmental and temporal failures retained. Ornith awaits actual train exit/normal lease release.",
+      "paired_projection_source": "Ornith A40/B50, Qwen A39/B31 vslegacy9; no full-projector export/publication.",
       "Ornith15696_exposure_forecast": {
         "status": "Forecast matched actual final saved order/report/CPU audit exactly; exposure is not semantic acceptance.",
         "cumulative_unique_IDs": 25644,
@@ -572,8 +576,11 @@
   },
   "native_ollama_audio": {
     "required": true,
-    "status": "model-specific integration pending",
+    "status": "Both patched-native A100 mechanism gates verified; Orin/full matrix and stock compatibility remain open",
     "evidence": "native-ollama-audio-20261101.json",
-    "verified": false
+    "verified": false,
+    "mechanism_evidence": "native-ollama-ornith-mechanism-20261101.json",
+    "stock_unmodified_compatibility_verified": false,
+    "qwen_mechanism_evidence": "native-ollama-qwen-mechanism-20261101.json"
   }
 }

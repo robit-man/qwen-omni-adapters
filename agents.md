@@ -25,6 +25,19 @@ patched Ollama build. Develop and test isolated instances before any change to
 the shared host Ollama/broker. Do not disrupt other owners or use GPU1.
 See `docs/upgrades/native-ollama-audio-20261101.json` for pinned source evidence.
 
+Real patched-native Ornith AND Qwen A100 mechanism gates now PASS, each2ASR calls and5
+streamed speech calls, including both default voices, A→B→A and arbitrary inline
+WAV plus transcript/acoustic conditioning. All5PCM outputs match the existing
+native runtime byte-for-byte; one primary PID and exactGPU0 residency are proven.
+The test server exited and its lease released normally. No public weights,
+new audio files or shared-service changes. This is pinned patched0.40.13 support,
+not stock compatibility or full model acceptance. Orin, WAV/cancellation,
+languages, saved profiles, sampling/error behavior, performance and full parity
+remain release gates. See `native/ollama/README.md` and the exact receipt in
+`docs/upgrades/native-ollama-ornith-mechanism-20261101.json` and
+`docs/upgrades/native-ollama-qwen-mechanism-20261101.json`.
+
+
 ## Active convergence goal and GPU assignment — 2026-11-01
 
 The user explicitly requires training until audio parity/convergence and then
@@ -146,7 +159,7 @@ native admission and first full-suite observer failures remain immutable;
 recovered native13/temporal16/full160 completed under fresh admission, then
 normally released. Do not infer training failure from that wrapper exit code.
 
-Next bounded Ornith comparison now RUNS onGPU2, one trunk and sequential arms,
+The bounded Ornith comparison completed onGPU2, one trunk and sequential arms,
 fixed500updates/identical2,000examples from the saved cursor14,136→16,136.
 A continues exact15,696LoRA+AdamW with rich850projection frozen (ends16,196).
 B freezes the exact15,696LoRA and learns only the existing linear projection
@@ -168,6 +181,19 @@ Observer waits actual trainer exit and normal release, then fixed58raw cases
 per source arm (13diagnostic/29natural/16temporal) against the exact completed
 15,696native input hashes. Source checks cannot replace native/assigned-target
 full parity. Do not change a healthy worker or weaken the original gates.
+
+Both Ornith paired arms and the fixed116source requests are COMPLETE and
+REJECTED: A natural40/594errors, projection B50/594, legacy9. A retains correct
+silence/alarm/noise/chord/dog/clap/printer/siren, but bells/voices/gunfire and
+ordered/mixed sources fail. B loses dog/group/siren and transcribes beside as
+behind; projection-only training is insufficient. GPU2 source admission failed
+before CUDA because a peer increased its reservation. First GPU0 source attempt
+then exposed a copied Qwen5120-wide bridge path; it generated no results. Both
+failed records remain. Actual original/learned4096×1280 bridge CPU forwards,
+shapes and hashes now pass, and a new scopedGPU0 run completed all116 requests.
+Training/checkpoints were not changed. Both actual workers exited and all own
+leases released normally. No full projector GGUF or public weights were created.
+See `docs/upgrades/paired-projection-review-20261101.json`.
 
 Qwen's scene-data-only7,400→8,400 trial completed and is REJECTED.
 Native13, fixed16temporal and full160 all completed against unchanged raw audio,

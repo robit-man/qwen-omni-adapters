@@ -1,0 +1,114 @@
+# Native Ollama audio integration
+
+This experimental overlay adds native ASR and Qwen3-TTS Base execution to
+**Ollama 0.40.13, commit04088e7c9d41cba5d33bafbf788d87a465c79d5b**.
+It uses Ollama's own `/v1/audio/transcriptions` and `/v1/audio/speech` handlers
+and scheduler. Generation runs in native C++ workers. No Python inference server,
+second language model, additional neural download or replacement TTS is used.
+
+This is a **patched Ollama build**. Unmodified Ollama's audio endpoint support
+does not load our custom Qwen3-TTS sidecar or enforce the trained audio framing.
+The existing adapter and its request contract remain available. Edge v2 weights
+are not published: environmental/temporal and natural-speech parity remain failed.
+
+## Verified mechanism
+
+Each scoped A100 test used one private Ornith or Qwen tag with the existing indexed TTS
+sidecar and its exact-bound conditional FFN adapter. Two actual native ASR calls
+returned the expected speech and empty silence transcript. Five streamed speech
+calls per backbone matched the existing C++ runtime **byte for byte**, covering female/male,
+A→B→A and request-local WAV plus transcript/acoustic conditioning. One primary
+PID remained resident; all generation/reference workers were proven on GPU0
+through the central accelerator module. The isolated server exited and its lease
+released normally. No audio files or public weights were created.
+
+See the exact [Ornith receipt](../../docs/upgrades/native-ollama-ornith-mechanism-20261101.json)
+and [Qwen receipt](../../docs/upgrades/native-ollama-qwen-mechanism-20261101.json).
+This gate does not prove Orin compatibility, complete WAV handling,
+cancellation, language coverage, perception quality, speaker similarity, all
+sampling/profile controls, or performance improvements. Those remain release work.
+
+## Build and prepare
+
+Bootstrap the normal standalone checkout and build its pinned native engines.
+The optional Ollama build pins and verifies the official source archive, applies
+only this overlay, runs Go runner/server tests and keeps build/module caches in
+the selected build directory:
+
+```bash
+.venv/bin/python scripts/build_native_ollama.py
+```
+
+Use `--cuda-backend cuda_v12` for a JetPack6 build. The existing `go` command must
+be available; Go downloads the pinned1.26.10 toolchain when needed. No shared
+Ollama binary or service is overwritten. The build's CUDA visibility is disabled.
+
+After a qualified indexed tag is installed locally, prepare its exact binding:
+
+```bash
+.venv/bin/python scripts/prepare_native_ollama.py \
+  --model '<installed-indexed-tag>' \
+  --models-dir '<local-Ollama-model-store>' \
+  --config-dir '<private-native-configuration-directory>'
+```
+
+This reuses the existing sidecar validator, GGUF/conditional-adapter checks,
+native prefill ABI and exact training prompt. The digest-addressed configuration
+hashes the model, projector, sidecar, optional audio adapter, native binaries,
+libraries, default reference voices and accelerator proof helper. No weights
+are materialized or copied. Creation is exclusive; an installed binding is not
+overwritten. The native runtime revalidates artifact identities.
+
+Run `runtime-data/native-ollama/ollama-native serve` only through the host's
+normal scoped CUDA admission, with `OLLAMA_OMNI_CONFIG_DIR` pointing to that
+configuration directory and `OLLAMA_MODELS` to the matching model store. Bind to
+loopback and preserve the existing authenticated front door. On broker hosts,
+reserve the complete primary plus auxiliary budget, register the supervising
+process and verify actual workers. Never start this as an anonymous CUDA process
+or as an additional reasoning runner beside an existing deployment.
+
+The scheduler reserves8GiB of auxiliary headroom per native Omni runner, separately
+from actual resident-memory reports. This is conservative admission policy,
+not measured resident memory or a qualified32GB profile. Native workers inherit
+exactly the admitted GPU UUID; the central accelerator proof rejects CPU fallback.
+
+## Native requests
+
+ASR accepts Ollama's native multipart request with `model` and WAV `file`.
+It splits at30seconds and uses the exact trained prefix/suffix, explicit
+`cache_prompt:false` and acoustic-only adapter scale1. Only the tagged transcript
+becomes ASR text. Malformed/truncated evidence fails rather than becoming a
+fabricated transcript. Translation and custom extraction prompts are rejected.
+Ordinary text/vision/reasoning/tool requests explicitly use adapter scale0.
+
+Speech accepts the standard native `model`, `input`, `voice` and
+`response_format` (`pcm` or `wav`). The default references are `female` and `male`.
+The optional **native-only** `omni` object carries `speaker_audio` (the existing
+base64 WAV envelope), `reference_text`, `language`, `temperature`, `top_k`,
+`top_p`, `seed` and `max_frames`. This does not alter adapter-v1's schema.
+
+```json
+{
+  "model": "<installed-indexed-tag>",
+  "input": "Hello there.",
+  "voice": "female",
+  "response_format": "pcm",
+  "omni": {
+    "speaker_audio": {
+      "mime_type": "audio/wav",
+      "encoding": "base64",
+      "data": "<reference-WAV-base64>"
+    },
+    "reference_text": "The words spoken in the reference.",
+    "language": "en",
+    "seed": 42
+  }
+}
+```
+
+Reference bytes and derived acoustic codes live in a private temporary directory
+and are removed after the request. Full reference conditioning uses the same
+bundled native reference encoder and Base decoder; it is not reduced to a speaker
+embedding. Request cancellation terminates the native child. Reusing immutable
+conditioning in this new native path, complete profile import, CLI voice listing,
+broader error/status handling and the full release matrix still require work.

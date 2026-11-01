@@ -1,0 +1,67 @@
+{
+  "schema": "robit.omni.paired-existing-projection-review.v1",
+  "source_suite_per_arm": {
+    "diagnostics": 13,
+    "natural_speech": 29,
+    "temporal_overlap": 16
+  },
+  "both_family_training_complete": true,
+  "both_family_source116_complete": true,
+  "Ornith": {
+    "arms": {
+      "A": {
+        "adapter_sha256": "56f2fa151165f8a14af54849a594afa1cc74439d2df490729620a213bf834f0d",
+        "bridge_sha256": "5eef239de3b83f9c9a37bad61ff7c0326fcd70bc87c4b5c237583e76670938bb",
+        "natural_speech": {
+          "words": 594,
+          "errors": 40,
+          "legacy_errors": 9
+        }
+      },
+      "B": {
+        "adapter_sha256": "524a237a3a27ad20d64777a66479897e78d80b6d5bc71cbc31672d8ec0fa7e4f",
+        "bridge_sha256": "aac837e0b70c716d3d46a6af8a72b0497eec34c35231e2228819f06c8048b2ea",
+        "natural_speech": {
+          "words": 594,
+          "errors": 50,
+          "legacy_errors": 9
+        }
+      }
+    },
+    "source_report_sha256": "4f207000751fef569081bbeb4e07c5941b184ef6b6bac2453b10a1e0f0717885",
+    "all_audio_hashes_match_native15696": true,
+    "status": "Both rejected",
+    "review": "Projection B worsens natural40to50/594errors vslegacy9. Silence/noise/alarm/printer/clapping/bells partly recover; speech beside->behind, dog->door/cupboard, group voices->dog, gunfire->explosion, siren->vehicle horn. Chord invents melody/noise. Ordered and mixed-source parity fail.",
+    "original_admission_failure": "GPU2 peer reservation increased before source evaluation; no worker started.",
+    "original_evaluator_failure": "Source retry2 on GPU0 selected Qwen rich750 bridge5120wide for Ornith4096wide; failed before generating any outputs or optimizer steps.",
+    "recovery": "Corrected family path; actual original and learned4096x1280 bridge CPU forwards/shapes/hashes verified; retained both failed records; new source retry3 completed116 on admittedGPU0."
+  },
+  "Qwen": {
+    "arms": {
+      "A": {
+        "adapter_sha256": "146d56965f864c97fc8e7481b2919b19ee4c63e4a60bea53155b7acf48f93f18",
+        "bridge_sha256": "266e2d28787bf3119b4a75946be84b097be144bfc7caef6cb6ef3f3a9b80a338",
+        "natural_speech": {
+          "words": 594,
+          "errors": 39,
+          "legacy_errors": 9
+        }
+      },
+      "B": {
+        "adapter_sha256": "41a6d81fa915dec2601ce1170169b924c0153420c07ec6229fcb479fb520ab0d",
+        "bridge_sha256": "265eeb6c7d3bdc5b02ab7da8f4fc4b98b20d24fd8257fea6b0fcc82b44a2a865",
+        "natural_speech": {
+          "words": 594,
+          "errors": 31,
+          "legacy_errors": 9
+        }
+      }
+    },
+    "status": "Both rejected",
+    "review": "B improves natural39to31/594errors vslegacy9; environmental and ordered/mixed-source failures remain."
+  },
+  "full_projector_GGUFs_exported": false,
+  "public_model_publication": false,
+  "release_qualified": false,
+  "conclusion": "Learning only the existing final projection is insufficient. No source trial is promoted. Preserve recovery states and original gates."
+}

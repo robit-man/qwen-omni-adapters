@@ -1,0 +1,172 @@
+{
+  "schema": "robit.omni.native-ollama-audio-mechanism.v1",
+  "model": "robit/qwen-native-qualification:mechanism-20261101",
+  "Ollama_source": "04088e7c9d41cba5d33bafbf788d87a465c79d5b",
+  "binary_sha256": "d0ca733be5f2b3a8d67a9e2c68555a4bb56d576f5b12f8c5a1bbca533ec90a06",
+  "GPU": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+  "patched_native_build": true,
+  "python_inference_server": false,
+  "cases": [
+    {
+      "endpoint": "/v1/audio/transcriptions",
+      "id": "probe-speech",
+      "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "text": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 20.141150980023667
+    },
+    {
+      "endpoint": "/v1/audio/transcriptions",
+      "id": "probe-silence",
+      "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "text": "",
+      "elapsed_s": 1.12892294395715
+    },
+    {
+      "endpoint": "/v1/audio/speech",
+      "case": 0,
+      "voice": "female",
+      "full_reference": false,
+      "PCM_bytes": 157440,
+      "PCM_sha256": "a07e93a457047b57d479fcfc4a26c945061f0b1b939f0f76cc5a8a4039f30e08",
+      "exact_existing_native_control": true,
+      "first_PCM_s": 1.4600348729873076,
+      "elapsed_s": 5.744671322987415
+    },
+    {
+      "endpoint": "/v1/audio/speech",
+      "case": 1,
+      "voice": "female",
+      "full_reference": false,
+      "PCM_bytes": 145920,
+      "PCM_sha256": "ee5f9ca589a93d091f76616f021e4a9748929e7e6c84f7b57cf397a29700f1b1",
+      "exact_existing_native_control": true,
+      "first_PCM_s": 1.367344376980327,
+      "elapsed_s": 5.503816326963715
+    },
+    {
+      "endpoint": "/v1/audio/speech",
+      "case": 2,
+      "voice": "female",
+      "full_reference": false,
+      "PCM_bytes": 157440,
+      "PCM_sha256": "a07e93a457047b57d479fcfc4a26c945061f0b1b939f0f76cc5a8a4039f30e08",
+      "exact_existing_native_control": true,
+      "first_PCM_s": 1.3062309740344062,
+      "elapsed_s": 5.5657799849286675
+    },
+    {
+      "endpoint": "/v1/audio/speech",
+      "case": 3,
+      "voice": "male",
+      "full_reference": false,
+      "PCM_bytes": 38400,
+      "PCM_sha256": "6236198ab45cb921ab542d435c5af093e62b614641c4966035cc657ac613b7e6",
+      "exact_existing_native_control": true,
+      "first_PCM_s": 1.4281027199467644,
+      "elapsed_s": 4.392744765966199
+    },
+    {
+      "endpoint": "/v1/audio/speech",
+      "case": 4,
+      "voice": "female",
+      "full_reference": true,
+      "PCM_bytes": 38400,
+      "PCM_sha256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+      "exact_existing_native_control": true,
+      "first_PCM_s": 2.000521030044183,
+      "elapsed_s": 6.494943680008873
+    }
+  ],
+  "release_qualified": false,
+  "public_registry_changed": false,
+  "new_audio_files": 0,
+  "version": {
+    "version": "0.40.13-robit-omni.1"
+  },
+  "complete": true,
+  "mechanism_passed": true,
+  "primary_PID": 2808849,
+  "primary_same_after_voice_changes": true,
+  "residency_receipts": [
+    {
+      "pid": 2808849,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-server"
+    },
+    {
+      "pid": 2808849,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-server"
+    },
+    {
+      "pid": 2811316,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 2812748,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 2814399,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 2816428,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 2817611,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 2817720,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    }
+  ],
+  "arbitrary_reference_path_PCM_exact": true,
+  "perceptual_voice_quality_qualified": false,
+  "full_audio_parity_qualified": false,
+  "server_exited": true,
+  "source_report_sha256": "31ab851b27af3a026b3ac3b6da72e459bbfb8365c88de9477e484771b814de75",
+  "known_original_failure": {
+    "report_sha256": "79a7ee86fc2ddd76fed32ed7c00de9a3b0840db6dbec638e69abcad6f9dc22d6",
+    "cause": "Private pre-Edge fixture inherited262144 context, correctly refused by native primary+speech headroom check. No model launched.",
+    "recovery": {
+      "reason": "Inherited pre-Edge262144 context correctly rejected before model launch; restore qualified Edge16384 default in this private fixture only.",
+      "changes": [
+        {
+          "old_digest": "sha256:ef498ab97953d42d25b891bcb77c0a32d20c1f789527ed970bd988539954350c",
+          "new_digest": "sha256:371100e07fe611327a7029184fcc5db0cbf388c90afa62cd3c0afbcbcf5fc52b",
+          "old_num_ctx": 262144,
+          "new_num_ctx": 16384
+        }
+      ],
+      "shared_models_or_services_changed": false,
+      "source_code_changed": false
+    },
+    "source_code_changed": false
+  },
+  "source_validation": {
+    "tests_passed": 6394,
+    "warnings": 2,
+    "elapsed_s": 292.87,
+    "log_sha256": "8992673a82641fea362d347a54959dc8202b45b71739b40c2bdc20ddfce108a0"
+  },
+  "official_Go_runner_and_server_tests_passed": true,
+  "patch_sha256": "794681088130495250a0c72fa57c65b88f30419f977f46f4d1f072e907cfc759",
+  "primary_actual_worker_exited": true
+}
