@@ -305,7 +305,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Ornith fixed4000/5000/6400 all rejected; completed6400 fits eight seen TRAIN families in source/native but validation still fails. Separate Ornith data-only and Qwen sampling-only finite trials running. Conditional adapter mechanism and registry transport verified for both families; no semantic release pass. First data-only7400 recovers Siren but remains rejected; predeclared8400/10662 retained. Qwen sampling-only4000 also rejected; original5000/6400 retained.",
+      "status": "Ornith data-only trial complete10662 and rejected; Qwen5000 rejected. Exact Qwen5000 recovery training onGPU0; target-only parent-label Ornith continuation onGPU2; GPU1 excluded. Parity and publication remain open.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -434,5 +434,21 @@
     ],
     "source_tests_passed": 6380,
     "release_qualified": false
+  },
+  "active_convergence_goal": {
+    "status": "active",
+    "GPU_assignment": {
+      "GPU0": "Qwen exact5000 recovery toward original6400",
+      "GPU2": "Ornith target-only10662\u219211162; native assessment after CUDA trainer exit",
+      "GPU1": "excluded from our work"
+    },
+    "latest_completed_trials": "Ornith full data-only10662 complete/rejected; Qwen5000 rejected and GPU1 run interrupted for user hardware policy",
+    "current_hypothesis": "Retain annotated parents before specifics, on unchanged corpus and frozen original sampler view",
+    "prepared_attributed_data": "17450 verified rows, credits retained, NOT activated in current target-only ablation",
+    "evidence": [
+      "completed-audio-checkpoints-20261101.json",
+      "gpu0-gpu2-convergence-20261101.json"
+    ],
+    "completion": "Full audio parity, assigned-target/cloning/operational qualification and verified HF+Ollama publication remain required."
   }
 }

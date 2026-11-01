@@ -5,6 +5,60 @@ Read this file together with `AGENTS.md` before making changes. Preserve these
 requirements across context renewal. Targets and proposed designs below are not
 claims of implemented capability, compatible weights, or measured improvement.
 
+## Active convergence goal and GPU assignment — 2026-11-01
+
+The user explicitly requires training until audio parity/convergence and then
+publishing the validated weights. Keep that full goal active across turns.
+Use physical GPU0 (`GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0`) and GPU2
+(`GPU-fc9d264d-8a20-bf8c-eb72-72a6dcbdaf2a`) only; leave GPU1 open for others.
+Preserve all other owners and broker admission. This supersedes earlier
+experiment GPU choices. Do not infer a process exited from its supervisor exit;
+verify the actual CUDA worker has exited before releasing its lease.
+
+Qwen's original GPU1 run was stopped on this instruction. Its last durable5,000
+checkpoint was recovered on GPU0 with all48 tensors, AdamW, RNG, order and
+position7,200 verified exact. Unsaved updates were discarded, not claimed as
+retained. Work: `qwen-audio-lora-class-uniform-gpu0-resume-1`, original final6,400.
+Its observer waits for actual trainer exit before evaluating that checkpoint.
+
+The complete Ornith data-only pass ended10,662. Every fixed checkpoint is
+rejected despite recovery of alarm, clock alarm, bark, church bells, printer and
+siren. Group voices, clapping, gunfire and negative controls still fail. Qwen5,000
+also fails parity. Preserve `docs/upgrades/completed-audio-checkpoints-20261101.json`.
+The user authorizes further evidence-driven training, not weaker gates or failed
+experimental publication. The prior finite trials remain immutable; subsequent
+hypotheses have separate source/data/policy/checkpoints and bounded assessments.
+
+Fresh target audit: leaf-only supervision reduces provided human-group labels
+208→7 and Music2,262→2 on the unchanged17,045 TRAIN rows. A target-only500-update
+Ornith ablation now runs10,662→11,162 on GPU2: retain annotated parents before
+specific categories. Audio, IDs, splits, replay, loss factor, architecture and
+optimizer remain fixed. The sampler uses the ORIGINAL immutable manifest view
+because its algorithm reads target metadata. Original197 classes, RNG/order and
+position3 were independently reconstructed on CPU. Its four-backward maximal
+input preflight peaks21,074MiB under21GiB Torch/22GiB lease. Work:
+`ornith-annotated-parent-target-pass-1`; its native13 observer waits for trainer
+exit to avoid exceeding GPU2's shared promises. Admission-only retries must
+never restart an initialized training job or fall back to GPU1.
+
+An additional17,450 attributed DEV recordings are verified and prepared from the
+already-local checksum-verified archives, with raw/normalized hash, protected
+uploader/ID and ESC exclusions and per-file creator/title/source/license credits.
+Only CC-BY3.0 was added; other license types remain excluded. New bytes are about
+4GB and no archive/model downloads or feature caches were created. This corpus
+is NOT activated in the target-only ablation. If later trained, ship its
+`attributed-audio-diversity-20261101/ATTRIBUTION.jsonl` with release provenance.
+Do not silently combine target and data changes or omit those credits.
+
+See `docs/upgrades/gpu0-gpu2-convergence-20261101.json` for actual live PID,
+lease, resource, restoration and fit evidence. The20-record source fit diagnostic
+covers16 TRAIN and four already-used validation clips; it is not broad parity.
+One teacher-versus-prefix argmax changed, with cause unproven. Do not infer that
+loss or exact export proves a deployable semantic model. Continue the full native,
+legacy, ASR/environmental, assigned-target, cloning and operational gates before
+publishing and verifying both Hugging Face and Ollama. Do not mark the goal done
+merely because a bounded training job, source test or small diagnostic completes.
+
 ## Resource requirement, clarified 2026-11-01
 
 The user requires completing the upgrades, tracking artifacts and preventing
@@ -206,21 +260,21 @@ and harness were restored and verified healthy; do not pause it for a similarly
 failing A100 candidate. See `docs/upgrades/class-uniform-6400-review-20261101.json`
 and `docs/upgrades/paired-training-fit-review-20261101.json`.
 
-One separate data-only Ornith continuation is running6,400→10,662 with fixed
+The separate data-only Ornith continuation completed6,400→10,662 with fixed
 7,400/8,400/10,662 checkpoints:4,587 additional already-local verified CC0 TRAIN
 recordings, same architecture/sampler/loss/optimizer and frozen components.
 The old manifest is byte-preserved; source/audio IDs and protected uploaders
 are disjoint, unknown transcripts remain unscored. Maximum-input forward/backward
-preflight peaks20,966MiB, with zero optimizer steps. Runtime training has a
-32,768MiB lease/30,720MiB Torch cap and continuously checks RAM/disk reserves.
+preflight peaks20,966MiB, with zero optimizer steps. That completed run used a
+32,768MiB lease/30,720MiB Torch cap and checked RAM/disk reserves.
 One class-uniform sampling schedule does not claim every new recording is seen.
 
 Qwen's own3,200 TRAIN audit still misses seen classes (event CE1.480 versus
-remaining-token CE0.165). Its separate sampling-only continuation runs3,200→6,400,
+remaining-token CE0.165). Its separate sampling-only trial was planned3,200→6,400,
 fixed4,000/5,000/6,400, on the unchanged12,458-row data; no diversity expansion
-is stacked there. It holds a65,536MiB A100 lease/61,440MiB Torch cap. Both trials
-are finite, write only small checkpoints/recovery state, retain native semantic
-gates and remain unqualified. See
+is stacked there. Its original GPU1 run used65,536MiB/61,440MiB. The active GPU0 recovery and
+subsequent target-only GPU2 ablation are described above. All completed
+checkpoints retain native semantic gates and remain unqualified. See
 `docs/upgrades/diversity-and-qwen-sampling-trials-20261101.json`. A checkpoint
 observer may export and run diagnostics; it cannot approve semantics or publish.
 

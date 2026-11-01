@@ -1,0 +1,208 @@
+{
+  "schema": "robit.omni.goal-convergence-progress.v1",
+  "user_goal": "Train until audio parity and convergence, using GPU0/GPU2 and leaving GPU1 open for others; publish validated weights.",
+  "goal_status": "active",
+  "public_model_publication": false,
+  "source_validation": "Production source unchanged since the6380-pass full validation; these are training/data/orchestration changes.",
+  "new_hardware_policy_verified": true,
+  "our_GPU1_leases_or_workers": 0,
+  "other_owners_preserved": true,
+  "task_leases": [
+    {
+      "owner": "qwen-omni-upgrade/qwen-class-uniform-gpu0",
+      "requested_mib": 63232,
+      "gpu_uuids": [
+        "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0"
+      ],
+      "state": "active"
+    },
+    {
+      "owner": "qwen-omni-upgrade/ornith-parent-target-training",
+      "requested_mib": 22528,
+      "gpu_uuids": [
+        "GPU-fc9d264d-8a20-bf8c-eb72-72a6dcbdaf2a"
+      ],
+      "state": "active"
+    }
+  ],
+  "live_training": {
+    "qwen": {
+      "work": "qwen-audio-lora-class-uniform-gpu0-resume-1",
+      "PID": 3504493,
+      "GPU_UUID": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "current_step": 5350,
+      "current_reserved_MiB": 59828.0,
+      "peak_reserved_MiB": 60972.0,
+      "restore": {
+        "source_adapter_sha256": "fce4c91bd3fc57184dda8327ee3cf2a1b6d7fff00eafd68c2619e9dd6b65332b",
+        "all48_parameters_exact": true,
+        "optimizer_step": 5000,
+        "disabled_logits_max_abs_delta": 0.0,
+        "source_weights_frozen": true,
+        "same_sampler_order_and_position_restored": true,
+        "sampler_position": 7200,
+        "GPU_only_migration": true
+      },
+      "policy_sha256": "20ad5379977898c950389bedd4de161b5e56f4946c3bf682a35fbe9840e7c4d3",
+      "fixed_checkpoints": [
+        6400
+      ]
+    },
+    "ornith": {
+      "work": "ornith-annotated-parent-target-pass-1",
+      "PID": 4085319,
+      "GPU_UUID": "GPU-fc9d264d-8a20-bf8c-eb72-72a6dcbdaf2a",
+      "current_step": 10750,
+      "current_reserved_MiB": 21156.0,
+      "peak_reserved_MiB": 21488.0,
+      "restore": {
+        "source_adapter_sha256": "d42c47360d9a360ca34652fdc8638b8956d63fcb5e167272258d3bef83f9a4cf",
+        "all48_parameters_exact": true,
+        "optimizer_step": 10662,
+        "disabled_logits_max_abs_delta": 0.0,
+        "source_weights_frozen": true,
+        "target_only_continuation": true,
+        "original_sampling_order_position": 3
+      },
+      "policy_sha256": "6433fa70f2590d01f08c24d78a3acc62c6ad02c2c570849b6a00e364dbc64ebe",
+      "fixed_checkpoints": [
+        11162
+      ]
+    }
+  },
+  "updated_UTC": "2026-11-01T09:38:24.084451+00:00",
+  "resources": {
+    "owned_allocated_bytes": 116618543104,
+    "owned_limit_bytes": 128849018880,
+    "srv_free_bytes": 91183128576,
+    "checkout_free_bytes": 241209909248,
+    "RAM_available_bytes": 354063417344,
+    "no_feature_caches_created": true,
+    "no_new_model_or_archive_downloads": true
+  },
+  "sampler_control_proof": {
+    "schema": "robit.omni.target-only-sampler-resume-proof.v1",
+    "CPU_only": true,
+    "source_step": 10662,
+    "training_rows": 17045,
+    "changed_target_rows": 8901,
+    "same_audio_ID_order_and_leaf_labels": true,
+    "sampler_source_sha256": "14396311a99a2c6443a1eb81985c78f8ec3e0d88b9dfc2e8b357596fd48dea41",
+    "sampler_view": "Original immutable class-guided-cc0-diversity manifest; target metadata must not be used for sampling in this ablation.",
+    "sampling_classes": 197,
+    "exact_original_order_position_and_RNG_reconstructed": true,
+    "source_position": 3,
+    "seen_train_count": 14641,
+    "source_adapter_sha256": "d42c47360d9a360ca34652fdc8638b8956d63fcb5e167272258d3bef83f9a4cf",
+    "attributed_dataset_activated": false,
+    "new_optimizer_steps": 0
+  },
+  "parent_target_resource_preflight": {
+    "complete": true,
+    "optimizer_steps": 0,
+    "source_adapter_sha256": "d42c47360d9a360ca34652fdc8638b8956d63fcb5e167272258d3bef83f9a4cf",
+    "checks": [
+      {
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 1.2851250171661377,
+        "peak_reserved_MiB": 20928.0,
+        "peak_allocated_MiB": 20339.4677734375
+      },
+      {
+        "id": "fsd50k-245666",
+        "duration_s": 29.7155625,
+        "loss": 1.9657189846038818,
+        "peak_reserved_MiB": 21074.0,
+        "peak_allocated_MiB": 20445.29638671875
+      }
+    ],
+    "maximum_peak_reserved_MiB": 21074.0,
+    "GPU2_22528_lease_21504_Torch_cap_safe": true,
+    "serial_accumulation": 4,
+    "optimizer_state_loaded": true,
+    "no_weights_or_raw_audio_or_feature_cache_created": true,
+    "GPU_residency_verified": true
+  },
+  "prepared_attributed_data": {
+    "schema": "robit.omni.attributed-training-data-preparation.v1",
+    "complete": true,
+    "metadata_selected": 17461,
+    "new_TRAIN": 17450,
+    "total_TRAIN": 34495,
+    "original_manifest_bytes_unchanged": true,
+    "all_source_CRC_and_audio_hashes_verified": true,
+    "protected_users_IDs_raw_and_normalized_hashes_excluded": true,
+    "ESC_sources_excluded": true,
+    "all_new_license_CC_BY_3_0": true,
+    "attribution_rows": 17450,
+    "attribution_sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",
+    "manifest_sha256": "008c12b2aa5f80c3911f96b3ab2435165414d2685ac7e402d4a5b044a36810b2",
+    "audio_and_receipt_write_estimate_bytes": 4054260472,
+    "forecast_bytes": 4160977674,
+    "elapsed_s": 43.81797851098236,
+    "new_download_bytes": 0,
+    "feature_caches_created": false,
+    "neural_updates": 0,
+    "training_activated": false,
+    "release_qualified": false,
+    "activated_in_current_training": false
+  },
+  "completed_fit_diagnostic": {
+    "complete": true,
+    "elapsed_s": 29.914029491017573,
+    "mean_overall_CE": 0.11171996227349154,
+    "mean_event_name_CE": 0.31763670284417456,
+    "mean_remaining_token_CE": 0.09612967378052417,
+    "mean_event_name_fraction_of_CE_sum": 0.30936805479286705,
+    "minimum_teacher_prefix_logit_cosine": 0.9983274936676025,
+    "first_event_argmax_changes": 1,
+    "TRAIN_mean_event_name_CE": 0.12382448823336745,
+    "fixed4_validation_mean_event_name_CE": 1.092885561287403,
+    "peak_cuda_reserved_mib": 20194.0,
+    "neural_parameters_changed": false,
+    "release_qualified": false,
+    "scope": "16 prior TRAIN and4 already-used validation diagnostics; no broad-parity claim. One teacher-versus-prefix argmax changed; cause is unproven."
+  },
+  "GPU1_migration": {
+    "reason": "User explicitly requires GPU0/GPU2 and leaving GPU1 open for others",
+    "wrapper_PID": 2741565,
+    "training_PID": 2742034,
+    "last_durable_step": 5000,
+    "last_progress": {
+      "step": 5600,
+      "loss": 0.2451964549254626,
+      "gradient_norm": 2.015836238861084,
+      "unique_training_records": 12458,
+      "additional_unique_training_records": 7280,
+      "elapsed_s": 15182.31761492102,
+      "reserved_mib": 54990.0,
+      "peak_reserved_mib": 61060.0
+    },
+    "checkpoint_preserved": true,
+    "signal": "SIGTERM to the owned broker supervisor",
+    "old_training_exited": true,
+    "old_GPU1_CUDA_allocation_gone": true,
+    "last_logged_old_run_step": 5625,
+    "unsaved_updates_since_durable_checkpoint": 625
+  },
+  "setup_failures_preserved": [
+    {
+      "stage": "GPU1 evacuation",
+      "finding": "Supervisor SIGTERM did not stop the original training child; child was explicitly interrupted and its CUDA exit verified before manual release. A shell sequence initially continued past an assertion; subsequent dependent launches use set-e and checked sequential gates."
+    },
+    {
+      "stage": "Low-memory preflight1",
+      "finding": "Replay rows lack duration_s; stopped before gradient tests. Corrected to WAV-header duration lookup."
+    },
+    {
+      "stage": "Fit-gap diagnostic1",
+      "finding": "Older descriptive validation rows lack acoustic_target_labels; stopped during selection. Corrected with existing human labels and no free-prompt annotation."
+    },
+    {
+      "stage": "Parent-target preflight1",
+      "finding": "Sampler reads target-provenance labels; adding parents changed its buckets. Assertion stopped the run without optimizer steps. Frozen original manifest view independently reconstructs exact197-class order/RNG."
+    }
+  ],
+  "GPU2_initial_admission_refusal": "Initial full training launch refused by broker; a separate queue retried admission only. The first queued attempt was admitted, and initialized training is never automatically restarted."
+}

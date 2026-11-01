@@ -1,0 +1,384 @@
+{
+  "schema": "robit.omni.completed-audio-checkpoint-reviews.v1",
+  "reviews": [
+    {
+      "family": "ornith",
+      "step": 8400,
+      "status": "rejected",
+      "release_qualified": false,
+      "native_report_sha256": "c898d0e049e4a9d57a3c216a33fbf5ba01e609201ee6241d9e5c9487d0c09e91",
+      "checkpoint_integrity": {
+        "step": 8400,
+        "elapsed_s": 6492.065451410017,
+        "unique_training_records": 13810,
+        "adapter_sha256": "9a162fb7fc59750a49f58da22c59893141f028ad4fee586129780aadc1bdde7d",
+        "disabled_logits_max_abs_delta": 0.0,
+        "base_encoder_bridge_unchanged": true,
+        "peak_reserved_mib": 30446.0,
+        "resource_minima": {
+          "minimum_RAM_available_GiB": 322.6031837463379,
+          "minimum_srv_free_GiB": 88.4478988647461,
+          "minimum_checkout_free_GiB": 228.01401138305664
+        },
+        "release_qualified": false
+      },
+      "conversion_integrity": {
+        "complete": true,
+        "family": "ornith",
+        "tensors": 48,
+        "all_exported_values_exact": true,
+        "adapter_sha256": "28d966cef1437a604823b341d1345a00f72f2895fd78d063b9de8693c97a9d69",
+        "release_qualified": false
+      },
+      "rows": [
+        {
+          "id": "probe-speech",
+          "required_behavior": "Exact sentence: The blue bicycle is parked beside the garden gate.",
+          "accepted": true,
+          "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One synthetic voice with no notable background sound.</audio_observation>",
+          "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5"
+        },
+        {
+          "id": "probe-silence",
+          "required_behavior": "No speech or invented acoustic event.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: faint ambient room tone; no distinct speech.</audio_observation>",
+          "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7"
+        },
+        {
+          "id": "probe-alarm",
+          "required_behavior": "Intermittent electronic alarm.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Drum kit.</audio_observation>",
+          "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75"
+        },
+        {
+          "id": "probe-noise",
+          "required_behavior": "Steady noise/hum, no invented animal or speech.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Raindrop; Drip.</audio_observation>",
+          "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a"
+        },
+        {
+          "id": "probe-music",
+          "required_behavior": "Describe the audible electronic tones without inventing an instrument.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Marimba, xylophone.</audio_observation>",
+          "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9"
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "required_behavior": "Clock alarm.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Insect.</audio_observation>",
+          "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24"
+        },
+        {
+          "id": "probe-esc50-dog",
+          "required_behavior": "Dog barking.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bark.</audio_observation>",
+          "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65"
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "required_behavior": "Church bells/chimes.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Church bell.</audio_observation>",
+          "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936"
+        },
+        {
+          "id": "fsd50k-156200",
+          "required_behavior": "Human group voices.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird vocalization, bird call, bird song; Walk, footsteps.</audio_observation>",
+          "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202"
+        },
+        {
+          "id": "fsd50k-180765",
+          "required_behavior": "Clapping.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation>",
+          "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57"
+        },
+        {
+          "id": "fsd50k-182894",
+          "required_behavior": "Printer.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation>",
+          "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1"
+        },
+        {
+          "id": "fsd50k-166192",
+          "required_behavior": "Gunfire.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation>",
+          "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b"
+        },
+        {
+          "id": "fsd50k-203720",
+          "required_behavior": "Passing siren, not only its vehicle.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Motor vehicle (road); Siren.</audio_observation>",
+          "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f"
+        }
+      ],
+      "unchanged_13_diagnostic_inputs_and_prompts": true,
+      "new_held_out_test_used": false,
+      "public_model_publication": false
+    },
+    {
+      "family": "ornith",
+      "step": 10662,
+      "status": "rejected",
+      "release_qualified": false,
+      "native_report_sha256": "eed0b9b9d93dea65db49e8423f165db98ce29fe0b14229c951eda1829d76c3b7",
+      "checkpoint_integrity": {
+        "step": 10662,
+        "elapsed_s": 13798.428425251972,
+        "unique_training_records": 14641,
+        "adapter_sha256": "d42c47360d9a360ca34652fdc8638b8956d63fcb5e167272258d3bef83f9a4cf",
+        "disabled_logits_max_abs_delta": 0.0,
+        "base_encoder_bridge_unchanged": true,
+        "peak_reserved_mib": 30446.0,
+        "resource_minima": {
+          "minimum_RAM_available_GiB": 322.6031837463379,
+          "minimum_srv_free_GiB": 71.05845642089844,
+          "minimum_checkout_free_GiB": 227.57946395874023
+        },
+        "release_qualified": false
+      },
+      "conversion_integrity": {
+        "complete": true,
+        "family": "ornith",
+        "tensors": 48,
+        "all_exported_values_exact": true,
+        "adapter_sha256": "266487cafb5a3e876518d36aeb532a6b02c4b48ee269f2dcd457620cc6dd1aa3",
+        "release_qualified": false
+      },
+      "rows": [
+        {
+          "id": "probe-speech",
+          "required_behavior": "Exact sentence: The blue bicycle is parked beside the garden gate.",
+          "accepted": true,
+          "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One speaker with no notable background sound.</audio_observation>",
+          "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5"
+        },
+        {
+          "id": "probe-silence",
+          "required_behavior": "No speech or invented acoustic event.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Device interface sounds.</audio_observation>",
+          "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7"
+        },
+        {
+          "id": "probe-alarm",
+          "required_behavior": "Intermittent electronic alarm.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Alarm.</audio_observation>",
+          "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75"
+        },
+        {
+          "id": "probe-noise",
+          "required_behavior": "Steady noise/hum, no invented animal or speech.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Wind.</audio_observation>",
+          "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a"
+        },
+        {
+          "id": "probe-music",
+          "required_behavior": "Describe the audible electronic tones without inventing an instrument.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Organ.</audio_observation>",
+          "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9"
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "required_behavior": "Clock alarm.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Alarm.</audio_observation>",
+          "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24"
+        },
+        {
+          "id": "probe-esc50-dog",
+          "required_behavior": "Dog barking.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bark.</audio_observation>",
+          "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65"
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "required_behavior": "Church bells/chimes.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Church bell.</audio_observation>",
+          "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936"
+        },
+        {
+          "id": "fsd50k-156200",
+          "required_behavior": "Human group voices.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird vocalization, bird call, bird song.</audio_observation>",
+          "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202"
+        },
+        {
+          "id": "fsd50k-180765",
+          "required_behavior": "Clapping.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Typing.</audio_observation>",
+          "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57"
+        },
+        {
+          "id": "fsd50k-182894",
+          "required_behavior": "Printer.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation>",
+          "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1"
+        },
+        {
+          "id": "fsd50k-166192",
+          "required_behavior": "Gunfire.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Boom.</audio_observation>",
+          "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b"
+        },
+        {
+          "id": "fsd50k-203720",
+          "required_behavior": "Passing siren, not only its vehicle.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Motor vehicle (road); Siren.</audio_observation>",
+          "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f"
+        }
+      ],
+      "unchanged_13_diagnostic_inputs_and_prompts": true,
+      "new_held_out_test_used": false,
+      "public_model_publication": false
+    },
+    {
+      "family": "qwen",
+      "step": 5000,
+      "status": "rejected",
+      "release_qualified": false,
+      "native_report_sha256": "df02f0f0bdcb7a2889182cd3ceada517eb2de7d70d506dd26ac5a1fdbf0223f6",
+      "checkpoint_integrity": {
+        "step": 5000,
+        "elapsed_s": 11389.883992240066,
+        "unique_training_records": 12458,
+        "adapter_sha256": "fce4c91bd3fc57184dda8327ee3cf2a1b6d7fff00eafd68c2619e9dd6b65332b",
+        "disabled_logits_max_abs_delta": 0.0,
+        "base_encoder_bridge_unchanged": true,
+        "peak_reserved_mib": 61060.0,
+        "resource_minima": {
+          "minimum_RAM_available_GiB": 322.62997817993164,
+          "minimum_srv_free_GiB": 71.05838775634766,
+          "minimum_checkout_free_GiB": 227.59964752197266
+        },
+        "release_qualified": false
+      },
+      "conversion_integrity": {
+        "complete": true,
+        "family": "qwen",
+        "tensors": 48,
+        "all_exported_values_exact": true,
+        "adapter_sha256": "69cc147ca258239a9da0b52fbc0dbd0137129de164b5ba81160f796d2daa5419",
+        "release_qualified": false
+      },
+      "rows": [
+        {
+          "id": "probe-speech",
+          "required_behavior": "Exact sentence: The blue bicycle is parked beside the garden gate.",
+          "accepted": true,
+          "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One speaker with no notable background sound.</audio_observation>",
+          "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5"
+        },
+        {
+          "id": "probe-silence",
+          "required_behavior": "No speech or invented acoustic event.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>No intelligible speech or distinct non-speech sound events are evident.</audio_observation>",
+          "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7"
+        },
+        {
+          "id": "probe-alarm",
+          "required_behavior": "Intermittent electronic alarm.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Alarm.</audio_observation>",
+          "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75"
+        },
+        {
+          "id": "probe-noise",
+          "required_behavior": "Steady noise/hum, no invented animal or speech.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Faint sound events; no intelligible speech.</audio_observation>",
+          "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a"
+        },
+        {
+          "id": "probe-music",
+          "required_behavior": "Describe the audible electronic tones without inventing an instrument.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Telephone.</audio_observation>",
+          "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9"
+        },
+        {
+          "id": "probe-esc50-clock_alarm",
+          "required_behavior": "Clock alarm.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Cricket.</audio_observation>",
+          "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24"
+        },
+        {
+          "id": "probe-esc50-dog",
+          "required_behavior": "Dog barking.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bark.</audio_observation>",
+          "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65"
+        },
+        {
+          "id": "probe-esc50-church_bells",
+          "required_behavior": "Church bells/chimes.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Piano; Piano. A piano plays a simple, repetitive melody with a clear, bright timbre.</audio_observation>",
+          "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936"
+        },
+        {
+          "id": "fsd50k-156200",
+          "required_behavior": "Human group voices.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bark.</audio_observation>",
+          "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202"
+        },
+        {
+          "id": "fsd50k-180765",
+          "required_behavior": "Clapping.",
+          "accepted": true,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Clapping.</audio_observation>",
+          "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57"
+        },
+        {
+          "id": "fsd50k-182894",
+          "required_behavior": "Printer.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Livestock, farm animals, working animals.</audio_observation>",
+          "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1"
+        },
+        {
+          "id": "fsd50k-166192",
+          "required_behavior": "Gunfire.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion. A loud, sharp explosion with a rapid decay and some reverberation.</audio_observation>",
+          "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b"
+        },
+        {
+          "id": "fsd50k-203720",
+          "required_behavior": "Passing siren, not only its vehicle.",
+          "accepted": false,
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Motor vehicle (road).</audio_observation>",
+          "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f"
+        }
+      ],
+      "unchanged_13_diagnostic_inputs_and_prompts": true,
+      "new_held_out_test_used": false,
+      "public_model_publication": false
+    }
+  ],
+  "conclusion": "Final Ornith recovers alarm/clock-alarm/bark/bells/printer/siren but group voices/clapping/gunfire and negative controls still fail. Qwen5000 is also rejected. No parity or publication pass."
+}
