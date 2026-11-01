@@ -305,7 +305,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Ornith data-only trial complete10662 and rejected; Qwen5000 rejected. Exact Qwen5000 recovery training onGPU0; target-only parent-label Ornith continuation onGPU2; GPU1 excluded. Parity and publication remain open.",
+      "status": "Ornith parent-target11162 completed and rejected; full160ASR regresses7.014to8.064percent, natural speech still below legacy. Sampling-only rollback10662to11162 onGPU2; Qwen5000to6400 recovery onGPU0. GPU1 excluded; parity/publication open.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -439,16 +439,18 @@
     "status": "active",
     "GPU_assignment": {
       "GPU0": "Qwen exact5000 recovery toward original6400",
-      "GPU2": "Ornith target-only10662\u219211162; native assessment after CUDA trainer exit",
+      "GPU2": "Ornith sampling-only10662to11162;2events/1speech/1control per update, native assessment after actual trainer exit",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "Ornith full data-only10662 complete/rejected; Qwen5000 rejected and GPU1 run interrupted for user hardware policy",
-    "current_hypothesis": "Retain annotated parents before specifics, on unchanged corpus and frozen original sampler view",
+    "latest_completed_trials": "Parent-target Ornith11162 rejected in native13 and full160ASR; prior10662 also fails environmental and natural-speech parity",
+    "current_hypothesis": "Sampling-only control exposure25percent versus2.7percent; unchanged original17045 rows and leaf targets, loss and optimizer",
     "prepared_attributed_data": "17450 verified rows, credits retained, NOT activated in current target-only ablation",
     "evidence": [
       "completed-audio-checkpoints-20261101.json",
-      "gpu0-gpu2-convergence-20261101.json"
+      "gpu0-gpu2-convergence-20261101.json",
+      "parent-target-and-control-balance-20261101.json"
     ],
-    "completion": "Full audio parity, assigned-target/cloning/operational qualification and verified HF+Ollama publication remain required."
+    "completion": "Full audio parity, assigned-target/cloning/operational qualification and verified HF+Ollama publication remain required.",
+    "prepared_natural_data": "26539 additional already-local human-transcribed TRAIN FLAC clips verified; original manifest bytes preserved; NOT activated"
   }
 }
