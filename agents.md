@@ -225,6 +225,20 @@ Ship this exact ledger with Hugging Face provenance and carry the full applicabl
 notices with the Ollama bundle; verify remote artifacts before calling
 publication complete. No model publication follows from the attribution audit.
 
+Release notice preparation now verifies the exact17,450-record CC-BY-3.0
+TRAIN cohort before writing output. `qwen_omni_adapters.release_notices` rejects
+changed ledger hashes, missing/extra/duplicate/held-out credits and mismatched
+creator/title/source/license fields. Both HF staging directories share hardlinks
+to the exact ledger and complete6,913,636-byte standard Ollama notice. Original
+component/LibriSpeech notices remain separate. Stock0.40.11 private create→push→
+pull→show preserved the notice bytes, inherited license, sidecar and required
+adapter. No CUDA inference or public registry was used. A final resolver-key
+mistake in the test was independently recovered against actual downloaded files;
+retain that scope in the evidence. Full source gate6,394passes (14new notice
+integrity tests). Follow `docs/build-and-release.md` and
+`docs/upgrades/training-release-notices-20261101.json`. Notice preparation does
+not clear model quality gates or authorize failed previews.
+
 ## Resource requirement, clarified 2026-11-01
 
 The user requires completing the upgrades, tracking artifacts and preventing

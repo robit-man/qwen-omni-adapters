@@ -1,0 +1,71 @@
+{
+  "schema": "robit.omni.training-release-notice-qualification.v1",
+  "status": "verified_notice_builder_and_private_stock_transport",
+  "packet": {
+    "schema": "robit.omni.training-notices.v1",
+    "complete": true,
+    "manifest_sha256": "008c12b2aa5f80c3911f96b3ab2435165414d2685ac7e402d4a5b044a36810b2",
+    "attribution_sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",
+    "required_recording_license": "CC-BY-3.0",
+    "attributed_TRAIN_records": 17450,
+    "exact_cohort_and_credit_fields_verified": true,
+    "original_ledger_bytes_preserved": true,
+    "scope": "Recording provenance; other component licenses and model gates remain separate.",
+    "files": [
+      {
+        "path": "ATTRIBUTION.jsonl",
+        "sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",
+        "bytes": 6913127
+      },
+      {
+        "path": "TRAINING-NOTICE.txt",
+        "sha256": "66cc8358aa124751f8685e8130871758a9211030f0a9cadcc3f73cda40dc0ba2",
+        "bytes": 6913636
+      }
+    ],
+    "release_qualified": false,
+    "publication": false
+  },
+  "stock_transport": {
+    "schema": "robit.omni.training-notice-stock-transport.v1",
+    "complete": true,
+    "public_registry_changed": false,
+    "GPU_inference_started": false,
+    "CPU_metadata_only": true,
+    "release_qualified": false,
+    "notice_sha256": "sha256:66cc8358aa124751f8685e8130871758a9211030f0a9cadcc3f73cda40dc0ba2",
+    "notice_bytes": 6913636,
+    "all_CPU_metadata_servers_stopped": true,
+    "stock_version": {
+      "version": "0.40.11"
+    },
+    "postcheck_recovered": true,
+    "postcheck_error": "Original verifier accessed audio_adapter.digest; actual resolver exposes audio_adapter.layer.digest. Upload/pull/show completed before that exception; independently rechecked actual downloaded bytes, both resolvers and fresh metadata show/ps. No transport repeat.",
+    "existing_backbone_license_preserved": true,
+    "all_standard_layer_identities_preserved": true,
+    "sidecar_and_required_adapter_resolve_after_download": true,
+    "notice_uploaded_bytes": 6913636,
+    "notice_downloaded_bytes": 6913636,
+    "pulled_notice_sha256": "66cc8358aa124751f8685e8130871758a9211030f0a9cadcc3f73cda40dc0ba2",
+    "api_show_contains_complete_notice": true,
+    "pulled_manifest_sha256": "dd29fbfc416cf25b552c6fa5f96a831c0aa424f89b68902e0b4c7566900307d3",
+    "neural_artifacts_copied_bytes": 0,
+    "model_alias_scope": "isolated stores and loopback registry only"
+  },
+  "source_validation": {
+    "tests_passed": 6394,
+    "warnings": 2,
+    "all_remaining_gates_passed": true,
+    "log_sha256": "90559bf9142f5cfd76504eeb4925f14934734d834284da663aaf9a21756d70bd"
+  },
+  "HF_staging": {
+    "ornith_and_qwen_have_identical_packet_hardlinks": true,
+    "corpus_credits_verified": 17450,
+    "final_neural_checkpoint_not_selected": true,
+    "remote_upload": false
+  },
+  "no_neural_weight_updates_or_runtime_policy_changes": true,
+  "notice_only_scope": "Pinned CC-BY-3.0 cohort recording credits; other component/dataset notices retained separately. This does not establish model quality.",
+  "public_model_publication": false,
+  "release_qualified": false
+}

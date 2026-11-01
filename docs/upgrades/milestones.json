@@ -373,7 +373,8 @@
       "objective": "After full validation, publish both releases on Hugging Face and Ollama and verify remote artifacts/digests",
       "status": "complete_weight_packages_staged_public_promotion_gated_by_failed_semantic_qualification",
       "evidence": [
-        "release-qualification-20261030.json"
+        "release-qualification-20261030.json",
+        "training-release-notices-20261101.json"
       ]
     }
   ],
@@ -489,5 +490,11 @@
       "record_fields_verified": true,
       "remote_publication_verified": false
     }
+  },
+  "training_release_notices": {
+    "status": "verified_pinned_17450_record_packet_and_private_stock_create_push_pull_show",
+    "evidence": "training-release-notices-20261101.json",
+    "source_tests_passed": 6394,
+    "public_model_publication": false
   }
 }
