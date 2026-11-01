@@ -1,0 +1,78 @@
+{
+  "schema": "robit.omni.native-ollama-audio-audit.v1",
+  "UTC": "2026-11-01T18:51:42.727134+00:00",
+  "user_requirement": "Weights must work with native Ollama ASR/TTS; preserve full arbitrary-reference cloning and existing adapter.",
+  "installed_version": "0.40.11",
+  "latest_official_release": "0.40.13",
+  "release_commit": "04088e7c9d41cba5d33bafbf788d87a465c79d5b",
+  "official_sources": [
+    "https://github.com/ollama/ollama/releases/tag/v0.40.13",
+    "https://github.com/ollama/ollama/blob/v0.40.13/server/speech.go",
+    "https://github.com/ollama/ollama/blob/v0.40.13/llm/speech.go",
+    "https://github.com/ollama/ollama/blob/v0.40.13/server/transcription.go"
+  ],
+  "observed_routes": {
+    "GET /v1/audio/speech": 405,
+    "GET /v1/audio/transcriptions": 405,
+    "meaning": "Registered routes only; no inference/compatibility claim."
+  },
+  "native_integration_gap": "SpeechHandler requires model speech capability and llm.Speaker runner; installed custom sidecar is not executed by stock Ollama. v0.40.13 adds LFM3 speech but this is a different architecture.",
+  "source_snapshot_manifest": {
+    "llm/speech.go": {
+      "bytes": 748,
+      "sha256": "14c7cf053816b796663d0d22f8fe50155a812a0200760a1a00745a6b155e41d3"
+    },
+    "llm/server.go": {
+      "bytes": 8561,
+      "sha256": "5d6f9c808fa16900e5302f4de7084dc11a556f2480ef397de81efe3a94c9576d"
+    },
+    "server/sched.go": {
+      "bytes": 60798,
+      "sha256": "2b0e718782cda0a694940e565a3811349cbb51f3618198e1c66e8c24e195a71e"
+    },
+    "server/speech.go": {
+      "bytes": 5958,
+      "sha256": "33f05901bcd37651d11b7a78bf44409b0dc4d33d2f7350eeb701d938fc4626ee"
+    },
+    "server/images.go": {
+      "bytes": 55504,
+      "sha256": "31b4dbf86b9bfdd7786b0dcd9f6b01930470960ca1d289be90adf518a5a3356f"
+    },
+    "openai/openai.go": {
+      "bytes": 29640,
+      "sha256": "ddad3c359a3f24c77afc2a3e8c876096391abe4929ae9e8d75c5a79caefb5ca9"
+    },
+    "middleware/transcription.go": {
+      "error": "HTTP Error 404: Not Found"
+    },
+    "llm/llama_server.go": {
+      "bytes": 92493,
+      "sha256": "5b3c7285e7cc118babd6e88ca27e3e5784a9f0e04c1c5fe299243fc8a9d17393"
+    },
+    "runner/runner.go": {
+      "error": "HTTP Error 404: Not Found"
+    },
+    "go.mod": {
+      "bytes": 3943,
+      "sha256": "32c3cd993ece27ec115d0eb1c932dfc58831ad1022588d712d426f103720e027"
+    },
+    "CMakeLists.txt": {
+      "bytes": 2995,
+      "sha256": "9d3dd4da6a6dc1de6ae3d423c3b00045d30634e31a8ff339b53d14b7dede34d3"
+    },
+    "docs/development.mdx": {
+      "error": "HTTP Error 404: Not Found"
+    }
+  },
+  "acceptance": [
+    "Exact-tag native multipart ASR with matching bridge/prompt/conditional adapter",
+    "Exact-tag native speech produces streamed and complete24kHz monoPCM16",
+    "Arbitrary reference cloning, full reference transcript/acoustic conditioning, saved/inline voices and session isolation retained",
+    "One primary reasoning trunk and one logical package; no independent model downloads",
+    "Scoped A100/Orin residency and regression gates; stock versus patched-native build explicitly identified"
+  ],
+  "model_compatibility_verified": false,
+  "global_services_changed": false,
+  "weights_downloaded": false,
+  "public_model_publication": false
+}

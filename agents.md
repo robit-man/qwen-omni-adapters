@@ -5,6 +5,26 @@ Read this file together with `AGENTS.md` before making changes. Preserve these
 requirements across context renewal. Targets and proposed designs below are not
 claims of implemented capability, compatible weights, or measured improvement.
 
+## Native Ollama audio requirement — 2026-11-01
+
+The user additionally requires the completed weights to work through native
+Ollama ASR and TTS. Permission to use substantial implementation changes does
+not waive parity, cloning, isolation, GPU leases or artifact limits. Qualify
+actual `/v1/audio/transcriptions` and `/v1/audio/speech` calls against each exact
+tag, including streamed and complete 24 kHz PCM and arbitrary reference clones.
+Route presence, model capability labels and an adapter proxy are not native
+runner compatibility. Preserve the existing adapter and one identity per trunk.
+
+Official Ollama v0.40.13 (04088e7c9d41cba5d33bafbf788d87a465c79d5b)
+adds LFM3 speech on Linux/Windows; installed v0.40.11 already registers both audio
+routes. Neither fact proves support for our Qwen3-TTS or trained audio bridge.
+Inspect model-specific loaders, prompt rendering, scheduler and native worker
+interfaces before integration. Do not replace Base with LFM3/Phonon or rename
+incompatible tensors. Record whether qualification uses stock or a pinned,
+patched Ollama build. Develop and test isolated instances before any change to
+the shared host Ollama/broker. Do not disrupt other owners or use GPU1.
+See `docs/upgrades/native-ollama-audio-20261101.json` for pinned source evidence.
+
 ## Active convergence goal and GPU assignment — 2026-11-01
 
 The user explicitly requires training until audio parity/convergence and then
@@ -101,37 +121,53 @@ Only524/2,048 virtual recipes were drawn (309sequences,209overlaps,6speech/
 background);1,524recipes remain unvisited. Same TRAIN maximum-scene probe loss
 falls2.114→0.234, but teacher-forced TRAIN fit is not held-out semantic parity.
 
-A bounded continuation `ornith-scene-captions-pass-2` now RUNS13,162→15,696 on
-GPU2:2,534additional updates, checkpoint14,162/15,162/15,696. Exact48 tensors,
-AdamW13,162, RNG, existing order and cursor4,000 are restored; no replay-pool
-reset. Data, architecture, loss4, LR, frozen primary/encoder/bridge/TTS and
-inference prompt are unchanged. This reaches the first3,534-update acoustic
-replay cycle at cursor14,136, not a full human-speech/corpus pass. Independent CPU
-order accounting matches live14,900 counts exactly and forecasts25,644cumulative
-unique IDs at15,696: all1,792acoustic virtual scenes, but only18/256speech/background
-scenes (238remain unseen). These256records explicitly belong to the31,654-row
-speech pool; this is not a loader defect. Do not call the acoustic-cycle boundary
-a complete2,048-scene pass. The final forecast is not actual completed training
-or semantic qualification; verify it against the final saved recovery and report. Zero-update
-four-backward memory preflight again passes21,066MiB under21GiB Torch/22GiB
-lease. Forecast0.25GiB of small learned/recovery checkpoints and reports; no
-new audio, feature cache or full-projector exports. Its observer assesses the
-final15,696 only after actual trainer exit. See
-`docs/upgrades/ornith13162-scene-review-20261101.json`. Keep all quality gates;
-do not change a healthy trainer or claim convergence from incomplete coverage.
+Ornith's exact-order13,162→15,696 continuation completed and is REJECTED.
+All48F32GGUF values remain exact, frozen-source/disabled-logit checks pass, and
+all three actual recovery checkpoints14,162/15,162/15,696 pass tensor/AdamW/order/
+RNG audits. Actual final cursor14,136 yields25,644cumulative unique IDs and1,810
+virtual scenes: all1,792acoustic recipes, only18/256speech/background recipes.
+The forecast matches actual files exactly;238speech/background recipes remain
+unseen. This is an acoustic replay cycle, not a complete scene/speech pass.
 
-Both actual intermediate recovery checkpoints14,162 and15,162 now pass a read-only
-CPU audit: all48F32tensors/shapes,3,145,728parameters, all48AdamWsteps/moment shapes,
-finite moments/nonnegative variance, unchanged126,616-index order and Python/
-Torch/CUDA RNG. Saved cursor8,000/12,000 reconstructs22,281/24,467unique IDs exactly.
-This verifies recoverability and receipt consistency, not independent live
-semantic parity. Healthy training continues to15,696. A separate finite observer
-then waits native13, actual worker exit and normal reservation release before
-serial fixed16temporal and full160speech qualification. Each suite pins evaluator/
-manifest hashes and runs fresh discovery, resource guard and CPU integrity check
-before acquiring16GiB onGPU2. No lexical grading, large export or publication is
-automatic. See `docs/upgrades/scene-recovery-and-qualification-20261101.json`.
+Native13, fixed16temporal and full160 all completed. Silence and clapping recover;
+clock alarm/bark/church bell/siren remain correct. DSP noise/tones directions now
+appear in both orders, with incomplete tonal detail. Alarm/chord are still called
+melody; voices→crow; printer gives malformed Markdown and incorrect engine/car
+content; gunfire→explosion. Event pairs still lose identity/order and mixed speech
+fails. Natural speech improves44→40/594errors, still above legacy9; aggregate
+237→248/3,336errors. Six nonspeech transcripts remain empty. Keep publication gated.
+See `docs/upgrades/ornith15696-scene-review-20261101.json`.
 
+Its CUDA worker actually exited. Normal lease release failed after foreign
+contexts changed during the run. Known owner/PID/scope, independent no-CUDA proof
+and completed files justified the documented already-gone-owner reclamation.
+All peer tokens/scopes/budgets/registered contexts were preserved. The initial
+native admission and first full-suite observer failures remain immutable;
+recovered native13/temporal16/full160 completed under fresh admission, then
+normally released. Do not infer training failure from that wrapper exit code.
+
+Next bounded Ornith comparison now RUNS onGPU2, one trunk and sequential arms,
+fixed500updates/identical2,000examples from the saved cursor14,136→16,136.
+A continues exact15,696LoRA+AdamW with rich850projection frozen (ends16,196).
+B freezes the exact15,696LoRA and learns only the existing linear projection
+with fresh AdamW/F32masters/BF16forward/effective export. Primary, audio encoder,
+TTS, data, prompt, loss4 and LR1e-4 remain unchanged. This is trainability of an
+existing component, not a new graph. Forecast788novel IDs,247scene draws and5
+speech/background draws; no full-corpus claim. CPU cached extractor, actual
+4,096×1,280bridge and all48checkpoint shapes versus24actual HF metadata modules
+pass. HF module lookup is `model.layers`; portable adapter keys retain the
+`base_model.model.model.language_model.layers` export namespace.
+
+Two zero-update configuration failures are retained: copied extractor name
+was wrong, then HF lookup incorrectly used the portable namespace. Both were
+corrected before training. Third zero-update preflight passes eight maximum-input
+four-backward tests, initial audio logits/loss exact, peak21,106MiB under21.5GiB
+Torch/22.5GiB lease. Same source hash6356da65... launched. Forecast0.5GiB of compact
+learned/recovery states; no new audio, feature cache or full-projector GGUF.
+Observer waits actual trainer exit and normal release, then fixed58raw cases
+per source arm (13diagnostic/29natural/16temporal) against the exact completed
+15,696native input hashes. Source checks cannot replace native/assigned-target
+full parity. Do not change a healthy worker or weaken the original gates.
 
 Qwen's scene-data-only7,400→8,400 trial completed and is REJECTED.
 Native13, fixed16temporal and full160 all completed against unchanged raw audio,
@@ -149,15 +185,24 @@ The next bounded hypothesis compares tail-LoRA continuation against training the
 existing final audio projection, which has stayed frozen at rich750 throughout
 expanded-data LoRA training. Both arms start from exact8,400 and identical BF16
 audio logits/loss, use the same next2,000 saved-order examples/cursor4,000→6,000,
-500updates, accumulation4, loss4, LR1e-4 and AdamW. A restores AdamW8,400 and trains
-only tail LoRA. B freezes the exact8,400 LoRA and trains only the existing linear
+500updates, accumulation4, loss4, LR1e-4 and AdamW. A restored AdamW8,400 and trained
+only tail LoRA. It completed8,900/500updates and its48F32weights/AdamWsteps/moments,
+unchanged RNG/order/cursor6,000 and19,665seen IDs pass the CPU recovery audit.
+Both arms and the matched116-request source assessment are now COMPLETE and
+REJECTED. Natural speech errors are39/594 in A and31/594 in B, versus legacy9.
+B recovers bells/printer/gunfire but hallucinates noise as speech, dog as rooster,
+clock alarm as fan, and loses sequence/mixed-source evidence. Projection learning
+improves one measure without restoring full parity. Do not export or publish a
+full projector based on this result. See
+`docs/upgrades/qwen8900-control-recovery-20261101.json`. B freezes the exact8,400 LoRA and trains only the existing linear
 projection with fresh AdamW and F32 masters cast to BF16 on forward/export.
 This is one changed trainable component, not a new graph, separate reasoning
 model, inference prompt, dataset or sampling policy. One primary trunk serves
 the two arms sequentially. CPU effective-BF16 export/gradient checks pass; exact
 initial source logits/loss match on CUDA. Eight maximum-input four-backward checks pass55,712MiB, zero optimizer updates,
-under61.25GiB Torch/63GiB lease onGPU0. Fixed500updates per arm now RUNNING
-in `qwen-projection-comparison-1`; primary CUDA PID3540635, one trunk. The initial63.75GiB
+under61.25GiB Torch/63GiB lease onGPU0. Fixed500updates per arm completed
+in `qwen-projection-comparison-1`; its actual training worker exited and normally
+released its lease. The initial63.75GiB
 lease was refused before starting CUDA; no peer was stopped or reservation
 weakened. Forecast0.5GiB; no new audio, feature cache or combined-projector GGUF.
 The exact preflight script hash is pinned. A finite observer waits actual
