@@ -15,16 +15,30 @@ Preserve all other owners and broker admission. This supersedes earlier
 experiment GPU choices. Do not infer a process exited from its supervisor exit;
 verify the actual CUDA worker has exited before releasing its lease.
 
-Qwen's original GPU1 run was stopped on this instruction. Its last durable5,000
-checkpoint was recovered on GPU0 with all48 tensors, AdamW, RNG, order and
-position7,200 verified exact. Unsaved updates were discarded, not claimed as
-retained. Work: `qwen-audio-lora-class-uniform-gpu0-resume-1`, original final6,400.
-Its observer waits for actual trainer exit before evaluating that checkpoint.
+Qwen's original GPU1 run was stopped on this instruction, exactly resumed from
+5,000 on GPU0, and completed6,400. All48 exported tensors match; primary/encoder/
+bridge/TTS remain frozen and disabled logits match exactly. Native semantics
+still fail bells/printer/gunfire/siren/noise/tones/clock-alarm, so6,400 is REJECTED.
+Full160 replay yields215/3,336 word errors(6.445%), zero false transcripts on six
+nonspeech controls, but natural speech36/594 versus legacy9/594 remains open.
+
+Current Qwen DATA-only trial `qwen-full-diversity-pass-1` runs6,400→7,400 on GPU0,
+fixed1,000 updates, same62,314-row verified corpus as Ornith. Preserve Qwen's
+ORIGINAL class-uniform-event plus once-per-row replay algorithm; do NOT claim
+it uses Ornith's2/1/1 sampler. Original12,458 rows/targets are an exact prefix.
+All48 tensors, AdamW/RNG and source position342 are verified; a new sampling
+schedule is declared for the expanded corpus. Source parameters remain frozen.
+The four-backward maximum-input preflight peaks55,684MiB after reset under60GiB
+Torch/61.75GiB lease, zero optimizer updates. Whole-process training allocation
+may be higher and remains monitored. The first1,000 updates forecast3,007 novel
+IDs; this is not a full-corpus pass or convergence claim. Its observer waits for
+actual trainer exit before native13 assessment. See
+`docs/upgrades/qwen6400-and-temporal-baseline-20261101.json`.
 
 The complete Ornith data-only pass ended10,662. Every fixed checkpoint is
 rejected despite recovery of alarm, clock alarm, bark, church bells, printer and
-siren. Group voices, clapping, gunfire and negative controls still fail. Qwen5,000
-also fails parity. Preserve `docs/upgrades/completed-audio-checkpoints-20261101.json`.
+siren. Group voices, clapping, gunfire and negative controls still fail. Qwen5,000 and6,400
+also fail parity. Preserve `docs/upgrades/completed-audio-checkpoints-20261101.json`.
 The user authorizes further evidence-driven training, not weaker gates or failed
 experimental publication. The prior finite trials remain immutable; subsequent
 hypotheses have separate source/data/policy/checkpoints and bounded assessments.
@@ -117,14 +131,15 @@ inference is NOT run or qualified. See
 `docs/upgrades/temporal-overlap-validation-20261101.json`. Use this as additional
 parity evidence, never replace the original gates or infer quality from setup.
 
-GPU0 serial qualification is scheduled after the live Qwen6,400 trainer AND
-its fixed-checkpoint observer/native worker actually exit. A separate CPU-only
-observer `legacy-temporal-gpu0-observer-1` then requests24GiB on GPU0 for one
-fixed16 legacy temporal/overlap reference. It uses fresh broker discovery and
-artifact/RAM admission, never starts on GPU1, never restarts an initialized
-reference, and retries only pre-launch VRAM refusal. Complete that reference
-before starting the next heavy GPU0 training job. Its waiting state is not an
-inference result or a release gate pass.
+GPU0 serial qualification completed after the actual Qwen6,400 workers exited.
+The fixed16 legacy temporal/overlap reference is retained in
+`legacy-temporal-overlap-reference-1`. It preserves several event-order reversals
+but has source confusions/omissions in other sequences and overlaps. Do not
+change fixtures after observing outputs or claim the baseline passes all16.
+Raw equal-gain stems are not always equally loud; the level audit is analysis,
+not perceptual audibility qualification. Candidate comparison is still pending.
+The legacy reference, completed evaluation workers and observer have exited;
+GPU0 is now used by the new Qwen data-only trial described above.
 
 The active attributed-data release audit verifies all17,450 exact creator/title/
 source/license/change records against the actual TRAIN metadata. Canonical

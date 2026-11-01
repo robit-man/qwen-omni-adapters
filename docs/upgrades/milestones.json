@@ -305,7 +305,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Sampling-only11162 completed/rejected despite clapping recovery; DATA-only62314-row11162to12162 now training onGPU2 after corrected-data zero-update21,066MiB preflight. Qwen5000to6400 onGPU0. No parity/publication approval.",
+      "status": "Both data-only62314-row trials active:Ornith11162to12162 onGPU2;Qwen6400to7400 onGPU0. Qwen6400 and priorOrnith trials rejected. Natural ASR and environmental/temporal parity remain open; no public promotion.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -438,30 +438,31 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Qwen exact5000 recovery toward original6400",
+      "GPU0": "Qwen data-only6400to7400 on62314 verified TRAIN rows; ORIGINAL class-uniform event/replay sampler,60GiB Torch",
       "GPU2": "Ornith data-only11162to12162 on62314 verified TRAIN rows, same2/1/1 sampler; native assessment after actual trainer exit",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "Parent-target11162 and sampling-only11162 both rejected; Qwen original6400 recovery remains live onGPU0",
-    "current_hypothesis": "Expand verified TRAIN support only:17450human-event,26539human-transcribed and1280varied DSP examples; preserve architecture/loss/sampling rule/optimizer/frozen weights",
+    "latest_completed_trials": "Qwen6400 rejected; full160 speech215/3336errors but natural36/594versuslegacy9/594. Fixed16legacytemporal reference completed with limitations. Ornith prior11162 trials rejected.",
+    "current_hypothesis": "Both families expand verified data only, each preserving its existing sampler/model/loss/optimizer and frozen components; no publication gate weakened",
     "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
       "completed-audio-checkpoints-20261101.json",
       "gpu0-gpu2-convergence-20261101.json",
       "parent-target-and-control-balance-20261101.json",
-      "data-diversity-convergence-20261101.json"
+      "data-diversity-convergence-20261101.json",
+      "qwen6400-and-temporal-baseline-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
     "additional_parity_suite": {
-      "status": "prepared_only_no_native_quality_claim",
+      "status": "legacy_reference_complete_candidate_comparison_pending",
       "sequence_cases": 12,
       "overlap_cases": 4,
       "actual_TRAIN_waveforms_rehashed": 59800,
       "new_audio_bytes": 4720948,
       "evidence": "temporal-overlap-validation-20261101.json"
     },
-    "GPU0_serial_reference": "After Qwen6400 actual trainer/observer/native exit: legacy fixed16 temporal/overlap reference, then nextGPU0 training",
+    "GPU0_serial_reference": "Complete; reference workers exited before newQwen training",
     "attribution_audit": {
       "active_attributed_TRAIN_rows": 17450,
       "exact_ledger_sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",

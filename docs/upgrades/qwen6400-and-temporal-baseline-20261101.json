@@ -1,0 +1,416 @@
+{
+  "schema": "robit.omni.qwen6400-and-legacy-temporal-review.v1",
+  "UTC": "2026-11-01T11:48:27.351332+00:00",
+  "goal_status": "active",
+  "release_qualified": false,
+  "publication": false,
+  "completed_Qwen6400": {
+    "work": "qwen-audio-lora-class-uniform-gpu0-resume-1",
+    "training_complete": true,
+    "training_worker_exited": true,
+    "checkpoint": {
+      "step": 6400,
+      "elapsed_s": 8866.523946259986,
+      "unique_training_records": 12458,
+      "adapter_sha256": "26376730bbe259f3aff500a3152d6411538c13bb108e33f332207220effafbf7",
+      "disabled_logits_max_abs_delta": 0.0,
+      "base_encoder_bridge_unchanged": true,
+      "peak_reserved_mib": 60972.0,
+      "resource_minima": {
+        "minimum_RAM_available_GiB": 310.7141647338867,
+        "minimum_srv_free_GiB": 66.71188354492188,
+        "minimum_checkout_free_GiB": 214.42938613891602
+      },
+      "release_qualified": false
+    },
+    "conversion": {
+      "complete": true,
+      "family": "qwen",
+      "tensors": 48,
+      "all_exported_values_exact": true,
+      "adapter_sha256": "a8dd7b11179fa148c606c35339d93c8c3a2fcb6d9e7ecdaa34fd360d6085885f",
+      "release_qualified": false
+    },
+    "native_complete": true,
+    "native_outputs_sha256": "d850921de9cd0fdb8b1445fe325eaaa7c048dd606c3d9c4bd6a59659591cd9bf",
+    "decision": "REJECT",
+    "manual_native_review": {
+      "speech": "PASS exact sentence",
+      "silence": "PASS",
+      "alarm": "PASS",
+      "noise": "FAIL invents male speech/shout/chatter",
+      "tones": "FAIL singing",
+      "clock_alarm": "FAIL insect",
+      "bark": "PASS",
+      "church_bells": "FAIL guitar",
+      "group_voices": "Coarse human crowd category recovered; speaker activity/detail unqualified",
+      "clapping": "FAIL whoosh",
+      "printer": "FAIL insect",
+      "gunfire": "FAIL generic boom",
+      "siren": "FAIL engine/mechanisms omits siren"
+    },
+    "full_replay160": {
+      "groups": {
+        "all": {
+          "clips": 154,
+          "words": 3336,
+          "errors": 215,
+          "wer": 0.0644484412470024
+        },
+        "espeak-ng plus deterministic procedural ambience": {
+          "clips": 78,
+          "words": 1520,
+          "errors": 25,
+          "wer": 0.01644736842105263
+        },
+        "LibriSpeech dev-clean with deterministic local augmentation": {
+          "clips": 29,
+          "words": 594,
+          "errors": 36,
+          "wer": 0.06060606060606061
+        },
+        "Qwen3-TTS large-vocabulary recovery corpus": {
+          "clips": 47,
+          "words": 1222,
+          "errors": 154,
+          "wer": 0.1260229132569558
+        }
+      },
+      "false_transcripts": 0,
+      "metrics_sha256": "80f0b8a3e6796e08db4b9012c99bc6ca90403a91cfa449d65a66a2c52c8fe0fd",
+      "outputs_sha256": "779ebb064e06ad85d8aaa0a7bdb90e9f8b84c1ff59487d7593d0c7c7aa91d582",
+      "legacy_same_subset_natural_speech": {
+        "words": 594,
+        "errors": 9,
+        "wer": 0.015151515151515152
+      },
+      "interpretation": "Overall6.445percent WER does not clear natural-speech36versus9errors or environmental failures."
+    }
+  },
+  "legacy_fixed16": {
+    "complete": true,
+    "manual_review_required_for_candidate": true,
+    "outputs_sha256": "8642bfbb3157f29779484c225ee818a1fe17210d6b30b3200ec55ceb63de281b",
+    "manifest_sha256": "5521a65eb4a70b2947524a48bfff4aa158b7ce6e3bb57570d7835bc9fce2a5fb",
+    "confirmed_source_order_cases": [
+      0,
+      1,
+      4,
+      5,
+      6,
+      7,
+      11
+    ],
+    "source_confusions_or_omissions": {
+      "02": "Clap labeled gunshot",
+      "03": "Clap labeled gunshot; extra beeps unverified",
+      "12": "Transcript correct; alarm described as hum",
+      "13": "Transcript correct; printer described as steam engine",
+      "14": "Group voices described as cat",
+      "15": "Bells identified; clap omitted"
+    },
+    "other_cases": {
+      "08": "Child speech and tone order retained; full group/speaker detail unqualified",
+      "09": "Tone then chatter retained; extra clap unverified",
+      "10": "Noise then tone order retained; dial-tone characterization is more specific than construction truth"
+    },
+    "notes": "Legacy reference has genuine limitations. Fixed fixtures are not changed after observing outputs. Candidate comparison remains pending; neither this run nor its errors approve any release. Known stems do not alone prove perceptual audibility.",
+    "overlap_level_audit": {
+      "complete": true,
+      "audio_modified": false,
+      "perceptual_audibility_verified": false,
+      "measurement": "100ms RMS; stem activity at least0.1of its own maximum, ratios only where the other stem is nonzero. Both-relative-activity count uses0.1of each individual maximum. These are analysis masks, not inference/VAD rules.",
+      "interpretation": "This excludes silence-padding ratios. Unequal envelopes can make a mathematically overlaid scene perceptually sequential. Preserve all original fixtures/results and assess candidates on the same bytes.",
+      "rows": [
+        {
+          "id": "temporal-overlap-validation-12",
+          "both_above_relative_activity_threshold_windows": 15,
+          "stems": [
+            {
+              "source": "probe-speech",
+              "measured100ms_windows": 21,
+              "median_stem_ratio_dB": -1.2015697565938748,
+              "max_stem_ratio_dB": 75.32074848494676
+            },
+            {
+              "source": "probe-alarm",
+              "measured100ms_windows": 21,
+              "median_stem_ratio_dB": 4.911393069860617,
+              "max_stem_ratio_dB": 24.88195095345678
+            }
+          ]
+        },
+        {
+          "id": "temporal-overlap-validation-13",
+          "both_above_relative_activity_threshold_windows": 27,
+          "stems": [
+            {
+              "source": "probe-speech",
+              "measured100ms_windows": 27,
+              "median_stem_ratio_dB": 5.4913659617019555,
+              "max_stem_ratio_dB": 13.751803658972756
+            },
+            {
+              "source": "fsd50k-182894",
+              "measured100ms_windows": 33,
+              "median_stem_ratio_dB": -4.253601222660894,
+              "max_stem_ratio_dB": 24.918485133228568
+            }
+          ]
+        },
+        {
+          "id": "temporal-overlap-validation-14",
+          "both_above_relative_activity_threshold_windows": 0,
+          "stems": [
+            {
+              "source": "fsd50k-156200",
+              "measured100ms_windows": 25,
+              "median_stem_ratio_dB": 22.203329388002146,
+              "max_stem_ratio_dB": 26.760610009082182
+            },
+            {
+              "source": "fsd50k-203720",
+              "measured100ms_windows": 0,
+              "median_stem_ratio_dB": null,
+              "max_stem_ratio_dB": null
+            }
+          ]
+        },
+        {
+          "id": "temporal-overlap-validation-15",
+          "both_above_relative_activity_threshold_windows": 2,
+          "stems": [
+            {
+              "source": "fsd50k-180765",
+              "measured100ms_windows": 2,
+              "median_stem_ratio_dB": 5.8768879231086,
+              "max_stem_ratio_dB": 9.51129248424187
+            },
+            {
+              "source": "probe-esc50-church_bells",
+              "measured100ms_windows": 43,
+              "median_stem_ratio_dB": 29.775585283406343,
+              "max_stem_ratio_dB": 42.06767880780055
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "new_Qwen_data_only": {
+    "work": "qwen-full-diversity-pass-1",
+    "source_step": 6400,
+    "fixed_final_step": 7400,
+    "original_class_uniform_sampler_preserved": true,
+    "Ornith_2_1_1_rule_not_transferred": true,
+    "preflight": {
+      "complete": true,
+      "optimizer_steps": 0,
+      "source_adapter_sha256": "26376730bbe259f3aff500a3152d6411538c13bb108e33f332207220effafbf7",
+      "checks": [
+        {
+          "id": "fsd50k-323041",
+          "duration_s": 30.0,
+          "loss": 0.1598227322101593,
+          "peak_reserved_MiB": 55530.0,
+          "peak_allocated_MiB": 54803.931640625
+        },
+        {
+          "id": "libri100-7859-102521-0017",
+          "duration_s": 24.525,
+          "loss": 0.0378447063267231,
+          "peak_reserved_MiB": 55684.0,
+          "peak_allocated_MiB": 54938.50390625
+        }
+      ],
+      "maximum_peak_reserved_MiB": 55684.0,
+      "GPU0_63232_lease_61440_Torch_cap_safe": true,
+      "serial_accumulation": 4,
+      "optimizer_state_loaded": true,
+      "no_weights_or_raw_audio_or_feature_cache_created": true,
+      "source_script_sha256": "59bcc8294a816adfbdb3fa7ed37471b5f27f1846ebe1f158ffe78bc2514a7887",
+      "dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+      "GPU_residency_verified": true
+    },
+    "sampling_check": {
+      "schema": "robit.omni.qwen-data-only-sampling-check.v1",
+      "complete": true,
+      "CPU_only": true,
+      "source_step": 6400,
+      "dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+      "original_class_uniform_algorithm_unchanged": true,
+      "sampler_sha256": "14396311a99a2c6443a1eb81985c78f8ec3e0d88b9dfc2e8b357596fd48dea41",
+      "deterministic_source_RNG_restore": true,
+      "all_replay_rows_once_per_sampling_schedule": true,
+      "full_schedule": {
+        "classes": 198,
+        "event_draws": 29174,
+        "unique_events": 14748,
+        "replay_rows": 33140
+      },
+      "first1000updates_forecast": {
+        "draws": 4000,
+        "unique_IDs": 3871,
+        "novel_IDs_versus_original_corpus": 3007,
+        "sources": {
+          "FSD50K attributed human weak event labels; transcript unavailable": 982,
+          "LibriSpeech train-clean-100; full duration-qualified split": 1841,
+          "FSD50K CC0 human weak event labels; transcript unavailable": 321,
+          "FSD50K CC0 weak event labels; transcript unavailable": 563,
+          "deterministic procedural audio": 112,
+          "LibriSpeech dev-clean with deterministic local augmentation": 61,
+          "Qwen3-TTS large-vocabulary recovery corpus": 91,
+          "espeak-ng plus deterministic procedural ambience": 29
+        }
+      },
+      "new_data_not_a_claim_of_full_corpus_coverage": true,
+      "training_started": false,
+      "release_qualified": false
+    },
+    "PID": 2353996,
+    "CUDA_residency_verified": true,
+    "policy": {
+      "schema": "robit.omni.qwen-audio-lora-full-diversity-policy.v1",
+      "failure": "Completed Qwen6400 fails native bells/printer/gunfire/siren/noise/tones despite exact export and frozen backbone. Original12458-row corpus has sparse human events and only66 unique procedural control waveforms.",
+      "hypothesis": "Data-only12458to62314 expansion:4587CC0,17450attributed human events,26539human-transcribed TRAIN FLACs,1280DSP controls. Keep original class-uniform-event plus once-per-row replay algorithm, original targets/splits, frozen base/encoder/bridge/TTS, LoRA architecture, weighted loss4, optimizer and LR. No2/1/1 sampling rule is introduced on Qwen. Assess fixed1000update checkpoint before extending.",
+      "only_neural_experiment_change": "TRAIN data support/diversity; no architecture, loss, learning-rate, inference prompt, precision or quantization change.",
+      "initialization": "Exact Qwen6400 adapter, AdamW and RNG; new corpus requires a new declared sampling schedule.",
+      "base_source": "/srv/fine_tuning_suite/training_suite/outputs/sessions/qwen38-27b-obliterated-e03-20260829/source",
+      "frozen_bridge": "qwen-train-rich1/checkpoint-000750",
+      "data": {
+        "source_manifest_sha256s": {
+          "class-guided-cc0-diversity-data-20261101": "06aea70b52210be9a41546405c29bf27f41a89f9ab60a6dc567ebdb0b1dbd783",
+          "natural-speech-diversity-data-20261101": "68b2061c1297b65df713a55e62464b1b9090a11f380c334df07f5157cc2aff50",
+          "attributed-audio-diversity-20261101": "008c12b2aa5f80c3911f96b3ab2435165414d2685ac7e402d4a5b044a36810b2",
+          "procedural-acoustic-diversity-20261101": "b4228d7dd9602ec3f385af407e6a5b70f657db77f959e9bf05646b419059db34"
+        },
+        "additions": {
+          "class-guided-cc0-diversity-data-20261101": 17985,
+          "natural-speech-diversity-data-20261101": 26539,
+          "attributed-audio-diversity-20261101": 17450,
+          "procedural-acoustic-diversity-20261101": 1280
+        },
+        "TRAIN_rows": 62314,
+        "event_rows": 29174,
+        "speech_rows": 31398,
+        "control_rows": 1742,
+        "dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+        "protected_rows_unchanged": true,
+        "duplicate_metadata_identical": true,
+        "no_audio_or_combined_manifest_copies": true,
+        "attribution_manifest": "attributed-audio-diversity-20261101/ATTRIBUTION.jsonl"
+      },
+      "adapter": {
+        "rank": 8,
+        "alpha": 8,
+        "layers": [
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63
+        ],
+        "modules": [
+          "gate_proj",
+          "up_proj",
+          "down_proj"
+        ],
+        "parameters": 4325376
+      },
+      "training": {
+        "steps": 1000,
+        "serial_accumulation": 4,
+        "seed": 47,
+        "lr": 0.0001,
+        "optimizer": "AdamW",
+        "weight_decay": 0.01,
+        "clip_norm": 1.0,
+        "event_token_weight": 4.0,
+        "unknown_transcripts": "masked by unchanged audited partial collator",
+        "start_step": 6400,
+        "final_step": 7400,
+        "additional_steps": 1000
+      },
+      "fixed_checkpoints": [
+        7400
+      ],
+      "native_gates": "Unchanged13 source/speech/negative controls, full160ASR/full240environment and legacy comparison, fixed16temporal/overlap then A100 operational/cloning/concurrency. No automatic promotion.",
+      "resource_limits": {
+        "expected_write_GiB": 0.15,
+        "srv_reserve_GiB": 50,
+        "checkout_reserve_GiB": 10,
+        "RAM_reserve_GiB": 32,
+        "Torch_cap_MiB": 61440,
+        "lease_MiB": 63232,
+        "no_projector_exports_or_feature_caches": true
+      },
+      "sampler_source_sha256": "14396311a99a2c6443a1eb81985c78f8ec3e0d88b9dfc2e8b357596fd48dea41",
+      "data_loader_source_sha256": "100a1e7bbe93dae47b0ba6097165687618758ee5f530aa1819a3ee59c7e95b8a",
+      "primary_encoder_projector_TTS_weight_updates": false,
+      "attributed_credits_required": true,
+      "preflight_only": false,
+      "optimizer_updates_permitted": true,
+      "runtime_integration": false,
+      "publication": false,
+      "release_qualified": false,
+      "resource_preflight_sha256": "2b1018f70ba664235031e6957dadfdc5c958617051691ae77325c786c12dbd19"
+    },
+    "exact_resume": {
+      "source_adapter_sha256": "26376730bbe259f3aff500a3152d6411538c13bb108e33f332207220effafbf7",
+      "all48_parameters_exact": true,
+      "optimizer_step": 6400,
+      "disabled_logits_max_abs_delta": 0.0,
+      "source_weights_frozen": true,
+      "data_only_continuation": true,
+      "original_sampling_order_position": 342,
+      "new_sampling_position": 0
+    },
+    "latest_progress": {
+      "step": 6525,
+      "loss": 0.3122145828092471,
+      "gradient_norm": 4.498672008514404,
+      "unique_training_records": 12836,
+      "additional_unique_training_records": 496,
+      "elapsed_s": 822.0466146339895,
+      "reserved_mib": 58554.0,
+      "peak_reserved_mib": 60892.0
+    },
+    "GPU_UUID": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0"
+  },
+  "resources": {
+    "owned_allocated_bytes": 116993683456,
+    "owned_limit_bytes": 128849018880,
+    "srv_free_bytes": 95971045376,
+    "checkout_free_bytes": 230233059328,
+    "new_model_or_audio_download_bytes": 0,
+    "new_feature_cache_bytes": 0,
+    "all_learned_and_recovery_weights_retained": true
+  },
+  "required_source_validation": {
+    "command": "CUDA_VISIBLE_DEVICES=-1 ./scripts/validate.sh",
+    "passed": true,
+    "tests": 6380,
+    "log_sha256": "77cd23ef248d4021b04d8fea13f686702e04bbe2fbac923acadff477cea6ec7c",
+    "scope": "Source/contract/VAD/call/session/npm/unit checks; not neural audio qualification."
+  },
+  "current_Ornith_data_only": {
+    "work": "ornith-full-diversity-pass-1",
+    "PID": 1772896,
+    "GPU_UUID": "GPU-fc9d264d-8a20-bf8c-eb72-72a6dcbdaf2a",
+    "CUDA_residency_verified": true,
+    "latest_progress": {
+      "step": 11950,
+      "loss": 0.40660577407106757,
+      "gradient_norm": 7.414464473724365,
+      "unique_training_records": 16832,
+      "additional_unique_training_records": 3050,
+      "elapsed_s": 2760.458442025003,
+      "reserved_mib": 21166.0,
+      "peak_reserved_mib": 21350.0
+    }
+  },
+  "updated_UTC": "2026-11-01T12:00:01.531516+00:00"
+}
