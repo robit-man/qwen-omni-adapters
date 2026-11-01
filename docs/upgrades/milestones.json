@@ -306,7 +306,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "JointC500 rejected100/594vscontrol40. Full-depth conditional FFNs now running fixed500 against same-source/same2000draw saved tail-only control, original projection frozen; CPU+8zero-update CUDA checks pass. No native192 compatibility or quality claim.",
+      "status": "Full-depth D500 not release-qualified:39/594vscontrol40andlegacy9; dog->bells order recovered, mandatory identities/mixtures still fail. Exact1000update continuation now running with fixed+500/+1000saves, all192weights/bothAdamWgroups restored; source174queued.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -349,7 +349,9 @@
         "attention-source-review-20261101.json",
         "joint-projection-ffn-preflight-20261101.json",
         "joint-projection-ffn-source-review-20261101.json",
-        "full-depth-ffn-preflight-20261101.json"
+        "full-depth-ffn-preflight-20261101.json",
+        "full-depth-ffn-source-review-20261101.json",
+        "full-ffn-continuation-preflight-20261101.json"
       ]
     },
     {
@@ -423,7 +425,7 @@
     "forecast_budget_and_retention_required_before_new_jobs": true
   },
   "current_audio_repair": {
-    "status": "JointC500 rejected100/594vscontrol40. Full-depth conditional FFNs now running fixed500 against same-source/same2000draw saved tail-only control, original projection frozen; CPU+8zero-update CUDA checks pass. No native192 compatibility or quality claim.",
+    "status": "Unchanged full-depth FFN continuation1000additional updates running from D500 after exact restoration and fourzero-updateCUDAchecks. Parity still failed; no native192 export.",
     "evidence": [
       "class-uniform-6400-review-20261101.json",
       "paired-training-fit-review-20261101.json",
@@ -440,7 +442,9 @@
       "attention-source-review-20261101.json",
       "joint-projection-ffn-preflight-20261101.json",
       "joint-projection-ffn-source-review-20261101.json",
-      "full-depth-ffn-preflight-20261101.json"
+      "full-depth-ffn-preflight-20261101.json",
+      "full-depth-ffn-source-review-20261101.json",
+      "full-ffn-continuation-preflight-20261101.json"
     ],
     "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
     "latest_native_checkpoint": {
@@ -495,12 +499,12 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Full-depth FFN training PID1248484, fixed500 updates; original primary/encoder/projection/TTS frozen, Torch27648/lease28672MiB; observer1257046 queues unchanged source116 after actual exit and normal release.",
+      "GPU0": "Exact full-depth FFN continuation PID2198194, fixed1000updates, saves16696/17196, original frozen projection and trunk; Torch28672/lease29696MiB. Observer2222516 queues source174 after actual exit and normal release.",
       "GPU2": "No current own work; other owner reservation currently prevents a24GiB full-trunk lease. GPU0 admitted instead.",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "AttentionA39/B39 and jointC100/594 rejected vslegacy9; no new full-projector export. Native conditioning cache achieves32.0% lower median firstPCM across6matchedhits, all10PCM exact.",
-    "current_hypothesis": "Adding zero-initialized conditional FFNs in layers0..23 may restore audio interpretation before the already adapted last8 blocks; original projection frozen, same saved tail-only control and next2000draws.",
+    "latest_completed_trials": "D50039vsA40speech errors/594, newdog->bells order correct, still belowlegacy9andmandatorysemantics. Native Qwen completed PCM/WAV, all10languages exactC++controls, cancel/recovery0.20s and concurrent isolation all pass.",
+    "current_hypothesis": "D500 early adapters have seen1959unique TRAIN clips; test unchanged additional4000saved-order draws, preserving all192weights/bothAdamWgroups/LR/data/loss/sampler/projection.",
     "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
       "completed-audio-checkpoints-20261101.json",
@@ -522,7 +526,9 @@
       "attention-source-review-20261101.json",
       "joint-projection-ffn-preflight-20261101.json",
       "joint-projection-ffn-source-review-20261101.json",
-      "full-depth-ffn-preflight-20261101.json"
+      "full-depth-ffn-preflight-20261101.json",
+      "full-depth-ffn-source-review-20261101.json",
+      "full-ffn-continuation-preflight-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification, native Ollama ASR/TTS and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
@@ -562,8 +568,13 @@
         "native_qualified": false
       },
       "full_depth_FFN_source": {
-        "status": "Prepared fixed58x2 unchanged raw-audio comparison, queued after training/actual exit/normal release",
-        "evidence": "full-depth-ffn-preflight-20261101.json",
+        "status": "All116source complete, D39vsA40vslegacy9; one temporal pair recovered, still unqualified.",
+        "evidence": "full-depth-ffn-source-review-20261101.json",
+        "native192_layout_verified": false
+      },
+      "full_FFN_continuation_source": {
+        "status": "Prepared174source rows for preserved D500 and predeclaredD1000/D1500, after actual training exit/release",
+        "evidence": "full-ffn-continuation-preflight-20261101.json",
         "native192_layout_verified": false
       }
     },

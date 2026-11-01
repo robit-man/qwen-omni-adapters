@@ -104,7 +104,7 @@ attention addition or raw/feature cache. Do not continue this failed joint
 configuration. See `docs/upgrades/joint-projection-ffn-source-review-20261101.json`
 and `docs/upgrades/joint-projection-ffn-preflight-20261101.json`.
 
-The current bounded trial keeps the original rich850 projection frozen and
+The completed full-depth trial kept the original rich850 projection frozen and
 extends conditional rank8 FFNs from the last eight blocks to all 32. Source
 15,696 tail weights and independently copied AdamW state are preserved; only
 layers 0–23 gain 9,437,184 zero-residual-initialized parameters. Total 12,582,912
@@ -113,13 +113,31 @@ against the preserved tail-only control. No control retraining or attention
 addition. All 72 added linears match native GGUF dimensions. CPU preparation and
 eight zero-update CUDA checks pass: initial audio logits/loss exact, gradients
 finite/nonzero in both groups, peak 21,222 MiB, disabled text logits exact.
-Training runs on GPU0 under a 28,672 MiB lease/27,648 MiB Torch cap. Do not edit
-or restart the healthy trainer. Its observer gates unchanged source 116 on
-actual worker exit and normal lease release. The current runtime accepts only
+Its 500 updates and source 116 are complete: 39 natural errors/594 versus
+control 40 and legacy 9. Dog→bells now has correct identities/order, but the
+single dog invents clapping, voices remain birds/train, the reverse bell/dog
+pair is wrong and mixed speech remains inaccurate. It is not release-qualified.
+All 192 weights/moments, source order/RNG and frozen/disabled-logit audits pass.
+See `docs/upgrades/full-depth-ffn-source-review-20261101.json`.
+The current runtime accepts only
 48 tail tensors and deliberately does not accept this new 192-tensor scope;
 source quality and a new native binding/generation gate are required before
 any integration. No GGUF export or quality/compatibility claim yet. See
 `docs/upgrades/full-depth-ffn-preflight-20261101.json`.
+
+The active continuation restores D500 exactly: all 192 learned tensors and
+both AdamW groups, with tail step 16,196 and earlier-FFN step 500. The new earlier
+adapters have seen only 1,959 unique TRAIN clips, so test 1,000 further updates
+on the next 4,000 original-order draws while holding architecture, LR, sampler,
+loss, precision and the original projection fixed. Save global steps 16,696 and
+17,196 (earlier-FFN steps 1,000/1,500), then compare D500/D1000/D1500 on the same
+58 held-out cases each. Full CPU restoration and four zero-update CUDA tests
+pass; both moment sets match exactly, all gradients are finite and peak is
+21,220 MiB. GPU0 lease is 29,696 MiB with 28,672 MiB Torch cap, adding one GiB of
+allocator margin over the prior actual 27,416 MiB peak. No new architecture,
+GGUF export, raw/feature cache or publication. Do not edit/restart the healthy
+trainer. Its observer waits for actual exit and normal release before source
+174. See `docs/upgrades/full-ffn-continuation-preflight-20261101.json`.
 
 The user explicitly requires training until audio parity/convergence and then
 publishing the validated weights. Keep that full goal active across turns.

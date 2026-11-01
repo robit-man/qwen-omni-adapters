@@ -1,0 +1,377 @@
+{
+  "schema": "robit.omni.full-depth-FFN-source-review.v1",
+  "UTC": "2026-11-01T22:17:43.432917+00:00",
+  "source_rows": 116,
+  "source_elapsed_s": 134.01705868495628,
+  "source_output_SHA256": "94ba0dc217af49c8c8375b76b92332d2a6a8de61492210a368fafe486551d02e",
+  "source_script_SHA256": "10f26b0f7cefd9324aad1585df34796647b36ec9adf2ba631f2ce9a9b2f59409",
+  "checkpoint_CPU_integrity": {
+    "schema": "robit.omni.full-depth-FFN-final-checkpoint-audit.v1",
+    "CPU_only": true,
+    "CUDA_started": false,
+    "updates": 500,
+    "original_tail_all48_AdamW_steps": 16196,
+    "new_earlier_all144_AdamW_steps": 500,
+    "source_parent_all48_steps_unchanged": 15696,
+    "same_order_RNG_cursor_and_seen_IDs_as_saved_control": true,
+    "seen_IDs": 26432,
+    "all192_F32_weights_finite_and_shapes_exact": true,
+    "all_optimizer_moments_F32_finite": true,
+    "new_prefix_and_old_tail_both_changed": true,
+    "primary_encoder_projection_TTS_frozen": true,
+    "disabled_text_logits_exact": true,
+    "adapter_SHA256": "60b5d3ab8abb0b57a34ba26f37c8ed6be1e7e62141e6acb040115c0637a2a9eb",
+    "recovery_SHA256": "2347f93da55ea4806498590232354c0c06018012be62a767183ab49b2aca37d3",
+    "new_training_updates": 0,
+    "source_or_native_quality_not_established": true,
+    "native192_layout_qualified": false,
+    "release_qualified": false
+  },
+  "natural_speech": {
+    "A": {
+      "words": 594,
+      "errors": 40,
+      "legacy_errors": 9
+    },
+    "D": {
+      "words": 594,
+      "errors": 39,
+      "legacy_errors": 9
+    }
+  },
+  "comparison": "Saved tail-only A500 versus full-depth D500; same source15696/2000draws/prompt/bridge/backend, only new conditional FFNs in layers0..23.",
+  "manual_semantic_review": {
+    "new_success": {
+      "dog_then_bells": "A plucked string/brass instruments; D correctly reports dog then church bell."
+    },
+    "mandatory_failures": {
+      "single_dog": "Correct bark plus invented subsequent clapping.",
+      "steady_broadband_noise": "Filtered noise with low rumbling.",
+      "three_tone_chord": "One sustained tone, loses simultaneous distinct tones.",
+      "clock_alarm": "Idling.",
+      "human_group_voices": "Bird song plus train.",
+      "gunfire": "Boom, specific event identity lost.",
+      "bells_then_dog": "Acoustic guitar then electric guitar.",
+      "clap_then_gunfire": "Both identities named in reversed order.",
+      "gunfire_then_clap": "Second event lost.",
+      "printer_with_speech_sequences": "Only printer retained.",
+      "speech_with_silence": "Garden becomes garage or beside becomes behind; invented bicycle bell.",
+      "DSP_pairs": "Alarm/chord become bird/cricket or alarm/bird, noise becomes silence.",
+      "speech_with_alarm": "Garden becomes gargon; alarm omitted.",
+      "speech_with_noise": "Invented wildcow transcript.",
+      "voices_with_siren": "Bird.",
+      "bells_with_dog": "Bell only, dog omitted."
+    },
+    "method": "Manual raw-output review against unchanged source construction; no lexical heuristic used as semantic acceptance.",
+    "legacy_limits": "Legacy does not perfectly solve every temporal fixture; candidate still fails cases legacy handles correctly."
+  },
+  "new_prefix_exposure": {
+    "draws": 2000,
+    "unique_TRAIN_IDs": 1959,
+    "total_available_TRAIN_IDs": 64362
+  },
+  "decision": "Not release-qualified. Preserve D500 for a bounded unchanged-architecture1000-update continuation because it recovers a previously failed dog-to-bells sequence, while new early adapters have seen only1959unique training clips. This is not convergence or a parity pass.",
+  "primary_encoder_projection_TTS_frozen": true,
+  "disabled_text_logits_exact": true,
+  "held_out_gradient_steps": 0,
+  "new_audio_or_feature_cache_bytes": 0,
+  "native192_layout_qualified": false,
+  "GGUF_exported": false,
+  "quality_gate_passed": false,
+  "release_qualified": false,
+  "publication": false,
+  "diagnostic_outputs": [
+    {
+      "arm": "A",
+      "id": "probe-speech",
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One synthetic speaker with no notable background sound.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "probe-silence",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Silence; no intelligible speech or distinct sound event.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "probe-alarm",
+      "content": "<speech_transcript></speech_transcript><audio_observation>An intermittent electronic alarm; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "probe-noise",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Steady broadband hissing noise; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "probe-music",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Several sustained electronic tones sound together; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "probe-esc50-clock_alarm",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Alarm.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "probe-esc50-dog",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Dog.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "probe-esc50-church_bells",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Acoustic guitar.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "fsd50k-156200",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird; Buzz.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "fsd50k-180765",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Clapping.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "fsd50k-182894",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "fsd50k-166192",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "fsd50k-203720",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Motor vehicle (road); Siren.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "probe-speech",
+      "content": "<speech_transcript>THE BLUE BICYCLE IS PARKED BESIDE THE GARDEN GATE</speech_transcript><audio_observation></audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "probe-silence",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Silence; no intelligible speech or distinct sound event.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "probe-alarm",
+      "content": "<speech_transcript></speech_transcript><audio_observation>An intermittent electronic alarm; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "probe-noise",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Steady filtered noise with a low rumbling quality; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "probe-music",
+      "content": "<speech_transcript></speech_transcript><audio_observation>A sustained electronic tone; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "probe-esc50-clock_alarm",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Idling.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "probe-esc50-dog",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Bark. After a pause: Clapping.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "probe-esc50-church_bells",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Church bell.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "fsd50k-156200",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird vocalization, bird call, bird song; Train.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "fsd50k-180765",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Clapping.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "fsd50k-182894",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "fsd50k-166192",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Boom.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "fsd50k-203720",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Motor vehicle (road); Siren.</audio_observation><|im_end|>"
+    }
+  ],
+  "temporal_outputs": [
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-00",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Plucked string instrument. After a pause: Brass instrument.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-01",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Dog.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-02",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gunshot, gunfire.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-03",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gunshot, gunfire.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-04",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-05",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-06",
+      "content": "<speech_transcript>The blue bicycle is parked beside the garage gate.</speech_transcript><audio_observation>One sustained electronic tone; no other sound.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-07",
+      "content": "<speech_transcript>The blue bicycle is parked behind the garden gate.</speech_transcript><audio_observation>Intermittent electronic alarm-like beeps separated by pauses; no other distinct sound events.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-08",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Bird. After a pause: Frog.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-09",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Bird. After a pause: Cricket.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-10",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: A sustained electronic tone; no intelligible speech. After a pause: Steady filtered noise with a low rumbling quality; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-11",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: A sustained electronic tone; no intelligible speech. After a pause: Steady filtered noise with a low rumbling quality; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-12",
+      "content": "<speech_transcript>The blue bicycle is parked beside the gargon gate.</speech_transcript><audio_observation>One speaker with an intermittent electronic alarm in the background.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-13",
+      "content": "<speech_transcript>Thank you.</speech_transcript><audio_observation>First: Yell. After a pause: Livestock, farm animals are outside the barn gate.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-14",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gull, seagull.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "A",
+      "id": "temporal-overlap-validation-15",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Hammer.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-00",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Dog. After a pause: Church bell.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-01",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Acoustic guitar. After a pause: Electric guitar.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-02",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Gunshot, gunfire. After a pause: Clapping.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-03",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gunshot, gunfire.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-04",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-05",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-06",
+      "content": "<speech_transcript>The blue bicycle is parked beside the garage gate.</speech_transcript><audio_observation>Audible sound events: Male speech, man speaking; Bicycle bell.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-07",
+      "content": "<speech_transcript>The blue bicycle is parked behind the garden gate.</speech_transcript><audio_observation>Audible sound events: Speech synthesizer.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-08",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Bird. After a pause: Cricket.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-09",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Alarm. After a pause: Bird.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-10",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Silence; no intelligible speech or distinct sound event. After a pause: A sustained electronic tone; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-11",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: A sustained electronic tone; no intelligible speech. After a pause: Steady filtered noise with a low rumbling quality; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-12",
+      "content": "<speech_transcript>The blue bicycle is parked beside the gargon gate.</speech_transcript><audio_observation>One speaker with a low rumbling timbre and sustained breath mixed with their speech.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-13",
+      "content": "<speech_transcript>THAT BLUE WILDCOW IS HALF A COW AND I DECIDE THE ARGONNE GATE</speech_transcript><audio_observation>Audible sound events: Conversation; Female speech, woman speaking.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-14",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird.</audio_observation><|im_end|>"
+    },
+    {
+      "arm": "D",
+      "id": "temporal-overlap-validation-15",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Church bell.</audio_observation><|im_end|>"
+    }
+  ]
+}
