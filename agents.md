@@ -87,16 +87,32 @@ sampler/RNG and collator tensors remain exact. Metadata adds4,439,921bytes and
 no audio/feature files. Weak source event labels and peak-aligned mixtures still
 require perceptual evaluation; construction checks are not semantic parity.
 
-Ornith's zero-update four-backward maximum-input preflight passed21,066MiB
-under21GiB Torch/22GiB GPU2 lease. Bounded scene-data-only training is RUNNING
-12,162→13,162, fixed1,000updates, exact48 adapter tensors/AdamW/RNG resumed.
-Frozen primary/encoder/rich850 bridge/TTS, rank8 last8 FFN, loss4, LR and
-inference prompt are unchanged. Same2event/1speech/1acoustic-replay sampling;
-materialize a31,654-update speech-pool horizon in RAM but execute only1,000,
-saving unused order for recovery. Full parity and publication stay gated. Its
-observer waits for actual trainer exit before fixed native13 evaluation. See
-`docs/upgrades/virtual-scene-training-20261101.json`. Do not change this healthy
-trainer while reviewing Qwen or preparing independent diagnostic inputs.
+Ornith's scene-data-only12,162→13,162 trial completed and is REJECTED.
+Native13 still misidentifies alarm, group voices, clapping and printer. Fixed16
+still misses ordered/overlapping sources and reverses noise→tones. Full160:
+237/3,336word errors versus232previous; natural44/594 versus legacy9/594. All six
+nonspeech transcripts remain empty. Raw-zero neural hallucination is retained;
+the separate exact-zero runtime DSP is not relabeled as a neural pass. All48
+exported tensors are exact; primary/encoder/rich850 bridge/TTS remain frozen and
+disabled language logits match. Training peak21,456MiB stays below21GiB cap.
+
+CPU reconstruction proves the saved126,616-index order/RNG and cursor4,000.
+Only524/2,048 virtual recipes were drawn (309sequences,209overlaps,6speech/
+background);1,524recipes remain unvisited. Same TRAIN maximum-scene probe loss
+falls2.114→0.234, but teacher-forced TRAIN fit is not held-out semantic parity.
+
+A bounded continuation `ornith-scene-captions-pass-2` now RUNS13,162→15,696 on
+GPU2:2,534additional updates, checkpoint14,162/15,162/15,696. Exact48 tensors,
+AdamW13,162, RNG, existing order and cursor4,000 are restored; no replay-pool
+reset. Data, architecture, loss4, LR, frozen primary/encoder/bridge/TTS and
+inference prompt are unchanged. This reaches the first3,534-update acoustic
+replay cycle at cursor14,136, not a full human-speech/corpus pass. Zero-update
+four-backward memory preflight again passes21,066MiB under21GiB Torch/22GiB
+lease. Forecast0.25GiB of small learned/recovery checkpoints and reports; no
+new audio, feature cache or full-projector exports. Its observer assesses the
+final15,696 only after actual trainer exit. See
+`docs/upgrades/ornith13162-scene-review-20261101.json`. Keep all quality gates;
+do not change a healthy trainer or claim convergence from incomplete coverage.
 
 Qwen's scene-data-only7,400→8,400 trial is also RUNNING onGPU0, fixed1,000
 updates. Same64,362 TRAIN rows and unchanged ORIGINAL class-uniform event plus
