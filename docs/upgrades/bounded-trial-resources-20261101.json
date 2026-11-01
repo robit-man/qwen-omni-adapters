@@ -1,0 +1,96 @@
+{
+  "updated_UTC": "2026-11-01T05:01:45.791335+00:00",
+  "owned_allocated_bytes": 112344666112,
+  "owned_limit_bytes": 128849018880,
+  "free_bytes": {
+    "checkout": 245362589696,
+    "srv": 95422406656
+  },
+  "host_memory_bytes": {
+    "MemFree": 19822571520,
+    "MemAvailable": 353453101056,
+    "Cached": 295425232896
+  },
+  "new_feature_caches": 0,
+  "new_full_precision_projector_exports": 0,
+  "trial_rows": {
+    "ornith-audio-lora-cc0-diversity-pass-1": {
+      "state": "running",
+      "last_progress": {
+        "step": 6725,
+        "loss": 0.13066996327324887,
+        "gradient_norm": 1.7631628513336182,
+        "unique_training_records": 12751,
+        "additional_unique_training_records": 1213,
+        "elapsed_s": 1058.5999145279638,
+        "reserved_mib": 27902.0,
+        "peak_reserved_mib": 30446.0
+      },
+      "checkpoints_saved": [],
+      "all_learned_and_recovery_states_retained": true,
+      "forecast_write_bytes": 1073741824,
+      "fixed_policy_sha256": "d19bc990d79c85a88069612e59952df29162675746863a1d7a9b8a56b77820a6"
+    },
+    "qwen-audio-lora-class-uniform-pass-1": {
+      "state": "running",
+      "last_progress": {
+        "step": 3350,
+        "loss": 0.04578927195689175,
+        "gradient_norm": 1.0585718154907227,
+        "unique_training_records": 12458,
+        "additional_unique_training_records": 580,
+        "elapsed_s": 949.598719600006,
+        "reserved_mib": 58274.0,
+        "peak_reserved_mib": 58274.0
+      },
+      "checkpoints_saved": [],
+      "all_learned_and_recovery_states_retained": true,
+      "forecast_write_bytes": 1073741824,
+      "fixed_policy_sha256": "815b8787d9ea5d6adb0cd68e17ea2023dbdd898eeb88d20fe05f77ea5262c852"
+    }
+  },
+  "completed_mechanism_checks": {
+    "conditional-audio-component-mechanism-1": {
+      "complete": false,
+      "mechanism_gate": false,
+      "workers_stopped": true,
+      "evidence_retained": true,
+      "report_sha256": "6d34a96cac81b4d768a95504ad504eee633292c1f72db1ef5edce85887e21026"
+    },
+    "conditional-audio-component-mechanism-2": {
+      "complete": true,
+      "mechanism_gate": true,
+      "workers_stopped": true,
+      "evidence_retained": true,
+      "report_sha256": "ea5f367ab90e1a24f5f31a5e9e5e8f351cd3781e81e3035b3516dad20d4164cd"
+    },
+    "qwen-conditional-audio-component-mechanism-1": {
+      "complete": true,
+      "mechanism_gate": true,
+      "workers_stopped": true,
+      "evidence_retained": true,
+      "report_sha256": "18c85873eea1226d7fb220b1ef6e64d4acf225ef1eb084d3d707462ed54f20e1"
+    },
+    "conditional-audio-registry-transport-1": {
+      "complete": false,
+      "mechanism_gate": false,
+      "workers_stopped": true,
+      "evidence_retained": true,
+      "report_sha256": "e468598cce4d9132f66bda11f34477b4074e32ca274137f2dc09d149cb0c18dc"
+    },
+    "conditional-audio-registry-transport-2": {
+      "complete": true,
+      "mechanism_gate": true,
+      "workers_stopped": true,
+      "evidence_retained": true,
+      "report_sha256": "9ed78f7adaf8a5a2e02d16f35b0d61334a446deb6d919ed7f5833f5d02466987"
+    }
+  },
+  "managed_cleanup": {
+    "exact_derived_tags_removed": 4,
+    "unique_allocated_bytes_reclaimed": 12607488,
+    "canonical_store_changed": false,
+    "all_learned_weights_and_reconstruction_inputs_retained": true
+  },
+  "sole_bound_mechanism_export_bytes": 29892608
+}

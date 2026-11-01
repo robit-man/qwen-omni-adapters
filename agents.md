@@ -90,6 +90,17 @@ push/download/resolve/inference repair is recorded in
 reject damaged/conflicting bindings, package the edge 16K default explicitly,
 and verify the pulled package. This transport gate does not clear audio parity.
 
+Required conditional audio LoRAs now use a separate small GGUF component inside
+the same tag and a hashed v3 binding. Bind exact primary/projector digests; keep
+all learned tensor values unchanged and the shared TTS sidecar intact. Both
+supervisors load the adapter disabled; only audio perception uses scale1, while
+vision, language, thinking and tools explicitly use nonempty scale0. Missing,
+damaged or transplanted components and older runtimes must fail closed. A global
+Ollama ADAPTER would alter text/vision and is forbidden for this route. Both A100 family mechanism gates and the stock-transport gate use rejected weights and do not approve a release.
+See `docs/upgrades/conditional-audio-component-20261101.md`. Do not repeat these
+mechanism checks absent a relevant new change; semantic qualification remains
+mandatory before selecting or publishing any trained adapter.
+
 ## Purpose and non-negotiable constraints
 
 The next auditory repair checkpoint is
@@ -185,12 +196,33 @@ Export/quantization alone cannot explain the failure. See
 architecture, new data, sampling and loss changes in response; first test a
 bounded learning hypothesis while preserving the existing frozen components.
 
-That bounded sampling-only continuation is now running to global step6,400,
-with fixed4,000/5,000/6,400 checks. Step4,000 fails the fixed sound identities in
-unquantized HF, native A100 and native Orin inference. The original Orin service
-and harness were restored and verified healthy after the bounded target test.
-See `docs/upgrades/class-uniform-4000-review-20261101.json`. Do not extend this
-trial automatically or pause the Orin again for a similarly failing checkpoint.
+The bounded Ornith sampling-only continuation completed global6,400; all fixed
+4,000/5,000/6,400 native validation checkpoints are rejected. Final6,400 fits all
+eight core TRAIN families in both unquantized HF and native inference, while
+held-out identities still fail. Event CE improves from1.248 to0.200 on the same
+16 TRAIN recordings. This supports a generalization/data-diversity hypothesis,
+not a new architecture or quantization experiment. The original Orin service
+and harness were restored and verified healthy; do not pause it for a similarly
+failing A100 candidate. See `docs/upgrades/class-uniform-6400-review-20261101.json`
+and `docs/upgrades/paired-training-fit-review-20261101.json`.
+
+One separate data-only Ornith continuation is running6,400→10,662 with fixed
+7,400/8,400/10,662 checkpoints:4,587 additional already-local verified CC0 TRAIN
+recordings, same architecture/sampler/loss/optimizer and frozen components.
+The old manifest is byte-preserved; source/audio IDs and protected uploaders
+are disjoint, unknown transcripts remain unscored. Maximum-input forward/backward
+preflight peaks20,966MiB, with zero optimizer steps. Runtime training has a
+32,768MiB lease/30,720MiB Torch cap and continuously checks RAM/disk reserves.
+One class-uniform sampling schedule does not claim every new recording is seen.
+
+Qwen's own3,200 TRAIN audit still misses seen classes (event CE1.480 versus
+remaining-token CE0.165). Its separate sampling-only continuation runs3,200→6,400,
+fixed4,000/5,000/6,400, on the unchanged12,458-row data; no diversity expansion
+is stacked there. It holds a65,536MiB A100 lease/61,440MiB Torch cap. Both trials
+are finite, write only small checkpoints/recovery state, retain native semantic
+gates and remain unqualified. See
+`docs/upgrades/diversity-and-qwen-sampling-trials-20261101.json`. A checkpoint
+observer may export and run diagnostics; it cannot approve semantics or publish.
 
 Exact digital silence is handled by a deterministic PCM check in the adapter.
 It cannot repair noise or event-recognition errors and must never be used to

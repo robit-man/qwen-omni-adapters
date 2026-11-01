@@ -111,6 +111,16 @@ class Config:
     # enable it by default in ``from_environment`` below.
     live_addressee_gate: bool = False
     prepare_reference: bool = False
+    conditional_audio_adapter: bool = False
+
+    def __post_init__(self) -> None:
+        if self.conditional_audio_adapter:
+            endpoint = urlsplit(self.comprehension_url)
+            if (not self.comprehension_disable_thinking or self.language_api != "openai"
+                    or self.language_url.rstrip("/") != self.comprehension_url.rstrip("/")
+                    or endpoint.scheme != "http"
+                    or endpoint.hostname not in {"127.0.0.1", "localhost", "::1"}):
+                raise ValueError("conditional audio adapter requires one local trained-bridge trunk")
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -161,6 +171,7 @@ class Config:
             comprehension_repeat_penalty=float(
                 os.environ.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.0")
             ),
+            conditional_audio_adapter=os.environ.get("OMNI_CONDITIONAL_AUDIO_ADAPTER", "0") == "1",
             tts_stream_frames=stream_frame_setting(os.environ.get("OMNI_TTS_STREAM_FRAMES")),
             spoken_max_sentences=int(
                 os.environ.get("OMNI_SPOKEN_MAX_SENTENCES", "2")
@@ -1217,6 +1228,12 @@ def build_comprehension_payload(
         payload["chat_template_kwargs"] = {"enable_thinking": False}
     if config.comprehension_repeat_penalty != 1.0:
         payload["repeat_penalty"] = config.comprehension_repeat_penalty
+    if config.conditional_audio_adapter:
+        acoustic = any(part["type"] == "input_audio" for message in media_messages
+                       for part in message["content"])
+        # A nonempty scale0 list is required: an empty list can retain/default
+        # the previously enabled adapter in the pinned inference backend.
+        payload["lora"] = [{"id": 0, "scale": 1.0 if acoustic else 0.0}]
     return payload
 
 
@@ -1643,6 +1660,9 @@ def _separate_bridge_perception(
             ]})
     visual["mm_processor_kwargs"] = {"use_audio_in_video": False}
     audio["mm_processor_kwargs"] = {"use_audio_in_video": False}
+    if config.conditional_audio_adapter:
+        visual["lora"] = [{"id": 0, "scale": 0.0}]
+        audio["lora"] = [{"id": 0, "scale": 1.0}]
     return visual, audio
 
 
@@ -1994,6 +2014,8 @@ def build_language_payload(
     # available context size" while the streaming route was fine.
     if config is not None and not config.language_llama_context_probe:
         _fit_language_context(payload, config)
+    if config is not None and config.conditional_audio_adapter:
+        payload["lora"] = [{"id": 0, "scale": 0.0}]
     return payload
 
 

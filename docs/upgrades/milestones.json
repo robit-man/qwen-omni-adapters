@@ -305,7 +305,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Sampling-only continuation to fixed6400 remains active;4000 rejected on A100/HF and Orin,5000 rejected on A100. Exact-zero adapter DSP handling verified separately; native sound parity remains failed.",
+      "status": "Ornith fixed4000/5000/6400 all rejected; completed6400 fits eight seen TRAIN families in source/native but validation still fails. Separate Ornith data-only and Qwen sampling-only finite trials running. Conditional adapter mechanism and registry transport verified for both families; no semantic release pass.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -326,7 +326,12 @@
         "class-uniform-4000-review-20261101.json",
         "audio-training-pairing-20261101.json",
         "class-uniform-5000-review-20261101.json",
-        "digital-silence-20261101.json"
+        "digital-silence-20261101.json",
+        "class-uniform-6400-review-20261101.json",
+        "paired-training-fit-review-20261101.json",
+        "diversity-and-qwen-sampling-trials-20261101.json",
+        "conditional-audio-component-20261101.json",
+        "bounded-trial-resources-20261101.json"
       ]
     },
     {
@@ -383,5 +388,24 @@
     ],
     "reclaimed_GiB": 72.1585693359375,
     "forecast_budget_and_retention_required_before_new_jobs": true
+  },
+  "current_audio_repair": {
+    "status": "Two finite evidence-driven trials running; all prior fixed trials rejected",
+    "evidence": [
+      "class-uniform-6400-review-20261101.json",
+      "paired-training-fit-review-20261101.json",
+      "cc0-diversity-data-20261101.json",
+      "diversity-and-qwen-sampling-trials-20261101.json"
+    ],
+    "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user."
+  },
+  "conditional_audio_component": {
+    "status": "Both exact-family A100 mechanism gates and actual stock private push/pull verified; whole-model semantic gate remains blocked",
+    "evidence": [
+      "conditional-audio-component-20261101.md",
+      "conditional-audio-component-20261101.json"
+    ],
+    "source_tests_passed": 6380,
+    "release_qualified": false
   }
 }

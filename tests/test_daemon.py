@@ -25,6 +25,16 @@ def _config(tmp_path: Path, **overrides) -> daemon.DaemonConfig:
     return daemon.DaemonConfig(**values)
 
 
+def test_required_audio_adapter_is_loaded_disabled_and_needs_the_shared_trunk(tmp_path, monkeypatch):
+    supervisor = daemon.OmniDaemon(_config(tmp_path))
+    monkeypatch.setattr(supervisor, '_resolved_sidecar', lambda: {'audio_adapter': {'path': '/blob.gguf'}})
+    assert supervisor._audio_adapter_args() == ['--lora', '/blob.gguf', '--lora-init-without-apply']
+    disabled = daemon.OmniDaemon(_config(tmp_path, enable_comprehension=False))
+    monkeypatch.setattr(disabled, '_resolved_sidecar', lambda: {'audio_adapter': {'path': '/blob.gguf'}})
+    with pytest.raises(daemon.DaemonError, match='shared comprehension trunk'):
+        disabled._audio_adapter_args()
+
+
 def test_env_file_sets_defaults_without_overriding_process_environment(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

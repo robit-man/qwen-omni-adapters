@@ -1,0 +1,57 @@
+{
+  "schema": "robit.omni.paired-training-fit-review.v1",
+  "release_qualified": false,
+  "new_held_out_test_used": false,
+  "sources": {
+    "ornith-lora3200-training-reference-1/report.json": "463b5f0c912b963aa9ca4c2383a6c8e15454f601c1753b89997b5c3e7c4c2b58",
+    "ornith-lora6400-training-reference-1/report.json": "a68cad761f58d0d7da2c04278a3018c1bb336420eae6d5ada924917cb3b2f920",
+    "ornith-lora6400-training-native-1/outputs.json": "4421496049d2871377195a4aae4712e38aa9e463f552e42460666bbf0dac7b19",
+    "qwen-lora3200-training-reference-1/report.json": "e4bc89c5b8c5b4b12967aabe413de3f336c71ffbabb7e20a4c4774a33050f4d9"
+  },
+  "ornith": {
+    "source3200_event_CE": 1.247919707908295,
+    "source6400_event_CE": 0.2003260318087996,
+    "source6400_remaining_CE": 0.1323426226299489,
+    "core8_TRAIN_families_fit_both_HF_and_native": [
+      "Bell",
+      "Bark",
+      "Siren",
+      "Clapping",
+      "Printer",
+      "Gunfire",
+      "Shout and human group actions",
+      "Child speech"
+    ],
+    "validation6400": "Rejected; fixed4000/5000/6400 trial is complete. All8 seen-family fit does not establish held-out generalization.",
+    "conclusion": "Source/native TRAIN agreement supports a data diversity/generalization hypothesis; do not stack another architecture or quantization change."
+  },
+  "qwen": {
+    "source3200_event_CE": 1.4799350411631167,
+    "source3200_remaining_CE": 0.16466474463231862,
+    "seen_TRAIN_misses": [
+      "Bark",
+      "Siren",
+      "Printer",
+      "Gunfire",
+      "Shout and group voices",
+      "Child-specific speech"
+    ],
+    "conclusion": "Seen-example underlearning remains before export. Test sampling-only on the original immutable data before changing data or architecture."
+  },
+  "future_target_leakage_check": {
+    "ornith-lora3200-training-reference-1/report.json": {
+      "first_event_argmax_changes": 0,
+      "minimum_teacher_prefix_logit_cosine": 0.9997893571853638
+    },
+    "ornith-lora6400-training-reference-1/report.json": {
+      "first_event_argmax_changes": 0,
+      "minimum_teacher_prefix_logit_cosine": 0.9993197321891785
+    },
+    "qwen-lora3200-training-reference-1/report.json": {
+      "first_event_argmax_changes": 0,
+      "minimum_teacher_prefix_logit_cosine": 0.9996147155761719
+    }
+  },
+  "runtime_activation": false,
+  "public_model_publication": false
+}

@@ -207,6 +207,14 @@ def build_parser() -> argparse.ArgumentParser:
     attach.add_argument("model")
     attach.add_argument("bundle", type=Path)
     attach.add_argument("--models-dir", type=Path)
+    attach.add_argument("--audio-adapter", type=Path,
+                        help="Exact-pair-bound conditional audio LoRA; requires the v3 binding runtime")
+
+    bind_audio = sub.add_parser("bind-audio-adapter", help="Bind an audio LoRA to exact model/projector blobs")
+    bind_audio.add_argument("source", type=Path)
+    bind_audio.add_argument("--base-model", type=Path, required=True)
+    bind_audio.add_argument("--projector", type=Path, required=True)
+    bind_audio.add_argument("--out", type=Path, required=True)
 
     resolve = sub.add_parser("resolve", help="Resolve and validate a tag's Omni sidecar")
     resolve.add_argument("model")
@@ -306,7 +314,13 @@ def main(argv: list[str] | None = None) -> int:
                 model=args.model,
                 bundle_gguf=args.bundle,
                 models_dir=args.models_dir,
+                audio_adapter_gguf=args.audio_adapter,
             )
+        elif args.command == "bind-audio-adapter":
+            from qwen_omni_adapters.audio_adapter import pack_audio_adapter
+
+            result = pack_audio_adapter(source=args.source, base_model=args.base_model,
+                                        projector=args.projector, output=args.out)
         elif args.command == "resolve":
             result = resolve_ollama_sidecar(model=args.model, models_dir=args.models_dir)
         elif args.command == "prepare":
