@@ -306,7 +306,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Attention trial rejectedA39/B39 vslegacy9. Joint projection+FFN500 complete and rejected: C100/594 speech errors vscontrolA40, broad environmental/temporal regressions. No new model promoted.",
+      "status": "JointC500 rejected100/594vscontrol40. Full-depth conditional FFNs now running fixed500 against same-source/same2000draw saved tail-only control, original projection frozen; CPU+8zero-update CUDA checks pass. No native192 compatibility or quality claim.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -348,7 +348,8 @@
         "attention-export-feasibility-20261101.json",
         "attention-source-review-20261101.json",
         "joint-projection-ffn-preflight-20261101.json",
-        "joint-projection-ffn-source-review-20261101.json"
+        "joint-projection-ffn-source-review-20261101.json",
+        "full-depth-ffn-preflight-20261101.json"
       ]
     },
     {
@@ -421,7 +422,7 @@
     "forecast_budget_and_retention_required_before_new_jobs": true
   },
   "current_audio_repair": {
-    "status": "Joint projection+FFN500 rejected after fullsource116 and exact checkpoint/export audit; speech100/594vscontrol40 andlegacy9, broad regressions. Parity remains failed.",
+    "status": "JointC500 rejected100/594vscontrol40. Full-depth conditional FFNs now running fixed500 against same-source/same2000draw saved tail-only control, original projection frozen; CPU+8zero-update CUDA checks pass. No native192 compatibility or quality claim.",
     "evidence": [
       "class-uniform-6400-review-20261101.json",
       "paired-training-fit-review-20261101.json",
@@ -437,7 +438,8 @@
       "attention-optimizer-recovery-20261101.json",
       "attention-source-review-20261101.json",
       "joint-projection-ffn-preflight-20261101.json",
-      "joint-projection-ffn-source-review-20261101.json"
+      "joint-projection-ffn-source-review-20261101.json",
+      "full-depth-ffn-preflight-20261101.json"
     ],
     "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
     "latest_native_checkpoint": {
@@ -492,12 +494,12 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Completed joint training/source and native cache gate; actual workers exited and all own leases normally released.",
+      "GPU0": "Full-depth FFN training PID1248484, fixed500 updates; original primary/encoder/projection/TTS frozen, Torch27648/lease28672MiB; observer1257046 queues unchanged source116 after actual exit and normal release.",
       "GPU2": "No current own work; other owner reservation currently prevents a24GiB full-trunk lease. GPU0 admitted instead.",
       "GPU1": "excluded from our work"
     },
     "latest_completed_trials": "AttentionA39/B39 and jointC100/594 rejected vslegacy9; no new full-projector export. Native conditioning cache achieves32.0% lower median firstPCM across6matchedhits, all10PCM exact.",
-    "current_hypothesis": "Prior tail-attention and joint-projector hypotheses rejected. Preserve frozen rich850 projection; next capacity hypothesis requires explicit CPU and zero-update CUDA gates before another neural run.",
+    "current_hypothesis": "Adding zero-initialized conditional FFNs in layers0..23 may restore audio interpretation before the already adapted last8 blocks; original projection frozen, same saved tail-only control and next2000draws.",
     "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
       "completed-audio-checkpoints-20261101.json",
@@ -518,7 +520,8 @@
       "attention-optimizer-recovery-20261101.json",
       "attention-source-review-20261101.json",
       "joint-projection-ffn-preflight-20261101.json",
-      "joint-projection-ffn-source-review-20261101.json"
+      "joint-projection-ffn-source-review-20261101.json",
+      "full-depth-ffn-preflight-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification, native Ollama ASR/TTS and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
@@ -556,6 +559,11 @@
         "status": "All116source complete; C100vsA40 speech errors/594, broad semantic regressions; rejected, no full-projector GGUF export.",
         "evidence": "joint-projection-ffn-source-review-20261101.json",
         "native_qualified": false
+      },
+      "full_depth_FFN_source": {
+        "status": "Prepared fixed58x2 unchanged raw-audio comparison, queued after training/actual exit/normal release",
+        "evidence": "full-depth-ffn-preflight-20261101.json",
+        "native192_layout_verified": false
       }
     },
     "GPU0_serial_reference": "Qwen source116 complete/rejected; original failed evaluator attempt retained, inference-tensor version-counter bug repaired and actual finite rerun completed.",

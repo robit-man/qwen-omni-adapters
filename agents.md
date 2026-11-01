@@ -89,6 +89,23 @@ attention addition or raw/feature cache. Do not continue this failed joint
 configuration. See `docs/upgrades/joint-projection-ffn-source-review-20261101.json`
 and `docs/upgrades/joint-projection-ffn-preflight-20261101.json`.
 
+The current bounded trial keeps the original rich850 projection frozen and
+extends conditional rank8 FFNs from the last eight blocks to all 32. Source
+15,696 tail weights and independently copied AdamW state are preserved; only
+layers 0–23 gain 9,437,184 zero-residual-initialized parameters. Total 12,582,912
+parameters/192 tensors; same next 2,000 saved-order TRAIN draws and 500 updates
+against the preserved tail-only control. No control retraining or attention
+addition. All 72 added linears match native GGUF dimensions. CPU preparation and
+eight zero-update CUDA checks pass: initial audio logits/loss exact, gradients
+finite/nonzero in both groups, peak 21,222 MiB, disabled text logits exact.
+Training runs on GPU0 under a 28,672 MiB lease/27,648 MiB Torch cap. Do not edit
+or restart the healthy trainer. Its observer gates unchanged source 116 on
+actual worker exit and normal lease release. The current runtime accepts only
+48 tail tensors and deliberately does not accept this new 192-tensor scope;
+source quality and a new native binding/generation gate are required before
+any integration. No GGUF export or quality/compatibility claim yet. See
+`docs/upgrades/full-depth-ffn-preflight-20261101.json`.
+
 The user explicitly requires training until audio parity/convergence and then
 publishing the validated weights. Keep that full goal active across turns.
 Use physical GPU0 (`GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0`) and GPU2
