@@ -120,6 +120,19 @@ final15,696 only after actual trainer exit. See
 `docs/upgrades/ornith13162-scene-review-20261101.json`. Keep all quality gates;
 do not change a healthy trainer or claim convergence from incomplete coverage.
 
+Both actual intermediate recovery checkpoints14,162 and15,162 now pass a read-only
+CPU audit: all48F32tensors/shapes,3,145,728parameters, all48AdamWsteps/moment shapes,
+finite moments/nonnegative variance, unchanged126,616-index order and Python/
+Torch/CUDA RNG. Saved cursor8,000/12,000 reconstructs22,281/24,467unique IDs exactly.
+This verifies recoverability and receipt consistency, not independent live
+semantic parity. Healthy training continues to15,696. A separate finite observer
+then waits native13, actual worker exit and normal reservation release before
+serial fixed16temporal and full160speech qualification. Each suite pins evaluator/
+manifest hashes and runs fresh discovery, resource guard and CPU integrity check
+before acquiring16GiB onGPU2. No lexical grading, large export or publication is
+automatic. See `docs/upgrades/scene-recovery-and-qualification-20261101.json`.
+
+
 Qwen's scene-data-only7,400→8,400 trial completed and is REJECTED.
 Native13, fixed16temporal and full160 all completed against unchanged raw audio,
 prompt, F16 KV and explicit audio-adapter scale1. Noise/printer recover, but dog

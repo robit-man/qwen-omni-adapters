@@ -338,7 +338,8 @@
         "virtual-scene-training-20261101.json",
         "qwen7400-source-native-review-20261101.json",
         "ornith13162-scene-review-20261101.json",
-        "qwen8400-scene-review-20261101.json"
+        "qwen8400-scene-review-20261101.json",
+        "scene-recovery-and-qualification-20261101.json"
       ]
     },
     {
@@ -479,7 +480,8 @@
       "qwen7400-source-native-review-20261101.json",
       "virtual-scene-training-20261101.json",
       "ornith13162-scene-review-20261101.json",
-      "qwen8400-scene-review-20261101.json"
+      "qwen8400-scene-review-20261101.json",
+      "scene-recovery-and-qualification-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
@@ -500,6 +502,11 @@
         "full_scene_or_speech_pass": false,
         "schedule_changed": false,
         "evidence": "ornith13162-scene-review-20261101.json"
+      },
+      "Ornith15696_full_suites": {
+        "status": "finite observer live; native13 then temporal16/full160 after actual exit and normal release",
+        "publication": false,
+        "evidence": "scene-recovery-and-qualification-20261101.json"
       }
     },
     "GPU0_serial_reference": "Qwen8400 native13/temporal16/full160 workers exited; new projection comparison starts only after safe zero-update preflight.",
@@ -508,6 +515,24 @@
       "exact_ledger_sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",
       "record_fields_verified": true,
       "remote_publication_verified": false
+    },
+    "recovery_integrity": {
+      "steps": [
+        14162,
+        15162
+      ],
+      "all48_parameters_and_AdamW_states_finite_and_shapes_exact": true,
+      "source_order_and_RNG_exact": true,
+      "saved_positions": [
+        8000,
+        12000
+      ],
+      "cumulative_unique_IDs": [
+        22281,
+        24467
+      ],
+      "semantic_qualification": false,
+      "evidence": "scene-recovery-and-qualification-20261101.json"
     }
   },
   "training_release_notices": {
