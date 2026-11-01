@@ -230,6 +230,13 @@ alarm and negative controls still fail. Speech and Bark remain correct. Preserve
 `docs/upgrades/diversity-7400-review-20261101.json`; the original8,400/10,662
 checkpoints remain, with no extra Orin outage or automatic extension.
 
+Qwen's first sampling-only checkpoint4,000 is also rejected: speech, native
+silence and alarm pass, but barking, bells, group voices, clapping, printer,
+gunfire, siren and other negative controls fail. Preserve
+`docs/upgrades/qwen-sampling-4000-review-20261101.json`. Only the original5,000/6,400
+checks remain; no model promotion or experimental publication is authorized.
+
+
 
 Exact digital silence is handled by a deterministic PCM check in the adapter.
 It cannot repair noise or event-recognition errors and must never be used to
